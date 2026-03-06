@@ -1,4 +1,5 @@
 #include <apex/core/message_dispatcher.hpp>
+#include "../test_helpers.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -14,23 +15,8 @@
 using apex::core::DispatchError;
 using apex::core::MessageDispatcher;
 using apex::core::SessionPtr;
+using apex::test::run_coro;
 using boost::asio::awaitable;
-
-// awaitable을 동기적으로 실행하는 헬퍼
-template <typename T>
-T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    return future.get();
-}
-
-inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    future.get();
-}
 
 class MessageDispatcherTest : public ::testing::Test {
 protected:
@@ -151,4 +137,15 @@ TEST_F(MessageDispatcherTest, MaxMsgId) {
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0xFFFF, {}));
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(called);
+}
+
+TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerFailed) {
+    d->register_handler(0x0001,
+        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+            throw std::runtime_error("test error");
+            co_return;
+        });
+    auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), DispatchError::HandlerFailed);
 }

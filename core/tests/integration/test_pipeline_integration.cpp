@@ -4,6 +4,7 @@
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/core/wire_header.hpp>
+#include "../test_helpers.hpp"
 #include <gtest/gtest.h>
 
 #include <boost/asio/io_context.hpp>
@@ -16,22 +17,8 @@
 #include <vector>
 
 using namespace apex::core;
+using apex::test::run_coro;
 using boost::asio::awaitable;
-
-template <typename T>
-T run_coro(boost::asio::io_context& ctx, awaitable<T> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    return future.get();
-}
-
-inline void run_coro(boost::asio::io_context& ctx, awaitable<void> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    future.get();
-}
 
 // --- Test service that records dispatched messages ---
 

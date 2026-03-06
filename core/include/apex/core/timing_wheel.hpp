@@ -33,6 +33,7 @@ public:
 
     /// Add an entry that expires after `ticks_from_now` ticks.
     /// ticks_from_now=0이면 다음 tick() 호출 시 즉시 만료된다.
+    /// @note 매 호출 시 힙 할당 발생. 빈번한 타임아웃 갱신은 reschedule()을 사용할 것.
     /// @return EntryId for later cancel/reschedule.
     [[nodiscard]] EntryId schedule(uint32_t ticks_from_now);
 
@@ -82,6 +83,7 @@ private:
     std::vector<Entry*> entries_;  // indexed by id for O(1) lookup
     std::vector<EntryId> free_ids_;  // free-list for id reuse
     size_t active_count_{0};  // 현재 활성 엔트리 수 (O(1) 조회용)
+    std::vector<Entry*> expired_buf_;  // tick()에서 재사용하는 만료 엔트리 버퍼
 };
 
 } // namespace apex::core

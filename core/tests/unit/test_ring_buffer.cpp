@@ -149,6 +149,58 @@ TEST(RingBuffer, Linearize_NotEnoughData) {
     EXPECT_TRUE(span.empty());
 }
 
+TEST(RingBuffer, WritableEmptyWhenFull) {
+    RingBuffer rb(8);
+    // Fill the entire buffer
+    uint8_t data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
+    auto w = rb.writable();
+    ASSERT_GE(w.size(), 8u);
+    std::memcpy(w.data(), data, 8);
+    rb.commit_write(8);
+
+    EXPECT_TRUE(rb.writable().empty());
+    EXPECT_EQ(rb.writable_size(), 0u);
+    EXPECT_EQ(rb.readable_size(), 8u);
+}
+
+TEST(RingBuffer, MinCapacityOneWorks) {
+    RingBuffer rb(1);
+    // capacity=1 rounds up to 1 (power of 2)
+    EXPECT_GE(rb.capacity(), 1u);
+
+    // Write 1 byte
+    uint8_t byte = 0xAB;
+    auto w = rb.writable();
+    ASSERT_GE(w.size(), 1u);
+    std::memcpy(w.data(), &byte, 1);
+    rb.commit_write(1);
+
+    EXPECT_EQ(rb.readable_size(), 1u);
+    EXPECT_EQ(rb.writable_size(), 0u);
+
+    // Read it back
+    auto r = rb.contiguous_read();
+    ASSERT_GE(r.size(), 1u);
+    EXPECT_EQ(r[0], 0xAB);
+
+    // Consume and verify wrap works
+    rb.consume(1);
+    EXPECT_EQ(rb.readable_size(), 0u);
+    EXPECT_EQ(rb.writable_size(), rb.capacity());
+
+    // Write again after wrap
+    byte = 0xCD;
+    w = rb.writable();
+    ASSERT_GE(w.size(), 1u);
+    std::memcpy(w.data(), &byte, 1);
+    rb.commit_write(1);
+
+    r = rb.contiguous_read();
+    ASSERT_GE(r.size(), 1u);
+    EXPECT_EQ(r[0], 0xCD);
+    rb.consume(1);
+}
+
 TEST(RingBuffer, Reset) {
     RingBuffer rb(16);
     uint8_t d[8] = {};

@@ -138,6 +138,63 @@ TEST(TimingWheel, RescheduleAfterExpiry) {
     EXPECT_EQ(expired.size(), 1u);  // still just the original fire
 }
 
+TEST(TimingWheel, MaxValidTimeout) {
+    // num_slots=64 (power of 2), max valid ticks_from_now = num_slots - 1 = 63
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    auto id = tw.schedule(63);  // max valid value (num_slots - 1)
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    // Tick 63 times: should NOT fire yet (deadline = 63, fires when tick reaches 63)
+    for (int i = 0; i < 63; ++i) tw.tick();
+    EXPECT_TRUE(expired.empty());
+
+    // One more tick should fire (tick passes the deadline)
+    tw.tick();
+    EXPECT_EQ(expired.size(), 1u);
+    EXPECT_TRUE(expired.contains(id));
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
+TEST(TimingWheel, CallbackCanScheduleNewEntry) {
+    size_t expire_count = 0;
+    TimingWheel::EntryId second_id = 0;
+
+    TimingWheel tw(64, [&](TimingWheel::EntryId) {
+        ++expire_count;
+        if (expire_count == 1) {
+            // Schedule a new entry from within the callback.
+            // At this point current_tick_ is still 1 (pre-increment in tick()).
+            // compute_deadline(2) = current_tick_ + 2 = 1 + 2 = 3
+            second_id = tw.schedule(2);
+        }
+    });
+
+    (void)tw.schedule(1);  // deadline = 0 + 1 = 1
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    // tick(): current_tick_=0, slot_idx=0, no match (deadline=1). current_tick_ -> 1
+    tw.tick();
+    EXPECT_EQ(expire_count, 0u);
+
+    // tick(): current_tick_=1, fires first entry (deadline=1).
+    // Callback schedules second entry with deadline=3. current_tick_ -> 2
+    tw.tick();
+    EXPECT_EQ(expire_count, 1u);
+    EXPECT_NE(second_id, 0u);
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    // tick(): current_tick_=2, no match. current_tick_ -> 3
+    tw.tick();
+    EXPECT_EQ(expire_count, 1u);
+
+    // tick(): current_tick_=3, fires second entry (deadline=3). current_tick_ -> 4
+    tw.tick();
+    EXPECT_EQ(expire_count, 2u);
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
 TEST(TimingWheel, LargeNumberOfEntries) {
     size_t expire_count = 0;
     TimingWheel tw(256, [&](TimingWheel::EntryId) { ++expire_count; });

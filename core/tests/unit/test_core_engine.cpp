@@ -122,6 +122,23 @@ TEST(CoreEngineTest, PostToFullQueueReturnsFalse) {
     EXPECT_FALSE(engine.post_to(0, msg));
 }
 
+TEST(CoreEngineTest, IoContextAccessValid) {
+    CoreEngine engine({.num_cores = 2});
+    // Valid access
+    EXPECT_NO_THROW(engine.io_context(0));
+    EXPECT_NO_THROW(engine.io_context(1));
+    // Out of range
+    EXPECT_THROW(engine.io_context(2), std::out_of_range);
+}
+
+TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse) {
+    CoreEngine engine({.num_cores = 2});
+    CoreMessage msg;
+    msg.type = CoreMessage::Type::Custom;
+    msg.data = 1;
+    EXPECT_FALSE(engine.post_to(99, msg));
+}
+
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
     CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
 

@@ -37,6 +37,8 @@ public:
 
     /// 프레임 응답을 이 세션에 비동기 전송.
     /// @pre 호출자는 이 세션이 속한 io_context의 implicit strand에서 호출해야 한다.
+    /// @pre payload 데이터는 co_await 완료 시점까지 유효해야 한다.
+    ///      (코루틴 프레임이 복사를 보장하지 않음)
     [[nodiscard]] boost::asio::awaitable<bool>
     async_send(const WireHeader& header, std::span<const uint8_t> payload);
 
@@ -58,9 +60,10 @@ public:
     }
     [[nodiscard]] RingBuffer& recv_buffer() noexcept { return recv_buf_; }
 
-    void set_state(State s) noexcept { state_ = s; }
-
 private:
+    void set_state(State s) noexcept { state_ = s; }
+    friend class SessionManager;
+
     SessionId id_;
     uint32_t core_id_;
     State state_{State::Connected};

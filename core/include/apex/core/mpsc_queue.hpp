@@ -60,6 +60,8 @@ public:
     [[nodiscard]] bool empty() const noexcept;
 
 private:
+    // NOTE: 작은 T에서 인접 슬롯 간 false sharing 가능성 있음.
+    // 성능 크리티컬 시 벤치마크 후 alignas(64) 패딩 고려.
     struct Slot {
         std::atomic<bool> ready{false};
         T data;

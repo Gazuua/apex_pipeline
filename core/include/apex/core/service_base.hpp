@@ -7,8 +7,10 @@
 
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace apex::core {
 
@@ -55,6 +57,10 @@ public:
 
     void stop() override {
         started_ = false;
+        for (auto id : registered_msg_ids_) {
+            dispatcher_->unregister_handler(id);
+        }
+        registered_msg_ids_.clear();
         on_stop();
     }
 
@@ -66,9 +72,14 @@ public:
     void bind_dispatcher(MessageDispatcher& external) override {
         assert(!started_ && "bind_dispatcher must be called before start()");
         dispatcher_ = &external;
+        owned_dispatcher_.reset();  // ~2MB 메모리 해제
     }
 
 protected:
+    /// @warning 핸들러 람다가 this(Derived*) raw pointer를 캡처함.
+    /// 서비스 수명이 디스패처 수명보다 길거나 같아야 한다.
+    /// Server 사용 시 자동 보장됨 (서비스와 디스패처를 동시 소유).
+
     /// 로우 핸들러 등록 (코루틴).
     void handle(uint16_t msg_id,
                 boost::asio::awaitable<void> (Derived::*method)(
@@ -81,6 +92,7 @@ protected:
                 -> boost::asio::awaitable<void> {
                 co_await (self->*method)(session, id, payload);
             });
+        registered_msg_ids_.push_back(msg_id);
     }
 
     /// FlatBuffers 타입 핸들러 등록 (코루틴).
@@ -95,17 +107,22 @@ protected:
                            std::span<const uint8_t> payload)
                 -> boost::asio::awaitable<void> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
-                if (!verifier.VerifyBuffer<FbsType>()) co_return;
+                if (!verifier.VerifyBuffer<FbsType>()) {
+                    // TODO: 로깅 프레임워크 도입 후 검증 실패 로그 추가
+                    co_return;
+                }
                 auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
                 co_await (self->*method)(session, id, msg);
             });
+        registered_msg_ids_.push_back(msg_id);
     }
 
 private:
     std::string name_;
-    MessageDispatcher owned_dispatcher_;
-    MessageDispatcher* dispatcher_ = &owned_dispatcher_;
+    std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
+    MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};
+    std::vector<uint16_t> registered_msg_ids_;
 };
 
 } // namespace apex::core

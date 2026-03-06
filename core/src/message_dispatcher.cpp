@@ -23,6 +23,7 @@ MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const
         co_return std::unexpected(DispatchError::UnknownMessage);
     }
     try {
+        // session은 값으로 받았으므로 move해도 호출자에 영향 없음
         co_await handler(std::move(session), msg_id, payload);
         co_return std::expected<void, DispatchError>{};
     } catch (...) {

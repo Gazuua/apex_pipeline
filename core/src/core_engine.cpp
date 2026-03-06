@@ -50,7 +50,9 @@ void CoreEngine::set_message_handler(MessageHandler handler) {
 }
 
 void CoreEngine::run() {
-    running_.store(true, std::memory_order_release);
+    if (running_.exchange(true, std::memory_order_acq_rel)) {
+        throw std::logic_error("CoreEngine::run() called while already running");
+    }
 
     // 재호출 시 io_context 리셋
     for (auto& ctx : cores_) {
@@ -127,10 +129,10 @@ void CoreEngine::start_drain_timer(uint32_t core_id) {
             return;  // timer cancelled or error
         }
 
-        auto& ctx = *cores_[core_id];
+        auto& core_ctx = *cores_[core_id];
 
         // Drain all pending messages from the inbox
-        while (auto msg = ctx.inbox->dequeue()) {
+        while (auto msg = core_ctx.inbox->dequeue()) {
             if (message_handler_) {
                 message_handler_(core_id, *msg);
             }
