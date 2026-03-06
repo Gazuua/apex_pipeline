@@ -36,6 +36,7 @@ add_library(apex_core STATIC
     src/frame_codec.cpp
     src/session.cpp
     src/session_manager.cpp
+    src/error_sender.cpp
 )
 add_library(apex::core ALIAS apex_core)
 

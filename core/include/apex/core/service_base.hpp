@@ -2,6 +2,8 @@
 
 #include <apex/core/message_dispatcher.hpp>
 
+#include <flatbuffers/flatbuffers.h>
+
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -58,6 +60,24 @@ protected:
         dispatcher_.register_handler(msg_id,
             [self, method](uint16_t id, std::span<const uint8_t> payload) {
                 (self->*method)(id, payload);
+            });
+    }
+
+    /// FlatBuffers 타입 메시지 핸들러 등록.
+    /// 검증 실패 시 핸들러 호출하지 않고 메시지를 무시한다.
+    template <typename FbsType>
+    void route(uint16_t msg_id,
+               void (Derived::*method)(uint16_t, const FbsType*))
+    {
+        auto* self = static_cast<Derived*>(this);
+        dispatcher_.register_handler(msg_id,
+            [self, method](uint16_t id, std::span<const uint8_t> payload) {
+                flatbuffers::Verifier verifier(payload.data(), payload.size());
+                if (!verifier.VerifyBuffer<FbsType>()) {
+                    return;
+                }
+                auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
+                (self->*method)(id, msg);
             });
     }
 
