@@ -7,6 +7,9 @@
       "displayName": "Default (Release)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${presetName}",
+      "environment": {
+        "VCPKG_ROOT": "$penv{VCPKG_ROOT}"
+      },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_STANDARD": "23",
@@ -24,7 +27,7 @@
     },
     {
       "name": "asan",
-      "displayName": "Debug + AddressSanitizer",
+      "displayName": "Debug + AddressSanitizer (Clang/GCC only)",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer"
@@ -32,7 +35,7 @@
     },
     {
       "name": "tsan",
-      "displayName": "Debug + ThreadSanitizer",
+      "displayName": "Debug + ThreadSanitizer (Clang/GCC only)",
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=thread"

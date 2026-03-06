@@ -1,18 +1,12 @@
 #include <apex/core/timing_wheel.hpp>
+#include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cassert>
 
 namespace apex::core {
 
-static size_t next_power_of_2(size_t v) {
-    v--;
-    v |= v >> 1; v |= v >> 2; v |= v >> 4;
-    v |= v >> 8; v |= v >> 16; v |= v >> 32;
-    return v + 1;
-}
-
 TimingWheel::TimingWheel(size_t num_slots, Callback on_expire)
-    : num_slots_(next_power_of_2(num_slots < 1 ? 1 : num_slots))
+    : num_slots_(detail::next_power_of_2(num_slots < 1 ? 1 : num_slots))
     , mask_(num_slots_ - 1)
     , on_expire_(std::move(on_expire))
 {

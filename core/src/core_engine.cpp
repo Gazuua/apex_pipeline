@@ -4,6 +4,7 @@
 #include <boost/asio/post.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <thread>
 
 namespace apex::core {
@@ -89,6 +90,7 @@ uint32_t CoreEngine::core_count() const noexcept {
 }
 
 boost::asio::io_context& CoreEngine::io_context(uint32_t core_id) {
+    assert(core_id < cores_.size() && "core_id out of range");
     return cores_[core_id]->io_ctx;
 }
 

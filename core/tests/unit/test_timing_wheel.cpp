@@ -32,7 +32,7 @@ TEST(TimingWheel, ScheduleAtTickZero) {
     std::set<TimingWheel::EntryId> expired;
     TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
 
-    tw.schedule(0);
+    (void)tw.schedule(0);
     tw.tick();
     EXPECT_EQ(expired.size(), 1u);
 }
@@ -103,7 +103,7 @@ TEST(TimingWheel, LargeNumberOfEntries) {
     TimingWheel tw(256, [&](TimingWheel::EntryId) { ++expire_count; });
 
     for (int i = 1; i <= 1000; ++i) {
-        tw.schedule(i % 200 + 1);
+        (void)tw.schedule(i % 200 + 1);
     }
     EXPECT_EQ(tw.active_count(), 1000u);
 

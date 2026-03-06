@@ -1,5 +1,6 @@
 build/
 .cache/
+.vs/
 compile_commands.json
 *.user
 CMakeUserPresets.json

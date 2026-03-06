@@ -66,7 +66,7 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
     });
     EXPECT_EQ(d->handler_count(), 1u);
 
-    d->dispatch(0x0001, {});
+    (void)d->dispatch(0x0001, {});
     EXPECT_EQ(call_count_old, 0);
     EXPECT_EQ(call_count_new, 1);
 }

@@ -92,7 +92,7 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     // Decode and dispatch all frames
     int frames_processed = 0;
     while (auto frame = FrameCodec::try_decode(buf)) {
-        service->dispatcher().dispatch(frame->header.msg_id, frame->payload);
+        (void)service->dispatcher().dispatch(frame->header.msg_id, frame->payload);
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
     }

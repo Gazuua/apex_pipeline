@@ -1,4 +1,5 @@
 #include <apex/core/ring_buffer.hpp>
+#include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cstdlib>
 #include <new>
@@ -9,21 +10,9 @@
 
 namespace apex::core {
 
-static size_t next_power_of_2(size_t v) {
-    if (v == 0) return 1;
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v |= v >> 32;
-    return v + 1;
-}
-
 RingBuffer::RingBuffer(size_t capacity)
     : linear_buf_(nullptr)
-    , capacity_(next_power_of_2(capacity < 1 ? 1 : capacity))
+    , capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
     , mask_(capacity_ - 1)
 {
 #ifdef _MSC_VER

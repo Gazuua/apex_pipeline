@@ -87,11 +87,24 @@ private:
                     return;
                 }
 
-                // Copy to ring buffer
-                auto w = recv_buf_.writable();
-                size_t to_copy = std::min(w.size(), bytes);
-                std::memcpy(w.data(), tmp_buf_.data(), to_copy);
-                recv_buf_.commit_write(to_copy);
+                // Copy to ring buffer (loop handles wrap-around)
+                size_t copied = 0;
+                while (copied < bytes) {
+                    auto w = recv_buf_.writable();
+                    if (w.empty()) {
+                        // Buffer full — process frames to free space
+                        process_frames();
+                        w = recv_buf_.writable();
+                        if (w.empty()) {
+                            std::cerr << "[Session] Ring buffer full, dropping connection\n";
+                            return;
+                        }
+                    }
+                    size_t to_copy = std::min(w.size(), bytes - copied);
+                    std::memcpy(w.data(), tmp_buf_.data() + copied, to_copy);
+                    recv_buf_.commit_write(to_copy);
+                    copied += to_copy;
+                }
 
                 // Process frames
                 process_frames();

@@ -14,8 +14,7 @@ static size_t align_up(size_t size, size_t alignment) {
 }
 
 SlabPool::SlabPool(size_t slot_size, size_t initial_count)
-    : chunk_(nullptr)
-    , free_list_(nullptr)
+    : free_list_(nullptr)
     , slot_size_(align_up(std::max(slot_size, sizeof(FreeNode)), alignof(std::max_align_t)))
     , total_count_(0)
     , free_count_(0)
@@ -27,31 +26,36 @@ SlabPool::SlabPool(size_t slot_size, size_t initial_count)
 }
 
 SlabPool::~SlabPool() {
+    for (auto* chunk : chunks_) {
 #ifdef _MSC_VER
-    _aligned_free(chunk_);
+        _aligned_free(chunk);
 #else
-    std::free(chunk_);
+        std::free(chunk);
 #endif
+    }
 }
 
 void SlabPool::grow(size_t count) {
     constexpr size_t kAlignment = 64;  // cache-line alignment
 
+    uint8_t* chunk = nullptr;
 #ifdef _MSC_VER
-    chunk_ = static_cast<uint8_t*>(_aligned_malloc(slot_size_ * count, kAlignment));
+    chunk = static_cast<uint8_t*>(_aligned_malloc(slot_size_ * count, kAlignment));
 #else
     // std::aligned_alloc requires size to be a multiple of alignment
     size_t alloc_size = align_up(slot_size_ * count, kAlignment);
-    chunk_ = static_cast<uint8_t*>(std::aligned_alloc(kAlignment, alloc_size));
+    chunk = static_cast<uint8_t*>(std::aligned_alloc(kAlignment, alloc_size));
 #endif
 
-    if (!chunk_) {
+    if (!chunk) {
         throw std::bad_alloc();
     }
 
+    chunks_.push_back(chunk);
+
     // Build free-list from back to front so first allocate returns first slot
     for (size_t i = count; i > 0; --i) {
-        auto* node = reinterpret_cast<FreeNode*>(chunk_ + (i - 1) * slot_size_);
+        auto* node = reinterpret_cast<FreeNode*>(chunk + (i - 1) * slot_size_);
         node->next = free_list_;
         free_list_ = node;
     }

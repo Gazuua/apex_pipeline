@@ -96,12 +96,12 @@ TEST(ServiceBase, MultipleHandlers) {
     auto svc = std::make_unique<MultiHandlerService>();
     svc->start();
 
-    svc->dispatcher().dispatch(0x0001, {});
-    svc->dispatcher().dispatch(0x0001, {});
-    svc->dispatcher().dispatch(0x0002, {});
-    svc->dispatcher().dispatch(0x0003, {});
-    svc->dispatcher().dispatch(0x0003, {});
-    svc->dispatcher().dispatch(0x0003, {});
+    (void)svc->dispatcher().dispatch(0x0001, {});
+    (void)svc->dispatcher().dispatch(0x0001, {});
+    (void)svc->dispatcher().dispatch(0x0002, {});
+    (void)svc->dispatcher().dispatch(0x0003, {});
+    (void)svc->dispatcher().dispatch(0x0003, {});
+    (void)svc->dispatcher().dispatch(0x0003, {});
 
     EXPECT_EQ(svc->count1, 2);
     EXPECT_EQ(svc->count2, 1);

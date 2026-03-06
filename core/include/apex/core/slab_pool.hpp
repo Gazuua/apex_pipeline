@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <new>
 #include <type_traits>
+#include <vector>
 
 namespace apex::core {
 
@@ -59,8 +60,8 @@ private:
 
     void grow(size_t count);
 
-    uint8_t* chunk_;         // raw memory block
-    FreeNode* free_list_;    // head of free-list
+    std::vector<uint8_t*> chunks_;  // all allocated memory blocks
+    FreeNode* free_list_;           // head of free-list
     size_t slot_size_;       // aligned slot size
     size_t total_count_;     // total slots ever created
     size_t free_count_;      // current free slots

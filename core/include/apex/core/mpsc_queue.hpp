@@ -8,6 +8,8 @@
 #include <optional>
 #include <type_traits>
 
+#include <apex/core/detail/math_utils.hpp>
+
 namespace apex::core {
 
 enum class QueueError : uint8_t {
@@ -71,15 +73,6 @@ private:
 };
 
 // --- Implementation ---
-
-namespace detail {
-    constexpr size_t next_power_of_2(size_t v) {
-        v--;
-        v |= v >> 1; v |= v >> 2; v |= v >> 4;
-        v |= v >> 8; v |= v >> 16; v |= v >> 32;
-        return v + 1;
-    }
-} // namespace detail
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
