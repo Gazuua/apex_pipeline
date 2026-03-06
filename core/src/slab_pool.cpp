@@ -26,17 +26,22 @@ SlabPool::SlabPool(size_t slot_size, size_t initial_count)
 }
 
 SlabPool::~SlabPool() {
-    for (auto* chunk : chunks_) {
+    for (auto& chunk : chunks_) {
 #ifdef _MSC_VER
-        _aligned_free(chunk);
+        _aligned_free(chunk.data);
 #else
-        std::free(chunk);
+        std::free(chunk.data);
 #endif
     }
 }
 
 void SlabPool::grow(size_t count) {
     constexpr size_t kAlignment = 64;  // cache-line alignment
+
+    // Overflow check for slot_size_ * count
+    if (count > 0 && slot_size_ > SIZE_MAX / count) {
+        throw std::bad_alloc();
+    }
 
     uint8_t* chunk = nullptr;
 #ifdef _MSC_VER
@@ -51,7 +56,7 @@ void SlabPool::grow(size_t count) {
         throw std::bad_alloc();
     }
 
-    chunks_.push_back(chunk);
+    chunks_.push_back({chunk, count});
 
     // Build free-list from back to front so first allocate returns first slot
     for (size_t i = count; i > 0; --i) {
@@ -75,10 +80,24 @@ void* SlabPool::allocate() {
 
 void SlabPool::deallocate(void* ptr) noexcept {
     if (!ptr) return;
+
+    // Debug: verify pointer belongs to this pool
+    assert(owns(ptr) && "deallocate: pointer not owned by this pool");
+
     auto* node = static_cast<FreeNode*>(ptr);
     node->next = free_list_;
     free_list_ = node;
     ++free_count_;
+}
+
+bool SlabPool::owns(void* ptr) const noexcept {
+    auto* p = static_cast<uint8_t*>(ptr);
+    for (const auto& chunk : chunks_) {
+        if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count) {
+            return true;
+        }
+    }
+    return false;
 }
 
 size_t SlabPool::allocated_count() const noexcept {

@@ -3,8 +3,8 @@
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 
-#include <algorithm>
 #include <cassert>
+#include <stdexcept>
 #include <thread>
 
 namespace apex::core {
@@ -45,11 +45,17 @@ CoreEngine::~CoreEngine() {
 }
 
 void CoreEngine::set_message_handler(MessageHandler handler) {
+    assert(!running_.load(std::memory_order_acquire) && "set_message_handler must be called before run()");
     message_handler_ = std::move(handler);
 }
 
 void CoreEngine::run() {
     running_.store(true, std::memory_order_release);
+
+    // 재호출 시 io_context 리셋
+    for (auto& ctx : cores_) {
+        ctx->io_ctx.restart();
+    }
 
     threads_.reserve(config_.num_cores);
     for (uint32_t i = 0; i < config_.num_cores; ++i) {
@@ -90,7 +96,9 @@ uint32_t CoreEngine::core_count() const noexcept {
 }
 
 boost::asio::io_context& CoreEngine::io_context(uint32_t core_id) {
-    assert(core_id < cores_.size() && "core_id out of range");
+    if (core_id >= cores_.size()) {
+        throw std::out_of_range("core_id out of range");
+    }
     return cores_[core_id]->io_ctx;
 }
 

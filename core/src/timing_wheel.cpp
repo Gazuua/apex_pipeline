@@ -2,6 +2,7 @@
 #include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cassert>
+#include <vector>
 
 namespace apex::core {
 
@@ -41,22 +42,30 @@ void TimingWheel::remove_entry(Entry* entry, size_t slot_idx) {
     entry->next = nullptr;
 }
 
+uint64_t TimingWheel::compute_deadline(uint32_t ticks_from_now) const {
+    return (ticks_from_now == 0) ? current_tick_ : current_tick_ + ticks_from_now;
+}
+
 TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
-    EntryId id = next_id_++;
+    EntryId id;
+    if (!free_ids_.empty()) {
+        id = free_ids_.back();
+        free_ids_.pop_back();
+    } else {
+        id = next_id_++;
+        if (id >= entries_.size()) {
+            entries_.resize(id + 1, nullptr);
+        }
+    }
 
     auto* entry = new Entry();
     entry->id = id;
-    entry->deadline_tick = (ticks_from_now == 0)
-        ? current_tick_
-        : current_tick_ + ticks_from_now - 1;
+    entry->deadline_tick = compute_deadline(ticks_from_now);
     entry->cancelled = false;
 
     size_t slot_idx = entry->deadline_tick & mask_;
     insert_entry(entry, slot_idx);
 
-    if (id >= entries_.size()) {
-        entries_.resize(id + 1, nullptr);
-    }
     entries_[id] = entry;
 
     return id;
@@ -74,6 +83,7 @@ void TimingWheel::cancel(EntryId id) {
 
     delete entry;
     entries_[id] = nullptr;
+    free_ids_.push_back(id);
 }
 
 void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
@@ -85,28 +95,36 @@ void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
     size_t old_slot = entry->deadline_tick & mask_;
     remove_entry(entry, old_slot);
 
-    entry->deadline_tick = (ticks_from_now == 0)
-        ? current_tick_
-        : current_tick_ + ticks_from_now - 1;
+    entry->deadline_tick = compute_deadline(ticks_from_now);
     size_t new_slot = entry->deadline_tick & mask_;
     insert_entry(entry, new_slot);
 }
 
 void TimingWheel::tick() {
     size_t slot_idx = current_tick_ & mask_;
-    Entry* entry = slots_[slot_idx].head;
 
+    // Phase 1: Collect expired entries
+    std::vector<Entry*> expired;
+    Entry* entry = slots_[slot_idx].head;
     while (entry) {
         Entry* next = entry->next;
-
         if (!entry->cancelled && entry->deadline_tick == current_tick_) {
-            remove_entry(entry, slot_idx);
-            on_expire_(entry->id);
-            entries_[entry->id] = nullptr;
-            delete entry;
+            expired.push_back(entry);
         }
-
         entry = next;
+    }
+
+    // Phase 2: Remove from slot (safe — no callbacks yet)
+    for (auto* e : expired) {
+        remove_entry(e, slot_idx);
+    }
+
+    // Phase 3: Fire callbacks (cancel() during callback is now safe)
+    for (auto* e : expired) {
+        on_expire_(e->id);
+        entries_[e->id] = nullptr;
+        free_ids_.push_back(e->id);
+        delete e;
     }
 
     ++current_tick_;

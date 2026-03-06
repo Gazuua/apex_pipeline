@@ -1,6 +1,7 @@
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <new>
 
@@ -42,6 +43,7 @@ std::span<uint8_t> RingBuffer::writable() noexcept {
 }
 
 void RingBuffer::commit_write(size_t n) noexcept {
+    assert(n <= writable_size() && "commit_write: n exceeds writable size");
     write_pos_ += n;
 }
 
@@ -59,6 +61,7 @@ size_t RingBuffer::readable_size() const noexcept {
 }
 
 void RingBuffer::consume(size_t n) noexcept {
+    assert(n <= readable_size() && "consume: n exceeds readable size");
     read_pos_ += n;
 }
 
@@ -75,12 +78,12 @@ std::span<const uint8_t> RingBuffer::linearize(size_t n) {
 
     // Wrap-around — copy into linear scratch buffer
     if (linear_buf_size_ < n) {
-        std::free(linear_buf_);
-        linear_buf_ = static_cast<uint8_t*>(std::malloc(n));
-        if (!linear_buf_) {
-            linear_buf_size_ = 0;
+        auto* new_buf = static_cast<uint8_t*>(std::realloc(linear_buf_, n));
+        if (!new_buf) {
+            // linear_buf_ preserved on realloc failure
             return {};
         }
+        linear_buf_ = new_buf;
         linear_buf_size_ = n;
     }
 
@@ -101,6 +104,9 @@ size_t RingBuffer::writable_size() const noexcept {
 void RingBuffer::reset() noexcept {
     read_pos_ = 0;
     write_pos_ = 0;
+    std::free(linear_buf_);
+    linear_buf_ = nullptr;
+    linear_buf_size_ = 0;
 }
 
 } // namespace apex::core

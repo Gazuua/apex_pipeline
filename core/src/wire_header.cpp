@@ -26,21 +26,25 @@ WireHeader::parse(std::span<const uint8_t> data) {
     }
 
     WireHeader h;
-    h.version = data[0];
+    h.version = data[OFF_VERSION];
+
+    if (h.version != CURRENT_VERSION) {
+        return std::unexpected(ParseError::UnsupportedVersion);
+    }
 
     uint16_t raw16;
     uint32_t raw32;
 
-    std::memcpy(&raw16, data.data() + 1, sizeof(uint16_t));
+    std::memcpy(&raw16, data.data() + OFF_MSG_ID, sizeof(uint16_t));
     h.msg_id = ntoh16(raw16);
 
-    std::memcpy(&raw32, data.data() + 3, sizeof(uint32_t));
+    std::memcpy(&raw32, data.data() + OFF_BODY_SIZE, sizeof(uint32_t));
     h.body_size = ntoh32(raw32);
 
-    std::memcpy(&raw16, data.data() + 7, sizeof(uint16_t));
+    std::memcpy(&raw16, data.data() + OFF_FLAGS, sizeof(uint16_t));
     h.flags = ntoh16(raw16);
 
-    h.reserved = data[9];
+    h.reserved = data[OFF_RESERVED];
 
     if (h.body_size > MAX_BODY_SIZE) {
         return std::unexpected(ParseError::BodyTooLarge);
@@ -50,18 +54,18 @@ WireHeader::parse(std::span<const uint8_t> data) {
 }
 
 void WireHeader::serialize(std::span<uint8_t, SIZE> out) const {
-    out[0] = version;
+    out[OFF_VERSION] = version;
 
     uint16_t net16 = hton16(msg_id);
-    std::memcpy(out.data() + 1, &net16, sizeof(uint16_t));
+    std::memcpy(out.data() + OFF_MSG_ID, &net16, sizeof(uint16_t));
 
     uint32_t net32 = hton32(body_size);
-    std::memcpy(out.data() + 3, &net32, sizeof(uint32_t));
+    std::memcpy(out.data() + OFF_BODY_SIZE, &net32, sizeof(uint32_t));
 
     net16 = hton16(flags);
-    std::memcpy(out.data() + 7, &net16, sizeof(uint16_t));
+    std::memcpy(out.data() + OFF_FLAGS, &net16, sizeof(uint16_t));
 
-    out[9] = reserved;
+    out[OFF_RESERVED] = reserved;
 }
 
 std::array<uint8_t, WireHeader::SIZE> WireHeader::serialize() const {

@@ -18,11 +18,12 @@ TEST(TimingWheel, ScheduleAndExpire) {
     auto id = tw.schedule(3);
     EXPECT_EQ(tw.active_count(), 1u);
 
-    tw.tick(); // tick 1
-    tw.tick(); // tick 2
+    tw.tick(); // tick 0->1
+    tw.tick(); // tick 1->2
+    tw.tick(); // tick 2->3
     EXPECT_TRUE(expired.empty());
 
-    tw.tick(); // tick 3 — should fire
+    tw.tick(); // tick 3->4 — should fire (deadline=3)
     EXPECT_EQ(expired.size(), 1u);
     EXPECT_TRUE(expired.contains(id));
     EXPECT_EQ(tw.active_count(), 0u);
@@ -55,17 +56,20 @@ TEST(TimingWheel, Reschedule) {
     TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
 
     auto id = tw.schedule(2);
-    tw.tick(); // tick 1
+    tw.tick(); // tick 0->1
 
     tw.reschedule(id, 3);  // now expires at tick 1 + 3 = tick 4
 
-    tw.tick(); // tick 2
+    tw.tick(); // tick 1->2
     EXPECT_TRUE(expired.empty());
 
-    tw.tick(); // tick 3
+    tw.tick(); // tick 2->3
     EXPECT_TRUE(expired.empty());
 
-    tw.tick(); // tick 4 — should fire
+    tw.tick(); // tick 3->4
+    EXPECT_TRUE(expired.empty());
+
+    tw.tick(); // tick 4->5 — should fire (deadline=4)
     EXPECT_EQ(expired.size(), 1u);
     EXPECT_TRUE(expired.contains(id));
 }
@@ -78,7 +82,7 @@ TEST(TimingWheel, MultipleEntries_SameSlot) {
     auto id2 = tw.schedule(5);
     auto id3 = tw.schedule(5);
 
-    for (int i = 0; i < 5; ++i) tw.tick();
+    for (int i = 0; i < 6; ++i) tw.tick(); // deadline=5, fires on tick 5
 
     EXPECT_EQ(expired.size(), 3u);
     EXPECT_TRUE(expired.contains(id1));
@@ -93,7 +97,7 @@ TEST(TimingWheel, WrapAround) {
     for (int i = 0; i < 8; ++i) tw.tick();
 
     auto id = tw.schedule(3);
-    tw.tick(); tw.tick(); tw.tick();
+    tw.tick(); tw.tick(); tw.tick(); tw.tick(); // deadline=11, fires on tick 11
     EXPECT_EQ(expired.size(), 1u);
     EXPECT_TRUE(expired.contains(id));
 }

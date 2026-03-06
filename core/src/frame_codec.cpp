@@ -29,6 +29,8 @@ FrameCodec::try_decode(RingBuffer& buf) {
         return std::unexpected(FrameError::InsufficientData);
     }
 
+    // NOTE: This linearize() call may invalidate the span from the previous linearize() call.
+    // This is safe because we already copied the header by value above.
     auto frame_span = buf.linearize(total);
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 
@@ -41,6 +43,10 @@ void FrameCodec::consume_frame(RingBuffer& buf, const Frame& frame) {
 
 bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
                          std::span<const uint8_t> payload) {
+    if (header.body_size != static_cast<uint32_t>(payload.size())) {
+        return false;
+    }
+
     size_t total = WireHeader::SIZE + payload.size();
     if (buf.writable_size() < total) {
         return false;
@@ -52,6 +58,7 @@ bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
     size_t header_written = 0;
     while (header_written < WireHeader::SIZE) {
         auto w = buf.writable();
+        if (w.empty()) return false;  // defensive guard against infinite loop
         size_t to_write = std::min(w.size(), WireHeader::SIZE - header_written);
         std::memcpy(w.data(), header_bytes.data() + header_written, to_write);
         buf.commit_write(to_write);
@@ -62,6 +69,7 @@ bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
     size_t payload_written = 0;
     while (payload_written < payload.size()) {
         auto w = buf.writable();
+        if (w.empty()) return false;  // defensive guard against infinite loop
         size_t to_write = std::min(w.size(), payload.size() - payload_written);
         std::memcpy(w.data(), payload.data() + payload_written, to_write);
         buf.commit_write(to_write);
@@ -73,6 +81,10 @@ bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
 
 size_t FrameCodec::encode_to(std::span<uint8_t> out, const WireHeader& header,
                                std::span<const uint8_t> payload) {
+    if (header.body_size != static_cast<uint32_t>(payload.size())) {
+        return 0;
+    }
+
     size_t total = WireHeader::SIZE + payload.size();
     if (out.size() < total) {
         return 0;

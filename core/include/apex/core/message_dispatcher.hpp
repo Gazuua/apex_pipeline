@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <expected>
 #include <functional>
+#include <memory>
 #include <span>
 
 namespace apex::core {
@@ -31,7 +32,8 @@ public:
     [[nodiscard]] size_t handler_count() const noexcept;
 
 private:
-    std::array<Handler, 65536> handlers_{};
+    std::unique_ptr<std::array<Handler, 65536>> handlers_
+        = std::make_unique<std::array<Handler, 65536>>();
     size_t handler_count_{0};
 };
 

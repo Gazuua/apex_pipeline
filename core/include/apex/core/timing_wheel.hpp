@@ -68,6 +68,7 @@ private:
 
     void insert_entry(Entry* entry, size_t slot_idx);
     void remove_entry(Entry* entry, size_t slot_idx);
+    uint64_t compute_deadline(uint32_t ticks_from_now) const;
 
     std::vector<Slot> slots_;
     size_t num_slots_;
@@ -78,6 +79,7 @@ private:
 
     // Entry storage (pool-friendly)
     std::vector<Entry*> entries_;  // indexed by id for O(1) lookup
+    std::vector<EntryId> free_ids_;  // free-list for id reuse
 };
 
 } // namespace apex::core

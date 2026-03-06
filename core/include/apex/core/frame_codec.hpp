@@ -10,9 +10,12 @@
 namespace apex::core {
 
 /// Result of a successful frame extraction.
+/// WARNING: payload points into RingBuffer's internal memory (zero-copy).
+/// - payload is invalidated by consume_frame(), linearize(), or any RingBuffer mutation.
+/// - Copy payload data before calling consume_frame() if you need it later.
 struct Frame {
     WireHeader header;
-    std::span<const uint8_t> payload;  // points into RingBuffer (zero-copy when possible)
+    std::span<const uint8_t> payload;  // points into RingBuffer — valid until next RingBuffer mutation
 };
 
 enum class FrameError : uint8_t {

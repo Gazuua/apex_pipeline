@@ -59,17 +59,19 @@ public:
     [[nodiscard]] bool empty() const noexcept;
 
 private:
-    struct alignas(64) Slot {
+    struct Slot {
         std::atomic<bool> ready{false};
         T data;
     };
+
+    // head_ is first member: class is alignas(64), so head_ is auto-aligned to 64 bytes
+    std::atomic<size_t> head_{0};  // producer CAS target
 
     Slot* slots_;
     size_t capacity_;
     size_t mask_;  // capacity_ - 1 (power of 2)
 
-    alignas(64) std::atomic<size_t> head_{0};  // producer CAS target
-    alignas(64) size_t tail_{0};               // consumer-only, no atomic needed
+    alignas(64) std::atomic<size_t> tail_{0};  // consumer — separate cache line
 };
 
 // --- Implementation ---
@@ -94,19 +96,15 @@ template <typename T>
 std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
     size_t head = head_.load(std::memory_order_relaxed);
     for (;;) {
-        Slot& slot = slots_[head & mask_];
-        if (slot.ready.load(std::memory_order_acquire)) {
-            // Slot still occupied -- might be full, or head may have advanced
-            size_t new_head = head_.load(std::memory_order_relaxed);
-            if (new_head == head) {
-                return std::unexpected(QueueError::Full);
-            }
-            head = new_head;
-            continue;
+        // Accurate full check: head - tail >= capacity
+        size_t tail = tail_.load(std::memory_order_acquire);
+        if (head - tail >= capacity_) {
+            return std::unexpected(QueueError::Full);
         }
 
         if (head_.compare_exchange_weak(head, head + 1,
                 std::memory_order_acq_rel, std::memory_order_relaxed)) {
+            Slot& slot = slots_[head & mask_];
             slot.data = item;
             slot.ready.store(true, std::memory_order_release);
             return {};
@@ -118,24 +116,21 @@ std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
 template <typename T>
     requires std::is_trivially_copyable_v<T>
 std::optional<T> MpscQueue<T>::dequeue() {
-    Slot& slot = slots_[tail_ & mask_];
+    size_t tail = tail_.load(std::memory_order_relaxed);
+    Slot& slot = slots_[tail & mask_];
     if (!slot.ready.load(std::memory_order_acquire)) {
         return std::nullopt;
     }
     T item = slot.data;
     slot.ready.store(false, std::memory_order_release);
-    ++tail_;
+    tail_.store(tail + 1, std::memory_order_release);
     return item;
 }
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
 size_t MpscQueue<T>::size_approx() const noexcept {
-    size_t count = 0;
-    for (size_t i = 0; i < capacity_; ++i) {
-        if (slots_[i].ready.load(std::memory_order_relaxed)) ++count;
-    }
-    return count;
+    return head_.load(std::memory_order_relaxed) - tail_.load(std::memory_order_relaxed);
 }
 
 template <typename T>
@@ -147,7 +142,7 @@ size_t MpscQueue<T>::capacity() const noexcept {
 template <typename T>
     requires std::is_trivially_copyable_v<T>
 bool MpscQueue<T>::empty() const noexcept {
-    return size_approx() == 0;
+    return head_.load(std::memory_order_relaxed) == tail_.load(std::memory_order_relaxed);
 }
 
 } // namespace apex::core

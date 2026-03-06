@@ -17,6 +17,10 @@ enum class ParseError : uint8_t {
 /// Fixed 10-byte wire header for all messages.
 /// Network byte order (big-endian) on the wire.
 ///
+/// NOTE: sizeof(WireHeader) != SIZE due to struct padding.
+/// Always use WireHeader::SIZE for wire protocol calculations.
+/// serialize()/parse() handle field-by-field encoding.
+///
 /// Layout:
 ///   [0]     version    (uint8_t)
 ///   [1..2]  msg_id     (uint16_t, big-endian)
@@ -27,6 +31,13 @@ struct WireHeader {
     static constexpr size_t SIZE = 10;
     static constexpr uint8_t CURRENT_VERSION = 1;
     static constexpr uint32_t MAX_BODY_SIZE = 16 * 1024 * 1024;  // 16 MB
+
+    // Field offsets within the wire format
+    static constexpr size_t OFF_VERSION   = 0;
+    static constexpr size_t OFF_MSG_ID    = 1;
+    static constexpr size_t OFF_BODY_SIZE = 3;
+    static constexpr size_t OFF_FLAGS     = 7;
+    static constexpr size_t OFF_RESERVED  = 9;
 
     uint8_t version{CURRENT_VERSION};
     uint16_t msg_id{0};

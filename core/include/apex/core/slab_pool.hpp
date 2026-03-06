@@ -59,9 +59,15 @@ private:
     };
 
     void grow(size_t count);
+    bool owns(void* ptr) const noexcept;
 
-    std::vector<uint8_t*> chunks_;  // all allocated memory blocks
-    FreeNode* free_list_;           // head of free-list
+    struct ChunkInfo {
+        uint8_t* data;
+        size_t count;  // number of slots in this chunk
+    };
+
+    std::vector<ChunkInfo> chunks_;  // all allocated memory blocks
+    FreeNode* free_list_;            // head of free-list
     size_t slot_size_;       // aligned slot size
     size_t total_count_;     // total slots ever created
     size_t free_count_;      // current free slots
@@ -74,6 +80,10 @@ private:
 ///   pool.destroy(s);
 template <typename T>
 class TypedSlabPool {
+    static_assert(alignof(T) <= alignof(std::max_align_t),
+        "TypedSlabPool does not support over-aligned types. "
+        "Use SlabPool directly with custom alignment.");
+
 public:
     explicit TypedSlabPool(size_t initial_count)
         : pool_(sizeof(T), initial_count) {}

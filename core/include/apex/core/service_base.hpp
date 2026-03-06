@@ -3,6 +3,7 @@
 #include <apex/core/message_dispatcher.hpp>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace apex::core {
@@ -24,7 +25,7 @@ namespace apex::core {
 template <typename Derived>
 class ServiceBase {
 public:
-    explicit ServiceBase(std::string_view name) : name_(name) {}
+    explicit ServiceBase(std::string name) : name_(std::move(name)) {}
     virtual ~ServiceBase() = default;
 
     ServiceBase(const ServiceBase&) = delete;
@@ -34,13 +35,13 @@ public:
     virtual void on_stop() {}
 
     void start() {
-        static_cast<Derived*>(this)->on_start();
+        on_start();
         started_ = true;
     }
 
     void stop() {
         started_ = false;
-        static_cast<Derived*>(this)->on_stop();
+        on_stop();
     }
 
     [[nodiscard]] std::string_view name() const noexcept { return name_; }
@@ -61,7 +62,7 @@ protected:
     }
 
 private:
-    std::string_view name_;
+    std::string name_;
     MessageDispatcher dispatcher_;
     bool started_{false};
 };
