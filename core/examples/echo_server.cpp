@@ -10,6 +10,7 @@
 ///   Default: port=9000, num_cores=2
 
 #include <apex/core/core_engine.hpp>
+#include <apex/core/session.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/service_base.hpp>
@@ -44,13 +45,13 @@ public:
                   << " echo, " << ping_count_ << " ping\n";
     }
 
-    void on_echo(uint16_t, std::span<const uint8_t> payload) {
+    void on_echo(SessionPtr, uint16_t, std::span<const uint8_t> payload) {
         ++echo_count_;
         // In a full implementation, we'd send back via session.
         // For this example, the session handles the echo directly.
     }
 
-    void on_ping(uint16_t, std::span<const uint8_t>) {
+    void on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
         ++ping_count_;
     }
 
@@ -118,7 +119,7 @@ private:
         while (auto frame = FrameCodec::try_decode(recv_buf_)) {
             // Dispatch to service (for counting/logging)
             (void)service_.dispatcher().dispatch(
-                frame->header.msg_id, frame->payload);
+                nullptr, frame->header.msg_id, frame->payload);
 
             // Echo: send back the same frame
             std::vector<uint8_t> response(frame->header.frame_size());

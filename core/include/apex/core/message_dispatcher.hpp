@@ -1,5 +1,7 @@
 #pragma once
 
+#include <apex/core/session.hpp>
+
 #include <array>
 #include <cstdint>
 #include <expected>
@@ -18,7 +20,7 @@ enum class DispatchError : uint8_t {
 /// Designed for per-service use. NOT thread-safe (per-core, single-thread).
 class MessageDispatcher {
 public:
-    using Handler = std::function<void(uint16_t msg_id, std::span<const uint8_t> payload)>;
+    using Handler = std::function<void(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload)>;
 
     MessageDispatcher() = default;
 
@@ -26,7 +28,7 @@ public:
     void unregister_handler(uint16_t msg_id);
 
     [[nodiscard]] std::expected<void, DispatchError>
-    dispatch(uint16_t msg_id, std::span<const uint8_t> payload) const;
+    dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const;
 
     [[nodiscard]] bool has_handler(uint16_t msg_id) const noexcept;
     [[nodiscard]] size_t handler_count() const noexcept;

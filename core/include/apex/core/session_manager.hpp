@@ -38,6 +38,9 @@ public:
     using TimeoutCallback = std::function<void(SessionPtr)>;
     void set_timeout_callback(TimeoutCallback cb);
 
+    /// 모든 활성 세션에 대해 콜백 실행 (브로드캐스트 용도).
+    void for_each(std::function<void(SessionPtr)> fn) const;
+
     [[nodiscard]] size_t session_count() const noexcept;
     [[nodiscard]] uint32_t core_id() const noexcept { return core_id_; }
 

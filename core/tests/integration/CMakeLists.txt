@@ -10,3 +10,4 @@ endfunction()
 
 apex_add_integration_test(test_pipeline_integration test_pipeline_integration.cpp)
 apex_add_integration_test(test_echo_integration test_echo_integration.cpp)
+apex_add_integration_test(test_server_e2e test_server_e2e.cpp)

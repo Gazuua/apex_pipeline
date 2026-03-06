@@ -79,6 +79,12 @@ void SessionManager::set_timeout_callback(TimeoutCallback cb) {
     timeout_callback_ = std::move(cb);
 }
 
+void SessionManager::for_each(std::function<void(SessionPtr)> fn) const {
+    for (const auto& [id, session] : sessions_) {
+        fn(session);
+    }
+}
+
 size_t SessionManager::session_count() const noexcept {
     return sessions_.size();
 }

@@ -30,7 +30,7 @@ public:
             0x0010, &TypedEchoService::on_echo);
     }
 
-    void on_echo(uint16_t msg_id,
+    void on_echo(SessionPtr, uint16_t msg_id,
                  const apex::messages::EchoRequest* req) {
         ++call_count;
         if (req && req->data()) {
@@ -47,7 +47,7 @@ TEST(FlatBuffersDispatch, RouteTypedMessage) {
     svc->start();
 
     auto payload = build_echo_payload({0xDE, 0xAD});
-    auto result = svc->dispatcher().dispatch(0x0010, payload);
+    auto result = svc->dispatcher().dispatch(nullptr,0x0010, payload);
     EXPECT_TRUE(result.has_value());
 
     EXPECT_EQ(svc->call_count, 1);
@@ -59,7 +59,7 @@ TEST(FlatBuffersDispatch, RouteInvalidFlatBuffer) {
     svc->start();
 
     std::vector<uint8_t> garbage = {0xFF, 0xFF, 0xFF};
-    auto result = svc->dispatcher().dispatch(0x0010, garbage);
+    auto result = svc->dispatcher().dispatch(nullptr,0x0010, garbage);
     EXPECT_TRUE(result.has_value());  // handler was called but skipped due to verify
 
     EXPECT_EQ(svc->call_count, 0);
@@ -71,12 +71,12 @@ TEST(FlatBuffersDispatch, RouteAndRawHandlerCoexist) {
 
     int raw_count = 0;
     svc->dispatcher().register_handler(0x0020,
-        [&](uint16_t, std::span<const uint8_t>) { ++raw_count; });
+        [&](SessionPtr, uint16_t, std::span<const uint8_t>) { ++raw_count; });
 
     auto payload = build_echo_payload({0x42});
-    auto r1 = svc->dispatcher().dispatch(0x0010, payload);
+    auto r1 = svc->dispatcher().dispatch(nullptr,0x0010, payload);
     EXPECT_TRUE(r1.has_value());
-    auto r2 = svc->dispatcher().dispatch(0x0020, {});
+    auto r2 = svc->dispatcher().dispatch(nullptr,0x0020, {});
     EXPECT_TRUE(r2.has_value());
 
     EXPECT_EQ(svc->call_count, 1);

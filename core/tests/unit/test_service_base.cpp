@@ -20,7 +20,7 @@ public:
 
     void on_stop() override { stop_called = true; }
 
-    void on_echo(uint16_t msg_id, std::span<const uint8_t> payload) {
+    void on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
     }
@@ -41,9 +41,9 @@ public:
         handle(0x0003, &MultiHandlerService::on_msg3);
     }
 
-    void on_msg1(uint16_t, std::span<const uint8_t>) { ++count1; }
-    void on_msg2(uint16_t, std::span<const uint8_t>) { ++count2; }
-    void on_msg3(uint16_t, std::span<const uint8_t>) { ++count3; }
+    void on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; }
+    void on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; }
+    void on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; }
 
     int count1 = 0;
     int count2 = 0;
@@ -77,7 +77,7 @@ TEST(ServiceBase, HandleRegistersAndDispatches) {
     svc->start();
 
     std::vector<uint8_t> data = {0x01, 0x02, 0x03};
-    auto result = svc->dispatcher().dispatch(0x0001, data);
+    auto result = svc->dispatcher().dispatch(nullptr,0x0001, data);
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
@@ -87,7 +87,7 @@ TEST(ServiceBase, UnregisteredMsgReturnsError) {
     auto svc = std::make_unique<EchoService>();
     svc->start();
 
-    auto result = svc->dispatcher().dispatch(0x9999, {});
+    auto result = svc->dispatcher().dispatch(nullptr,0x9999, {});
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
 }
@@ -97,12 +97,12 @@ TEST(ServiceBase, MultipleHandlers) {
     auto svc = std::make_unique<MultiHandlerService>();
     svc->start();
 
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0001, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0001, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0002, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0001, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0001, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0002, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
 
     EXPECT_EQ(svc->count1, 2);
     EXPECT_EQ(svc->count2, 1);

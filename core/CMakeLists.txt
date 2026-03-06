@@ -6,6 +6,7 @@ set(APEX_SCHEMAS
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/heartbeat.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/error_response.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/echo.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/chat_message.fbs
 )
 
 set(APEX_FBS_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -37,6 +38,8 @@ add_library(apex_core STATIC
     src/session.cpp
     src/session_manager.cpp
     src/error_sender.cpp
+    src/tcp_acceptor.cpp
+    src/server.cpp
 )
 add_library(apex::core ALIAS apex_core)
 

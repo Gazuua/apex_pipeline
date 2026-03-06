@@ -1,0 +1,8 @@
+namespace apex.messages;
+
+table ChatMessage {
+    sender_id:uint64;
+    content:string;
+}
+
+root_type ChatMessage;

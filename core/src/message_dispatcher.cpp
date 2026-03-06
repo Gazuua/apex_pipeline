@@ -17,12 +17,12 @@ void MessageDispatcher::unregister_handler(uint16_t msg_id) {
 }
 
 std::expected<void, DispatchError>
-MessageDispatcher::dispatch(uint16_t msg_id, std::span<const uint8_t> payload) const {
+MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const {
     if (!(*handlers_)[msg_id]) {
         return std::unexpected(DispatchError::UnknownMessage);
     }
     try {
-        (*handlers_)[msg_id](msg_id, payload);
+        (*handlers_)[msg_id](session, msg_id, payload);
     } catch (...) {
         return std::unexpected(DispatchError::HandlerFailed);
     }

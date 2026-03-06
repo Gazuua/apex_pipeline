@@ -24,13 +24,13 @@ public:
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    void on_echo(uint16_t msg_id, std::span<const uint8_t> payload) {
+    void on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
     }
 
-    void on_ping(uint16_t, std::span<const uint8_t>) {
+    void on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
         ++ping_count;
     }
 
@@ -60,7 +60,7 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
     EXPECT_EQ(frame->payload.size(), 6);
 
     // 4. Dispatch to service
-    auto result = service->dispatcher().dispatch(
+    auto result = service->dispatcher().dispatch(nullptr,
         frame->header.msg_id, frame->payload);
     ASSERT_TRUE(result.has_value());
 
@@ -92,7 +92,7 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     // TQ2: Decode and dispatch all frames — verify dispatch return values
     int frames_processed = 0;
     while (auto frame = FrameCodec::try_decode(buf)) {
-        auto result = service->dispatcher().dispatch(frame->header.msg_id, frame->payload);
+        auto result = service->dispatcher().dispatch(nullptr,frame->header.msg_id, frame->payload);
         EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
@@ -115,7 +115,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
     auto frame = FrameCodec::try_decode(buf);
     ASSERT_TRUE(frame.has_value());
 
-    auto result = service->dispatcher().dispatch(
+    auto result = service->dispatcher().dispatch(nullptr,
         frame->header.msg_id, frame->payload);
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
