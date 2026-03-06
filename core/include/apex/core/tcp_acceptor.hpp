@@ -4,6 +4,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 
@@ -33,7 +34,7 @@ public:
     [[nodiscard]] uint16_t port() const noexcept;
 
     /// 실행 중 여부.
-    [[nodiscard]] bool running() const noexcept { return running_; }
+    [[nodiscard]] bool running() const noexcept { return running_.load(std::memory_order_relaxed); }
 
 private:
     /// C-3: 재귀 콜백 대신 코루틴 루프 — [this] 캡처 댕글링 제거.
@@ -42,7 +43,7 @@ private:
     boost::asio::io_context& io_ctx_;
     boost::asio::ip::tcp::acceptor acceptor_;
     AcceptCallback on_accept_;
-    bool running_{false};
+    std::atomic<bool> running_{false};
 };
 
 } // namespace apex::core

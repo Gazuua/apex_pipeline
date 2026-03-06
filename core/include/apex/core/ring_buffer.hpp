@@ -62,7 +62,7 @@ public:
 
 private:
     uint8_t* buffer_;
-    uint8_t* linear_buf_;     // linearization scratch buffer (allocated on first use)
+    uint8_t* linear_buf_{nullptr};     // linearization scratch buffer (allocated on first use)
     size_t capacity_;
     size_t mask_;             // capacity_ - 1
     size_t read_pos_{0};

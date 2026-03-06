@@ -11,6 +11,7 @@
 #include <boost/asio/write.hpp>
 
 #include <array>
+#include <cassert>
 #include <cstring>
 
 namespace apex::core {
@@ -24,12 +25,14 @@ Server::Server(boost::asio::io_context& io_ctx, Config config)
       })
     , tick_timer_(io_ctx)
 {
+    assert(config_.recv_buf_capacity >= TMP_BUF_SIZE &&
+           "recv_buf_capacity must be >= TMP_BUF_SIZE");
 }
 
 Server::~Server() {
     // 소멸자에서는 직접 정리 (post 불필요 — io_ctx가 이미 멈춘 상태)
-    if (!running_) return;
-    running_ = false;
+    if (!running_.load(std::memory_order_relaxed)) return;
+    running_.store(false, std::memory_order_relaxed);
     acceptor_.stop();
     tick_timer_.cancel();
     session_mgr_.for_each([](SessionPtr session) {
@@ -41,8 +44,7 @@ Server::~Server() {
 }
 
 void Server::start() {
-    if (running_) return;
-    running_ = true;
+    if (running_.exchange(true)) return;
 
     for (auto& svc : services_) {
         svc->start();
@@ -55,11 +57,12 @@ void Server::start() {
     }
 }
 
+// NOTE: post된 핸들러가 실행되기 전 Server가 소멸하면 UB.
+// 전제 조건: io_ctx.run()이 완료된 후에만 Server를 소멸시킬 것.
 // I-5: 스레드 안전 — 내부 post 가드.
 void Server::stop() {
     boost::asio::post(io_ctx_, [this]() {
-        if (!running_) return;
-        running_ = false;
+        if (!running_.exchange(false)) return;
 
         acceptor_.stop();
         tick_timer_.cancel();
@@ -132,8 +135,9 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
     auto& recv_buf = session->recv_buffer();
 
     while (auto frame = FrameCodec::try_decode(recv_buf)) {
-        // SAFETY: read_loop이 co_await 중이므로 recv_buf에 새 데이터가 쓰이지 않으며,
-        // linearize()가 재호출되지 않아 frame->payload span이 유효함.
+        // SAFETY: 단일 io_context 스레드에서 read_loop -> process_frames가 순차 실행되므로,
+        // co_await 중에도 이 세션의 recv_buf에 새 데이터가 쓰이지 않는다.
+        // 따라서 linearize() 결과인 frame->payload span은 consume_frame() 전까지 유효하다.
         auto result = co_await dispatcher_.dispatch(
             session, frame->header.msg_id, frame->payload);
 
@@ -148,13 +152,15 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
     }
 }
 
+// NOTE: [this] 캡처 — Server가 tick_timer_보다 오래 살아야 함.
+// 소멸자에서 tick_timer_.cancel()로 보장됨.
 void Server::start_tick_timer() {
-    if (!running_) return;
+    if (!running_.load(std::memory_order_relaxed)) return;
 
     tick_timer_.expires_after(
         std::chrono::milliseconds(config_.tick_interval_ms));
     tick_timer_.async_wait([this](boost::system::error_code ec) {
-        if (ec || !running_) return;
+        if (ec || !running_.load(std::memory_order_relaxed)) return;
         session_mgr_.tick();
         start_tick_timer();
     });

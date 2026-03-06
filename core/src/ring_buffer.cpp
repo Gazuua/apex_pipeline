@@ -13,8 +13,7 @@
 namespace apex::core {
 
 RingBuffer::RingBuffer(size_t capacity)
-    : linear_buf_(nullptr)
-    , capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
+    : capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
     , mask_(capacity_ - 1)
 {
     if (capacity_ == 0) {

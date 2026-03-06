@@ -59,7 +59,10 @@ private:
 
 int main(int argc, char* argv[]) {
     uint16_t port = 9000;
-    if (argc >= 2) port = static_cast<uint16_t>(std::atoi(argv[1]));
+    if (argc >= 2) {
+        int p = std::atoi(argv[1]);
+        if (p > 0 && p <= 65535) port = static_cast<uint16_t>(p);
+    }
 
     std::cout << "=== Apex Pipeline Echo Server v0.2.1 ===\n"
               << "Port: " << port << "\n\n";

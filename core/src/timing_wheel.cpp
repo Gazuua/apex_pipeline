@@ -51,6 +51,7 @@ uint64_t TimingWheel::compute_deadline(uint32_t ticks_from_now) const {
 }
 
 TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
+    assert(ticks_from_now < num_slots_ && "ticks_from_now must be < num_slots");
     EntryId id;
     if (!free_ids_.empty()) {
         id = free_ids_.back();
@@ -110,23 +111,23 @@ void TimingWheel::tick() {
     size_t slot_idx = current_tick_ & mask_;
 
     // Phase 1: Collect expired entries
-    std::vector<Entry*> expired;
+    expired_buf_.clear();
     Entry* entry = slots_[slot_idx].head;
     while (entry) {
         Entry* next = entry->next;
         if (!entry->cancelled && entry->deadline_tick == current_tick_) {
-            expired.push_back(entry);
+            expired_buf_.push_back(entry);
         }
         entry = next;
     }
 
     // Phase 2: Remove from slot (safe — no callbacks yet)
-    for (auto* e : expired) {
+    for (auto* e : expired_buf_) {
         remove_entry(e, slot_idx);
     }
 
     // Phase 3: 엔트리 정리 후 콜백 호출 (콜백 내 cancel() 재진입 시 UAF 방지)
-    for (auto* e : expired) {
+    for (auto* e : expired_buf_) {
         EntryId expired_id = e->id;
         entries_[expired_id] = nullptr;
         free_ids_.push_back(expired_id);

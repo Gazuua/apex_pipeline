@@ -2,6 +2,7 @@
 #include <apex/core/wire_header.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <generated/echo_generated.h>
+#include "../test_helpers.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -16,23 +17,8 @@
 #include <vector>
 
 using namespace apex::core;
+using apex::test::run_coro;
 using boost::asio::awaitable;
-
-// awaitable을 동기적으로 실행하는 헬퍼
-template <typename T>
-T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    return future.get();
-}
-
-inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    future.get();
-}
 
 static std::vector<uint8_t> build_echo_payload(const std::vector<uint8_t>& data) {
     flatbuffers::FlatBufferBuilder builder(256);

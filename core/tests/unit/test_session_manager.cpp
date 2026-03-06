@@ -1,31 +1,25 @@
 #include <apex/core/session_manager.hpp>
+#include "../test_helpers.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
 #include <gtest/gtest.h>
 
+#include <set>
+
 using namespace apex::core;
+using apex::test::make_socket_pair;
 using boost::asio::ip::tcp;
 
 class SessionManagerTest : public ::testing::Test {
 protected:
     boost::asio::io_context io_ctx_;
-
-    std::pair<tcp::socket, tcp::socket> make_socket_pair() {
-        tcp::acceptor acceptor(io_ctx_, tcp::endpoint(tcp::v4(), 0));
-        auto port = acceptor.local_endpoint().port();
-        tcp::socket client(io_ctx_);
-        client.connect(tcp::endpoint(
-            boost::asio::ip::address_v4::loopback(), port));
-        auto server = acceptor.accept();
-        return {std::move(server), std::move(client)};
-    }
 };
 
 TEST_F(SessionManagerTest, CreateAndFindSession) {
-    SessionManager mgr(0, 300, 64);
-    auto [server, client] = make_socket_pair();
+    SessionManager mgr(0, 300, 512);
+    auto [server, client] = make_socket_pair(io_ctx_);
 
     auto session = mgr.create_session(std::move(server));
     ASSERT_NE(session, nullptr);
@@ -40,8 +34,8 @@ TEST_F(SessionManagerTest, CreateAndFindSession) {
 }
 
 TEST_F(SessionManagerTest, RemoveSession) {
-    SessionManager mgr(0, 300, 64);
-    auto [server, client] = make_socket_pair();
+    SessionManager mgr(0, 300, 512);
+    auto [server, client] = make_socket_pair(io_ctx_);
 
     auto session = mgr.create_session(std::move(server));
     auto id = session->id();
@@ -55,7 +49,7 @@ TEST_F(SessionManagerTest, RemoveSession) {
 
 TEST_F(SessionManagerTest, HeartbeatTimeout) {
     SessionManager mgr(0, 3, 8);
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
     mgr.set_timeout_callback([&](SessionPtr s) {
@@ -82,7 +76,7 @@ TEST_F(SessionManagerTest, HeartbeatTimeout) {
 
 TEST_F(SessionManagerTest, TouchResetsTimeout) {
     SessionManager mgr(0, 3, 8);
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
     mgr.set_timeout_callback([&](SessionPtr s) {
@@ -111,11 +105,11 @@ TEST_F(SessionManagerTest, TouchResetsTimeout) {
 }
 
 TEST_F(SessionManagerTest, MultipleSessions) {
-    SessionManager mgr(0, 300, 64);
+    SessionManager mgr(0, 300, 512);
     std::vector<tcp::socket> clients;
 
     for (int i = 0; i < 5; ++i) {
-        auto [server, client] = make_socket_pair();
+        auto [server, client] = make_socket_pair(io_ctx_);
         [[maybe_unused]] auto s = mgr.create_session(std::move(server));
         clients.push_back(std::move(client));
     }
@@ -127,7 +121,7 @@ TEST_F(SessionManagerTest, MultipleSessions) {
 
 TEST_F(SessionManagerTest, DisabledHeartbeat) {
     SessionManager mgr(0, 0, 8);
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
     mgr.set_timeout_callback([&](SessionPtr s) {
@@ -142,4 +136,43 @@ TEST_F(SessionManagerTest, DisabledHeartbeat) {
     EXPECT_EQ(mgr.session_count(), 1u);
 
     client.close();
+}
+
+TEST_F(SessionManagerTest, ForEachVisitsAllSessions) {
+    SessionManager mgr(0, 300, 512);
+    std::vector<tcp::socket> clients;
+    std::set<SessionId> expected_ids;
+
+    for (int i = 0; i < 3; ++i) {
+        auto [server, client] = make_socket_pair(io_ctx_);
+        auto s = mgr.create_session(std::move(server));
+        expected_ids.insert(s->id());
+        clients.push_back(std::move(client));
+    }
+
+    std::set<SessionId> visited_ids;
+    mgr.for_each([&](SessionPtr s) {
+        visited_ids.insert(s->id());
+    });
+
+    EXPECT_EQ(visited_ids, expected_ids);
+
+    for (auto& c : clients) c.close();
+}
+
+TEST_F(SessionManagerTest, FindNonExistentReturnsNull) {
+    SessionManager mgr(0, 300, 512);
+    EXPECT_EQ(mgr.find_session(9999), nullptr);
+}
+
+TEST_F(SessionManagerTest, RemoveNonExistentIsSafe) {
+    SessionManager mgr(0, 300, 512);
+    mgr.remove_session(9999);  // must not crash
+    EXPECT_EQ(mgr.session_count(), 0u);
+}
+
+TEST_F(SessionManagerTest, TouchNonExistentIsSafe) {
+    SessionManager mgr(0, 300, 512);
+    mgr.touch_session(9999);  // must not crash
+    EXPECT_EQ(mgr.session_count(), 0u);
 }

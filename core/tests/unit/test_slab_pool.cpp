@@ -1,5 +1,6 @@
 #include <apex/core/slab_pool.hpp>
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <vector>
 #include <set>
 
@@ -68,6 +69,10 @@ struct TestObj {
     float y;
     TestObj(int x, float y) : x(x), y(y) {}
 };
+
+TEST(SlabPool, ZeroInitialCountThrows) {
+    EXPECT_THROW(SlabPool(64, 0), std::invalid_argument);
+}
 
 TEST(TypedSlabPool, ConstructAndDestroy) {
     TypedSlabPool<TestObj> pool(10);

@@ -7,6 +7,8 @@
 namespace apex::core {
 namespace {
 
+// NOTE: 호스트가 little-endian임을 가정 (x86/x64 전용).
+// big-endian 포팅 시 std::endian 체크 추가 필요.
 #ifdef _MSC_VER
 inline uint16_t hton16(uint16_t v) { return _byteswap_ushort(v); }
 inline uint32_t hton32(uint32_t v) { return _byteswap_ulong(v); }

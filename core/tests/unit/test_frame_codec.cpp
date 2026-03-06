@@ -189,6 +189,50 @@ TEST(FrameCodec, EncodeBodySizeMismatch) {
     EXPECT_EQ(buf.readable_size(), 0u);  // nothing written
 }
 
+TEST(FrameCodec, EncodeWrapAround) {
+    // Use a small RingBuffer to force wrap-around
+    RingBuffer buf(64);
+
+    // Write 50 bytes and consume to advance write/read positions near the end
+    std::vector<uint8_t> filler(50, 0xAA);
+    write_to_buf(buf, filler);
+    buf.consume(50);
+
+    // Now write_pos is at 50, read_pos is at 50. Remaining contiguous space = 14.
+    // Encode a frame that wraps around the boundary
+    std::array<uint8_t, 8> payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    WireHeader h{.msg_id = 42, .body_size = 8};
+
+    // Total frame size = WireHeader::SIZE(10) + 8 = 18 bytes, which exceeds
+    // the 14 bytes of contiguous space, requiring wrap-around
+    ASSERT_TRUE(FrameCodec::encode(buf, h, payload));
+
+    // Decode and verify the wrapped frame is correct
+    auto result = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->header.msg_id, 42u);
+    EXPECT_EQ(result->header.body_size, 8u);
+    ASSERT_EQ(result->payload.size(), 8u);
+    for (size_t i = 0; i < 8; ++i) {
+        EXPECT_EQ(result->payload[i], payload[i]);
+    }
+}
+
+TEST(FrameCodec, EncodeInsufficientSpace) {
+    // Create a small buffer and fill it almost completely
+    RingBuffer buf(32);
+
+    // Fill with data leaving insufficient space for a new frame
+    std::vector<uint8_t> filler(30, 0xBB);
+    write_to_buf(buf, filler);
+
+    // Try to encode a frame that won't fit
+    std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
+    WireHeader h{.msg_id = 1, .body_size = 4};
+    // Total needed: WireHeader::SIZE(10) + 4 = 14, but only 2 bytes free
+    EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
+}
+
 TEST(FrameCodec, EncodeToBufferTooSmall) {
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     WireHeader h{.msg_id = 1, .body_size = 4};

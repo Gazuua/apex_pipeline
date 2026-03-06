@@ -38,7 +38,9 @@ public:
     [[nodiscard]] void* allocate();
 
     /// O(1) deallocation. Returns the slot to the free-list. NOT thread-safe.
-    /// @param ptr Must have been allocated from this pool.
+    /// @pre ptr은 반드시 이 풀에서 allocate()로 할당된 포인터여야 한다.
+    /// @warning Release 빌드에서는 소유권 검증이 비활성화됨 (assert 기반).
+    ///          double-free 시 정의되지 않은 동작.
     void deallocate(void* ptr) noexcept;
 
     /// Number of currently allocated (in-use) slots.
@@ -96,6 +98,8 @@ public:
     }
 
     void destroy(T* ptr) noexcept {
+        static_assert(std::is_nothrow_destructible_v<T>,
+            "T destructor must be noexcept for TypedSlabPool::destroy");
         if (ptr) {
             ptr->~T();
             pool_.deallocate(ptr);

@@ -58,6 +58,22 @@ TEST(TcpAcceptor, MultipleConnections) {
     t.join();
 }
 
+TEST(TcpAcceptor, DoubleStartIsSafe) {
+    boost::asio::io_context io_ctx;
+    std::atomic<int> accept_count{0};
+
+    TcpAcceptor acceptor(io_ctx, 0, [&](tcp::socket) { ++accept_count; });
+    acceptor.start();
+    EXPECT_TRUE(acceptor.running());
+
+    // Second start -- must not crash
+    acceptor.start();
+    EXPECT_TRUE(acceptor.running());
+
+    acceptor.stop();
+    io_ctx.run();
+}
+
 TEST(TcpAcceptor, StopPreventsNewAccepts) {
     boost::asio::io_context io_ctx;
     std::atomic<int> accept_count{0};

@@ -1,5 +1,6 @@
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
+#include "../test_helpers.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -11,43 +12,18 @@
 #include <gtest/gtest.h>
 
 using namespace apex::core;
+using apex::test::run_coro;
+using apex::test::make_socket_pair;
 using boost::asio::ip::tcp;
 using boost::asio::awaitable;
-
-// awaitable을 동기적으로 실행하는 헬퍼
-template <typename T>
-T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    return future.get();
-}
-
-inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    future.get();
-}
 
 class SessionTest : public ::testing::Test {
 protected:
     boost::asio::io_context io_ctx_;
-
-    std::pair<tcp::socket, tcp::socket> make_socket_pair() {
-        tcp::acceptor acceptor(io_ctx_, tcp::endpoint(tcp::v4(), 0));
-        auto port = acceptor.local_endpoint().port();
-
-        tcp::socket client(io_ctx_);
-        client.connect(tcp::endpoint(
-            boost::asio::ip::address_v4::loopback(), port));
-        auto server = acceptor.accept();
-        return {std::move(server), std::move(client)};
-    }
 };
 
 TEST_F(SessionTest, InitialState) {
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0);
 
     EXPECT_EQ(session.id(), 1u);
@@ -59,7 +35,7 @@ TEST_F(SessionTest, InitialState) {
 }
 
 TEST_F(SessionTest, SendFrame) {
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
     auto session = std::make_shared<Session>(1, std::move(server), 0);
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -80,7 +56,7 @@ TEST_F(SessionTest, SendFrame) {
 }
 
 TEST_F(SessionTest, SendAfterClose) {
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
     auto session = std::make_shared<Session>(1, std::move(server), 0);
 
     session->close();
@@ -96,11 +72,62 @@ TEST_F(SessionTest, SendAfterClose) {
 }
 
 TEST_F(SessionTest, RecvBufferAccessible) {
-    auto [server, client] = make_socket_pair();
+    auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0, 4096);
 
     EXPECT_EQ(session.recv_buffer().capacity(), 4096u);
     EXPECT_EQ(session.recv_buffer().readable_size(), 0u);
+
+    client.close();
+}
+
+TEST_F(SessionTest, SendRawSucceeds) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto session = std::make_shared<Session>(1, std::move(server), 0);
+
+    // Build a raw frame: WireHeader + payload
+    std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
+    WireHeader header{.msg_id = 0x0077,
+                      .body_size = static_cast<uint32_t>(payload.size())};
+    auto hdr_bytes = header.serialize();
+    std::vector<uint8_t> raw_frame(hdr_bytes.begin(), hdr_bytes.end());
+    raw_frame.insert(raw_frame.end(), payload.begin(), payload.end());
+
+    bool sent = run_coro(io_ctx_, session->async_send_raw(raw_frame));
+    EXPECT_TRUE(sent);
+
+    // Receive and verify on the client side
+    std::vector<uint8_t> received(raw_frame.size());
+    boost::asio::read(client, boost::asio::buffer(received));
+    EXPECT_EQ(received, raw_frame);
+
+    client.close();
+}
+
+TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto session = std::make_shared<Session>(1, std::move(server), 0);
+
+    session->close();
+    EXPECT_EQ(session->state(), Session::State::Closed);
+
+    std::vector<uint8_t> data = {0x01, 0x02};
+    bool sent = run_coro(io_ctx_, session->async_send_raw(data));
+    EXPECT_FALSE(sent);
+
+    client.close();
+}
+
+TEST_F(SessionTest, DoubleCloseIsSafe) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto session = std::make_shared<Session>(1, std::move(server), 0);
+
+    session->close();
+    EXPECT_EQ(session->state(), Session::State::Closed);
+
+    // Second close -- must not crash
+    session->close();
+    EXPECT_EQ(session->state(), Session::State::Closed);
 
     client.close();
 }

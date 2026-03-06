@@ -29,6 +29,7 @@ std::vector<uint8_t> ErrorSender::build_error_frame(
     auto payload_size = builder.GetSize();
 
     WireHeader header{
+        .version = WireHeader::CURRENT_VERSION,
         .msg_id = original_msg_id,
         .body_size = static_cast<uint32_t>(payload_size),
         .flags = wire_flags::ERROR_RESPONSE,

@@ -10,11 +10,21 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
 namespace apex::core {
+
+/// Server 설정 구조체. (C-3: clang designated-initializer 호환을 위해 외부 정의)
+struct ServerConfig {
+    uint16_t port = 9000;
+    uint32_t heartbeat_timeout_ticks = 300;  // 0 = 비활성화
+    uint32_t tick_interval_ms = 100;
+    size_t recv_buf_capacity = 8192;
+    size_t timer_wheel_slots = 1024;
+};
 
 /// 모든 프레임워크 컴포넌트를 엮는 최상위 서버 클래스.
 ///
@@ -26,13 +36,7 @@ namespace apex::core {
 ///   io_ctx.run();
 class Server {
 public:
-    struct Config {
-        uint16_t port = 9000;
-        uint32_t heartbeat_timeout_ticks = 300;  // 0 = 비활성화
-        uint32_t tick_interval_ms = 100;
-        size_t recv_buf_capacity = 8192;
-        size_t timer_wheel_slots = 1024;
-    };
+    using Config = ServerConfig;
 
     explicit Server(boost::asio::io_context& io_ctx, Config config = {});
     ~Server();
@@ -62,7 +66,7 @@ public:
     /// 접근자.
     [[nodiscard]] SessionManager& session_manager() noexcept { return session_mgr_; }
     [[nodiscard]] MessageDispatcher& dispatcher() noexcept { return dispatcher_; }
-    [[nodiscard]] bool running() const noexcept { return running_; }
+    [[nodiscard]] bool running() const noexcept { return running_.load(std::memory_order_relaxed); }
 
 private:
     /// 코루틴 메서드 (재귀 콜백 대체). (C-3, C-4, C-5)
@@ -81,7 +85,7 @@ private:
     SessionManager session_mgr_;
     TcpAcceptor acceptor_;
     boost::asio::steady_timer tick_timer_;
-    bool running_{false};
+    std::atomic<bool> running_{false};
 
     std::vector<std::unique_ptr<ServiceBaseInterface>> services_;
 

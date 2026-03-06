@@ -1,4 +1,5 @@
 #include <apex/core/service_base.hpp>
+#include "../test_helpers.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -13,23 +14,8 @@
 #include <vector>
 
 using namespace apex::core;
+using apex::test::run_coro;
 using boost::asio::awaitable;
-
-// awaitable을 동기적으로 실행하는 헬퍼
-template <typename T>
-T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    return future.get();
-}
-
-inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
-    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
-    ctx.run();
-    ctx.restart();
-    future.get();
-}
 
 class EchoService : public ServiceBase<EchoService> {
 public:
@@ -141,4 +127,25 @@ TEST(ServiceBase, DispatcherHandlerCount) {
 
     svc->start();
     EXPECT_EQ(svc->dispatcher().handler_count(), 3u);
+}
+
+TEST(ServiceBase, BindExternalDispatcher) {
+    boost::asio::io_context io_ctx;
+    auto external_dispatcher = std::make_unique<MessageDispatcher>();
+    auto svc = std::make_unique<EchoService>();
+
+    // Bind external dispatcher before start
+    svc->bind_dispatcher(*external_dispatcher);
+    svc->start();
+
+    // Verify handler is registered on the external dispatcher
+    EXPECT_TRUE(external_dispatcher->has_handler(0x0001));
+    EXPECT_EQ(external_dispatcher->handler_count(), 1u);
+
+    // Dispatch via external dispatcher should reach the service
+    std::vector<uint8_t> data = {0xAA, 0xBB};
+    auto result = run_coro(io_ctx, external_dispatcher->dispatch(nullptr, 0x0001, data));
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(svc->last_msg_id, 0x0001);
+    EXPECT_EQ(svc->last_payload, data);
 }

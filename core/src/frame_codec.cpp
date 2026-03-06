@@ -1,6 +1,7 @@
 #include <apex/core/frame_codec.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 namespace apex::core {
@@ -11,8 +12,12 @@ FrameCodec::try_decode(RingBuffer& buf) {
         return std::unexpected(FrameError::InsufficientData);
     }
 
-    auto header_span = buf.linearize(WireHeader::SIZE);
-    auto parse_result = WireHeader::parse(header_span);
+    // 헤더를 로컬 배열로 복사 — 이후 linearize() 호출이 이 데이터를 무효화하지 않음
+    std::array<uint8_t, WireHeader::SIZE> hdr_buf;
+    auto hdr_span = buf.linearize(WireHeader::SIZE);
+    std::memcpy(hdr_buf.data(), hdr_span.data(), WireHeader::SIZE);
+
+    auto parse_result = WireHeader::parse(hdr_buf);
 
     if (!parse_result) {
         auto err = parse_result.error();
@@ -29,8 +34,8 @@ FrameCodec::try_decode(RingBuffer& buf) {
         return std::unexpected(FrameError::InsufficientData);
     }
 
-    // NOTE: This linearize() call may invalidate the span from the previous linearize() call.
-    // This is safe because we already copied the header by value above.
+    // NOTE: 이 linearize()는 hdr_span을 무효화할 수 있지만,
+    // 이미 hdr_buf에 복사했으므로 안전하다.
     auto frame_span = buf.linearize(total);
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 
