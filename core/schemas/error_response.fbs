@@ -1,0 +1,8 @@
+namespace apex.messages;
+
+table ErrorResponse {
+    code:uint16;
+    message:string;
+}
+
+root_type ErrorResponse;

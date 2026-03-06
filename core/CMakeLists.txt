@@ -1,5 +1,31 @@
 find_package(Boost REQUIRED)
+find_package(flatbuffers CONFIG REQUIRED)
 
+# --- FlatBuffers 스키마 컴파일 ---
+set(APEX_SCHEMAS
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/heartbeat.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/error_response.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/echo.fbs
+)
+
+set(APEX_FBS_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${APEX_FBS_GENERATED_DIR})
+
+foreach(SCHEMA ${APEX_SCHEMAS})
+    get_filename_component(SCHEMA_NAME ${SCHEMA} NAME_WE)
+    set(GENERATED_HEADER ${APEX_FBS_GENERATED_DIR}/${SCHEMA_NAME}_generated.h)
+    add_custom_command(
+        OUTPUT ${GENERATED_HEADER}
+        COMMAND flatbuffers::flatc --cpp -o ${APEX_FBS_GENERATED_DIR} ${SCHEMA}
+        DEPENDS ${SCHEMA}
+        COMMENT "FlatBuffers: ${SCHEMA_NAME}.fbs"
+    )
+    list(APPEND APEX_FBS_GENERATED_HEADERS ${GENERATED_HEADER})
+endforeach()
+
+add_custom_target(apex_fbs_generate DEPENDS ${APEX_FBS_GENERATED_HEADERS})
+
+# --- 라이브러리 ---
 add_library(apex_core STATIC
     src/slab_pool.cpp
     src/ring_buffer.cpp
@@ -8,18 +34,24 @@ add_library(apex_core STATIC
     src/message_dispatcher.cpp
     src/wire_header.cpp
     src/frame_codec.cpp
+    src/session.cpp
+    src/session_manager.cpp
 )
 add_library(apex::core ALIAS apex_core)
+
+add_dependencies(apex_core apex_fbs_generate)
 
 target_include_directories(apex_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
         $<INSTALL_INTERFACE:include>
 )
 
 target_link_libraries(apex_core
     PUBLIC
         Boost::boost
+        flatbuffers::flatbuffers
 )
 
 target_compile_features(apex_core PUBLIC cxx_std_23)

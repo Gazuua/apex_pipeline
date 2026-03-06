@@ -21,3 +21,9 @@ apex_add_unit_test(test_message_dispatcher test_message_dispatcher.cpp)
 apex_add_unit_test(test_service_base test_service_base.cpp)
 apex_add_unit_test(test_wire_header test_wire_header.cpp)
 apex_add_unit_test(test_frame_codec test_frame_codec.cpp)
+
+# Phase 4 tests
+apex_add_unit_test(test_session test_session.cpp)
+apex_add_unit_test(test_session_manager test_session_manager.cpp)
+apex_add_unit_test(test_error_propagation test_error_propagation.cpp)
+apex_add_unit_test(test_flatbuffers_dispatch test_flatbuffers_dispatch.cpp)
