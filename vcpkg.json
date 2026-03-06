@@ -3,6 +3,7 @@
   "name": "apex-pipeline",
   "version-semver": "0.1.0",
   "description": "Apex Pipeline - High-performance real-time server framework",
+  "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01",
   "dependencies": [
     {
       "name": "boost-asio",
