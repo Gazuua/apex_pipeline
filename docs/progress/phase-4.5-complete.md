@@ -1,0 +1,108 @@
+# Phase 4.5 Complete
+
+## 목표
+프레임워크 컴포넌트를 하나로 엮는 Server 클래스 + TcpAcceptor + E2E 테스트 + Echo/Chat 예제 → **v0.2.0**
+
+## 구현된 컴포넌트
+
+### Breaking Change: 핸들러 시그니처 변경
+- **Handler**: `(uint16_t, span<const uint8_t>)` → `(SessionPtr, uint16_t, span<const uint8_t>)`
+- **dispatch()**: `dispatch(msg_id, payload)` → `dispatch(session, msg_id, payload)`
+- **handle()/route<T>()**: 핸들러 메서드 첫 인자에 `SessionPtr` 추가
+- 기존 테스트 4개 일괄 수정 (pre-v1.0이므로 하위 호환 불필요)
+
+### ServiceBaseInterface 추출
+- `ServiceBaseInterface` - 비템플릿 가상 인터페이스 (start/stop/name/started/bind_dispatcher)
+- `ServiceBase<T>`가 `ServiceBaseInterface` 상속
+- `bind_dispatcher()` - Server가 공유 디스패처를 바인딩, 기존 standalone 사용도 유지
+
+### TcpAcceptor
+- 재사용 가능한 비동기 TCP accept 루프
+- port=0 전달 시 OS가 할당한 포트 반환
+- start()/stop()/port()/running() 인터페이스
+
+### Server (최상위 통합)
+- accept → Session 생성 → async_read_some → RingBuffer 복사 → FrameCodec 디코딩 → dispatch
+- 미등록 메시지 → ErrorSender로 에러 응답 자동 전송
+- heartbeat tick timer (config.heartbeat_timeout_ticks > 0일 때 활성화)
+- graceful shutdown (세션 전부 close + 서비스 stop)
+- `add_service<T>()` 템플릿으로 서비스 등록 (bind_dispatcher 자동 호출)
+
+### SessionManager 확장
+- `for_each(fn)` - 모든 활성 세션 순회 (브로드캐스트 용도)
+
+### 예제
+- **Echo Server v0.2.0** - Server 기반 재작성 (190줄 → 80줄), FlatBuffers route<T> 사용
+- **Chat Server** - 크로스 세션 브로드캐스트 시연, SessionManager::for_each 활용
+
+## 신규 파일
+- `core/include/apex/core/tcp_acceptor.hpp`
+- `core/include/apex/core/server.hpp`
+- `core/src/tcp_acceptor.cpp`
+- `core/src/server.cpp`
+- `core/schemas/chat_message.fbs`
+- `core/examples/chat_server.cpp`
+- `core/tests/unit/test_tcp_acceptor.cpp`
+- `core/tests/integration/test_server_e2e.cpp`
+
+## 수정된 파일
+- `core/include/apex/core/message_dispatcher.hpp` (Handler 시그니처 + dispatch 시그니처)
+- `core/src/message_dispatcher.cpp` (dispatch에 session 전달)
+- `core/include/apex/core/service_base.hpp` (ServiceBaseInterface 추출, bind_dispatcher)
+- `core/include/apex/core/session_manager.hpp` (for_each 추가)
+- `core/src/session_manager.cpp` (for_each 구현)
+- `core/examples/echo_server.cpp` (Server 기반 재작성)
+- `core/examples/CMakeLists.txt` (chat_server 추가)
+- `core/CMakeLists.txt` (tcp_acceptor.cpp, server.cpp, chat_message.fbs)
+- `core/tests/unit/test_message_dispatcher.cpp` (SessionPtr 시그니처)
+- `core/tests/unit/test_service_base.cpp` (SessionPtr 시그니처)
+- `core/tests/unit/test_flatbuffers_dispatch.cpp` (SessionPtr 시그니처)
+- `core/tests/integration/test_pipeline_integration.cpp` (SessionPtr 시그니처)
+- `core/tests/unit/CMakeLists.txt` (test_tcp_acceptor)
+- `core/tests/integration/CMakeLists.txt` (test_server_e2e)
+
+## 테스트 현황
+- Phase 4.5 신규: 9개 테스트 (2 스위트)
+  - TcpAcceptor: 3개 (AcceptConnection, MultipleConnections, StopPreventsNewAccepts)
+  - ServerE2E: 6개 (ServerAcceptAndEcho, MultipleClients, InvalidMessageErrorResponse, GracefulShutdown, HeartbeatTimeoutDisconnect, ChatBroadcast)
+- 전체 누적: 17개 테스트 스위트, 전부 통과
+
+## 실행 패턴
+- Task 1 (순차): 시그니처 변경 + ServiceBaseInterface + 스텁 생성
+- Task 2 (Agent A, 병렬): TcpAcceptor 구현 + 테스트
+- Task 3 (Agent B, 병렬): Server 구현
+- Task 4 (순차): 예제 + E2E 테스트
+- Task 5 (순차): 클린 빌드 검증 + v0.2.0 태그
+
+## 발견된 이슈 및 해결
+
+### Windows IOCP 소켓 충돌
+- **증상**: E2E 테스트에서 SEH exception 0xc0000005 (접근 위반)
+- **원인**: 서버와 클라이언트 소켓이 같은 io_context 사용 시 Windows IOCP 내부 상태 충돌
+- **해결**: 클라이언트 소켓 전용 별도 `boost::asio::io_context` 사용
+
+### 스레드 안전 server.stop()
+- **증상**: stop()을 테스트 스레드에서 직접 호출 시 서버 스레드와 레이스 컨디션
+- **해결**: `boost::asio::post(io_ctx_, [&] { server.stop(); })` — io_ctx_ 스레드에서 실행
+
+### std::vector<tcp::socket> 재할당
+- **증상**: push_back 시 vector 재할당으로 기존 소켓 이동, IOCP 핸들 문제
+- **해결**: 개별 변수 + 포인터 배열 사용, 또는 reserve로 재할당 방지
+
+## Phase 2-4 컴포넌트 활용 현황
+| 컴포넌트 | Phase 4.5 활용 |
+|----------|---------------|
+| RingBuffer | Session 수신 버퍼 → Server::do_read에서 복사 |
+| TimingWheel | SessionManager 하트비트 → Server::start_tick_timer |
+| WireHeader | 프레임 직렬화/파싱 → E2E 테스트 헬퍼 |
+| FrameCodec | Server::process_frames에서 프레임 디코딩 |
+| MessageDispatcher | Server 공유 디스패처 → 서비스 핸들러 등록 |
+| ServiceBase | EchoService, ChatService, TestEchoService, TestChatService |
+| Session | Server::do_read 수신 + send 응답 |
+| SessionManager | Server 세션 생성/제거/하트비트/브로드캐스트 |
+| ErrorSender | Server::process_frames에서 미등록 메시지 에러 응답 |
+
+## 커밋 히스토리
+- `f15dbd8` - Phase 4.5 시그니처 변경 + ServiceBaseInterface + 스텁 (Task 1)
+- `0d1832a` - Phase 4.5 Server 통합 + TcpAcceptor + E2E 테스트 (Task 2-5)
+- `v0.2.0` 태그 → `0d1832a`
