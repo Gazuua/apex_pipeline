@@ -1,0 +1,50 @@
+#pragma once
+
+#include <apex/core/ring_buffer.hpp>
+#include <apex/core/wire_header.hpp>
+
+#include <cstdint>
+#include <expected>
+#include <span>
+
+namespace apex::core {
+
+/// Result of a successful frame extraction.
+struct Frame {
+    WireHeader header;
+    std::span<const uint8_t> payload;  // points into RingBuffer (zero-copy when possible)
+};
+
+enum class FrameError : uint8_t {
+    InsufficientData,
+    HeaderParseError,
+    BodyTooLarge,
+};
+
+/// Stateless frame codec. Extracts complete frames from a RingBuffer.
+/// Uses RingBuffer::linearize() for zero-copy access when possible.
+///
+/// Usage:
+///   RingBuffer buf(4096);
+///   // ... recv data into buf ...
+///   while (auto frame = FrameCodec::try_decode(buf)) {
+///       process(frame->header, frame->payload);
+///       FrameCodec::consume_frame(buf, *frame);
+///   }
+class FrameCodec {
+public:
+    [[nodiscard]] static std::expected<Frame, FrameError>
+    try_decode(RingBuffer& buf);
+
+    static void consume_frame(RingBuffer& buf, const Frame& frame);
+
+    [[nodiscard]] static bool
+    encode(RingBuffer& buf, const WireHeader& header,
+           std::span<const uint8_t> payload);
+
+    [[nodiscard]] static size_t
+    encode_to(std::span<uint8_t> out, const WireHeader& header,
+              std::span<const uint8_t> payload);
+};
+
+} // namespace apex::core

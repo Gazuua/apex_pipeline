@@ -1,0 +1,1752 @@
+# Phase 3: Core Framework Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** io_context-per-core 엔진, ServiceBase<T> CRTP 디스패치, 와이어 프로토콜 프레임 코덱을 구현하여 서버 프레임워크의 코어 런타임을 완성한다.
+
+**Architecture:** 3개의 독립 컴포넌트를 병렬 구현한다. (A) CoreEngine은 N개의 io_context를 스레드에 바인딩하고 코어별 MPSC 큐로 메시지를 전달한다. (B) MessageDispatcher는 std::array<Handler,65536> 기반 O(1) 디스패치를 제공하고, ServiceBase<Derived> CRTP가 라이프사이클과 핸들러 등록을 래핑한다. (C) WireHeader는 10바이트 고정 헤더를 파싱/직렬화하고, FrameCodec는 RingBuffer에서 완전한 프레임을 추출한다.
+
+**Tech Stack:** C++23, Boost.Asio 1.84+, Phase 2 컴포넌트(MpscQueue, SlabPool, RingBuffer, TimingWheel), Google Test
+
+**Phase 2 컴포넌트 활용:**
+- `MpscQueue<CoreMessage>` - 코어 간 통신 (CoreEngine)
+- `RingBuffer` - 프레임 추출 (FrameCodec)
+- `SlabPool` / `TimingWheel` - Phase 3.5 통합 시 세션 관리에 활용 예정
+
+**참고:** design-decisions.md에 "C++20"이라 되어 있지만, Phase 1에서 std::expected 사용을 위해 C++23으로 변경됨.
+
+---
+
+## Task 1: Phase 3 Header Interfaces (순차)
+
+Phase 1과 동일한 패턴 - 모든 헤더 인터페이스를 먼저 정의하여 병렬 작업의 "계약"을 확립한다.
+
+**Files:**
+- Create: `core/include/apex/core/core_engine.hpp`
+- Create: `core/include/apex/core/message_dispatcher.hpp`
+- Create: `core/include/apex/core/service_base.hpp`
+- Create: `core/include/apex/core/wire_header.hpp`
+- Create: `core/include/apex/core/frame_codec.hpp`
+- Modify: `core/CMakeLists.txt`
+- Modify: `core/tests/unit/CMakeLists.txt`
+
+### Step 1: core_engine.hpp 작성
+
+```cpp
+#pragma once
+
+#include <apex/core/mpsc_queue.hpp>
+
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
+
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <thread>
+#include <vector>
+
+namespace apex::core {
+
+/// Trivially-copyable message for inter-core communication via MpscQueue.
+struct CoreMessage {
+    enum class Type : uint8_t {
+        Shutdown = 0,
+        DrainComplete,
+        Custom,
+    };
+
+    Type type{Type::Custom};
+    uint32_t source_core{0};
+    uint64_t data{0};           // type-specific payload (index, pointer, etc.)
+};
+static_assert(std::is_trivially_copyable_v<CoreMessage>);
+
+/// Per-core execution context. Each core owns its own io_context and MPSC inbox.
+/// NOT thread-safe — only accessed by the owning core thread.
+struct CoreContext {
+    uint32_t core_id;
+    boost::asio::io_context io_ctx{1};  // concurrency_hint=1 (single thread)
+    std::unique_ptr<MpscQueue<CoreMessage>> inbox;
+    std::unique_ptr<boost::asio::steady_timer> drain_timer;
+
+    CoreContext(uint32_t id, size_t queue_capacity);
+    ~CoreContext();
+
+    CoreContext(const CoreContext&) = delete;
+    CoreContext& operator=(const CoreContext&) = delete;
+};
+
+/// Configuration for CoreEngine.
+struct CoreEngineConfig {
+    uint32_t num_cores{0};              // 0 = auto-detect (hardware_concurrency)
+    size_t mpsc_queue_capacity{65536};
+    std::chrono::microseconds drain_interval{100};  // MPSC poll interval
+};
+
+/// io_context-per-core engine. Creates N cores, each with its own
+/// io_context + thread + MPSC inbox. Provides inter-core messaging.
+///
+/// Usage:
+///   CoreEngine engine({.num_cores = 4});
+///   engine.set_message_handler([](uint32_t core_id, const CoreMessage& msg) { ... });
+///   engine.run();   // blocks until stop()
+///   // from another thread:
+///   engine.stop();
+class CoreEngine {
+public:
+    using MessageHandler = std::function<void(uint32_t core_id, const CoreMessage& msg)>;
+
+    explicit CoreEngine(CoreEngineConfig config = {});
+    ~CoreEngine();
+
+    CoreEngine(const CoreEngine&) = delete;
+    CoreEngine& operator=(const CoreEngine&) = delete;
+
+    /// Set handler for inter-core messages. Must be called before run().
+    void set_message_handler(MessageHandler handler);
+
+    /// Start all core threads and block until stop() is called.
+    /// Each core runs its own io_context on a dedicated thread.
+    void run();
+
+    /// Signal all cores to stop. Thread-safe (can be called from any thread).
+    void stop();
+
+    /// Post a message to a specific core's MPSC inbox. Thread-safe.
+    /// @return false if the target core's queue is full (backpressure).
+    [[nodiscard]] bool post_to(uint32_t target_core, CoreMessage msg);
+
+    /// Broadcast a message to all cores. Thread-safe.
+    /// Skips cores whose queues are full (best-effort broadcast).
+    void broadcast(CoreMessage msg);
+
+    /// Number of cores.
+    [[nodiscard]] uint32_t core_count() const noexcept;
+
+    /// Access a core's io_context. NOT thread-safe — call from the core's thread only.
+    [[nodiscard]] boost::asio::io_context& io_context(uint32_t core_id);
+
+    /// Check if the engine is running.
+    [[nodiscard]] bool running() const noexcept;
+
+private:
+    void run_core(uint32_t core_id);
+    void start_drain_timer(uint32_t core_id);
+
+    CoreEngineConfig config_;
+    std::vector<std::unique_ptr<CoreContext>> cores_;
+    std::vector<std::thread> threads_;
+    MessageHandler message_handler_;
+    std::atomic<bool> running_{false};
+};
+
+} // namespace apex::core
+```
+
+### Step 2: message_dispatcher.hpp 작성
+
+```cpp
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <expected>
+#include <functional>
+#include <span>
+
+namespace apex::core {
+
+enum class DispatchError : uint8_t {
+    UnknownMessage,
+    HandlerFailed,
+};
+
+/// O(1) message dispatcher using std::array indexed by msg_id (uint16_t).
+/// Designed for per-service use. NOT thread-safe (per-core, single-thread).
+///
+/// Usage:
+///   MessageDispatcher dispatcher;
+///   dispatcher.register_handler(0x0001, [](uint16_t, std::span<const uint8_t>) { ... });
+///   dispatcher.dispatch(0x0001, payload);
+class MessageDispatcher {
+public:
+    /// Handler receives msg_id and raw payload bytes.
+    using Handler = std::function<void(uint16_t msg_id, std::span<const uint8_t> payload)>;
+
+    MessageDispatcher() = default;
+
+    /// Register a handler for the given msg_id. Overwrites any existing handler.
+    void register_handler(uint16_t msg_id, Handler handler);
+
+    /// Remove a handler for the given msg_id.
+    void unregister_handler(uint16_t msg_id);
+
+    /// Dispatch a message to its registered handler. O(1) lookup.
+    /// @return DispatchError::UnknownMessage if no handler registered for msg_id.
+    [[nodiscard]] std::expected<void, DispatchError>
+    dispatch(uint16_t msg_id, std::span<const uint8_t> payload) const;
+
+    /// Check if a handler is registered for the given msg_id.
+    [[nodiscard]] bool has_handler(uint16_t msg_id) const noexcept;
+
+    /// Number of registered handlers.
+    [[nodiscard]] size_t handler_count() const noexcept;
+
+private:
+    std::array<Handler, 65536> handlers_{};
+    size_t handler_count_{0};
+};
+
+} // namespace apex::core
+```
+
+### Step 3: service_base.hpp 작성
+
+```cpp
+#pragma once
+
+#include <apex/core/message_dispatcher.hpp>
+
+#include <cstdint>
+#include <string_view>
+
+namespace apex::core {
+
+/// CRTP base class for defining services.
+/// Services register message handlers and the framework dispatches to them.
+///
+/// Usage:
+///   class EchoService : public ServiceBase<EchoService> {
+///   public:
+///       EchoService() : ServiceBase("echo") {}
+///       void on_start() override { register_handlers(); }
+///   private:
+///       void register_handlers() {
+///           handle(0x0001, &EchoService::on_echo);
+///       }
+///       void on_echo(uint16_t msg_id, std::span<const uint8_t> payload) {
+///           // echo back
+///       }
+///   };
+template <typename Derived>
+class ServiceBase {
+public:
+    explicit ServiceBase(std::string_view name) : name_(name) {}
+    virtual ~ServiceBase() = default;
+
+    // Non-copyable, non-movable
+    ServiceBase(const ServiceBase&) = delete;
+    ServiceBase& operator=(const ServiceBase&) = delete;
+
+    /// Called by the framework when the service starts.
+    virtual void on_start() {}
+
+    /// Called by the framework when the service is stopping.
+    virtual void on_stop() {}
+
+    /// Start the service (called by framework).
+    void start() {
+        static_cast<Derived*>(this)->on_start();
+        started_ = true;
+    }
+
+    /// Stop the service (called by framework).
+    void stop() {
+        started_ = false;
+        static_cast<Derived*>(this)->on_stop();
+    }
+
+    /// Service name.
+    [[nodiscard]] std::string_view name() const noexcept { return name_; }
+
+    /// Whether the service is started.
+    [[nodiscard]] bool started() const noexcept { return started_; }
+
+    /// Access the dispatcher for external dispatch calls.
+    [[nodiscard]] MessageDispatcher& dispatcher() noexcept { return dispatcher_; }
+    [[nodiscard]] const MessageDispatcher& dispatcher() const noexcept { return dispatcher_; }
+
+protected:
+    /// Register a handler for msg_id. The handler must be a member function of Derived.
+    /// Type-safe: the handler pointer is validated at compile time.
+    void handle(uint16_t msg_id,
+                void (Derived::*method)(uint16_t, std::span<const uint8_t>))
+    {
+        auto* self = static_cast<Derived*>(this);
+        dispatcher_.register_handler(msg_id,
+            [self, method](uint16_t id, std::span<const uint8_t> payload) {
+                (self->*method)(id, payload);
+            });
+    }
+
+private:
+    std::string_view name_;
+    MessageDispatcher dispatcher_;
+    bool started_{false};
+};
+
+} // namespace apex::core
+```
+
+### Step 4: wire_header.hpp 작성
+
+```cpp
+#pragma once
+
+#include <cstdint>
+#include <cstring>
+#include <expected>
+#include <span>
+
+namespace apex::core {
+
+enum class ParseError : uint8_t {
+    InsufficientData,
+    UnsupportedVersion,
+    BodyTooLarge,
+};
+
+/// Fixed 10-byte wire header for all messages.
+/// Network byte order (big-endian) on the wire.
+///
+/// Layout:
+///   [0]     version    (uint8_t)
+///   [1..2]  msg_id     (uint16_t, big-endian)
+///   [3..6]  body_size  (uint32_t, big-endian)
+///   [7..8]  flags      (uint16_t, big-endian)
+///   [9]     reserved   (uint8_t, must be 0)
+struct WireHeader {
+    static constexpr size_t SIZE = 10;
+    static constexpr uint8_t CURRENT_VERSION = 1;
+    static constexpr uint32_t MAX_BODY_SIZE = 16 * 1024 * 1024;  // 16 MB
+
+    uint8_t version{CURRENT_VERSION};
+    uint16_t msg_id{0};
+    uint32_t body_size{0};
+    uint16_t flags{0};
+    uint8_t reserved{0};
+
+    /// Parse a WireHeader from exactly 10 bytes (network byte order).
+    /// @return ParseError if data is invalid.
+    [[nodiscard]] static std::expected<WireHeader, ParseError>
+    parse(std::span<const uint8_t> data);
+
+    /// Serialize this header into exactly 10 bytes (network byte order).
+    void serialize(std::span<uint8_t, SIZE> out) const;
+
+    /// Serialize into a returned array.
+    [[nodiscard]] std::array<uint8_t, SIZE> serialize() const;
+
+    /// Total frame size = header + body.
+    [[nodiscard]] size_t frame_size() const noexcept {
+        return SIZE + body_size;
+    }
+};
+
+// --- Flag constants ---
+namespace wire_flags {
+    constexpr uint16_t NONE = 0x0000;
+    constexpr uint16_t COMPRESSED = 0x0001;
+    constexpr uint16_t HEARTBEAT = 0x0002;
+    constexpr uint16_t ERROR_RESPONSE = 0x0004;
+    constexpr uint16_t REQUIRE_AUTH_CHECK = 0x0008;  // ADR-07: force Redis check
+} // namespace wire_flags
+
+} // namespace apex::core
+```
+
+### Step 5: frame_codec.hpp 작성
+
+```cpp
+#pragma once
+
+#include <apex/core/ring_buffer.hpp>
+#include <apex/core/wire_header.hpp>
+
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <span>
+
+namespace apex::core {
+
+/// Result of a successful frame extraction.
+struct Frame {
+    WireHeader header;
+    std::span<const uint8_t> payload;  // points into RingBuffer (zero-copy when possible)
+};
+
+enum class FrameError : uint8_t {
+    InsufficientData,   // not enough data for header or body
+    HeaderParseError,   // invalid header
+    BodyTooLarge,       // body exceeds max size
+};
+
+/// Stateless frame codec. Extracts complete frames from a RingBuffer.
+/// Uses RingBuffer::linearize() for zero-copy access when possible.
+///
+/// Usage:
+///   RingBuffer buf(4096);
+///   // ... recv data into buf ...
+///   while (auto frame = FrameCodec::try_decode(buf)) {
+///       process(frame->header, frame->payload);
+///       FrameCodec::consume_frame(buf, *frame);
+///   }
+class FrameCodec {
+public:
+    /// Try to extract a complete frame from the ring buffer.
+    /// Does NOT consume the data — call consume_frame() after processing.
+    /// @return Frame if a complete frame is available, error otherwise.
+    [[nodiscard]] static std::expected<Frame, FrameError>
+    try_decode(RingBuffer& buf);
+
+    /// Consume a previously decoded frame from the ring buffer.
+    static void consume_frame(RingBuffer& buf, const Frame& frame);
+
+    /// Encode a header + payload into the ring buffer's writable area.
+    /// @return false if insufficient writable space.
+    [[nodiscard]] static bool
+    encode(RingBuffer& buf, const WireHeader& header,
+           std::span<const uint8_t> payload);
+
+    /// Build a frame directly into a contiguous buffer.
+    /// @return total bytes written (header + payload), or 0 if buffer too small.
+    [[nodiscard]] static size_t
+    encode_to(std::span<uint8_t> out, const WireHeader& header,
+              std::span<const uint8_t> payload);
+};
+
+} // namespace apex::core
+```
+
+### Step 6: CMakeLists.txt 업데이트
+
+`core/CMakeLists.txt` 수정:
+
+```cmake
+find_package(Boost REQUIRED)
+
+add_library(apex_core STATIC
+    src/slab_pool.cpp
+    src/ring_buffer.cpp
+    src/timing_wheel.cpp
+    src/core_engine.cpp
+    src/wire_header.cpp
+    src/frame_codec.cpp
+)
+add_library(apex::core ALIAS apex_core)
+
+target_include_directories(apex_core
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(apex_core
+    PUBLIC
+        Boost::boost
+)
+
+target_compile_features(apex_core PUBLIC cxx_std_23)
+
+enable_testing()
+add_subdirectory(tests)
+```
+
+`core/tests/unit/CMakeLists.txt`에 추가:
+
+```cmake
+# Phase 3 tests (주석으로 시작, 구현 시 해제)
+# apex_add_unit_test(test_core_engine test_core_engine.cpp)
+# apex_add_unit_test(test_message_dispatcher test_message_dispatcher.cpp)
+# apex_add_unit_test(test_service_base test_service_base.cpp)
+# apex_add_unit_test(test_wire_header test_wire_header.cpp)
+# apex_add_unit_test(test_frame_codec test_frame_codec.cpp)
+```
+
+### Step 7: Commit
+
+```bash
+git add core/include/apex/core/core_engine.hpp \
+        core/include/apex/core/message_dispatcher.hpp \
+        core/include/apex/core/service_base.hpp \
+        core/include/apex/core/wire_header.hpp \
+        core/include/apex/core/frame_codec.hpp \
+        core/CMakeLists.txt \
+        core/tests/unit/CMakeLists.txt
+git commit -m "feat: Phase 3.1 - core framework header interfaces"
+```
+
+---
+
+## Task 2: CoreEngine 구현 (Agent A)
+
+**의존성:** Phase 2의 `MpscQueue<T>`, Boost.Asio `io_context`/`steady_timer`
+**파일:**
+- Create: `core/src/core_engine.cpp`
+- Create: `core/tests/unit/test_core_engine.cpp`
+- Modify: `core/tests/unit/CMakeLists.txt` — `test_core_engine` 주석 해제
+
+### Step 1: 테스트 작성 (test_core_engine.cpp)
+
+```cpp
+#include <apex/core/core_engine.hpp>
+#include <gtest/gtest.h>
+
+#include <atomic>
+#include <chrono>
+#include <thread>
+
+using namespace apex::core;
+
+class CoreEngineTest : public ::testing::Test {
+protected:
+    void TearDown() override {
+        // Ensure engine is stopped even if test fails
+    }
+};
+
+TEST_F(CoreEngineTest, DefaultConfigUsesHardwareConcurrency) {
+    CoreEngineConfig config;
+    EXPECT_EQ(config.num_cores, 0);  // 0 = auto-detect
+}
+
+TEST_F(CoreEngineTest, CreateWithExplicitCores) {
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+    EXPECT_EQ(engine.core_count(), 2);
+    EXPECT_FALSE(engine.running());
+}
+
+TEST_F(CoreEngineTest, RunAndStop) {
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+
+    std::thread t([&] {
+        engine.run();
+    });
+
+    // Wait for engine to start
+    while (!engine.running()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    EXPECT_TRUE(engine.running());
+
+    engine.stop();
+    t.join();
+
+    EXPECT_FALSE(engine.running());
+}
+
+TEST_F(CoreEngineTest, PostToCore) {
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+
+    std::atomic<int> received{0};
+    engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
+        if (msg.type == CoreMessage::Type::Custom) {
+            ++received;
+        }
+    });
+
+    std::thread t([&] { engine.run(); });
+    while (!engine.running()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    // Post message to core 1
+    CoreMessage msg{.type = CoreMessage::Type::Custom, .source_core = 0, .data = 42};
+    EXPECT_TRUE(engine.post_to(1, msg));
+
+    // Wait for delivery
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    while (received.load() == 0 && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    EXPECT_GE(received.load(), 1);
+
+    engine.stop();
+    t.join();
+}
+
+TEST_F(CoreEngineTest, Broadcast) {
+    constexpr uint32_t NUM_CORES = 4;
+    CoreEngine engine({.num_cores = NUM_CORES, .mpsc_queue_capacity = 1024});
+
+    std::atomic<int> received{0};
+    engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
+        if (msg.type == CoreMessage::Type::Custom) {
+            ++received;
+        }
+    });
+
+    std::thread t([&] { engine.run(); });
+    while (!engine.running()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    CoreMessage msg{.type = CoreMessage::Type::Custom, .source_core = 99, .data = 7};
+    engine.broadcast(msg);
+
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
+    while (received.load() < static_cast<int>(NUM_CORES) &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    EXPECT_EQ(received.load(), static_cast<int>(NUM_CORES));
+
+    engine.stop();
+    t.join();
+}
+
+TEST_F(CoreEngineTest, PostToFullQueueReturnsFalse) {
+    CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 4});
+
+    // Don't start engine (no drain), fill the queue
+    CoreMessage msg{.type = CoreMessage::Type::Custom};
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_TRUE(engine.post_to(0, msg));
+    }
+    // Queue should be full now
+    EXPECT_FALSE(engine.post_to(0, msg));
+}
+
+TEST_F(CoreEngineTest, IoContextAccessible) {
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+    auto& ctx = engine.io_context(0);
+    // Just verify it doesn't crash and returns a valid reference
+    EXPECT_FALSE(ctx.stopped());
+}
+
+TEST_F(CoreEngineTest, MultipleInterCoreMessages) {
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+
+    std::atomic<uint64_t> sum{0};
+    engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
+        if (msg.type == CoreMessage::Type::Custom) {
+            sum.fetch_add(msg.data);
+        }
+    });
+
+    std::thread t([&] { engine.run(); });
+    while (!engine.running()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    constexpr int N = 100;
+    for (int i = 1; i <= N; ++i) {
+        CoreMessage msg{.type = CoreMessage::Type::Custom, .source_core = 0,
+                        .data = static_cast<uint64_t>(i)};
+        while (!engine.post_to(1, msg)) {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+    }
+
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    uint64_t expected = static_cast<uint64_t>(N) * (N + 1) / 2;
+    while (sum.load() < expected && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+
+    EXPECT_EQ(sum.load(), expected);
+
+    engine.stop();
+    t.join();
+}
+```
+
+### Step 2: 테스트 실패 확인
+
+Run: `cmd //c build.bat debug`
+Expected: FAIL (core_engine.cpp가 없으므로 링크 에러)
+
+### Step 3: CoreEngine 구현 (core_engine.cpp)
+
+```cpp
+#include <apex/core/core_engine.hpp>
+
+#include <boost/asio/post.hpp>
+
+#include <algorithm>
+#include <cassert>
+
+namespace apex::core {
+
+// --- CoreContext ---
+
+CoreContext::CoreContext(uint32_t id, size_t queue_capacity)
+    : core_id(id)
+    , inbox(std::make_unique<MpscQueue<CoreMessage>>(queue_capacity))
+{
+}
+
+CoreContext::~CoreContext() = default;
+
+// --- CoreEngine ---
+
+CoreEngine::CoreEngine(CoreEngineConfig config)
+    : config_(config)
+{
+    if (config_.num_cores == 0) {
+        config_.num_cores = std::max(1u,
+            static_cast<uint32_t>(std::thread::hardware_concurrency()));
+    }
+
+    cores_.reserve(config_.num_cores);
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        cores_.push_back(
+            std::make_unique<CoreContext>(i, config_.mpsc_queue_capacity));
+    }
+}
+
+CoreEngine::~CoreEngine() {
+    if (running_.load(std::memory_order_relaxed)) {
+        stop();
+        for (auto& t : threads_) {
+            if (t.joinable()) t.join();
+        }
+    }
+}
+
+void CoreEngine::set_message_handler(MessageHandler handler) {
+    message_handler_ = std::move(handler);
+}
+
+void CoreEngine::run() {
+    running_.store(true, std::memory_order_release);
+
+    threads_.reserve(config_.num_cores);
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        threads_.emplace_back([this, i] { run_core(i); });
+    }
+
+    // Block until all threads finish
+    for (auto& t : threads_) {
+        t.join();
+    }
+
+    running_.store(false, std::memory_order_release);
+    threads_.clear();
+}
+
+void CoreEngine::stop() {
+    if (!running_.load(std::memory_order_acquire)) return;
+
+    // Post stop to each io_context
+    for (auto& core : cores_) {
+        core->io_ctx.stop();
+    }
+}
+
+bool CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
+    assert(target_core < cores_.size());
+    auto result = cores_[target_core]->inbox->enqueue(msg);
+    return result.has_value();
+}
+
+void CoreEngine::broadcast(CoreMessage msg) {
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        post_to(i, msg);  // best-effort: ignore full queues
+    }
+}
+
+uint32_t CoreEngine::core_count() const noexcept {
+    return config_.num_cores;
+}
+
+boost::asio::io_context& CoreEngine::io_context(uint32_t core_id) {
+    assert(core_id < cores_.size());
+    return cores_[core_id]->io_ctx;
+}
+
+bool CoreEngine::running() const noexcept {
+    return running_.load(std::memory_order_acquire);
+}
+
+void CoreEngine::run_core(uint32_t core_id) {
+    auto& core = *cores_[core_id];
+
+    // Set up periodic drain timer
+    start_drain_timer(core_id);
+
+    // Create a work guard to keep io_context alive
+    auto work = boost::asio::make_work_guard(core.io_ctx);
+
+    core.io_ctx.run();
+}
+
+void CoreEngine::start_drain_timer(uint32_t core_id) {
+    auto& core = *cores_[core_id];
+    core.drain_timer = std::make_unique<boost::asio::steady_timer>(core.io_ctx);
+
+    auto drain_fn = [this, core_id](const auto& self) -> void {
+        auto& core = *cores_[core_id];
+
+        // Drain all pending messages
+        while (auto msg = core.inbox->dequeue()) {
+            if (message_handler_) {
+                message_handler_(core_id, *msg);
+            }
+        }
+
+        // Re-arm timer
+        if (!core.io_ctx.stopped()) {
+            core.drain_timer->expires_after(config_.drain_interval);
+            core.drain_timer->async_wait([this, core_id, &self](
+                    const boost::system::error_code& ec) {
+                if (!ec) {
+                    self(self);
+                }
+            });
+        }
+    };
+
+    core.drain_timer->expires_after(config_.drain_interval);
+    core.drain_timer->async_wait([drain_fn](const boost::system::error_code& ec) {
+        if (!ec) {
+            drain_fn(drain_fn);
+        }
+    });
+}
+
+} // namespace apex::core
+```
+
+### Step 4: 테스트 통과 확인
+
+`core/tests/unit/CMakeLists.txt`에서 `test_core_engine` 주석 해제.
+
+Run: `cmd //c build.bat debug`
+Expected: 7개 테스트 전부 PASS
+
+### Step 5: Commit
+
+```bash
+git add core/src/core_engine.cpp core/tests/unit/test_core_engine.cpp \
+        core/tests/unit/CMakeLists.txt
+git commit -m "feat: Phase 3.2A - CoreEngine (io_context-per-core + MPSC inter-core messaging)"
+```
+
+---
+
+## Task 3: MessageDispatcher + ServiceBase 구현 (Agent B)
+
+**의존성:** 없음 (header-only 템플릿, Phase 2 불필요)
+**파일:**
+- Create: `core/src/message_dispatcher.cpp`
+- Create: `core/tests/unit/test_message_dispatcher.cpp`
+- Create: `core/tests/unit/test_service_base.cpp`
+- Modify: `core/tests/unit/CMakeLists.txt` — 주석 해제
+
+### Step 1: MessageDispatcher 테스트 작성
+
+```cpp
+#include <apex/core/message_dispatcher.hpp>
+#include <gtest/gtest.h>
+
+#include <string>
+#include <vector>
+
+using namespace apex::core;
+
+TEST(MessageDispatcherTest, InitiallyEmpty) {
+    MessageDispatcher dispatcher;
+    EXPECT_EQ(dispatcher.handler_count(), 0);
+    EXPECT_FALSE(dispatcher.has_handler(0x0001));
+}
+
+TEST(MessageDispatcherTest, RegisterAndDispatch) {
+    MessageDispatcher dispatcher;
+    bool called = false;
+    uint16_t received_id = 0;
+
+    dispatcher.register_handler(0x0001, [&](uint16_t id, std::span<const uint8_t>) {
+        called = true;
+        received_id = id;
+    });
+
+    EXPECT_TRUE(dispatcher.has_handler(0x0001));
+    EXPECT_EQ(dispatcher.handler_count(), 1);
+
+    auto result = dispatcher.dispatch(0x0001, {});
+    EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(called);
+    EXPECT_EQ(received_id, 0x0001);
+}
+
+TEST(MessageDispatcherTest, DispatchUnknownReturnsError) {
+    MessageDispatcher dispatcher;
+    auto result = dispatcher.dispatch(0xFFFF, {});
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
+}
+
+TEST(MessageDispatcherTest, PayloadPassedThrough) {
+    MessageDispatcher dispatcher;
+    std::vector<uint8_t> received_payload;
+
+    dispatcher.register_handler(0x0010, [&](uint16_t, std::span<const uint8_t> payload) {
+        received_payload.assign(payload.begin(), payload.end());
+    });
+
+    std::vector<uint8_t> data = {0xDE, 0xAD, 0xBE, 0xEF};
+    dispatcher.dispatch(0x0010, data);
+    EXPECT_EQ(received_payload, data);
+}
+
+TEST(MessageDispatcherTest, OverwriteHandler) {
+    MessageDispatcher dispatcher;
+    int call_count_a = 0, call_count_b = 0;
+
+    dispatcher.register_handler(0x0001, [&](uint16_t, std::span<const uint8_t>) {
+        ++call_count_a;
+    });
+    dispatcher.register_handler(0x0001, [&](uint16_t, std::span<const uint8_t>) {
+        ++call_count_b;
+    });
+
+    // handler_count shouldn't increase for overwrites
+    EXPECT_EQ(dispatcher.handler_count(), 1);
+
+    dispatcher.dispatch(0x0001, {});
+    EXPECT_EQ(call_count_a, 0);
+    EXPECT_EQ(call_count_b, 1);
+}
+
+TEST(MessageDispatcherTest, UnregisterHandler) {
+    MessageDispatcher dispatcher;
+    dispatcher.register_handler(0x0001, [](uint16_t, std::span<const uint8_t>) {});
+    EXPECT_TRUE(dispatcher.has_handler(0x0001));
+
+    dispatcher.unregister_handler(0x0001);
+    EXPECT_FALSE(dispatcher.has_handler(0x0001));
+    EXPECT_EQ(dispatcher.handler_count(), 0);
+}
+
+TEST(MessageDispatcherTest, MultipleHandlers) {
+    MessageDispatcher dispatcher;
+    std::vector<uint16_t> called_ids;
+
+    for (uint16_t i = 0; i < 5; ++i) {
+        dispatcher.register_handler(i, [&called_ids](uint16_t id, std::span<const uint8_t>) {
+            called_ids.push_back(id);
+        });
+    }
+
+    EXPECT_EQ(dispatcher.handler_count(), 5);
+
+    for (uint16_t i = 0; i < 5; ++i) {
+        dispatcher.dispatch(i, {});
+    }
+
+    EXPECT_EQ(called_ids.size(), 5);
+    for (uint16_t i = 0; i < 5; ++i) {
+        EXPECT_EQ(called_ids[i], i);
+    }
+}
+
+TEST(MessageDispatcherTest, MaxMsgId) {
+    MessageDispatcher dispatcher;
+    bool called = false;
+
+    dispatcher.register_handler(0xFFFF, [&](uint16_t, std::span<const uint8_t>) {
+        called = true;
+    });
+
+    dispatcher.dispatch(0xFFFF, {});
+    EXPECT_TRUE(called);
+}
+```
+
+### Step 2: ServiceBase 테스트 작성
+
+```cpp
+#include <apex/core/service_base.hpp>
+#include <gtest/gtest.h>
+
+#include <string>
+#include <vector>
+
+using namespace apex::core;
+
+// --- Test service implementations ---
+
+class EchoService : public ServiceBase<EchoService> {
+public:
+    EchoService() : ServiceBase("echo") {}
+
+    void on_start() override {
+        handle(0x0001, &EchoService::on_echo);
+        start_called = true;
+    }
+
+    void on_stop() override {
+        stop_called = true;
+    }
+
+    void on_echo(uint16_t msg_id, std::span<const uint8_t> payload) {
+        last_msg_id = msg_id;
+        last_payload.assign(payload.begin(), payload.end());
+    }
+
+    bool start_called = false;
+    bool stop_called = false;
+    uint16_t last_msg_id = 0;
+    std::vector<uint8_t> last_payload;
+};
+
+class MultiHandlerService : public ServiceBase<MultiHandlerService> {
+public:
+    MultiHandlerService() : ServiceBase("multi") {}
+
+    void on_start() override {
+        handle(0x0001, &MultiHandlerService::on_login);
+        handle(0x0002, &MultiHandlerService::on_logout);
+        handle(0x0003, &MultiHandlerService::on_ping);
+    }
+
+    void on_login(uint16_t, std::span<const uint8_t>) { ++login_count; }
+    void on_logout(uint16_t, std::span<const uint8_t>) { ++logout_count; }
+    void on_ping(uint16_t, std::span<const uint8_t>) { ++ping_count; }
+
+    int login_count = 0, logout_count = 0, ping_count = 0;
+};
+
+// --- Tests ---
+
+TEST(ServiceBaseTest, NameReturnsCorrectName) {
+    EchoService svc;
+    EXPECT_EQ(svc.name(), "echo");
+}
+
+TEST(ServiceBaseTest, StartCallsOnStart) {
+    EchoService svc;
+    EXPECT_FALSE(svc.started());
+    EXPECT_FALSE(svc.start_called);
+
+    svc.start();
+    EXPECT_TRUE(svc.started());
+    EXPECT_TRUE(svc.start_called);
+}
+
+TEST(ServiceBaseTest, StopCallsOnStop) {
+    EchoService svc;
+    svc.start();
+    svc.stop();
+    EXPECT_FALSE(svc.started());
+    EXPECT_TRUE(svc.stop_called);
+}
+
+TEST(ServiceBaseTest, HandleRegistersAndDispatches) {
+    EchoService svc;
+    svc.start();
+
+    std::vector<uint8_t> payload = {0x01, 0x02, 0x03};
+    auto result = svc.dispatcher().dispatch(0x0001, payload);
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(svc.last_msg_id, 0x0001);
+    EXPECT_EQ(svc.last_payload, payload);
+}
+
+TEST(ServiceBaseTest, UnregisteredMsgReturnsError) {
+    EchoService svc;
+    svc.start();
+
+    auto result = svc.dispatcher().dispatch(0x9999, {});
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
+}
+
+TEST(ServiceBaseTest, MultipleHandlers) {
+    MultiHandlerService svc;
+    svc.start();
+
+    svc.dispatcher().dispatch(0x0001, {});
+    svc.dispatcher().dispatch(0x0002, {});
+    svc.dispatcher().dispatch(0x0003, {});
+    svc.dispatcher().dispatch(0x0001, {});
+
+    EXPECT_EQ(svc.login_count, 2);
+    EXPECT_EQ(svc.logout_count, 1);
+    EXPECT_EQ(svc.ping_count, 1);
+}
+
+TEST(ServiceBaseTest, DispatcherHandlerCount) {
+    MultiHandlerService svc;
+    svc.start();
+    EXPECT_EQ(svc.dispatcher().handler_count(), 3);
+}
+```
+
+### Step 3: MessageDispatcher 구현 (message_dispatcher.cpp)
+
+```cpp
+#include <apex/core/message_dispatcher.hpp>
+
+namespace apex::core {
+
+void MessageDispatcher::register_handler(uint16_t msg_id, Handler handler) {
+    if (!handlers_[msg_id]) {
+        ++handler_count_;
+    }
+    handlers_[msg_id] = std::move(handler);
+}
+
+void MessageDispatcher::unregister_handler(uint16_t msg_id) {
+    if (handlers_[msg_id]) {
+        handlers_[msg_id] = nullptr;
+        --handler_count_;
+    }
+}
+
+std::expected<void, DispatchError>
+MessageDispatcher::dispatch(uint16_t msg_id, std::span<const uint8_t> payload) const {
+    const auto& handler = handlers_[msg_id];
+    if (!handler) {
+        return std::unexpected(DispatchError::UnknownMessage);
+    }
+    handler(msg_id, payload);
+    return {};
+}
+
+bool MessageDispatcher::has_handler(uint16_t msg_id) const noexcept {
+    return static_cast<bool>(handlers_[msg_id]);
+}
+
+size_t MessageDispatcher::handler_count() const noexcept {
+    return handler_count_;
+}
+
+} // namespace apex::core
+```
+
+### Step 4: 테스트 통과 확인
+
+`core/tests/unit/CMakeLists.txt`에서 `test_message_dispatcher`와 `test_service_base` 주석 해제.
+
+Run: `cmd //c build.bat debug`
+Expected: 15개 테스트(8 dispatcher + 7 service) 전부 PASS
+
+### Step 5: Commit
+
+```bash
+git add core/src/message_dispatcher.cpp \
+        core/tests/unit/test_message_dispatcher.cpp \
+        core/tests/unit/test_service_base.cpp \
+        core/tests/unit/CMakeLists.txt
+git commit -m "feat: Phase 3.2B - MessageDispatcher + ServiceBase<T> CRTP"
+```
+
+---
+
+## Task 4: Wire Protocol (WireHeader + FrameCodec) 구현 (Agent C)
+
+**의존성:** Phase 2의 `RingBuffer`
+**파일:**
+- Create: `core/src/wire_header.cpp`
+- Create: `core/src/frame_codec.cpp`
+- Create: `core/tests/unit/test_wire_header.cpp`
+- Create: `core/tests/unit/test_frame_codec.cpp`
+- Modify: `core/tests/unit/CMakeLists.txt` — 주석 해제
+
+### Step 1: WireHeader 테스트 작성
+
+```cpp
+#include <apex/core/wire_header.hpp>
+#include <gtest/gtest.h>
+
+#include <array>
+#include <cstring>
+
+using namespace apex::core;
+
+TEST(WireHeaderTest, SizeIs10Bytes) {
+    EXPECT_EQ(WireHeader::SIZE, 10);
+}
+
+TEST(WireHeaderTest, DefaultValues) {
+    WireHeader h;
+    EXPECT_EQ(h.version, WireHeader::CURRENT_VERSION);
+    EXPECT_EQ(h.msg_id, 0);
+    EXPECT_EQ(h.body_size, 0);
+    EXPECT_EQ(h.flags, 0);
+    EXPECT_EQ(h.reserved, 0);
+}
+
+TEST(WireHeaderTest, SerializeAndParse) {
+    WireHeader original{
+        .version = 1,
+        .msg_id = 0x1234,
+        .body_size = 0x00ABCDEF,
+        .flags = 0x0003,
+        .reserved = 0
+    };
+
+    auto bytes = original.serialize();
+    EXPECT_EQ(bytes.size(), 10);
+
+    auto parsed = WireHeader::parse(bytes);
+    ASSERT_TRUE(parsed.has_value());
+
+    EXPECT_EQ(parsed->version, original.version);
+    EXPECT_EQ(parsed->msg_id, original.msg_id);
+    EXPECT_EQ(parsed->body_size, original.body_size);
+    EXPECT_EQ(parsed->flags, original.flags);
+    EXPECT_EQ(parsed->reserved, original.reserved);
+}
+
+TEST(WireHeaderTest, BigEndianByteOrder) {
+    WireHeader h{
+        .version = 1,
+        .msg_id = 0x0102,       // expect bytes: 01 02
+        .body_size = 0x01020304, // expect bytes: 01 02 03 04
+        .flags = 0x0506,        // expect bytes: 05 06
+        .reserved = 0
+    };
+
+    auto bytes = h.serialize();
+    // version
+    EXPECT_EQ(bytes[0], 0x01);
+    // msg_id (big-endian)
+    EXPECT_EQ(bytes[1], 0x01);
+    EXPECT_EQ(bytes[2], 0x02);
+    // body_size (big-endian)
+    EXPECT_EQ(bytes[3], 0x01);
+    EXPECT_EQ(bytes[4], 0x02);
+    EXPECT_EQ(bytes[5], 0x03);
+    EXPECT_EQ(bytes[6], 0x04);
+    // flags (big-endian)
+    EXPECT_EQ(bytes[7], 0x05);
+    EXPECT_EQ(bytes[8], 0x06);
+    // reserved
+    EXPECT_EQ(bytes[9], 0x00);
+}
+
+TEST(WireHeaderTest, ParseInsufficientData) {
+    std::array<uint8_t, 5> short_data{};
+    auto result = WireHeader::parse(short_data);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ParseError::InsufficientData);
+}
+
+TEST(WireHeaderTest, ParseBodyTooLarge) {
+    WireHeader h{.body_size = WireHeader::MAX_BODY_SIZE + 1};
+    auto bytes = h.serialize();
+
+    auto result = WireHeader::parse(bytes);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ParseError::BodyTooLarge);
+}
+
+TEST(WireHeaderTest, FrameSize) {
+    WireHeader h{.body_size = 256};
+    EXPECT_EQ(h.frame_size(), WireHeader::SIZE + 256);
+}
+
+TEST(WireHeaderTest, ZeroBodySize) {
+    WireHeader h{.msg_id = 0x0001, .body_size = 0};
+    auto bytes = h.serialize();
+    auto parsed = WireHeader::parse(bytes);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->body_size, 0);
+    EXPECT_EQ(parsed->frame_size(), WireHeader::SIZE);
+}
+
+TEST(WireHeaderTest, MaxValidBodySize) {
+    WireHeader h{.body_size = WireHeader::MAX_BODY_SIZE};
+    auto bytes = h.serialize();
+    auto parsed = WireHeader::parse(bytes);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->body_size, WireHeader::MAX_BODY_SIZE);
+}
+```
+
+### Step 2: FrameCodec 테스트 작성
+
+```cpp
+#include <apex/core/frame_codec.hpp>
+#include <gtest/gtest.h>
+
+#include <cstring>
+#include <vector>
+
+using namespace apex::core;
+
+class FrameCodecTest : public ::testing::Test {
+protected:
+    // Helper: write raw bytes into RingBuffer
+    void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data) {
+        auto writable = buf.writable();
+        ASSERT_GE(writable.size(), data.size());
+        std::memcpy(writable.data(), data.data(), data.size());
+        buf.commit_write(data.size());
+    }
+
+    // Helper: build a complete frame (header + payload)
+    std::vector<uint8_t> build_frame(uint16_t msg_id,
+                                      std::span<const uint8_t> payload,
+                                      uint16_t flags = 0) {
+        WireHeader h{.msg_id = msg_id,
+                     .body_size = static_cast<uint32_t>(payload.size()),
+                     .flags = flags};
+        auto header_bytes = h.serialize();
+
+        std::vector<uint8_t> frame(header_bytes.begin(), header_bytes.end());
+        frame.insert(frame.end(), payload.begin(), payload.end());
+        return frame;
+    }
+};
+
+TEST_F(FrameCodecTest, DecodeEmptyBuffer) {
+    RingBuffer buf(1024);
+    auto result = FrameCodec::try_decode(buf);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+}
+
+TEST_F(FrameCodecTest, DecodeIncompleteHeader) {
+    RingBuffer buf(1024);
+    std::array<uint8_t, 5> partial = {0x01, 0x00, 0x01, 0x00, 0x00};
+    write_to_buf(buf, partial);
+
+    auto result = FrameCodec::try_decode(buf);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+}
+
+TEST_F(FrameCodecTest, DecodeCompleteFrame) {
+    RingBuffer buf(1024);
+    std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
+    auto frame_data = build_frame(0x0042, payload);
+    write_to_buf(buf, frame_data);
+
+    auto result = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(result.has_value());
+
+    EXPECT_EQ(result->header.msg_id, 0x0042);
+    EXPECT_EQ(result->header.body_size, 4);
+    EXPECT_EQ(result->payload.size(), 4);
+    EXPECT_EQ(result->payload[0], 0xCA);
+    EXPECT_EQ(result->payload[3], 0xBE);
+}
+
+TEST_F(FrameCodecTest, ConsumeFrame) {
+    RingBuffer buf(1024);
+    std::vector<uint8_t> payload = {0x01, 0x02};
+    auto frame_data = build_frame(0x0001, payload);
+    write_to_buf(buf, frame_data);
+
+    auto frame = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(frame.has_value());
+
+    FrameCodec::consume_frame(buf, *frame);
+    EXPECT_EQ(buf.readable_size(), 0);
+}
+
+TEST_F(FrameCodecTest, DecodeMultipleFrames) {
+    RingBuffer buf(1024);
+
+    std::vector<uint8_t> p1 = {0xAA};
+    std::vector<uint8_t> p2 = {0xBB, 0xCC};
+    auto f1 = build_frame(0x0001, p1);
+    auto f2 = build_frame(0x0002, p2);
+
+    write_to_buf(buf, f1);
+    write_to_buf(buf, f2);
+
+    // Decode first frame
+    auto r1 = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(r1.has_value());
+    EXPECT_EQ(r1->header.msg_id, 0x0001);
+    FrameCodec::consume_frame(buf, *r1);
+
+    // Decode second frame
+    auto r2 = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(r2.has_value());
+    EXPECT_EQ(r2->header.msg_id, 0x0002);
+    EXPECT_EQ(r2->payload.size(), 2);
+    FrameCodec::consume_frame(buf, *r2);
+
+    // No more frames
+    auto r3 = FrameCodec::try_decode(buf);
+    EXPECT_FALSE(r3.has_value());
+}
+
+TEST_F(FrameCodecTest, DecodeHeaderPresentButBodyIncomplete) {
+    RingBuffer buf(1024);
+    // Header says body_size=100, but we only write 10 bytes of body
+    WireHeader h{.msg_id = 0x0001, .body_size = 100};
+    auto header_bytes = h.serialize();
+
+    write_to_buf(buf, header_bytes);
+    std::array<uint8_t, 10> partial_body{};
+    write_to_buf(buf, partial_body);
+
+    auto result = FrameCodec::try_decode(buf);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+}
+
+TEST_F(FrameCodecTest, DecodeZeroBodyFrame) {
+    RingBuffer buf(1024);
+    auto frame_data = build_frame(0x0099, {});
+    write_to_buf(buf, frame_data);
+
+    auto result = FrameCodec::try_decode(buf);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->header.msg_id, 0x0099);
+    EXPECT_EQ(result->payload.size(), 0);
+}
+
+TEST_F(FrameCodecTest, EncodeToBuffer) {
+    std::vector<uint8_t> payload = {0x01, 0x02, 0x03};
+    WireHeader h{.msg_id = 0x0010, .body_size = 3};
+
+    std::array<uint8_t, 64> out{};
+    size_t written = FrameCodec::encode_to(out, h, payload);
+    EXPECT_EQ(written, WireHeader::SIZE + 3);
+
+    // Verify by parsing it back
+    auto parsed = WireHeader::parse(std::span<const uint8_t>(out.data(), WireHeader::SIZE));
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->msg_id, 0x0010);
+    EXPECT_EQ(parsed->body_size, 3);
+    EXPECT_EQ(out[WireHeader::SIZE], 0x01);
+    EXPECT_EQ(out[WireHeader::SIZE + 2], 0x03);
+}
+
+TEST_F(FrameCodecTest, EncodeToBufferTooSmall) {
+    std::vector<uint8_t> payload(100, 0xAA);
+    WireHeader h{.msg_id = 0x0001, .body_size = 100};
+
+    std::array<uint8_t, 50> small_buf{};
+    size_t written = FrameCodec::encode_to(small_buf, h, payload);
+    EXPECT_EQ(written, 0);
+}
+```
+
+### Step 3: WireHeader 구현 (wire_header.cpp)
+
+```cpp
+#include <apex/core/wire_header.hpp>
+
+#ifdef _MSC_VER
+#include <cstdlib>  // _byteswap_ushort, _byteswap_ulong
+#endif
+
+namespace apex::core {
+
+namespace {
+
+// Host to network byte order helpers
+inline uint16_t hton16(uint16_t v) {
+#ifdef _MSC_VER
+    return _byteswap_ushort(v);
+#else
+    return __builtin_bswap16(v);
+#endif
+}
+
+inline uint32_t hton32(uint32_t v) {
+#ifdef _MSC_VER
+    return _byteswap_ulong(v);
+#else
+    return __builtin_bswap32(v);
+#endif
+}
+
+inline uint16_t ntoh16(uint16_t v) { return hton16(v); }
+inline uint32_t ntoh32(uint32_t v) { return hton32(v); }
+
+} // anonymous namespace
+
+std::expected<WireHeader, ParseError>
+WireHeader::parse(std::span<const uint8_t> data) {
+    if (data.size() < SIZE) {
+        return std::unexpected(ParseError::InsufficientData);
+    }
+
+    WireHeader h;
+    h.version = data[0];
+
+    uint16_t raw_msg_id;
+    std::memcpy(&raw_msg_id, data.data() + 1, 2);
+    h.msg_id = ntoh16(raw_msg_id);
+
+    uint32_t raw_body_size;
+    std::memcpy(&raw_body_size, data.data() + 3, 4);
+    h.body_size = ntoh32(raw_body_size);
+
+    uint16_t raw_flags;
+    std::memcpy(&raw_flags, data.data() + 7, 2);
+    h.flags = ntoh16(raw_flags);
+
+    h.reserved = data[9];
+
+    if (h.body_size > MAX_BODY_SIZE) {
+        return std::unexpected(ParseError::BodyTooLarge);
+    }
+
+    return h;
+}
+
+void WireHeader::serialize(std::span<uint8_t, SIZE> out) const {
+    out[0] = version;
+
+    uint16_t net_msg_id = hton16(msg_id);
+    std::memcpy(out.data() + 1, &net_msg_id, 2);
+
+    uint32_t net_body_size = hton32(body_size);
+    std::memcpy(out.data() + 3, &net_body_size, 4);
+
+    uint16_t net_flags = hton16(flags);
+    std::memcpy(out.data() + 7, &net_flags, 2);
+
+    out[9] = reserved;
+}
+
+std::array<uint8_t, WireHeader::SIZE> WireHeader::serialize() const {
+    std::array<uint8_t, SIZE> out{};
+    serialize(std::span<uint8_t, SIZE>(out));
+    return out;
+}
+
+} // namespace apex::core
+```
+
+### Step 4: FrameCodec 구현 (frame_codec.cpp)
+
+```cpp
+#include <apex/core/frame_codec.hpp>
+
+#include <cstring>
+
+namespace apex::core {
+
+std::expected<Frame, FrameError>
+FrameCodec::try_decode(RingBuffer& buf) {
+    // Need at least header bytes
+    if (buf.readable_size() < WireHeader::SIZE) {
+        return std::unexpected(FrameError::InsufficientData);
+    }
+
+    // Linearize header (may be zero-copy if contiguous)
+    auto header_span = buf.linearize(WireHeader::SIZE);
+    if (header_span.empty()) {
+        return std::unexpected(FrameError::InsufficientData);
+    }
+
+    auto header_result = WireHeader::parse(header_span);
+    if (!header_result.has_value()) {
+        // Map WireHeader parse errors
+        if (header_result.error() == ParseError::BodyTooLarge) {
+            return std::unexpected(FrameError::BodyTooLarge);
+        }
+        return std::unexpected(FrameError::HeaderParseError);
+    }
+
+    auto& header = *header_result;
+    size_t total_frame_size = header.frame_size();
+
+    // Check if we have the complete frame
+    if (buf.readable_size() < total_frame_size) {
+        return std::unexpected(FrameError::InsufficientData);
+    }
+
+    // Linearize the entire frame to get payload pointer
+    auto frame_span = buf.linearize(total_frame_size);
+    if (frame_span.empty()) {
+        return std::unexpected(FrameError::InsufficientData);
+    }
+
+    Frame frame;
+    frame.header = header;
+    frame.payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
+
+    return frame;
+}
+
+void FrameCodec::consume_frame(RingBuffer& buf, const Frame& frame) {
+    buf.consume(frame.header.frame_size());
+}
+
+bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
+                         std::span<const uint8_t> payload) {
+    size_t total = WireHeader::SIZE + payload.size();
+    if (buf.writable_size() < total) {
+        return false;
+    }
+
+    // Write header
+    auto header_bytes = header.serialize();
+    auto writable = buf.writable();
+
+    if (writable.size() >= total) {
+        // Contiguous write
+        std::memcpy(writable.data(), header_bytes.data(), WireHeader::SIZE);
+        if (!payload.empty()) {
+            std::memcpy(writable.data() + WireHeader::SIZE,
+                       payload.data(), payload.size());
+        }
+        buf.commit_write(total);
+    } else {
+        // Write header first
+        size_t header_chunk = std::min(writable.size(), WireHeader::SIZE);
+        std::memcpy(writable.data(), header_bytes.data(), header_chunk);
+        buf.commit_write(header_chunk);
+
+        if (header_chunk < WireHeader::SIZE) {
+            auto w2 = buf.writable();
+            std::memcpy(w2.data(), header_bytes.data() + header_chunk,
+                       WireHeader::SIZE - header_chunk);
+            buf.commit_write(WireHeader::SIZE - header_chunk);
+        }
+
+        // Write payload
+        size_t payload_written = 0;
+        while (payload_written < payload.size()) {
+            auto w = buf.writable();
+            size_t chunk = std::min(w.size(), payload.size() - payload_written);
+            std::memcpy(w.data(), payload.data() + payload_written, chunk);
+            buf.commit_write(chunk);
+            payload_written += chunk;
+        }
+    }
+
+    return true;
+}
+
+size_t FrameCodec::encode_to(std::span<uint8_t> out, const WireHeader& header,
+                              std::span<const uint8_t> payload) {
+    size_t total = WireHeader::SIZE + payload.size();
+    if (out.size() < total) {
+        return 0;
+    }
+
+    auto header_bytes = header.serialize();
+    std::memcpy(out.data(), header_bytes.data(), WireHeader::SIZE);
+    if (!payload.empty()) {
+        std::memcpy(out.data() + WireHeader::SIZE, payload.data(), payload.size());
+    }
+
+    return total;
+}
+
+} // namespace apex::core
+```
+
+### Step 5: 테스트 통과 확인
+
+`core/tests/unit/CMakeLists.txt`에서 `test_wire_header`와 `test_frame_codec` 주석 해제.
+
+Run: `cmd //c build.bat debug`
+Expected: 17개 테스트(9 wire_header + 8 frame_codec) 전부 PASS
+
+### Step 6: Commit
+
+```bash
+git add core/src/wire_header.cpp core/src/frame_codec.cpp \
+        core/tests/unit/test_wire_header.cpp \
+        core/tests/unit/test_frame_codec.cpp \
+        core/tests/unit/CMakeLists.txt
+git commit -m "feat: Phase 3.2C - WireHeader + FrameCodec (10-byte frame protocol)"
+```
+
+---
+
+## Task 5: 통합 빌드 + Phase 3 체크포인트
+
+**순차 실행. 모든 Agent 완료 후.**
+
+**Files:**
+- Modify: `core/CMakeLists.txt` — 최종 확인
+- Modify: `core/tests/unit/CMakeLists.txt` — 모든 테스트 주석 해제 확인
+- Create: `docs/progress/phase-3-complete.md`
+
+### Step 1: 전체 빌드 + 테스트 실행
+
+Run: `cmd //c build.bat debug`
+
+Expected output:
+```
+  29 tests (Phase 2) + ~39 tests (Phase 3) = 68+ tests total
+  100% tests passed
+```
+
+### Step 2: Phase 3 체크포인트 문서 작성
+
+`docs/progress/phase-3-complete.md`:
+
+```markdown
+# Phase 3 Complete
+
+## 구현된 컴포넌트
+1. **CoreEngine** - io_context-per-core 엔진, MPSC 기반 코어 간 메시지 전달
+2. **MessageDispatcher** - std::array<Handler, 65536> O(1) 메시지 디스패치
+3. **ServiceBase<T>** - CRTP 서비스 베이스 클래스, 핸들러 등록 + 라이프사이클
+4. **WireHeader** - 10바이트 고정 헤더 (ver/msg_id/body_size/flags/reserved)
+5. **FrameCodec** - RingBuffer 기반 프레임 추출/인코딩
+
+## 테스트 현황
+- Phase 2: 29개 테스트
+- Phase 3: ~39개 테스트 (7 engine + 8 dispatcher + 7 service + 9 wire + 8 frame)
+- 전체 68+ 테스트 통과
+
+## Phase 2 컴포넌트 활용
+- MpscQueue<CoreMessage> → CoreEngine 코어 간 통신
+- RingBuffer → FrameCodec 프레임 추출
+
+## 다음: Phase 3.5 (통합)
+- Phase 2 + 3 컴포넌트 통합
+- 에코 서버 예제 (core/examples/)
+- 통합 테스트 → v0.1.0 태그
+```
+
+### Step 3: Commit + Tag
+
+```bash
+git add -A
+git commit -m "chore: Phase 3 complete (v0.0.1-phase3)"
+git tag v0.0.1-phase3
+```
+
+---
+
+## 병렬 실행 가이드
+
+### Task 1 (헤더 인터페이스) 완료 후 병렬화 가능:
+
+| Agent | Task | 의존성 | 파일 충돌 |
+|-------|------|--------|-----------|
+| A | Task 2: CoreEngine | MpscQueue, Boost.Asio | core_engine.cpp, test_core_engine.cpp |
+| B | Task 3: Dispatcher + Service | 없음 | message_dispatcher.cpp, test_*.cpp |
+| C | Task 4: Wire Protocol | RingBuffer | wire_header.cpp, frame_codec.cpp, test_*.cpp |
+
+**충돌 방지:**
+- Task 1에서 `core/CMakeLists.txt`와 `core/tests/unit/CMakeLists.txt`를 미리 완성 (소스/테스트 모두 등록하되 주석 처리)
+- 각 Agent는 자기 소스 파일만 생성하고 CMakeLists.txt의 주석만 해제
+
+### 사전 CMake 수정 (Task 1에서 완료):
+
+`core/CMakeLists.txt`에 모든 소스 파일 추가 (빈 .cpp 스텁 포함 가능):
+```cmake
+add_library(apex_core STATIC
+    src/slab_pool.cpp
+    src/ring_buffer.cpp
+    src/timing_wheel.cpp
+    src/core_engine.cpp
+    src/message_dispatcher.cpp
+    src/wire_header.cpp
+    src/frame_codec.cpp
+)
+```
+
+`core/tests/unit/CMakeLists.txt`에 모든 테스트 주석으로 추가:
+```cmake
+# Phase 3 (Agent별 구현 시 해제)
+# apex_add_unit_test(test_core_engine test_core_engine.cpp)
+# apex_add_unit_test(test_message_dispatcher test_message_dispatcher.cpp)
+# apex_add_unit_test(test_service_base test_service_base.cpp)
+# apex_add_unit_test(test_wire_header test_wire_header.cpp)
+# apex_add_unit_test(test_frame_codec test_frame_codec.cpp)
+```
