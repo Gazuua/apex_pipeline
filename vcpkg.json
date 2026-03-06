@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "apex-pipeline",
+  "version-semver": "0.1.0",
+  "description": "Apex Pipeline - High-performance real-time server framework",
+  "dependencies": [
+    {
+      "name": "boost-asio",
+      "version>=": "1.84.0"
+    },
+    {
+      "name": "boost-beast",
+      "version>=": "1.84.0"
+    },
+    "flatbuffers",
+    "spdlog",
+    "tomlplusplus",
+    {
+      "name": "gtest",
+      "host": true
+    },
+    {
+      "name": "benchmark",
+      "host": true
+    }
+  ]
+}
