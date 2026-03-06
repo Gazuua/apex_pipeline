@@ -24,10 +24,12 @@ target_link_libraries(apex_core
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
 
-# Windows: suppress Boost.Asio _WIN32_WINNT warning
+# Windows: suppress Boost.Asio _WIN32_WINNT warning + link Winsock
 if(WIN32)
-    target_compile_definitions(apex_core PUBLIC _WIN32_WINNT=0x0A00)  # Windows 10
+    target_compile_definitions(apex_core PUBLIC _WIN32_WINNT=0x0A00)
+    target_link_libraries(apex_core PUBLIC ws2_32 mswsock)
 endif()
 
 enable_testing()
 add_subdirectory(tests)
+add_subdirectory(examples)
