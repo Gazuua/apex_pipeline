@@ -96,6 +96,27 @@ TEST(WireHeader, ZeroBodySize) {
     EXPECT_EQ(result->msg_id, 100u);
 }
 
+// T5: Unsupported version rejection
+TEST(WireHeader, ParseUnsupportedVersion) {
+    WireHeader h;
+    h.version = 0;  // invalid version
+    auto bytes = h.serialize();
+    // Manually set version byte to 0 (serialize uses CURRENT_VERSION=1)
+    bytes[0] = 0;
+    auto result = WireHeader::parse(bytes);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
+}
+
+TEST(WireHeader, ParseFutureVersion) {
+    WireHeader h;
+    auto bytes = h.serialize();
+    bytes[0] = 99;  // far-future version
+    auto result = WireHeader::parse(bytes);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
+}
+
 TEST(WireHeader, MaxValidBodySize) {
     WireHeader h;
     h.body_size = WireHeader::MAX_BODY_SIZE;

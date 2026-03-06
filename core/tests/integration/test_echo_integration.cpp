@@ -214,6 +214,28 @@ TEST_F(EchoIntegrationTest, LargePayload) {
     client.close();
 }
 
+// T6: Client abrupt disconnect — server should not hang
+TEST_F(EchoIntegrationTest, AbruptClientDisconnect) {
+    start_server();
+
+    {
+        auto client = connect_client();
+        // Send one frame
+        std::vector<uint8_t> payload = {0x01, 0x02};
+        auto frame = build_raw_frame(0x0001, payload);
+        boost::asio::write(client, boost::asio::buffer(frame));
+
+        // Read the echo back
+        std::vector<uint8_t> response(frame.size());
+        boost::asio::read(client, boost::asio::buffer(response));
+
+        // Close abruptly (socket destructor)
+    }
+
+    // Server thread should exit cleanly (TearDown joins it)
+    // If server hangs on read, the test will timeout
+}
+
 TEST_F(EchoIntegrationTest, FlagsPreserved) {
     start_server();
     auto client = connect_client();

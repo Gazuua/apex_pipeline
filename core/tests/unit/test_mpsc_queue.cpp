@@ -73,6 +73,35 @@ TEST(MpscQueue, WrapAround) {
     }
 }
 
+// T2: Backpressure + drain + reuse cycle
+TEST(MpscQueue, BackpressureDrainReuse) {
+    MpscQueue<int> q(4);
+
+    // Fill to capacity
+    for (int i = 0; i < 4; ++i) {
+        ASSERT_TRUE(q.enqueue(i).has_value());
+    }
+    EXPECT_FALSE(q.enqueue(999).has_value());
+
+    // Drain all
+    for (int i = 0; i < 4; ++i) {
+        auto item = q.dequeue();
+        ASSERT_TRUE(item.has_value());
+        EXPECT_EQ(*item, i);
+    }
+    EXPECT_TRUE(q.empty());
+
+    // Reuse: enqueue again after drain
+    for (int i = 100; i < 104; ++i) {
+        ASSERT_TRUE(q.enqueue(i).has_value());
+    }
+    for (int i = 100; i < 104; ++i) {
+        auto item = q.dequeue();
+        ASSERT_TRUE(item.has_value());
+        EXPECT_EQ(*item, i);
+    }
+}
+
 // --- Concurrency ---
 
 TEST(MpscQueue, MultiProducerSingleConsumer) {
@@ -105,4 +134,53 @@ TEST(MpscQueue, MultiProducerSingleConsumer) {
     for (auto& t : producers) t.join();
 
     EXPECT_EQ(static_cast<int>(received.size()), total);
+}
+
+// T1: Per-producer FIFO order verification
+TEST(MpscQueue, MultiProducerFIFOOrder) {
+    constexpr int kNumProducers = 4;
+    constexpr int kItemsPerProducer = 1000;
+    MpscQueue<int> q(4096);
+
+    // Each producer sends values p*10000 + 0, p*10000 + 1, ...
+    std::vector<std::thread> producers;
+    for (int p = 0; p < kNumProducers; ++p) {
+        producers.emplace_back([&q, p]() {
+            for (int i = 0; i < kItemsPerProducer; ++i) {
+                int value = p * 10000 + i;
+                while (!q.enqueue(value).has_value()) {
+                    std::this_thread::yield();
+                }
+            }
+        });
+    }
+
+    // Track last seen sequence number per producer
+    std::vector<int> last_seen(kNumProducers, -1);
+    int total = kNumProducers * kItemsPerProducer;
+    int consumed = 0;
+
+    while (consumed < total) {
+        if (auto item = q.dequeue(); item.has_value()) {
+            int producer = *item / 10000;
+            int seq = *item % 10000;
+            ASSERT_GE(producer, 0);
+            ASSERT_LT(producer, kNumProducers);
+            // Per-producer FIFO: sequence must be strictly increasing
+            EXPECT_GT(seq, last_seen[producer])
+                << "Producer " << producer << " out of order: "
+                << seq << " after " << last_seen[producer];
+            last_seen[producer] = seq;
+            ++consumed;
+        } else {
+            std::this_thread::yield();
+        }
+    }
+
+    for (auto& t : producers) t.join();
+
+    // Verify all items received
+    for (int p = 0; p < kNumProducers; ++p) {
+        EXPECT_EQ(last_seen[p], kItemsPerProducer - 1);
+    }
 }

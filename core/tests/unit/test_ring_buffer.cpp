@@ -107,6 +107,42 @@ TEST(RingBuffer, Linearize_WrapAround) {
     EXPECT_EQ(span[3], 40);
 }
 
+// T3: Wrap-around data integrity - verify all bytes after linearize
+TEST(RingBuffer, WrapAroundDataIntegrity) {
+    RingBuffer rb(8);
+
+    // Advance write/read positions to force wrap
+    uint8_t filler[6] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    auto w = rb.writable();
+    std::memcpy(w.data(), filler, 6);
+    rb.commit_write(6);
+    rb.consume(6);
+
+    // Write 6 bytes that wrap around: positions 6,7,0,1,2,3
+    uint8_t data[6] = {10, 20, 30, 40, 50, 60};
+    w = rb.writable();
+    size_t first = std::min(w.size(), size_t(6));
+    std::memcpy(w.data(), data, first);
+    rb.commit_write(first);
+    if (first < 6) {
+        w = rb.writable();
+        std::memcpy(w.data(), data + first, 6 - first);
+        rb.commit_write(6 - first);
+    }
+
+    EXPECT_EQ(rb.readable_size(), 6u);
+
+    // Linearize and verify every byte
+    auto span = rb.linearize(6);
+    ASSERT_EQ(span.size(), 6u);
+    EXPECT_EQ(span[0], 10);
+    EXPECT_EQ(span[1], 20);
+    EXPECT_EQ(span[2], 30);
+    EXPECT_EQ(span[3], 40);
+    EXPECT_EQ(span[4], 50);
+    EXPECT_EQ(span[5], 60);
+}
+
 TEST(RingBuffer, Linearize_NotEnoughData) {
     RingBuffer rb(16);
     auto span = rb.linearize(5);

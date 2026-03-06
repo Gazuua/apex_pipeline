@@ -102,6 +102,42 @@ TEST(TimingWheel, WrapAround) {
     EXPECT_TRUE(expired.contains(id));
 }
 
+// T4: Double cancel safety - second cancel should be no-op
+TEST(TimingWheel, DoubleCancelSafe) {
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    auto id = tw.schedule(5);
+    tw.cancel(id);
+    EXPECT_EQ(tw.active_count(), 0u);
+
+    // Second cancel — must not crash or corrupt state
+    tw.cancel(id);
+    EXPECT_EQ(tw.active_count(), 0u);
+
+    // Tick past deadline — must not fire
+    for (int i = 0; i < 8; ++i) tw.tick();
+    EXPECT_TRUE(expired.empty());
+}
+
+// T4b: Reschedule after expiry — should be safe (no-op or ignored)
+TEST(TimingWheel, RescheduleAfterExpiry) {
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    auto id = tw.schedule(1);
+    tw.tick(); // tick 0->1
+    tw.tick(); // tick 1->2 — fires at tick 1
+    ASSERT_EQ(expired.size(), 1u);
+
+    // Reschedule an already-expired entry — must not crash
+    tw.reschedule(id, 3);
+
+    // Tick some more — should not double-fire
+    for (int i = 0; i < 5; ++i) tw.tick();
+    EXPECT_EQ(expired.size(), 1u);  // still just the original fire
+}
+
 TEST(TimingWheel, LargeNumberOfEntries) {
     size_t expire_count = 0;
     TimingWheel tw(256, [&](TimingWheel::EntryId) { ++expire_count; });

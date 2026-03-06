@@ -89,10 +89,11 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0002, .body_size = 2}, p2));
     ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3}, p3));
 
-    // Decode and dispatch all frames
+    // TQ2: Decode and dispatch all frames — verify dispatch return values
     int frames_processed = 0;
     while (auto frame = FrameCodec::try_decode(buf)) {
-        (void)service->dispatcher().dispatch(frame->header.msg_id, frame->payload);
+        auto result = service->dispatcher().dispatch(frame->header.msg_id, frame->payload);
+        EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
     }

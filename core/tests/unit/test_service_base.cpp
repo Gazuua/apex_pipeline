@@ -92,16 +92,17 @@ TEST(ServiceBase, UnregisteredMsgReturnsError) {
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
 }
 
+// TQ1: Verify dispatch() return values instead of (void) cast
 TEST(ServiceBase, MultipleHandlers) {
     auto svc = std::make_unique<MultiHandlerService>();
     svc->start();
 
-    (void)svc->dispatcher().dispatch(0x0001, {});
-    (void)svc->dispatcher().dispatch(0x0001, {});
-    (void)svc->dispatcher().dispatch(0x0002, {});
-    (void)svc->dispatcher().dispatch(0x0003, {});
-    (void)svc->dispatcher().dispatch(0x0003, {});
-    (void)svc->dispatcher().dispatch(0x0003, {});
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0001, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0001, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0002, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
+    EXPECT_TRUE(svc->dispatcher().dispatch(0x0003, {}).has_value());
 
     EXPECT_EQ(svc->count1, 2);
     EXPECT_EQ(svc->count2, 1);

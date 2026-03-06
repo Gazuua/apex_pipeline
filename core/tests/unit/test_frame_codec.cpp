@@ -154,6 +154,41 @@ TEST(FrameCodec, EncodeToBuffer) {
     EXPECT_EQ(out[WireHeader::SIZE + 3], 0x04);
 }
 
+// T5b: FrameCodec decode with BodyTooLarge header
+TEST(FrameCodec, DecodeBodyTooLarge) {
+    RingBuffer buf(4096);
+
+    // Build a header with body_size exceeding MAX_BODY_SIZE
+    WireHeader h{.msg_id = 1, .body_size = WireHeader::MAX_BODY_SIZE + 1};
+    // Manually serialize (serialize doesn't validate body_size)
+    auto header_bytes = h.serialize();
+    write_to_buf(buf, header_bytes);
+
+    auto result = FrameCodec::try_decode(buf);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), FrameError::BodyTooLarge);
+}
+
+// T7: encode_to with body_size mismatch
+TEST(FrameCodec, EncodeToBodySizeMismatch) {
+    std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
+    WireHeader h{.msg_id = 1, .body_size = 100};  // mismatch: says 100, payload is 4
+
+    std::vector<uint8_t> out(256);
+    auto written = FrameCodec::encode_to(out, h, payload);
+    EXPECT_EQ(written, 0u);  // should reject
+}
+
+// T7b: encode() with body_size mismatch
+TEST(FrameCodec, EncodeBodySizeMismatch) {
+    RingBuffer buf(4096);
+    std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
+    WireHeader h{.msg_id = 1, .body_size = 10};  // mismatch
+
+    EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
+    EXPECT_EQ(buf.readable_size(), 0u);  // nothing written
+}
+
 TEST(FrameCodec, EncodeToBufferTooSmall) {
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     WireHeader h{.msg_id = 1, .body_size = 4};
