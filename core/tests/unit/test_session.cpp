@@ -4,11 +4,31 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/use_future.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace apex::core;
 using boost::asio::ip::tcp;
+using boost::asio::awaitable;
+
+// awaitable을 동기적으로 실행하는 헬퍼
+template <typename T>
+T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    return future.get();
+}
+
+inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    future.get();
+}
 
 class SessionTest : public ::testing::Test {
 protected:
@@ -45,7 +65,8 @@ TEST_F(SessionTest, SendFrame) {
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
     WireHeader header{.msg_id = 0x0042,
                       .body_size = static_cast<uint32_t>(payload.size())};
-    EXPECT_TRUE(session->send(header, payload));
+    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_TRUE(sent);
 
     std::vector<uint8_t> response(WireHeader::SIZE + payload.size());
     boost::asio::read(client, boost::asio::buffer(response));
@@ -68,7 +89,8 @@ TEST_F(SessionTest, SendAfterClose) {
 
     std::vector<uint8_t> payload = {0x01};
     WireHeader header{.msg_id = 1, .body_size = 1};
-    EXPECT_FALSE(session->send(header, payload));
+    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_FALSE(sent);
 
     client.close();
 }

@@ -5,6 +5,7 @@
 #include <apex/core/wire_header.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -17,13 +18,13 @@ using SessionId = uint64_t;
 /// 단일 클라이언트 연결을 나타내는 클래스.
 /// SessionManager가 shared_ptr로 소유 (코루틴 안전성 보장).
 ///
-/// 생명주기: Connected -> Active -> Closing -> Closed
+/// 생명주기: Connected -> Active -> Closed
 class Session : public std::enable_shared_from_this<Session> {
 public:
     enum class State : uint8_t {
         Connected,
         Active,
-        Closing,
+        // Closing 제거 (I-2): 미사용 상태였음. graceful shutdown은 Closed로 직접 전이.
         Closed,
     };
 
@@ -34,12 +35,14 @@ public:
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
-    /// 프레임 응답을 이 세션에 전송.
-    [[nodiscard]] bool send(const WireHeader& header,
-                            std::span<const uint8_t> payload);
+    /// 프레임 응답을 이 세션에 비동기 전송.
+    /// @pre 호출자는 이 세션이 속한 io_context의 implicit strand에서 호출해야 한다.
+    [[nodiscard]] boost::asio::awaitable<bool>
+    async_send(const WireHeader& header, std::span<const uint8_t> payload);
 
-    /// 미리 빌드된 로우 프레임 전송.
-    [[nodiscard]] bool send_raw(std::span<const uint8_t> data);
+    /// 미리 빌드된 로우 프레임 비동기 전송.
+    [[nodiscard]] boost::asio::awaitable<bool>
+    async_send_raw(std::span<const uint8_t> data);
 
     /// 세션 그레이스풀 종료.
     void close();

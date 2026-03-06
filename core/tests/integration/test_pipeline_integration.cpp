@@ -6,12 +6,32 @@
 #include <apex/core/wire_header.hpp>
 #include <gtest/gtest.h>
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/use_future.hpp>
+
 #include <atomic>
 #include <chrono>
 #include <thread>
 #include <vector>
 
 using namespace apex::core;
+using boost::asio::awaitable;
+
+template <typename T>
+T run_coro(boost::asio::io_context& ctx, awaitable<T> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    return future.get();
+}
+
+inline void run_coro(boost::asio::io_context& ctx, awaitable<void> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    future.get();
+}
 
 // --- Test service that records dispatched messages ---
 
@@ -24,14 +44,16 @@ public:
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    void on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<void> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
+        co_return;
     }
 
-    void on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
+    awaitable<void> on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
         ++ping_count;
+        co_return;
     }
 
     uint16_t last_msg_id = 0;
@@ -60,8 +82,9 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
     EXPECT_EQ(frame->payload.size(), 6);
 
     // 4. Dispatch to service
-    auto result = service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload);
+    boost::asio::io_context io_ctx;
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
+        frame->header.msg_id, frame->payload));
     ASSERT_TRUE(result.has_value());
 
     // 5. Verify handler received correct data
@@ -90,9 +113,10 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3}, p3));
 
     // TQ2: Decode and dispatch all frames — verify dispatch return values
+    boost::asio::io_context io_ctx;
     int frames_processed = 0;
     while (auto frame = FrameCodec::try_decode(buf)) {
-        auto result = service->dispatcher().dispatch(nullptr,frame->header.msg_id, frame->payload);
+        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,frame->header.msg_id, frame->payload));
         EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
@@ -115,8 +139,9 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
     auto frame = FrameCodec::try_decode(buf);
     ASSERT_TRUE(frame.has_value());
 
-    auto result = service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload);
+    boost::asio::io_context io_ctx;
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
+        frame->header.msg_id, frame->payload));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
 }

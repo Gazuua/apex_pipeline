@@ -16,17 +16,18 @@ void MessageDispatcher::unregister_handler(uint16_t msg_id) {
     }
 }
 
-std::expected<void, DispatchError>
+boost::asio::awaitable<std::expected<void, DispatchError>>
 MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const {
-    if (!(*handlers_)[msg_id]) {
-        return std::unexpected(DispatchError::UnknownMessage);
+    auto& handler = (*handlers_)[msg_id];
+    if (!handler) {
+        co_return std::unexpected(DispatchError::UnknownMessage);
     }
     try {
-        (*handlers_)[msg_id](session, msg_id, payload);
+        co_await handler(std::move(session), msg_id, payload);
+        co_return std::expected<void, DispatchError>{};
     } catch (...) {
-        return std::unexpected(DispatchError::HandlerFailed);
+        co_return std::unexpected(DispatchError::HandlerFailed);
     }
-    return {};
 }
 
 bool MessageDispatcher::has_handler(uint16_t msg_id) const noexcept {

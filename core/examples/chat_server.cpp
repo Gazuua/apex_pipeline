@@ -1,7 +1,8 @@
-/// Apex Pipeline - Chat Server Example
+/// Apex Pipeline - Chat Server Example (v0.2.1)
 ///
 /// 크로스 세션 브로드캐스트 시연.
 /// SessionPtr + SessionManager.for_each() 활용.
+/// 핸들러 코루틴 전환 완료.
 ///
 /// Usage: chat_server [port]
 ///   Default: port=9001
@@ -16,11 +17,14 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <cstdlib>
 #include <iostream>
+#include <vector>
 
 using namespace apex::core;
+using boost::asio::awaitable;
 
 class ChatService : public ServiceBase<ChatService> {
 public:
@@ -35,10 +39,10 @@ public:
         std::cout << "[ChatService] Stopped. Total: " << msg_count_ << " messages\n";
     }
 
-    void on_chat(SessionPtr sender, uint16_t msg_id,
-                 const apex::messages::ChatMessage* msg) {
+    awaitable<void> on_chat(SessionPtr sender, uint16_t msg_id,
+                            const apex::messages::ChatMessage* msg) {
         ++msg_count_;
-        if (!msg || !msg->content()) return;
+        if (!msg || !msg->content()) co_return;
 
         std::cout << "[Chat] Session " << sender->id()
                   << ": " << msg->content()->str() << "\n";
@@ -55,9 +59,14 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
 
+        // for_each는 동기 콜백이므로, 세션 목록을 수집 후 코루틴에서 순회
+        std::vector<SessionPtr> sessions;
         session_mgr_.for_each([&](SessionPtr s) {
-            (void)s->send(header, {builder.GetBufferPointer(), builder.GetSize()});
+            sessions.push_back(s);
         });
+        for (auto& s : sessions) {
+            co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        }
     }
 
 private:
@@ -69,7 +78,7 @@ int main(int argc, char* argv[]) {
     uint16_t port = 9001;
     if (argc >= 2) port = static_cast<uint16_t>(std::atoi(argv[1]));
 
-    std::cout << "=== Apex Pipeline Chat Server ===\n"
+    std::cout << "=== Apex Pipeline Chat Server v0.2.1 ===\n"
               << "Port: " << port << "\n\n";
 
     boost::asio::io_context io_ctx;

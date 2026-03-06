@@ -2,6 +2,7 @@
 #include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cassert>
+#include <stdexcept>
 #include <vector>
 
 namespace apex::core {
@@ -11,6 +12,9 @@ TimingWheel::TimingWheel(size_t num_slots, Callback on_expire)
     , mask_(num_slots_ - 1)
     , on_expire_(std::move(on_expire))
 {
+    if (num_slots_ == 0) {
+        throw std::overflow_error("TimingWheel num_slots overflow in next_power_of_2");
+    }
     slots_.resize(num_slots_);
 }
 
@@ -67,6 +71,7 @@ TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
     insert_entry(entry, slot_idx);
 
     entries_[id] = entry;
+    ++active_count_;
 
     return id;
 }
@@ -84,6 +89,7 @@ void TimingWheel::cancel(EntryId id) {
     delete entry;
     entries_[id] = nullptr;
     free_ids_.push_back(id);
+    --active_count_;
 }
 
 void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
@@ -119,23 +125,21 @@ void TimingWheel::tick() {
         remove_entry(e, slot_idx);
     }
 
-    // Phase 3: Fire callbacks (cancel() during callback is now safe)
+    // Phase 3: 엔트리 정리 후 콜백 호출 (콜백 내 cancel() 재진입 시 UAF 방지)
     for (auto* e : expired) {
-        on_expire_(e->id);
-        entries_[e->id] = nullptr;
-        free_ids_.push_back(e->id);
+        EntryId expired_id = e->id;
+        entries_[expired_id] = nullptr;
+        free_ids_.push_back(expired_id);
+        --active_count_;
         delete e;
+        on_expire_(expired_id);
     }
 
     ++current_tick_;
 }
 
 size_t TimingWheel::active_count() const noexcept {
-    size_t count = 0;
-    for (const auto* entry : entries_) {
-        if (entry && !entry->cancelled) ++count;
-    }
-    return count;
+    return active_count_;
 }
 
 uint64_t TimingWheel::current_tick() const noexcept {

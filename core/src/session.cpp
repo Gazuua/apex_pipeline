@@ -1,10 +1,12 @@
 #include <apex/core/session.hpp>
 
+#include <boost/asio/as_tuple.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
-#include <cstring>
-
 namespace apex::core {
+
+using boost::asio::awaitable;
 
 Session::Session(SessionId id, boost::asio::ip::tcp::socket socket,
                  uint32_t core_id, size_t recv_buf_capacity)
@@ -23,37 +25,41 @@ Session::~Session() {
     }
 }
 
-bool Session::send(const WireHeader& header,
-                   std::span<const uint8_t> payload) {
-    if (!is_open()) return false;
+awaitable<bool> Session::async_send(const WireHeader& header,
+                                    std::span<const uint8_t> payload) {
+    if (!is_open()) co_return false;
 
-    std::vector<uint8_t> frame(header.frame_size());
-    auto hdr_bytes = header.serialize();
-    std::memcpy(frame.data(), hdr_bytes.data(), WireHeader::SIZE);
-    if (!payload.empty()) {
-        std::memcpy(frame.data() + WireHeader::SIZE,
-                    payload.data(), payload.size());
-    }
+    std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
+    header.serialize(hdr_buf);
 
-    boost::system::error_code ec;
-    boost::asio::write(socket_, boost::asio::buffer(frame), ec);
+    std::array<boost::asio::const_buffer, 2> buffers{
+        boost::asio::buffer(hdr_buf),
+        boost::asio::buffer(payload.data(), payload.size())
+    };
+
+    auto [ec, bytes] = co_await boost::asio::async_write(
+        socket_, buffers,
+        boost::asio::as_tuple(boost::asio::use_awaitable));
+
     if (ec) {
         close();
-        return false;
+        co_return false;
     }
-    return true;
+    co_return true;
 }
 
-bool Session::send_raw(std::span<const uint8_t> data) {
-    if (!is_open()) return false;
+awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
+    if (!is_open()) co_return false;
 
-    boost::system::error_code ec;
-    boost::asio::write(socket_, boost::asio::buffer(data.data(), data.size()), ec);
+    auto [ec, bytes] = co_await boost::asio::async_write(
+        socket_, boost::asio::buffer(data.data(), data.size()),
+        boost::asio::as_tuple(boost::asio::use_awaitable));
+
     if (ec) {
         close();
-        return false;
+        co_return false;
     }
-    return true;
+    co_return true;
 }
 
 void Session::close() {

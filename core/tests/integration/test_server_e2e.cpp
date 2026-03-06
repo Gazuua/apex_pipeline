@@ -14,6 +14,7 @@
 #include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <gtest/gtest.h>
 
@@ -24,6 +25,7 @@
 
 using namespace apex::core;
 using boost::asio::ip::tcp;
+using boost::asio::awaitable;
 
 // --- 헬퍼 ---
 
@@ -98,9 +100,9 @@ public:
         route<apex::messages::EchoRequest>(0x0001, &TestEchoService::on_echo);
     }
 
-    void on_echo(SessionPtr session, uint16_t msg_id,
-                 const apex::messages::EchoRequest* req) {
-        if (!req || !req->data()) return;
+    awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
+                            const apex::messages::EchoRequest* req) {
+        if (!req || !req->data()) co_return;
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto data_vec = builder.CreateVector(
@@ -112,7 +114,7 @@ public:
             .msg_id = msg_id,
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
-        (void)session->send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
     }
 };
 
@@ -126,9 +128,9 @@ public:
             0x0100, &TestChatService::on_chat);
     }
 
-    void on_chat(SessionPtr sender, uint16_t msg_id,
-                 const apex::messages::ChatMessage* msg) {
-        if (!msg || !msg->content()) return;
+    awaitable<void> on_chat(SessionPtr sender, uint16_t msg_id,
+                            const apex::messages::ChatMessage* msg) {
+        if (!msg || !msg->content()) co_return;
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto content = builder.CreateString(msg->content()->str());
@@ -141,9 +143,14 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
 
+        // for_each는 동기 콜백이므로, 세션 목록을 수집 후 코루틴에서 순회
+        std::vector<SessionPtr> sessions;
         session_mgr_.for_each([&](SessionPtr s) {
-            (void)s->send(header, {builder.GetBufferPointer(), builder.GetSize()});
+            sessions.push_back(s);
         });
+        for (auto& s : sessions) {
+            co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        }
     }
 
 private:
@@ -162,8 +169,8 @@ protected:
     }
 
     void stop_and_join(Server& server) {
-        // io_ctx_ 스레드에서 stop 실행 (스레드 안전 보장)
-        boost::asio::post(io_ctx_, [&server] { server.stop(); });
+        // Server::stop()이 내부에서 post(io_ctx_) 처리하므로 직접 호출
+        server.stop();
         if (server_thread_.joinable()) server_thread_.join();
     }
 };

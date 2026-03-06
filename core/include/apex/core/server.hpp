@@ -6,6 +6,7 @@
 #include <apex/core/service_base.hpp>
 #include <apex/core/tcp_acceptor.hpp>
 
+#include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
@@ -52,7 +53,7 @@ public:
     /// 서버 시작 (accept + timer tick + 서비스 시작).
     void start();
 
-    /// 서버 중지 (모든 세션/서비스 정리).
+    /// 서버 중지 (스레드 안전 — 내부 post 가드). (I-5)
     void stop();
 
     /// 바인딩된 실제 포트.
@@ -64,10 +65,14 @@ public:
     [[nodiscard]] bool running() const noexcept { return running_; }
 
 private:
+    /// 코루틴 메서드 (재귀 콜백 대체). (C-3, C-4, C-5)
+    boost::asio::awaitable<void> read_loop(SessionPtr session);
+    boost::asio::awaitable<void> process_frames(SessionPtr session);
+
+    /// 소켓 accept 콜백 — co_spawn으로 read_loop 시작.
     void on_accept(boost::asio::ip::tcp::socket socket);
-    void start_read(SessionPtr session);
-    void do_read(SessionPtr session);
-    void process_frames(SessionPtr session);
+
+    /// 하트비트 tick 타이머.
     void start_tick_timer();
 
     boost::asio::io_context& io_ctx_;
@@ -80,7 +85,10 @@ private:
 
     std::vector<std::unique_ptr<ServiceBaseInterface>> services_;
 
+    // M-2: TMP_BUF_SIZE가 기본 recv_buf_capacity를 초과하지 않도록 보장.
     static constexpr size_t TMP_BUF_SIZE = 4096;
+    static_assert(TMP_BUF_SIZE <= 8192,
+                  "TMP_BUF_SIZE must not exceed default recv_buf_capacity");
 };
 
 } // namespace apex::core

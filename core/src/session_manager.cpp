@@ -101,13 +101,13 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
     if (session_it == sessions_.end()) return;
 
     auto session = session_it->second;
+    sessions_.erase(session_it);  // 콜백 전에 erase (댕글링 이터레이터 방지)
 
     if (timeout_callback_) {
         timeout_callback_(session);
     }
 
     session->close();
-    sessions_.erase(session_it);
 }
 
 } // namespace apex::core

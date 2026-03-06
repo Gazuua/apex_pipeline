@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <new>
+#include <stdexcept>
 
 #ifdef _MSC_VER
 #include <malloc.h>
@@ -16,6 +17,9 @@ RingBuffer::RingBuffer(size_t capacity)
     , capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
     , mask_(capacity_ - 1)
 {
+    if (capacity_ == 0) {
+        throw std::overflow_error("RingBuffer capacity overflow in next_power_of_2");
+    }
 #ifdef _MSC_VER
     buffer_ = static_cast<uint8_t*>(_aligned_malloc(capacity_, 64));
 #else

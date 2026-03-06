@@ -1,6 +1,6 @@
-/// Apex Pipeline - Echo Server Example (v0.2.0)
+/// Apex Pipeline - Echo Server Example (v0.2.1)
 ///
-/// Server 클래스 기반. 기존 140줄 수동 코드 → ~40줄.
+/// Server 클래스 기반. 핸들러 코루틴 전환 완료.
 ///
 /// Usage: echo_server [port]
 ///   Default: port=9000
@@ -14,11 +14,13 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <cstdlib>
 #include <iostream>
 
 using namespace apex::core;
+using boost::asio::awaitable;
 
 class EchoService : public ServiceBase<EchoService> {
 public:
@@ -33,10 +35,10 @@ public:
         std::cout << "[EchoService] Stopped. Total: " << count_ << " echo\n";
     }
 
-    void on_echo(SessionPtr session, uint16_t msg_id,
-                 const apex::messages::EchoRequest* req) {
+    awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
+                            const apex::messages::EchoRequest* req) {
         ++count_;
-        if (!req || !req->data()) return;
+        if (!req || !req->data()) co_return;
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto data_vec = builder.CreateVector(
@@ -48,7 +50,7 @@ public:
             .msg_id = msg_id,
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
-        (void)session->send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
     }
 
 private:
@@ -59,7 +61,7 @@ int main(int argc, char* argv[]) {
     uint16_t port = 9000;
     if (argc >= 2) port = static_cast<uint16_t>(std::atoi(argv[1]));
 
-    std::cout << "=== Apex Pipeline Echo Server v0.2.0 ===\n"
+    std::cout << "=== Apex Pipeline Echo Server v0.2.1 ===\n"
               << "Port: " << port << "\n\n";
 
     boost::asio::io_context io_ctx;

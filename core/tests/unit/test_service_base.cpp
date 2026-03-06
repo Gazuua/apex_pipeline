@@ -1,5 +1,10 @@
 #include <apex/core/service_base.hpp>
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/use_future.hpp>
+#include <boost/asio/awaitable.hpp>
+
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -8,6 +13,23 @@
 #include <vector>
 
 using namespace apex::core;
+using boost::asio::awaitable;
+
+// awaitable을 동기적으로 실행하는 헬퍼
+template <typename T>
+T run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<T> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    return future.get();
+}
+
+inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> aw) {
+    auto future = boost::asio::co_spawn(ctx, std::move(aw), boost::asio::use_future);
+    ctx.run();
+    ctx.restart();
+    future.get();
+}
 
 class EchoService : public ServiceBase<EchoService> {
 public:
@@ -20,9 +42,10 @@ public:
 
     void on_stop() override { stop_called = true; }
 
-    void on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<void> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
+        co_return;
     }
 
     bool start_called = false;
@@ -41,9 +64,9 @@ public:
         handle(0x0003, &MultiHandlerService::on_msg3);
     }
 
-    void on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; }
-    void on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; }
-    void on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; }
+    awaitable<void> on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; co_return; }
+    awaitable<void> on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; co_return; }
+    awaitable<void> on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; co_return; }
 
     int count1 = 0;
     int count2 = 0;
@@ -73,36 +96,39 @@ TEST(ServiceBase, StopCallsOnStop) {
 }
 
 TEST(ServiceBase, HandleRegistersAndDispatches) {
+    boost::asio::io_context io_ctx;
     auto svc = std::make_unique<EchoService>();
     svc->start();
 
     std::vector<uint8_t> data = {0x01, 0x02, 0x03};
-    auto result = svc->dispatcher().dispatch(nullptr,0x0001, data);
+    auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0001, data));
     EXPECT_TRUE(result.has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
 }
 
 TEST(ServiceBase, UnregisteredMsgReturnsError) {
+    boost::asio::io_context io_ctx;
     auto svc = std::make_unique<EchoService>();
     svc->start();
 
-    auto result = svc->dispatcher().dispatch(nullptr,0x9999, {});
+    auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x9999, {}));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
 }
 
 // TQ1: Verify dispatch() return values instead of (void) cast
 TEST(ServiceBase, MultipleHandlers) {
+    boost::asio::io_context io_ctx;
     auto svc = std::make_unique<MultiHandlerService>();
     svc->start();
 
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0001, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0001, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0002, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
-    EXPECT_TRUE(svc->dispatcher().dispatch(nullptr,0x0003, {}).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0001, {})).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0001, {})).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0002, {})).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0003, {})).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0003, {})).has_value());
+    EXPECT_TRUE(run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0003, {})).has_value());
 
     EXPECT_EQ(svc->count1, 2);
     EXPECT_EQ(svc->count2, 1);

@@ -6,6 +6,7 @@
 #include <expected>
 #include <new>
 #include <optional>
+#include <stdexcept>
 #include <type_traits>
 
 #include <apex/core/detail/math_utils.hpp>
@@ -82,6 +83,9 @@ MpscQueue<T>::MpscQueue(size_t capacity)
     : capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
     , mask_(capacity_ - 1)
 {
+    if (capacity_ == 0) {
+        throw std::overflow_error("MpscQueue capacity overflow in next_power_of_2");
+    }
     slots_ = new Slot[capacity_];
 }
 

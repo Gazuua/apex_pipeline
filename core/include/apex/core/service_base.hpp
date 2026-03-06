@@ -2,8 +2,10 @@
 
 #include <apex/core/message_dispatcher.hpp>
 
+#include <boost/asio/awaitable.hpp>
 #include <flatbuffers/flatbuffers.h>
 
+#include <cassert>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -32,8 +34,8 @@ public:
 ///       void on_start() override {
 ///           handle(0x0001, &EchoService::on_echo);
 ///       }
-///       void on_echo(SessionPtr session, uint16_t msg_id,
-///                    std::span<const uint8_t> payload) { ... }
+///       awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
+///                               std::span<const uint8_t> payload) { co_return; }
 ///   };
 template <typename Derived>
 class ServiceBase : public ServiceBaseInterface {
@@ -62,35 +64,40 @@ public:
     [[nodiscard]] const MessageDispatcher& dispatcher() const noexcept { return *dispatcher_; }
 
     void bind_dispatcher(MessageDispatcher& external) override {
+        assert(!started_ && "bind_dispatcher must be called before start()");
         dispatcher_ = &external;
     }
 
 protected:
-    /// 로우 핸들러 등록.
+    /// 로우 핸들러 등록 (코루틴).
     void handle(uint16_t msg_id,
-                void (Derived::*method)(SessionPtr, uint16_t, std::span<const uint8_t>))
+                boost::asio::awaitable<void> (Derived::*method)(
+                    SessionPtr, uint16_t, std::span<const uint8_t>))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
-            [self, method](SessionPtr session, uint16_t id, std::span<const uint8_t> payload) {
-                (self->*method)(session, id, payload);
+            [self, method](SessionPtr session, uint16_t id,
+                           std::span<const uint8_t> payload)
+                -> boost::asio::awaitable<void> {
+                co_await (self->*method)(session, id, payload);
             });
     }
 
-    /// FlatBuffers 타입 핸들러 등록.
+    /// FlatBuffers 타입 핸들러 등록 (코루틴).
     template <typename FbsType>
     void route(uint16_t msg_id,
-               void (Derived::*method)(SessionPtr, uint16_t, const FbsType*))
+               boost::asio::awaitable<void> (Derived::*method)(
+                   SessionPtr, uint16_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
-            [self, method](SessionPtr session, uint16_t id, std::span<const uint8_t> payload) {
+            [self, method](SessionPtr session, uint16_t id,
+                           std::span<const uint8_t> payload)
+                -> boost::asio::awaitable<void> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
-                if (!verifier.VerifyBuffer<FbsType>()) {
-                    return;
-                }
+                if (!verifier.VerifyBuffer<FbsType>()) co_return;
                 auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
-                (self->*method)(session, id, msg);
+                co_await (self->*method)(session, id, msg);
             });
     }
 

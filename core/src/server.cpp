@@ -2,7 +2,12 @@
 #include <apex/core/error_sender.hpp>
 #include <apex/core/frame_codec.hpp>
 
+#include <boost/asio/as_tuple.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
 #include <array>
@@ -21,7 +26,19 @@ Server::Server(boost::asio::io_context& io_ctx, Config config)
 {
 }
 
-Server::~Server() { stop(); }
+Server::~Server() {
+    // 소멸자에서는 직접 정리 (post 불필요 — io_ctx가 이미 멈춘 상태)
+    if (!running_) return;
+    running_ = false;
+    acceptor_.stop();
+    tick_timer_.cancel();
+    session_mgr_.for_each([](SessionPtr session) {
+        session->close();
+    });
+    for (auto& svc : services_) {
+        svc->stop();
+    }
+}
 
 void Server::start() {
     if (running_) return;
@@ -38,21 +55,24 @@ void Server::start() {
     }
 }
 
+// I-5: 스레드 안전 — 내부 post 가드.
 void Server::stop() {
-    if (!running_) return;
-    running_ = false;
+    boost::asio::post(io_ctx_, [this]() {
+        if (!running_) return;
+        running_ = false;
 
-    acceptor_.stop();
-    tick_timer_.cancel();
+        acceptor_.stop();
+        tick_timer_.cancel();
 
-    // 모든 세션 닫기
-    session_mgr_.for_each([](SessionPtr session) {
-        session->close();
+        // 모든 세션 닫기
+        session_mgr_.for_each([](SessionPtr session) {
+            session->close();
+        });
+
+        for (auto& svc : services_) {
+            svc->stop();
+        }
     });
-
-    for (auto& svc : services_) {
-        svc->stop();
-    }
 }
 
 uint16_t Server::port() const noexcept {
@@ -61,59 +81,67 @@ uint16_t Server::port() const noexcept {
 
 void Server::on_accept(boost::asio::ip::tcp::socket socket) {
     auto session = session_mgr_.create_session(std::move(socket));
-    start_read(session);
+    // create_session 내부에서 이미 Active로 전이됨
+    boost::asio::co_spawn(io_ctx_, read_loop(session), boost::asio::detached);
 }
 
-void Server::start_read(SessionPtr session) {
-    do_read(session);
+// C-3: 재귀 콜백 대신 코루틴 루프 — [this] 캡처 댕글링 제거.
+// C-4: process_frames 후 is_open() 재확인 — while 조건에서 자연스럽게 해결.
+// C-5: RingBuffer 가득 참 시 session close + break.
+boost::asio::awaitable<void> Server::read_loop(SessionPtr session) {
+    std::array<uint8_t, TMP_BUF_SIZE> tmp_buf;
+    while (session->is_open()) {
+        auto [ec, n] = co_await session->socket().async_read_some(
+            boost::asio::buffer(tmp_buf),
+            boost::asio::as_tuple(boost::asio::use_awaitable));
+        if (ec) break;
+        if (n == 0) break;
+
+        // C-5: RingBuffer overflow 시 session close + break
+        auto& rb = session->recv_buffer();
+        if (rb.writable_size() < n) {
+            session->close();
+            break;
+        }
+
+        // RingBuffer에 복사 (wrap-around 시 분할 복사)
+        auto w = rb.writable();
+        if (w.size() >= n) {
+            std::memcpy(w.data(), tmp_buf.data(), n);
+            rb.commit_write(n);
+        } else {
+            auto first = w.size();
+            std::memcpy(w.data(), tmp_buf.data(), first);
+            rb.commit_write(first);
+            auto w2 = rb.writable();
+            std::memcpy(w2.data(), tmp_buf.data() + first, n - first);
+            rb.commit_write(n - first);
+        }
+
+        // 프레임 파싱 + 디스패치
+        co_await process_frames(session);
+
+        // 하트비트 리셋
+        session_mgr_.touch_session(session->id());
+    }
+    // 세션 정리
+    session_mgr_.remove_session(session->id());
 }
 
-void Server::do_read(SessionPtr session) {
-    if (!running_ || !session->is_open()) return;
-
-    auto buf = std::make_shared<std::array<uint8_t, TMP_BUF_SIZE>>();
-    session->socket().async_read_some(
-        boost::asio::buffer(*buf),
-        [this, session, buf](boost::system::error_code ec, size_t bytes) {
-            if (ec || bytes == 0) {
-                session_mgr_.remove_session(session->id());
-                return;
-            }
-
-            // RingBuffer에 복사
-            auto& recv_buf = session->recv_buffer();
-            size_t copied = 0;
-            while (copied < bytes) {
-                auto w = recv_buf.writable();
-                if (w.empty()) break;
-                size_t to_copy = std::min(w.size(), bytes - copied);
-                std::memcpy(w.data(), buf->data() + copied, to_copy);
-                recv_buf.commit_write(to_copy);
-                copied += to_copy;
-            }
-
-            process_frames(session);
-
-            // 하트비트 리셋
-            session_mgr_.touch_session(session->id());
-
-            // 다음 읽기
-            do_read(session);
-        });
-}
-
-void Server::process_frames(SessionPtr session) {
+boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
     auto& recv_buf = session->recv_buffer();
 
     while (auto frame = FrameCodec::try_decode(recv_buf)) {
-        auto result = dispatcher_.dispatch(
+        // SAFETY: read_loop이 co_await 중이므로 recv_buf에 새 데이터가 쓰이지 않으며,
+        // linearize()가 재호출되지 않아 frame->payload span이 유효함.
+        auto result = co_await dispatcher_.dispatch(
             session, frame->header.msg_id, frame->payload);
 
         if (!result.has_value() &&
             result.error() == DispatchError::UnknownMessage) {
             auto error_frame = ErrorSender::build_error_frame(
                 frame->header.msg_id, ErrorCode::HandlerNotFound);
-            (void)session->send_raw(error_frame);
+            co_await session->async_send_raw(error_frame);
         }
 
         FrameCodec::consume_frame(recv_buf, *frame);

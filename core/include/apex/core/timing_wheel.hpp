@@ -32,6 +32,7 @@ public:
     TimingWheel& operator=(TimingWheel&&) = delete;
 
     /// Add an entry that expires after `ticks_from_now` ticks.
+    /// ticks_from_now=0이면 다음 tick() 호출 시 즉시 만료된다.
     /// @return EntryId for later cancel/reschedule.
     [[nodiscard]] EntryId schedule(uint32_t ticks_from_now);
 
@@ -80,6 +81,7 @@ private:
     // Entry storage (pool-friendly)
     std::vector<Entry*> entries_;  // indexed by id for O(1) lookup
     std::vector<EntryId> free_ids_;  // free-list for id reuse
+    size_t active_count_{0};  // 현재 활성 엔트리 수 (O(1) 조회용)
 };
 
 } // namespace apex::core

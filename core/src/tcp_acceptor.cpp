@@ -1,10 +1,17 @@
 #include <apex/core/tcp_acceptor.hpp>
 
+#include <boost/asio/as_tuple.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/use_awaitable.hpp>
+
 namespace apex::core {
 
 TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
-                          AcceptCallback on_accept)
-    : acceptor_(io_ctx, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port))
+                          AcceptCallback on_accept,
+                          boost::asio::ip::tcp protocol)
+    : io_ctx_(io_ctx)
+    , acceptor_(io_ctx, boost::asio::ip::tcp::endpoint(protocol, port))
     , on_accept_(std::move(on_accept))
 {
 }
@@ -14,7 +21,7 @@ TcpAcceptor::~TcpAcceptor() { stop(); }
 void TcpAcceptor::start() {
     if (running_) return;
     running_ = true;
-    do_accept();
+    boost::asio::co_spawn(io_ctx_, accept_loop(), boost::asio::detached);
 }
 
 void TcpAcceptor::stop() {
@@ -31,13 +38,17 @@ uint16_t TcpAcceptor::port() const noexcept {
     return ec ? 0 : ep.port();
 }
 
-void TcpAcceptor::do_accept() {
-    if (!running_) return;
-    acceptor_.async_accept([this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket) {
-        if (ec || !running_) return;
+// C-3: 코루틴 accept 루프 — 재귀 콜백 [this] 캡처 댕글링 문제 해결.
+boost::asio::awaitable<void> TcpAcceptor::accept_loop() {
+    while (running_) {
+        auto [ec, socket] = co_await acceptor_.async_accept(
+            boost::asio::as_tuple(boost::asio::use_awaitable));
+        if (ec) {
+            if (ec == boost::asio::error::operation_aborted) break;
+            continue;  // 일시적 에러(EMFILE 등)는 재시도
+        }
         if (on_accept_) on_accept_(std::move(socket));
-        do_accept();
-    });
+    }
 }
 
 } // namespace apex::core
