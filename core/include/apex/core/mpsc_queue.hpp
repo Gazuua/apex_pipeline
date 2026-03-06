@@ -70,4 +70,91 @@ private:
     alignas(64) size_t tail_{0};               // consumer-only, no atomic needed
 };
 
+// --- Implementation ---
+
+namespace detail {
+    constexpr size_t next_power_of_2(size_t v) {
+        v--;
+        v |= v >> 1; v |= v >> 2; v |= v >> 4;
+        v |= v >> 8; v |= v >> 16; v |= v >> 32;
+        return v + 1;
+    }
+} // namespace detail
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+MpscQueue<T>::MpscQueue(size_t capacity)
+    : capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
+    , mask_(capacity_ - 1)
+{
+    slots_ = new Slot[capacity_];
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+MpscQueue<T>::~MpscQueue() {
+    delete[] slots_;
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
+    size_t head = head_.load(std::memory_order_relaxed);
+    for (;;) {
+        Slot& slot = slots_[head & mask_];
+        if (slot.ready.load(std::memory_order_acquire)) {
+            // Slot still occupied -- might be full, or head may have advanced
+            size_t new_head = head_.load(std::memory_order_relaxed);
+            if (new_head == head) {
+                return std::unexpected(QueueError::Full);
+            }
+            head = new_head;
+            continue;
+        }
+
+        if (head_.compare_exchange_weak(head, head + 1,
+                std::memory_order_acq_rel, std::memory_order_relaxed)) {
+            slot.data = item;
+            slot.ready.store(true, std::memory_order_release);
+            return {};
+        }
+        // CAS failed, head updated by compare_exchange_weak, retry
+    }
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+std::optional<T> MpscQueue<T>::dequeue() {
+    Slot& slot = slots_[tail_ & mask_];
+    if (!slot.ready.load(std::memory_order_acquire)) {
+        return std::nullopt;
+    }
+    T item = slot.data;
+    slot.ready.store(false, std::memory_order_release);
+    ++tail_;
+    return item;
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+size_t MpscQueue<T>::size_approx() const noexcept {
+    size_t count = 0;
+    for (size_t i = 0; i < capacity_; ++i) {
+        if (slots_[i].ready.load(std::memory_order_relaxed)) ++count;
+    }
+    return count;
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+size_t MpscQueue<T>::capacity() const noexcept {
+    return capacity_;
+}
+
+template <typename T>
+    requires std::is_trivially_copyable_v<T>
+bool MpscQueue<T>::empty() const noexcept {
+    return size_approx() == 0;
+}
+
 } // namespace apex::core
