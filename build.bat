@@ -8,14 +8,10 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build
 set VCPKG_ROOT=C:\Users\JHG\vcpkg
 cd /d D:\.workspace\BoostAsioCore
 
-:: Configure only if build directory doesn't exist yet
-if not exist "build\%PRESET%\build.ninja" (
-    echo [build.bat] Configuring preset: %PRESET%
-    cmake --preset %PRESET%
-    if errorlevel 1 exit /b 1
-) else (
-    echo [build.bat] Build directory exists, skipping configure
-)
+:: Always configure (cached runs are fast, ensures compile_commands.json stays fresh)
+echo [build.bat] Configuring preset: %PRESET%
+cmake --preset %PRESET%
+if errorlevel 1 exit /b 1
 
 :: Build
 cmake --build "build/%PRESET%"

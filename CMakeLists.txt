@@ -16,10 +16,11 @@ option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 enable_testing()
 add_subdirectory(core)
 
-# Copy compile_commands.json to project root for clangd (works in VS, build.bat, CLI)
-add_custom_target(copy_compile_commands ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_BINARY_DIR}/compile_commands.json"
-        "${CMAKE_SOURCE_DIR}/compile_commands.json"
-    COMMENT "Copying compile_commands.json to project root"
+# Symlink compile_commands.json to project root for clangd
+# Created at configure time — always fresh since build scripts now always configure
+file(CREATE_LINK
+    "${CMAKE_BINARY_DIR}/compile_commands.json"
+    "${CMAKE_SOURCE_DIR}/compile_commands.json"
+    COPY_ON_ERROR
+    SYMBOLIC
 )
