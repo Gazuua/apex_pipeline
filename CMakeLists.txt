@@ -16,5 +16,5 @@ enable_testing()
 
 # --- Sub-projects ---
 add_subdirectory(apex_core)
+add_subdirectory(apex_shared)
 # add_subdirectory(apex_services/gateway)   # 향후 추가
-# add_subdirectory(apex_shared/lib)         # 향후 추가
