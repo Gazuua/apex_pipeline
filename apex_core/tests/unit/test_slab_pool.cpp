@@ -85,3 +85,63 @@ TEST(TypedSlabPool, ConstructAndDestroy) {
     pool.destroy(obj);
     EXPECT_EQ(pool.allocated_count(), 0u);
 }
+
+// Double-free 감지 테스트
+// Debug 빌드: assert로 즉시 포착 (EXPECT_DEATH)
+// Release 빌드: silent return으로 corruption 방지
+#ifdef NDEBUG
+TEST(SlabPool, DoubleFreeProtection_Release) {
+    SlabPool pool(64, 4);
+
+    void* p1 = pool.allocate();
+    void* p2 = pool.allocate();
+    ASSERT_NE(p1, nullptr);
+    ASSERT_NE(p2, nullptr);
+    EXPECT_EQ(pool.allocated_count(), 2u);
+
+    // 정상 deallocate
+    pool.deallocate(p1);
+    EXPECT_EQ(pool.allocated_count(), 1u);
+    EXPECT_EQ(pool.free_count(), 3u);
+
+    // Double-free — Release에서는 silent return, 카운트 변경 없어야 함
+    pool.deallocate(p1);
+    EXPECT_EQ(pool.allocated_count(), 1u);  // 변경 없음
+    EXPECT_EQ(pool.free_count(), 3u);       // 변경 없음
+
+    // 나머지 정상 deallocate는 여전히 동작해야 함
+    pool.deallocate(p2);
+    EXPECT_EQ(pool.allocated_count(), 0u);
+    EXPECT_EQ(pool.free_count(), 4u);
+
+    // 풀이 여전히 정상 동작하는지 확인
+    void* p3 = pool.allocate();
+    EXPECT_NE(p3, nullptr);
+    EXPECT_EQ(pool.allocated_count(), 1u);
+}
+#else
+TEST(SlabPool, DoubleFreeProtection_Debug) {
+    SlabPool pool(64, 4);
+
+    void* p1 = pool.allocate();
+    ASSERT_NE(p1, nullptr);
+
+    pool.deallocate(p1);
+    EXPECT_EQ(pool.free_count(), 4u);
+
+    // Debug 빌드에서 double-free는 assert로 프로세스 종료
+    EXPECT_DEATH(pool.deallocate(p1), "double-free detected");
+}
+#endif
+
+// owns()가 슬롯 정렬을 검증하는지 확인
+TEST(SlabPool, OwnsSlotAlignment) {
+    SlabPool pool(64, 4);
+
+    void* p = pool.allocate();
+    ASSERT_NE(p, nullptr);
+
+    // 정상 deallocate
+    pool.deallocate(p);
+    EXPECT_EQ(pool.free_count(), 4u);
+}

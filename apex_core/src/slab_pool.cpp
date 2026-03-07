@@ -9,6 +9,10 @@
 
 namespace apex::core {
 
+// 슬롯 상태 마커 (allocated/freed 구분)
+static constexpr uint32_t SLAB_MAGIC_ALLOCATED = 0xA110CA7E;
+static constexpr uint32_t SLAB_MAGIC_FREED     = 0xF2EED000;
+
 static size_t align_up(size_t size, size_t alignment) {
     return (size + alignment - 1) & ~(alignment - 1);
 }
@@ -62,6 +66,7 @@ void SlabPool::grow(size_t count) {
     for (size_t i = count; i > 0; --i) {
         auto* node = reinterpret_cast<FreeNode*>(chunk + (i - 1) * slot_size_);
         node->next = free_list_;
+        node->magic = SLAB_MAGIC_FREED;
         free_list_ = node;
     }
 
@@ -75,6 +80,7 @@ void* SlabPool::allocate() {
     FreeNode* node = free_list_;
     free_list_ = node->next;
     --free_count_;
+    node->magic = SLAB_MAGIC_ALLOCATED;  // 사용자 데이터에 의해 덮어써질 수 있음
     return static_cast<void*>(node);
 }
 
@@ -85,6 +91,14 @@ void SlabPool::deallocate(void* ptr) noexcept {
     assert(owns(ptr) && "deallocate: pointer not owned by this pool");
 
     auto* node = static_cast<FreeNode*>(ptr);
+
+    // Double-free 감지: magic이 FREED이면 이미 반환된 슬롯
+    if (node->magic == SLAB_MAGIC_FREED) {
+        assert(false && "deallocate: double-free detected");
+        return;  // Release에서는 silent return으로 corruption 방지
+    }
+
+    node->magic = SLAB_MAGIC_FREED;
     node->next = free_list_;
     free_list_ = node;
     ++free_count_;
@@ -94,7 +108,9 @@ bool SlabPool::owns(void* ptr) const noexcept {
     auto* p = static_cast<uint8_t*>(ptr);
     for (const auto& chunk : chunks_) {
         if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count) {
-            return true;
+            // 슬롯 정렬 검증: 포인터가 슬롯 경계에 정확히 맞아야 함
+            size_t offset = static_cast<size_t>(p - chunk.data);
+            return (offset % slot_size_) == 0;
         }
     }
     return false;

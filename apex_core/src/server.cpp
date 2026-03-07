@@ -12,22 +12,28 @@
 #include <boost/asio/write.hpp>
 
 #include <array>
-#include <cassert>
 #include <cstring>
+#include <stdexcept>
+#include <string>
 
 namespace apex::core {
 
 Server::Server(boost::asio::io_context& io_ctx, Config config)
     : io_ctx_(io_ctx)
     , config_(config)
-    , session_mgr_(0, config.heartbeat_timeout_ticks, config.timer_wheel_slots)
+    , session_mgr_(0, config.heartbeat_timeout_ticks,
+                   config.timer_wheel_slots, config.recv_buf_capacity)
     , acceptor_(io_ctx, config.port, [this](boost::asio::ip::tcp::socket sock) {
           on_accept(std::move(sock));
       })
     , tick_timer_(io_ctx)
 {
-    assert(config_.recv_buf_capacity >= TMP_BUF_SIZE &&
-           "recv_buf_capacity must be >= TMP_BUF_SIZE");
+    // I-4: 런타임 체크 — assert 대신 throw (생성자, cold path)
+    if (config_.recv_buf_capacity < TMP_BUF_SIZE) {
+        throw std::invalid_argument(
+            "ServerConfig::recv_buf_capacity must be >= " +
+            std::to_string(TMP_BUF_SIZE));
+    }
 }
 
 Server::~Server() {
@@ -158,6 +164,9 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
         }
 
         TcpBinaryProtocol::consume_frame(recv_buf, *frame);
+
+        // I-5: ErrorResponse 전송 실패 등으로 세션이 close된 경우 추가 프레임 처리 중단
+        if (!session->is_open()) break;
     }
 }
 

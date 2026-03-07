@@ -46,7 +46,7 @@ std::span<uint8_t> RingBuffer::writable() noexcept {
 }
 
 void RingBuffer::commit_write(size_t n) noexcept {
-    assert(n <= writable_size() && "commit_write: n exceeds writable size");
+    n = std::min(n, writable_size());
     write_pos_ += n;
 }
 
@@ -64,7 +64,7 @@ size_t RingBuffer::readable_size() const noexcept {
 }
 
 void RingBuffer::consume(size_t n) noexcept {
-    assert(n <= readable_size() && "consume: n exceeds readable size");
+    n = std::min(n, readable_size());
     read_pos_ += n;
 }
 

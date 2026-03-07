@@ -58,6 +58,7 @@ public:
 private:
     struct FreeNode {
         FreeNode* next;
+        uint32_t magic;  // double-free 감지용 마커
     };
 
     void grow(size_t count);

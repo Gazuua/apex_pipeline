@@ -3,6 +3,7 @@
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
 namespace apex::core {
@@ -38,14 +39,20 @@ uint16_t TcpAcceptor::port() const noexcept {
 
 // C-3: 코루틴 accept 루프 — 재귀 콜백 [this] 캡처 댕글링 문제 해결.
 boost::asio::awaitable<void> TcpAcceptor::accept_loop() {
+    boost::asio::steady_timer backoff_timer(io_ctx_);
+
     while (running_.load(std::memory_order_relaxed)) {
         auto [ec, socket] = co_await acceptor_.async_accept(
             boost::asio::as_tuple(boost::asio::use_awaitable));
+
         if (ec) {
             if (ec == boost::asio::error::operation_aborted) break;
-            // TODO: 일시적 에러(EMFILE 등) 시 exponential backoff 추가 고려
+            // I-6: 일시적 에러 시 100ms 백오프 (EMFILE 등 busy-loop 방지)
+            backoff_timer.expires_after(std::chrono::milliseconds(100));
+            co_await backoff_timer.async_wait(boost::asio::use_awaitable);
             continue;
         }
+
         if (on_accept_) on_accept_(std::move(socket));
     }
 }

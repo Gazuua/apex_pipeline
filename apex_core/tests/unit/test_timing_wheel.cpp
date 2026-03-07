@@ -1,6 +1,7 @@
 #include <apex/core/timing_wheel.hpp>
 #include <gtest/gtest.h>
 #include <set>
+#include <stdexcept>
 
 using namespace apex::core;
 
@@ -193,6 +194,31 @@ TEST(TimingWheel, CallbackCanScheduleNewEntry) {
     tw.tick();
     EXPECT_EQ(expire_count, 2u);
     EXPECT_EQ(tw.active_count(), 0u);
+}
+
+TEST(TimingWheel, ScheduleOutOfRangeThrows) {
+    TimingWheel tw(64, [](TimingWheel::EntryId) {});
+
+    // num_slots=64, max valid = 63
+    EXPECT_THROW(tw.schedule(64), std::out_of_range);
+    EXPECT_THROW(tw.schedule(100), std::out_of_range);
+    EXPECT_THROW(tw.schedule(UINT32_MAX), std::out_of_range);
+
+    // 경계값 — 63은 OK, 64부터 throw
+    EXPECT_NO_THROW(tw.schedule(63));
+    EXPECT_EQ(tw.active_count(), 1u);
+}
+
+TEST(TimingWheel, RescheduleOutOfRangeThrows) {
+    TimingWheel tw(64, [](TimingWheel::EntryId) {});
+
+    auto id = tw.schedule(10);
+    EXPECT_THROW(tw.reschedule(id, 64), std::out_of_range);
+    EXPECT_THROW(tw.reschedule(id, 100), std::out_of_range);
+
+    // 유효한 reschedule은 정상 동작
+    EXPECT_NO_THROW(tw.reschedule(id, 63));
+    EXPECT_EQ(tw.active_count(), 1u);
 }
 
 TEST(TimingWheel, LargeNumberOfEntries) {

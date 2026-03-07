@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace apex::core {
@@ -51,7 +52,11 @@ uint64_t TimingWheel::compute_deadline(uint32_t ticks_from_now) const {
 }
 
 TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
-    assert(ticks_from_now < num_slots_ && "ticks_from_now must be < num_slots");
+    if (ticks_from_now >= num_slots_) {
+        throw std::out_of_range("TimingWheel::schedule: ticks_from_now ("
+            + std::to_string(ticks_from_now) + ") must be < num_slots ("
+            + std::to_string(num_slots_) + ")");
+    }
     EntryId id;
     if (!free_ids_.empty()) {
         id = free_ids_.back();
@@ -94,6 +99,12 @@ void TimingWheel::cancel(EntryId id) {
 }
 
 void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
+    if (ticks_from_now >= num_slots_) {
+        throw std::out_of_range("TimingWheel::reschedule: ticks_from_now ("
+            + std::to_string(ticks_from_now) + ") must be < num_slots ("
+            + std::to_string(num_slots_) + ")");
+    }
+
     if (id >= entries_.size() || !entries_[id]) return;
 
     Entry* entry = entries_[id];
@@ -126,14 +137,18 @@ void TimingWheel::tick() {
         remove_entry(e, slot_idx);
     }
 
-    // Phase 3: 엔트리 정리 후 콜백 호출 (콜백 내 cancel() 재진입 시 UAF 방지)
+    // Phase 3a: 엔트리 정리 (콜백 전 — 콜백 내 cancel() 재진입 시 UAF 방지)
+    for (auto* e : expired_buf_) {
+        entries_[e->id] = nullptr;
+        --active_count_;
+    }
+
+    // Phase 3b: 콜백 호출 후 메모리 해제 + ID 재사용 허용
     for (auto* e : expired_buf_) {
         EntryId expired_id = e->id;
-        entries_[expired_id] = nullptr;
-        free_ids_.push_back(expired_id);
-        --active_count_;
-        delete e;
         on_expire_(expired_id);
+        delete e;                       // 콜백 완료 후 삭제
+        free_ids_.push_back(expired_id); // 콜백 완료 후 ID 재사용 허용
     }
 
     ++current_tick_;

@@ -17,7 +17,8 @@ class SessionManager {
 public:
     explicit SessionManager(uint32_t core_id,
                             uint32_t heartbeat_timeout_ticks = 300,
-                            size_t timer_wheel_slots = 1024);
+                            size_t timer_wheel_slots = 1024,
+                            size_t recv_buf_capacity = 8192);
 
     ~SessionManager();
 
@@ -49,6 +50,7 @@ private:
 
     uint32_t core_id_;
     uint32_t heartbeat_timeout_ticks_;
+    size_t recv_buf_capacity_;
     SessionId next_id_{1};
 
     std::unordered_map<SessionId, SessionPtr> sessions_;

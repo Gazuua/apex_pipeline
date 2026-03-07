@@ -20,6 +20,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -157,6 +158,31 @@ public:
 
 private:
     SessionManager& session_mgr_;
+};
+
+// 예외를 던지는 서비스 (TI-1 test 1)
+class ThrowingService : public ServiceBase<ThrowingService> {
+public:
+    ThrowingService() : ServiceBase("throwing") {}
+    void on_start() override {
+        handle(0x0010, &ThrowingService::on_msg);
+    }
+    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) {
+        throw std::runtime_error("test exception");
+        co_return ok();  // unreachable
+    }
+};
+
+// ErrorCode를 반환하는 서비스 (TI-1 test 2)
+class ErrorReturningService : public ServiceBase<ErrorReturningService> {
+public:
+    ErrorReturningService() : ServiceBase("error_returning") {}
+    void on_start() override {
+        handle(0x0020, &ErrorReturningService::on_msg);
+    }
+    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) {
+        co_return apex::core::error(ErrorCode::Timeout);
+    }
 };
 
 // --- 테스트 픽스처 ---
@@ -353,5 +379,63 @@ TEST_F(ServerE2ETest, ChatBroadcast) {
 
     client_a.close();
     client_b.close();
+    stop_and_join(server);
+}
+
+TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
+    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    server.add_service<ThrowingService>();
+    server.start();
+    run_server();
+
+    boost::asio::io_context client_ctx;
+    auto client = make_client(client_ctx, server.port());
+
+    // ThrowingService가 등록한 msg_id 0x0010 전송
+    WireHeader header{.msg_id = 0x0010, .body_size = 0};
+    auto hdr_bytes = header.serialize();
+    boost::asio::write(client, boost::asio::buffer(
+        std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+
+    auto response = read_frame(client);
+    auto resp_header = WireHeader::parse(response);
+    ASSERT_TRUE(resp_header.has_value());
+    EXPECT_EQ(resp_header->msg_id, 0x0010);
+    EXPECT_TRUE(resp_header->flags & wire_flags::ERROR_RESPONSE);
+
+    auto err = flatbuffers::GetRoot<apex::messages::ErrorResponse>(
+        response.data() + WireHeader::SIZE);
+    EXPECT_EQ(err->code(), static_cast<uint16_t>(ErrorCode::Unknown));
+
+    client.close();
+    stop_and_join(server);
+}
+
+TEST_F(ServerE2ETest, HandlerErrorCodeResponse) {
+    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    server.add_service<ErrorReturningService>();
+    server.start();
+    run_server();
+
+    boost::asio::io_context client_ctx;
+    auto client = make_client(client_ctx, server.port());
+
+    // ErrorReturningService가 등록한 msg_id 0x0020 전송
+    WireHeader header{.msg_id = 0x0020, .body_size = 0};
+    auto hdr_bytes = header.serialize();
+    boost::asio::write(client, boost::asio::buffer(
+        std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+
+    auto response = read_frame(client);
+    auto resp_header = WireHeader::parse(response);
+    ASSERT_TRUE(resp_header.has_value());
+    EXPECT_EQ(resp_header->msg_id, 0x0020);
+    EXPECT_TRUE(resp_header->flags & wire_flags::ERROR_RESPONSE);
+
+    auto err = flatbuffers::GetRoot<apex::messages::ErrorResponse>(
+        response.data() + WireHeader::SIZE);
+    EXPECT_EQ(err->code(), static_cast<uint16_t>(ErrorCode::Timeout));
+
+    client.close();
     stop_and_join(server);
 }

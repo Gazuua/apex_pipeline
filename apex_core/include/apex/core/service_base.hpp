@@ -11,6 +11,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace apex::core {
@@ -95,7 +96,7 @@ protected:
                 -> boost::asio::awaitable<Result<void>> {
                 co_return co_await (self->*method)(session, id, payload);
             });
-        registered_msg_ids_.push_back(msg_id);
+        registered_msg_ids_.insert(msg_id);
     }
 
     /// FlatBuffers 타입 핸들러 등록 (코루틴, Result<void> 반환).
@@ -116,7 +117,7 @@ protected:
                 auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
                 co_return co_await (self->*method)(session, id, msg);
             });
-        registered_msg_ids_.push_back(msg_id);
+        registered_msg_ids_.insert(msg_id);
     }
 
 private:
@@ -124,7 +125,7 @@ private:
     std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};
-    std::vector<uint16_t> registered_msg_ids_;
+    std::unordered_set<uint16_t> registered_msg_ids_;
 };
 
 } // namespace apex::core

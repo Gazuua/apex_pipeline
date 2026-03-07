@@ -4,9 +4,11 @@ namespace apex::core {
 
 SessionManager::SessionManager(uint32_t core_id,
                                uint32_t heartbeat_timeout_ticks,
-                               size_t timer_wheel_slots)
+                               size_t timer_wheel_slots,
+                               size_t recv_buf_capacity)
     : core_id_(core_id)
     , heartbeat_timeout_ticks_(heartbeat_timeout_ticks)
+    , recv_buf_capacity_(recv_buf_capacity)
     , timer_wheel_(timer_wheel_slots, [this](TimingWheel::EntryId entry_id) {
           on_timer_expire(entry_id);
       })
@@ -20,7 +22,7 @@ SessionPtr SessionManager::create_session(
 {
     SessionId id = next_id_++;
     auto session = std::make_shared<Session>(
-        id, std::move(socket), core_id_);
+        id, std::move(socket), core_id_, recv_buf_capacity_);
     session->set_state(Session::State::Active);
 
     sessions_[id] = session;
@@ -62,13 +64,8 @@ void SessionManager::touch_session(SessionId id) {
     auto timer_it = session_to_timer_.find(id);
     if (timer_it == session_to_timer_.end()) return;
 
-    auto old_timer = timer_it->second;
-    timer_to_session_.erase(old_timer);
-    timer_wheel_.cancel(old_timer);
-
-    auto new_timer = timer_wheel_.schedule(heartbeat_timeout_ticks_);
-    timer_to_session_[new_timer] = id;
-    timer_it->second = new_timer;
+    // cancel+schedule 대신 reschedule로 Entry 재사용 — new/delete 제거
+    timer_wheel_.reschedule(timer_it->second, heartbeat_timeout_ticks_);
 }
 
 void SessionManager::tick() {

@@ -40,6 +40,20 @@ public:
     std::vector<uint8_t> last_payload;
 };
 
+/// 같은 msg_id로 handle()을 2번 호출하는 서비스 (중복 등록 테스트용).
+class DuplicateHandlerService : public ServiceBase<DuplicateHandlerService> {
+public:
+    DuplicateHandlerService() : ServiceBase("dup") {}
+
+    void on_start() override {
+        handle(0x0001, &DuplicateHandlerService::on_msg);
+        handle(0x0001, &DuplicateHandlerService::on_msg);  // 같은 ID 재등록
+        handle(0x0002, &DuplicateHandlerService::on_msg);
+    }
+
+    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) { co_return ok(); }
+};
+
 class MultiHandlerService : public ServiceBase<MultiHandlerService> {
 public:
     MultiHandlerService() : ServiceBase("multi") {}
@@ -146,4 +160,22 @@ TEST(ServiceBase, BindExternalDispatcher) {
     EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
+}
+
+TEST(ServiceBase, DuplicateHandleIdRegistersOnce) {
+    auto svc = std::make_unique<DuplicateHandlerService>();
+    svc->start();
+
+    // 같은 msg_id(0x0001)로 handle() 2번 + 다른 id(0x0002) 1번 = handler 2개만 등록
+    EXPECT_EQ(svc->dispatcher().handler_count(), 2u);
+    EXPECT_TRUE(svc->dispatcher().has_handler(0x0001));
+    EXPECT_TRUE(svc->dispatcher().has_handler(0x0002));
+
+    svc->stop();
+
+    // stop() 후 unregister가 ID당 1번씩만 호출되어야 함.
+    // 중복이었다면 handler_count_가 음수 underflow → 0이 아닌 값이 됨.
+    EXPECT_EQ(svc->dispatcher().handler_count(), 0u);
+    EXPECT_FALSE(svc->dispatcher().has_handler(0x0001));
+    EXPECT_FALSE(svc->dispatcher().has_handler(0x0002));
 }
