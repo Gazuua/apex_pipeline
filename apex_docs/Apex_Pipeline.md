@@ -283,7 +283,7 @@ FlatBuffers 바이너리 (zero-copy 접근)
 | 4.6 | 완료 | ProtocolBase CRTP + 에러 전파 파이프라인 → v0.2.2 | 18개 스위트 |
 | 4.6-r | 완료 | v0.2.2 코드 리뷰 Important 11건 수정 → v0.2.3 | +5개 |
 | 5 | 진행 중 | 외부 어댑터 (Kafka, Redis, PostgreSQL, 로깅) → v0.3.0 | - |
-| infra | 진행 중 | 로컬 개발 인프라 (docker-compose, 공유 스키마) — Phase 5와 병렬 | - |
+| infra | 완료 | 로컬 개발 인프라 (docker-compose, apex_shared 빌드 인프라) | - |
 | 6 | 미착수 | 서비스 레이어 (Gateway, Auth, Graceful Shutdown, 메트릭) → v0.4.0 | - |
 | 7 | 미착수 | 배포 (Docker, K8s, CI/CD, 스캐폴딩) → v1.0.0 | - |
 
@@ -307,7 +307,8 @@ FlatBuffers 바이너리 (zero-copy 접근)
 - [ ] Kafka 토픽/파티션 설계
 - [ ] Redis 키 네이밍 규칙
 - [ ] PostgreSQL 스키마 설계
-- [ ] docker-compose 로컬 개발 환경 (설계 완료, 구현 진행 중)
+- [x] docker-compose 로컬 개발 환경 (Kafka/Redis/PG + Prometheus/Grafana)
+- [x] apex_shared 빌드 인프라 (CMake + FlatBuffers 코드젠 파이프라인)
 - [ ] K8s manifests + Helm
 - [ ] GitHub Actions CI/CD
 - [ ] 부하 테스트 시나리오 (목표 TPS/Latency 정의)

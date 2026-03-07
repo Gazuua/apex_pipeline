@@ -24,8 +24,16 @@ D:\.workspace/
 │   ├── progress/                 ← 체크포인트
 │   └── review/                   ← 코드 리뷰 보고서
 ├── apex_services/                ← MSA 서비스
-├── apex_shared/                  ← FlatBuffers 스키마 + 공유 코드
+├── apex_shared/                  ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
+│   ├── schemas/                  ← 공유 FlatBuffers 스키마 (.fbs)
+│   ├── lib/include/apex/shared/  ← 공유 헤더
+│   ├── lib/src/                  ← 구현
+│   └── CMakeLists.txt            ← FlatBuffers 코드젠 + STATIC 라이브러리
 ├── apex_infra/                   ← Docker, K8s 인프라
+│   ├── docker-compose.yml        ← Kafka/Redis/PG (기본) + Prometheus/Grafana (observability)
+│   ├── postgres/init.sql         ← 서비스별 스키마 초기화
+│   ├── prometheus/               ← Prometheus 설정
+│   └── grafana/provisioning/     ← Grafana 데이터소스 자동 프로비저닝
 └── apex_tools/                   ← CLI, 스크립트
 ```
 
