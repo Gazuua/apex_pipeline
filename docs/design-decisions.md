@@ -17,7 +17,7 @@
 
 ### 성능 철학
 - 런타임 비용을 최대한 컴파일 타임으로 이동
-- CRTP 정적 다형성 (vtable 회피)
+- CRTP 정적 다형성 (핫패스에서 vtable 회피, 콜드패스인 서비스 생명주기 관리는 virtual 허용)
 - 캐시 친화적, SoA 허용
 - 하드웨어 친화적 설계 전반 적용
 - **shared-nothing 범위**: 비즈니스 로직 코어에 적용. 외부 라이브러리 내부 스레드(librdkafka, spdlog, prometheus-cpp)는 예외
@@ -106,7 +106,7 @@
 
 ### 백프레셔
 - MPSC 큐에 **max_capacity 제한**
-- enqueue 실패 시 `std::expected<void, BackpressureError>` 반환
+- enqueue 실패 시 `std::expected<void, QueueError>` 반환
 - 큐 80% 도달 시 Gateway에 슬로우다운 시그널 → 클라이언트에 429 응답
 - Kafka 토픽은 디스크 기반이라 자연스러운 버퍼 역할
 
@@ -117,7 +117,7 @@
 - 링 버퍼 (수신 버퍼, memmove 제거)
 - FlatBuffers → 이미 zero-copy (별도 Arena 불필요)
 - 배치 I/O (writev)
-- alignas(64) 전역 적용 (false sharing 제거)
+- alignas(64) 멀티스레드 공유 구조에 적용 (MPSC 큐 등 코어 간 공유 데이터의 false sharing 제거, per-core 전용 컴포넌트는 대상 아님)
 
 ### I/O 백엔드 전략
 - **기본: epoll** (안정적, 컨테이너 호환, 네트워크 I/O에서 충분한 성능)
