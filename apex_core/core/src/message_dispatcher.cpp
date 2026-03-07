@@ -16,16 +16,15 @@ void MessageDispatcher::unregister_handler(uint16_t msg_id) {
     }
 }
 
-boost::asio::awaitable<std::expected<void, DispatchError>>
+boost::asio::awaitable<std::expected<Result<void>, DispatchError>>
 MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const {
     auto& handler = (*handlers_)[msg_id];
     if (!handler) {
         co_return std::unexpected(DispatchError::UnknownMessage);
     }
     try {
-        // session은 값으로 받았으므로 move해도 호출자에 영향 없음
-        co_await handler(std::move(session), msg_id, payload);
-        co_return std::expected<void, DispatchError>{};
+        auto result = co_await handler(std::move(session), msg_id, payload);
+        co_return result;
     } catch (...) {
         co_return std::unexpected(DispatchError::HandlerFailed);
     }

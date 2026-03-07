@@ -100,9 +100,9 @@ public:
         route<apex::messages::EchoRequest>(0x0001, &TestEchoService::on_echo);
     }
 
-    awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
                             const apex::messages::EchoRequest* req) {
-        if (!req || !req->data()) co_return;
+        if (!req || !req->data()) co_return ok();
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto data_vec = builder.CreateVector(
@@ -115,6 +115,7 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
         co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        co_return ok();
     }
 };
 
@@ -128,9 +129,9 @@ public:
             0x0100, &TestChatService::on_chat);
     }
 
-    awaitable<void> on_chat(SessionPtr sender, uint16_t msg_id,
+    awaitable<Result<void>> on_chat(SessionPtr sender, uint16_t msg_id,
                             const apex::messages::ChatMessage* msg) {
-        if (!msg || !msg->content()) co_return;
+        if (!msg || !msg->content()) co_return ok();
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto content = builder.CreateString(msg->content()->str());
@@ -151,6 +152,7 @@ public:
         for (auto& s : sessions) {
             co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         }
+        co_return ok();
     }
 
 private:

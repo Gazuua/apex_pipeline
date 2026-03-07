@@ -30,3 +30,6 @@ apex_add_unit_test(test_flatbuffers_dispatch test_flatbuffers_dispatch.cpp)
 
 # Phase 4.5 tests
 apex_add_unit_test(test_tcp_acceptor test_tcp_acceptor.cpp)
+
+# Phase 4.6 tests
+apex_add_unit_test(test_tcp_binary_protocol test_tcp_binary_protocol.cpp)

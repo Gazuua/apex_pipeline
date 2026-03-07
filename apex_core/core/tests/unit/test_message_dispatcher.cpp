@@ -14,6 +14,7 @@
 
 using apex::core::DispatchError;
 using apex::core::MessageDispatcher;
+using apex::core::Result;
 using apex::core::SessionPtr;
 using apex::test::run_coro;
 using boost::asio::awaitable;
@@ -21,7 +22,6 @@ using boost::asio::awaitable;
 class MessageDispatcherTest : public ::testing::Test {
 protected:
     boost::asio::io_context io_ctx_;
-    // Heap-allocate to avoid stack overflow (65536 std::function = ~2MB)
     std::unique_ptr<MessageDispatcher> d = std::make_unique<MessageDispatcher>();
 };
 
@@ -34,15 +34,16 @@ TEST_F(MessageDispatcherTest, InitiallyEmpty) {
 TEST_F(MessageDispatcherTest, RegisterAndDispatch) {
     bool called = false;
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             called = true;
-            co_return;
+            co_return apex::core::ok();
         });
     EXPECT_TRUE(d->has_handler(0x0001));
     EXPECT_EQ(d->handler_count(), 1u);
 
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
     EXPECT_TRUE(called);
 }
 
@@ -55,14 +56,15 @@ TEST_F(MessageDispatcherTest, DispatchUnknownReturnsError) {
 TEST_F(MessageDispatcherTest, PayloadPassedThrough) {
     std::vector<uint8_t> received;
     d->register_handler(0x0010,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t> payload) -> awaitable<void> {
+        [&](SessionPtr, uint16_t, std::span<const uint8_t> payload) -> awaitable<Result<void>> {
             received.assign(payload.begin(), payload.end());
-            co_return;
+            co_return apex::core::ok();
         });
 
     std::vector<uint8_t> data = {0xDE, 0xAD, 0xBE, 0xEF};
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0010, data));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(received, data);
 }
 
@@ -71,16 +73,16 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
     int call_count_new = 0;
 
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++call_count_old;
-            co_return;
+            co_return apex::core::ok();
         });
     EXPECT_EQ(d->handler_count(), 1u);
 
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++call_count_new;
-            co_return;
+            co_return apex::core::ok();
         });
     EXPECT_EQ(d->handler_count(), 1u);
 
@@ -94,8 +96,8 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
 
 TEST_F(MessageDispatcherTest, UnregisterHandler) {
     d->register_handler(0x0042,
-        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
-            co_return;
+        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            co_return apex::core::ok();
         });
     EXPECT_TRUE(d->has_handler(0x0042));
     EXPECT_EQ(d->handler_count(), 1u);
@@ -110,9 +112,9 @@ TEST_F(MessageDispatcherTest, MultipleHandlers) {
 
     for (uint16_t i = 0; i < 5; ++i) {
         d->register_handler(i,
-            [&counts, i](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+            [&counts, i](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
                 ++counts[i];
-                co_return;
+                co_return apex::core::ok();
             });
     }
     EXPECT_EQ(d->handler_count(), 5u);
@@ -120,6 +122,7 @@ TEST_F(MessageDispatcherTest, MultipleHandlers) {
     for (uint16_t i = 0; i < 5; ++i) {
         auto result = run_coro(io_ctx_, d->dispatch(nullptr, i, {}));
         EXPECT_TRUE(result.has_value());
+        EXPECT_TRUE(result.value().has_value());
         EXPECT_EQ(counts[i], 1);
     }
 }
@@ -127,25 +130,37 @@ TEST_F(MessageDispatcherTest, MultipleHandlers) {
 TEST_F(MessageDispatcherTest, MaxMsgId) {
     bool called = false;
     d->register_handler(0xFFFF,
-        [&](SessionPtr, uint16_t msg_id, std::span<const uint8_t>) -> awaitable<void> {
+        [&](SessionPtr, uint16_t msg_id, std::span<const uint8_t>) -> awaitable<Result<void>> {
             EXPECT_EQ(msg_id, 0xFFFF);
             called = true;
-            co_return;
+            co_return apex::core::ok();
         });
     EXPECT_TRUE(d->has_handler(0xFFFF));
 
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0xFFFF, {}));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
     EXPECT_TRUE(called);
 }
 
 TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerFailed) {
     d->register_handler(0x0001,
-        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             throw std::runtime_error("test error");
-            co_return;
+            co_return apex::core::ok();
         });
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), DispatchError::HandlerFailed);
+}
+
+TEST_F(MessageDispatcherTest, HandlerReturnsErrorCode) {
+    d->register_handler(0x0001,
+        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            co_return apex::core::error(apex::core::ErrorCode::Timeout);
+        });
+    auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
+    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(result.value().has_value());
+    EXPECT_EQ(result.value().error(), apex::core::ErrorCode::Timeout);
 }

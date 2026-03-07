@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/message_dispatcher.hpp>
+#include <apex/core/result.hpp>
 
 #include <boost/asio/awaitable.hpp>
 #include <flatbuffers/flatbuffers.h>
@@ -36,8 +37,10 @@ public:
 ///       void on_start() override {
 ///           handle(0x0001, &EchoService::on_echo);
 ///       }
-///       awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
-///                               std::span<const uint8_t> payload) { co_return; }
+///       awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
+///                               std::span<const uint8_t> payload) {
+///           co_return apex::core::ok();
+///       }
 ///   };
 template <typename Derived>
 class ServiceBase : public ServiceBaseInterface {
@@ -80,39 +83,38 @@ protected:
     /// 서비스 수명이 디스패처 수명보다 길거나 같아야 한다.
     /// Server 사용 시 자동 보장됨 (서비스와 디스패처를 동시 소유).
 
-    /// 로우 핸들러 등록 (코루틴).
+    /// 로우 핸들러 등록 (코루틴, Result<void> 반환).
     void handle(uint16_t msg_id,
-                boost::asio::awaitable<void> (Derived::*method)(
+                boost::asio::awaitable<Result<void>> (Derived::*method)(
                     SessionPtr, uint16_t, std::span<const uint8_t>))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
             [self, method](SessionPtr session, uint16_t id,
                            std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<void> {
-                co_await (self->*method)(session, id, payload);
+                -> boost::asio::awaitable<Result<void>> {
+                co_return co_await (self->*method)(session, id, payload);
             });
         registered_msg_ids_.push_back(msg_id);
     }
 
-    /// FlatBuffers 타입 핸들러 등록 (코루틴).
+    /// FlatBuffers 타입 핸들러 등록 (코루틴, Result<void> 반환).
     template <typename FbsType>
     void route(uint16_t msg_id,
-               boost::asio::awaitable<void> (Derived::*method)(
+               boost::asio::awaitable<Result<void>> (Derived::*method)(
                    SessionPtr, uint16_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
             [self, method](SessionPtr session, uint16_t id,
                            std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<void> {
+                -> boost::asio::awaitable<Result<void>> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
                 if (!verifier.VerifyBuffer<FbsType>()) {
-                    // TODO: 로깅 프레임워크 도입 후 검증 실패 로그 추가
-                    co_return;
+                    co_return apex::core::error(ErrorCode::FlatBuffersVerifyFailed);
                 }
                 auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
-                co_await (self->*method)(session, id, msg);
+                co_return co_await (self->*method)(session, id, msg);
             });
         registered_msg_ids_.push_back(msg_id);
     }

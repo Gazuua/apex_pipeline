@@ -38,13 +38,13 @@ public:
             0x0010, &TypedEchoService::on_echo);
     }
 
-    awaitable<void> on_echo(SessionPtr, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id,
                             const apex::messages::EchoRequest* req) {
         ++call_count;
         if (req && req->data()) {
             last_data.assign(req->data()->begin(), req->data()->end());
         }
-        co_return;
+        co_return ok();
     }
 
     int call_count{0};
@@ -59,6 +59,7 @@ TEST(FlatBuffersDispatch, RouteTypedMessage) {
     auto payload = build_echo_payload({0xDE, 0xAD});
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, payload));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
 
     EXPECT_EQ(svc->call_count, 1);
     EXPECT_EQ(svc->last_data, (std::vector<uint8_t>{0xDE, 0xAD}));
@@ -71,7 +72,10 @@ TEST(FlatBuffersDispatch, RouteInvalidFlatBuffer) {
 
     std::vector<uint8_t> garbage = {0xFF, 0xFF, 0xFF};
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, garbage));
-    EXPECT_TRUE(result.has_value());  // handler was called but skipped due to verify
+    // route()가 검증 실패 시 ErrorCode::FlatBuffersVerifyFailed 반환
+    EXPECT_TRUE(result.has_value());
+    EXPECT_FALSE(result.value().has_value());
+    EXPECT_EQ(result.value().error(), ErrorCode::FlatBuffersVerifyFailed);
 
     EXPECT_EQ(svc->call_count, 0);
 }
@@ -83,16 +87,18 @@ TEST(FlatBuffersDispatch, RouteAndRawHandlerCoexist) {
 
     int raw_count = 0;
     svc->dispatcher().register_handler(0x0020,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<void> {
+        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++raw_count;
-            co_return;
+            co_return ok();
         });
 
     auto payload = build_echo_payload({0x42});
     auto r1 = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, payload));
     EXPECT_TRUE(r1.has_value());
+    EXPECT_TRUE(r1.value().has_value());
     auto r2 = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0020, {}));
     EXPECT_TRUE(r2.has_value());
+    EXPECT_TRUE(r2.value().has_value());
 
     EXPECT_EQ(svc->call_count, 1);
     EXPECT_EQ(raw_count, 1);

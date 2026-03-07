@@ -1,6 +1,7 @@
 #include <apex/core/server.hpp>
 #include <apex/core/error_sender.hpp>
 #include <apex/core/frame_codec.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -134,21 +135,29 @@ boost::asio::awaitable<void> Server::read_loop(SessionPtr session) {
 boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
     auto& recv_buf = session->recv_buffer();
 
-    while (auto frame = FrameCodec::try_decode(recv_buf)) {
+    while (auto frame = TcpBinaryProtocol::try_decode(recv_buf)) {
         // SAFETY: 단일 io_context 스레드에서 read_loop -> process_frames가 순차 실행되므로,
         // co_await 중에도 이 세션의 recv_buf에 새 데이터가 쓰이지 않는다.
         // 따라서 linearize() 결과인 frame->payload span은 consume_frame() 전까지 유효하다.
         auto result = co_await dispatcher_.dispatch(
             session, frame->header.msg_id, frame->payload);
 
-        if (!result.has_value() &&
-            result.error() == DispatchError::UnknownMessage) {
+        if (!result.has_value()) {
+            // DispatchError (UnknownMessage, HandlerFailed)
+            ErrorCode code = (result.error() == DispatchError::UnknownMessage)
+                ? ErrorCode::HandlerNotFound
+                : ErrorCode::Unknown;
             auto error_frame = ErrorSender::build_error_frame(
-                frame->header.msg_id, ErrorCode::HandlerNotFound);
+                frame->header.msg_id, code);
+            co_await session->async_send_raw(error_frame);
+        } else if (!result.value().has_value()) {
+            // 핸들러가 apex::error(ErrorCode::X)를 반환
+            auto error_frame = ErrorSender::build_error_frame(
+                frame->header.msg_id, result.value().error());
             co_await session->async_send_raw(error_frame);
         }
 
-        FrameCodec::consume_frame(recv_buf, *frame);
+        TcpBinaryProtocol::consume_frame(recv_buf, *frame);
     }
 }
 

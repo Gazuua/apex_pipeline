@@ -31,16 +31,16 @@ public:
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    awaitable<void> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
-        co_return;
+        co_return ok();
     }
 
-    awaitable<void> on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
         ++ping_count;
-        co_return;
+        co_return ok();
     }
 
     uint16_t last_msg_id = 0;

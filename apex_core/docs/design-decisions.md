@@ -1,4 +1,4 @@
-# BoostAsioCore 프레임워크 설계 결정사항
+# apex_core 프레임워크 설계 결정사항
 
 브레인스토밍 완료 (2026-03-06). 5차 재검토 통과.
 
@@ -96,8 +96,9 @@
 
 ### 코루틴 프레임 할당 최적화
 - C++20 코루틴은 프레임마다 **힙 할당 발생** (수백 바이트~수 KB)
-- **promise_type에 operator new/delete 오버로드** → 코어별 슬랩 풀에서 할당
-- 핫패스에서 malloc 제거, 성능 철학에 부합
+- **고성능 범용 allocator(mimalloc/jemalloc) + HALO 컴파일러 최적화** 활용
+- 벤치마크에서 병목 확인 시 커스텀 코루틴 타입 도입 검토
+- 업계 주요 프레임워크(Seastar, folly, Boost.Asio, cppcoro) 조사 결과, promise_type 풀 오버로드는 미검증 접근
 
 ### Zero-copy 범위 명시
 - FlatBuffers 페이로드 읽기: **zero-copy** (링 버퍼에서 직접 포인터 접근)
@@ -176,7 +177,7 @@
 ### 디렉토리 구조
 - **모노레포** (apex-pipeline/)
 - 네임스페이스: `apex` (apex::core, apex::gateway, apex::auth 등)
-- core/가 BoostAsioCore 프레임워크
+- core/가 apex_core 프레임워크
 - core/examples/에 프레임워크 사용 예제 포함
 - 서비스들은 CMake find_package(ApexCore)로 의존
 

@@ -1,4 +1,4 @@
-# BoostAsioCore 설계 근거 (Architecture Decision Records)
+# apex_core 설계 근거 (Architecture Decision Records)
 
 브레인스토밍 과정에서의 대안 분석과 최종 선택 근거를 기록한다.
 기존 포트폴리오 Why Document의 연장선이며, 프레임워크 세부 설계에 초점을 맞춘다.
@@ -111,14 +111,14 @@
 
 ### 맥락
 - Apex Pipeline 전체는 모노레포
-- BoostAsioCore는 `core/`로 위치, 서비스들이 CMake 의존성으로 사용
+- apex_core는 `core/`로 위치, 서비스들이 CMake 의존성으로 사용
 - 네임스페이스 통일 필요
 
 ### 결정
 
 ```
 apex-pipeline/
-├── core/                         ← BoostAsioCore (프레임워크)
+├── core/                         ← apex_core (프레임워크)
 │   ├── include/apex/core/        ← 공개 헤더
 │   ├── src/                      ← 구현
 │   ├── tests/                    ← unit/integration/bench
@@ -546,7 +546,7 @@ apex-pipeline/
 
 ---
 
-## ADR-21: 코루틴 프레임 풀 할당
+## ADR-21: 코루틴 프레임 할당 전략
 
 ### 맥락
 - C++20 코루틴은 프레임마다 힙 할당 (수백 바이트~수 KB)
@@ -563,17 +563,28 @@ apex-pipeline/
 - 컴파일러가 코루틴 수명을 분석해서 힙 할당 제거
 - 보장 불가, 컴파일러마다 다름
 
-**C. 감수 (jemalloc/mimalloc)**
+**C. 고성능 범용 allocator (mimalloc/jemalloc) + HALO 활용**
 - 현대 malloc은 충분히 빠름
-- 병목이 아닐 수 있음
+- HALO 최적화로 많은 경우 힙 할당 자체가 제거됨
+- 병목이 확인되면 커스텀 코루틴 타입 도입 검토
 
-### 결정: A (커스텀 풀 할당)
+### 결정: C (고성능 범용 allocator + HALO)
 
-### 근거
-1. 프레임워크의 성능 철학 "런타임 비용을 컴파일 타임으로"에 부합
-2. 슬랩 풀이 이미 있으므로 코루틴 프레임 전용 슬랩 추가는 자연스러움
-3. 코어별 풀이므로 락 불필요 — shared-nothing 유지
-4. B는 보장 불가, C는 성능 철학에 위배
+### 근거 (v0.2.2 갱신)
+업계 주요 코루틴 프레임워크 조사 결과:
+- **Seastar**: malloc 자체를 per-core allocator로 교체. promise_type 오버로드 없음
+- **folly::coro**: 커스텀 코루틴 프레임 할당 없음. jemalloc 의존
+- **Boost.Asio**: awaitable<T> 내부 promise_type 수정 불가. HALO 최적화 의존
+- **cppcoro**: HALO 최적화를 유도하는 설계. 커스텀 풀 할당 없음
+
+**결론**: promise_type::operator new 풀 오버로드는 업계 미검증 접근.
+고성능 범용 allocator(mimalloc 또는 jemalloc) 링크 + HALO 컴파일러 최적화 활용.
+벤치마크에서 코루틴 프레임 할당이 병목으로 확인될 경우, 커스텀 코루틴 타입 도입 검토.
+
+### 기존 A안 보류 사유
+1. Boost.Asio awaitable<T>의 promise_type은 프레임워크 외부에 있어 오버로드 불가
+2. 커스텀 코루틴 타입을 만들면 Boost.Asio의 co_spawn/use_awaitable 생태계와 분리됨
+3. 위 4개 프레임워크 모두 promise_type 풀 할당을 채택하지 않음 — 실전 미검증
 
 ---
 

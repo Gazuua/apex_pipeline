@@ -35,10 +35,10 @@ public:
         std::cout << "[EchoService] Stopped. Total: " << count_ << " echo\n";
     }
 
-    awaitable<void> on_echo(SessionPtr session, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
                             const apex::messages::EchoRequest* req) {
         ++count_;
-        if (!req || !req->data()) co_return;
+        if (!req || !req->data()) co_return ok();
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto data_vec = builder.CreateVector(
@@ -51,6 +51,7 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
         co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        co_return ok();
     }
 
 private:

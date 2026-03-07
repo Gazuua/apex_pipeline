@@ -10,6 +10,10 @@ fi
 
 cd "$(dirname "$0")"
 
+# Ensure build dir and compile_commands.json exist for first configure (clangd symlink)
+mkdir -p "build/$PRESET"
+[ -f "build/$PRESET/compile_commands.json" ] || touch "build/$PRESET/compile_commands.json"
+
 # Always configure (cached runs are fast, ensures compile_commands.json stays fresh)
 echo "[build.sh] Configuring preset: $PRESET"
 cmake --preset "$PRESET"

@@ -39,10 +39,10 @@ public:
         std::cout << "[ChatService] Stopped. Total: " << msg_count_ << " messages\n";
     }
 
-    awaitable<void> on_chat(SessionPtr sender, uint16_t msg_id,
+    awaitable<Result<void>> on_chat(SessionPtr sender, uint16_t msg_id,
                             const apex::messages::ChatMessage* msg) {
         ++msg_count_;
-        if (!msg || !msg->content()) co_return;
+        if (!msg || !msg->content()) co_return ok();
 
         std::cout << "[Chat] Session " << sender->id()
                   << ": " << msg->content()->str() << "\n";
@@ -67,8 +67,8 @@ public:
         for (auto& s : sessions) {
             co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         }
+        co_return ok();
     }
-
 private:
     SessionManager& session_mgr_;
     int msg_count_{0};

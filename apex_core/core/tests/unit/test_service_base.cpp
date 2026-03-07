@@ -28,10 +28,10 @@ public:
 
     void on_stop() override { stop_called = true; }
 
-    awaitable<void> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
-        co_return;
+        co_return ok();
     }
 
     bool start_called = false;
@@ -50,9 +50,9 @@ public:
         handle(0x0003, &MultiHandlerService::on_msg3);
     }
 
-    awaitable<void> on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; co_return; }
-    awaitable<void> on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; co_return; }
-    awaitable<void> on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; co_return; }
+    awaitable<Result<void>> on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; co_return ok(); }
+    awaitable<Result<void>> on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; co_return ok(); }
+    awaitable<Result<void>> on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; co_return ok(); }
 
     int count1 = 0;
     int count2 = 0;
@@ -89,6 +89,7 @@ TEST(ServiceBase, HandleRegistersAndDispatches) {
     std::vector<uint8_t> data = {0x01, 0x02, 0x03};
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0001, data));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
 }
@@ -103,7 +104,6 @@ TEST(ServiceBase, UnregisteredMsgReturnsError) {
     EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
 }
 
-// TQ1: Verify dispatch() return values instead of (void) cast
 TEST(ServiceBase, MultipleHandlers) {
     boost::asio::io_context io_ctx;
     auto svc = std::make_unique<MultiHandlerService>();
@@ -134,18 +134,16 @@ TEST(ServiceBase, BindExternalDispatcher) {
     auto external_dispatcher = std::make_unique<MessageDispatcher>();
     auto svc = std::make_unique<EchoService>();
 
-    // Bind external dispatcher before start
     svc->bind_dispatcher(*external_dispatcher);
     svc->start();
 
-    // Verify handler is registered on the external dispatcher
     EXPECT_TRUE(external_dispatcher->has_handler(0x0001));
     EXPECT_EQ(external_dispatcher->handler_count(), 1u);
 
-    // Dispatch via external dispatcher should reach the service
     std::vector<uint8_t> data = {0xAA, 0xBB};
     auto result = run_coro(io_ctx, external_dispatcher->dispatch(nullptr, 0x0001, data));
     EXPECT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
 }

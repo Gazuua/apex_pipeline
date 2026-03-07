@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 
 #include <boost/asio/awaitable.hpp>
@@ -22,9 +23,9 @@ enum class DispatchError : uint8_t {
 /// Designed for per-service use. NOT thread-safe (per-core, single-thread).
 class MessageDispatcher {
 public:
-    // 핸들러가 코루틴을 반환 (방안 A 핵심)
+    // 핸들러가 Result<void>를 반환하는 코루틴
     using Handler = std::function<
-        boost::asio::awaitable<void>(SessionPtr, uint16_t, std::span<const uint8_t>)>;
+        boost::asio::awaitable<Result<void>>(SessionPtr, uint16_t, std::span<const uint8_t>)>;
 
     MessageDispatcher() = default;
 
@@ -32,7 +33,8 @@ public:
     void unregister_handler(uint16_t msg_id);
 
     // dispatch도 코루틴 (내부에서 co_await handler 호출)
-    [[nodiscard]] boost::asio::awaitable<std::expected<void, DispatchError>>
+    // 핸들러 에러(ErrorCode)가 Result에 포함되어 전달됨
+    [[nodiscard]] boost::asio::awaitable<std::expected<Result<void>, DispatchError>>
     dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const;
 
     [[nodiscard]] bool has_handler(uint16_t msg_id) const noexcept;
