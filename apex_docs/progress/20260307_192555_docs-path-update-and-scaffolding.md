@@ -2,7 +2,7 @@
 
 **일자:** 2026-03-07
 **커밋:** `720b27d` (경로 갱신), `4e7222c` (스캐폴딩), `5eb0e36` (계획서+완료보고서), `5af8b2f` (리뷰 보고서)
-**계획서:** `apex_docs/plans/20260307_200000_docs-path-update-and-scaffolding.md`
+**계획서:** `apex_docs/plans/20260307_192618_docs-path-update-and-scaffolding.md`
 
 ---
 

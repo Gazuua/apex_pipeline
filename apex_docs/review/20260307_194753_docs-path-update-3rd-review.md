@@ -3,8 +3,8 @@
 **리뷰어:** Claude Opus 4.6 (Senior Code Reviewer)
 **일자:** 2026-03-07
 **이전 리뷰:**
-- 1차: `apex_docs/review/20260307_200000_docs-path-update-and-scaffolding.md`
-- 2차: `apex_docs/review/20260307_210000_docs-path-update-re-review.md`
+- 1차: `apex_docs/review/20260307_193245_docs-path-update-and-scaffolding.md`
+- 2차: `apex_docs/review/20260307_194619_docs-path-update-re-review.md`
 **수정 커밋:** `c68a996` (N-1 들여쓰기 수정)
 **전체 범위 Base SHA:** `4e0d145`
 **Head SHA:** `927098b`
