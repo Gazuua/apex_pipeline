@@ -1,0 +1,143 @@
+# Phase 4.5 Review Fix Complete
+
+## 목표
+v0.2.0 코드 리뷰 15건 전체 수정 + 전면 코루틴(방안 A) 전환 → **v0.2.1**
+
+## 설계 결정
+
+### 방안 A 채택: 전면 코루틴
+- 핸들러까지 `awaitable<void>` 코루틴으로 통일
+- 재귀 콜백 패턴을 while 코루틴 루프로 전환
+- "동기/비동기 혼용" 문제를 근본적으로 제거
+- 채택 근거: `design-decisions.md`에 명시된 코루틴 기반 아키텍처와 일관성 유지
+
+## 수정된 이슈 (15건)
+
+### Critical (6건)
+| ID | 이슈 | 수정 내용 |
+|----|------|-----------|
+| C-1 | Session 동기 블로킹 write | `async_send()`/`async_send_raw()` 코루틴 전환 (`co_await async_write` + `as_tuple`) |
+| C-2 | TimingWheel tick() UAF | `entries_[id]=nullptr` + `free_ids_` + `delete`를 콜백 전으로 이동 (3-Phase 패턴) |
+| C-3 | TcpAcceptor `[this]` 댕글링 | `do_accept()` 재귀 콜백 → `accept_loop()` 코루틴으로 전환 |
+| C-4 | process_frames 후 is_open 누락 | `read_loop()` while 조건에서 자연스럽게 해결 |
+| C-5 | RingBuffer 가득 참 무음 손실 | `writable_size() < n` 시 `session->close()` + `break` |
+| C-6 | SessionManager 댕글링 이터레이터 | `sessions_.erase(session_it)`를 콜백 전으로 이동 |
+
+### Important (6건)
+| ID | 이슈 | 수정 내용 |
+|----|------|-----------|
+| I-1 | bind_dispatcher 호출 순서 | `assert(!started_)` 추가 |
+| I-2 | State::Closing 미사용 | enum에서 제거, 생명주기 `Connected -> Active -> Closed`로 변경 |
+| I-3 | next_power_of_2 overflow | MpscQueue, RingBuffer, TimingWheel 생성자에서 반환값 0 검사 + `throw std::overflow_error` |
+| I-4 | ErrorSender nullptr 계약 | 헤더 Doxygen 주석 추가 (빈 문자열 시 FlatBuffers null 가능) |
+| I-5 | Server::stop() 스레드 안전 | 내부 `boost::asio::post(io_ctx_)` 가드 추가 |
+| I-6 | TcpAcceptor IPv4 하드코딩 | 생성자에 `protocol` 파라미터 추가 (기본값 `tcp::v4()`, 하위 호환) |
+
+### Minor (3건)
+| ID | 이슈 | 수정 내용 |
+|----|------|-----------|
+| M-1 | active_count() O(N) | `active_count_` 멤버 변수 관리, O(1) 반환 |
+| M-2 | TMP_BUF_SIZE vs recv_buf_capacity | `static_assert(TMP_BUF_SIZE <= 8192)` 추가 |
+| M-3 | schedule(0) 문서화 | 헤더 주석에 "다음 tick()에서 즉시 만료" 명시 |
+
+## 코루틴 전환 상세
+
+### Session
+- `send()`/`send_raw()` 완전 제거 → `async_send()`/`async_send_raw()` (awaitable<bool>)
+- `co_await boost::asio::async_write` + `as_tuple(use_awaitable)` 패턴
+- strand 제약 주석 추가 (`@pre implicit strand에서 호출`)
+
+### MessageDispatcher
+- `Handler`: `std::function<void(...)>` → `std::function<awaitable<void>(...)>`
+- `dispatch()`: `std::expected<void, DispatchError>` → `awaitable<std::expected<void, DispatchError>>`
+- 내부에서 `co_await handler(...)` + `catch(...)` → `HandlerFailed`
+
+### ServiceBase
+- `handle()`/`route()` 메서드 포인터가 `awaitable<void>` 반환
+- 코루틴 람다 래퍼로 디스패처에 등록
+- `bind_dispatcher()`에 `assert(!started_)` 추가 (I-1)
+
+### Server
+- `do_read()`/`start_read()` 재귀 콜백 → `read_loop()` while 코루틴
+- `process_frames()` → `awaitable<void>` (내부 `co_await dispatcher_.dispatch()`)
+- `on_accept()`에서 `co_spawn(io_ctx_, read_loop(session), detached)`
+- RingBuffer wrap-around 분할 복사 로직 추가
+- `stop()` 내부 `post(io_ctx_)` 가드 (I-5)
+
+### TcpAcceptor
+- `do_accept()` 재귀 콜백 → `accept_loop()` 코루틴
+- `start()`에서 `co_spawn(io_ctx_, accept_loop(), detached)`
+- `io_ctx_` 참조 멤버 추가
+- `protocol` 파라미터 추가 (I-6)
+
+## 코드 리뷰 추가 발견 및 수정
+
+1차 리뷰에서 15건 외 추가로 발견된 이슈:
+
+| 이슈 | 심각도 | 수정 내용 |
+|------|--------|-----------|
+| read_loop writable() buffer overrun | Critical | wrap-around 시 분할 복사 로직 추가 |
+| TimingWheel overflow 검사 누락 | Important | 생성자에 `throw std::overflow_error` 추가 |
+| on_accept 중복 set_state | Important | `create_session` 내부에서 이미 Active 설정하므로 제거 |
+| E2E test 이중 post | Important | `server.stop()` 직접 호출로 변경 (내부 post 가드 활용) |
+| test_service_base 데드코드 | Minor | 미사용 `get_io_ctx()` 제거 |
+| process_frames payload 안전성 | Minor | SAFETY 주석 추가 |
+
+## 수정 파일 목록 (25개)
+
+### 헤더 (7개)
+- `core/include/apex/core/session.hpp`
+- `core/include/apex/core/message_dispatcher.hpp`
+- `core/include/apex/core/service_base.hpp`
+- `core/include/apex/core/server.hpp`
+- `core/include/apex/core/tcp_acceptor.hpp`
+- `core/include/apex/core/timing_wheel.hpp`
+- `core/include/apex/core/error_sender.hpp`
+
+### 소스 (7개)
+- `core/src/session.cpp`
+- `core/src/message_dispatcher.cpp`
+- `core/src/server.cpp`
+- `core/src/tcp_acceptor.cpp`
+- `core/src/timing_wheel.cpp`
+- `core/src/session_manager.cpp`
+- `core/src/ring_buffer.cpp`
+
+### 추가 헤더 (1개)
+- `core/include/apex/core/mpsc_queue.hpp`
+
+### 테스트 (7개)
+- `core/tests/unit/test_message_dispatcher.cpp`
+- `core/tests/unit/test_service_base.cpp`
+- `core/tests/unit/test_flatbuffers_dispatch.cpp`
+- `core/tests/unit/test_session.cpp`
+- `core/tests/integration/test_pipeline_integration.cpp`
+- `core/tests/integration/test_server_e2e.cpp`
+- `core/tests/integration/test_echo_integration.cpp` (변경 없음 — 컴파일만 재확인)
+
+### 예제 (2개)
+- `core/examples/echo_server.cpp`
+- `core/examples/chat_server.cpp`
+
+## 테스트 현황
+- 전체 17개 테스트 스위트, 전부 통과
+- 테스트 코루틴 헬퍼 `run_coro()` 패턴 도입 (awaitable을 동기 테스트에서 실행)
+- E2E 테스트 구조 유지 (클라이언트 별도 io_context, IOCP 충돌 방지)
+
+## 실행 패턴
+- Phase 1: 6개 에이전트 병렬 구현 (인터페이스 스펙 선제공, 파일 충돌 방지)
+- Phase 2: 빌드 검증 (1개 누락 파일 추가 수정)
+- Phase 3: 테스트 실행 (17/17 통과)
+- Phase 4: 심층 코드 리뷰 (3개 리뷰 에이전트 병렬) → 6건 추가 수정
+- Phase 4 반복: 2차 리뷰 (2개 리뷰 에이전트) → 이슈 없음 확인
+
+## 핵심 패턴 및 교훈
+
+### for_each + co_await 불가 해결
+`SessionManager::for_each`는 동기 콜백이라 내부에서 `co_await` 불가능. 세션을 벡터에 수집 후 바깥 코루틴에서 `co_await async_send()` 호출하는 패턴으로 해결.
+
+### writable() vs writable_size() 주의
+RingBuffer의 `writable()`은 연속 영역만 반환, `writable_size()`는 전체 여유 공간. wrap-around 시 분할 복사 필수.
+
+### 코루틴 수명 안전성
+`co_spawn`에 `SessionPtr`(shared_ptr) 값 복사로 전달하면 코루틴 프레임이 세션 수명을 자동 보장. `[this]` 캡처 댕글링 문제를 근본적으로 해소.

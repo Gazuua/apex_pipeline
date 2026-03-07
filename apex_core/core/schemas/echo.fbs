@@ -1,0 +1,11 @@
+namespace apex.messages;
+
+table EchoRequest {
+    data:[ubyte];
+}
+
+table EchoResponse {
+    data:[ubyte];
+}
+
+root_type EchoRequest;

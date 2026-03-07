@@ -1,0 +1,7 @@
+namespace apex.messages;
+
+table Heartbeat {
+    timestamp_ms:uint64;
+}
+
+root_type Heartbeat;

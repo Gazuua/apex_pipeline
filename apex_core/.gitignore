@@ -1,0 +1,27 @@
+# Build
+build/
+out/
+*.obj
+*.exe
+*.pdb
+*.lib
+*.dll
+*.a
+*.so
+
+# CMake
+compile_commands.json
+
+# IDE
+.cache/
+.vs/
+.vscode/
+.idea/
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# vcpkg local
+vcpkg_installed/
