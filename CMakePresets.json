@@ -23,7 +23,8 @@
       "displayName": "Debug",
       "inherits": "default",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_BUILD_TYPE": "Debug",
+        "APEX_BUILD_VARIANT": "debug"
       }
     },
     {
@@ -31,7 +32,8 @@
       "displayName": "Debug + AddressSanitizer (Clang/GCC only)",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer"
+        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "APEX_BUILD_VARIANT": "asan"
       }
     },
     {
@@ -39,7 +41,8 @@
       "displayName": "Debug + ThreadSanitizer (Clang/GCC only)",
       "inherits": "debug",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-fsanitize=thread"
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread",
+        "APEX_BUILD_VARIANT": "tsan"
       }
     }
   ],
