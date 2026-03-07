@@ -45,12 +45,12 @@ BoostAsioCore 단일 프로젝트 → apex-pipeline 모노레포 전환
 
 ## 미완료 작업 (다음 세션)
 
-### 1. 디렉토리 스캐폴딩
-설계 문서에 명시된 아래 디렉토리 미생성:
-- `apex_services/` — gateway, auth-svc, chat-svc, log-svc
-- `apex_shared/` — 공유 FlatBuffers 스키마 + 공유 C++ 코드
-- `apex_infra/` — docker-compose.yml, k8s/
-- `apex_tools/` — 서비스 스캐폴딩 스크립트 등
+### 1. ~~디렉토리 스캐폴딩~~ (완료)
+설계 문서 기준으로 4개 루트 디렉토리 생성 완료:
+- `apex_services/` — gateway, auth-svc, chat-svc, log-svc (서비스별 include/src/tests)
+- `apex_shared/` — schemas/ + lib/ (include/src)
+- `apex_infra/` — k8s/ (서비스별)
+- `apex_tools/`
 
 ### 2. ~~apex_core 문서 경로 갱신~~ (완료)
 core/ 플래트닝 후 문서 내 옛 경로(`core/include/`, `core/src/` 등)를 일괄 치환 완료. 21개 파일, 524건 갱신.
