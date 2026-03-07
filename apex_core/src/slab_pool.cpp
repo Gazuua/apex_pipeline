@@ -80,7 +80,9 @@ void* SlabPool::allocate() {
     FreeNode* node = free_list_;
     free_list_ = node->next;
     --free_count_;
-    node->magic = SLAB_MAGIC_ALLOCATED;  // 사용자 데이터에 의해 덮어써질 수 있음
+    // NOTE: 사용자가 슬롯 전체를 데이터로 덮어쓰면 magic 값도 소실된다.
+    // 이 경우 double-free 감지는 best-effort이며 보장되지 않음.
+    node->magic = SLAB_MAGIC_ALLOCATED;
     return static_cast<void*>(node);
 }
 

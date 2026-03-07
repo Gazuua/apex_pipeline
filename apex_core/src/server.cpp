@@ -1,4 +1,5 @@
 #include <apex/core/server.hpp>
+#include <apex/core/detail/math_utils.hpp>
 #include <apex/core/error_sender.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/tcp_binary_protocol.hpp>
@@ -33,6 +34,18 @@ Server::Server(boost::asio::io_context& io_ctx, Config config)
         throw std::invalid_argument(
             "ServerConfig::recv_buf_capacity must be >= " +
             std::to_string(TMP_BUF_SIZE));
+    }
+
+    if (config_.heartbeat_timeout_ticks > 0) {
+        size_t actual_slots = detail::next_power_of_2(
+            config_.timer_wheel_slots < 1 ? 1 : config_.timer_wheel_slots);
+        if (config_.heartbeat_timeout_ticks >= actual_slots) {
+            throw std::invalid_argument(
+                "ServerConfig::heartbeat_timeout_ticks (" +
+                std::to_string(config_.heartbeat_timeout_ticks) +
+                ") must be < timer_wheel effective slots (" +
+                std::to_string(actual_slots) + ")");
+        }
     }
 }
 
@@ -131,6 +144,9 @@ boost::asio::awaitable<void> Server::read_loop(SessionPtr session) {
         // 프레임 파싱 + 디스패치
         co_await process_frames(session);
 
+        // 세션이 close된 경우 (ErrorResponse 전송 실패 등) 하트비트 리셋 불필요
+        if (!session->is_open()) break;
+
         // 하트비트 리셋
         session_mgr_.touch_session(session->id());
     }
@@ -155,12 +171,12 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
                 : ErrorCode::Unknown;
             auto error_frame = ErrorSender::build_error_frame(
                 frame->header.msg_id, code);
-            co_await session->async_send_raw(error_frame);
+            (void)co_await session->async_send_raw(error_frame);
         } else if (!result.value().has_value()) {
             // 핸들러가 apex::error(ErrorCode::X)를 반환
             auto error_frame = ErrorSender::build_error_frame(
                 frame->header.msg_id, result.value().error());
-            co_await session->async_send_raw(error_frame);
+            (void)co_await session->async_send_raw(error_frame);
         }
 
         TcpBinaryProtocol::consume_frame(recv_buf, *frame);

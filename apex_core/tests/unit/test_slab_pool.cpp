@@ -130,6 +130,8 @@ TEST(SlabPool, DoubleFreeProtection_Debug) {
     EXPECT_EQ(pool.free_count(), 4u);
 
     // Debug 빌드에서 double-free는 assert로 프로세스 종료
+    // NOTE: MSVC assert 메시지 포맷: "Assertion failed: <expr>, file <f>, line <n>"
+    // "double-free detected"는 assert 표현식의 일부이므로 MSVC에서도 매칭됨.
     EXPECT_DEATH(pool.deallocate(p1), "double-free detected");
 }
 #endif
@@ -141,7 +143,16 @@ TEST(SlabPool, OwnsSlotAlignment) {
     void* p = pool.allocate();
     ASSERT_NE(p, nullptr);
 
-    // 정상 deallocate
+    // 정상 슬롯은 owns() == true
+    EXPECT_TRUE(pool.owns(p));
+
+    // 비정렬 포인터는 owns() == false
+    auto* misaligned = static_cast<uint8_t*>(p) + 1;
+    EXPECT_FALSE(pool.owns(misaligned));
+
+    // 풀 범위 밖 포인터는 owns() == false
+    int outside;
+    EXPECT_FALSE(pool.owns(&outside));
+
     pool.deallocate(p);
-    EXPECT_EQ(pool.free_count(), 4u);
 }

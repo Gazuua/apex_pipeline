@@ -55,6 +55,9 @@ public:
     /// Size of each slot in bytes (after alignment).
     [[nodiscard]] size_t slot_size() const noexcept;
 
+    /// Check if a pointer belongs to this pool and is slot-aligned.
+    [[nodiscard]] bool owns(void* ptr) const noexcept;
+
 private:
     struct FreeNode {
         FreeNode* next;
@@ -62,7 +65,6 @@ private:
     };
 
     void grow(size_t count);
-    bool owns(void* ptr) const noexcept;
 
     struct ChunkInfo {
         uint8_t* data;

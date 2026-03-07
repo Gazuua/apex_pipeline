@@ -146,7 +146,11 @@ void TimingWheel::tick() {
     // Phase 3b: 콜백 호출 후 메모리 해제 + ID 재사용 허용
     for (auto* e : expired_buf_) {
         EntryId expired_id = e->id;
-        on_expire_(expired_id);
+        try {
+            on_expire_(expired_id);
+        } catch (...) {
+            // 콜백 예외는 삼킴 — 엔트리 정리는 반드시 수행
+        }
         delete e;                       // 콜백 완료 후 삭제
         free_ids_.push_back(expired_id); // 콜백 완료 후 ID 재사용 허용
     }

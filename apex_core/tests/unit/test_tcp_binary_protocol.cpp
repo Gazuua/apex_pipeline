@@ -123,6 +123,9 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
     EXPECT_EQ(result2->payload[0], 0xBB);
     TcpBinaryProtocol::consume_frame(buf_, *result2);
 
+    // 모든 프레임 소비 후 버퍼 비어있는지 명시 검증
+    EXPECT_EQ(buf_.readable_size(), 0u);
+
     // 세 번째 decode → InsufficientData
     auto result3 = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result3.has_value());

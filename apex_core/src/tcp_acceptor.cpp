@@ -49,7 +49,9 @@ boost::asio::awaitable<void> TcpAcceptor::accept_loop() {
             if (ec == boost::asio::error::operation_aborted) break;
             // I-6: 일시적 에러 시 100ms 백오프 (EMFILE 등 busy-loop 방지)
             backoff_timer.expires_after(std::chrono::milliseconds(100));
-            co_await backoff_timer.async_wait(boost::asio::use_awaitable);
+            auto [ec_timer] = co_await backoff_timer.async_wait(
+                boost::asio::as_tuple(boost::asio::use_awaitable));
+            // timer cancel 시에도 예외 없이 안전하게 loop 재진입
             continue;
         }
 

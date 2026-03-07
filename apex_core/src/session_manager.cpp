@@ -102,6 +102,8 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
 
     // 콜백에서 세션에 마지막 작업(로깅 등)을 수행할 수 있도록
     // close()는 콜백 이후에 호출한다.
+    // timeout_callback 내에서 touch_session(session_id)이 호출되더라도,
+    // session_to_timer_에서 이미 erase되었으므로 안전하게 no-op 처리됨.
     if (timeout_callback_) {
         timeout_callback_(session);
     }
