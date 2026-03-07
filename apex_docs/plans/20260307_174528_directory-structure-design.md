@@ -52,7 +52,7 @@ D:/.workspace/                          <- 모노레포 루트 (apex-pipeline)
 |   |   +-- vcpkg.json
 |   |   +-- Dockerfile
 |   +-- auth-svc/                       <- 인증 서비스
-|   |   |   +-- include/apex/auth_svc/
+|   |   +-- include/apex/auth_svc/
 |   |   +-- src/
 |   |   +-- tests/
 |   |   +-- CMakeLists.txt
