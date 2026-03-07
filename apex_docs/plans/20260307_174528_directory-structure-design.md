@@ -52,15 +52,17 @@ D:/.workspace/                          <- 모노레포 루트 (apex-pipeline)
 |   |   +-- vcpkg.json
 |   |   +-- Dockerfile
 |   +-- auth-svc/                       <- 인증 서비스
-|   |   +-- include/apex/auth/
+|   |   |   +-- include/apex/auth_svc/
 |   |   +-- src/
 |   |   +-- tests/
 |   |   +-- CMakeLists.txt
 |   |   +-- vcpkg.json
 |   |   +-- Dockerfile
 |   +-- chat-svc/                       <- 채팅 서비스
+|   |   +-- include/apex/chat_svc/
 |   |   +-- (동일 패턴)
 |   +-- log-svc/                        <- 로그 서비스
+|       +-- include/apex/log_svc/
 |       +-- (동일 패턴)
 |
 +-- apex_shared/
@@ -80,6 +82,7 @@ D:/.workspace/                          <- 모노레포 루트 (apex-pipeline)
 |       +-- gateway/
 |       +-- auth-svc/
 |       +-- chat-svc/
+|       +-- log-svc/
 |
 +-- apex_tools/
 |   +-- new-service.sh                  <- 서비스 스캐폴딩 스크립트
