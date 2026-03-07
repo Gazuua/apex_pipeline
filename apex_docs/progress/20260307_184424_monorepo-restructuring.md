@@ -22,7 +22,7 @@ BoostAsioCore 단일 프로젝트 → apex-pipeline 모노레포 전환
 ### 4. CMake 구조 정리
 - `apex_core/core/*` → `apex_core/` 플래트닝 (core/ 중첩 제거)
 - `project(apex-pipeline)` → `project(apex-core)` 프로젝트명 수정
-- `apex_core/CMakeLists.txt`: standalone/subdirectory 겸용 가드 추가
+- `apex_CMakeLists.txt`: standalone/subdirectory 겸용 가드 추가
 - 루트 `CMakeLists.txt` + `CMakePresets.json` + `vcpkg.json` 생성
 - 루트 `build.bat` + `build.sh` 생성
 - `compile_commands.json`: CMake symlink → 빌드 스크립트에서 configure 후 복사로 변경
@@ -52,8 +52,8 @@ BoostAsioCore 단일 프로젝트 → apex-pipeline 모노레포 전환
 - `apex_infra/` — docker-compose.yml, k8s/
 - `apex_tools/` — 서비스 스캐폴딩 스크립트 등
 
-### 2. apex_core 문서 경로 갱신
-core/ 플래트닝 후 문서 내 `core/include/...`, `core/src/...` 등 기존 경로 참조가 남아 있을 수 있음. 확인 및 수정 필요.
+### 2. ~~apex_core 문서 경로 갱신~~ (완료)
+core/ 플래트닝 후 문서 내 옛 경로(`core/include/`, `core/src/` 등)를 일괄 치환 완료. 21개 파일, 524건 갱신.
 
 ### 3. apex_core v0.2.2 코드 리뷰 미수정 건
 Important 5건 미수정 상태. 수정 후 머지 판단 필요.

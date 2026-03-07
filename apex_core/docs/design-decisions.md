@@ -178,7 +178,7 @@
 - **모노레포** (apex-pipeline/)
 - 네임스페이스: `apex` (apex::core, apex::gateway, apex::auth 등)
 - core/가 apex_core 프레임워크
-- core/examples/에 프레임워크 사용 예제 포함
+- examples/에 프레임워크 사용 예제 포함
 - 서비스들은 CMake find_package(ApexCore)로 의존
 
 ### Graceful Shutdown

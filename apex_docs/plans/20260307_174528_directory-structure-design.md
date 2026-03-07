@@ -32,14 +32,13 @@ BoostAsioCore(현 apex_core) 프레임워크가 v0.2.1까지 완성된 상태에
 D:/.workspace/                          <- 모노레포 루트 (apex-pipeline)
 |
 +-- apex_core/                          <- 프레임워크 (기존, 자체 빌드 독립)
-|   +-- core/
-|   |   +-- include/apex/core/
-|   |   +-- src/
-|   |   +-- tests/
-|   |   +-- examples/
-|   |   +-- schemas/                    <- 프레임워크 내장 스키마
-|   |   +-- CMakeLists.txt
+|   +-- include/apex/core/
+|   +-- src/
+|   +-- tests/
+|   +-- examples/
+|   +-- schemas/                        <- 프레임워크 내장 스키마
 |   +-- docs/
+|   +-- bin/                            <- 빌드 출력 (변형별: *_debug.exe, *_asan.exe)
 |   +-- vcpkg.json
 |   +-- CMakeLists.txt
 |   +-- CMakePresets.json
@@ -106,7 +105,7 @@ D:/.workspace/                          <- 모노레포 루트 (apex-pipeline)
 # 서비스 CMakeLists.txt 내부
 find_package(apex QUIET)
 if(NOT apex_FOUND)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../apex_core/core apex_core)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../apex_core apex_core)
 endif()
 
 target_link_libraries(my_service PRIVATE apex::core)
