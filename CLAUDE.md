@@ -95,9 +95,20 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, fmt, tomlplusplus, benchmar
 ## 워크플로우 규칙
 
 ### 브랜치 전략
-- **작업별 feature branch 분리** — main에 직접 커밋하지 않음
-- 병렬 세션에서 각각 독립 브랜치로 동시 작업 가능
-- 완료 후 main에 머지 (fast-forward 또는 PR)
+- **main 직접 커밋 절대 금지** — 모든 작업은 feature/bugfix 브랜치에서 진행
+- **브랜치 생성 기준**: 계획서가 필요한 수준의 신규 기능 → `feature/*`, 버그/개선 → `bugfix/*`
+- **git worktree로 병렬 작업**: `.worktrees/` 하위에 워크트리 생성, 에이전트별 독립 작업
+  ```
+  .workspace (main, 읽기 전용 레퍼런스)
+  └── .worktrees/
+      ├── feature_docker/       ← feature/docker-compose 브랜치
+      └── feature_schema/       ← feature/shared-schema 브랜치
+  ```
+  - 생성: `git worktree add .worktrees/<name> -b <branch-name>`
+  - 삭제: `git worktree remove .worktrees/<name>`
+- **머지 조건**: 반복 코드 리뷰에서 이슈 0건 Clean 통과
+- **머지 전략**: squash merge — feature 브랜치 커밋은 main에 하나의 깨끗한 커밋으로 합침
+- **머지 후**: feature 브랜치 삭제 + 워크트리 정리
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
@@ -112,10 +123,14 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, fmt, tomlplusplus, benchmar
   3. **Phase 3**: 의심 패턴(raw pointer 캡처, shared_ptr, 코루틴 수명 등)에 `findReferences`/`incomingCalls`로 추적
   - 모든 심볼 전수 분석 금지 — 핵심 위주 분석, 병렬 호출 적극 활용
   - 10분 타임아웃 기준, 초과 시 타겟팅 방식으로 전환
+- **설계 문서 정합성 검토**: 아키텍처/컴포넌트/기술 스택/로드맵에 영향을 주는 변경 시 `Apex_Pipeline.md`와 실제 구현의 일치 여부를 반드시 확인. 불일치 시 문서 또는 코드를 수정하여 정합성 확보. (테스트만 추가하는 변경은 스킵 가능, 리팩토링은 규모에 따라 판단)
 - **리뷰 후 워크플로우** (이슈 0건 될 때까지 반복):
   1. 리뷰 보고서 즉시 커밋
   2. 발견된 이슈 전량 수정 (에이전트 병렬 작업)
   3. 재리뷰 → 설계 결정 필요 시만 사용자 호출, 명확한 수정은 즉시 진행
+
+### 브레인스토밍
+- **Apex_Pipeline.md 필수 참조**: 브레인스토밍 1단계(컨텍스트 탐색)에서 반드시 `apex_docs/Apex_Pipeline.md`를 읽고 관련 섹션 식별. 설계 완료 후 해당 섹션의 업데이트 내용을 설계 문서에 포함.
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 작업 분리 가능한 범위 내에서

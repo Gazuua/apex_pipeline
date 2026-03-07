@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(apex-pipeline
-    VERSION 0.2.2
+    VERSION 0.2.3
     LANGUAGES CXX
     DESCRIPTION "Apex Pipeline - High-performance real-time server monorepo"
 )
