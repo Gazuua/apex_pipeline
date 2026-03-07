@@ -6,7 +6,7 @@ if "%PRESET%"=="" set PRESET=debug
 
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 set VCPKG_ROOT=C:\Users\JHG\vcpkg
-cd /d D:\.workspace\apex_core
+cd /d D:\.workspace
 
 :: Ensure build dir and compile_commands.json exist for first configure (clangd symlink)
 if not exist "build\%PRESET%" mkdir "build\%PRESET%"

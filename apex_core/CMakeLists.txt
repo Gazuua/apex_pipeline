@@ -1,26 +1,93 @@
 cmake_minimum_required(VERSION 3.20)
-project(apex-pipeline
-    VERSION 0.1.0
-    LANGUAGES CXX
-    DESCRIPTION "Apex Pipeline - High-performance real-time server framework"
+
+# Standalone build (apex_core 단독) vs subdirectory (모노레포에서 포함)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(apex-core
+        VERSION 0.2.2
+        LANGUAGES CXX
+        DESCRIPTION "Apex Core - High-performance real-time server framework"
+    )
+
+    set(CMAKE_CXX_STANDARD 23)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+    option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
+
+    enable_testing()
+endif()
+
+# --- Dependencies ---
+find_package(Boost REQUIRED)
+find_package(flatbuffers CONFIG REQUIRED)
+
+# --- FlatBuffers 스키마 컴파일 ---
+set(APEX_SCHEMAS
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/heartbeat.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/error_response.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/echo.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/chat_message.fbs
 )
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(APEX_FBS_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${APEX_FBS_GENERATED_DIR})
 
-# io_uring option (default OFF, Linux only)
-option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
+foreach(SCHEMA ${APEX_SCHEMAS})
+    get_filename_component(SCHEMA_NAME ${SCHEMA} NAME_WE)
+    set(GENERATED_HEADER ${APEX_FBS_GENERATED_DIR}/${SCHEMA_NAME}_generated.h)
+    add_custom_command(
+        OUTPUT ${GENERATED_HEADER}
+        COMMAND flatbuffers::flatc --cpp -o ${APEX_FBS_GENERATED_DIR} ${SCHEMA}
+        DEPENDS ${SCHEMA}
+        COMMENT "FlatBuffers: ${SCHEMA_NAME}.fbs"
+    )
+    list(APPEND APEX_FBS_GENERATED_HEADERS ${GENERATED_HEADER})
+endforeach()
+
+add_custom_target(apex_fbs_generate DEPENDS ${APEX_FBS_GENERATED_HEADERS})
+
+# --- 라이브러리 ---
+add_library(apex_core STATIC
+    src/slab_pool.cpp
+    src/ring_buffer.cpp
+    src/timing_wheel.cpp
+    src/core_engine.cpp
+    src/message_dispatcher.cpp
+    src/wire_header.cpp
+    src/frame_codec.cpp
+    src/session.cpp
+    src/session_manager.cpp
+    src/error_sender.cpp
+    src/tcp_acceptor.cpp
+    src/server.cpp
+)
+add_library(apex::core ALIAS apex_core)
+
+add_dependencies(apex_core apex_fbs_generate)
+
+target_include_directories(apex_core
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(apex_core
+    PUBLIC
+        Boost::boost
+        flatbuffers::flatbuffers
+)
+
+target_compile_features(apex_core PUBLIC cxx_std_23)
+
+# Windows: UTF-8 source, suppress _WIN32_WINNT warning, link Winsock
+if(WIN32)
+    target_compile_options(apex_core PUBLIC /utf-8)
+    target_compile_definitions(apex_core PUBLIC _WIN32_WINNT=0x0A00)
+    target_link_libraries(apex_core PUBLIC ws2_32 mswsock)
+endif()
 
 enable_testing()
-add_subdirectory(core)
-
-# Symlink compile_commands.json to project root for clangd
-# Created at configure time — always fresh since build scripts now always configure
-file(CREATE_LINK
-    "${CMAKE_BINARY_DIR}/compile_commands.json"
-    "${CMAKE_SOURCE_DIR}/compile_commands.json"
-    COPY_ON_ERROR
-    SYMBOLIC
-)
+add_subdirectory(tests)
+add_subdirectory(examples)
