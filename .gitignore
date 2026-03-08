@@ -27,5 +27,8 @@ Thumbs.db
 # vcpkg local
 vcpkg_installed/
 
+# Secrets
+.env
+
 # Worktrees
 .worktrees/

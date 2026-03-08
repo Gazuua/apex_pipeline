@@ -12,7 +12,7 @@ if exist "%VSWHERE%" (
     set "VSINSTALL=C:\Program Files\Microsoft Visual Studio\2022\Community"
 )
 call "%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat" x64
-if "%VCPKG_ROOT%"=="" set VCPKG_ROOT=C:\Users\JHG\vcpkg
+if "%VCPKG_ROOT%"=="" set VCPKG_ROOT=%USERPROFILE%\vcpkg
 cd /d %~dp0
 
 :: Ensure build dir and compile_commands.json exist for first configure (clangd symlink)
@@ -32,4 +32,4 @@ cmake --build "build/%PRESET%"
 if errorlevel 1 exit /b 1
 
 :: Test
-ctest --test-dir "build/%PRESET%" --output-on-failure
+ctest --preset %PRESET% --output-on-failure

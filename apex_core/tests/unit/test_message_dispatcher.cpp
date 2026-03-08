@@ -90,7 +90,7 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
 
     run_coro(io_ctx_, [&]() -> awaitable<void> {
         auto result = co_await d->dispatch(nullptr, 0x0001, {});
-        (void)result;
+        EXPECT_TRUE(result.has_value());
     }());
     EXPECT_EQ(call_count_old, 0);
     EXPECT_EQ(call_count_new, 1);

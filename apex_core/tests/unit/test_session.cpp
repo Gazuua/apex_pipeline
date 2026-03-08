@@ -73,6 +73,17 @@ TEST_F(SessionTest, SendAfterClose) {
     client.close();
 }
 
+TEST_F(SessionTest, RecvBufferDefaultCapacity) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    Session session(1, std::move(server), 0);
+
+    // Default recv_buf_capacity is 8192 (see session.hpp constructor default)
+    EXPECT_EQ(session.recv_buffer().capacity(), 8192u);
+    EXPECT_EQ(session.recv_buffer().readable_size(), 0u);
+
+    client.close();
+}
+
 TEST_F(SessionTest, RecvBufferAccessible) {
     auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0, 4096);
@@ -134,7 +145,11 @@ TEST_F(SessionTest, DoubleCloseIsSafe) {
     client.close();
 }
 
-TEST_F(SessionTest, SendAfterPeerDisconnect) {
+// Send after peer disconnect is inherently non-deterministic:
+// - The OS may buffer the first send (returning success) or immediately report
+//   a connection reset (returning failure), depending on TCP stack timing.
+// - The key invariant is that the Session handles it gracefully without crash.
+TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     auto [server_sock, client] = make_socket_pair(io_ctx_);
     auto session = std::make_shared<Session>(1, std::move(server_sock), 0);
 

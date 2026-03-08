@@ -1,5 +1,7 @@
 #include <apex/core/server.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -8,30 +10,6 @@
 
 using namespace apex::core;
 using namespace std::chrono_literals;
-
-namespace {
-
-/// Helper: poll until server.running() is true, with a deadline.
-void wait_until_running(Server& server,
-                        std::chrono::milliseconds timeout = 5000ms) {
-    auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (!server.running() &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-}
-
-/// Helper: poll until an atomic counter reaches expected value, with a deadline.
-void wait_until_count(const std::atomic<uint32_t>& counter, uint32_t expected,
-                      std::chrono::milliseconds timeout = 5000ms) {
-    auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (counter.load() < expected &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-}
-
-} // anonymous namespace
 
 TEST(ServerMulticoreTest, CreateAndDestroy) {
     Server server({.port = 0, .num_cores = 2});
@@ -47,8 +25,7 @@ TEST(ServerMulticoreTest, RunAndStop) {
 
     std::thread t([&] { server.run(); });
 
-    wait_until_running(server);
-    ASSERT_TRUE(server.running());
+    ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));
 
     server.stop();
     t.join();
@@ -63,6 +40,7 @@ TEST(ServerMulticoreTest, CoreCount) {
 
 class CountingService : public ServiceBase<CountingService> {
 public:
+    // NOTE: static counters — 모든 CountingService 테스트는 반드시 CountingServiceFixture를 사용할 것
     static inline std::atomic<uint32_t> instance_count{0};
     static inline std::atomic<uint32_t> start_count{0};
     static inline std::atomic<uint32_t> stop_count{0};
@@ -94,15 +72,18 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance) {
     // Wait for all 4 per-core service instances to be created.
     // running() becomes true at the start of run(), but factory calls
     // happen synchronously right after, so poll instance_count directly.
-    wait_until_count(CountingService::instance_count, 4u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CountingService::instance_count.load() >= 4u; }));
     EXPECT_EQ(CountingService::instance_count.load(), 4u);
 
     // Also verify services were started
-    wait_until_count(CountingService::start_count, 4u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CountingService::start_count.load() >= 4u; }));
     EXPECT_EQ(CountingService::start_count.load(), 4u);
 
     server.stop();
     t.join();
+
+    // Verify on_stop() was called on all cores
+    EXPECT_EQ(CountingService::stop_count.load(), 4u);
 }
 
 TEST_F(CountingServiceFixture, AddServiceChaining) {
@@ -116,7 +97,7 @@ TEST_F(CountingServiceFixture, AddServiceChaining) {
     std::thread t([&] { server.run(); });
 
     // 2 services x 2 cores = 4 instances
-    wait_until_count(CountingService::instance_count, 4u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CountingService::instance_count.load() >= 4u; }));
     EXPECT_EQ(CountingService::instance_count.load(), 4u);
 
     server.stop();
@@ -165,7 +146,7 @@ TEST(ServerMulticoreTest, AddServiceFactoryCreatesPerCoreInstances) {
     std::thread t([&] { server.run(); });
 
     // Wait for factory to be called for both cores
-    wait_until_count(CoreAwareService::factory_call_count, 2u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CoreAwareService::factory_call_count.load() >= 2u; }));
 
     // Factory was called exactly 2 times (once per core)
     EXPECT_EQ(CoreAwareService::factory_call_count.load(), 2u);
@@ -174,7 +155,7 @@ TEST(ServerMulticoreTest, AddServiceFactoryCreatesPerCoreInstances) {
     EXPECT_EQ(core_id_bits.load(), 0b11u);
 
     // Wait for services to start
-    wait_until_count(CoreAwareService::start_count, 2u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CoreAwareService::start_count.load() >= 2u; }));
     EXPECT_EQ(CoreAwareService::start_count.load(), 2u);
 
     server.stop();
@@ -214,7 +195,7 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
     server.add_service<CountingService>();
 
     std::thread t([&] { server.run(); });
-    wait_until_count(CountingService::instance_count, 2u);
+    ASSERT_TRUE(apex::test::wait_for([&] { return CountingService::instance_count.load() >= 2u; }));
     EXPECT_EQ(CountingService::instance_count.load(), 2u);
 
     server.stop();
@@ -232,8 +213,7 @@ TEST(ServerMulticoreTest, DoubleRunThrows) {
 
     std::thread t1([&] { server.run(); });
 
-    wait_until_running(server);
-    ASSERT_TRUE(server.running());
+    ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));
 
     // Second run() must throw — run() is single-use (I-21)
     EXPECT_THROW(server.run(), std::logic_error);

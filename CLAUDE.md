@@ -17,7 +17,7 @@ D:\.workspace/
 ├── docs/               ← 전체 프로젝트 문서 (중앙 집중)
 │   ├── Apex_Pipeline.md  ← 마스터 설계서
 │   ├── apex_common/      ← 공통 (plans/progress/review)
-│   └── apex_core/ apex_infra/ apex_shared/
+│   └── apex_core/ apex_infra/ apex_shared/ apex_tools/
 ├── apex_services/      ← MSA 서비스
 ├── apex_shared/        ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
 ├── apex_infra/         ← Docker, K8s 인프라 (Kafka/Redis/PG + Prometheus/Grafana)
@@ -36,7 +36,7 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: boost-asio, boost-beast (Phase 8a WebSocket용), flatbuffers, gtest
+- **의존성 (vcpkg)**: boost-asio, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
 
 ### MSVC 주의사항
 
@@ -52,6 +52,12 @@ D:\.workspace/
 - 서비스별 독립 vcpkg.json (Docker 독립 빌드용)
 - 상세: `docs/apex_core/design-decisions.md`, `docs/apex_core/design-rationale.md` (ADR 23개)
 
+## 로드맵
+
+- Phase 1~4.7 레거시 넘버링 동결, 5+ 순차 정수 (8a/8b 허용)
+- Phase 5~10 의존성 기반 재분할
+- 버전: v0.3.0(P6+7), v0.4.0(P8b), v0.5.0(P9), v1.0.0(P10)
+
 ## 워크플로우 규칙
 
 ### Git / 브랜치
@@ -63,18 +69,35 @@ D:\.workspace/
 - **머지**: 리뷰 이슈 0건 → squash merge → 브랜치+워크트리 삭제
 
 ### 문서
-- **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
+- **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
+- **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 작성 시간
 
 ### 코드 리뷰
-- clangd LSP + superpowers:requesting-code-review 스킬 활용, 멀티 에이전트 병렬 리뷰
+- **clangd LSP + superpowers:code-reviewer 병행** — LSP 정적 분석(타입/참조/호출 추적)과 AI 코드 리뷰를 함께 사용해야 품질이 높아진다
 - **clangd LSP 효율 전략**: `documentSymbol` 병렬 → 핵심 API `hover` → 의심 패턴 `findReferences`/`incomingCalls`. 전수 분석 금지, 10분 타임아웃.
 - **설계 문서 정합성**: 아키텍처 영향 변경 시 `Apex_Pipeline.md` 일치 확인 필수
-- **리뷰 후**: 보고서 커밋 → 이슈 전량 수정 (병렬) → 재리뷰 (0건까지 반복)
+- **태스크 완료 후 `/auto-review task` 묻지 말고 자동 실행** — 리뷰 → 수정 → 재리뷰 → Clean → PR+CI 전 과정 자동화
 
 ### 브레인스토밍
 - 1단계에서 반드시 `docs/Apex_Pipeline.md` 읽고 관련 섹션 식별, 설계 후 업데이트 포함
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
+
+## 프로젝트 정보
+
+- GitHub: `Gazuua/apex_pipeline`
+
+## CI/CD 트러블슈팅
+
+- **TSAN**: Boost.Asio `atomic_thread_fence` false positive → `tsan_suppressions.txt` (루트+apex_core 양쪽 배치)
+- **ASAN/LSAN**: spdlog 글로벌 레지스트리 leak → `lsan_suppressions.txt`
+- **ASAN aligned_alloc**: size는 alignment 배수여야 함. `max(capacity, alignment)`로 보정
+- **CMakePresets ${sourceDir}**: 루트+하위 양쪽에 suppressions 파일 배치 (include 시 `${sourceDir}` 변환 대응)
+- **[[nodiscard]]**: GCC에서 EXPECT_THROW 내 반환값 경고 → `(void)` 캐스트
+- **test preset**: TSAN_OPTIONS/LSAN_OPTIONS는 configure preset이 아닌 **test preset**에 설정
+- **CI workflow**: `ctest --preset <name>` 사용 (--test-dir 대신)
+- **vcpkg 다운로드 실패**: GitHub CDN 간헐적 HTTP 502 → `gh run rerun --failed`
+- **CI 실패 분석 원칙**: 한 잡만 보고 판단하지 말고 **모든 실패 잡의 로그를 확인** — 잡마다 실패 원인이 다를 수 있음

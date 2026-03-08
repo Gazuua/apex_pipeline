@@ -1,5 +1,7 @@
 #include <apex/core/server.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 
@@ -26,12 +28,7 @@ protected:
         server_thread_ = std::thread([this] { server_->run(); });
 
         // Wait for server to be running (condition-based instead of sleep)
-        auto deadline = std::chrono::steady_clock::now() + 5s;
-        while (!server_->running() &&
-               std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(1ms);
-        }
-        ASSERT_TRUE(server_->running());
+        ASSERT_TRUE(apex::test::wait_for([&] { return server_->running(); }, std::chrono::milliseconds(5000)));
     }
 
     void TearDown() override {
@@ -88,11 +85,7 @@ TEST_F(CrossCoreCallTest, PostFireAndForget) {
     });
     EXPECT_TRUE(posted);
 
-    auto deadline = std::chrono::steady_clock::now() + 3s;
-    while (value.load() != 99 && std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-    EXPECT_EQ(value.load(), 99);
+    ASSERT_TRUE(apex::test::wait_for([&] { return value.load() == 99; }));
 }
 
 TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
@@ -103,6 +96,8 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
         [this, &promise]() -> boost::asio::awaitable<void> {
             auto result = co_await server_->cross_core_call(1,
                 [] {
+                    // NOTE: sleep_for는 코어 스레드를 블로킹하여 io_context-per-core 원칙을 위반하지만,
+                    // 타임아웃 테스트 목적으로 허용. 향후 boost::asio::steady_timer로 전환 검토.
                     std::this_thread::sleep_for(50ms);
                     return 0;
                 },
@@ -157,12 +152,7 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     std::thread server_thread([&] { server->run(); });
 
     // Wait for server to be running
-    auto deadline = std::chrono::steady_clock::now() + 5s;
-    while (!server->running() &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-    ASSERT_TRUE(server->running());
+    ASSERT_TRUE(apex::test::wait_for([&] { return server->running(); }, std::chrono::milliseconds(5000)));
 
     // Fill core 1's inbox (capacity=2) with fire-and-forget posts.
     // Each lambda captures a shared_ptr; when the server shuts down and

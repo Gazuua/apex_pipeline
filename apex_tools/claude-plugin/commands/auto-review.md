@@ -34,9 +34,11 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - `task` 모드: `git diff --name-only main...HEAD`로 변경 파일 목록 추출
    - `full` 모드: 전체 프로젝트 파일 대상 (빌드 출력/bin/ 제외)
 
-2. **5개 리뷰어 에이전트 병렬 디스패치**
+2. **리뷰어 에이전트 병렬 디스패치**
 
-   Agent 도구로 **반드시 5개를 동시에** 하나의 메시지에서 호출:
+   Agent 도구로 **참여 대상 에이전트를 동시에** 하나의 메시지에서 호출:
+   - Round 1: 5개 전원 디스패치
+   - Round 2+: Phase 2 Smart Re-review 스킵 판단에 따라 참여 에이전트만 디스패치
 
    | 에이전트 | 파일 | 역할 |
    |---------|------|------|
@@ -93,9 +95,44 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 수정된 파일을 스테이징 + 커밋
    - 커밋 메시지: `fix: auto-review round {N} — {수정 건수}건 수정`
 
-4. **재리뷰 (Phase 1로 돌아감)**
+4. **재리뷰 (Phase 1로 돌아감) — Smart Re-review**
    - 라운드 카운터 증가
-   - Phase 1 재실행
+
+   **스킵 판단 절차:**
+
+   a) 수정된 파일 목록 추출: `git diff HEAD~1..HEAD --name-only`
+
+   b) 파일 타입 매핑으로 "최소 필수 리뷰어" 결정:
+
+   | 수정 파일 타입 | 영향받는 리뷰어 |
+   |--------------|--------------|
+   | `.cpp`, `.hpp` (소스/헤더) | code, test, structure |
+   | `test_*.cpp`, `test_helpers.hpp` | test |
+   | `CMakeLists.txt`, `vcpkg.json`, `build.*`, `CMakePresets*` | structure, general |
+   | `*.md` (문서) | docs |
+   | `.gitignore`, hooks, scripts | general |
+
+   c) 수정 내용의 **의미적 영향** 추가 판단 (오케스트레이터 자율):
+   - 코드 로직 변경 (if/for/while 등 제어 흐름) → docs 추가 (설계 정합성 영향)
+   - 의존성 변경 (vcpkg, include) → general 추가
+   - 디렉토리/파일 구조 변경 → 전원 재리뷰
+   - **판단이 애매하면 → 해당 리뷰어를 포함** (보수적으로)
+
+   d) 스킵 조건 (AND):
+   - 직전 라운드에서 **Clean (0건)**
+   - 위 판단에서 "영향받는 리뷰어"에 **미포함**
+   - 두 조건 모두 만족 → 해당 에이전트 스킵
+
+   e) Phase 1 재실행 시 **스킵 대상이 아닌 에이전트만 디스패치**
+
+   f) 리뷰 보고서에 참여 현황 기록:
+   ```markdown
+   ## Round {N} 참여 현황
+   - reviewer-docs: 스킵 (Round {N-1} Clean + 수정 무관)
+   - reviewer-code: 리뷰 수행
+   - ...
+   ```
+
    - Clean(0건) 달성까지 반복
 
 ---
@@ -135,19 +172,33 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    ```
    - 실패 잡 + 에러 로그 추출
 
-2. **수정**
+2. **실패 원인 분류 → 대응**
+
+   **A) GitHub 인프라 문제** (vcpkg 다운로드 실패, CDN HTTP 502, runner 타임아웃 등):
+   - 코드 수정 불필요 → 실패한 잡만 재실행
+   ```bash
+   gh run rerun {run-id} --failed
+   gh run watch {run-id}
+   ```
+
+   **B) 코드 문제** (빌드 에러, 테스트 실패 등):
    - 에러 원인 분석 → 코드 수정
    - 커밋: `fix: CI {잡이름} 실패 수정 — round {N}`
-
-3. **재푸시 + 재대기**
+   - 재푸시 + 재대기:
    ```bash
    git push
    gh run watch
    ```
 
+3. **CI 수정 후 재리뷰 판단**
+   - CI 수정으로 코드 변경이 발생한 경우, 변경 규모를 평가:
+     - **소규모** (오타, 컴파일러 경고, suppressions 추가 등): 재리뷰 불필요 → CI 재대기
+     - **대규모** (테스트 추가/삭제, 로직 변경, 파일 구조 변경 등): **Phase 1로 돌아가 전체 재리뷰**
+   - 재리뷰 시 이슈 추적 맵과 라운드 카운터는 유지 (이전 리뷰 기록 보존)
+
 4. **반복 제한**
-   - 동일 CI 잡이 같은 원인으로 **5회 실패** → 루프 중단
-   - 유저에게 실패 로그 + 분석 결과 보고
+   - 인프라 문제: 동일 잡 **5회 rerun 실패** → 루프 중단 + 유저 보고
+   - 코드 문제: 동일 CI 잡이 같은 원인으로 **5회 실패** → 루프 중단 + 유저 보고
    - **여기서 프로세스 종료**
 
 5. **CI 전체 통과 → Phase 5**
@@ -173,16 +224,20 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    ## PR
    - URL: {PR URL}
    - CI Status: ✅ 전체 통과
-   - **Merge는 유저가 수동으로 진행**
    ```
 
 2. **보고서 커밋 + 푸시**
 
-3. **유저에게 완료 보고**
+3. **Squash Merge + 정리**
+   ```bash
+   gh pr merge {PR번호} --squash --delete-branch
+   ```
+   - 워크트리 정리: `git worktree remove .worktrees/{name}`
+
+4. **유저에게 완료 보고**
    - PR URL
    - 총 리뷰 라운드 수
    - 수정된 이슈 총 건수
-   - "merge는 수동으로 진행해주세요"
 
 ---
 
@@ -194,7 +249,6 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 | 작업 커밋 없음 | 즉시 중단 |
 | 동일 이슈 5회 반복 | 루프 중단 + 유저 보고 |
 | 동일 CI 실패 5회 반복 | 루프 중단 + 유저 보고 |
-| merge/push to main | 절대 자동 실행 안 함 |
 
 ---
 

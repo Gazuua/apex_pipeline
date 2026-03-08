@@ -9,7 +9,9 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/use_future.hpp>
 
+#include <chrono>
 #include <future>
+#include <thread>
 #include <utility>
 
 namespace apex::test {
@@ -44,6 +46,20 @@ make_socket_pair(boost::asio::io_context& ctx) {
     auto server = acceptor.accept();
 
     return {std::move(server), std::move(client)};
+}
+
+/// 조건 대기 헬퍼: pred가 true를 반환할 때까지 1ms 간격으로 폴링.
+/// timeout 내에 충족되면 true, 초과 시 false 반환.
+template <typename Pred>
+bool wait_for(Pred pred, std::chrono::milliseconds timeout = std::chrono::milliseconds(3000)) {
+    auto deadline = std::chrono::steady_clock::now() + timeout;
+    while (!pred()) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return true;
 }
 
 } // namespace apex::test

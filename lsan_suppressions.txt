@@ -1,0 +1,4 @@
+# LeakSanitizer suppressions for known benign leaks
+# spdlog global registry and thread pool may retain allocations at exit
+leak:spdlog::details::registry
+leak:spdlog::details::thread_pool

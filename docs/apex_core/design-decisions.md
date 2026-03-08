@@ -203,8 +203,8 @@
 
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
-- **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — Phase 5 완료 기준 boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → Phase 5에서 추가, tomlplusplus → Phase 5에서 추가), 나머지는 해당 Phase에서 추가 (Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
+- **서비스 스캐폴딩**: apex_tools/new-service.sh로 보일러플레이트 자동 생성
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — Phase 5 완료 기준 boost-asio, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → Phase 5에서 추가, tomlplusplus → Phase 5에서 추가), 나머지는 해당 Phase에서 추가 (Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
 
 ---
 

@@ -149,9 +149,7 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     });
 
     std::thread t([&] { engine.run(); });
-    while (!engine.running()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
 
     // Core 0 -> Core 1
     (void)engine.post_to(1, {.type = CoreMessage::Type::Custom, .source_core = 0, .data = 1});
@@ -159,11 +157,9 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     // Core 1 -> Core 0
     (void)engine.post_to(0, {.type = CoreMessage::Type::Custom, .source_core = 1, .data = 3});
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while ((core0_received.load() < 1 || core1_received.load() < 2) &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return core0_received.load() >= 1 && core1_received.load() >= 2;
+    }));
 
     EXPECT_EQ(core0_received.load(), 1);
     EXPECT_EQ(core1_received.load(), 2);

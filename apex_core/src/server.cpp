@@ -296,20 +296,27 @@ boost::asio::awaitable<void> Server::read_loop(SessionPtr session,
                                                 uint32_t core_id) {
     active_sessions_.fetch_add(1, std::memory_order_relaxed);
     auto& session_mgr = per_core_[core_id]->session_mgr;
-    std::array<uint8_t, TMP_BUF_SIZE> tmp_buf;
 
     while (session->is_open()) {
-        auto [ec, n] = co_await session->socket().async_read_some(
-            boost::asio::buffer(tmp_buf),
-            boost::asio::as_tuple(boost::asio::use_awaitable));
-        if (ec || n == 0) break;
-
-        // I-4: Use RingBuffer::write() which handles wrap-around internally
+        // Read directly into RingBuffer's writable region to avoid an
+        // intermediate 4KB tmp_buf on the coroutine frame (~400MB at 100K
+        // sessions). writable() returns a contiguous span from the current
+        // write position to the physical buffer end; async_read_some is
+        // a partial-read API, so a shorter span is fine.
         auto& rb = session->recv_buffer();
-        if (!rb.write(std::span<const uint8_t>(tmp_buf.data(), n))) {
+        auto writable = rb.writable();
+        if (writable.empty()) {
+            // RingBuffer full — consumer cannot keep up
             session->close();
             break;
         }
+
+        auto [ec, n] = co_await session->socket().async_read_some(
+            boost::asio::buffer(writable.data(), writable.size()),
+            boost::asio::as_tuple(boost::asio::use_awaitable));
+        if (ec || n == 0) break;
+
+        rb.commit_write(n);
 
         co_await process_frames(session, core_id);
 

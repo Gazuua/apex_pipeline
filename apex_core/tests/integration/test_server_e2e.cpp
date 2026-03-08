@@ -4,6 +4,8 @@
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/error_code.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <generated/echo_generated.h>
 #include <generated/chat_message_generated.h>
 #include <generated/error_response_generated.h>
@@ -130,11 +132,8 @@ protected:
 
     void run_server(Server& server) {
         server_thread_ = std::thread([&server] { server.run(); });
-        auto deadline = std::chrono::steady_clock::now() + 5s;
-        while (!server.running() && std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(1ms);
-        }
-        ASSERT_TRUE(server.running()) << "Server failed to start within 5 seconds";
+        ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }, std::chrono::milliseconds(5000)))
+            << "Server failed to start within 5 seconds";
     }
 
     void stop_and_join(Server& server) {
@@ -404,6 +403,41 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients) {
             << "Client " << i << " failed: " << errors[i];
     }
     EXPECT_EQ(success_count.load(), NUM_CLIENTS);
+
+    stop_and_join(server);
+}
+
+TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession) {
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.add_service<TestEchoService>();
+    run_server(server);
+
+    boost::asio::io_context client_ctx;
+    auto client = make_client(client_ctx, server.port());
+
+    // body_size를 MAX_BODY_SIZE(16MB)를 초과하는 값으로 설정한 헤더를 전송.
+    // WireHeader::parse()에서 BodyTooLarge → FrameCodec에서 FrameError::BodyTooLarge
+    // → process_frames()에서 InsufficientData가 아닌 에러이므로 session->close().
+    WireHeader header{
+        .msg_id = 0x0001,
+        .body_size = WireHeader::MAX_BODY_SIZE + 1,
+    };
+    auto hdr_bytes = header.serialize();
+    boost::asio::write(client, boost::asio::buffer(
+        std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+
+    // 서버가 세션을 끊었으므로 클라이언트에서 EOF/에러가 수신되어야 한다.
+    auto deadline = std::chrono::steady_clock::now() + 5s;
+    boost::system::error_code ec;
+    std::array<uint8_t, 1> buf{};
+    client.non_blocking(true);
+    while (std::chrono::steady_clock::now() < deadline) {
+        client.read_some(boost::asio::buffer(buf), ec);
+        if (ec && ec != boost::asio::error::would_block) break;
+        std::this_thread::sleep_for(10ms);
+    }
+    EXPECT_TRUE(ec);
+    EXPECT_NE(ec, boost::asio::error::would_block);
 
     stop_and_join(server);
 }

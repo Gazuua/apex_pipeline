@@ -22,4 +22,4 @@ cmake --preset "$PRESET"
 cp "build/$PRESET/compile_commands.json" compile_commands.json 2>/dev/null || true
 
 cmake --build "build/$PRESET"
-ctest --test-dir "build/$PRESET" --output-on-failure
+ctest --preset "$PRESET" --output-on-failure

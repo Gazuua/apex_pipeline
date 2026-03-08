@@ -409,7 +409,7 @@ apex-pipeline/
 
 ### 결정
 1. **docker-compose 프로파일 분리**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
-2. **서비스 스캐폴딩 스크립트**: tools/new-service.sh로 보일러플레이트 자동 생성
+2. **서비스 스캐폴딩 스크립트**: apex_tools/new-service.sh로 보일러플레이트 자동 생성
 
 ### 근거
 1. 평소 개발은 Kafka+Redis+PG 3개만 띄우면 충분 (로깅은 ConsoleSink)
