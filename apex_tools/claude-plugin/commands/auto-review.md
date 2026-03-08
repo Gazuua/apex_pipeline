@@ -34,9 +34,11 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - `task` 모드: `git diff --name-only main...HEAD`로 변경 파일 목록 추출
    - `full` 모드: 전체 프로젝트 파일 대상 (빌드 출력/bin/ 제외)
 
-2. **5개 리뷰어 에이전트 병렬 디스패치**
+2. **리뷰어 에이전트 병렬 디스패치**
 
-   Agent 도구로 **반드시 5개를 동시에** 하나의 메시지에서 호출:
+   Agent 도구로 **참여 대상 에이전트를 동시에** 하나의 메시지에서 호출:
+   - Round 1: 5개 전원 디스패치
+   - Round 2+: Phase 2 Smart Re-review 스킵 판단에 따라 참여 에이전트만 디스패치
 
    | 에이전트 | 파일 | 역할 |
    |---------|------|------|
@@ -93,9 +95,44 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 수정된 파일을 스테이징 + 커밋
    - 커밋 메시지: `fix: auto-review round {N} — {수정 건수}건 수정`
 
-4. **재리뷰 (Phase 1로 돌아감)**
+4. **재리뷰 (Phase 1로 돌아감) — Smart Re-review**
    - 라운드 카운터 증가
-   - Phase 1 재실행
+
+   **스킵 판단 절차:**
+
+   a) 수정된 파일 목록 추출: `git diff HEAD~1..HEAD --name-only`
+
+   b) 파일 타입 매핑으로 "최소 필수 리뷰어" 결정:
+
+   | 수정 파일 타입 | 영향받는 리뷰어 |
+   |--------------|--------------|
+   | `.cpp`, `.hpp` (소스/헤더) | code, test, structure |
+   | `test_*.cpp`, `test_helpers.hpp` | test |
+   | `CMakeLists.txt`, `vcpkg.json`, `build.*`, `CMakePresets*` | structure, general |
+   | `*.md` (문서) | docs |
+   | `.gitignore`, hooks, scripts | general |
+
+   c) 수정 내용의 **의미적 영향** 추가 판단 (오케스트레이터 자율):
+   - 코드 로직 변경 (if/for/while 등 제어 흐름) → docs 추가 (설계 정합성 영향)
+   - 의존성 변경 (vcpkg, include) → general 추가
+   - 디렉토리/파일 구조 변경 → 전원 재리뷰
+   - **판단이 애매하면 → 해당 리뷰어를 포함** (보수적으로)
+
+   d) 스킵 조건 (AND):
+   - 직전 라운드에서 **Clean (0건)**
+   - 위 판단에서 "영향받는 리뷰어"에 **미포함**
+   - 두 조건 모두 만족 → 해당 에이전트 스킵
+
+   e) Phase 1 재실행 시 **스킵 대상이 아닌 에이전트만 디스패치**
+
+   f) 리뷰 보고서에 참여 현황 기록:
+   ```markdown
+   ## Round {N} 참여 현황
+   - reviewer-docs: 스킵 (Round {N-1} Clean + 수정 무관)
+   - reviewer-code: 리뷰 수행
+   - ...
+   ```
+
    - Clean(0건) 달성까지 반복
 
 ---
