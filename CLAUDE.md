@@ -121,7 +121,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
-- **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 관련 프로젝트 양쪽에 복사
+- **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 관련 프로젝트 양쪽에 각 프로젝트 관점에 맞게 내용을 조정하여 작성 (단순 복사 금지)
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 파일 작성 시간으로 정확히 맞출 것
 
 ### 코드 리뷰
