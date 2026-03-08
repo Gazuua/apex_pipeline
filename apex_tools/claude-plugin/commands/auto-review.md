@@ -162,8 +162,9 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 4. **CI 대기**
    ```bash
-   gh run watch
+   gh run watch {run-id}
    ```
+   - Bash 도구의 최대 타임아웃은 600000ms(10분)이므로, `gh run watch`는 반드시 `run_in_background: true` + `timeout: 900000`(15분)으로 실행한다.
    - CI 전체 통과 → Phase 5로
    - CI 실패 → Phase 4로
 
@@ -183,7 +184,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 코드 수정 불필요 → 실패한 잡만 재실행
    ```bash
    gh run rerun {run-id} --failed
-   gh run watch {run-id}
+   gh run watch {run-id}  # run_in_background: true, timeout: 900000
    ```
 
    **B) 코드 문제** (빌드 에러, 테스트 실패 등):
@@ -192,7 +193,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 재푸시 + 재대기:
    ```bash
    git push
-   gh run watch
+   gh run watch  # run_in_background: true, timeout: 900000
    ```
 
 3. **CI 수정 후 재리뷰 판단**
