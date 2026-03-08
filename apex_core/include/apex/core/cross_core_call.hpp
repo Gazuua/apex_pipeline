@@ -39,6 +39,11 @@ namespace apex::core {
 /// @pre R must be nothrow-destructible and thread-safe to destroy. If timeout
 /// wins the CAS race, the result object is destroyed on the target core's thread,
 /// not on the caller's thread. Avoid R types with thread-affine RAII semantics.
+///
+/// @warning On timeout, the target core may still be executing or about to
+/// execute the task. If the caller's shared_ptr to State is the last
+/// reference, ~State() runs on the target core's thread. Ensure R has
+/// no thread-affine RAII (e.g., thread-local cleanup, mutex ownership).
 template <typename F>
     requires (!std::is_void_v<std::invoke_result_t<F>>)
 auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,

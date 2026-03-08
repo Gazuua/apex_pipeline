@@ -125,11 +125,17 @@ private:
     uint32_t core_id_;
 };
 
-TEST(ServerMulticoreTest, AddServiceFactoryCreatesPerCoreInstances) {
-    CoreAwareService::factory_call_count.store(0);
-    CoreAwareService::start_count.store(0);
-    CoreAwareService::stop_count.store(0);
+// CoreAwareService counter isolation fixture — resets static counters in SetUp
+class CoreAwareServiceFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        CoreAwareService::factory_call_count.store(0);
+        CoreAwareService::start_count.store(0);
+        CoreAwareService::stop_count.store(0);
+    }
+};
 
+TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances) {
     // Track core_ids assigned by the factory (bitfield for 2 cores: bits 0,1)
     std::atomic<uint32_t> core_id_bits{0};
 

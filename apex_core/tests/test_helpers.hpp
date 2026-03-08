@@ -48,11 +48,27 @@ make_socket_pair(boost::asio::io_context& ctx) {
     return {std::move(server), std::move(client)};
 }
 
+/// TSAN/ASAN 환경에서는 타임아웃을 자동 확대
+constexpr int timeout_multiplier() noexcept {
+#if defined(__SANITIZE_THREAD__)
+    return 10;
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+    return 10;
+#else
+    return 1;
+#endif
+#else
+    return 1;
+#endif
+}
+
 /// 조건 대기 헬퍼: pred가 true를 반환할 때까지 1ms 간격으로 폴링.
 /// timeout 내에 충족되면 true, 초과 시 false 반환.
 template <typename Pred>
 bool wait_for(Pred pred, std::chrono::milliseconds timeout = std::chrono::milliseconds(3000)) {
-    auto deadline = std::chrono::steady_clock::now() + timeout;
+    auto effective_timeout = timeout * timeout_multiplier();
+    auto deadline = std::chrono::steady_clock::now() + effective_timeout;
     while (!pred()) {
         if (std::chrono::steady_clock::now() >= deadline) {
             return false;

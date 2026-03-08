@@ -52,6 +52,10 @@ public:
     /// @pre 호출자는 이 세션이 속한 io_context의 implicit strand에서 호출해야 한다.
     /// @pre payload 데이터는 co_await 완료 시점까지 유효해야 한다.
     ///      (코루틴 프레임이 복사를 보장하지 않음)
+    /// @warning Only one async_send (or async_send_raw) operation may be
+    /// in-flight per Session at any time. Concurrent writes to the same
+    /// socket produce undefined behavior. The Server pipeline guarantees
+    /// this by processing one frame at a time per session.
     [[nodiscard]] boost::asio::awaitable<bool>
     async_send(const WireHeader& header, std::span<const uint8_t> payload);
 
