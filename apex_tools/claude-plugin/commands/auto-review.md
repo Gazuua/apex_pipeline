@@ -20,7 +20,8 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 2. **브랜치 확인**
    - 현재 브랜치가 `main`이 아닌지 확인 — main이면 즉시 중단
-   - `git log --oneline main...HEAD`로 작업 커밋 존재 확인
+   - `task` 모드: `git log --oneline main...HEAD`로 작업 커밋 존재 확인 — 없으면 즉시 중단
+   - `full` 모드: 작업 커밋 불필요 — 전체 프로젝트를 리뷰하므로 diff 없이 진행 가능
 
 3. **이슈 추적 초기화**
    - 이슈 추적 맵: `파일경로:카테고리:이슈요약` → 라운드별 누적 카운트
@@ -246,7 +247,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 | 조건 | 동작 |
 |------|------|
 | main 브랜치에서 실행 | 즉시 중단 |
-| 작업 커밋 없음 | 즉시 중단 |
+| 작업 커밋 없음 (task 모드) | 즉시 중단 |
 | 동일 이슈 5회 반복 | 루프 중단 + 유저 보고 |
 | 동일 CI 실패 5회 반복 | 루프 중단 + 유저 보고 |
 
