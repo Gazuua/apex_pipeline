@@ -237,6 +237,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 워크트리 루트 `README.md` (프로젝트 진행 상황): 완료 항목 추가, 알려진 이슈 갱신 등 현재 상태 반영
 
 3. **보고서 + 문서 커밋 + 푸시**
+   - 이 push로 트리거되는 CI는 대기하지 않는다 — Phase 4에서 이미 CI 통과가 확인되었고, 문서 변경만 포함되므로 바로 squash merge 진행.
 
 4. **Squash Merge + 정리**
    ```bash
