@@ -236,16 +236,22 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - `docs/Apex_Pipeline.md` (마스터 설계서): 아키텍처 영향 변경이 있었다면 해당 섹션 반영
    - 워크트리 루트 `README.md` (프로젝트 진행 상황): 완료 항목 추가, 알려진 이슈 갱신 등 현재 상태 반영
 
-3. **보고서 + 문서 커밋 + 푸시**
+3. **완료 기록 작성**
+   - 경로: `docs/{project}/progress/YYYYMMDD_HHMMSS_{topic}.md`
+   - 내용: PR 링크, 작업 내용 요약, 리뷰 결과, CI 결과
+
+4. **보고서 + 문서 + 완료 기록 커밋 + 푸시**
    - 이 push로 트리거되는 CI는 대기하지 않는다 — Phase 4에서 이미 CI 통과가 확인되었고, 문서 변경만 포함되므로 바로 squash merge 진행.
 
-4. **Squash Merge + 정리**
+5. **Squash Merge + 정리**
    ```bash
    gh pr merge {PR번호} --squash --delete-branch
    ```
+   - 실행 중인 CI가 있으면 취소: `gh run cancel {run-id}`
    - 워크트리 정리: `git worktree remove .worktrees/{name}`
+   - 로컬+리모트 브랜치 삭제 확인
 
-5. **유저에게 완료 보고**
+6. **유저에게 완료 보고**
    - PR URL
    - 총 리뷰 라운드 수
    - 수정된 이슈 총 건수
