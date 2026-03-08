@@ -68,6 +68,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
             // Write result BEFORE CAS so caller sees it after observing status==1.
             state->result.emplace(std::move(r));
             int expected = 0;
+            // seq_cst is intentional: cross_core_call is infrequent (RPC pattern),
+            // and seq_cst provides the strongest ordering guarantee for correctness.
             if (state->status.compare_exchange_strong(expected, 1)) {
                 boost::asio::post(timer->get_executor(),
                     [timer] { timer->cancel(); });
@@ -125,6 +127,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
             }
             std::invoke(std::move(f));
             int expected = 0;
+            // seq_cst is intentional: cross_core_call is infrequent (RPC pattern),
+            // and seq_cst provides the strongest ordering guarantee for correctness.
             if (state->status.compare_exchange_strong(expected, 1)) {
                 boost::asio::post(timer->get_executor(),
                     [timer] { timer->cancel(); });

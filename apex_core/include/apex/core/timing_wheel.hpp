@@ -16,6 +16,7 @@ namespace apex::core {
 /// Typical configuration: 512 slots, 1-second tick = ~8.5 minute max timeout.
 class TimingWheel {
 public:
+    /// EntryId 0 is never issued by schedule() and serves as an invalid/sentinel value.
     using EntryId = uint64_t;
     using Callback = std::function<void(EntryId)>;
 

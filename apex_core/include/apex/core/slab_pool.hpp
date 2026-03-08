@@ -45,6 +45,9 @@ public:
     /// @pre ptr은 반드시 이 풀에서 allocate()로 할당된 포인터여야 한다.
     /// @warning Release 빌드에서는 소유권 검증이 비활성화됨 (assert 기반).
     ///          double-free 시 정의되지 않은 동작.
+    /// In Release builds, double-free is silently ignored (no-op) without modifying
+    /// free_count_. This means allocated_count() + free_count() may not equal total_count()
+    /// if double-free occurred.
     void deallocate(void* ptr) noexcept;
 
     /// Number of currently allocated (in-use) slots.

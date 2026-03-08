@@ -61,6 +61,8 @@ awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
 
 void Session::close() {
     if (state_ == State::Closed) return;
+    // Bypass set_state() which asserts on Closed->Closed transition
+    // (already guarded by early return above)
     state_ = State::Closed;
 
     boost::system::error_code ec;

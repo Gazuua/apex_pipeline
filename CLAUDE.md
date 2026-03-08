@@ -53,7 +53,7 @@ D:\.workspace/
 
 ### 의존성 (vcpkg)
 
-boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
+boost-asio, boost-beast (v0.3.0 Gateway WebSocket용), flatbuffers, gtest
 
 ### MSVC 주의사항
 
@@ -76,6 +76,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 - `ServiceBase<T>` — CRTP 서비스 베이스 (handle/route 등록)
 - `WireHeader` — 10바이트 고정 헤더 (big-endian)
 - `FrameCodec` — RingBuffer 기반 프레임 코덱
+- `cross_core_call` — 코어 간 awaitable RPC + fire-and-forget 메시징
 
 ### 프로토콜
 - `ProtocolBase<Derived>` — CRTP 프로토콜 추상화 (try_decode / consume_frame)

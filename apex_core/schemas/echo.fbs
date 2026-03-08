@@ -9,3 +9,5 @@ table EchoRequest {
 table EchoResponse {
     data:[ubyte];
 }
+
+root_type EchoRequest;

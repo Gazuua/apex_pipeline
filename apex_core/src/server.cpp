@@ -213,7 +213,8 @@ void Server::poll_shutdown() {
 
     // Re-poll after 1ms
     shutdown_timer_->expires_after(std::chrono::milliseconds(1));
-    shutdown_timer_->async_wait([this](const boost::system::error_code&) {
+    shutdown_timer_->async_wait([this](const boost::system::error_code& ec) {
+        if (ec == boost::asio::error::operation_aborted) return;
         poll_shutdown();
     });
 }
@@ -235,6 +236,8 @@ boost::asio::io_context& Server::core_io_context(uint32_t core_id) {
 }
 
 void Server::on_accept(boost::asio::ip::tcp::socket socket) {
+    // next_core_ wraps around at UINT32_MAX; modulo ensures valid core index.
+    // Slight distribution imbalance at wrap-around is negligible (~4 billion connections).
     uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed)
                        % config_.num_cores;
 

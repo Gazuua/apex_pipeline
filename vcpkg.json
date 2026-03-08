@@ -14,9 +14,6 @@
       "version>=": "1.84.0"
     },
     "flatbuffers",
-    {
-      "name": "gtest",
-      "host": true
-    }
+    "gtest"
   ]
 }

@@ -29,6 +29,8 @@ public:
         Closed,
     };
 
+    /// @param recv_buf_capacity Receive buffer size. When used with Server,
+    ///        must be >= Server::TMP_BUF_SIZE (validated in Server constructor).
     Session(SessionId id, boost::asio::ip::tcp::socket socket,
             uint32_t core_id, size_t recv_buf_capacity = 8192);
     ~Session();

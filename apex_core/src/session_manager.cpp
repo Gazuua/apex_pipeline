@@ -104,8 +104,16 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
     // close()는 콜백 이후에 호출한다.
     // timeout_callback 내에서 touch_session(session_id)이 호출되더라도,
     // session_to_timer_에서 이미 erase되었으므로 안전하게 no-op 처리됨.
+    // S-NET-4: close() is guaranteed even if timeout_callback_ throws,
+    // since ~Session() calls close() and session (shared_ptr) is still alive.
     if (timeout_callback_) {
-        timeout_callback_(session);
+        try {
+            timeout_callback_(session);
+        } catch (...) {
+            // Ensure session is closed even if callback throws
+            session->close();
+            throw;
+        }
     }
 
     session->close();

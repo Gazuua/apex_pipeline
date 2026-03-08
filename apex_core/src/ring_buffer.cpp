@@ -99,6 +99,7 @@ std::span<const uint8_t> RingBuffer::linearize(size_t n) {
 }
 
 bool RingBuffer::write(std::span<const uint8_t> data) noexcept {
+    if (data.empty()) return true;
     if (data.size() > writable_size()) return false;
     auto w = writable();
     if (w.size() >= data.size()) {

@@ -45,39 +45,24 @@ uint16_t TcpAcceptor::port() const noexcept {
 
 boost::asio::awaitable<void> TcpAcceptor::accept_loop() {
     while (running_.load(std::memory_order_relaxed)) {
-        if (context_provider_) {
-            // C-1: Accept with target executor — socket is bound to the
-            // target io_context's IOCP/epoll from the start, avoiding the
-            // need to transfer IOCP binding after accept.
-            auto& target_ctx = context_provider_();
-            auto [ec, socket] = co_await acceptor_.async_accept(
-                target_ctx,
+        // I-3: Accept with branching only on context_provider_ presence,
+        // unified error handling and callback invocation below.
+        auto [ec, socket] = context_provider_
+            ? co_await acceptor_.async_accept(
+                  context_provider_(),
+                  boost::asio::as_tuple(boost::asio::use_awaitable))
+            : co_await acceptor_.async_accept(
+                  boost::asio::as_tuple(boost::asio::use_awaitable));
+
+        if (ec) {
+            if (ec == boost::asio::error::operation_aborted) break;
+            backoff_timer_.expires_after(std::chrono::milliseconds(100));
+            auto [ec_timer] = co_await backoff_timer_.async_wait(
                 boost::asio::as_tuple(boost::asio::use_awaitable));
-
-            if (ec) {
-                if (ec == boost::asio::error::operation_aborted) break;
-                backoff_timer_.expires_after(std::chrono::milliseconds(100));
-                auto [ec_timer] = co_await backoff_timer_.async_wait(
-                    boost::asio::as_tuple(boost::asio::use_awaitable));
-                continue;
-            }
-
-            if (on_accept_) on_accept_(std::move(socket));
-        } else {
-            // Legacy path: socket bound to acceptor's io_context
-            auto [ec, socket] = co_await acceptor_.async_accept(
-                boost::asio::as_tuple(boost::asio::use_awaitable));
-
-            if (ec) {
-                if (ec == boost::asio::error::operation_aborted) break;
-                backoff_timer_.expires_after(std::chrono::milliseconds(100));
-                auto [ec_timer] = co_await backoff_timer_.async_wait(
-                    boost::asio::as_tuple(boost::asio::use_awaitable));
-                continue;
-            }
-
-            if (on_accept_) on_accept_(std::move(socket));
+            continue;
         }
+
+        if (on_accept_) on_accept_(std::move(socket));
     }
 }
 

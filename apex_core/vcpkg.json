@@ -15,8 +15,7 @@
     },
     "flatbuffers",
     {
-      "name": "gtest",
-      "host": true
+      "name": "gtest"
     }
   ]
 }

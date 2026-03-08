@@ -204,7 +204,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg)
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 예정
 
 ---
 

@@ -159,9 +159,13 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     }
     ASSERT_TRUE(server->running());
 
-    // Fill core 1's inbox (capacity=2) with fire-and-forget posts
+    // Fill core 1's inbox (capacity=2) with fire-and-forget posts.
+    // Each lambda captures a shared_ptr; when the server shuts down and
+    // drain_remaining() deletes the queued tasks, the shared_ptr destructor
+    // fires and decrements the ref-count, proving resources were released.
+    auto sentinel = std::make_shared<int>(0);
     for (int i = 0; i < 2; ++i) {
-        bool posted = server->cross_core_post(1, [] {});
+        bool posted = server->cross_core_post(1, [sentinel] { /* no-op */ });
         ASSERT_TRUE(posted) << "post #" << i << " should succeed";
     }
 
@@ -184,4 +188,10 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
 
     server->stop();
     if (server_thread.joinable()) server_thread.join();
+
+    // After server shutdown, drain_remaining() should have deleted the queued
+    // tasks. The lambdas captured `sentinel` by value (shared_ptr copy), so
+    // only the test's own copy should remain — use_count must be exactly 1.
+    EXPECT_EQ(sentinel.use_count(), 1)
+        << "Queued tasks were not properly cleaned up during shutdown";
 }

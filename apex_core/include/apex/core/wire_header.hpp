@@ -28,6 +28,8 @@ enum class ParseError : uint8_t {
 ///   [7..8]  flags      (uint16_t, big-endian)
 ///   [9]     reserved   (uint8_t, must be 0)
 struct WireHeader {
+    static_assert(sizeof(size_t) >= 8,
+                  "WireHeader requires 64-bit size_t for safe frame_size() computation");
     static constexpr size_t SIZE = 10;
     static constexpr uint8_t CURRENT_VERSION = 1;
     static constexpr uint32_t MAX_BODY_SIZE = 16 * 1024 * 1024;  // 16 MB

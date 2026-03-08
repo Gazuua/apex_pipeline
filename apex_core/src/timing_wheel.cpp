@@ -167,6 +167,9 @@ void TimingWheel::tick() {
                     static_cast<unsigned long long>(expired_id));
         }
         delete e;                       // 콜백 완료 후 삭제
+        // Invariant: free_ids_.push_back(expired_id) is done AFTER the callback invocation.
+        // This ensures that schedule() called within the callback cannot reuse an ID
+        // that is still being processed in this loop iteration.
         free_ids_.push_back(expired_id); // 콜백 완료 후 ID 재사용 허용
     }
 

@@ -83,6 +83,9 @@ private:
     size_t mask_;  // capacity_ - 1 (power of 2)
     Slot* slots_;
 
+    static_assert(sizeof(size_t) >= 8,
+        "MpscQueue requires 64-bit size_t to prevent index overflow");
+
     // Consumer-only — 별도 캐시라인.
     alignas(64) std::atomic<size_t> tail_{0};
 };

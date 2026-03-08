@@ -87,14 +87,20 @@ TEST(TcpAcceptor, StopPreventsNewAccepts) {
     acceptor.stop();
     EXPECT_FALSE(acceptor.running());
 
+    // After stop, attempt connection — may succeed at TCP level (OS backlog)
+    // but the acceptor must not invoke the callback.
     boost::asio::io_context client_ctx;
     tcp::socket client(client_ctx);
     boost::system::error_code ec;
     client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port), ec);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    EXPECT_EQ(accept_count.load(), 0);
+    // Run io_ctx to completion — any pending handlers will execute.
+    // The stopped acceptor should not post any more accept callbacks.
+    client.close();
     t.join();
+
+    // Deterministic: io_ctx has drained all handlers; accept_count must be 0.
+    EXPECT_EQ(accept_count.load(), 0);
 }
 
 TEST(TcpAcceptor, IPv6AcceptConnection) {

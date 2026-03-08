@@ -76,7 +76,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 
 | 기법 | 적용 위치 | 효과 | 상태 |
 |------|----------|------|------|
-| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ Server 통합 완료 (소켓 이관 미완: accept_io_ IOCP 경유, v0.3.0에서 per-core IOCP 직접 바인딩 예정) |
+| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ Server 통합 완료 (ContextProvider 기반 per-core IOCP 직접 바인딩 완료) |
 | **Lock-free MPSC Queue** | 코어 간 통신 | 코어당 수신 큐 1개, O(1) enqueue | ✅ 구현 |
 | **Slab Memory Pool** | 코어별 독립 | 핫패스 malloc 제거, O(1) 할당 | ✅ 구현 |
 | **Zero-copy Ring Buffer** | 수신 버퍼 | memmove 제거, FlatBuffers 직접 접근 | ✅ 구현 |
@@ -299,7 +299,7 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 | 4.5-r | 완료 | 코루틴 전환 + 코드 리뷰 2회 수정 → v0.2.1 | (누적 106개) |
 | 4.6 | 완료 | ProtocolBase CRTP + 에러 전파 파이프라인 → v0.2.2 | 18개 스위트 |
 | 4.6-r | 완료 | v0.2.2 코드 리뷰 Important 11건 수정 → v0.2.3 | +5개 |
-| 4.7 | 완료 | Server-CoreEngine 통합, cross_core_call, Graceful Shutdown → v0.2.4 | 24 테스트 케이스 (14 server + 5 cross_core + 5 graceful) |
+| 4.7 | 완료 | Server-CoreEngine 통합, cross_core_call, Graceful Shutdown → v0.2.4 | 24 테스트 케이스 (14 server + 5 cross_core + 5 graceful) + 종합 리뷰 시 +15건 추가 |
 | 5 | 미착수 | 외부 어댑터 (Kafka, Redis, PostgreSQL, 로깅) → v0.3.0 (v0.3.0에서 시작 예정) | - |
 | infra | 완료 | 로컬 개발 인프라 (docker-compose, apex_shared 빌드 인프라) | - |
 | 6 | 미착수 | 서비스 레이어 (Gateway, Auth, Graceful Shutdown, 메트릭) → v0.4.0 | - |
