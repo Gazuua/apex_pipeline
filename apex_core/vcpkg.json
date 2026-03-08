@@ -9,10 +9,6 @@
       "name": "boost-asio",
       "version>=": "1.84.0"
     },
-    {
-      "name": "boost-beast",
-      "version>=": "1.84.0"
-    },
     "flatbuffers",
     {
       "name": "gtest"

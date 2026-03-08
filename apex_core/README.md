@@ -48,7 +48,7 @@ build.bat release  # 릴리스 빌드
 
 ## 의존성 (현재 사용 중)
 
-boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
+boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus
 
 > 향후 추가 예정: librdkafka + KafkaSink (Phase 6), redis-plus-plus, libpq (Phase 7), prometheus-cpp (Phase 9), jwt-cpp (Phase 8b)
 

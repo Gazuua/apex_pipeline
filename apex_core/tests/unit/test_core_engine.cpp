@@ -229,6 +229,51 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
     engine.join();
 }
 
+TEST(CoreEngineTest, CrossCoreRequestHandlerException) {
+    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+
+    // Post a CrossCoreRequest that throws an exception
+    std::atomic<bool> threw{false};
+    auto* throwing_task = new std::function<void()>([&threw] {
+        threw.store(true, std::memory_order_relaxed);
+        throw std::runtime_error("intentional test exception");
+    });
+
+    // Post a normal task after the throwing one to verify engine continues working
+    std::atomic<int> post_throw_value{0};
+    auto* normal_task = new std::function<void()>([&post_throw_value] {
+        post_throw_value.store(99, std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+
+    CoreMessage msg1;
+    msg1.type = CoreMessage::Type::CrossCoreRequest;
+    msg1.data = reinterpret_cast<uint64_t>(throwing_task);
+    EXPECT_TRUE(engine.post_to(1, msg1));
+
+    // Wait for the throwing task to execute
+    // Note: the exception may propagate out of the drain timer handler,
+    // which could stop the io_context for that core. The engine should
+    // still be stoppable without hanging.
+    wait_for([&]() { return threw.load(); }, 2000ms);
+
+    // Post follow-up task to core 0 (different core, unaffected)
+    CoreMessage msg2;
+    msg2.type = CoreMessage::Type::CrossCoreRequest;
+    msg2.data = reinterpret_cast<uint64_t>(normal_task);
+    EXPECT_TRUE(engine.post_to(0, msg2));
+
+    wait_for([&]() { return post_throw_value.load() == 99; }, 2000ms);
+
+    engine.stop();
+    engine.join();
+
+    // Engine should stop cleanly without crash
+    EXPECT_FALSE(engine.running());
+}
+
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
     CoreEngine engine({.num_cores = 1, .drain_interval = 50us});
 

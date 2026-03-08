@@ -17,7 +17,7 @@ D:\.workspace/
 ├── docs/               ← 전체 프로젝트 문서 (중앙 집중)
 │   ├── Apex_Pipeline.md  ← 마스터 설계서
 │   ├── apex_common/      ← 공통 (plans/progress/review)
-│   └── apex_core/ apex_infra/ apex_shared/
+│   └── apex_core/ apex_infra/ apex_shared/ apex_tools/
 ├── apex_services/      ← MSA 서비스
 ├── apex_shared/        ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
 ├── apex_infra/         ← Docker, K8s 인프라 (Kafka/Redis/PG + Prometheus/Grafana)
@@ -36,7 +36,7 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: boost-asio, boost-beast (Phase 8a WebSocket용), flatbuffers, gtest
+- **의존성 (vcpkg)**: boost-asio, boost-beast (Phase 8a WebSocket용), flatbuffers, gtest, spdlog, tomlplusplus
 
 ### MSVC 주의사항
 

@@ -18,6 +18,7 @@ void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data) {
     buf.commit_write(data.size());
 }
 
+// Uses WireHeader::CURRENT_VERSION by default (set in WireHeader's designated initializer)
 std::vector<uint8_t> build_frame(uint16_t msg_id, std::span<const uint8_t> payload) {
     WireHeader h{.msg_id = msg_id, .body_size = static_cast<uint32_t>(payload.size())};
     auto header_bytes = h.serialize();

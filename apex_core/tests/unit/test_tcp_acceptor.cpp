@@ -1,4 +1,6 @@
 #include <apex/core/tcp_acceptor.hpp>
+#include "../test_helpers.hpp"
+
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <gtest/gtest.h>
@@ -22,10 +24,8 @@ TEST(TcpAcceptor, AcceptConnection) {
     tcp::socket client(client_ctx);
     client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), acceptor.port()));
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (accept_count.load() < 1 && std::chrono::steady_clock::now() < deadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
+    ASSERT_TRUE(apex::test::wait_for([&] { return accept_count.load() >= 1; },
+                                      std::chrono::milliseconds(2000)));
     EXPECT_EQ(accept_count.load(), 1);
     client.close();
     acceptor.stop();
@@ -48,10 +48,8 @@ TEST(TcpAcceptor, MultipleConnections) {
         clients.back().connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), acceptor.port()));
     }
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (accept_count.load() < 3 && std::chrono::steady_clock::now() < deadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
+    ASSERT_TRUE(apex::test::wait_for([&] { return accept_count.load() >= 3; },
+                                      std::chrono::milliseconds(2000)));
     EXPECT_EQ(accept_count.load(), 3);
     for (auto& c : clients) c.close();
     acceptor.stop();
@@ -141,10 +139,8 @@ TEST(TcpAcceptor, IPv6AcceptConnection) {
         GTEST_SKIP() << "IPv6 loopback connection failed: " << ec.message();
     }
 
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (accept_count.load() < 1 && std::chrono::steady_clock::now() < deadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
+    ASSERT_TRUE(apex::test::wait_for([&] { return accept_count.load() >= 1; },
+                                      std::chrono::milliseconds(2000)));
     EXPECT_EQ(accept_count.load(), 1);
     client.close();
     acceptor.stop();

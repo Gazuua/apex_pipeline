@@ -95,16 +95,37 @@ TEST_F(LoggingTest, DoubleInitIsSafe) {
     EXPECT_NE(spdlog::get("app"), nullptr);
 }
 
+TEST_F(LoggingTest, InitLoggingWithInvalidLevel) {
+    LogConfig cfg;
+    cfg.level = "not_a_valid_level";
+    cfg.framework_level = "also_invalid";
+    // spdlog::level::from_str returns spdlog::level::off for unrecognized strings.
+    // init_logging should not throw -- it gracefully falls back to "off".
+    EXPECT_NO_THROW(init_logging(cfg));
+
+    auto apex = spdlog::get("apex");
+    auto app = spdlog::get("app");
+    ASSERT_NE(apex, nullptr);
+    ASSERT_NE(app, nullptr);
+    // Both loggers should have level::off (spdlog's default for unknown strings)
+    EXPECT_EQ(apex->level(), spdlog::level::off);
+    EXPECT_EQ(app->level(), spdlog::level::off);
+}
+
 TEST_F(LoggingTest, LoggingAfterShutdownDoesNotCrash) {
     LogConfig cfg;
     init_logging(cfg);
     shutdown_logging();
     // Loggers should be gone
     EXPECT_EQ(spdlog::get("apex"), nullptr);
-    // Null-safe: attempting to log via a null logger pointer must not crash
-    auto logger = spdlog::get("apex");
-    if (logger) {
-        logger->info("should not reach here");
-    }
-    // If we reach here, no crash occurred
+    // After shutdown, spdlog::default_logger() still returns a valid logger
+    // (spdlog's fallback). Verify it can be called without crash.
+    EXPECT_NO_THROW(spdlog::default_logger()->info("post-shutdown log attempt"));
+    // Named logger lookup should also be safe (returns nullptr)
+    EXPECT_NO_THROW({
+        auto logger = spdlog::get("apex");
+        if (logger) {
+            logger->info("should not reach here");
+        }
+    });
 }
