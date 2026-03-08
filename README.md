@@ -20,8 +20,11 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Graceful shutdown (시그널 핸들링 + drain 타임아웃)
   - GitHub Actions CI (GCC debug/asan/tsan + MSVC, 5개 잡 병렬)
 
-- **auto-review v1.1 — 멀티에이전트 자동 리뷰 플러그인** (PR #2 CI 대기)
+- **auto-review v1.1 — 멀티에이전트 자동 리뷰 플러그인** (PR #2 merged)
   - 5개 전문 리뷰어 에이전트 (docs/structure/code/test/general) 병렬 리뷰
   - v1.1 개선: code/test 리뷰어에 2-tier superpowers:code-reviewer 연동, confidence ≥40 하향, Smart Re-review Skip
-  - 리뷰 → 수정 → 재리뷰 → Clean(0건) → PR + CI 전 과정 자동화
+  - Phase 4 CI 실패 인프라/코드 분기 + 대규모 수정 시 재리뷰
+  - Phase 5 자동 squash merge + 워크트리 정리
+  - CI concurrency 설정 (동일 브랜치 이전 실행 자동 취소)
+  - 리뷰 → 수정 → 재리뷰 → Clean(0건) → PR + CI + merge 전 과정 자동화
 
