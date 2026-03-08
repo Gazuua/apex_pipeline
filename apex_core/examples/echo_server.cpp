@@ -11,6 +11,8 @@
 /// Usage: echo_server [port] [cores]
 ///   Default: port=9000, cores=1
 
+#include <apex/core/config.hpp>
+#include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
@@ -20,8 +22,9 @@
 
 #include <boost/asio/awaitable.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <cstdlib>
-#include <iostream>
 
 using namespace apex::core;
 using boost::asio::awaitable;
@@ -65,13 +68,25 @@ int main(int argc, char* argv[]) {
         if (c > 0 && c <= 256) cores = static_cast<uint32_t>(c);
     }
 
-    std::cout << "=== Apex Pipeline Echo Server v0.2.4 ===\n"
-              << "Port: " << port << ", Cores: " << cores << "\n\n";
+    auto config = AppConfig::defaults();
+    config.server.port = port;
+    config.server.num_cores = cores;
+    config.server.heartbeat_timeout_ticks = 0;
 
-    Server({.port = port, .num_cores = cores, .heartbeat_timeout_ticks = 0})
+    init_logging(config.logging);
+
+    if (auto app = spdlog::get("app")) {
+        app->info("=== Apex Pipeline Echo Server v0.2.4 ===");
+        app->info("Port: {}, Cores: {}", port, cores);
+    }
+
+    Server(config.server)
         .add_service<EchoService>()
         .run();
 
-    std::cout << "[Server] Done.\n";
+    if (auto app = spdlog::get("app")) {
+        app->info("[Server] Done.");
+    }
+    shutdown_logging();
     return 0;
 }

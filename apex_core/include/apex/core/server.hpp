@@ -37,6 +37,7 @@ struct ServerConfig {
 
     // Lifecycle
     bool handle_signals = true;
+    std::chrono::seconds drain_timeout{25};  // Graceful Shutdown drain timeout
 };
 
 /// Per-core isolated state (shared-nothing). Each core owns its own
@@ -146,6 +147,7 @@ private:
     void on_accept(boost::asio::ip::tcp::socket socket);
     void begin_shutdown();
     void poll_shutdown();
+    void finalize_shutdown();
 
     ServerConfig config_;
     boost::asio::io_context accept_io_;
@@ -159,6 +161,7 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
     std::unique_ptr<boost::asio::steady_timer> shutdown_timer_;
+    std::chrono::steady_clock::time_point shutdown_deadline_;
 
     static constexpr size_t TMP_BUF_SIZE = 4096;
 };

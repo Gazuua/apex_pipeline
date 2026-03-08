@@ -33,6 +33,7 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address",
         "APEX_BUILD_VARIANT": "asan"
       }
     },
@@ -51,7 +52,11 @@
       "inherits": "debug",
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "-fsanitize=thread",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread",
         "APEX_BUILD_VARIANT": "tsan"
+      },
+      "environment": {
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/tsan_suppressions.txt"
       }
     }
   ],

@@ -36,3 +36,7 @@ apex_add_unit_test(test_tcp_binary_protocol test_tcp_binary_protocol.cpp)
 # 멀티코어 / 서버 통합 테스트
 apex_add_unit_test(test_server_multicore test_server_multicore.cpp)
 apex_add_unit_test(test_cross_core_call test_cross_core_call.cpp)
+
+# Phase 5: Config, Logging
+apex_add_unit_test(test_config test_config.cpp)
+apex_add_unit_test(test_logging test_logging.cpp)

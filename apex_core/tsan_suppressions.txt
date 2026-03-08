@@ -1,0 +1,3 @@
+# Boost.Asio internal false positive suppression
+# Add patterns here as they arise during TSAN CI runs
+# race:boost::asio::detail::*

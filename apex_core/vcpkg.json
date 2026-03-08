@@ -16,6 +16,8 @@
     "flatbuffers",
     {
       "name": "gtest"
-    }
+    },
+    "spdlog",
+    "tomlplusplus"
   ]
 }

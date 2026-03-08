@@ -1,0 +1,28 @@
+# Apex Pipeline - Default Configuration
+# config/default.toml
+
+[server]
+port = 9000
+num_cores = 0              # 0 = auto (hardware_concurrency). AppConfig::defaults()는 1 반환 (테스트 안정성용)
+mpsc_queue_capacity = 65536
+drain_interval_us = 100
+heartbeat_timeout_ticks = 300
+recv_buf_capacity = 8192
+timer_wheel_slots = 1024
+handle_signals = true
+drain_timeout_s = 25       # Graceful Shutdown drain timeout (seconds)
+
+[logging]
+level = "info"                 # Global default level (app logger)
+framework_level = "info"       # apex logger level (independent control)
+pattern = "%Y-%m-%d %H:%M:%S.%e [%l] [%n] %v"  # Console format
+
+[logging.console]
+enabled = true
+
+[logging.file]
+enabled = false
+path = "logs/apex.log"
+max_size_mb = 100
+max_files = 3
+json = true                    # FileSink uses JSON format

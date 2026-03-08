@@ -3,6 +3,8 @@
 #include <apex/core/error_sender.hpp>
 #include <apex/core/tcp_binary_protocol.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -169,6 +171,8 @@ void Server::stop() {
 }
 
 void Server::begin_shutdown() {
+    shutdown_deadline_ = std::chrono::steady_clock::now() + config_.drain_timeout;
+
     // close() is posted to core threads. Since each core runs a single-threaded
     // io_context, for_each and read_loop's remove_session never execute concurrently.
     // poll_shutdown polls active_sessions_ until all read_loops exit.
@@ -190,24 +194,22 @@ void Server::begin_shutdown() {
 
 void Server::poll_shutdown() {
     if (active_sessions_.load(std::memory_order_acquire) == 0) {
-        shutdown_timer_.reset();
-
-        // All coroutines exited — safe to stop core engine.
-        // Order matters: stop() signals threads, join() waits for exit,
-        // drain_remaining() cleans up leftover MPSC messages.
-        core_engine_->stop();
-        core_engine_->join();
-        core_engine_->drain_remaining();
-
-        // Stop services
-        for (auto& state : per_core_) {
-            for (auto& svc : state->services) {
-                svc->stop();
-            }
+        if (auto logger = spdlog::get("apex")) {
+            logger->info("All sessions drained, shutting down");
         }
+        finalize_shutdown();
+        return;
+    }
 
-        // Finally stop accept_io_ (causes run() to return)
-        accept_io_.stop();
+    // Timeout check
+    if (std::chrono::steady_clock::now() >= shutdown_deadline_) {
+        if (auto logger = spdlog::get("apex")) {
+            logger->warn(
+                "Drain timeout ({}s) expired, {} sessions remaining - forcing shutdown",
+                config_.drain_timeout.count(),
+                active_sessions_.load(std::memory_order_acquire));
+        }
+        finalize_shutdown();
         return;
     }
 
@@ -217,6 +219,27 @@ void Server::poll_shutdown() {
         if (ec == boost::asio::error::operation_aborted) return;
         poll_shutdown();
     });
+}
+
+void Server::finalize_shutdown() {
+    shutdown_timer_.reset();
+
+    // All coroutines exited (or timeout) — safe to stop core engine.
+    // Order matters: stop() signals threads, join() waits for exit,
+    // drain_remaining() cleans up leftover MPSC messages.
+    core_engine_->stop();
+    core_engine_->join();
+    core_engine_->drain_remaining();
+
+    // Stop services
+    for (auto& state : per_core_) {
+        for (auto& svc : state->services) {
+            svc->stop();
+        }
+    }
+
+    // Finally stop accept_io_ (causes run() to return)
+    accept_io_.stop();
 }
 
 uint16_t Server::port() const noexcept {

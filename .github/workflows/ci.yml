@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-msvc
+            os: windows-latest
+            preset: debug
+          - name: linux-gcc
+            os: ubuntu-latest
+            preset: debug
+          - name: linux-asan
+            os: ubuntu-latest
+            preset: asan
+          - name: linux-tsan
+            os: ubuntu-latest
+            preset: tsan
+
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@master
+
+      - name: Setup GCC 14
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        working-directory: apex_core
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        working-directory: apex_core
+        run: cmake --build build/${{ matrix.preset }}
+
+      - name: Test
+        working-directory: apex_core
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure

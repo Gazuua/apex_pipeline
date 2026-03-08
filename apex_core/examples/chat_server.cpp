@@ -6,6 +6,8 @@
 /// Usage: chat_server [port]
 ///   Default: port=9001
 
+#include <apex/core/config.hpp>
+#include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
@@ -16,8 +18,9 @@
 
 #include <boost/asio/awaitable.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <cstdlib>
-#include <iostream>
 #include <vector>
 
 using namespace apex::core;
@@ -75,15 +78,27 @@ int main(int argc, char* argv[]) {
         if (p > 0 && p <= 65535) port = static_cast<uint16_t>(p);
     }
 
-    std::cout << "=== Apex Pipeline Chat Server v0.2.4 ===\n"
-              << "Port: " << port << " (single-core broadcast)\n\n";
+    auto config = AppConfig::defaults();
+    config.server.port = port;
+    config.server.num_cores = 1;
+    config.server.heartbeat_timeout_ticks = 0;
 
-    Server({.port = port, .num_cores = 1, .heartbeat_timeout_ticks = 0})
+    init_logging(config.logging);
+
+    if (auto app = spdlog::get("app")) {
+        app->info("=== Apex Pipeline Chat Server v0.2.4 ===");
+        app->info("Port: {} (single-core broadcast)", port);
+    }
+
+    Server(config.server)
         .add_service_factory([](PerCoreState& state) {
             return std::make_unique<ChatService>(state.session_mgr);
         })
         .run();
 
-    std::cout << "[Chat] Done.\n";
+    if (auto app = spdlog::get("app")) {
+        app->info("[Chat] Done.");
+    }
+    shutdown_logging();
     return 0;
 }

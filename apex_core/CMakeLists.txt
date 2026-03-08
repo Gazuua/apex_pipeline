@@ -22,6 +22,8 @@ endif()
 # --- Dependencies ---
 find_package(Boost REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+find_package(tomlplusplus CONFIG REQUIRED)
 
 # --- FlatBuffers 스키마 컴파일 ---
 set(APEX_SCHEMAS
@@ -61,6 +63,8 @@ add_library(apex_core STATIC
     src/session_manager.cpp
     src/error_sender.cpp
     src/tcp_acceptor.cpp
+    src/config.cpp
+    src/logging.cpp
     src/server.cpp
 )
 add_library(apex::core ALIAS apex_core)
@@ -78,6 +82,8 @@ target_link_libraries(apex_core
     PUBLIC
         Boost::boost
         flatbuffers::flatbuffers
+        spdlog::spdlog
+        tomlplusplus::tomlplusplus
 )
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
