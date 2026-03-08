@@ -200,12 +200,12 @@ TEST(TimingWheel, ScheduleOutOfRangeThrows) {
     TimingWheel tw(64, [](TimingWheel::EntryId) {});
 
     // num_slots=64, max valid = 63
-    EXPECT_THROW(tw.schedule(64), std::out_of_range);
-    EXPECT_THROW(tw.schedule(100), std::out_of_range);
-    EXPECT_THROW(tw.schedule(UINT32_MAX), std::out_of_range);
+    EXPECT_THROW((void)tw.schedule(64), std::out_of_range);
+    EXPECT_THROW((void)tw.schedule(100), std::out_of_range);
+    EXPECT_THROW((void)tw.schedule(UINT32_MAX), std::out_of_range);
 
     // 경계값 — 63은 OK, 64부터 throw
-    EXPECT_NO_THROW(tw.schedule(63));
+    EXPECT_NO_THROW((void)tw.schedule(63));
     EXPECT_EQ(tw.active_count(), 1u);
 }
 
@@ -328,7 +328,7 @@ TEST(TimingWheel, ScheduleInsideCallbackFiresOnCorrectTick) {
             // schedule(2) from within callback.
             // At this point current_tick_ is still 1 (pre-increment in tick()).
             // So deadline = 1 + 2 = 3.
-            tw.schedule(2);
+            (void)tw.schedule(2);
         }
     });
 

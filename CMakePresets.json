@@ -77,6 +77,23 @@
       "name": "debug",
       "configurePreset": "debug",
       "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/lsan_suppressions.txt"
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/tsan_suppressions.txt halt_on_error=1"
+      }
     }
   ]
 }
