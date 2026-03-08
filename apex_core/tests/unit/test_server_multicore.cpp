@@ -40,6 +40,7 @@ TEST(ServerMulticoreTest, CoreCount) {
 
 class CountingService : public ServiceBase<CountingService> {
 public:
+    // NOTE: static counters — 모든 CountingService 테스트는 반드시 CountingServiceFixture를 사용할 것
     static inline std::atomic<uint32_t> instance_count{0};
     static inline std::atomic<uint32_t> start_count{0};
     static inline std::atomic<uint32_t> stop_count{0};

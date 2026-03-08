@@ -41,7 +41,7 @@ Windows 10 / VS2022 / C++23, CMake + Ninja + vcpkg.
 
 ```bash
 build.bat debug    # 디버그 빌드
-build.bat release  # 릴리스 빌드
+build.bat default  # 릴리스 빌드
 ```
 
 출력: `bin/{target}_{variant}.exe`

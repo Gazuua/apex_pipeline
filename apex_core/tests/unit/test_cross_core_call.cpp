@@ -85,11 +85,7 @@ TEST_F(CrossCoreCallTest, PostFireAndForget) {
     });
     EXPECT_TRUE(posted);
 
-    auto deadline = std::chrono::steady_clock::now() + 3s;
-    while (value.load() != 99 && std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-    EXPECT_EQ(value.load(), 99);
+    ASSERT_TRUE(apex::test::wait_for([&] { return value.load() == 99; }));
 }
 
 TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
@@ -100,6 +96,8 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
         [this, &promise]() -> boost::asio::awaitable<void> {
             auto result = co_await server_->cross_core_call(1,
                 [] {
+                    // NOTE: sleep_for는 코어 스레드를 블로킹하여 io_context-per-core 원칙을 위반하지만,
+                    // 타임아웃 테스트 목적으로 허용. 향후 boost::asio::steady_timer로 전환 검토.
                     std::this_thread::sleep_for(50ms);
                     return 0;
                 },

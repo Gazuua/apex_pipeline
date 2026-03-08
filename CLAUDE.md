@@ -68,10 +68,10 @@ D:\.workspace/
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 작성 시간
 
 ### 코드 리뷰
-- clangd LSP + superpowers:requesting-code-review 스킬 활용, 멀티 에이전트 병렬 리뷰
+- **clangd LSP + superpowers:code-reviewer 병행** — LSP 정적 분석(타입/참조/호출 추적)과 AI 코드 리뷰를 함께 사용해야 품질이 높아진다
 - **clangd LSP 효율 전략**: `documentSymbol` 병렬 → 핵심 API `hover` → 의심 패턴 `findReferences`/`incomingCalls`. 전수 분석 금지, 10분 타임아웃.
 - **설계 문서 정합성**: 아키텍처 영향 변경 시 `Apex_Pipeline.md` 일치 확인 필수
-- **리뷰 후**: 보고서 커밋 → 이슈 전량 수정 (병렬) → 재리뷰 (0건까지 반복)
+- **태스크 완료 후 `/auto-review task` 묻지 말고 자동 실행** — 리뷰 → 수정 → 재리뷰 → Clean → PR+CI 전 과정 자동화
 
 ### 브레인스토밍
 - 1단계에서 반드시 `docs/Apex_Pipeline.md` 읽고 관련 섹션 식별, 설계 후 업데이트 포함
