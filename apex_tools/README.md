@@ -14,6 +14,17 @@ git config core.hooksPath apex_tools/git-hooks
 |------|------|
 | `pre-commit` | main 직접 커밋 차단 (squash merge는 허용) |
 
+## Session Context 훅
+
+세션 시작 시 프로젝트 컨텍스트(README.md + git 상태)를 자동 주입하는 `SessionStart` 훅.
+Claude가 매 세션마다 별도 질문 없이 프로젝트 현황을 파악한 상태로 시작함.
+
+| 항목 | 내용 |
+|------|------|
+| 스크립트 | `session-context.sh` |
+| 출력 | README.md 전문 + 현재 브랜치 + `git status --short` + 최근 커밋 5개 |
+| 등록 | `.claude/settings.json` → `hooks.SessionStart` |
+
 ## Auto-Review 플러그인
 
 멀티에이전트 자동 리뷰 플러그인. 5개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
@@ -51,6 +62,7 @@ bash apex_tools/setup-claude-plugin.sh
 apex_tools/
 ├── .claude-plugin/marketplace.json       ← 로컬 마켓플레이스
 ├── setup-claude-plugin.sh                ← 자동 셋업 스크립트
+├── session-context.sh                    ← 세션 컨텍스트 자동 주입
 └── claude-plugin/
     ├── .claude-plugin/plugin.json        ← 플러그인 매니페스트
     ├── commands/auto-review.md           ← 오케스트레이터
