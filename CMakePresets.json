@@ -56,7 +56,7 @@
         "APEX_BUILD_VARIANT": "tsan"
       },
       "environment": {
-        "TSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/tsan_suppressions.txt"
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/tsan_suppressions.txt"
       }
     }
   ],
@@ -84,7 +84,7 @@
       "output": { "outputOnFailure": true },
       "environment": {
         "ASAN_OPTIONS": "detect_leaks=1:halt_on_error=1",
-        "LSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/lsan_suppressions.txt"
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/lsan_suppressions.txt"
       }
     },
     {
@@ -92,7 +92,7 @@
       "configurePreset": "tsan",
       "output": { "outputOnFailure": true },
       "environment": {
-        "TSAN_OPTIONS": "suppressions=${sourceDir}/apex_core/tsan_suppressions.txt halt_on_error=1"
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/tsan_suppressions.txt halt_on_error=1"
       }
     }
   ]
