@@ -15,14 +15,17 @@ D:\.workspace/
 │   ├── tests/                    ← unit/ + integration/
 │   ├── examples/                 ← echo_server, chat_server
 │   ├── schemas/                  ← FlatBuffers 스키마
-│   ├── docs/                     ← 설계 문서, ADR
 │   ├── bin/                      ← 빌드 출력
 │   ├── build.bat / build.sh
 │   └── CMakePresets.json
-├── apex_docs/                    ← 전체 프로젝트 문서
-│   ├── plans/                    ← 구현 계획서
-│   ├── progress/                 ← 체크포인트
-│   └── review/                   ← 코드 리뷰 보고서
+├── docs/                         ← 전체 프로젝트 문서 (중앙 집중)
+│   ├── Apex_Pipeline.md          ← 마스터 설계서
+│   ├── plans/                    ← 프로젝트 공통 계획서
+│   ├── progress/                 ← 프로젝트 공통 체크포인트
+│   ├── review/                   ← 프로젝트 공통 리뷰
+│   ├── apex_core/                ← 코어 프레임워크 문서
+│   ├── apex_infra/               ← 인프라 문서
+│   └── apex_shared/              ← 공유 라이브러리 문서
 ├── apex_services/                ← MSA 서비스
 ├── apex_shared/                  ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
 │   ├── schemas/                  ← 공유 FlatBuffers 스키마 (.fbs)
@@ -98,7 +101,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 - 코루틴 프레임 할당: mimalloc/jemalloc + HALO (ADR-21)
 - 서비스별 독립 vcpkg.json (Docker 독립 빌드용)
 - `apex_` prefix로 모든 프로젝트 디렉토리 통일
-- 설계 문서: `apex_core/docs/design-decisions.md`, `apex_core/docs/design-rationale.md` (ADR 23개)
+- 설계 문서: `docs/apex_core/design-decisions.md`, `docs/apex_core/design-rationale.md` (ADR 23개)
 
 ## 워크플로우 규칙
 
@@ -120,6 +123,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
+- **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/`, 걸치는 문서 → 관련 프로젝트 양쪽에 복사
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 파일 작성 시간으로 정확히 맞출 것
 
 ### 코드 리뷰
@@ -138,7 +142,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
   3. 재리뷰 → 설계 결정 필요 시만 사용자 호출, 명확한 수정은 즉시 진행
 
 ### 브레인스토밍
-- **Apex_Pipeline.md 필수 참조**: 브레인스토밍 1단계(컨텍스트 탐색)에서 반드시 `apex_docs/Apex_Pipeline.md`를 읽고 관련 섹션 식별. 설계 완료 후 해당 섹션의 업데이트 내용을 설계 문서에 포함.
+- **Apex_Pipeline.md 필수 참조**: 브레인스토밍 1단계(컨텍스트 탐색)에서 반드시 `docs/Apex_Pipeline.md`를 읽고 관련 섹션 식별. 설계 완료 후 해당 섹션의 업데이트 내용을 설계 문서에 포함.
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 작업 분리 가능한 범위 내에서
