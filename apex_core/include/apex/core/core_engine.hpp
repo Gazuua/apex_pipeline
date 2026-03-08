@@ -19,6 +19,8 @@ struct CoreMessage {
         Shutdown = 0,
         DrainComplete,
         Custom,
+        CrossCoreRequest,   // cross_core_call request (data = CrossCoreTask*)
+        CrossCorePost,      // cross_core_post fire-and-forget (data = CrossCoreTask*)
     };
 
     Type type{Type::Custom};
@@ -61,6 +63,7 @@ struct CoreEngineConfig {
 class CoreEngine {
 public:
     using MessageHandler = std::function<void(uint32_t core_id, const CoreMessage& msg)>;
+    using DrainCallback = std::function<void(uint32_t core_id)>;
 
     explicit CoreEngine(CoreEngineConfig config = {});
     ~CoreEngine();
@@ -68,10 +71,26 @@ public:
     CoreEngine(const CoreEngine&) = delete;
     CoreEngine& operator=(const CoreEngine&) = delete;
 
-    /// Set handler for inter-core messages. Must be called before run().
+    /// Set handler for inter-core messages. Must be called before start().
     void set_message_handler(MessageHandler handler);
 
+    /// Set callback invoked on each drain cycle per core (for tick, etc.).
+    void set_drain_callback(DrainCallback callback);
+
+    /// Drain remaining messages from all inboxes, cleaning up heap pointers
+    /// for CrossCoreRequest/CrossCorePost messages. Call after stop() + join().
+    void drain_remaining();
+
+    /// Start all core threads (non-blocking).
+    /// Must call join() before destruction.
+    void start();
+
+    /// Wait for all core threads to finish (blocking).
+    /// Call stop() first to signal threads to exit.
+    void join();
+
     /// Start all core threads and block until stop() is called.
+    /// Equivalent to start() + join().
     void run();
 
     /// Signal all cores to stop. Thread-safe.
@@ -96,6 +115,7 @@ private:
     std::vector<std::unique_ptr<CoreContext>> cores_;
     std::vector<std::thread> threads_;
     MessageHandler message_handler_;
+    DrainCallback drain_callback_;
     std::atomic<bool> running_{false};
 };
 

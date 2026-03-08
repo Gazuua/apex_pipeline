@@ -1,9 +1,10 @@
-/// Apex Pipeline - Echo Server Example (v0.2.4)
+/// Apex Pipeline - Multicore Echo Server Example (v0.2.4)
 ///
-/// Server::run() 블로킹 모델. 멀티코어 지원.
+/// io_context-per-core 아키텍처 시연.
+/// 각 코어가 독립된 EchoService 인스턴스를 소유.
 ///
-/// Usage: echo_server [port] [cores]
-///   Default: port=9000, cores=1
+/// Usage: multicore_echo_server [port] [cores]
+///   Default: port=9000, cores=4
 
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
@@ -16,6 +17,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 using namespace apex::core;
 using boost::asio::awaitable;
@@ -49,7 +51,7 @@ public:
 
 int main(int argc, char* argv[]) {
     uint16_t port = 9000;
-    uint32_t cores = 1;
+    uint32_t cores = 4;
     if (argc >= 2) {
         int p = std::atoi(argv[1]);
         if (p > 0 && p <= 65535) port = static_cast<uint16_t>(p);
@@ -59,8 +61,11 @@ int main(int argc, char* argv[]) {
         if (c > 0 && c <= 256) cores = static_cast<uint32_t>(c);
     }
 
-    std::cout << "=== Apex Pipeline Echo Server v0.2.4 ===\n"
-              << "Port: " << port << ", Cores: " << cores << "\n\n";
+    auto hw = std::thread::hardware_concurrency();
+    std::cout << "=== Apex Pipeline Multicore Echo Server v0.2.4 ===\n"
+              << "Port: " << port << ", Cores: " << cores
+              << " (hardware: " << hw << ")\n"
+              << "Architecture: io_context-per-core (shared-nothing)\n\n";
 
     Server({.port = port, .num_cores = cores, .heartbeat_timeout_ticks = 0})
         .add_service<EchoService>()

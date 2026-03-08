@@ -76,7 +76,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 
 | 기법 | 적용 위치 | 효과 | 상태 |
 |------|----------|------|------|
-| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ 구현 |
+| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ Server 통합 완료 |
 | **Lock-free MPSC Queue** | 코어 간 통신 | 코어당 수신 큐 1개, O(1) enqueue | ✅ 구현 |
 | **Slab Memory Pool** | 코어별 독립 | 핫패스 malloc 제거, O(1) 할당 | ✅ 구현 |
 | **Zero-copy Ring Buffer** | 수신 버퍼 | memmove 제거, FlatBuffers 직접 접근 | ✅ 구현 |
@@ -221,14 +221,11 @@ public:
 };
 
 int main() {
-    boost::asio::io_context io_ctx;
-    Server server(io_ctx, {.port = 9000});
-    server.add_service<EchoService>();
-    server.start();
-
-    boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
-    signals.async_wait([&](auto, auto) { server.stop(); });
-    io_ctx.run();
+    // Server::run()이 io_context/스레드를 내부 소유 (프레임워크 모델)
+    // 코어별 독립 EchoService 인스턴스 자동 생성 (shared-nothing)
+    Server({.port = 9000, .num_cores = 4})
+        .add_service<EchoService>()
+        .run();  // SIGINT/SIGTERM으로 graceful shutdown
 }
 ```
 
@@ -282,6 +279,7 @@ FlatBuffers 바이너리 (zero-copy 접근)
 | 4.5-r | 완료 | 코루틴 전환 + 코드 리뷰 2회 수정 → v0.2.1 | (누적 106개) |
 | 4.6 | 완료 | ProtocolBase CRTP + 에러 전파 파이프라인 → v0.2.2 | 18개 스위트 |
 | 4.6-r | 완료 | v0.2.2 코드 리뷰 Important 11건 수정 → v0.2.3 | +5개 |
+| 4.7 | 완료 | Server-CoreEngine 통합, cross_core_call, Graceful Shutdown → v0.2.4 | 20개 |
 | 5 | 진행 중 | 외부 어댑터 (Kafka, Redis, PostgreSQL, 로깅) → v0.3.0 | - |
 | infra | 완료 | 로컬 개발 인프라 (docker-compose, apex_shared 빌드 인프라) | - |
 | 6 | 미착수 | 서비스 레이어 (Gateway, Auth, Graceful Shutdown, 메트릭) → v0.4.0 | - |
@@ -299,6 +297,7 @@ FlatBuffers 바이너리 (zero-copy 접근)
 - [x] 핸들러 코루틴 전환 (awaitable\<Result\<void\>\>) → v0.2.1
 - [x] ProtocolBase CRTP 추상화 + 에러 전파 파이프라인 → v0.2.2
 - [x] v0.2.2 코드 리뷰 수정 (Important 11건) → v0.2.3
+- [x] Server-CoreEngine 통합 (멀티코어, cross_core_call, graceful shutdown) → v0.2.4
 - [ ] 외부 어댑터 (Kafka, Redis, PostgreSQL)
 - [ ] 로깅 (spdlog + KafkaSink + trace_id)
 - [ ] Gateway 상세 구현 (TLS, JWT, 블룸필터, 라우팅)

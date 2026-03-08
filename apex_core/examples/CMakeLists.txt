@@ -22,3 +22,10 @@ set_target_properties(chat_server PROPERTIES
     OUTPUT_NAME "chat_server${_variant_suffix}"
     RUNTIME_OUTPUT_DIRECTORY "${_bin_dir}"
 )
+
+add_executable(multicore_echo_server multicore_echo_server.cpp)
+target_link_libraries(multicore_echo_server PRIVATE apex::core)
+set_target_properties(multicore_echo_server PROPERTIES
+    OUTPUT_NAME "multicore_echo_server${_variant_suffix}"
+    RUNTIME_OUTPUT_DIRECTORY "${_bin_dir}"
+)

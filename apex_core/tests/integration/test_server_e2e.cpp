@@ -11,24 +11,22 @@
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/asio/awaitable.hpp>
 
 #include <gtest/gtest.h>
 
 #include <chrono>
 #include <cstring>
-#include <stdexcept>
 #include <thread>
 #include <vector>
 
 using namespace apex::core;
 using boost::asio::ip::tcp;
 using boost::asio::awaitable;
+using namespace std::chrono_literals;
 
-// --- 헬퍼 ---
+// --- Helpers ---
 
 static std::vector<uint8_t> build_echo_frame(const std::vector<uint8_t>& data) {
     flatbuffers::FlatBufferBuilder builder(256);
@@ -38,26 +36,6 @@ static std::vector<uint8_t> build_echo_frame(const std::vector<uint8_t>& data) {
 
     WireHeader header{
         .msg_id = 0x0001,
-        .body_size = static_cast<uint32_t>(builder.GetSize())
-    };
-    auto hdr_bytes = header.serialize();
-
-    std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());
-    frame.insert(frame.end(),
-                 builder.GetBufferPointer(),
-                 builder.GetBufferPointer() + builder.GetSize());
-    return frame;
-}
-
-static std::vector<uint8_t> build_chat_frame(uint64_t sender_id,
-                                              const std::string& content) {
-    flatbuffers::FlatBufferBuilder builder(256);
-    auto content_str = builder.CreateString(content);
-    auto msg = apex::messages::CreateChatMessage(builder, sender_id, content_str);
-    builder.Finish(msg);
-
-    WireHeader header{
-        .msg_id = 0x0100,
         .body_size = static_cast<uint32_t>(builder.GetSize())
     };
     auto hdr_bytes = header.serialize();
@@ -91,7 +69,7 @@ static tcp::socket make_client(boost::asio::io_context& ctx, uint16_t port) {
     return client;
 }
 
-// --- 테스트용 서비스 ---
+// --- Test Services ---
 
 class TestEchoService : public ServiceBase<TestEchoService> {
 public:
@@ -120,47 +98,6 @@ public:
     }
 };
 
-class TestChatService : public ServiceBase<TestChatService> {
-public:
-    TestChatService(SessionManager& mgr)
-        : ServiceBase("test_chat"), session_mgr_(mgr) {}
-
-    void on_start() override {
-        route<apex::messages::ChatMessage>(
-            0x0100, &TestChatService::on_chat);
-    }
-
-    awaitable<Result<void>> on_chat(SessionPtr sender, uint16_t msg_id,
-                            const apex::messages::ChatMessage* msg) {
-        if (!msg || !msg->content()) co_return ok();
-
-        flatbuffers::FlatBufferBuilder builder(256);
-        auto content = builder.CreateString(msg->content()->str());
-        auto broadcast = apex::messages::CreateChatMessage(
-            builder, sender->id(), content);
-        builder.Finish(broadcast);
-
-        WireHeader header{
-            .msg_id = msg_id,
-            .body_size = static_cast<uint32_t>(builder.GetSize())
-        };
-
-        // for_each는 동기 콜백이므로, 세션 목록을 수집 후 코루틴에서 순회
-        std::vector<SessionPtr> sessions;
-        session_mgr_.for_each([&](SessionPtr s) {
-            sessions.push_back(s);
-        });
-        for (auto& s : sessions) {
-            co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
-        }
-        co_return ok();
-    }
-
-private:
-    SessionManager& session_mgr_;
-};
-
-// 예외를 던지는 서비스 (TI-1 test 1)
 class ThrowingService : public ServiceBase<ThrowingService> {
 public:
     ThrowingService() : ServiceBase("throwing") {}
@@ -169,11 +106,10 @@ public:
     }
     awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) {
         throw std::runtime_error("test exception");
-        co_return ok();  // unreachable
+        co_return ok();
     }
 };
 
-// ErrorCode를 반환하는 서비스 (TI-1 test 2)
 class ErrorReturningService : public ServiceBase<ErrorReturningService> {
 public:
     ErrorReturningService() : ServiceBase("error_returning") {}
@@ -185,31 +121,29 @@ public:
     }
 };
 
-// --- 테스트 픽스처 ---
+// --- Test Fixture ---
 
 class ServerE2ETest : public ::testing::Test {
 protected:
-    boost::asio::io_context io_ctx_;
     std::thread server_thread_;
 
-    void run_server() {
-        server_thread_ = std::thread([this] { io_ctx_.run(); });
+    void run_server(Server& server) {
+        server_thread_ = std::thread([&server] { server.run(); });
+        std::this_thread::sleep_for(200ms);
     }
 
     void stop_and_join(Server& server) {
-        // Server::stop()이 내부에서 post(io_ctx_) 처리하므로 직접 호출
         server.stop();
         if (server_thread_.joinable()) server_thread_.join();
     }
 };
 
-// --- 테스트 케이스 ---
+// --- Test Cases ---
 
 TEST_F(ServerE2ETest, ServerAcceptAndEcho) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<TestEchoService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
@@ -236,10 +170,9 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho) {
 }
 
 TEST_F(ServerE2ETest, MultipleClients) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<TestEchoService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client0 = make_client(client_ctx, server.port());
@@ -266,15 +199,13 @@ TEST_F(ServerE2ETest, MultipleClients) {
 }
 
 TEST_F(ServerE2ETest, InvalidMessageErrorResponse) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<TestEchoService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    // 등록되지 않은 msg_id 0x9999 전송
     WireHeader header{.msg_id = 0x9999, .body_size = 0};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(
@@ -295,48 +226,41 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse) {
 }
 
 TEST_F(ServerE2ETest, GracefulShutdown) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<TestEchoService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    // 에코 한번 왕복 확인
     auto frame = build_echo_frame({0x42});
     boost::asio::write(client, boost::asio::buffer(frame));
     auto response = read_frame(client);
     EXPECT_GT(response.size(), 0u);
 
-    // 서버 중지 — 클라이언트 연결 끊김
     stop_and_join(server);
 
     boost::system::error_code ec;
     std::array<uint8_t, 1> buf{};
     client.read_some(boost::asio::buffer(buf), ec);
-    EXPECT_TRUE(ec);  // 연결 끊김 에러
+    EXPECT_TRUE(ec);
 }
 
 TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect) {
-    // 틱 간격 10ms, 3틱 타임아웃 = 30ms
-    Server server(io_ctx_, {
+    Server server({
         .port = 0,
         .heartbeat_timeout_ticks = 3,
-        .tick_interval_ms = 10,
-        .timer_wheel_slots = 8
+        .timer_wheel_slots = 8,
+        .handle_signals = false,
     });
     server.add_service<TestEchoService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    // 아무것도 보내지 않고 대기
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(200ms);
 
-    // 타임아웃으로 연결 끊겼어야 함
     boost::system::error_code ec;
     std::array<uint8_t, 1> buf{};
     client.read_some(boost::asio::buffer(buf), ec);
@@ -345,53 +269,14 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect) {
     stop_and_join(server);
 }
 
-TEST_F(ServerE2ETest, ChatBroadcast) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
-    server.add_service<TestChatService>(server.session_manager());
-    server.start();
-    run_server();
-
-    boost::asio::io_context client_ctx;
-    auto client_a = make_client(client_ctx, server.port());
-    auto client_b = make_client(client_ctx, server.port());
-
-    // 연결 안정화 대기
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    // A가 채팅 메시지 전송
-    auto frame = build_chat_frame(0, "hello");
-    boost::asio::write(client_a, boost::asio::buffer(frame));
-
-    // A와 B 모두 브로드캐스트 수신
-    auto resp_a = read_frame(client_a);
-    auto resp_b = read_frame(client_b);
-
-    ASSERT_GT(resp_a.size(), WireHeader::SIZE);
-    ASSERT_GT(resp_b.size(), WireHeader::SIZE);
-
-    auto msg_a = flatbuffers::GetRoot<apex::messages::ChatMessage>(
-        resp_a.data() + WireHeader::SIZE);
-    auto msg_b = flatbuffers::GetRoot<apex::messages::ChatMessage>(
-        resp_b.data() + WireHeader::SIZE);
-
-    EXPECT_STREQ(msg_a->content()->c_str(), "hello");
-    EXPECT_STREQ(msg_b->content()->c_str(), "hello");
-
-    client_a.close();
-    client_b.close();
-    stop_and_join(server);
-}
-
 TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<ThrowingService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    // ThrowingService가 등록한 msg_id 0x0010 전송
     WireHeader header{.msg_id = 0x0010, .body_size = 0};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(
@@ -412,15 +297,13 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
 }
 
 TEST_F(ServerE2ETest, HandlerErrorCodeResponse) {
-    Server server(io_ctx_, {.port = 0, .heartbeat_timeout_ticks = 0});
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<ErrorReturningService>();
-    server.start();
-    run_server();
+    run_server(server);
 
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    // ErrorReturningService가 등록한 msg_id 0x0020 전송
     WireHeader header{.msg_id = 0x0020, .body_size = 0};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(

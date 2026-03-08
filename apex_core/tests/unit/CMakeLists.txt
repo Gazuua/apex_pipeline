@@ -33,3 +33,7 @@ apex_add_unit_test(test_tcp_acceptor test_tcp_acceptor.cpp)
 
 # Phase 4.6 tests
 apex_add_unit_test(test_tcp_binary_protocol test_tcp_binary_protocol.cpp)
+
+# v0.2.4 tests
+apex_add_unit_test(test_server_multicore test_server_multicore.cpp)
+apex_add_unit_test(test_cross_core_call test_cross_core_call.cpp)

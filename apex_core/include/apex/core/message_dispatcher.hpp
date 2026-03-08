@@ -20,7 +20,8 @@ enum class DispatchError : uint8_t {
 };
 
 /// O(1) message dispatcher using std::array indexed by msg_id (uint16_t).
-/// Designed for per-service use. NOT thread-safe (per-core, single-thread).
+/// Designed for per-service use. Thread-safe for concurrent reads after setup
+/// (핸들러 등록은 on_start() 전에만). NOT thread-safe for concurrent read-write.
 class MessageDispatcher {
 public:
     // 핸들러가 Result<void>를 반환하는 코루틴

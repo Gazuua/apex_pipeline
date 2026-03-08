@@ -1,8 +1,7 @@
-/// Apex Pipeline - Chat Server Example (v0.2.1)
+/// Apex Pipeline - Chat Server Example (v0.2.4)
 ///
-/// 크로스 세션 브로드캐스트 시연.
-/// SessionPtr + SessionManager.for_each() 활용.
-/// 핸들러 코루틴 전환 완료.
+/// 단일 코어 브로드캐스트 시연.
+/// 멀티코어 크로스코어 브로드캐스트는 Redis Pub/Sub 경유 (v0.3.0+).
 ///
 /// Usage: chat_server [port]
 ///   Default: port=9001
@@ -15,8 +14,6 @@
 #include <generated/chat_message_generated.h>
 #include <flatbuffers/flatbuffers.h>
 
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/signal_set.hpp>
 #include <boost/asio/awaitable.hpp>
 
 #include <cstdlib>
@@ -26,28 +23,20 @@
 using namespace apex::core;
 using boost::asio::awaitable;
 
+/// Single-core broadcast chat service.
+/// For multicore broadcast, use Redis Pub/Sub (v0.3.0+).
 class ChatService : public ServiceBase<ChatService> {
 public:
     ChatService(SessionManager& mgr) : ServiceBase("chat"), session_mgr_(mgr) {}
 
     void on_start() override {
         route<apex::messages::ChatMessage>(0x0100, &ChatService::on_chat);
-        std::cout << "[ChatService] Started. Handler: chat(0x0100)\n";
-    }
-
-    void on_stop() override {
-        std::cout << "[ChatService] Stopped. Total: " << msg_count_ << " messages\n";
     }
 
     awaitable<Result<void>> on_chat(SessionPtr sender, uint16_t msg_id,
                             const apex::messages::ChatMessage* msg) {
-        ++msg_count_;
         if (!msg || !msg->content()) co_return ok();
 
-        std::cout << "[Chat] Session " << sender->id()
-                  << ": " << msg->content()->str() << "\n";
-
-        // 브로드캐스트: 모든 세션에 전송
         flatbuffers::FlatBufferBuilder builder(256);
         auto content = builder.CreateString(msg->content()->str());
         auto broadcast = apex::messages::CreateChatMessage(
@@ -59,7 +48,6 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
 
-        // for_each는 동기 콜백이므로, 세션 목록을 수집 후 코루틴에서 순회
         std::vector<SessionPtr> sessions;
         session_mgr_.for_each([&](SessionPtr s) {
             sessions.push_back(s);
@@ -69,9 +57,9 @@ public:
         }
         co_return ok();
     }
+
 private:
     SessionManager& session_mgr_;
-    int msg_count_{0};
 };
 
 int main(int argc, char* argv[]) {
@@ -81,24 +69,15 @@ int main(int argc, char* argv[]) {
         if (p > 0 && p <= 65535) port = static_cast<uint16_t>(p);
     }
 
-    std::cout << "=== Apex Pipeline Chat Server v0.2.1 ===\n"
-              << "Port: " << port << "\n\n";
+    std::cout << "=== Apex Pipeline Chat Server v0.2.4 ===\n"
+              << "Port: " << port << " (single-core broadcast)\n\n";
 
-    boost::asio::io_context io_ctx;
+    Server({.port = port, .num_cores = 1, .heartbeat_timeout_ticks = 0})
+        .add_service_factory([](PerCoreState& state) {
+            return std::make_unique<ChatService>(state.session_mgr);
+        })
+        .run();
 
-    Server server(io_ctx, {.port = port, .heartbeat_timeout_ticks = 300});
-    server.add_service<ChatService>(server.session_manager());
-    server.start();
-
-    std::cout << "[Server] Listening on port " << server.port() << "\n";
-
-    boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
-    signals.async_wait([&](auto, auto) {
-        std::cout << "\n[Server] Shutting down...\n";
-        server.stop();
-    });
-
-    io_ctx.run();
-    std::cout << "[Server] Done.\n";
+    std::cout << "[Chat] Done.\n";
     return 0;
 }

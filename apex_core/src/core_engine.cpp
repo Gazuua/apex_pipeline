@@ -4,6 +4,7 @@
 #include <boost/asio/post.hpp>
 
 #include <cassert>
+#include <functional>
 #include <stdexcept>
 #include <thread>
 
@@ -37,21 +38,34 @@ CoreEngine::CoreEngine(CoreEngineConfig config)
 
 CoreEngine::~CoreEngine() {
     stop();
-    for (auto& t : threads_) {
-        if (t.joinable()) {
-            t.join();
+    join();
+}
+
+void CoreEngine::set_message_handler(MessageHandler handler) {
+    assert(!running_.load(std::memory_order_acquire) && "set_message_handler must be called before start()");
+    message_handler_ = std::move(handler);
+}
+
+void CoreEngine::set_drain_callback(DrainCallback callback) {
+    assert(!running_.load(std::memory_order_acquire) && "set_drain_callback must be called before start()");
+    drain_callback_ = std::move(callback);
+}
+
+void CoreEngine::drain_remaining() {
+    for (auto& ctx : cores_) {
+        while (auto msg = ctx->inbox->dequeue()) {
+            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
+                msg->type == CoreMessage::Type::CrossCorePost) {
+                auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
+                delete task;
+            }
         }
     }
 }
 
-void CoreEngine::set_message_handler(MessageHandler handler) {
-    assert(!running_.load(std::memory_order_acquire) && "set_message_handler must be called before run()");
-    message_handler_ = std::move(handler);
-}
-
-void CoreEngine::run() {
+void CoreEngine::start() {
     if (running_.exchange(true, std::memory_order_acq_rel)) {
-        throw std::logic_error("CoreEngine::run() called while already running");
+        throw std::logic_error("CoreEngine::start() called while already running");
     }
 
     // 재호출 시 io_context 리셋
@@ -63,13 +77,21 @@ void CoreEngine::run() {
     for (uint32_t i = 0; i < config_.num_cores; ++i) {
         threads_.emplace_back([this, i]() { run_core(i); });
     }
+}
 
+void CoreEngine::join() {
     for (auto& t : threads_) {
-        t.join();
+        if (t.joinable()) {
+            t.join();
+        }
     }
-
-    running_.store(false, std::memory_order_release);
     threads_.clear();
+    running_.store(false, std::memory_order_release);
+}
+
+void CoreEngine::run() {
+    start();
+    join();
 }
 
 void CoreEngine::stop() {
@@ -133,9 +155,24 @@ void CoreEngine::start_drain_timer(uint32_t core_id) {
 
         // Drain all pending messages from the inbox
         while (auto msg = core_ctx.inbox->dequeue()) {
+            // Built-in handling for cross-core tasks
+            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
+                msg->type == CoreMessage::Type::CrossCorePost) {
+                auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
+                if (task) {
+                    (*task)();
+                    delete task;
+                }
+                continue;
+            }
             if (message_handler_) {
                 message_handler_(core_id, *msg);
             }
+        }
+
+        // Drain callback (tick, etc.)
+        if (drain_callback_) {
+            drain_callback_(core_id);
         }
 
         // Re-arm the timer

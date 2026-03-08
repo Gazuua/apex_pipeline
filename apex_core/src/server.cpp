@@ -1,14 +1,16 @@
 #include <apex/core/server.hpp>
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/error_sender.hpp>
-#include <apex/core/frame_codec.hpp>
 #include <apex/core/tcp_binary_protocol.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/read.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
@@ -19,17 +21,20 @@
 
 namespace apex::core {
 
-Server::Server(boost::asio::io_context& io_ctx, Config config)
-    : io_ctx_(io_ctx)
-    , config_(config)
-    , session_mgr_(0, config.heartbeat_timeout_ticks,
-                   config.timer_wheel_slots, config.recv_buf_capacity)
-    , acceptor_(io_ctx, config.port, [this](boost::asio::ip::tcp::socket sock) {
-          on_accept(std::move(sock));
-      })
-    , tick_timer_(io_ctx)
+// --- PerCoreState ---
+
+PerCoreState::PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
+                           size_t timer_wheel_slots, size_t recv_buf_capacity)
+    : core_id(id)
+    , session_mgr(id, heartbeat_timeout_ticks, timer_wheel_slots, recv_buf_capacity)
 {
-    // I-4: 런타임 체크 — assert 대신 throw (생성자, cold path)
+}
+
+// --- Server ---
+
+Server::Server(ServerConfig config)
+    : config_(std::move(config))
+{
     if (config_.recv_buf_capacity < TMP_BUF_SIZE) {
         throw std::invalid_argument(
             "ServerConfig::recv_buf_capacity must be >= " +
@@ -47,87 +52,193 @@ Server::Server(boost::asio::io_context& io_ctx, Config config)
                 std::to_string(actual_slots) + ")");
         }
     }
+
+    // CoreEngine
+    CoreEngineConfig engine_config{
+        .num_cores = config_.num_cores,
+        .mpsc_queue_capacity = config_.mpsc_queue_capacity,
+        .drain_interval = config_.drain_interval,
+    };
+    core_engine_ = std::make_unique<CoreEngine>(engine_config);
+
+    // PerCoreState
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        per_core_.push_back(std::make_unique<PerCoreState>(
+            i, config_.heartbeat_timeout_ticks,
+            config_.timer_wheel_slots, config_.recv_buf_capacity));
+    }
+
+    // TcpAcceptor — bind immediately so port() works
+    acceptor_ = std::make_unique<TcpAcceptor>(
+        accept_io_, config_.port,
+        [this](boost::asio::ip::tcp::socket socket) {
+            on_accept(std::move(socket));
+        });
 }
 
 Server::~Server() {
-    // 소멸자에서는 직접 정리 (post 불필요 — io_ctx가 이미 멈춘 상태)
-    if (!running_.load(std::memory_order_relaxed)) return;
-    running_.store(false, std::memory_order_relaxed);
-    acceptor_.stop();
-    tick_timer_.cancel();
-    session_mgr_.for_each([](SessionPtr session) {
-        session->close();
-    });
-    for (auto& svc : services_) {
-        svc->stop();
-    }
-}
-
-void Server::start() {
-    if (running_.exchange(true)) return;
-
-    for (auto& svc : services_) {
-        svc->start();
-    }
-
-    acceptor_.start();
-
-    if (config_.heartbeat_timeout_ticks > 0) {
-        start_tick_timer();
-    }
-}
-
-// NOTE: post된 핸들러가 실행되기 전 Server가 소멸하면 UB.
-// 전제 조건: io_ctx.run()이 완료된 후에만 Server를 소멸시킬 것.
-// I-5: 스레드 안전 — 내부 post 가드.
-void Server::stop() {
-    boost::asio::post(io_ctx_, [this]() {
-        if (!running_.exchange(false)) return;
-
-        acceptor_.stop();
-        tick_timer_.cancel();
-
-        // 모든 세션 닫기
-        session_mgr_.for_each([](SessionPtr session) {
-            session->close();
-        });
-
-        for (auto& svc : services_) {
-            svc->stop();
+    for (auto& state : per_core_) {
+        for (auto& svc : state->services) {
+            if (svc->started()) {
+                svc->stop();
+            }
         }
+    }
+}
+
+void Server::run() {
+    if (running_.exchange(true)) return;
+    stopping_.store(false);
+
+    accept_io_.restart();
+
+    // Per-core service instances
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+        auto& state = *per_core_[core_id];
+        for (auto& factory : service_factories_) {
+            auto svc = factory(state);
+            svc->start();
+            state.services.push_back(std::move(svc));
+        }
+    }
+
+    // Drain callback — SessionManager tick on each drain cycle
+    core_engine_->set_drain_callback([this](uint32_t core_id) {
+        if (core_id < per_core_.size()) {
+            per_core_[core_id]->session_mgr.tick();
+        }
+    });
+
+    // Start CoreEngine (non-blocking)
+    core_engine_->start();
+
+    // Start accept loop
+    acceptor_->start();
+
+    // Work guard keeps accept_io_ alive until shutdown completes.
+    // Session sockets are on accept_io_'s IOCP (Windows), so accept_io_
+    // must keep running to process I/O completions during shutdown.
+    // TODO: Use async_accept(target_executor) to bind sockets to per-core
+    // IOCP directly, eliminating the accept_io_ hop for I/O completions.
+    auto work = boost::asio::make_work_guard(accept_io_);
+
+    // Block on accept_io_ (with optional signal handling)
+    if (config_.handle_signals) {
+        boost::asio::signal_set signals(accept_io_, SIGINT, SIGTERM);
+        signals.async_wait([this](auto, auto) { stop(); });
+        accept_io_.run();
+    } else {
+        accept_io_.run();
+    }
+
+    // Shutdown already completed inside begin_shutdown()/poll_shutdown().
+    running_.store(false);
+}
+
+void Server::stop() {
+    if (stopping_.exchange(true)) return;
+
+    if (acceptor_) acceptor_->stop();
+
+    // Post shutdown to accept_io_ so it keeps processing IOCP completions
+    // for session sockets while we drain active coroutines.
+    boost::asio::post(accept_io_, [this] { begin_shutdown(); });
+}
+
+void Server::begin_shutdown() {
+    // Close all sessions on each core thread
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        boost::asio::post(core_engine_->io_context(i),
+            [this, i] {
+                per_core_[i]->session_mgr.for_each([](SessionPtr session) {
+                    session->close();
+                });
+            });
+    }
+
+    // Poll until all read_loop coroutines have exited
+    shutdown_timer_ = std::make_unique<boost::asio::steady_timer>(accept_io_);
+    poll_shutdown();
+}
+
+void Server::poll_shutdown() {
+    if (active_sessions_.load(std::memory_order_acquire) == 0) {
+        shutdown_timer_.reset();
+
+        // All coroutines exited — safe to stop core engine
+        core_engine_->stop();
+        core_engine_->drain_remaining();
+        core_engine_->join();
+
+        // Stop services
+        for (auto& state : per_core_) {
+            for (auto& svc : state->services) {
+                svc->stop();
+            }
+        }
+
+        // Finally stop accept_io_ (causes run() to return)
+        accept_io_.stop();
+        return;
+    }
+
+    // Re-poll after 1ms
+    shutdown_timer_->expires_after(std::chrono::milliseconds(1));
+    shutdown_timer_->async_wait([this](const boost::system::error_code&) {
+        poll_shutdown();
     });
 }
 
 uint16_t Server::port() const noexcept {
-    return acceptor_.port();
+    return acceptor_ ? acceptor_->port() : 0;
+}
+
+uint32_t Server::core_count() const noexcept {
+    return config_.num_cores;
+}
+
+bool Server::running() const noexcept {
+    return running_.load(std::memory_order_acquire);
+}
+
+boost::asio::io_context& Server::core_io_context(uint32_t core_id) {
+    return core_engine_->io_context(core_id);
 }
 
 void Server::on_accept(boost::asio::ip::tcp::socket socket) {
-    auto session = session_mgr_.create_session(std::move(socket));
-    // create_session 내부에서 이미 Active로 전이됨
-    boost::asio::co_spawn(io_ctx_, read_loop(session), boost::asio::detached);
+    uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed)
+                       % config_.num_cores;
+
+    auto& core_io = core_engine_->io_context(core_id);
+    boost::asio::post(core_io, [this, core_id,
+                                s = std::move(socket)]() mutable {
+        auto session = per_core_[core_id]->session_mgr.create_session(std::move(s));
+        boost::asio::co_spawn(
+            core_engine_->io_context(core_id),
+            read_loop(std::move(session), core_id),
+            boost::asio::detached);
+    });
 }
 
-// C-3: 재귀 콜백 대신 코루틴 루프 — [this] 캡처 댕글링 제거.
-// C-4: process_frames 후 is_open() 재확인 — while 조건에서 자연스럽게 해결.
-// C-5: RingBuffer 가득 참 시 session close + break.
-boost::asio::awaitable<void> Server::read_loop(SessionPtr session) {
+boost::asio::awaitable<void> Server::read_loop(SessionPtr session,
+                                                uint32_t core_id) {
+    active_sessions_.fetch_add(1, std::memory_order_relaxed);
+    auto& session_mgr = per_core_[core_id]->session_mgr;
     std::array<uint8_t, TMP_BUF_SIZE> tmp_buf;
+
     while (session->is_open()) {
         auto [ec, n] = co_await session->socket().async_read_some(
             boost::asio::buffer(tmp_buf),
             boost::asio::as_tuple(boost::asio::use_awaitable));
-        if (ec) break;
-        if (n == 0) break;
+        if (ec || n == 0) break;
 
-        // C-5: RingBuffer overflow 시 session close + break
         auto& rb = session->recv_buffer();
         if (rb.writable_size() < n) {
             session->close();
             break;
         }
 
-        // RingBuffer에 복사 (wrap-around 시 분할 복사)
+        // Copy to RingBuffer (split copy on wrap-around)
         auto w = rb.writable();
         if (w.size() >= n) {
             std::memcpy(w.data(), tmp_buf.data(), n);
@@ -141,31 +252,27 @@ boost::asio::awaitable<void> Server::read_loop(SessionPtr session) {
             rb.commit_write(n - first);
         }
 
-        // 프레임 파싱 + 디스패치
-        co_await process_frames(session);
+        co_await process_frames(session, core_id);
 
-        // 세션이 close된 경우 (ErrorResponse 전송 실패 등) 하트비트 리셋 불필요
         if (!session->is_open()) break;
 
-        // 하트비트 리셋
-        session_mgr_.touch_session(session->id());
+        session_mgr.touch_session(session->id());
     }
-    // 세션 정리
-    session_mgr_.remove_session(session->id());
+
+    session_mgr.remove_session(session->id());
+    active_sessions_.fetch_sub(1, std::memory_order_release);
 }
 
-boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
+boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
+                                                     uint32_t core_id) {
     auto& recv_buf = session->recv_buffer();
+    auto& dispatcher = per_core_[core_id]->dispatcher;
 
     while (auto frame = TcpBinaryProtocol::try_decode(recv_buf)) {
-        // SAFETY: 단일 io_context 스레드에서 read_loop -> process_frames가 순차 실행되므로,
-        // co_await 중에도 이 세션의 recv_buf에 새 데이터가 쓰이지 않는다.
-        // 따라서 linearize() 결과인 frame->payload span은 consume_frame() 전까지 유효하다.
-        auto result = co_await dispatcher_.dispatch(
+        auto result = co_await dispatcher.dispatch(
             session, frame->header.msg_id, frame->payload);
 
         if (!result.has_value()) {
-            // DispatchError (UnknownMessage, HandlerFailed)
             ErrorCode code = (result.error() == DispatchError::UnknownMessage)
                 ? ErrorCode::HandlerNotFound
                 : ErrorCode::Unknown;
@@ -173,7 +280,6 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
                 frame->header.msg_id, code);
             (void)co_await session->async_send_raw(error_frame);
         } else if (!result.value().has_value()) {
-            // 핸들러가 apex::error(ErrorCode::X)를 반환
             auto error_frame = ErrorSender::build_error_frame(
                 frame->header.msg_id, result.value().error());
             (void)co_await session->async_send_raw(error_frame);
@@ -181,23 +287,8 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session) {
 
         TcpBinaryProtocol::consume_frame(recv_buf, *frame);
 
-        // I-5: ErrorResponse 전송 실패 등으로 세션이 close된 경우 추가 프레임 처리 중단
         if (!session->is_open()) break;
     }
-}
-
-// NOTE: [this] 캡처 — Server가 tick_timer_보다 오래 살아야 함.
-// 소멸자에서 tick_timer_.cancel()로 보장됨.
-void Server::start_tick_timer() {
-    if (!running_.load(std::memory_order_relaxed)) return;
-
-    tick_timer_.expires_after(
-        std::chrono::milliseconds(config_.tick_interval_ms));
-    tick_timer_.async_wait([this](boost::system::error_code ec) {
-        if (ec || !running_.load(std::memory_order_relaxed)) return;
-        session_mgr_.tick();
-        start_tick_timer();
-    });
 }
 
 } // namespace apex::core

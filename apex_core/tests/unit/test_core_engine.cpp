@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <thread>
 
 using namespace apex::core;
@@ -131,12 +132,116 @@ TEST(CoreEngineTest, IoContextAccessValid) {
     EXPECT_THROW(engine.io_context(2), std::out_of_range);
 }
 
+TEST(CoreEngineTest, StartAndJoin) {
+    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+
+    std::atomic<uint64_t> received{0};
+    engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
+        received.store(msg.data, std::memory_order_relaxed);
+    });
+
+    engine.start();  // non-blocking
+    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+
+    CoreMessage msg;
+    msg.type = CoreMessage::Type::Custom;
+    msg.data = 777;
+    EXPECT_TRUE(engine.post_to(1, msg));
+
+    ASSERT_TRUE(wait_for([&]() { return received.load() == 777; }));
+
+    engine.stop();
+    engine.join();
+
+    EXPECT_FALSE(engine.running());
+}
+
 TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse) {
     CoreEngine engine({.num_cores = 2});
     CoreMessage msg;
     msg.type = CoreMessage::Type::Custom;
     msg.data = 1;
     EXPECT_FALSE(engine.post_to(99, msg));
+}
+
+TEST(CoreEngineTest, DrainCallback) {
+    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+
+    std::atomic<uint32_t> drain_count{0};
+    engine.set_drain_callback([&](uint32_t) {
+        drain_count.fetch_add(1, std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+
+    // drain_timer fires multiple times (Windows timer resolution ~15.6ms)
+    ASSERT_TRUE(wait_for([&]() { return drain_count.load() > 0; }));
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
+    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+
+    std::atomic<uint8_t> received_type{255};
+    engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
+        received_type.store(static_cast<uint8_t>(msg.type), std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+
+    // Custom messages go through message_handler_
+    CoreMessage msg;
+    msg.type = CoreMessage::Type::Custom;
+    msg.data = 123;
+    EXPECT_TRUE(engine.post_to(1, msg));
+
+    ASSERT_TRUE(wait_for([&]() { return received_type.load() != 255; }));
+    EXPECT_EQ(received_type.load(),
+              static_cast<uint8_t>(CoreMessage::Type::Custom));
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
+    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+
+    std::atomic<int> value{0};
+    auto* task = new std::function<void()>([&value] {
+        value.store(42, std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+
+    CoreMessage msg;
+    msg.type = CoreMessage::Type::CrossCoreRequest;
+    msg.data = reinterpret_cast<uint64_t>(task);
+    EXPECT_TRUE(engine.post_to(1, msg));
+
+    ASSERT_TRUE(wait_for([&]() { return value.load() == 42; }));
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
+    CoreEngine engine({.num_cores = 1, .drain_interval = 50us});
+
+    // CrossCoreRequest/Post data is std::function<void()>* (heap-allocated)
+    auto* task = new std::function<void()>([] {});
+    CoreMessage msg;
+    msg.type = CoreMessage::Type::CrossCoreRequest;
+    msg.data = reinterpret_cast<uint64_t>(task);
+    EXPECT_TRUE(engine.post_to(0, msg));
+
+    // drain_remaining deletes std::function<void()>* for CrossCore messages
+    engine.drain_remaining();
+    // ASAN would catch double-free or leak
 }
 
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
