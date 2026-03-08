@@ -20,9 +20,7 @@ D:\.workspace/
 │   └── CMakePresets.json
 ├── docs/                         ← 전체 프로젝트 문서 (중앙 집중)
 │   ├── Apex_Pipeline.md          ← 마스터 설계서
-│   ├── plans/                    ← 프로젝트 공통 계획서
-│   ├── progress/                 ← 프로젝트 공통 체크포인트
-│   ├── review/                   ← 프로젝트 공통 리뷰
+│   ├── apex_common/              ← 프로젝트 공통 (plans/progress/review)
 │   ├── apex_core/                ← 코어 프레임워크 문서
 │   ├── apex_infra/               ← 인프라 문서
 │   └── apex_shared/              ← 공유 라이브러리 문서
@@ -123,7 +121,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
-- **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/`, 걸치는 문서 → 관련 프로젝트 양쪽에 복사
+- **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 관련 프로젝트 양쪽에 복사
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 파일 작성 시간으로 정확히 맞출 것
 
 ### 코드 리뷰
