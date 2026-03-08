@@ -51,4 +51,4 @@ docker exec -it apex-redis redis-cli
 
 ## K8s
 
-- `k8s/` — Helm charts (서비스별, 향후 추가)
+- `k8s/` — Helm charts (서비스별, Phase 9에서 추가)

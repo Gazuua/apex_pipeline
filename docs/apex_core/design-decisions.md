@@ -183,7 +183,7 @@
 
 ### Graceful Shutdown
 - SIGTERM → acceptor 중지 → 코어별 세션 close → 세션 drain 폴링(active_sessions==0 대기) → CoreEngine stop → drain_remaining → join → 서비스 정지 → 종료
-- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (미구현, v0.3.0에서 구현 예정)
+- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (Phase 5에서 구현)
 
 ### 세션 관리
 - **코어 로컬 해시맵 + Redis 백업** (세션 상태 저장)
@@ -204,7 +204,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 예정
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 (Kafka/spdlog → Phase 6, Redis/libpq → Phase 7, jwt-cpp/prometheus-cpp → Phase 8~9)
 
 ---
 
@@ -243,32 +243,42 @@
 ### Phase 4.5: 통합 (단일 세션)
 - 채팅 예제 + 통합 테스트 → **v0.2.0**
 
-### Phase 5: 외부 어댑터 (에이전트 팀 4병렬)
-- Agent A: Kafka 어댑터 (Producer 공유 + Consumer 분리)
-- Agent B: Redis 어댑터 (redis-plus-plus async)
-- Agent C: PostgreSQL 어댑터 (libpq → Asio)
-- Agent D: 로깅 (spdlog + KafkaSink + trace_id)
+### Phase 5: 기반 정비 (CI/CD + 설정 + Graceful Shutdown)
+- CI/CD: GitHub Actions (빌드+테스트 자동화, docker-compose 통합 테스트)
+- TOML 설정: toml++ 통합, ServerConfig TOML 로딩, 설정 파일 구조
+- Graceful Shutdown: TOML에서 drain_timeout 로딩, Server::stop() 적용, SIGHUP 로그 레벨
 
-### Phase 5.5: 통합 (단일 세션)
-- 어댑터 통합 테스트 → **v0.3.0**
+### Phase 6: Kafka 체인 (Phase 7과 병렬 가능)
+- Kafka 어댑터: KafkaProducer 래퍼 (전역 공유, ADR-08), KafkaConsumer (파티션:코어 매핑), librdkafka fd → Asio
+- 로깅: spdlog 통합 (Console+File+KafkaSink), 구조화 JSON, trace_id 자동 주입
+- 내부 의존: Kafka 어댑터 → 로깅
 
-### Phase 6: 서비스 레이어 (에이전트 팀 4병렬)
-- Agent A: Gateway (TLS, JWT, 블룸필터, 라우팅)
-- Agent B: Auth 서비스 (토큰 발급/검증/블랙리스트)
-- Agent C: Graceful Shutdown + SIGHUP 로그 레벨
-- Agent D: Prometheus 메트릭 노출
+### Phase 7: 데이터 체인 (Phase 6과 병렬 가능)
+- Redis 어댑터: redis-plus-plus async (Asio 백엔드)
+- PG 어댑터: libpq fd → Asio 등록, 비동기 쿼리 래퍼
+- Connection Pool: 공통 풀 추상화, 코어별 인스턴스 (shared-nothing), health check
+- 내부 의존: Redis ∥ PG → Connection Pool
 
-### Phase 6.5: 통합 (단일 세션)
-- 전체 파이프라인 통합 테스트 → **v0.4.0**
+### Phase 7.5: 어댑터 통합 (단일 세션)
+- Phase 6 + 7 어댑터 통합 테스트 → **v0.3.0**
 
-### Phase 7: 배포 + 마무리 (에이전트 팀 4병렬)
-- Agent A: Dockerfile (멀티스테이지) + docker-compose (프로파일)
-- Agent B: K8s manifests + Helm
-- Agent C: GitHub Actions CI/CD
-- Agent D: 서비스 스캐폴딩 스크립트 (tools/new-service.sh)
+### Phase 8: Gateway 체인
+- WebSocket 프로토콜: WebSocketProtocol (ProtocolBase CRTP), Beast 통합, ping/pong (ADR-06)
+- Gateway: TLS 종단, JWT 검증 (ADR-07), 블룸필터, Kafka 라우팅, Rate Limiting
+- Auth 서비스: JWT 발급/갱신, Redis 블랙리스트, 블룸필터 Pub/Sub, PG 스키마
+- 내부 의존: WebSocket → Gateway ∥ Auth
 
-### Phase 7.5: 최종 통합 (단일 세션)
-- 전체 검증 + 문서 정리 → **v1.0.0**
+### Phase 8.5: 파이프라인 통합 (단일 세션)
+- E2E 통합 테스트 → **v0.4.0**
+
+### Phase 9: 운영 인프라 (4작업 완전 병렬)
+- 메트릭: prometheus-cpp, Grafana 대시보드
+- Docker: 서비스별 Dockerfile (멀티스테이지)
+- K8s: Helm Chart, HPA, ConfigMap, Health Check
+- CI/CD 고도화: Docker 빌드 + 배포, 스캐폴딩 스크립트
+
+### Phase 10: 최종 통합 (단일 세션)
+- K8s E2E, 부하 테스트, 문서 정리 → **v1.0.0**
 
 ---
 
