@@ -36,7 +36,7 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: boost-asio, boost-beast (Phase 8 Gateway WebSocket용), flatbuffers, gtest
+- **의존성 (vcpkg)**: boost-asio, boost-beast (Phase 8a WebSocket용), flatbuffers, gtest
 
 ### MSVC 주의사항
 

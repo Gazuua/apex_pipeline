@@ -204,7 +204,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 (Kafka/spdlog → Phase 6, Redis/libpq → Phase 7, jwt-cpp/prometheus-cpp → Phase 8~9)
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 (spdlog → Phase 5, Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
 
 ---
 
@@ -243,15 +243,16 @@
 ### Phase 4.5: 통합 (단일 세션)
 - 채팅 예제 + 통합 테스트 → **v0.2.0**
 
-### Phase 5: 기반 정비 (CI/CD + 설정 + Graceful Shutdown)
-- CI/CD: GitHub Actions (빌드+테스트 자동화, docker-compose 통합 테스트)
+### Phase 5: 기반 정비 (CI/CD + 설정 + 로깅 + Graceful Shutdown)
+- CI/CD: GitHub Actions (빌드+단위 테스트 자동화)
 - TOML 설정: toml++ 통합, ServerConfig TOML 로딩, 설정 파일 구조
+- spdlog 기본 통합: ConsoleSink + FileSink, 구조화 JSON, Sink 구성 TOML 연동
 - Graceful Shutdown: TOML에서 drain_timeout 로딩, Server::stop() 적용, SIGHUP 로그 레벨
 
 ### Phase 6: Kafka 체인 (Phase 7과 병렬 가능)
 - Kafka 어댑터: KafkaProducer 래퍼 (전역 공유, ADR-08), KafkaConsumer (파티션:코어 매핑), librdkafka fd → Asio
-- 로깅: spdlog 통합 (Console+File+KafkaSink), 구조화 JSON, trace_id 자동 주입
-- 내부 의존: Kafka 어댑터 → 로깅
+- KafkaSink: spdlog sink 추가 (중앙 집중 로그 파이프라인 완성), trace_id 자동 주입
+- 내부 의존: Kafka 어댑터 → KafkaSink
 
 ### Phase 7: 데이터 체인 (Phase 6과 병렬 가능)
 - Redis 어댑터: redis-plus-plus async (Asio 백엔드)
@@ -262,20 +263,24 @@
 ### Phase 7.5: 어댑터 통합 (단일 세션)
 - Phase 6 + 7 어댑터 통합 테스트 → **v0.3.0**
 
-### Phase 8: Gateway 체인
-- WebSocket 프로토콜: WebSocketProtocol (ProtocolBase CRTP), Beast 통합, ping/pong (ADR-06)
+### Phase 8a: WebSocket 프로토콜
+- WebSocketProtocol (ProtocolBase CRTP), Beast 통합, ping/pong (ADR-06)
+- 프레임워크 레벨 확장 — Gateway와 독립적으로 완성 가능
+
+### Phase 8b: Gateway + Auth 서비스
 - Gateway: TLS 종단, JWT 검증 (ADR-07), 블룸필터, Kafka 라우팅, Rate Limiting
 - Auth 서비스: JWT 발급/갱신, Redis 블랙리스트, 블룸필터 Pub/Sub, PG 스키마
-- 내부 의존: WebSocket → Gateway ∥ Auth
+- 내부 의존: Phase 8a(WebSocket) → Gateway ∥ Auth
 
 ### Phase 8.5: 파이프라인 통합 (단일 세션)
 - E2E 통합 테스트 → **v0.4.0**
+- 코어 프레임워크 baseline 벤치마크 (Google Benchmark — TPS/Latency)
 
-### Phase 9: 운영 인프라 (4작업 완전 병렬)
+### Phase 9: 운영 인프라 (4작업 완전 병렬) → **v0.5.0**
 - 메트릭: prometheus-cpp, Grafana 대시보드
 - Docker: 서비스별 Dockerfile (멀티스테이지)
 - K8s: Helm Chart, HPA, ConfigMap, Health Check
-- CI/CD 고도화: Docker 빌드 + 배포, 스캐폴딩 스크립트
+- CI/CD 고도화: Docker 빌드 + 배포, docker-compose 통합 테스트, 스캐폴딩 스크립트
 
 ### Phase 10: 최종 통합 (단일 세션)
 - K8s E2E, 부하 테스트, 문서 정리 → **v1.0.0**

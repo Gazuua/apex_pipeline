@@ -4,7 +4,7 @@ MSA 서비스 디렉토리. 각 서비스는 독립 빌드(`vcpkg.json` + `CMake
 
 | 서비스 | 역할 | 구현 Phase |
 |--------|------|-----------|
-| gateway | WebSocket/HTTP 게이트웨이 | Phase 8 |
-| auth-svc | 인증/인가 | Phase 8 |
+| gateway | WebSocket/HTTP 게이트웨이 | Phase 8b |
+| auth-svc | 인증/인가 | Phase 8b |
 | chat-svc | 채팅 로직 | 미정 |
 | log-svc | 로그 수집/저장 | 미정 |
