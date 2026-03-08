@@ -231,15 +231,19 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - CI Status: ✅ 전체 통과
    ```
 
-2. **보고서 커밋 + 푸시**
+2. **프로젝트 문서 업데이트**
+   - `docs/Apex_Pipeline.md` (마스터 설계서): 아키텍처 영향 변경이 있었다면 해당 섹션 반영
+   - 워크트리 루트 `README.md` (프로젝트 진행 상황): 완료 항목 추가, 알려진 이슈 갱신 등 현재 상태 반영
 
-3. **Squash Merge + 정리**
+3. **보고서 + 문서 커밋 + 푸시**
+
+4. **Squash Merge + 정리**
    ```bash
    gh pr merge {PR번호} --squash --delete-branch
    ```
    - 워크트리 정리: `git worktree remove .worktrees/{name}`
 
-4. **유저에게 완료 보고**
+5. **유저에게 완료 보고**
    - PR URL
    - 총 리뷰 라운드 수
    - 수정된 이슈 총 건수
