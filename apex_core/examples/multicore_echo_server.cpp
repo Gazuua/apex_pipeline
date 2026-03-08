@@ -1,7 +1,11 @@
 /// Apex Pipeline - Multicore Echo Server Example (v0.2.4)
 ///
-/// io_context-per-core 아키텍처 시연.
-/// 각 코어가 독립된 EchoService 인스턴스를 소유.
+/// Demonstrates the io_context-per-core (shared-nothing) architecture.
+/// Each core owns an independent EchoService instance.
+///
+/// NOTE: The EchoService class is intentionally duplicated from
+/// echo_server.cpp to keep each example self-contained.
+/// This variant defaults to 4 cores and displays hardware_concurrency().
 ///
 /// Usage: multicore_echo_server [port] [cores]
 ///   Default: port=9000, cores=4

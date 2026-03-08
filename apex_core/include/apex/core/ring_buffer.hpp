@@ -52,7 +52,16 @@ public:
     /// If they wrap around, copies them into an internal linearization buffer
     /// and returns a span to that buffer.
     /// @return span of exactly `n` bytes, or empty span if readable_size() < n.
+    /// @warning The returned span is valid only until the next call to
+    /// consume(), linearize(), or reset(). Do NOT store the span across
+    /// co_await boundaries or RingBuffer mutations.
+    /// - Contiguous case: points into internal buffer_ (invalidated by consume)
+    /// - Wrap-around case: points into linear_buf_ (invalidated by next linearize)
     [[nodiscard]] std::span<const uint8_t> linearize(size_t n);
+
+    /// Write data into the ring buffer, handling wrap-around internally.
+    /// @return true if all data was written, false if insufficient space.
+    bool write(std::span<const uint8_t> data) noexcept;
 
     /// Total buffer capacity.
     [[nodiscard]] size_t capacity() const noexcept;

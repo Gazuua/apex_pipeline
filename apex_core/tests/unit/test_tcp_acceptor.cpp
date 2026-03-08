@@ -96,3 +96,51 @@ TEST(TcpAcceptor, StopPreventsNewAccepts) {
     EXPECT_EQ(accept_count.load(), 0);
     t.join();
 }
+
+TEST(TcpAcceptor, IPv6AcceptConnection) {
+    // Skip if IPv6 is not available on this machine
+    boost::asio::io_context probe_ctx;
+    {
+        boost::system::error_code ec;
+        tcp::acceptor probe(probe_ctx);
+        probe.open(tcp::v6(), ec);
+        if (ec) {
+            GTEST_SKIP() << "IPv6 not available: " << ec.message();
+        }
+        probe.bind(tcp::endpoint(tcp::v6(), 0), ec);
+        if (ec) {
+            GTEST_SKIP() << "IPv6 bind failed: " << ec.message();
+        }
+        probe.close();
+    }
+
+    boost::asio::io_context io_ctx;
+    std::atomic<int> accept_count{0};
+
+    TcpAcceptor acceptor(io_ctx, 0, [&](tcp::socket) { ++accept_count; }, tcp::v6());
+    acceptor.start();
+    EXPECT_GT(acceptor.port(), 0);
+
+    std::thread t([&] { io_ctx.run(); });
+
+    boost::asio::io_context client_ctx;
+    tcp::socket client(client_ctx);
+    boost::system::error_code ec;
+    client.connect(tcp::endpoint(boost::asio::ip::address_v6::loopback(), acceptor.port()), ec);
+
+    if (ec) {
+        // IPv6 connection failed (e.g., loopback disabled) — not a test failure
+        acceptor.stop();
+        t.join();
+        GTEST_SKIP() << "IPv6 loopback connection failed: " << ec.message();
+    }
+
+    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (accept_count.load() < 1 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(accept_count.load(), 1);
+    client.close();
+    acceptor.stop();
+    t.join();
+}

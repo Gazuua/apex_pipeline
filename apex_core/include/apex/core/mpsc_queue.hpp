@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -60,8 +61,12 @@ public:
     [[nodiscard]] bool empty() const noexcept;
 
 private:
-    // NOTE: 작은 T에서 인접 슬롯 간 false sharing 가능성 있음.
-    // 성능 크리티컬 시 벤치마크 후 alignas(64) 패딩 고려.
+    // NOTE: Adjacent slots may share a cache line when T is small.
+    // For CoreMessage (~16 bytes), sizeof(Slot) ≈ 17-24 bytes, meaning
+    // ~3-4 slots fit in one 64-byte cache line. This is acceptable because
+    // the current drain_interval (>15ms) makes producer-consumer contention
+    // rare. If sub-millisecond drain intervals are ever needed, consider
+    // alignas(64) padding per slot (at the cost of 3-4x memory).
     struct Slot {
         std::atomic<bool> ready{false};
         T data;
@@ -99,6 +104,9 @@ MpscQueue<T>::MpscQueue(size_t capacity)
 template <typename T>
     requires std::is_trivially_copyable_v<T>
 MpscQueue<T>::~MpscQueue() {
+    // Note: items may legitimately remain during shutdown (e.g., backpressure
+    // tests, graceful shutdown with pending cross-core messages). This is not
+    // an error — trivially_copyable items need no destructor cleanup.
     delete[] slots_;
 }
 
@@ -106,7 +114,11 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
     size_t head = head_.load(std::memory_order_relaxed);
-    // stale tail is safe: if tail has advanced, we have more space, not less
+    // Stale tail is safe and intentional: if tail has advanced since our read,
+    // there is actually MORE space available, so a false Full return is the
+    // conservative (backpressure-friendly) choice. Reloading tail on CAS
+    // failure would reduce false positives under high contention but adds an
+    // extra atomic load per retry. Current trade-off favors simplicity.
     size_t tail = tail_.load(std::memory_order_acquire);
     for (;;) {
         if (head - tail >= capacity_) {

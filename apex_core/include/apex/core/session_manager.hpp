@@ -38,12 +38,21 @@ public:
 
     using TimeoutCallback = std::function<void(SessionPtr)>;
 
-    /// WARNING: The timeout callback must NOT call tick() or any method that
+    /// Set the callback invoked when a session times out (heartbeat expiry).
+    ///
+    /// @note When the callback is invoked, the session has already been removed
+    /// from the sessions_ map but is NOT yet closed. The session will be closed
+    /// immediately after the callback returns. Do NOT call find_session() for
+    /// this session from within the callback — it will return nullptr.
+    ///
+    /// @warning The timeout callback must NOT call tick() or any method that
     /// modifies the timer/session maps. Doing so will invalidate internal
     /// iterators and cause undefined behavior.
     void set_timeout_callback(TimeoutCallback cb);
 
-    /// 모든 활성 세션에 대해 콜백 실행 (브로드캐스트 용도).
+    /// Execute callback for all active sessions (e.g., broadcast).
+    /// @warning Do NOT modify the SessionManager (add/remove sessions) from
+    /// within the callback — this would invalidate the internal map iterator.
     void for_each(std::function<void(SessionPtr)> fn) const;
 
     [[nodiscard]] size_t session_count() const noexcept;
@@ -57,6 +66,7 @@ private:
     uint32_t core_id_;
     uint32_t heartbeat_timeout_ticks_;
     size_t recv_buf_capacity_;
+    // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     SessionId next_id_{1};
 
     std::unordered_map<SessionId, SessionPtr> sessions_;

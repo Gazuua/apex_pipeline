@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "apex-pipeline",
-  "version-semver": "0.2.3",
+  "version-semver": "0.2.4",
   "description": "Apex Pipeline - High-performance real-time server monorepo",
   "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01",
   "dependencies": [
@@ -14,14 +14,8 @@
       "version>=": "1.84.0"
     },
     "flatbuffers",
-    "spdlog",
-    "tomlplusplus",
     {
       "name": "gtest",
-      "host": true
-    },
-    {
-      "name": "benchmark",
       "host": true
     }
   ]

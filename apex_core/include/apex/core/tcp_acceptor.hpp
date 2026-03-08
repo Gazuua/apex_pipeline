@@ -11,12 +11,17 @@
 
 namespace apex::core {
 
-/// 재사용 가능한 비동기 TCP accept 루프 (코루틴 기반).
+/// Reusable asynchronous TCP accept loop (coroutine-based).
 class TcpAcceptor {
 public:
     using AcceptCallback = std::function<void(boost::asio::ip::tcp::socket)>;
 
-    /// @param protocol  I-6: IPv4/IPv6 선택 (기본값 v4, 하위 호환).
+    /// Provides a target io_context for each accepted socket. When set,
+    /// async_accept binds the new socket directly to the returned io_context's
+    /// IOCP/epoll, avoiding the default binding to the acceptor's io_context.
+    using ContextProvider = std::function<boost::asio::io_context&()>;
+
+    /// @param protocol  IPv4/IPv6 selection (default v4, backward compatible).
     TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
                 AcceptCallback on_accept,
                 boost::asio::ip::tcp protocol = boost::asio::ip::tcp::v4());
@@ -25,26 +30,34 @@ public:
     TcpAcceptor(const TcpAcceptor&) = delete;
     TcpAcceptor& operator=(const TcpAcceptor&) = delete;
 
-    /// 비동기 accept 루프 시작 (co_spawn).
+    /// Set a context provider for IOCP-correct socket binding.
+    /// Must be called before start(). When set, each accepted socket is
+    /// bound to the io_context returned by the provider (e.g., round-robin
+    /// across per-core io_contexts), instead of the acceptor's own io_context.
+    void set_context_provider(ContextProvider provider);
+
+    /// Start the async accept loop (co_spawn).
     void start();
 
-    /// accept 루프 중단.
+    /// Stop the accept loop.
     void stop();
 
-    /// 바인딩된 실제 포트 (port=0 전달 시 OS 할당).
+    /// Actual bound port (useful when port=0 was passed for OS assignment).
     [[nodiscard]] uint16_t port() const noexcept;
 
-    /// 실행 중 여부.
+    /// Whether the accept loop is running.
     [[nodiscard]] bool running() const noexcept { return running_.load(std::memory_order_relaxed); }
 
 private:
-    /// C-3: 재귀 콜백 대신 코루틴 루프 — [this] 캡처 댕글링 제거.
+    /// Coroutine accept loop — replaces recursive callback to avoid
+    /// [this] capture dangling.
     boost::asio::awaitable<void> accept_loop();
 
     boost::asio::io_context& io_ctx_;
     boost::asio::ip::tcp::acceptor acceptor_;
-    boost::asio::steady_timer backoff_timer_;  // I-2: 멤버로 승격 — stop()에서 cancel 가능
+    boost::asio::steady_timer backoff_timer_;  // Member — stop() can cancel
     AcceptCallback on_accept_;
+    ContextProvider context_provider_;
     std::atomic<bool> running_{false};
 };
 

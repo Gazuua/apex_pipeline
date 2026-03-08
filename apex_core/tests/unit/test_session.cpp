@@ -131,3 +131,31 @@ TEST_F(SessionTest, DoubleCloseIsSafe) {
 
     client.close();
 }
+
+TEST_F(SessionTest, SendAfterPeerDisconnect) {
+    auto [server_sock, client] = make_socket_pair(io_ctx_);
+    auto session = std::make_shared<Session>(1, std::move(server_sock), 0);
+
+    // Close the client side first to simulate peer disconnect
+    client.close();
+
+    // Give the OS a moment to propagate the TCP RST/FIN
+    io_ctx_.run_for(std::chrono::milliseconds(10));
+    io_ctx_.restart();
+
+    // Try to send from the server side -- should handle the error gracefully
+    std::vector<uint8_t> payload = {0xDE, 0xAD};
+    WireHeader header{.msg_id = 0x0001,
+                      .body_size = static_cast<uint32_t>(payload.size())};
+    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
+    // Send may return true on first attempt (buffered) or false if connection reset.
+    // The key assertion is that it does not crash or throw.
+    // If first send succeeded, a second send after a brief delay should fail.
+    if (sent) {
+        io_ctx_.run_for(std::chrono::milliseconds(10));
+        io_ctx_.restart();
+        bool sent2 = run_coro(io_ctx_, session->async_send(header, payload));
+        // Eventually the broken pipe should be detected
+        (void)sent2;  // may or may not fail depending on OS buffering
+    }
+}

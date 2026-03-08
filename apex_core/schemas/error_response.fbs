@@ -1,5 +1,7 @@
 namespace apex.messages;
 
+file_identifier "AERR";
+
 table ErrorResponse {
     code:uint16;
     message:string;

@@ -109,12 +109,14 @@
 
 ## ADR-04: 디렉토리 구조
 
+> **※ 현행 주석**: 아래는 초기 브레인스토밍 당시 결정 기록이다. 현재 구조는 `apex_` prefix 기반으로 재편되었으며, 최신 구조는 `docs/Apex_Pipeline.md` §7 프로젝트 구조를 참조할 것.
+
 ### 맥락
 - Apex Pipeline 전체는 모노레포
 - apex_core는 `core/`로 위치, 서비스들이 CMake 의존성으로 사용
 - 네임스페이스 통일 필요
 
-### 결정
+### 결정 (초기안)
 
 ```
 apex-pipeline/
@@ -149,7 +151,7 @@ apex-pipeline/
 
 **A. 10초** — 빠른 종료 우선, 미처리 건은 재연결 후 재시도
 **B. 25초** — K8s 30초 내에서 여유 5초 두고 최대한 drain
-**C. 설정 가능, 기본값 25초** — TOML에서 오버라이드 가능
+**C. 설정 가능, 기본값 25초** — TOML에서 오버라이드 가능 (미구현, v0.3.0에서 구현 예정)
 
 ### 결정: C (설정 가능, 기본값 25초)
 
@@ -406,7 +408,7 @@ apex-pipeline/
 - 새 서비스 추가 시 보일러플레이트 8단계
 
 ### 결정
-1. **docker-compose 프로파일 분리**: minimal(3개) / observability / full
+1. **docker-compose 프로파일 분리**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 2. **서비스 스캐폴딩 스크립트**: tools/new-service.sh로 보일러플레이트 자동 생성
 
 ### 근거

@@ -32,7 +32,11 @@ public:
     TimingWheel& operator=(TimingWheel&&) = delete;
 
     /// Add an entry that expires after `ticks_from_now` ticks.
-    /// ticks_from_now=0이면 다음 tick() 호출 시 즉시 만료된다.
+    /// @param ticks_from_now Number of ticks until expiration. 0 means "expire on
+    /// the next tick() call". Note: if called from within a tick() callback,
+    /// schedule(0) targets the current slot which has already been collected,
+    /// so the entry will expire after a full wheel revolution (num_slots ticks).
+    /// Use ticks_from_now >= 1 from within callbacks to avoid this behavior.
     /// @note 매 호출 시 힙 할당 발생. 빈번한 타임아웃 갱신은 reschedule()을 사용할 것.
     /// @return EntryId for later cancel/reschedule.
     [[nodiscard]] EntryId schedule(uint32_t ticks_from_now);

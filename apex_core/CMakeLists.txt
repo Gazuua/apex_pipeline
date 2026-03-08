@@ -13,6 +13,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+    # TODO: Linux io_uring 통합 시 활성화
     option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
     enable_testing()
@@ -88,6 +89,5 @@ if(WIN32)
     target_link_libraries(apex_core PUBLIC ws2_32 mswsock)
 endif()
 
-enable_testing()
 add_subdirectory(tests)
 add_subdirectory(examples)

@@ -53,6 +53,10 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
 
     // Type-erased task to execute on target core.
     // Captures shared_ptr to state and timer for safe cross-thread access.
+    // Race between func execution and timeout is inherent and intentional.
+    // If timeout wins the CAS race, func may still execute (already past the
+    // early check) but its result is discarded. This matches Seastar's model.
+    // Side-effectful funcs must be idempotent or accept at-most-once semantics.
     auto* task = new std::function<void()>(
         [state, timer, f = std::move(func)]() mutable {
             // Early check: skip execution if already timed out.
@@ -110,6 +114,10 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
     auto timer = std::make_shared<boost::asio::steady_timer>(executor);
     timer->expires_after(timeout);
 
+    // Race between func execution and timeout is inherent and intentional.
+    // If timeout wins the CAS race, func may still execute (already past the
+    // early check) but its result is discarded. This matches Seastar's model.
+    // Side-effectful funcs must be idempotent or accept at-most-once semantics.
     auto* task = new std::function<void()>(
         [state, timer, f = std::move(func)]() mutable {
             if (state->status.load(std::memory_order_acquire) != 0) {

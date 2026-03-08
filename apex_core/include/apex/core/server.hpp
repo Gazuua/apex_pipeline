@@ -41,6 +41,10 @@ struct ServerConfig {
 
 /// Per-core isolated state (shared-nothing). Each core owns its own
 /// SessionManager, MessageDispatcher, and service instances.
+///
+/// Members are destroyed in reverse declaration order. 'services' is declared
+/// after 'dispatcher', so services are destroyed first — ensuring dispatcher_
+/// pointers remain valid during ServiceBase::stop() calls in ~Server().
 struct PerCoreState {
     uint32_t core_id;
     SessionManager session_mgr;

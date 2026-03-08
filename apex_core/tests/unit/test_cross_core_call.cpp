@@ -103,7 +103,7 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
         [this, &promise]() -> boost::asio::awaitable<void> {
             auto result = co_await server_->cross_core_call(1,
                 [] {
-                    std::this_thread::sleep_for(500ms);
+                    std::this_thread::sleep_for(50ms);
                     return 0;
                 },
                 10ms);  // 10ms timeout

@@ -37,6 +37,15 @@
       }
     },
     {
+      "name": "asan-msvc",
+      "displayName": "Debug + AddressSanitizer (MSVC)",
+      "inherits": "debug",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "/fsanitize=address",
+        "APEX_BUILD_VARIANT": "asan"
+      }
+    },
+    {
       "name": "tsan",
       "displayName": "Debug + ThreadSanitizer (Clang/GCC only)",
       "inherits": "debug",
@@ -50,6 +59,7 @@
     { "name": "default", "configurePreset": "default" },
     { "name": "debug", "configurePreset": "debug" },
     { "name": "asan", "configurePreset": "asan" },
+    { "name": "asan-msvc", "configurePreset": "asan-msvc" },
     { "name": "tsan", "configurePreset": "tsan" }
   ],
   "testPresets": [

@@ -1,5 +1,3 @@
-find_package(Boost REQUIRED)
-
 # Build variant suffix: debug → _debug, asan → _asan, default(release) → no suffix
 if(APEX_BUILD_VARIANT)
     set(_variant_suffix "_${APEX_BUILD_VARIANT}")

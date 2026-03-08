@@ -1,5 +1,7 @@
 namespace apex.messages;
 
+file_identifier "CHAT";
+
 table ChatMessage {
     sender_id:uint64;
     content:string;

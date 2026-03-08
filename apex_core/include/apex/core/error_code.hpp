@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 #include <string_view>
 
 namespace apex::core {
@@ -8,7 +9,7 @@ namespace apex::core {
 enum class ErrorCode : uint16_t {
     Ok = 0,
 
-    // 프레임워크 에러 (1-999)
+    // Framework errors (1-999)
     Unknown = 1,
     InvalidMessage = 2,
     HandlerNotFound = 3,
@@ -19,7 +20,7 @@ enum class ErrorCode : uint16_t {
     CrossCoreTimeout = 8,
     CrossCoreQueueFull = 9,
 
-    // 어플리케이션 에러 (1000+)
+    // Application errors (1000+)
     AppError = 1000,
 };
 
@@ -38,6 +39,11 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::AppError: return "AppError";
         default: return "Unknown";
     }
+}
+
+// M-6: Stream formatter for ErrorCode
+inline std::ostream& operator<<(std::ostream& os, ErrorCode ec) {
+    return os << error_code_name(ec);
 }
 
 } // namespace apex::core

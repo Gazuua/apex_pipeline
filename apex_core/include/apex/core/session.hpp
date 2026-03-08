@@ -7,6 +7,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/awaitable.hpp>
 
+#include <cassert>
 #include <cstdint>
 #include <memory>
 
@@ -61,7 +62,11 @@ public:
     [[nodiscard]] RingBuffer& recv_buffer() noexcept { return recv_buf_; }
 
 private:
-    void set_state(State s) noexcept { state_ = s; }
+    // M-1: Assert valid state transition — Closed is a terminal state
+    void set_state(State s) noexcept {
+        assert(state_ != State::Closed && "Cannot transition from Closed state");
+        state_ = s;
+    }
     friend class SessionManager;
 
     SessionId id_;

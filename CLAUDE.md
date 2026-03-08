@@ -13,7 +13,7 @@ D:\.workspace/
 │   ├── include/apex/core/        ← 헤더 (ProtocolBase, ServiceBase, Server 등)
 │   ├── src/                      ← 구현체
 │   ├── tests/                    ← unit/ + integration/
-│   ├── examples/                 ← echo_server, chat_server
+│   ├── examples/                 ← echo_server, chat_server, multicore_echo_server
 │   ├── schemas/                  ← FlatBuffers 스키마
 │   ├── bin/                      ← 빌드 출력
 │   ├── build.bat / build.sh
@@ -96,7 +96,7 @@ boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 
 - gRPC 제거 → 자체 프레임워크가 모든 네트워킹 담당
 - MSA: Gateway(WS/HTTP) → Kafka(중앙 버스) → Services → Redis/PostgreSQL
-- 코루틴 프레임 할당: mimalloc/jemalloc + HALO (ADR-21)
+- 코루틴 프레임 할당: mimalloc/jemalloc + HALO (ADR-21) (설계 결정, 미구현 — 기본 allocator 사용 중)
 - 서비스별 독립 vcpkg.json (Docker 독립 빌드용)
 - `apex_` prefix로 모든 프로젝트 디렉토리 통일
 - 설계 문서: `docs/apex_core/design-decisions.md`, `docs/apex_core/design-rationale.md` (ADR 23개)

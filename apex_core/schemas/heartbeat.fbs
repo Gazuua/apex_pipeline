@@ -1,5 +1,7 @@
 namespace apex.messages;
 
+file_identifier "AHBT";
+
 table Heartbeat {
     timestamp_ms:uint64;
 }

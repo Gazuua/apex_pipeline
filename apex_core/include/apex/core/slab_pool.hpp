@@ -15,6 +15,10 @@ namespace apex::core {
 /// Memory is pre-allocated in chunks. Each chunk contains N slots of
 /// fixed size. Free slots are tracked via an intrusive free-list.
 ///
+/// @note This is a fixed-size pool. allocate() returns nullptr when exhausted.
+/// Auto-grow is intentionally not supported — callers must size the pool
+/// appropriately at construction time (e.g., based on max expected sessions per core).
+///
 /// Usage:
 ///   SlabPool pool(sizeof(MyObject), 1024);  // 1024 slots
 ///   void* p = pool.allocate();
@@ -102,7 +106,12 @@ public:
     [[nodiscard]] T* construct(Args&&... args) {
         void* p = pool_.allocate();
         if (!p) return nullptr;
-        return new (p) T(std::forward<Args>(args)...);
+        try {
+            return new (p) T(std::forward<Args>(args)...);
+        } catch (...) {
+            pool_.deallocate(p);
+            throw;
+        }
     }
 
     void destroy(T* ptr) noexcept {

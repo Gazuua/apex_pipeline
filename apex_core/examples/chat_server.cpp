@@ -48,12 +48,18 @@ public:
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
 
+        auto payload_span = std::span<const uint8_t>{
+            builder.GetBufferPointer(), builder.GetSize()};
+
         std::vector<SessionPtr> sessions;
         session_mgr_.for_each([&](SessionPtr s) {
             sessions.push_back(s);
         });
         for (auto& s : sessions) {
-            co_await s->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+            if (!co_await s->async_send(header, payload_span)) {
+                // Send failed — peer likely disconnected. Session cleanup
+                // is handled by the read_loop, so we just skip here.
+            }
         }
         co_return ok();
     }

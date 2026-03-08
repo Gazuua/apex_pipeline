@@ -234,3 +234,88 @@ TEST(TimingWheel, LargeNumberOfEntries) {
     EXPECT_EQ(expire_count, 1000u);
     EXPECT_EQ(tw.active_count(), 0u);
 }
+
+TEST(TimingWheel, RescheduleWithOtherEntriesInOldSlot) {
+    // Verify linked list integrity when reschedule removes an entry from a slot
+    // that contains other entries.
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    // Schedule 3 entries in the same slot (same deadline)
+    auto id1 = tw.schedule(5);
+    auto id2 = tw.schedule(5);
+    auto id3 = tw.schedule(5);
+    EXPECT_EQ(tw.active_count(), 3u);
+
+    // Reschedule the middle entry (id2) to a different slot
+    tw.reschedule(id2, 10);
+    EXPECT_EQ(tw.active_count(), 3u);  // still 3 active entries
+
+    // Tick past the original deadline — id1 and id3 should expire
+    for (int i = 0; i < 6; ++i) tw.tick();
+    EXPECT_EQ(expired.size(), 2u);
+    EXPECT_TRUE(expired.contains(id1));
+    EXPECT_TRUE(expired.contains(id3));
+    EXPECT_FALSE(expired.contains(id2));
+
+    // id2 should still be active
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    // Tick until id2 expires (rescheduled to tick 10, fires on tick 10+1=11)
+    for (int i = 0; i < 6; ++i) tw.tick();  // ticks 6..11
+    EXPECT_TRUE(expired.contains(id2));
+    EXPECT_EQ(expired.size(), 3u);
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
+TEST(TimingWheel, RescheduleFirstEntryInSlot) {
+    // Reschedule the head of a multi-entry slot
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    auto id1 = tw.schedule(3);
+    auto id2 = tw.schedule(3);
+    EXPECT_EQ(tw.active_count(), 2u);
+
+    // Reschedule id1 (first scheduled, could be head or tail depending on impl)
+    tw.reschedule(id1, 8);
+    EXPECT_EQ(tw.active_count(), 2u);
+
+    // Tick past deadline 3 — only id2 should fire
+    for (int i = 0; i < 4; ++i) tw.tick();
+    EXPECT_EQ(expired.size(), 1u);
+    EXPECT_TRUE(expired.contains(id2));
+
+    // Tick until id1 fires
+    for (int i = 0; i < 6; ++i) tw.tick();
+    EXPECT_EQ(expired.size(), 2u);
+    EXPECT_TRUE(expired.contains(id1));
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
+TEST(TimingWheel, RescheduleLastEntryInSlot) {
+    // Reschedule the tail of a multi-entry slot
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    auto id1 = tw.schedule(3);
+    auto id2 = tw.schedule(3);
+    auto id3 = tw.schedule(3);
+    EXPECT_EQ(tw.active_count(), 3u);
+
+    // Reschedule id3 (last scheduled)
+    tw.reschedule(id3, 8);
+    EXPECT_EQ(tw.active_count(), 3u);
+
+    // Tick past deadline 3 — id1 and id2 should fire
+    for (int i = 0; i < 4; ++i) tw.tick();
+    EXPECT_EQ(expired.size(), 2u);
+    EXPECT_TRUE(expired.contains(id1));
+    EXPECT_TRUE(expired.contains(id2));
+    EXPECT_FALSE(expired.contains(id3));
+
+    // Tick until id3 fires
+    for (int i = 0; i < 6; ++i) tw.tick();
+    EXPECT_TRUE(expired.contains(id3));
+    EXPECT_EQ(tw.active_count(), 0u);
+}

@@ -232,16 +232,36 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
     CoreEngine engine({.num_cores = 1, .drain_interval = 50us});
 
-    // CrossCoreRequest/Post data is std::function<void()>* (heap-allocated)
-    auto* task = new std::function<void()>([] {});
-    CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
-    EXPECT_TRUE(engine.post_to(0, msg));
+    // Track whether each task's destructor was called by watching an external flag
+    auto flag1 = std::make_shared<bool>(false);
+    auto flag2 = std::make_shared<bool>(false);
+
+    // CrossCoreRequest: captures shared_ptr, destructor sets flag
+    auto* task1 = new std::function<void()>([flag1] { *flag1 = true; });
+    CoreMessage msg1;
+    msg1.type = CoreMessage::Type::CrossCoreRequest;
+    msg1.data = reinterpret_cast<uint64_t>(task1);
+    EXPECT_TRUE(engine.post_to(0, msg1));
+
+    // CrossCorePost: same pattern
+    auto* task2 = new std::function<void()>([flag2] { *flag2 = true; });
+    CoreMessage msg2;
+    msg2.type = CoreMessage::Type::CrossCorePost;
+    msg2.data = reinterpret_cast<uint64_t>(task2);
+    EXPECT_TRUE(engine.post_to(0, msg2));
+
+    // Verify tasks have NOT been executed (engine was never started)
+    EXPECT_FALSE(*flag1);
+    EXPECT_FALSE(*flag2);
 
     // drain_remaining deletes std::function<void()>* for CrossCore messages
     engine.drain_remaining();
-    // ASAN would catch double-free or leak
+
+    // After drain, the shared_ptrs captured inside the deleted std::functions
+    // should have been released. Since we hold the last reference via flag1/flag2,
+    // the shared_ptr ref count should be 1 (only our local copy).
+    EXPECT_EQ(flag1.use_count(), 1);
+    EXPECT_EQ(flag2.use_count(), 1);
 }
 
 TEST(CoreEngineTest, MultipleInterCoreMessages) {

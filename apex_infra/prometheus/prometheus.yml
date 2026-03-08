@@ -6,3 +6,13 @@ scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+
+  # --- Apex 서비스 엔드포인트 (향후 추가) ---
+  # - job_name: "apex-gateway"
+  #   static_configs:
+  #     - targets: ["host.docker.internal:8080"]
+  #   metrics_path: /metrics
+  # - job_name: "apex-services"
+  #   static_configs:
+  #     - targets: ["host.docker.internal:8081"]
+  #   metrics_path: /metrics

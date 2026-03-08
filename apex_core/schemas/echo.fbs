@@ -1,5 +1,7 @@
 namespace apex.messages;
 
+file_identifier "ECHO";
+
 table EchoRequest {
     data:[ubyte];
 }
@@ -7,5 +9,3 @@ table EchoRequest {
 table EchoResponse {
     data:[ubyte];
 }
-
-root_type EchoRequest;

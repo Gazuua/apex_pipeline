@@ -94,6 +94,10 @@ void SlabPool::deallocate(void* ptr) noexcept {
 
     auto* node = static_cast<FreeNode*>(ptr);
 
+    // NOTE: Magic-based detection is best-effort. If the user overwrites the
+    // entire slot (sizeof(T) >= sizeof(FreeNode)), the magic value is destroyed
+    // and double-free detection becomes ineffective in Release builds.
+
     // Double-free 감지: magic이 FREED이면 이미 반환된 슬롯
     if (node->magic == SLAB_MAGIC_FREED) {
         assert(false && "deallocate: double-free detected");
@@ -107,6 +111,9 @@ void SlabPool::deallocate(void* ptr) noexcept {
 }
 
 bool SlabPool::owns(void* ptr) const noexcept {
+    // Linear scan over chunks. O(1) when pool has a single chunk (typical case —
+    // grow() is only called from the constructor). If auto-grow is ever added,
+    // consider a sorted vector + binary search or an interval tree.
     auto* p = static_cast<uint8_t*>(ptr);
     for (const auto& chunk : chunks_) {
         if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count) {

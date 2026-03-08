@@ -14,14 +14,8 @@
       "version>=": "1.84.0"
     },
     "flatbuffers",
-    "spdlog",
-    "tomlplusplus",
     {
       "name": "gtest",
-      "host": true
-    },
-    {
-      "name": "benchmark",
       "host": true
     }
   ]

@@ -264,12 +264,18 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect) {
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    std::this_thread::sleep_for(200ms);
-
+    // Poll for disconnect instead of sleeping a fixed duration (flaky fix)
+    auto deadline = std::chrono::steady_clock::now() + 5s;
     boost::system::error_code ec;
     std::array<uint8_t, 1> buf{};
-    client.read_some(boost::asio::buffer(buf), ec);
+    client.non_blocking(true);
+    while (std::chrono::steady_clock::now() < deadline) {
+        client.read_some(boost::asio::buffer(buf), ec);
+        if (ec && ec != boost::asio::error::would_block) break;
+        std::this_thread::sleep_for(10ms);
+    }
     EXPECT_TRUE(ec);
+    EXPECT_NE(ec, boost::asio::error::would_block);
 
     stop_and_join(server);
 }

@@ -212,3 +212,125 @@ TEST(RingBuffer, Reset) {
     EXPECT_EQ(rb.readable_size(), 0u);
     EXPECT_EQ(rb.writable_size(), 16u);
 }
+
+// --- capacity=0 boundary test ---
+
+TEST(RingBuffer, CapacityZeroRoundsUp) {
+    // next_power_of_2(0) returns 1, but RingBuffer constructor clamps to max(1, capacity)
+    // before calling next_power_of_2, so capacity=0 → 1.
+    RingBuffer rb(0);
+    EXPECT_GE(rb.capacity(), 1u);
+
+    // Verify it is still functional
+    uint8_t byte = 0x42;
+    auto w = rb.writable();
+    ASSERT_GE(w.size(), 1u);
+    std::memcpy(w.data(), &byte, 1);
+    rb.commit_write(1);
+
+    EXPECT_EQ(rb.readable_size(), 1u);
+    auto r = rb.contiguous_read();
+    ASSERT_GE(r.size(), 1u);
+    EXPECT_EQ(r[0], 0x42);
+    rb.consume(1);
+    EXPECT_EQ(rb.readable_size(), 0u);
+}
+
+// --- linearize → partial consume → linearize composite test ---
+
+TEST(RingBuffer, LinearizeConsumeLinearizeComposite) {
+    RingBuffer rb(8);
+
+    // Advance positions to force wrap-around
+    uint8_t filler[6] = {};
+    auto w = rb.writable();
+    std::memcpy(w.data(), filler, 6);
+    rb.commit_write(6);
+    rb.consume(6);
+
+    // Write 6 bytes that wrap: positions 6,7,0,1,2,3
+    uint8_t data[6] = {10, 20, 30, 40, 50, 60};
+    w = rb.writable();
+    size_t first = std::min(w.size(), size_t(6));
+    std::memcpy(w.data(), data, first);
+    rb.commit_write(first);
+    if (first < 6) {
+        w = rb.writable();
+        std::memcpy(w.data(), data + first, 6 - first);
+        rb.commit_write(6 - first);
+    }
+    ASSERT_EQ(rb.readable_size(), 6u);
+
+    // First linearize — full 6 bytes
+    auto span1 = rb.linearize(6);
+    ASSERT_EQ(span1.size(), 6u);
+    EXPECT_EQ(span1[0], 10);
+    EXPECT_EQ(span1[5], 60);
+
+    // Partial consume — consume first 3 bytes
+    rb.consume(3);
+    EXPECT_EQ(rb.readable_size(), 3u);
+
+    // Second linearize — remaining 3 bytes
+    auto span2 = rb.linearize(3);
+    ASSERT_EQ(span2.size(), 3u);
+    EXPECT_EQ(span2[0], 40);
+    EXPECT_EQ(span2[1], 50);
+    EXPECT_EQ(span2[2], 60);
+}
+
+// --- write() method tests ---
+
+TEST(RingBuffer, WriteMethodBasic) {
+    RingBuffer rb(16);
+    std::vector<uint8_t> data = {1, 2, 3, 4, 5};
+    EXPECT_TRUE(rb.write(data));
+    EXPECT_EQ(rb.readable_size(), 5u);
+
+    auto r = rb.contiguous_read();
+    ASSERT_GE(r.size(), 5u);
+    EXPECT_EQ(r[0], 1);
+    EXPECT_EQ(r[4], 5);
+}
+
+TEST(RingBuffer, WriteMethodWrapAround) {
+    RingBuffer rb(8);
+
+    // Advance to force wrap
+    uint8_t filler[5] = {};
+    auto w = rb.writable();
+    std::memcpy(w.data(), filler, 5);
+    rb.commit_write(5);
+    rb.consume(5);
+
+    // write() 6 bytes that will wrap around
+    std::vector<uint8_t> data = {0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6};
+    EXPECT_TRUE(rb.write(data));
+    EXPECT_EQ(rb.readable_size(), 6u);
+
+    // Verify via linearize
+    auto span = rb.linearize(6);
+    ASSERT_EQ(span.size(), 6u);
+    for (size_t i = 0; i < 6; ++i) {
+        EXPECT_EQ(span[i], data[i]);
+    }
+}
+
+TEST(RingBuffer, WriteMethodInsufficientSpace) {
+    RingBuffer rb(8);
+
+    // Fill 6 of 8 bytes
+    uint8_t filler[6] = {};
+    auto w = rb.writable();
+    std::memcpy(w.data(), filler, 6);
+    rb.commit_write(6);
+    EXPECT_EQ(rb.writable_size(), 2u);
+
+    // Try to write 4 bytes — should fail
+    std::vector<uint8_t> data = {1, 2, 3, 4};
+    EXPECT_FALSE(rb.write(data));
+
+    // Buffer state should be unchanged
+    EXPECT_EQ(rb.readable_size(), 6u);
+    EXPECT_EQ(rb.writable_size(), 2u);
+}

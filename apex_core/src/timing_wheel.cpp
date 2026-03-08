@@ -21,6 +21,9 @@ TimingWheel::TimingWheel(size_t num_slots, Callback on_expire)
 }
 
 TimingWheel::~TimingWheel() {
+    // Active entries are silently deleted without invoking their callbacks.
+    // This is intentional — the owning component (e.g., SessionManager) must
+    // clean up all entries before destroying the TimingWheel.
     for (auto* entry : entries_) {
         delete entry;
     }
@@ -66,6 +69,9 @@ TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
     } else {
         id = next_id_++;
         if (id >= entries_.size()) {
+            // entries_ grows to accommodate the highest concurrent entry ID but never
+            // shrinks. At 8 bytes per pointer, even 100k entries ≈ 800KB — acceptable
+            // for a server. IDs are recycled via free_ids_ to limit growth.
             entries_.resize(id + 1, nullptr);
         }
         assert(id < entries_.size());
@@ -154,6 +160,9 @@ void TimingWheel::tick() {
             on_expire_(expired_id);
         } catch (...) {
             // 콜백 예외는 삼킴 — 엔트리 정리는 반드시 수행
+            // Using fprintf instead of spdlog to keep TimingWheel free of logging
+            // library dependencies. This is a last-resort error report for callback
+            // exceptions that should never occur in normal operation.
             fprintf(stderr, "TimingWheel: on_expire callback threw an exception for entry %llu\n",
                     static_cast<unsigned long long>(expired_id));
         }

@@ -17,12 +17,9 @@ Session::Session(SessionId id, boost::asio::ip::tcp::socket socket,
 {
 }
 
+// M-2: Simplified — close() already checks Closed state and is idempotent
 Session::~Session() {
-    if (socket_.is_open()) {
-        boost::system::error_code ec;
-        socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        socket_.close(ec);
-    }
+    close();
 }
 
 awaitable<bool> Session::async_send(const WireHeader& header,

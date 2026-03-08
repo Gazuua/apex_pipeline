@@ -1,6 +1,12 @@
 /// Apex Pipeline - Echo Server Example (v0.2.4)
 ///
-/// Server::run() 블로킹 모델. 멀티코어 지원.
+/// Minimal echo server using Server::run() blocking model.
+/// Supports multicore via the [cores] CLI argument.
+///
+/// NOTE: The same EchoService class is intentionally duplicated in
+/// multicore_echo_server.cpp to keep each example self-contained.
+/// See multicore_echo_server.cpp for a multicore-focused variant with
+/// hardware_concurrency() display and a higher default core count.
 ///
 /// Usage: echo_server [port] [cores]
 ///   Default: port=9000, cores=1

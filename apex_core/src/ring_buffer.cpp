@@ -33,6 +33,8 @@ RingBuffer::~RingBuffer() {
 #else
     std::free(buffer_);
 #endif
+    // linear_buf_ is allocated via std::realloc, so std::free is the correct pair
+    // (not _aligned_free, which pairs with _aligned_malloc for buffer_)
     std::free(linear_buf_);
 }
 
@@ -94,6 +96,23 @@ std::span<const uint8_t> RingBuffer::linearize(size_t n) {
     std::memcpy(linear_buf_ + to_end, buffer_, n - to_end);
 
     return {linear_buf_, n};
+}
+
+bool RingBuffer::write(std::span<const uint8_t> data) noexcept {
+    if (data.size() > writable_size()) return false;
+    auto w = writable();
+    if (w.size() >= data.size()) {
+        std::memcpy(w.data(), data.data(), data.size());
+        commit_write(data.size());
+    } else {
+        auto first = w.size();
+        std::memcpy(w.data(), data.data(), first);
+        commit_write(first);
+        auto w2 = writable();
+        std::memcpy(w2.data(), data.data() + first, data.size() - first);
+        commit_write(data.size() - first);
+    }
+    return true;
 }
 
 size_t RingBuffer::capacity() const noexcept {

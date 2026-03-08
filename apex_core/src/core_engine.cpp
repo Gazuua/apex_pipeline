@@ -52,6 +52,10 @@ void CoreEngine::set_drain_callback(DrainCallback callback) {
 }
 
 void CoreEngine::drain_remaining() {
+    // I-9: Assert precondition — must be called after stop() + join()
+    assert(!running_.load(std::memory_order_relaxed) && threads_.empty()
+           && "drain_remaining() must be called after stop() + join()");
+
     for (auto& ctx : cores_) {
         while (auto msg = ctx->inbox->dequeue()) {
             if (msg->type == CoreMessage::Type::CrossCoreRequest ||
@@ -68,7 +72,13 @@ void CoreEngine::start() {
         throw std::logic_error("CoreEngine::start() called while already running");
     }
 
-    // 재호출 시 io_context 리셋
+    // I-1: Guard against calling start() before join() has cleared threads_
+    if (!threads_.empty()) {
+        running_.store(false, std::memory_order_release);
+        throw std::logic_error("CoreEngine::start() called before join()");
+    }
+
+    // Reset io_contexts for re-run
     for (auto& ctx : cores_) {
         ctx->io_ctx.restart();
     }

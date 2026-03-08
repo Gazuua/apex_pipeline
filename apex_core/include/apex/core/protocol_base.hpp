@@ -6,9 +6,12 @@
 
 namespace apex::core {
 
-/// 프레임 기반 프로토콜의 CRTP 추상화.
-/// Derived는 FrameType typedef, try_decode_impl(RingBuffer&),
-/// consume_frame_impl(RingBuffer&, const FrameType&)을 제공해야 한다.
+/// CRTP base for frame-based protocol abstraction.
+/// Derived must provide: FrameType typedef, try_decode_impl(RingBuffer&),
+/// and consume_frame_impl(RingBuffer&, const FrameType&).
+///
+/// @note Currently only TcpBinaryProtocol exists. This CRTP base provides a
+/// compile-time interface contract for future protocol variants (e.g., WebSocket, HTTP/2).
 template <typename Derived>
 struct ProtocolBase {
     [[nodiscard]] static auto try_decode(RingBuffer& buf) {

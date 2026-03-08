@@ -181,3 +181,73 @@ TEST(ServerMulticoreTest, AddServiceFactoryCreatesPerCoreInstances) {
     // Services were stopped
     EXPECT_EQ(CoreAwareService::stop_count.load(), 2u);
 }
+
+// --- Constructor validation tests ---
+
+TEST(ServerMulticoreTest, InvalidRecvBufCapacityThrows) {
+    // recv_buf_capacity must be >= TMP_BUF_SIZE (4096)
+    EXPECT_THROW(
+        Server({.port = 0, .recv_buf_capacity = 100, .handle_signals = false}),
+        std::invalid_argument);
+}
+
+TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows) {
+    // heartbeat_timeout_ticks must be < effective timer_wheel_slots
+    // timer_wheel_slots=8 (power of 2), so heartbeat_timeout_ticks >= 8 throws
+    EXPECT_THROW(
+        Server({.port = 0, .heartbeat_timeout_ticks = 100,
+                .timer_wheel_slots = 8, .handle_signals = false}),
+        std::invalid_argument);
+}
+
+// --- CountingService counter isolation (fixture-based) ---
+
+class CountingServiceFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        CountingService::instance_count.store(0);
+        CountingService::start_count.store(0);
+        CountingService::stop_count.store(0);
+    }
+};
+
+TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
+    // Verify counters start at zero after SetUp reset
+    EXPECT_EQ(CountingService::instance_count.load(), 0u);
+    EXPECT_EQ(CountingService::start_count.load(), 0u);
+    EXPECT_EQ(CountingService::stop_count.load(), 0u);
+
+    Server server({.port = 0, .num_cores = 2, .handle_signals = false});
+    server.add_service<CountingService>();
+
+    std::thread t([&] { server.run(); });
+    wait_until_count(CountingService::instance_count, 2u);
+    EXPECT_EQ(CountingService::instance_count.load(), 2u);
+
+    server.stop();
+    t.join();
+}
+
+// --- Double run() test ---
+
+TEST(ServerMulticoreTest, DoubleRunReturns) {
+    Server server({
+        .port = 0,
+        .num_cores = 1,
+        .handle_signals = false,
+    });
+
+    std::thread t1([&] { server.run(); });
+
+    wait_until_running(server);
+    ASSERT_TRUE(server.running());
+
+    // Second run() should return immediately because running_ is already true
+    server.run();
+
+    // Server is still running from the first call
+    EXPECT_TRUE(server.running());
+
+    server.stop();
+    t1.join();
+}

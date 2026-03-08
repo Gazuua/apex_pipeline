@@ -82,7 +82,7 @@
 - **하이브리드 전략**
   - 핫패스 (메시지 수신/파싱/디스패치): std::expected<T, Error> (zero-cost happy path)
   - 콜드패스 (초기화, 설정 오류): 예외 throw
-  - 복구 불가능 (메모리 고갈): std::abort / 로그 후 종료
+  - 복구 불가능 (메모리 고갈): 예외 전파 (`std::bad_alloc` throw → 호출자 처리 위임)
 - **에러 전파**: 기본 자동 + 오버라이드 가능
   - 핸들러에서 `co_return apex::error(ErrorCode::X)` → 프레임워크가 자동 ErrorResponse 전송
   - 커스텀 필요 시 직접 `session.send()` 후 `co_return apex::ok()`
@@ -182,8 +182,8 @@
 - 서비스들은 CMake find_package(ApexCore)로 의존
 
 ### Graceful Shutdown
-- SIGTERM → acceptor 중지 → 코어별 drain → Kafka offset 커밋 → 리소스 정리 → 종료
-- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유)
+- SIGTERM → acceptor 중지 → 코어별 세션 close → 세션 drain 폴링(active_sessions==0 대기) → CoreEngine stop → drain_remaining → join → 서비스 정지 → 종료
+- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (미구현, v0.3.0에서 구현 예정)
 
 ### 세션 관리
 - **코어 로컬 해시맵 + Redis 백업** (세션 상태 저장)
@@ -202,7 +202,7 @@
   - 보안 민감 작업 (결제 등): 메시지 타입별 강제 Redis 검증 플래그로 대응
 
 ### 개발 편의
-- **docker-compose 프로파일**: minimal(Kafka,Redis,PG) / observability(+ELK,Prometheus,Grafana) / full
+- **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
 - **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg)
 
