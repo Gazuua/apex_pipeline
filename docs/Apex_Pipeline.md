@@ -98,7 +98,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Circuit Breaker** | 외부 서비스 호출 | 연속 실패 시 빠른 실패 반환, 연쇄 장애 차단 |
 | **Dead Letter Queue** | Kafka Consumer | 처리 실패 메시지를 DLQ 토픽으로 격리, 유실 방지 |
 | **Retry + Exponential Backoff** | 모든 외부 호출 | 일시적 실패 자동 재시도, 부하 폭주 방지 |
-| **Graceful Shutdown** | 전 서비스 | SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → 종료. drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, Phase 5에서 구현 |
+| **Graceful Shutdown** | 전 서비스 | SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → shutdown_logging() → 종료. drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, Phase 5에서 구현. shutdown 후 로깅 시도는 spdlog::get() null 체크로 방어 |
 | **Health Check** | K8s Liveness/Readiness | 비정상 Pod 자동 재시작 |
 | **Rate Limiting** | Gateway | Token Bucket, Redis 기반 분산 레이트리밋 |
 | **Idempotency Key** | 전 서비스 | 중복 요청 자동 감지, 멱등성 보장 |
@@ -335,10 +335,19 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - [x] apex_core 기반 컴포넌트 ~ v0.2.4 (상세는 완료 이력 참조)
 
 #### Phase 5: 기반 정비
-- [x] CI/CD (GitHub Actions — 빌드+단위 테스트)
+- [x] CI/CD (GitHub Actions — 빌드+단위 테스트, concurrency로 중복 실행 자동 취소)
 - [x] TOML 설정 로딩 (toml++)
 - [x] spdlog 기본 통합 (ConsoleSink + FileSink, TOML 설정 연동)
 - [x] Graceful Shutdown drain 타임아웃 (TOML 설정 가능)
+
+#### apex_tools: auto-review 플러그인 (v1.1)
+- [x] 5개 전문 리뷰어 에이전트 병렬 리뷰 (docs/structure/code/test/general)
+- [x] 리뷰 → 수정 → 재리뷰 루프 (Clean까지) → PR + CI 자동화
+- [x] v1.1: 2-tier 멀티에이전트 (code/test + superpowers:code-reviewer 서브에이전트)
+- [x] v1.1: confidence threshold ≥80 → ≥40 하향
+- [x] v1.1: Smart Re-review Skip (파일 타입 매핑 + 의미적 영향 판단)
+- [x] v1.1: Phase 4 CI 실패 인프라/코드 분기, 대규모 수정 시 재리뷰
+- [x] v1.1: Phase 5 자동 squash merge + 워크트리 정리
 
 #### Phase 6: Kafka 체인
 - [ ] Kafka 어댑터 (librdkafka fd → Asio, Producer 공유 + Consumer 분리)
