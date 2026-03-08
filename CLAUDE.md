@@ -94,3 +94,4 @@ D:\.workspace/
 - **test preset**: TSAN_OPTIONS/LSAN_OPTIONS는 configure preset이 아닌 **test preset**에 설정
 - **CI workflow**: `ctest --preset <name>` 사용 (--test-dir 대신)
 - **vcpkg 다운로드 실패**: GitHub CDN 간헐적 HTTP 502 → `gh run rerun --failed`
+- **CI 실패 분석 원칙**: 한 잡만 보고 판단하지 말고 **모든 실패 잡의 로그를 확인** — 잡마다 실패 원인이 다를 수 있음

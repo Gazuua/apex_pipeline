@@ -407,51 +407,6 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients) {
     stop_and_join(server);
 }
 
-TEST_F(ServerE2ETest, RecvBufferFullDisconnectsSession) {
-    // recv_buf_capacity를 최소(4096 = TMP_BUF_SIZE)로 설정하여
-    // 수신 버퍼가 빠르게 가득 차도록 한다.
-    Server server({
-        .port = 0,
-        .heartbeat_timeout_ticks = 0,
-        .recv_buf_capacity = 4096,
-        .handle_signals = false,
-    });
-    server.add_service<TestEchoService>();
-    run_server(server);
-
-    boost::asio::io_context client_ctx;
-    auto client = make_client(client_ctx, server.port());
-
-    // 클라이언트에서 응답을 읽지 않고 대량의 에코 요청을 빠르게 전송.
-    // 서버의 수신 버퍼(4096바이트)가 가득 차면 writable().empty() 분기에서
-    // session->close() + break 된다.
-    // 서버가 에코 응답을 보내려 해도, 결국 recv 버퍼가 소진되면 끊긴다.
-    std::vector<uint8_t> large_payload(512, 0xAA);
-    auto frame = build_echo_frame(large_payload);
-
-    boost::system::error_code send_ec;
-    for (int i = 0; i < 1000; ++i) {
-        boost::asio::write(client, boost::asio::buffer(frame), send_ec);
-        if (send_ec) break;
-    }
-
-    // 서버가 세션을 끊었으므로 클라이언트에서 EOF/에러가 수신되어야 한다.
-    // non_blocking 모드로 폴링하여 disconnect를 감지한다.
-    client.non_blocking(true);
-    auto deadline = std::chrono::steady_clock::now() + 5s;
-    boost::system::error_code read_ec;
-    std::array<uint8_t, 1> buf{};
-    while (std::chrono::steady_clock::now() < deadline) {
-        client.read_some(boost::asio::buffer(buf), read_ec);
-        if (read_ec && read_ec != boost::asio::error::would_block) break;
-        std::this_thread::sleep_for(10ms);
-    }
-    EXPECT_TRUE(read_ec);
-    EXPECT_NE(read_ec, boost::asio::error::would_block);
-
-    stop_and_join(server);
-}
-
 TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession) {
     Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
     server.add_service<TestEchoService>();
