@@ -63,7 +63,8 @@ D:\.workspace/
 - **머지**: 리뷰 이슈 0건 → squash merge → 브랜치+워크트리 삭제
 
 ### 문서
-- **필수 작성**: 계획서(`plans/`), 체크포인트(`progress/`), 리뷰 보고서(`review/`)
+- **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
+- **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
 - 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 작성 시간
 
@@ -78,3 +79,18 @@ D:\.workspace/
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
+
+## 프로젝트 정보
+
+- GitHub: `Gazuua/apex_pipeline`
+
+## CI/CD 트러블슈팅
+
+- **TSAN**: Boost.Asio `atomic_thread_fence` false positive → `tsan_suppressions.txt` (루트+apex_core 양쪽 배치)
+- **ASAN/LSAN**: spdlog 글로벌 레지스트리 leak → `lsan_suppressions.txt`
+- **ASAN aligned_alloc**: size는 alignment 배수여야 함. `max(capacity, alignment)`로 보정
+- **CMakePresets ${sourceDir}**: 루트+하위 양쪽에 suppressions 파일 배치 (include 시 `${sourceDir}` 변환 대응)
+- **[[nodiscard]]**: GCC에서 EXPECT_THROW 내 반환값 경고 → `(void)` 캐스트
+- **test preset**: TSAN_OPTIONS/LSAN_OPTIONS는 configure preset이 아닌 **test preset**에 설정
+- **CI workflow**: `ctest --preset <name>` 사용 (--test-dir 대신)
+- **vcpkg 다운로드 실패**: GitHub CDN 간헐적 HTTP 502 → `gh run rerun --failed`
