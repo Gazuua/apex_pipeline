@@ -1,0 +1,15 @@
+#!/bin/bash
+# main 브랜치 직접 커밋 방지 hook
+# squash merge는 허용 (SQUASH_MSG 존재 = squash merge 진행 중)
+#
+# 적용: git config core.hooksPath apex_tools/git-hooks
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ]; then
+  if [ -f "$(git rev-parse --git-dir)/SQUASH_MSG" ]; then
+    exit 0
+  fi
+  echo "ERROR: main 브랜치에 직접 커밋 금지. feature/* 또는 bugfix/* 브랜치를 사용하세요."
+  echo "       (squash merge는 허용됩니다)"
+  exit 1
+fi

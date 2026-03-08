@@ -104,8 +104,12 @@ boost-asio, boost-beast (v0.3.0 Gateway WebSocket용), flatbuffers, gtest
 
 ## 워크플로우 규칙
 
+### Git Hooks
+- **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
+- `pre-commit`: main 직접 커밋 차단 (squash merge는 SQUASH_MSG 감지로 허용)
+
 ### 브랜치 전략
-- **main 직접 커밋 절대 금지** — 모든 작업은 feature/bugfix 브랜치에서 진행
+- **main 직접 커밋 절대 금지** (pre-commit hook으로 강제) — 모든 작업은 feature/bugfix 브랜치에서 진행
 - **브랜치 생성 기준**: 계획서가 필요한 수준의 신규 기능 → `feature/*`, 버그/개선 → `bugfix/*`
 - **git worktree로 병렬 작업**: `.worktrees/` 하위에 워크트리 생성, 에이전트별 독립 작업
   ```
