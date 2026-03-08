@@ -1,5 +1,7 @@
 #include <apex/core/core_engine.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -9,19 +11,6 @@
 
 using namespace apex::core;
 using namespace std::chrono_literals;
-
-// Helper: wait for a condition with timeout
-template <typename Pred>
-bool wait_for(Pred pred, std::chrono::milliseconds timeout = 3000ms) {
-    auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (!pred()) {
-        if (std::chrono::steady_clock::now() >= deadline) {
-            return false;
-        }
-        std::this_thread::sleep_for(1ms);
-    }
-    return true;
-}
 
 TEST(CoreEngineTest, DefaultConfig) {
     CoreEngineConfig config;
@@ -41,7 +30,7 @@ TEST(CoreEngineTest, RunAndStop) {
 
     std::thread runner([&]() { engine.run(); });
 
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
     EXPECT_TRUE(engine.running());
 
     engine.stop();
@@ -63,7 +52,7 @@ TEST(CoreEngineTest, PostToCore) {
 
     std::thread runner([&]() { engine.run(); });
 
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
     msg.type = CoreMessage::Type::Custom;
@@ -71,7 +60,7 @@ TEST(CoreEngineTest, PostToCore) {
     msg.data = 42;
     EXPECT_TRUE(engine.post_to(1, msg));
 
-    ASSERT_TRUE(wait_for([&]() { return received_data.load() == 42; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return received_data.load() == 42; }));
     EXPECT_EQ(received_core.load(), 1u);
     EXPECT_EQ(received_data.load(), 42u);
 
@@ -91,14 +80,14 @@ TEST(CoreEngineTest, Broadcast) {
 
     std::thread runner([&]() { engine.run(); });
 
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
     msg.type = CoreMessage::Type::Custom;
     msg.data = 99;
     engine.broadcast(msg);
 
-    ASSERT_TRUE(wait_for([&]() { return count.load() >= num_cores; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return count.load() >= num_cores; }));
     EXPECT_EQ(count.load(), num_cores);
 
     engine.stop();
@@ -141,14 +130,14 @@ TEST(CoreEngineTest, StartAndJoin) {
     });
 
     engine.start();  // non-blocking
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
     msg.type = CoreMessage::Type::Custom;
     msg.data = 777;
     EXPECT_TRUE(engine.post_to(1, msg));
 
-    ASSERT_TRUE(wait_for([&]() { return received.load() == 777; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return received.load() == 777; }));
 
     engine.stop();
     engine.join();
@@ -173,10 +162,10 @@ TEST(CoreEngineTest, DrainCallback) {
     });
 
     engine.start();
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     // drain_timer fires multiple times (Windows timer resolution ~15.6ms)
-    ASSERT_TRUE(wait_for([&]() { return drain_count.load() > 0; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return drain_count.load() > 0; }));
 
     engine.stop();
     engine.join();
@@ -191,7 +180,7 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
     });
 
     engine.start();
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     // Custom messages go through message_handler_
     CoreMessage msg;
@@ -199,7 +188,7 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
     msg.data = 123;
     EXPECT_TRUE(engine.post_to(1, msg));
 
-    ASSERT_TRUE(wait_for([&]() { return received_type.load() != 255; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return received_type.load() != 255; }));
     EXPECT_EQ(received_type.load(),
               static_cast<uint8_t>(CoreMessage::Type::Custom));
 
@@ -216,14 +205,14 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
     });
 
     engine.start();
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
     msg.type = CoreMessage::Type::CrossCoreRequest;
     msg.data = reinterpret_cast<uint64_t>(task);
     EXPECT_TRUE(engine.post_to(1, msg));
 
-    ASSERT_TRUE(wait_for([&]() { return value.load() == 42; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return value.load() == 42; }));
 
     engine.stop();
     engine.join();
@@ -246,7 +235,7 @@ TEST(CoreEngineTest, CrossCoreRequestHandlerException) {
     });
 
     engine.start();
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg1;
     msg1.type = CoreMessage::Type::CrossCoreRequest;
@@ -257,7 +246,7 @@ TEST(CoreEngineTest, CrossCoreRequestHandlerException) {
     // Note: the exception may propagate out of the drain timer handler,
     // which could stop the io_context for that core. The engine should
     // still be stoppable without hanging.
-    wait_for([&]() { return threw.load(); }, 2000ms);
+    EXPECT_TRUE(apex::test::wait_for([&]() { return threw.load(); }, 2000ms));
 
     // Post follow-up task to core 0 (different core, unaffected)
     CoreMessage msg2;
@@ -265,7 +254,7 @@ TEST(CoreEngineTest, CrossCoreRequestHandlerException) {
     msg2.data = reinterpret_cast<uint64_t>(normal_task);
     EXPECT_TRUE(engine.post_to(0, msg2));
 
-    wait_for([&]() { return post_throw_value.load() == 99; }, 2000ms);
+    EXPECT_TRUE(apex::test::wait_for([&]() { return post_throw_value.load() == 99; }, 2000ms));
 
     engine.stop();
     engine.join();
@@ -345,7 +334,7 @@ TEST(CoreEngineTest, MultipleInterCoreMessages) {
 
     std::thread runner([&]() { engine.run(); });
 
-    ASSERT_TRUE(wait_for([&]() { return engine.running(); }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     // Send 100 messages with data = 1..100 to core 1
     uint64_t expected_sum = 0;
@@ -358,7 +347,7 @@ TEST(CoreEngineTest, MultipleInterCoreMessages) {
         expected_sum += i;
     }
 
-    ASSERT_TRUE(wait_for([&]() { return msg_count.load() >= num_messages; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return msg_count.load() >= num_messages; }));
     EXPECT_EQ(sum.load(), expected_sum);  // 5050
 
     engine.stop();

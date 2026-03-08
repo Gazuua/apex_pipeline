@@ -1,6 +1,8 @@
 #include <apex/core/server.hpp>
 #include <apex/core/logging.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -8,17 +10,6 @@
 
 using namespace apex::core;
 using namespace std::chrono_literals;
-
-namespace {
-
-void wait_until_running(Server& server, std::chrono::milliseconds timeout = 5000ms) {
-    auto deadline = std::chrono::steady_clock::now() + timeout;
-    while (!server.running() && std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-}
-
-} // anonymous namespace
 
 class ShutdownTimeoutTest : public ::testing::Test {
 protected:
@@ -40,7 +31,7 @@ TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout) {
     });
 
     std::thread t([&] { server.run(); });
-    wait_until_running(server);
+    ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));
 
     auto start = std::chrono::steady_clock::now();
     server.stop();
@@ -61,7 +52,7 @@ TEST_F(ShutdownTimeoutTest, DrainTimeoutForcesShutdown) {
     });
 
     std::thread t([&] { server.run(); });
-    wait_until_running(server);
+    ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));
     server.stop();
     t.join();
 
