@@ -183,7 +183,7 @@ apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통�
 |----------|------|-----------|------|
 | Language | C++23 | MSVC 19.44+ / GCC 13+ / Clang 17+ | 현재 사용 중 |
 | Networking | Boost.Asio | Boost 1.84+ | 현재 사용 중 |
-| WebSocket | Boost.Beast | Boost 1.84+ (vcpkg 설치 완료) | Phase 8a |
+| WebSocket | Boost.Beast | Boost 1.84+ (Phase 8a에서 vcpkg 추가 예정) | Phase 8a |
 | Framework | apex_core | 자체 개발 (ServiceBase CRTP) | 현재 사용 중 |
 | Serialization | FlatBuffers | flatbuffers (zero-copy) | 현재 사용 중 |
 | Config | TOML | toml++ (header-only) | 현재 사용 중 |

@@ -149,9 +149,7 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     });
 
     std::thread t([&] { engine.run(); });
-    while (!engine.running()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
 
     // Core 0 -> Core 1
     (void)engine.post_to(1, {.type = CoreMessage::Type::Custom, .source_core = 0, .data = 1});

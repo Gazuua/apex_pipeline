@@ -4,6 +4,8 @@
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/error_code.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <generated/echo_generated.h>
 #include <generated/chat_message_generated.h>
 #include <generated/error_response_generated.h>
@@ -130,11 +132,8 @@ protected:
 
     void run_server(Server& server) {
         server_thread_ = std::thread([&server] { server.run(); });
-        auto deadline = std::chrono::steady_clock::now() + 5s;
-        while (!server.running() && std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(1ms);
-        }
-        ASSERT_TRUE(server.running()) << "Server failed to start within 5 seconds";
+        ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }, std::chrono::milliseconds(5000)))
+            << "Server failed to start within 5 seconds";
     }
 
     void stop_and_join(Server& server) {

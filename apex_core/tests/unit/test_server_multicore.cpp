@@ -80,6 +80,9 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance) {
 
     server.stop();
     t.join();
+
+    // Verify on_stop() was called on all cores
+    EXPECT_EQ(CountingService::stop_count.load(), 4u);
 }
 
 TEST_F(CountingServiceFixture, AddServiceChaining) {

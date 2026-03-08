@@ -1,5 +1,7 @@
 #include <apex/core/server.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 
@@ -26,12 +28,7 @@ protected:
         server_thread_ = std::thread([this] { server_->run(); });
 
         // Wait for server to be running (condition-based instead of sleep)
-        auto deadline = std::chrono::steady_clock::now() + 5s;
-        while (!server_->running() &&
-               std::chrono::steady_clock::now() < deadline) {
-            std::this_thread::sleep_for(1ms);
-        }
-        ASSERT_TRUE(server_->running());
+        ASSERT_TRUE(apex::test::wait_for([&] { return server_->running(); }, std::chrono::milliseconds(5000)));
     }
 
     void TearDown() override {
@@ -157,12 +154,7 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     std::thread server_thread([&] { server->run(); });
 
     // Wait for server to be running
-    auto deadline = std::chrono::steady_clock::now() + 5s;
-    while (!server->running() &&
-           std::chrono::steady_clock::now() < deadline) {
-        std::this_thread::sleep_for(1ms);
-    }
-    ASSERT_TRUE(server->running());
+    ASSERT_TRUE(apex::test::wait_for([&] { return server->running(); }, std::chrono::milliseconds(5000)));
 
     // Fill core 1's inbox (capacity=2) with fire-and-forget posts.
     // Each lambda captures a shared_ptr; when the server shuts down and
