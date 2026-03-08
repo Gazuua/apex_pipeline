@@ -190,12 +190,18 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    gh run watch
    ```
 
-3. **반복 제한**
+3. **CI 수정 후 재리뷰 판단**
+   - CI 수정으로 코드 변경이 발생한 경우, 변경 규모를 평가:
+     - **소규모** (오타, 컴파일러 경고, suppressions 추가 등): 재리뷰 불필요 → CI 재대기
+     - **대규모** (테스트 추가/삭제, 로직 변경, 파일 구조 변경 등): **Phase 1로 돌아가 전체 재리뷰**
+   - 재리뷰 시 이슈 추적 맵과 라운드 카운터는 유지 (이전 리뷰 기록 보존)
+
+4. **반복 제한**
    - 인프라 문제: 동일 잡 **5회 rerun 실패** → 루프 중단 + 유저 보고
    - 코드 문제: 동일 CI 잡이 같은 원인으로 **5회 실패** → 루프 중단 + 유저 보고
    - **여기서 프로세스 종료**
 
-4. **CI 전체 통과 → Phase 5**
+5. **CI 전체 통과 → Phase 5**
 
 ---
 
@@ -218,16 +224,20 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    ## PR
    - URL: {PR URL}
    - CI Status: ✅ 전체 통과
-   - **Merge는 유저가 수동으로 진행**
    ```
 
 2. **보고서 커밋 + 푸시**
 
-3. **유저에게 완료 보고**
+3. **Squash Merge + 정리**
+   ```bash
+   gh pr merge {PR번호} --squash --delete-branch
+   ```
+   - 워크트리 정리: `git worktree remove .worktrees/{name}`
+
+4. **유저에게 완료 보고**
    - PR URL
    - 총 리뷰 라운드 수
    - 수정된 이슈 총 건수
-   - "merge는 수동으로 진행해주세요"
 
 ---
 
@@ -239,7 +249,6 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 | 작업 커밋 없음 | 즉시 중단 |
 | 동일 이슈 5회 반복 | 루프 중단 + 유저 보고 |
 | 동일 CI 실패 5회 반복 | 루프 중단 + 유저 보고 |
-| merge/push to main | 절대 자동 실행 안 함 |
 
 ---
 
