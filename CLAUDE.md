@@ -52,6 +52,12 @@ D:\.workspace/
 - 서비스별 독립 vcpkg.json (Docker 독립 빌드용)
 - 상세: `docs/apex_core/design-decisions.md`, `docs/apex_core/design-rationale.md` (ADR 23개)
 
+## 로드맵
+
+- Phase 1~4.7 레거시 넘버링 동결, 5+ 순차 정수 (8a/8b 허용)
+- Phase 5~10 의존성 기반 재분할
+- 버전: v0.3.0(P6+7), v0.4.0(P8b), v0.5.0(P9), v1.0.0(P10)
+
 ## 워크플로우 규칙
 
 ### Git / 브랜치
