@@ -28,3 +28,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - CI concurrency 설정 (동일 브랜치 이전 실행 자동 취소)
   - 리뷰 → 수정 → 재리뷰 → Clean(0건) → PR + CI + merge 전 과정 자동화
 
+- **코드 품질 개선** (PR #4 merged)
+  - TSAN flaky 테스트 수정 (`timeout_multiplier()` 도입, TSAN 환경 10x 자동 확대)
+  - CoreEngine drain 루프 예외 보호 (try-catch)
+  - CMakePresets 정비 (tsan TSAN_OPTIONS 중복 제거, asan-msvc test preset 추가)
+  - auto-review 지침 개선 (full 모드 커밋 불필요, 자동화 원칙, CI watch 타임아웃)

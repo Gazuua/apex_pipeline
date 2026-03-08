@@ -10,6 +10,10 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 **모드:** "$ARGUMENTS" (기본값: `task`)
 
+> **자동화 원칙**: Phase 0~5 전 과정을 유저 확인 없이 자동 진행한다.
+> 각 Phase 완료 후 "진행할까?" 등의 확인을 묻지 않는다.
+> 유저 개입이 필요한 경우는 안전장치(동일 이슈 5회 반복, CI 5회 실패)에 의한 강제 중단뿐이다.
+
 ---
 
 ## Phase 0: 초기화
@@ -20,7 +24,8 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 2. **브랜치 확인**
    - 현재 브랜치가 `main`이 아닌지 확인 — main이면 즉시 중단
-   - `git log --oneline main...HEAD`로 작업 커밋 존재 확인
+   - `task` 모드: `git log --oneline main...HEAD`로 작업 커밋 존재 확인 — 없으면 즉시 중단
+   - `full` 모드: 작업 커밋 불필요 — 전체 프로젝트를 리뷰하므로 diff 없이 진행 가능
 
 3. **이슈 추적 초기화**
    - 이슈 추적 맵: `파일경로:카테고리:이슈요약` → 라운드별 누적 카운트
@@ -157,8 +162,9 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 4. **CI 대기**
    ```bash
-   gh run watch
+   gh run watch {run-id}
    ```
+   - Bash 도구의 최대 타임아웃은 600000ms(10분)이므로, `gh run watch`는 반드시 `run_in_background: true` + `timeout: 900000`(15분)으로 실행한다.
    - CI 전체 통과 → Phase 5로
    - CI 실패 → Phase 4로
 
@@ -178,7 +184,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 코드 수정 불필요 → 실패한 잡만 재실행
    ```bash
    gh run rerun {run-id} --failed
-   gh run watch {run-id}
+   gh run watch {run-id}  # run_in_background: true, timeout: 900000
    ```
 
    **B) 코드 문제** (빌드 에러, 테스트 실패 등):
@@ -187,7 +193,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - 재푸시 + 재대기:
    ```bash
    git push
-   gh run watch
+   gh run watch  # run_in_background: true, timeout: 900000
    ```
 
 3. **CI 수정 후 재리뷰 판단**
@@ -226,15 +232,20 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
    - CI Status: ✅ 전체 통과
    ```
 
-2. **보고서 커밋 + 푸시**
+2. **프로젝트 문서 업데이트**
+   - `docs/Apex_Pipeline.md` (마스터 설계서): 아키텍처 영향 변경이 있었다면 해당 섹션 반영
+   - 워크트리 루트 `README.md` (프로젝트 진행 상황): 완료 항목 추가, 알려진 이슈 갱신 등 현재 상태 반영
 
-3. **Squash Merge + 정리**
+3. **보고서 + 문서 커밋 + 푸시**
+   - 이 push로 트리거되는 CI는 대기하지 않는다 — Phase 4에서 이미 CI 통과가 확인되었고, 문서 변경만 포함되므로 바로 squash merge 진행.
+
+4. **Squash Merge + 정리**
    ```bash
    gh pr merge {PR번호} --squash --delete-branch
    ```
    - 워크트리 정리: `git worktree remove .worktrees/{name}`
 
-4. **유저에게 완료 보고**
+5. **유저에게 완료 보고**
    - PR URL
    - 총 리뷰 라운드 수
    - 수정된 이슈 총 건수
@@ -246,7 +257,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 | 조건 | 동작 |
 |------|------|
 | main 브랜치에서 실행 | 즉시 중단 |
-| 작업 커밋 없음 | 즉시 중단 |
+| 작업 커밋 없음 (task 모드) | 즉시 중단 |
 | 동일 이슈 5회 반복 | 루프 중단 + 유저 보고 |
 | 동일 CI 실패 5회 반복 | 루프 중단 + 유저 보고 |
 

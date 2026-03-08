@@ -3,6 +3,8 @@
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <cassert>
 #include <functional>
 #include <stdexcept>
@@ -173,7 +175,13 @@ void CoreEngine::start_drain_timer(uint32_t core_id) {
                 msg->type == CoreMessage::Type::CrossCorePost) {
                 auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
                 if (task) {
-                    (*task)();
+                    try {
+                        (*task)();
+                    } catch (const std::exception& e) {
+                        spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
+                    } catch (...) {
+                        spdlog::error("Core {} cross-core task unknown exception", core_id);
+                    }
                     delete task;
                 }
                 continue;
@@ -185,7 +193,13 @@ void CoreEngine::start_drain_timer(uint32_t core_id) {
 
         // Drain callback (tick, etc.)
         if (drain_callback_) {
-            drain_callback_(core_id);
+            try {
+                drain_callback_(core_id);
+            } catch (const std::exception& e) {
+                spdlog::error("Core {} drain_callback exception: {}", core_id, e.what());
+            } catch (...) {
+                spdlog::error("Core {} drain_callback unknown exception", core_id);
+            }
         }
 
         // Re-arm the timer

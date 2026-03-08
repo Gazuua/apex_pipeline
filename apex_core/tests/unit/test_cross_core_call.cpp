@@ -112,7 +112,7 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
 
     // Wait for the timed-out task to finish executing on the target core.
     // If memory safety is broken, this sleep will trigger a use-after-free crash.
-    std::this_thread::sleep_for(100ms);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100) * apex::test::timeout_multiplier());
     // If we reach here, no crash occurred — timed-out task executed safely.
 }
 
