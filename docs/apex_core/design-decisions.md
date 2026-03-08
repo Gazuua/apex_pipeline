@@ -182,7 +182,7 @@
 - 서비스들은 CMake find_package(ApexCore)로 의존
 
 ### Graceful Shutdown
-- SIGTERM → acceptor 중지 → 코어별 세션 close → 세션 drain 폴링(active_sessions==0 대기) → CoreEngine stop → drain_remaining → join → 서비스 정지 → 종료
+- SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → 종료
 - drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (Phase 5에서 구현)
 
 ### 세션 관리
@@ -204,7 +204,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.4 현재 boost-asio, boost-beast, flatbuffers, gtest만 사용 중, 나머지는 해당 Phase에서 추가 (spdlog → Phase 5, Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — Phase 5 완료 기준 boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → Phase 5에서 추가, tomlplusplus → Phase 5에서 추가), 나머지는 해당 Phase에서 추가 (Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
 
 ---
 

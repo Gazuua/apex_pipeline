@@ -19,6 +19,7 @@ enum class ErrorCode : uint16_t {
     FlatBuffersVerifyFailed = 7,
     CrossCoreTimeout = 8,
     CrossCoreQueueFull = 9,
+    UnsupportedProtocolVersion = 10,
 
     // Application errors (1000+)
     AppError = 1000,
@@ -36,6 +37,7 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::FlatBuffersVerifyFailed: return "FlatBuffersVerifyFailed";
         case ErrorCode::CrossCoreTimeout: return "CrossCoreTimeout";
         case ErrorCode::CrossCoreQueueFull: return "CrossCoreQueueFull";
+        case ErrorCode::UnsupportedProtocolVersion: return "UnsupportedProtocolVersion";
         case ErrorCode::AppError: return "AppError";
         default: return "Unknown";
     }

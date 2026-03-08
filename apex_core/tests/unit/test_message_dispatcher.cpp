@@ -21,6 +21,8 @@ using boost::asio::awaitable;
 
 class MessageDispatcherTest : public ::testing::Test {
 protected:
+    void SetUp() override { io_ctx_.restart(); }
+
     boost::asio::io_context io_ctx_;
     std::unique_ptr<MessageDispatcher> d = std::make_unique<MessageDispatcher>();
 };

@@ -40,3 +40,27 @@ apex_add_unit_test(test_cross_core_call test_cross_core_call.cpp)
 # Phase 5: Config, Logging
 apex_add_unit_test(test_config test_config.cpp)
 apex_add_unit_test(test_logging test_logging.cpp)
+
+# 단위 테스트 일괄 타임아웃 (30초)
+set_tests_properties(
+    test_mpsc_queue
+    test_slab_pool
+    test_ring_buffer
+    test_timing_wheel
+    test_core_engine
+    test_message_dispatcher
+    test_service_base
+    test_wire_header
+    test_frame_codec
+    test_session
+    test_session_manager
+    test_error_propagation
+    test_flatbuffers_dispatch
+    test_tcp_acceptor
+    test_tcp_binary_protocol
+    test_server_multicore
+    test_cross_core_call
+    test_config
+    test_logging
+    PROPERTIES TIMEOUT 30
+)

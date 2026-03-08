@@ -1,6 +1,6 @@
 #include <apex/core/message_dispatcher.hpp>
 
-#include <cstdio>
+#include <spdlog/spdlog.h>
 
 namespace apex::core {
 
@@ -28,15 +28,18 @@ MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const
         auto result = co_await handler(std::move(session), msg_id, payload);
         co_return result;
     // I-3: Log exception details before swallowing
+    // m-09: Use spdlog instead of fprintf for consistent log routing
     } catch (const std::exception& e) {
-        std::fprintf(stderr,
-            "MessageDispatcher: handler for msg_id 0x%04x threw: %s\n",
-            static_cast<unsigned>(msg_id), e.what());
+        if (auto logger = spdlog::get("apex")) {
+            logger->error("MessageDispatcher: handler for msg_id 0x{:04x} threw: {}",
+                static_cast<unsigned>(msg_id), e.what());
+        }
         co_return std::unexpected(DispatchError::HandlerFailed);
     } catch (...) {
-        std::fprintf(stderr,
-            "MessageDispatcher: handler for msg_id 0x%04x threw unknown exception\n",
-            static_cast<unsigned>(msg_id));
+        if (auto logger = spdlog::get("apex")) {
+            logger->error("MessageDispatcher: handler for msg_id 0x{:04x} threw unknown exception",
+                static_cast<unsigned>(msg_id));
+        }
         co_return std::unexpected(DispatchError::HandlerFailed);
     }
 }

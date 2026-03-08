@@ -19,10 +19,12 @@ RingBuffer::RingBuffer(size_t capacity)
     if (capacity_ == 0) {
         throw std::overflow_error("RingBuffer capacity overflow in next_power_of_2");
     }
+    // aligned_alloc requires size to be a multiple of alignment (C11 §7.22.3.1)
+    const size_t alloc_size = std::max(capacity_, size_t{64});
 #ifdef _MSC_VER
-    buffer_ = static_cast<uint8_t*>(_aligned_malloc(capacity_, 64));
+    buffer_ = static_cast<uint8_t*>(_aligned_malloc(alloc_size, 64));
 #else
-    buffer_ = static_cast<uint8_t*>(std::aligned_alloc(64, capacity_));
+    buffer_ = static_cast<uint8_t*>(std::aligned_alloc(64, alloc_size));
 #endif
     if (!buffer_) throw std::bad_alloc();
 }

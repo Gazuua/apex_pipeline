@@ -2,10 +2,11 @@
 #include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cassert>
-#include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <spdlog/spdlog.h>
 
 namespace apex::core {
 
@@ -159,12 +160,11 @@ void TimingWheel::tick() {
         try {
             on_expire_(expired_id);
         } catch (...) {
-            // 콜백 예외는 삼킴 — 엔트리 정리는 반드시 수행
-            // Using fprintf instead of spdlog to keep TimingWheel free of logging
-            // library dependencies. This is a last-resort error report for callback
-            // exceptions that should never occur in normal operation.
-            fprintf(stderr, "TimingWheel: on_expire callback threw an exception for entry %llu\n",
-                    static_cast<unsigned long long>(expired_id));
+            // m-08: Use spdlog for consistent log routing (null-safe pattern)
+            if (auto logger = spdlog::get("apex")) {
+                logger->error("TimingWheel: on_expire callback threw an exception for entry {}",
+                    expired_id);
+            }
         }
         delete e;                       // 콜백 완료 후 삭제
         // Invariant: free_ids_.push_back(expired_id) is done AFTER the callback invocation.

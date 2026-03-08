@@ -12,7 +12,10 @@ FrameCodec::try_decode(RingBuffer& buf) {
         return std::unexpected(FrameError::InsufficientData);
     }
 
-    // 헤더를 로컬 배열로 복사 — 이후 linearize() 호출이 이 데이터를 무효화하지 않음
+    // I-08: Defensive copy — even when the header is already contiguous in the ring buffer,
+    // we copy to a local array. This ensures safety against subsequent linearize() calls
+    // that may invalidate the span. Benchmarking can determine if an optimization for the
+    // contiguous path is worthwhile; 10 bytes is unlikely to be a measurable overhead.
     std::array<uint8_t, WireHeader::SIZE> hdr_buf;
     auto hdr_span = buf.linearize(WireHeader::SIZE);
     std::memcpy(hdr_buf.data(), hdr_span.data(), WireHeader::SIZE);
@@ -24,6 +27,9 @@ FrameCodec::try_decode(RingBuffer& buf) {
         if (err == ParseError::BodyTooLarge) {
             return std::unexpected(FrameError::BodyTooLarge);
         }
+        // I-19: ParseError::UnsupportedVersion is mapped to FrameError::HeaderParseError.
+        // TODO: Add FrameError::UnsupportedProtocolVersion for finer-grained error handling
+        // once frame_codec.hpp is updated. ErrorCode::UnsupportedProtocolVersion is available.
         return std::unexpected(FrameError::HeaderParseError);
     }
 

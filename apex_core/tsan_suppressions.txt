@@ -1,3 +1,5 @@
 # Boost.Asio internal false positive suppression
-# Add patterns here as they arise during TSAN CI runs
-# race:boost::asio::detail::*
+# atomic_thread_fence is not instrumented by TSAN, causing false positives
+# in Boost.Asio's internal scheduler and epoll reactor.
+race:boost::asio::detail::*
+race:boost::asio::io_context::*

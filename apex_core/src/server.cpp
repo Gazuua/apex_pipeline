@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstring>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -76,21 +77,16 @@ Server::Server(ServerConfig config)
             config_.timer_wheel_slots, config_.recv_buf_capacity));
     }
 
-    // TcpAcceptor — bind immediately so port() works
+    // TcpAcceptor — bind immediately so port() works.
+    // C-01 fix: No context_provider. Sockets are accepted on accept_io_ and
+    // then moved to the target core's io_context in on_accept() via post().
+    // This eliminates the TOCTOU race between context_provider's load() and
+    // on_accept()'s fetch_add() that could cause core index mismatch.
     acceptor_ = std::make_unique<TcpAcceptor>(
         accept_io_, config_.port,
         [this](boost::asio::ip::tcp::socket socket) {
             on_accept(std::move(socket));
         });
-
-    // C-1: Provide per-core io_context to TcpAcceptor so that accepted
-    // sockets are bound to the correct IOCP/epoll from the start.
-    // Round-robin selection matches on_accept()'s core assignment.
-    acceptor_->set_context_provider([this]() -> boost::asio::io_context& {
-        uint32_t core_id = next_core_.load(std::memory_order_relaxed)
-                           % config_.num_cores;
-        return core_engine_->io_context(core_id);
-    });
 }
 
 Server::~Server() {
@@ -104,8 +100,15 @@ Server::~Server() {
 }
 
 void Server::run() {
-    if (running_.exchange(true)) return;
+    // I-21: run() is single-use. Reject re-entry after first call.
+    if (run_count_.fetch_add(1, std::memory_order_acq_rel) != 0) {
+        throw std::logic_error("Server::run() must not be called more than once");
+    }
+
     stopping_.store(false);
+
+    // I-09: Cache spdlog logger for hot-path use (avoid mutex per call)
+    logger_ = spdlog::get("apex");
 
     accept_io_.restart();
 
@@ -139,9 +142,14 @@ void Server::run() {
     // Start accept loop
     acceptor_->start();
 
+    // I-18: Set running_ after all initialization (services, CoreEngine,
+    // acceptor) completes. External observers see running()==true only when
+    // the server is fully ready to accept connections.
+    running_.store(true, std::memory_order_release);
+
     // Work guard keeps accept_io_ alive until shutdown completes.
-    // With C-1 (async_accept with target executor), session sockets are
-    // now bound to per-core IOCP. accept_io_ still needs to run for:
+    // Sockets are accepted on accept_io_ then moved to per-core io_contexts
+    // in on_accept(). accept_io_ still needs to run for:
     // - the accept loop coroutine itself
     // - signal handling
     // - shutdown coordination (begin_shutdown/poll_shutdown)
@@ -194,8 +202,8 @@ void Server::begin_shutdown() {
 
 void Server::poll_shutdown() {
     if (active_sessions_.load(std::memory_order_acquire) == 0) {
-        if (auto logger = spdlog::get("apex")) {
-            logger->info("All sessions drained, shutting down");
+        if (logger_) {
+            logger_->info("All sessions drained, shutting down");
         }
         finalize_shutdown();
         return;
@@ -203,8 +211,8 @@ void Server::poll_shutdown() {
 
     // Timeout check
     if (std::chrono::steady_clock::now() >= shutdown_deadline_) {
-        if (auto logger = spdlog::get("apex")) {
-            logger->warn(
+        if (logger_) {
+            logger_->warn(
                 "Drain timeout ({}s) expired, {} sessions remaining - forcing shutdown",
                 config_.drain_timeout.count(),
                 active_sessions_.load(std::memory_order_acquire));
@@ -259,8 +267,17 @@ boost::asio::io_context& Server::core_io_context(uint32_t core_id) {
 }
 
 void Server::on_accept(boost::asio::ip::tcp::socket socket) {
-    // next_core_ wraps around at UINT32_MAX; modulo ensures valid core index.
-    // Slight distribution imbalance at wrap-around is negligible (~4 billion connections).
+    // C-06: Set TCP_NODELAY before moving socket to core thread.
+    // Disabling Nagle's algorithm eliminates up to 40ms coalescing delay.
+    if (config_.tcp_nodelay) {
+        boost::system::error_code ec;
+        socket.set_option(boost::asio::ip::tcp::no_delay(true), ec);
+        // Non-fatal: proceed even if option fails (e.g., non-TCP socket in tests)
+    }
+
+    // C-01 fix: Single fetch_add determines the target core for both the
+    // socket move and the session creation. No separate context_provider,
+    // so there is no TOCTOU window for core index mismatch.
     uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed)
                        % config_.num_cores;
 
@@ -318,6 +335,12 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
     auto& recv_buf = session->recv_buffer();
     auto& dispatcher = per_core_[core_id]->dispatcher;
 
+    // C-05: Inline small-buffer optimization — avoid heap allocation for
+    // payloads <= 4KB (the common case). Only fall back to std::vector
+    // when the payload exceeds the stack buffer.
+    constexpr size_t kSmallPayloadThreshold = 4096;
+    std::array<uint8_t, kSmallPayloadThreshold> stack_buf;
+
     for (;;) {
         // C-3: Check decode result explicitly for error classification.
         // InsufficientData is normal (wait for more data), other errors
@@ -336,13 +359,22 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
         // payload points into RingBuffer memory; consume_frame() advances
         // the read position, potentially allowing overwrite on next recv.
         auto header = frame.header;
-        auto payload_copy = std::vector<uint8_t>(
-            frame.payload.begin(), frame.payload.end());
+
+        // C-05: SmallBuffer — stack for <= 4KB, heap for larger payloads
+        std::vector<uint8_t> heap_buf;
+        std::span<const uint8_t> payload_span;
+        if (frame.payload.size() <= kSmallPayloadThreshold) {
+            std::memcpy(stack_buf.data(), frame.payload.data(),
+                        frame.payload.size());
+            payload_span = {stack_buf.data(), frame.payload.size()};
+        } else {
+            heap_buf.assign(frame.payload.begin(), frame.payload.end());
+            payload_span = heap_buf;
+        }
         TcpBinaryProtocol::consume_frame(recv_buf, frame);
 
         auto result = co_await dispatcher.dispatch(
-            session, header.msg_id,
-            std::span<const uint8_t>(payload_copy));
+            session, header.msg_id, payload_span);
 
         if (!result.has_value()) {
             ErrorCode code = (result.error() == DispatchError::UnknownMessage)

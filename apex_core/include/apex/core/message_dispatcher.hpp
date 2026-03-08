@@ -24,7 +24,10 @@ enum class DispatchError : uint8_t {
 /// (핸들러 등록은 on_start() 전에만). NOT thread-safe for concurrent read-write.
 class MessageDispatcher {
 public:
-    // 핸들러가 Result<void>를 반환하는 코루틴
+    // I-10: Handler uses std::function for type-erased coroutine storage.
+    // TODO: Evaluate std::move_only_function (C++23) to eliminate copy overhead.
+    // However, alternatives are limited because Boost.Asio awaitable handlers
+    // require copyable callables in some code paths.
     using Handler = std::function<
         boost::asio::awaitable<Result<void>>(SessionPtr, uint16_t, std::span<const uint8_t>)>;
 

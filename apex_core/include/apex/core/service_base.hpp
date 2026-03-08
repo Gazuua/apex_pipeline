@@ -30,15 +30,15 @@ public:
 
 /// CRTP base class for defining services.
 ///
-/// Usage:
+/// Usage (FlatBuffers typed handler via route<T>):
 ///   class EchoService : public ServiceBase<EchoService> {
 ///   public:
 ///       EchoService() : ServiceBase("echo") {}
 ///       void on_start() override {
-///           handle(0x0001, &EchoService::on_echo);
+///           route<EchoRequest>(0x0001, &EchoService::on_echo);
 ///       }
 ///       awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
-///                               std::span<const uint8_t> payload) {
+///                               const EchoRequest* req) {
 ///           co_return apex::core::ok();
 ///       }
 ///   };
@@ -60,8 +60,11 @@ public:
 
     void stop() override {
         started_ = false;
-        for (auto id : registered_msg_ids_) {
-            dispatcher_->unregister_handler(id);
+        // I-02: Guard against nullptr dispatcher (e.g., stop() called before bind_dispatcher())
+        if (dispatcher_) {
+            for (auto id : registered_msg_ids_) {
+                dispatcher_->unregister_handler(id);
+            }
         }
         registered_msg_ids_.clear();
         on_stop();
@@ -121,6 +124,9 @@ protected:
 
 private:
     std::string name_;
+    // m-06: owned_dispatcher_ provides a default ~2MB dispatcher for standalone use.
+    // When used with Server, bind_dispatcher() replaces it with the shared per-core
+    // dispatcher and immediately resets owned_dispatcher_ to free the ~2MB.
     std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};

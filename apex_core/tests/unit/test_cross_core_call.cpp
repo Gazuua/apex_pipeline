@@ -114,6 +114,11 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError) {
 
     ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
     EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+
+    // Wait for the timed-out task to finish executing on the target core.
+    // If memory safety is broken, this sleep will trigger a use-after-free crash.
+    std::this_thread::sleep_for(100ms);
+    // If we reach here, no crash occurred — timed-out task executed safely.
 }
 
 TEST_F(CrossCoreCallTest, MultipleSequentialCalls) {

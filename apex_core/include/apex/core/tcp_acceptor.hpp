@@ -16,11 +16,6 @@ class TcpAcceptor {
 public:
     using AcceptCallback = std::function<void(boost::asio::ip::tcp::socket)>;
 
-    /// Provides a target io_context for each accepted socket. When set,
-    /// async_accept binds the new socket directly to the returned io_context's
-    /// IOCP/epoll, avoiding the default binding to the acceptor's io_context.
-    using ContextProvider = std::function<boost::asio::io_context&()>;
-
     /// @param protocol  IPv4/IPv6 selection (default v4, backward compatible).
     TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
                 AcceptCallback on_accept,
@@ -29,12 +24,6 @@ public:
 
     TcpAcceptor(const TcpAcceptor&) = delete;
     TcpAcceptor& operator=(const TcpAcceptor&) = delete;
-
-    /// Set a context provider for IOCP-correct socket binding.
-    /// Must be called before start(). When set, each accepted socket is
-    /// bound to the io_context returned by the provider (e.g., round-robin
-    /// across per-core io_contexts), instead of the acceptor's own io_context.
-    void set_context_provider(ContextProvider provider);
 
     /// Start the async accept loop (co_spawn).
     void start();
@@ -57,7 +46,6 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::steady_timer backoff_timer_;  // Member — stop() can cancel
     AcceptCallback on_accept_;
-    ContextProvider context_provider_;
     std::atomic<bool> running_{false};
 };
 

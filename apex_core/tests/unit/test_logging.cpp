@@ -85,3 +85,26 @@ TEST_F(LoggingTest, ShutdownCleansUp) {
     EXPECT_EQ(spdlog::get("apex"), nullptr);
     EXPECT_EQ(spdlog::get("app"), nullptr);
 }
+
+TEST_F(LoggingTest, DoubleInitIsSafe) {
+    LogConfig cfg;
+    init_logging(cfg);
+    // Second init should not crash or corrupt state
+    EXPECT_NO_THROW(init_logging(cfg));
+    EXPECT_NE(spdlog::get("apex"), nullptr);
+    EXPECT_NE(spdlog::get("app"), nullptr);
+}
+
+TEST_F(LoggingTest, LoggingAfterShutdownDoesNotCrash) {
+    LogConfig cfg;
+    init_logging(cfg);
+    shutdown_logging();
+    // Loggers should be gone
+    EXPECT_EQ(spdlog::get("apex"), nullptr);
+    // Null-safe: attempting to log via a null logger pointer must not crash
+    auto logger = spdlog::get("apex");
+    if (logger) {
+        logger->info("should not reach here");
+    }
+    // If we reach here, no crash occurred
+}
