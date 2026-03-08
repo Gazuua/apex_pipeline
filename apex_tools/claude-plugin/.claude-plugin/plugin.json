@@ -1,0 +1,8 @@
+{
+  "name": "apex-auto-review",
+  "description": "Automated multi-agent review, fix, and CI pipeline for Apex Pipeline",
+  "version": "1.0.0",
+  "author": {
+    "name": "Hogyun Jung"
+  }
+}
