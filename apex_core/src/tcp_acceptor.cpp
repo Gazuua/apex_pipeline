@@ -20,10 +20,6 @@ TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
 
 TcpAcceptor::~TcpAcceptor() { stop(); }
 
-void TcpAcceptor::set_context_provider(ContextProvider provider) {
-    context_provider_ = std::move(provider);
-}
-
 void TcpAcceptor::start() {
     if (running_.exchange(true)) return;
     boost::asio::co_spawn(io_ctx_, accept_loop(), boost::asio::detached);
@@ -45,14 +41,12 @@ uint16_t TcpAcceptor::port() const noexcept {
 
 boost::asio::awaitable<void> TcpAcceptor::accept_loop() {
     while (running_.load(std::memory_order_relaxed)) {
-        // I-3: Accept with branching only on context_provider_ presence,
-        // unified error handling and callback invocation below.
-        auto [ec, socket] = context_provider_
-            ? co_await acceptor_.async_accept(
-                  context_provider_(),
-                  boost::asio::as_tuple(boost::asio::use_awaitable))
-            : co_await acceptor_.async_accept(
-                  boost::asio::as_tuple(boost::asio::use_awaitable));
+        // C-01: Always accept on the acceptor's own io_context. The
+        // on_accept callback is responsible for moving the socket to the
+        // target core's io_context via post(), ensuring a single atomic
+        // operation determines the core assignment (no TOCTOU).
+        auto [ec, socket] = co_await acceptor_.async_accept(
+            boost::asio::as_tuple(boost::asio::use_awaitable));
 
         if (ec) {
             if (ec == boost::asio::error::operation_aborted) break;

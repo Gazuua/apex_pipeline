@@ -73,7 +73,9 @@ private:
     TimingWheel timer_wheel_;
 
     std::unordered_map<TimingWheel::EntryId, SessionId> timer_to_session_;
-    std::unordered_map<SessionId, TimingWheel::EntryId> session_to_timer_;
+    // I-07: session_to_timer_ map removed. Timer entry ID is now embedded in
+    // Session::timer_entry_id_ (accessed via friend). This eliminates one of three
+    // unordered_maps, reducing per-session memory overhead and lookup cost.
 
     TimeoutCallback timeout_callback_;
 };

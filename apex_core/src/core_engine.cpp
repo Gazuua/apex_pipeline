@@ -39,6 +39,9 @@ CoreEngine::CoreEngine(CoreEngineConfig config)
 CoreEngine::~CoreEngine() {
     stop();
     join();
+    // m-11: Drain remaining cross-core messages to prevent heap leaks.
+    // After join(), no threads are running so drain_remaining() is safe.
+    drain_remaining();
 }
 
 void CoreEngine::set_message_handler(MessageHandler handler) {

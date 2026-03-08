@@ -19,6 +19,8 @@ using boost::asio::awaitable;
 
 class SessionTest : public ::testing::Test {
 protected:
+    void SetUp() override { io_ctx_.restart(); }
+
     boost::asio::io_context io_ctx_;
 };
 
@@ -155,7 +157,11 @@ TEST_F(SessionTest, SendAfterPeerDisconnect) {
         io_ctx_.run_for(std::chrono::milliseconds(10));
         io_ctx_.restart();
         bool sent2 = run_coro(io_ctx_, session->async_send(header, payload));
-        // Eventually the broken pipe should be detected
         (void)sent2;  // may or may not fail depending on OS buffering
     }
+
+    // Regardless of send results, close the session and verify terminal state
+    session->close();
+    EXPECT_EQ(session->state(), Session::State::Closed);
+    EXPECT_FALSE(session->is_open());
 }

@@ -14,6 +14,8 @@ using boost::asio::ip::tcp;
 
 class SessionManagerTest : public ::testing::Test {
 protected:
+    void SetUp() override { io_ctx_.restart(); }
+
     boost::asio::io_context io_ctx_;
 };
 
@@ -69,6 +71,7 @@ TEST_F(SessionManagerTest, HeartbeatTimeout) {
 
     EXPECT_NE(timed_out_session, nullptr);
     EXPECT_EQ(timed_out_session->id(), id);
+    EXPECT_EQ(timed_out_session->state(), Session::State::Closed);
     EXPECT_EQ(mgr.session_count(), 0u);
 
     client.close();
@@ -175,4 +178,17 @@ TEST_F(SessionManagerTest, TouchNonExistentIsSafe) {
     SessionManager mgr(0, 300, 512);
     mgr.touch_session(9999);  // must not crash
     EXPECT_EQ(mgr.session_count(), 0u);
+}
+
+TEST_F(SessionManagerTest, CreateSessionTransitionsToActive) {
+    SessionManager mgr(0, 300, 512);
+    auto [server, client] = make_socket_pair(io_ctx_);
+
+    auto session = mgr.create_session(std::move(server));
+    ASSERT_NE(session, nullptr);
+    // SessionManager::create_session() transitions to Active
+    EXPECT_EQ(session->state(), Session::State::Active);
+    EXPECT_TRUE(session->is_open());
+
+    client.close();
 }

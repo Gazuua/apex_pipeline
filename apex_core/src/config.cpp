@@ -50,19 +50,27 @@ ServerConfig parse_server(const toml::table& root) {
         get_or<int64_t>(*tbl, "port", cfg.port), "port");
     cfg.num_cores = checked_narrow<uint32_t>(
         get_or<int64_t>(*tbl, "num_cores", cfg.num_cores), "num_cores");
+    // I-20: Use int64_t default to avoid narrowing conversion warning
     cfg.mpsc_queue_capacity = checked_narrow<size_t>(
-        get_or<int64_t>(*tbl, "mpsc_queue_capacity", static_cast<int64_t>(cfg.mpsc_queue_capacity)),
+        get_or<int64_t>(*tbl, "mpsc_queue_capacity", int64_t{65536}),
         "mpsc_queue_capacity");
-    cfg.drain_interval = std::chrono::microseconds(
-        get_or<int64_t>(*tbl, "drain_interval_us", cfg.drain_interval.count()));
+    {
+        // I-15: Validate drain_interval_us is non-negative (same as drain_timeout_s)
+        auto drain_us = get_or<int64_t>(*tbl, "drain_interval_us", cfg.drain_interval.count());
+        if (drain_us < 0) {
+            throw std::invalid_argument("Config: value out of range for 'drain_interval_us'");
+        }
+        cfg.drain_interval = std::chrono::microseconds(drain_us);
+    }
     cfg.heartbeat_timeout_ticks = checked_narrow<uint32_t>(
         get_or<int64_t>(*tbl, "heartbeat_timeout_ticks", cfg.heartbeat_timeout_ticks),
         "heartbeat_timeout_ticks");
+    // I-20: Use int64_t literals for size_t defaults to avoid narrowing warnings
     cfg.recv_buf_capacity = checked_narrow<size_t>(
-        get_or<int64_t>(*tbl, "recv_buf_capacity", static_cast<int64_t>(cfg.recv_buf_capacity)),
+        get_or<int64_t>(*tbl, "recv_buf_capacity", int64_t{8192}),
         "recv_buf_capacity");
     cfg.timer_wheel_slots = checked_narrow<size_t>(
-        get_or<int64_t>(*tbl, "timer_wheel_slots", static_cast<int64_t>(cfg.timer_wheel_slots)),
+        get_or<int64_t>(*tbl, "timer_wheel_slots", int64_t{1024}),
         "timer_wheel_slots");
     cfg.handle_signals = get_or<bool>(*tbl, "handle_signals", cfg.handle_signals);
     {
@@ -95,10 +103,10 @@ LogConfig parse_logging(const toml::table& root) {
         cfg.file.enabled = get_or<bool>(*file, "enabled", cfg.file.enabled);
         cfg.file.path = get_or<std::string>(*file, "path", cfg.file.path);
         cfg.file.max_size_mb = checked_narrow<size_t>(
-            get_or<int64_t>(*file, "max_size_mb", static_cast<int64_t>(cfg.file.max_size_mb)),
+            get_or<int64_t>(*file, "max_size_mb", int64_t{100}),
             "max_size_mb");
         cfg.file.max_files = checked_narrow<size_t>(
-            get_or<int64_t>(*file, "max_files", static_cast<int64_t>(cfg.file.max_files)),
+            get_or<int64_t>(*file, "max_files", int64_t{3}),
             "max_files");
         cfg.file.json = get_or<bool>(*file, "json", cfg.file.json);
     }

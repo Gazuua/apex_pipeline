@@ -51,7 +51,8 @@ public:
             .msg_id = msg_id,
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
-        co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        // m-07: Explicitly discard [[nodiscard]] return value
+        (void)co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         co_return ok();
     }
 };

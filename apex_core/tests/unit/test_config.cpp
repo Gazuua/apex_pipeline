@@ -145,3 +145,28 @@ port = -1
 )");
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }
+
+TEST_F(ConfigTest, DrainIntervalNegativeThrows) {
+    auto path = write_toml("neg_drain.toml", R"(
+[server]
+drain_interval_us = -1
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, NegativeMaxSizeMbThrows) {
+    auto path = write_toml("neg_maxsize.toml", R"(
+[logging.file]
+max_size_mb = -1
+)");
+    // negative value fails checked_narrow<size_t>
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, DrainTimeoutNegativeThrows) {
+    auto path = write_toml("neg_drain_timeout.toml", R"(
+[server]
+drain_timeout_s = -1
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}

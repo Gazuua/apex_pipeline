@@ -41,7 +41,10 @@ public:
             , msg.logger_name);
 
         // JSON-escape the message payload (RFC 8259)
-        for (auto c : std::string_view(msg.payload.data(), msg.payload.size())) {
+        // I-17: Index-based loop to detect multi-byte UTF-8 sequences (U+2028/U+2029)
+        auto msg_sv = std::string_view(msg.payload.data(), msg.payload.size());
+        for (size_t i = 0; i < msg_sv.size(); ++i) {
+            char c = msg_sv[i];
             switch (c) {
                 case '"':  dest.push_back('\\'); dest.push_back('"'); break;
                 case '\\': dest.push_back('\\'); dest.push_back('\\'); break;
@@ -54,6 +57,18 @@ public:
                     if (static_cast<unsigned char>(c) < 0x20) {
                         // RFC 8259: escape control characters as \u00XX
                         fmt::format_to(std::back_inserter(dest), "\\u{:04x}", static_cast<unsigned char>(c));
+                    } else if (static_cast<unsigned char>(c) == 0xE2 && i + 2 < msg_sv.size()) {
+                        // RFC 8259 §8.2: U+2028 (LINE SEPARATOR) and U+2029 (PARAGRAPH SEPARATOR)
+                        // are valid JSON but break JavaScript eval — escape for interoperability.
+                        auto c1 = static_cast<unsigned char>(msg_sv[i + 1]);
+                        auto c2 = static_cast<unsigned char>(msg_sv[i + 2]);
+                        if (c1 == 0x80 && (c2 == 0xA8 || c2 == 0xA9)) {
+                            auto esc = std::string_view(c2 == 0xA8 ? "\\u2028" : "\\u2029");
+                            dest.append(esc.data(), esc.data() + esc.size());
+                            i += 2;  // skip next 2 bytes of the 3-byte UTF-8 sequence
+                        } else {
+                            dest.push_back(c);
+                        }
                     } else {
                         dest.push_back(c);
                     }
@@ -88,6 +103,12 @@ void init_logging(const LogConfig& config) {
 
     // FileSink — JSON 포맷 (rotating)
     if (config.file.enabled) {
+        // I-16: Guard against multiplication overflow in max_size_mb * 1024 * 1024.
+        // 10240 MB (10 GB) is a practical upper bound for a single rotating log file.
+        if (config.file.max_size_mb > 10240) {
+            throw std::invalid_argument(
+                "LogConfig::file::max_size_mb must be <= 10240 (10 GB)");
+        }
         auto dir = std::filesystem::path(config.file.path).parent_path();
         if (!dir.empty()) {
             std::filesystem::create_directories(dir);

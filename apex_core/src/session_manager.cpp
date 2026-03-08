@@ -30,7 +30,7 @@ SessionPtr SessionManager::create_session(
     if (heartbeat_timeout_ticks_ > 0) {
         auto timer_id = timer_wheel_.schedule(heartbeat_timeout_ticks_);
         timer_to_session_[timer_id] = id;
-        session_to_timer_[id] = timer_id;
+        session->timer_entry_id_ = timer_id;  // I-07: embedded in Session
     }
 
     return session;
@@ -43,11 +43,11 @@ void SessionManager::remove_session(SessionId id) {
     auto& session = it->second;
     session->close();
 
-    auto timer_it = session_to_timer_.find(id);
-    if (timer_it != session_to_timer_.end()) {
-        timer_wheel_.cancel(timer_it->second);
-        timer_to_session_.erase(timer_it->second);
-        session_to_timer_.erase(timer_it);
+    // I-07: Use embedded timer_entry_id_ instead of session_to_timer_ map
+    if (session->timer_entry_id_ != 0) {
+        timer_wheel_.cancel(session->timer_entry_id_);
+        timer_to_session_.erase(session->timer_entry_id_);
+        session->timer_entry_id_ = 0;
     }
 
     sessions_.erase(it);
@@ -61,11 +61,15 @@ SessionPtr SessionManager::find_session(SessionId id) const {
 void SessionManager::touch_session(SessionId id) {
     if (heartbeat_timeout_ticks_ == 0) return;
 
-    auto timer_it = session_to_timer_.find(id);
-    if (timer_it == session_to_timer_.end()) return;
+    // I-07: Lookup session to access embedded timer_entry_id_
+    auto session_it = sessions_.find(id);
+    if (session_it == sessions_.end()) return;
+
+    auto& session = session_it->second;
+    if (session->timer_entry_id_ == 0) return;
 
     // cancel+schedule 대신 reschedule로 Entry 재사용 — new/delete 제거
-    timer_wheel_.reschedule(timer_it->second, heartbeat_timeout_ticks_);
+    timer_wheel_.reschedule(session->timer_entry_id_, heartbeat_timeout_ticks_);
 }
 
 void SessionManager::tick() {
@@ -92,18 +96,18 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
 
     SessionId session_id = it->second;
     timer_to_session_.erase(it);
-    session_to_timer_.erase(session_id);
 
     auto session_it = sessions_.find(session_id);
     if (session_it == sessions_.end()) return;
 
     auto session = session_it->second;
+    session->timer_entry_id_ = 0;  // I-07: clear embedded timer ID
     sessions_.erase(session_it);  // 콜백 전에 erase (댕글링 이터레이터 방지)
 
     // 콜백에서 세션에 마지막 작업(로깅 등)을 수행할 수 있도록
     // close()는 콜백 이후에 호출한다.
     // timeout_callback 내에서 touch_session(session_id)이 호출되더라도,
-    // session_to_timer_에서 이미 erase되었으므로 안전하게 no-op 처리됨.
+    // timer_entry_id_가 이미 0으로 초기화되었으므로 안전하게 no-op 처리됨.
     // S-NET-4: close() is guaranteed even if timeout_callback_ throws,
     // since ~Session() calls close() and session (shared_ptr) is still alive.
     if (timeout_callback_) {

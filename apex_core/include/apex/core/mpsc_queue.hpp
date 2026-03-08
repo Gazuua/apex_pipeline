@@ -27,6 +27,34 @@ enum class QueueError : uint8_t {
 /// - Cache-line aligned to prevent false sharing.
 ///
 /// Template parameter T must be trivially copyable for lock-free guarantees.
+///
+/// ## Ordering guarantee
+///
+/// Per-producer FIFO only. Global FIFO is NOT guaranteed in multi-producer
+/// scenarios. Two producers P1 and P2 may reserve slots s1 < s2 respectively,
+/// but P2 may complete its write (ready=true) before P1, making P2's item
+/// dequeue-able first — once P1's slot becomes ready.
+///
+/// ## Head-of-Line (HOL) blocking
+///
+/// A slow producer holding a reserved slot (head advanced, ready still false)
+/// stalls all subsequent dequeues, because the single consumer processes slots
+/// strictly in tail order. This is a structural property of bounded MPSC queues
+/// with in-order consumption.
+///
+/// ## Thread safety invariant (MPSC only — NOT safe for MPMC)
+///
+/// The ready flag on each slot acts as a per-slot publication barrier:
+/// - Producer: writes data, then sets ready=true (release).
+/// - Consumer: reads ready (acquire), then reads data.
+/// Consumer never observes an incomplete write because it only reads slots
+/// where ready==true. Slot reuse is safe because the consumer resets
+/// ready=false and advances tail before the slot index can be reached again
+/// by a new producer (requires head to advance by capacity).
+///
+/// WARNING: This queue is NOT safe for multiple consumers (MPMC). An MPMC
+/// variant would require a sequence counter per slot instead of a bool ready
+/// flag, plus CAS-based tail advancement.
 template <typename T>
     requires std::is_trivially_copyable_v<T>
 class alignas(64) MpscQueue {
@@ -117,11 +145,6 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
     size_t head = head_.load(std::memory_order_relaxed);
-    // Stale tail is safe and intentional: if tail has advanced since our read,
-    // there is actually MORE space available, so a false Full return is the
-    // conservative (backpressure-friendly) choice. Reloading tail on CAS
-    // failure would reduce false positives under high contention but adds an
-    // extra atomic load per retry. Current trade-off favors simplicity.
     size_t tail = tail_.load(std::memory_order_acquire);
     for (;;) {
         if (head - tail >= capacity_) {
@@ -135,7 +158,10 @@ std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
             slot.ready.store(true, std::memory_order_release);
             return {};
         }
-        // CAS failed, head updated by compare_exchange_weak, retry
+        // CAS failed — head was updated by compare_exchange_weak.
+        // Reload tail: consumer may have advanced since our last read,
+        // freeing slots that would otherwise cause a spurious Full return.
+        tail = tail_.load(std::memory_order_acquire);
     }
 }
 

@@ -75,11 +75,17 @@ public:
     void on_stop() override { stop_count.fetch_add(1); }
 };
 
-TEST(ServerMulticoreTest, ServicePerCoreInstance) {
-    CountingService::instance_count.store(0);
-    CountingService::start_count.store(0);
-    CountingService::stop_count.store(0);
+// CountingService counter isolation fixture — resets static counters in SetUp
+class CountingServiceFixture : public ::testing::Test {
+protected:
+    void SetUp() override {
+        CountingService::instance_count.store(0);
+        CountingService::start_count.store(0);
+        CountingService::stop_count.store(0);
+    }
+};
 
+TEST_F(CountingServiceFixture, ServicePerCoreInstance) {
     Server server({.port = 0, .num_cores = 4, .handle_signals = false});
     server.add_service<CountingService>();
 
@@ -99,11 +105,7 @@ TEST(ServerMulticoreTest, ServicePerCoreInstance) {
     t.join();
 }
 
-TEST(ServerMulticoreTest, AddServiceChaining) {
-    CountingService::instance_count.store(0);
-    CountingService::start_count.store(0);
-    CountingService::stop_count.store(0);
-
+TEST_F(CountingServiceFixture, AddServiceChaining) {
     Server server({.port = 0, .num_cores = 2, .handle_signals = false});
 
     // Chaining compiles and works
@@ -200,16 +202,7 @@ TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows) {
         std::invalid_argument);
 }
 
-// --- CountingService counter isolation (fixture-based) ---
-
-class CountingServiceFixture : public ::testing::Test {
-protected:
-    void SetUp() override {
-        CountingService::instance_count.store(0);
-        CountingService::start_count.store(0);
-        CountingService::stop_count.store(0);
-    }
-};
+// --- CountingService counter isolation (additional test) ---
 
 TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
     // Verify counters start at zero after SetUp reset
@@ -230,7 +223,7 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
 
 // --- Double run() test ---
 
-TEST(ServerMulticoreTest, DoubleRunReturns) {
+TEST(ServerMulticoreTest, DoubleRunThrows) {
     Server server({
         .port = 0,
         .num_cores = 1,
@@ -242,8 +235,8 @@ TEST(ServerMulticoreTest, DoubleRunReturns) {
     wait_until_running(server);
     ASSERT_TRUE(server.running());
 
-    // Second run() should return immediately because running_ is already true
-    server.run();
+    // Second run() must throw — run() is single-use (I-21)
+    EXPECT_THROW(server.run(), std::logic_error);
 
     // Server is still running from the first call
     EXPECT_TRUE(server.running());

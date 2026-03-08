@@ -293,6 +293,61 @@ TEST(TimingWheel, RescheduleFirstEntryInSlot) {
     EXPECT_EQ(tw.active_count(), 0u);
 }
 
+TEST(TimingWheel, CancelInsideCallback) {
+    // Verify that cancel() inside a tick callback does not corrupt state
+    TimingWheel::EntryId id2 = 0;
+    size_t expire_count = 0;
+
+    TimingWheel tw(64, [&](TimingWheel::EntryId) {
+        ++expire_count;
+        if (expire_count == 1 && id2 != 0) {
+            tw.cancel(id2);
+        }
+    });
+
+    (void)tw.schedule(1);     // fires at tick 1
+    id2 = tw.schedule(2);     // fires at tick 2 — will be cancelled in callback
+    EXPECT_EQ(tw.active_count(), 2u);
+
+    tw.tick(); // tick 0->1: no fire
+    tw.tick(); // tick 1->2: first entry fires, cancels id2 inside callback
+    EXPECT_EQ(expire_count, 1u);
+    EXPECT_EQ(tw.active_count(), 0u);
+
+    // tick past id2's original deadline — should NOT fire (was cancelled)
+    tw.tick();
+    tw.tick();
+    EXPECT_EQ(expire_count, 1u);
+}
+
+TEST(TimingWheel, ScheduleInsideCallbackFiresOnCorrectTick) {
+    size_t fire_count = 0;
+    TimingWheel tw(8, [&](TimingWheel::EntryId) {
+        ++fire_count;
+        if (fire_count == 1) {
+            // schedule(2) from within callback.
+            // At this point current_tick_ is still 1 (pre-increment in tick()).
+            // So deadline = 1 + 2 = 3.
+            tw.schedule(2);
+        }
+    });
+
+    (void)tw.schedule(1);  // deadline = 0 + 1 = 1
+    tw.tick(); // current_tick_=0, no match. current_tick_ -> 1
+    EXPECT_EQ(fire_count, 0u);
+
+    tw.tick(); // current_tick_=1, fires first entry. Callback schedules deadline=3. current_tick_ -> 2
+    EXPECT_EQ(fire_count, 1u);
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    tw.tick(); // current_tick_=2, no match. current_tick_ -> 3
+    EXPECT_EQ(fire_count, 1u);
+
+    tw.tick(); // current_tick_=3, fires second entry (deadline=3). current_tick_ -> 4
+    EXPECT_EQ(fire_count, 2u);
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
 TEST(TimingWheel, RescheduleLastEntryInSlot) {
     // Reschedule the tail of a multi-entry slot
     std::set<TimingWheel::EntryId> expired;

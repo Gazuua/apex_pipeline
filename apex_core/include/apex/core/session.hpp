@@ -2,6 +2,7 @@
 
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/ring_buffer.hpp>
+#include <apex/core/timing_wheel.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
@@ -20,6 +21,15 @@ using SessionId = uint64_t;
 /// SessionManager가 shared_ptr로 소유 (코루틴 안전성 보장).
 ///
 /// 생명주기: Connected -> Active -> Closed
+///
+/// @warning Session is NOT thread-safe. All operations must be called from
+/// the owning core's io_context thread (I-22). Use boost::asio::post() to
+/// dispatch operations from other threads. state_ is intentionally non-atomic
+/// because each Session is confined to a single core's strand.
+///
+/// @note enable_shared_from_this is reserved for future use (m-10):
+/// coroutine self-capture pattern where the Session must prevent its own
+/// destruction while an async operation is in flight.
 class Session : public std::enable_shared_from_this<Session> {
 public:
     enum class State : uint8_t {
@@ -76,6 +86,10 @@ private:
     State state_{State::Connected};
     boost::asio::ip::tcp::socket socket_;
     RingBuffer recv_buf_;
+
+    // I-07: Timer entry ID embedded in Session to eliminate session_to_timer_ map
+    // in SessionManager. 0 = no timer (sentinel value, never issued by TimingWheel).
+    TimingWheel::EntryId timer_entry_id_{0};
 };
 
 using SessionPtr = std::shared_ptr<Session>;

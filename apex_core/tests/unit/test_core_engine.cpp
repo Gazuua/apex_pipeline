@@ -257,11 +257,33 @@ TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
     // drain_remaining deletes std::function<void()>* for CrossCore messages
     engine.drain_remaining();
 
+    // Tasks should NOT have been executed — only deleted
+    EXPECT_FALSE(*flag1);
+    EXPECT_FALSE(*flag2);
+
     // After drain, the shared_ptrs captured inside the deleted std::functions
     // should have been released. Since we hold the last reference via flag1/flag2,
     // the shared_ptr ref count should be 1 (only our local copy).
     EXPECT_EQ(flag1.use_count(), 1);
     EXPECT_EQ(flag2.use_count(), 1);
+}
+
+TEST(CoreEngineTest, DestructorDrainsRemaining) {
+    auto flag = std::make_shared<bool>(false);
+    {
+        // Engine never started — destructor should still drain queued messages
+        CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 64});
+
+        auto* task = new std::function<void()>([flag] { *flag = true; });
+        CoreMessage msg;
+        msg.type = CoreMessage::Type::CrossCorePost;
+        msg.data = reinterpret_cast<uint64_t>(task);
+        EXPECT_TRUE(engine.post_to(0, msg));
+        // ~CoreEngine should call drain_remaining()
+    }
+    // After destruction, task should be deleted (not executed — drain only deletes)
+    EXPECT_FALSE(*flag);
+    EXPECT_EQ(flag.use_count(), 1);
 }
 
 TEST(CoreEngineTest, MultipleInterCoreMessages) {

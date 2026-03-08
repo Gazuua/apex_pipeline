@@ -7,6 +7,8 @@
 #include <apex/core/service_base.hpp>
 #include <apex/core/tcp_acceptor.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -24,6 +26,7 @@ namespace apex::core {
 struct ServerConfig {
     // Network (bind_address deferred — TcpAcceptor defaults to 0.0.0.0)
     uint16_t port = 9000;
+    bool tcp_nodelay = true;  // Disable Nagle's algorithm for low-latency
 
     // Multicore
     uint32_t num_cores = 1;
@@ -160,8 +163,10 @@ private:
     std::atomic<uint32_t> active_sessions_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
+    std::atomic<uint32_t> run_count_{0};  // I-21: prevent re-entry
     std::unique_ptr<boost::asio::steady_timer> shutdown_timer_;
     std::chrono::steady_clock::time_point shutdown_deadline_;
+    std::shared_ptr<spdlog::logger> logger_;  // I-09: cached logger
 
     static constexpr size_t TMP_BUF_SIZE = 4096;
 };
