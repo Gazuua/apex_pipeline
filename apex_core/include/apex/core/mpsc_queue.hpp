@@ -67,14 +67,19 @@ private:
         T data;
     };
 
-    // head_ is first member: class is alignas(64), so head_ is auto-aligned to 64 bytes
-    std::atomic<size_t> head_{0};  // producer CAS target
+    // --- Cache-line isolation for false-sharing prevention ---
+    // Producer-only: CAS 대상. 클래스 alignas(64)에 의해 캐시라인 선두 정렬.
+    alignas(64) std::atomic<size_t> head_{0};
 
-    Slot* slots_;
-    size_t capacity_;
+    // Immutable after construction — 별도 캐시라인으로 분리하여
+    // producer CAS가 이 필드들의 캐시라인을 무효화하지 않도록 함.
+    // capacity_/mask_를 slots_ 앞에 선언하여 초기화 리스트 순서와 일치시킴.
+    alignas(64) size_t capacity_;
     size_t mask_;  // capacity_ - 1 (power of 2)
+    Slot* slots_;
 
-    alignas(64) std::atomic<size_t> tail_{0};  // consumer — separate cache line
+    // Consumer-only — 별도 캐시라인.
+    alignas(64) std::atomic<size_t> tail_{0};
 };
 
 // --- Implementation ---
@@ -101,9 +106,9 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
     size_t head = head_.load(std::memory_order_relaxed);
+    // stale tail is safe: if tail has advanced, we have more space, not less
+    size_t tail = tail_.load(std::memory_order_acquire);
     for (;;) {
-        // Accurate full check: head - tail >= capacity
-        size_t tail = tail_.load(std::memory_order_acquire);
         if (head - tail >= capacity_) {
             return std::unexpected(QueueError::Full);
         }

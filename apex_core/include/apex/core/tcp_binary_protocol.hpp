@@ -6,6 +6,9 @@
 namespace apex::core {
 
 /// TCP 바이너리 프로토콜. 기존 FrameCodec를 래핑한다.
+/// Current implementation delegates to FrameCodec. This abstraction layer
+/// exists for future protocol extensibility (e.g., WebSocket, HTTP/2)
+/// via ProtocolBase CRTP.
 struct TcpBinaryProtocol : ProtocolBase<TcpBinaryProtocol> {
     using FrameType = Frame;
 

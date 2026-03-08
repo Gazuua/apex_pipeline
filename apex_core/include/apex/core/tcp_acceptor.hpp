@@ -3,6 +3,7 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
 #include <cstdint>
@@ -42,6 +43,7 @@ private:
 
     boost::asio::io_context& io_ctx_;
     boost::asio::ip::tcp::acceptor acceptor_;
+    boost::asio::steady_timer backoff_timer_;  // I-2: 멤버로 승격 — stop()에서 cancel 가능
     AcceptCallback on_accept_;
     std::atomic<bool> running_{false};
 };

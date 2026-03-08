@@ -22,8 +22,13 @@ namespace apex::core {
 /// Execute func on target_core and co_await the result.
 /// Returns CrossCoreTimeout if timeout expires before completion.
 /// Returns CrossCoreQueueFull if target core's MPSC queue is full.
+///
 /// @warning On timeout, func may still execute after the caller resumes.
 /// Do not capture coroutine-local variables by reference in func.
+///
+/// @warning R must be safely destructible from any thread. If timeout wins
+/// the CAS race, the result object is destroyed on the target core's thread,
+/// not on the caller's thread. Avoid R types with thread-affine RAII semantics.
 template <typename F>
     requires (!std::is_void_v<std::invoke_result_t<F>>)
 auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
@@ -63,7 +68,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
                 boost::asio::post(timer->get_executor(),
                     [timer] { timer->cancel(); });
             }
-            // CAS failed → timeout won, result written but never read (harmless)
+            // CAS failed → timeout won. Result was written but will never be read;
+            // it is destroyed when the shared State is released (on this thread).
         });
 
     CoreMessage msg;

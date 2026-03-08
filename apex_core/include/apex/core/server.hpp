@@ -69,6 +69,8 @@ public:
 
     /// Register a service type to be instantiated once per core.
     /// Args are copy-captured for per-core construction. Supports chaining.
+    /// Note: Args are copied for each core. For move-only arguments,
+    /// use add_service_factory() instead.
     template <typename T, typename... Args>
     Server& add_service(Args&&... args) {
         service_factories_.push_back(
@@ -100,7 +102,9 @@ public:
     /// Blocking run. Owns all io_contexts and threads internally.
     void run();
 
-    /// Thread-safe stop. Can be called from signal handler or another thread.
+    /// Thread-safe. Safe to call from another thread or from signal_set
+    /// completion handler. Not async-signal-safe (do not call from raw
+    /// POSIX signal handler).
     /// Note: running() returns true until run() fully exits (including shutdown).
     /// Use stopping_ internally to prevent re-entry.
     void stop();

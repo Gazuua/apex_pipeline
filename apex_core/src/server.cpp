@@ -61,6 +61,11 @@ Server::Server(ServerConfig config)
     };
     core_engine_ = std::make_unique<CoreEngine>(engine_config);
 
+    // Sync num_cores with CoreEngine's resolved value.
+    // CoreEngine normalizes 0 → hardware_concurrency, so we must use
+    // the actual core count to avoid division-by-zero UB in on_accept().
+    config_.num_cores = core_engine_->core_count();
+
     // PerCoreState
     for (uint32_t i = 0; i < config_.num_cores; ++i) {
         per_core_.push_back(std::make_unique<PerCoreState>(
@@ -260,6 +265,14 @@ boost::asio::awaitable<void> Server::read_loop(SessionPtr session,
     }
 
     session_mgr.remove_session(session->id());
+
+    // Safety note: fetch_sub must be the last operation in this coroutine.
+    // poll_shutdown() checks active_sessions_==0 to decide when to call
+    // core_engine_->stop(). Because this coroutine runs on a core io_context
+    // and stop() is posted to accept_io_, the core's io_context continues
+    // running long enough for this coroutine frame to be destroyed naturally
+    // after co_return. The sequencing is: fetch_sub → co_return (frame
+    // destroyed by executor) → poll_shutdown observes 0 → posts stop().
     active_sessions_.fetch_sub(1, std::memory_order_release);
 }
 

@@ -52,7 +52,7 @@ D:\.workspace/
 
 ### 의존성 (vcpkg)
 
-boost-asio, boost-beast, flatbuffers, gtest, spdlog, fmt, tomlplusplus, benchmark
+boost-asio, boost-beast, flatbuffers, gtest, spdlog, tomlplusplus, benchmark
 
 ### MSVC 주의사항
 

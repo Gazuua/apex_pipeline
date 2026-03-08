@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <thread>
@@ -129,7 +130,11 @@ protected:
 
     void run_server(Server& server) {
         server_thread_ = std::thread([&server] { server.run(); });
-        std::this_thread::sleep_for(200ms);
+        auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (!server.running() && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(server.running()) << "Server failed to start within 5 seconds";
     }
 
     void stop_and_join(Server& server) {
@@ -321,4 +326,120 @@ TEST_F(ServerE2ETest, HandlerErrorCodeResponse) {
 
     client.close();
     stop_and_join(server);
+}
+
+TEST_F(ServerE2ETest, ConcurrentMultipleClients) {
+    constexpr int NUM_CLIENTS = 8;
+
+    Server server({
+        .port = 0,
+        .num_cores = 2,
+        .heartbeat_timeout_ticks = 0,
+        .handle_signals = false,
+    });
+    server.add_service<TestEchoService>();
+    run_server(server);
+
+    std::atomic<int> success_count{0};
+    std::vector<std::string> errors(NUM_CLIENTS);
+    std::vector<std::thread> threads;
+    threads.reserve(NUM_CLIENTS);
+
+    for (int i = 0; i < NUM_CLIENTS; ++i) {
+        threads.emplace_back([&, i] {
+            try {
+                boost::asio::io_context ctx;
+                auto client = make_client(ctx, server.port());
+
+                // Each client sends its own unique payload
+                std::vector<uint8_t> payload = {
+                    static_cast<uint8_t>(i),
+                    static_cast<uint8_t>(0xA0 + i)
+                };
+                auto frame = build_echo_frame(payload);
+                boost::asio::write(client, boost::asio::buffer(frame));
+
+                auto response = read_frame(client);
+                if (response.size() <= WireHeader::SIZE) {
+                    errors[i] = "response too small";
+                    return;
+                }
+
+                auto header = WireHeader::parse(response);
+                if (!header.has_value()) {
+                    errors[i] = "failed to parse header";
+                    return;
+                }
+
+                auto resp = flatbuffers::GetRoot<apex::messages::EchoResponse>(
+                    response.data() + WireHeader::SIZE);
+                if (!resp->data() || resp->data()->size() != 2) {
+                    errors[i] = "invalid response data";
+                    return;
+                }
+                if ((*resp->data())[0] != static_cast<uint8_t>(i) ||
+                    (*resp->data())[1] != static_cast<uint8_t>(0xA0 + i)) {
+                    errors[i] = "echo payload mismatch";
+                    return;
+                }
+
+                client.close();
+                success_count.fetch_add(1, std::memory_order_relaxed);
+            } catch (const std::exception& e) {
+                errors[i] = std::string("exception: ") + e.what();
+            }
+        });
+    }
+
+    for (auto& t : threads) t.join();
+
+    for (int i = 0; i < NUM_CLIENTS; ++i) {
+        EXPECT_TRUE(errors[i].empty())
+            << "Client " << i << " failed: " << errors[i];
+    }
+    EXPECT_EQ(success_count.load(), NUM_CLIENTS);
+
+    stop_and_join(server);
+}
+
+TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions) {
+    constexpr int NUM_CLIENTS = 4;
+
+    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.add_service<TestEchoService>();
+    run_server(server);
+
+    // Connect clients and send one echo each to ensure sessions are active
+    boost::asio::io_context client_ctx;
+    std::vector<tcp::socket> clients;
+    clients.reserve(NUM_CLIENTS);
+
+    for (int i = 0; i < NUM_CLIENTS; ++i) {
+        clients.push_back(make_client(client_ctx, server.port()));
+
+        auto frame = build_echo_frame({static_cast<uint8_t>(i)});
+        boost::asio::write(clients.back(), boost::asio::buffer(frame));
+
+        auto response = read_frame(clients.back());
+        ASSERT_GT(response.size(), WireHeader::SIZE)
+            << "Client " << i << " did not receive echo response";
+    }
+
+    // All sessions are active — now call stop() with connections still open
+    // The server thread must join without hanging
+    auto stop_start = std::chrono::steady_clock::now();
+    stop_and_join(server);
+    auto stop_elapsed = std::chrono::steady_clock::now() - stop_start;
+    EXPECT_LT(stop_elapsed, 5s) << "Server shutdown took too long";
+
+    // Verify server is no longer running
+    EXPECT_FALSE(server.running());
+
+    // Verify clients detect the disconnection
+    for (int i = 0; i < NUM_CLIENTS; ++i) {
+        boost::system::error_code ec;
+        std::array<uint8_t, 1> buf{};
+        clients[i].read_some(boost::asio::buffer(buf), ec);
+        EXPECT_TRUE(ec) << "Client " << i << " still connected after shutdown";
+    }
 }

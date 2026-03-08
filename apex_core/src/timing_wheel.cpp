@@ -2,6 +2,7 @@
 #include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
 #include <cassert>
+#include <cstdio>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -61,11 +62,13 @@ TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
     if (!free_ids_.empty()) {
         id = free_ids_.back();
         free_ids_.pop_back();
+        assert(id < entries_.size() && "recycled id must be within entries range");
     } else {
         id = next_id_++;
         if (id >= entries_.size()) {
             entries_.resize(id + 1, nullptr);
         }
+        assert(id < entries_.size());
     }
 
     auto* entry = new Entry();
@@ -76,6 +79,7 @@ TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
     size_t slot_idx = entry->deadline_tick & mask_;
     insert_entry(entry, slot_idx);
 
+    assert(id < entries_.size() && "id must be valid before entries_ write");
     entries_[id] = entry;
     ++active_count_;
 
@@ -150,6 +154,8 @@ void TimingWheel::tick() {
             on_expire_(expired_id);
         } catch (...) {
             // 콜백 예외는 삼킴 — 엔트리 정리는 반드시 수행
+            fprintf(stderr, "TimingWheel: on_expire callback threw an exception for entry %llu\n",
+                    static_cast<unsigned long long>(expired_id));
         }
         delete e;                       // 콜백 완료 후 삭제
         free_ids_.push_back(expired_id); // 콜백 완료 후 ID 재사용 허용

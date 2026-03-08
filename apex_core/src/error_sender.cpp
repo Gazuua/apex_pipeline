@@ -14,10 +14,9 @@ std::vector<uint8_t> ErrorSender::build_error_frame(
 {
     flatbuffers::FlatBufferBuilder builder(128);
 
-    flatbuffers::Offset<flatbuffers::String> msg_offset;
-    if (!message.empty()) {
-        msg_offset = builder.CreateString(message.data(), message.size());
-    }
+    // I-3: 항상 CreateString 호출 — 빈 문자열도 유효한 FlatBuffers String 생성.
+    // 조건 분기 시 기본 초기화(0) Offset → 수신측 nullptr deref 위험.
+    auto msg_offset = builder.CreateString(message.data(), message.size());
 
     auto resp = apex::messages::CreateErrorResponse(
         builder,

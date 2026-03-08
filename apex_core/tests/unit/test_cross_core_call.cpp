@@ -24,7 +24,14 @@ protected:
             .handle_signals = false,
         });
         server_thread_ = std::thread([this] { server_->run(); });
-        std::this_thread::sleep_for(200ms);
+
+        // Wait for server to be running (condition-based instead of sleep)
+        auto deadline = std::chrono::steady_clock::now() + 5s;
+        while (!server_->running() &&
+               std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(1ms);
+        }
+        ASSERT_TRUE(server_->running());
     }
 
     void TearDown() override {
@@ -129,4 +136,52 @@ TEST_F(CrossCoreCallTest, MultipleSequentialCalls) {
 
     ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
     EXPECT_EQ(future.get(), 150);  // 10+20+30+40+50
+}
+
+TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
+    // Use a tiny MPSC queue (capacity=2) and very long drain interval
+    // so the queue stays full during the test.
+    auto server = std::make_unique<Server>(ServerConfig{
+        .port = 0,
+        .num_cores = 2,
+        .mpsc_queue_capacity = 2,
+        .drain_interval = std::chrono::microseconds{60'000'000},  // 60s — no drain during test
+        .heartbeat_timeout_ticks = 0,
+        .handle_signals = false,
+    });
+    std::thread server_thread([&] { server->run(); });
+
+    // Wait for server to be running
+    auto deadline = std::chrono::steady_clock::now() + 5s;
+    while (!server->running() &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(1ms);
+    }
+    ASSERT_TRUE(server->running());
+
+    // Fill core 1's inbox (capacity=2) with fire-and-forget posts
+    for (int i = 0; i < 2; ++i) {
+        bool posted = server->cross_core_post(1, [] {});
+        ASSERT_TRUE(posted) << "post #" << i << " should succeed";
+    }
+
+    // Now core 1's queue is full — cross_core_call should fail with QueueFull
+    std::promise<ErrorCode> promise;
+    auto future = promise.get_future();
+
+    boost::asio::co_spawn(server->core_io_context(0),
+        [&server, &promise]() -> boost::asio::awaitable<void> {
+            auto result = co_await server->cross_core_call(1, [] {
+                return 42;
+            });
+            EXPECT_FALSE(result.has_value());
+            promise.set_value(result.error());
+        },
+        boost::asio::detached);
+
+    ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
+    EXPECT_EQ(future.get(), ErrorCode::CrossCoreQueueFull);
+
+    server->stop();
+    if (server_thread.joinable()) server_thread.join();
 }

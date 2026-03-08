@@ -79,6 +79,11 @@ private:
 };
 
 /// Typed wrapper around SlabPool for type-safe allocation.
+///
+/// NOTE: Double-free detection relies on a magic value overlaid on freed slots.
+/// If T's first sizeof(FreeNode) bytes overwrite this region during use,
+/// detection becomes best-effort.
+///
 /// Usage:
 ///   TypedSlabPool<Session> pool(1024);
 ///   Session* s = pool.construct(args...);

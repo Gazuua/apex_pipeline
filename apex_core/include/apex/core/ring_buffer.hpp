@@ -28,7 +28,10 @@ public:
     RingBuffer(RingBuffer&&) = delete;
     RingBuffer& operator=(RingBuffer&&) = delete;
 
-    /// Returns a writable span for the next available write area.
+    /// Returns a contiguous writable span from the current write position
+    /// up to the physical end of the buffer.
+    /// On wrap-around, only the space to the end of the buffer is returned;
+    /// caller must commit and call writable() again for the remaining space.
     /// Use commit_write() after writing data to advance the write position.
     [[nodiscard]] std::span<uint8_t> writable() noexcept;
 
@@ -62,6 +65,8 @@ public:
 
 private:
     uint8_t* buffer_;
+    // linear_buf_ is managed with malloc/realloc/free (not unique_ptr) because
+    // std::realloc requires raw pointers. Ownership is guaranteed by destructor + reset().
     uint8_t* linear_buf_{nullptr};     // linearization scratch buffer (allocated on first use)
     size_t capacity_;
     size_t mask_;             // capacity_ - 1

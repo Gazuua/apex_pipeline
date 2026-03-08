@@ -18,7 +18,9 @@ constexpr size_t next_power_of_2(size_t v) {
     v |= v >> 4;
     v |= v >> 8;
     v |= v >> 16;
+#if SIZE_MAX > 0xFFFFFFFFu
     v |= v >> 32;
+#endif
     return v + 1;
 }
 

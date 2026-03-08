@@ -37,6 +37,10 @@ public:
     void tick();
 
     using TimeoutCallback = std::function<void(SessionPtr)>;
+
+    /// WARNING: The timeout callback must NOT call tick() or any method that
+    /// modifies the timer/session maps. Doing so will invalidate internal
+    /// iterators and cause undefined behavior.
     void set_timeout_callback(TimeoutCallback cb);
 
     /// 모든 활성 세션에 대해 콜백 실행 (브로드캐스트 용도).
@@ -46,6 +50,8 @@ public:
     [[nodiscard]] uint32_t core_id() const noexcept { return core_id_; }
 
 private:
+    /// WARNING: Invokes timeout_callback_ which must NOT re-enter tick()
+    /// or mutate timer/session maps — iterator invalidation hazard.
     void on_timer_expire(TimingWheel::EntryId entry_id);
 
     uint32_t core_id_;
