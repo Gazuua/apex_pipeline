@@ -17,8 +17,8 @@ check_command() {
 
 version_ge() {
     # Returns 0 if $1.$2 >= $3.$4
-    [ "$1" -gt "$3" ] && return 0
-    [ "$1" -eq "$3" ] && [ "$2" -ge "$4" ] && return 0
+    if [ "$1" -gt "$3" ]; then return 0; fi
+    if [ "$1" -eq "$3" ] && [ "$2" -ge "$4" ]; then return 0; fi
     return 1
 }
 

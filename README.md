@@ -36,13 +36,12 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### 진행 중
 
-- **빌드 환경 개선** (`feature/build-improvement` 브랜치)
-  - 설계 완료, 구현 계획 작성 완료
-  - **Phase 1 — 로컬 개발 환경 안정화** (PR 예정)
+- **빌드 환경 개선** (`feature/build-improvement` 브랜치, PR 리뷰 대기)
+  - **Phase 1 — 로컬 개발 환경 안정화** (구현 완료)
     - `.gitattributes` CRLF/LF 정규화
     - vcpkg 재설치 완전 제거 (`VCPKG_INSTALLED_DIR` 공유 + binary caching)
     - 빌드 스크립트 리팩토링 (사전 체크 + 버전 검증 + `${hostSystemName}` 빌드 디렉토리 분리)
-  - **Phase 2 — CI Docker 최적화** (PR 예정, Phase 1 머지 후)
+  - **Phase 2 — CI Docker 최적화** (구현 완료)
     - Docker 이미지 (ubuntu:24.04 + GCC 14, CI/로컬 Linux 빌드 겸용)
     - CI workflow 분리 (`docker-build.yml` + `ci.yml` 리팩토링)
     - Linux CI 잡 apt-get/vcpkg 설치 완전 제거

@@ -1,11 +1,6 @@
 name: Docker CI Image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apex_infra/docker/ci.Dockerfile'
-      - '**/vcpkg.json'
   workflow_call:
 
 permissions:
@@ -34,3 +29,5 @@ jobs:
           tags: |
             ghcr.io/gazuua/apex-pipeline-ci:latest
             ghcr.io/gazuua/apex-pipeline-ci:sha-${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/gazuua/apex-pipeline-ci:latest
+          cache-to: type=inline

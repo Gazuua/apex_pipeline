@@ -19,11 +19,10 @@ RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
     && git checkout b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01 \
     && ./bootstrap-vcpkg.sh -disableMetrics
 
-# Pre-install vcpkg dependencies
+# Pre-install vcpkg dependencies (warms binary cache for CI)
 COPY vcpkg.json /tmp/vcpkg-manifest/vcpkg.json
 RUN $VCPKG_ROOT/vcpkg install \
     --x-manifest-root=/tmp/vcpkg-manifest \
-    --x-install-root=/opt/vcpkg_installed \
     && rm -rf /tmp/vcpkg-manifest
 
 ENV CC=gcc-14 CXX=g++-14
