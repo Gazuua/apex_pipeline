@@ -9,6 +9,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ```
 D:\.workspace/
+├── CMakeLists.txt / CMakePresets.json  ← 모노레포 루트 빌드
+├── build.bat / build.sh               ← 루트 빌드 스크립트
 ├── apex_core/          ← 코어 프레임워크 (C++23, Boost.Asio 코루틴)
 │   ├── include/apex/core/  ← 헤더
 │   ├── src/ tests/ examples/ schemas/
@@ -21,6 +23,7 @@ D:\.workspace/
 ├── apex_services/      ← MSA 서비스
 ├── apex_shared/        ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
 ├── apex_infra/         ← Docker, K8s 인프라 (Kafka/Redis/PG + Prometheus/Grafana)
+│   └── docker/ci.Dockerfile  ← CI + 로컬 Linux 빌드 겸용 Docker 이미지
 └── apex_tools/         ← CLI, 스크립트, git-hooks
 ```
 

@@ -57,7 +57,15 @@ export VCPKG_BINARY_SOURCES="clear;files,${HOME}/.cache/vcpkg/archives,readwrite
 
 # ── Build ──────────────────────────────────────────
 PRESET="${1:-debug}"
-BUILD_DIR="build/$(uname -s)/$PRESET"
+
+# Map uname to CMake ${hostSystemName}
+case "$(uname -s)" in
+    Linux*)           HOST_SYSTEM=Linux ;;
+    Darwin*)          HOST_SYSTEM=Darwin ;;
+    MINGW*|MSYS*|CYGWIN*) HOST_SYSTEM=Windows ;;
+    *)                HOST_SYSTEM="$(uname -s)" ;;
+esac
+BUILD_DIR="build/$HOST_SYSTEM/$PRESET"
 
 cd "$(dirname "$0")"
 

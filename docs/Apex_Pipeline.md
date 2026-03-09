@@ -351,6 +351,13 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - [x] v1.1: Phase 4 CI 실패 인프라/코드 분기, 대규모 수정 시 재리뷰
 - [x] v1.1: Phase 5 자동 squash merge + 워크트리 정리
 
+#### 빌드 환경 개선
+- [x] .gitattributes CRLF/LF 정규화
+- [x] VCPKG_INSTALLED_DIR 공유 + hostSystemName 빌드 디렉토리 분리
+- [x] 빌드 스크립트 리팩토링 (사전 체크 + 버전 검증)
+- [x] CI Docker 이미지 (ubuntu:24.04 + GCC 14, CI/로컬 Linux 빌드 겸용)
+- [x] CI workflow Docker container 전환 (Linux 잡 apt-get/vcpkg 설치 제거)
+
 #### Phase 6: Kafka 체인
 - [ ] Kafka 어댑터 (librdkafka fd → Asio, Producer 공유 + Consumer 분리)
 - [ ] KafkaSink (spdlog sink 추가) + trace_id 자동 주입
