@@ -11,59 +11,89 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Docker image rebuild (if needed) ─────────────
+  check-image:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docker:
+              - 'apex_infra/docker/ci.Dockerfile'
+              - '**/vcpkg.json'
+
+  build-image:
+    needs: check-image
+    if: needs.check-image.outputs.changed == 'true'
+    uses: ./.github/workflows/docker-build.yml
+    permissions:
+      contents: read
+      packages: write
+
+  # ── Source build & test ──────────────────────────
   build:
+    needs: [check-image, build-image]
+    if: >-
+      always() &&
+      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: windows-msvc
-            os: windows-latest
-            preset: debug
           - name: linux-gcc
             os: ubuntu-latest
             preset: debug
+            container: true
           - name: linux-asan
             os: ubuntu-latest
             preset: asan
+            container: true
           - name: linux-tsan
             os: ubuntu-latest
             preset: tsan
+            container: true
+          - name: windows-msvc
+            os: windows-latest
+            preset: debug
+            container: false
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container && 'ghcr.io/gazuua/apex-pipeline-ci:latest' || '' }}
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_ROOT: ${{ matrix.container && '/opt/vcpkg' || format('{0}/vcpkg', github.workspace) }}
 
     steps:
+      # ── Non-container setup (Windows only) ───────
       - uses: actions/checkout@v4
 
       - name: Setup vcpkg
+        if: ${{ !matrix.container }}
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
 
-      - name: Cache vcpkg_installed
+      - name: Cache vcpkg_installed (Windows)
+        if: ${{ !matrix.container }}
         uses: actions/cache@v4
         with:
           path: apex_core/vcpkg_installed
           key: vcpkg-${{ runner.os }}-${{ hashFiles('apex_core/vcpkg.json') }}
 
       - name: Setup Ninja
+        if: ${{ !matrix.container }}
         uses: seanmiddleditch/gha-setup-ninja@v5
 
-      - name: Setup GCC 14
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-14
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
-
-      - name: Setup MSVC (Windows)
+      - name: Setup MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
+      # ── Build & test ─────────────────────────────
       - name: Configure
         working-directory: apex_core
         run: cmake --preset ${{ matrix.preset }}
@@ -76,50 +106,28 @@ jobs:
         working-directory: apex_core
         run: ctest --preset ${{ matrix.preset }}
 
+  # ── Root build integrity check ───────────────────
   build-root:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: root-linux-gcc
-            os: ubuntu-latest
-            preset: debug
-
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    needs: [check-image, build-image]
+    if: >-
+      always() &&
+      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
+    name: root-linux-gcc
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gazuua/apex-pipeline-ci:latest
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_ROOT: /opt/vcpkg
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
-
-      - name: Cache vcpkg_installed
-        uses: actions/cache@v4
-        with:
-          path: vcpkg_installed
-          key: vcpkg-root-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
-
-      - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v5
-
-      - name: Setup GCC 14
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y g++-14
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
-
       - name: Configure
-        run: cmake --preset ${{ matrix.preset }}
+        run: cmake --preset debug
 
       - name: Build
-        run: cmake --build build/Linux/${{ matrix.preset }}
+        run: cmake --build build/Linux/debug
 
       - name: Test
-        run: ctest --preset ${{ matrix.preset }}
+        run: ctest --preset debug
