@@ -6,18 +6,7 @@ if "%PRESET%"=="" set PRESET=debug
 
 :: ── Pre-flight checks ─────────────────────────────
 
-:: cmake check
-where cmake >nul 2>&1 || (echo Error: cmake not found ^(required: cmake ^>= 3.25^) & exit /b 1)
-for /f "tokens=3" %%v in ('cmake --version 2^>^&1 ^| findstr /c:"cmake version"') do set CMAKE_VER=%%v
-for /f "tokens=1,2 delims=." %%a in ("%CMAKE_VER%") do (
-    if %%a LSS 3 (echo Error: cmake %CMAKE_VER% found, but ^>= 3.25 required & exit /b 1)
-    if %%a EQU 3 if %%b LSS 25 (echo Error: cmake %CMAKE_VER% found, but ^>= 3.25 required & exit /b 1)
-)
-
-:: ninja check
-where ninja >nul 2>&1 || (echo Error: ninja not found ^(required: ninja ^>= 1.11^) & exit /b 1)
-
-:: VS2022 vcvarsall.bat
+:: VS2022 vcvarsall.bat (must run first — cmake/ninja may be in VS tools PATH)
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 if exist "%VSWHERE%" (
     for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -property installationPath`) do set "VSINSTALL=%%i"
@@ -30,6 +19,17 @@ if not exist "%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat" (
 )
 call "%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat" x64
 if errorlevel 1 (echo Error: vcvarsall.bat failed & exit /b 1)
+
+:: cmake check (after vcvarsall — cmake may be in VS tools PATH)
+where cmake >nul 2>&1 || (echo Error: cmake not found ^(required: cmake ^>= 3.25^) & exit /b 1)
+for /f "tokens=3" %%v in ('cmake --version 2^>^&1 ^| findstr /c:"cmake version"') do set CMAKE_VER=%%v
+for /f "tokens=1,2 delims=." %%a in ("%CMAKE_VER%") do (
+    if %%a LSS 3 (echo Error: cmake %CMAKE_VER% found, but ^>= 3.25 required & exit /b 1)
+    if %%a EQU 3 if %%b LSS 25 (echo Error: cmake %CMAKE_VER% found, but ^>= 3.25 required & exit /b 1)
+)
+
+:: ninja check
+where ninja >nul 2>&1 || (echo Error: ninja not found ^(required: ninja ^>= 1.11^) & exit /b 1)
 
 :: VCPKG_ROOT check
 if "%VCPKG_ROOT%"=="" set VCPKG_ROOT=%USERPROFILE%\vcpkg
