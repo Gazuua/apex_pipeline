@@ -23,8 +23,10 @@ RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
 COPY vcpkg.json /tmp/vcpkg-manifest/vcpkg.json
 RUN $VCPKG_ROOT/vcpkg install \
     --x-manifest-root=/tmp/vcpkg-manifest \
+    --x-install-root=/opt/vcpkg_installed \
     && rm -rf /tmp/vcpkg-manifest
 
-ENV CC=gcc-14 CXX=g++-14
+ENV CC=gcc-14 CXX=g++-14 \
+    VCPKG_INSTALLED_DIR=/opt/vcpkg_installed
 
 WORKDIR /workspace

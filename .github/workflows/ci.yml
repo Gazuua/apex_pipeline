@@ -96,7 +96,9 @@ jobs:
       # ── Build & test ─────────────────────────────
       - name: Configure
         working-directory: apex_core
-        run: cmake --preset ${{ matrix.preset }}
+        run: >-
+          cmake --preset ${{ matrix.preset }}
+          ${{ matrix.container && '-DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed' || '' }}
 
       - name: Build
         working-directory: apex_core
@@ -124,7 +126,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake --preset debug
+        run: cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
 
       - name: Build
         run: cmake --build build/Linux/debug
