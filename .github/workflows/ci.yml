@@ -43,6 +43,12 @@ jobs:
         with:
           vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
 
+      - name: Cache vcpkg_installed
+        uses: actions/cache@v4
+        with:
+          path: apex_core/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('apex_core/vcpkg.json') }}
+
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
@@ -64,7 +70,7 @@ jobs:
 
       - name: Build
         working-directory: apex_core
-        run: cmake --build build/${{ matrix.preset }}
+        run: cmake --build build/${{ runner.os == 'Windows' && 'Windows' || 'Linux' }}/${{ matrix.preset }}
 
       - name: Test
         working-directory: apex_core
@@ -93,6 +99,12 @@ jobs:
         with:
           vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
 
+      - name: Cache vcpkg_installed
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_installed
+          key: vcpkg-root-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+
       - name: Setup Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
@@ -107,7 +119,7 @@ jobs:
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build
-        run: cmake --build build/${{ matrix.preset }}
+        run: cmake --build build/Linux/${{ matrix.preset }}
 
       - name: Test
         run: ctest --preset ${{ matrix.preset }}
