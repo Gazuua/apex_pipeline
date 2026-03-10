@@ -350,6 +350,8 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - [x] v1.1: Smart Re-review Skip (파일 타입 매핑 + 의미적 영향 판단)
 - [x] v1.1: Phase 4 CI 실패 인프라/코드 분기, 대규모 수정 시 재리뷰
 - [x] v1.1: Phase 5 자동 squash merge + 워크트리 정리
+- [x] v1.2: task 모드 Round 1 스마트 스킵 (파일타입 매핑 기반 리뷰어 선택 디스패치)
+- [x] v1.2: 파일타입 매핑 확장 (.fbs, Dockerfile, CI yml, suppressions 등)
 
 #### 빌드 환경 개선
 - [x] .gitattributes CRLF/LF 정규화
