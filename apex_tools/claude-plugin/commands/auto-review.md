@@ -33,6 +33,34 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 ---
 
+## 공용: 파일타입 → 리뷰어 매핑
+
+Phase 1 task 모드 스마트 스킵과 Phase 2 재리뷰 스마트 스킵이 공유하는 매핑 테이블.
+
+| 수정 파일 타입 | 영향받는 리뷰어 |
+|---|---|
+| `.cpp`, `.hpp` (소스/헤더) | code, test, structure |
+| `test_*.cpp`, `test_helpers.hpp` | test |
+| `.fbs` (FlatBuffers 스키마) | code, structure |
+| `CMakeLists.txt`, `vcpkg.json`, `build.*`, `CMakePresets*` | structure, general |
+| `Dockerfile`, `.dockerignore`, `docker-compose.yml` | structure, general |
+| `.github/workflows/*.yml` (CI) | general |
+| `*suppressions.txt` (TSAN/LSAN) | general, test |
+| `.toml`, `.sql` (설정/DB) | general |
+| `.clangd`, `.gitattributes`, `.editorconfig` | general |
+| `*.md` (문서) | docs |
+| `.gitignore`, hooks, scripts (`.sh`, `.bat`) | general |
+
+**폴백**: 위 매핑에 해당하지 않는 파일이 있으면 → `general` 자동 포함
+
+**의미적 영향 추가 판단** (오케스트레이터 자율):
+- 코드 로직 변경 (if/for/while 등 제어 흐름) → docs 추가 (설계 정합성 영향)
+- 의존성 변경 (vcpkg, include) → general 추가
+- 디렉토리/파일 구조 변경 → 전원 재리뷰
+- **판단이 애매하면 → 해당 리뷰어를 포함** (보수적으로)
+
+---
+
 ## Phase 1: 병렬 리뷰
 
 1. **리뷰 범위 결정**
@@ -42,8 +70,16 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 2. **리뷰어 에이전트 병렬 디스패치**
 
    Agent 도구로 **참여 대상 에이전트를 동시에** 하나의 메시지에서 호출:
-   - Round 1: 5개 전원 디스패치
-   - Round 2+: Phase 2 Smart Re-review 스킵 판단에 따라 참여 에이전트만 디스패치
+
+   **Round 1 디스패치 규칙:**
+   - `full` 모드: 5개 전원 디스패치
+   - `task` 모드: 변경 파일 목록에 **공용 파일타입 매핑**을 적용하여 필요한 리뷰어만 디스패치
+     - 변경 파일에서 매핑 테이블로 영향받는 리뷰어 집합을 결정
+     - 의미적 영향 추가 판단도 동일하게 적용
+     - 어떤 리뷰어도 매핑되지 않는 파일이 있으면 `general` 자동 포함
+
+   **Round 2+ 디스패치 규칙:** (모드 무관)
+   - Phase 2 Smart Re-review 스킵 판단에 따라 참여 에이전트만 디스패치
 
    | 에이전트 | 파일 | 역할 |
    |---------|------|------|
@@ -62,6 +98,14 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
    ```markdown
    # 리뷰 보고서 — Round {N}
+
+   ## Round {N} 참여 현황
+   - 변경 파일: {파일 목록} (task 모드만)
+   - reviewer-docs: {리뷰 수행|스킵 (변경 파일 무관)}
+   - reviewer-structure: {리뷰 수행|스킵 (변경 파일 무관)}
+   - reviewer-code: {리뷰 수행|스킵 (변경 파일 무관)}
+   - reviewer-test: {리뷰 수행|스킵 (변경 파일 무관)}
+   - reviewer-general: {리뷰 수행|기본 포함|스킵}
 
    ## 요약
    - Critical: X건 / Important: Y건 / Minor: Z건
@@ -107,30 +151,17 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
    a) 수정된 파일 목록 추출: `git diff HEAD~1..HEAD --name-only`
 
-   b) 파일 타입 매핑으로 "최소 필수 리뷰어" 결정:
+   b) **공용 파일타입 매핑** (위 섹션 참조)으로 "최소 필수 리뷰어" 결정
+      - 폴백 및 의미적 영향 판단도 동일 적용
 
-   | 수정 파일 타입 | 영향받는 리뷰어 |
-   |--------------|--------------|
-   | `.cpp`, `.hpp` (소스/헤더) | code, test, structure |
-   | `test_*.cpp`, `test_helpers.hpp` | test |
-   | `CMakeLists.txt`, `vcpkg.json`, `build.*`, `CMakePresets*` | structure, general |
-   | `*.md` (문서) | docs |
-   | `.gitignore`, hooks, scripts | general |
-
-   c) 수정 내용의 **의미적 영향** 추가 판단 (오케스트레이터 자율):
-   - 코드 로직 변경 (if/for/while 등 제어 흐름) → docs 추가 (설계 정합성 영향)
-   - 의존성 변경 (vcpkg, include) → general 추가
-   - 디렉토리/파일 구조 변경 → 전원 재리뷰
-   - **판단이 애매하면 → 해당 리뷰어를 포함** (보수적으로)
-
-   d) 스킵 조건 (AND):
+   c) 스킵 조건 (AND):
    - 직전 라운드에서 **Clean (0건)**
    - 위 판단에서 "영향받는 리뷰어"에 **미포함**
    - 두 조건 모두 만족 → 해당 에이전트 스킵
 
-   e) Phase 1 재실행 시 **스킵 대상이 아닌 에이전트만 디스패치**
+   d) Phase 1 재실행 시 **스킵 대상이 아닌 에이전트만 디스패치**
 
-   f) 리뷰 보고서에 참여 현황 기록:
+   e) 리뷰 보고서에 참여 현황 기록:
    ```markdown
    ## Round {N} 참여 현황
    - reviewer-docs: 스킵 (Round {N-1} Clean + 수정 무관)
