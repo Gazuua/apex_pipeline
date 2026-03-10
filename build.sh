@@ -3,10 +3,8 @@ set -e
 
 PRESET="${1:-debug}"
 
-if [ -z "$VCPKG_ROOT" ]; then
-    echo "Error: VCPKG_ROOT is not set"
-    exit 1
-fi
+# Pre-flight checks (cmake, ninja, gcc, vcpkg)
+source "$(dirname "$0")/apex_tools/build-preflight.sh"
 
 # Map uname to CMake ${hostSystemName}
 case "$(uname -s)" in
