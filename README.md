@@ -44,3 +44,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 빌드 스크립트 리팩토링 (사전 체크 + 버전 검증)
   - CI Docker 이미지 (ubuntu:24.04 + GCC 14 + vcpkg 사전 설치, Linux 잡 apt-get/vcpkg 설치 완전 제거)
   - GitHub Actions CI 5개 잡 병렬 (linux-gcc/asan/tsan + windows-msvc + root-linux-gcc)
+
+- **빌드 스크립트 사전 체크 동기화**
+  - 공용 헬퍼 (`apex_tools/build-preflight.sh|bat`) 분리 — 루트/apex_core 양쪽에서 공유
+  - Dockerfile vcpkg.json COPY 범위 확장 (모노레포 서브프로젝트 대비)

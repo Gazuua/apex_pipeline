@@ -4,15 +4,10 @@ setlocal
 set PRESET=%~1
 if "%PRESET%"=="" set PRESET=debug
 
-:: VS2022 vcvarsall.bat 동적 탐색 (vswhere), fallback으로 기본 경로 사용
-set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-if exist "%VSWHERE%" (
-    for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -property installationPath`) do set "VSINSTALL=%%i"
-) else (
-    set "VSINSTALL=C:\Program Files\Microsoft Visual Studio\2022\Community"
-)
-call "%VSINSTALL%\VC\Auxiliary\Build\vcvarsall.bat" x64
-if "%VCPKG_ROOT%"=="" set VCPKG_ROOT=%USERPROFILE%\vcpkg
+:: Pre-flight checks (vcvarsall, cmake, ninja, vcpkg)
+call "%~dp0apex_tools\build-preflight.bat"
+if errorlevel 1 exit /b 1
+
 cd /d %~dp0
 
 :: Ensure build dir and compile_commands.json exist for first configure (clangd symlink)
