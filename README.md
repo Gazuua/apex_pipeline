@@ -34,6 +34,11 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - CMakePresets 정비 (tsan TSAN_OPTIONS 중복 제거, asan-msvc test preset 추가)
   - auto-review 지침 개선 (full 모드 커밋 불필요, 자동화 원칙, CI watch 타임아웃)
 
+- **auto-review v1.2 — task 모드 스마트 스킵** (PR #8 merged)
+  - task 모드 Round 1에서 변경 파일 타입 기반 리뷰어 선택 디스패치
+  - 파일타입 매핑 확장 (.fbs, Dockerfile, CI yml, suppressions 등 6개 항목 추가)
+  - Phase 1/2 공용 매핑 테이블로 통합, 중복 제거
+
 - **빌드 환경 개선** (PR #6 merged)
   - `.gitattributes` CRLF/LF 정규화, `VCPKG_INSTALLED_DIR` 공유 + `${hostSystemName}` 빌드 디렉토리 분리
   - 빌드 스크립트 리팩토링 (사전 체크 + 버전 검증)
