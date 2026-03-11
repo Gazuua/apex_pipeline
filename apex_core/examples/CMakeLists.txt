@@ -27,3 +27,10 @@ set_target_properties(multicore_echo_server PROPERTIES
     OUTPUT_NAME "multicore_echo_server${_variant_suffix}"
     RUNTIME_OUTPUT_DIRECTORY "${_bin_dir}"
 )
+
+add_executable(echo_loadtest echo_loadtest.cpp)
+target_link_libraries(echo_loadtest PRIVATE apex::core)
+set_target_properties(echo_loadtest PROPERTIES
+    OUTPUT_NAME "echo_loadtest${_variant_suffix}"
+    RUNTIME_OUTPUT_DIRECTORY "${_bin_dir}"
+)
