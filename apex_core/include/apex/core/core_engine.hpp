@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/cross_core_dispatcher.hpp>
 #include <apex/core/cross_core_op.hpp>
 #include <apex/core/mpsc_queue.hpp>
 #include <apex/core/result.hpp>
@@ -76,6 +77,9 @@ public:
     /// Set callback invoked on each tick cycle per core (heartbeat, timing wheel, etc.).
     void set_tick_callback(TickCallback callback);
 
+    /// Register a cross-core message handler by op code. Must be called before start().
+    void register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler);
+
     /// Drain remaining messages from all inboxes, cleaning up heap pointers
     /// for LegacyCrossCoreFn messages. Call after stop() + join().
     void drain_remaining();
@@ -120,6 +124,7 @@ private:
     TickCallback tick_callback_;
     std::atomic<bool> running_{false};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;
+    CrossCoreDispatcher cross_core_dispatcher_;
 };
 
 } // namespace apex::core

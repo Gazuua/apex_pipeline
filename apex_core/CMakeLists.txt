@@ -56,6 +56,7 @@ add_library(apex_core STATIC
     src/ring_buffer.cpp
     src/timing_wheel.cpp
     src/core_engine.cpp
+    src/cross_core_dispatcher.cpp
     src/message_dispatcher.cpp
     src/wire_header.cpp
     src/frame_codec.cpp

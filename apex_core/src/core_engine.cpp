@@ -62,6 +62,11 @@ void CoreEngine::set_tick_callback(TickCallback callback) {
     tick_callback_ = std::move(callback);
 }
 
+void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler) {
+    assert(!running_.load(std::memory_order_acquire) && "register_cross_core_handler must be called before start()");
+    cross_core_dispatcher_.register_handler(op, handler);
+}
+
 void CoreEngine::drain_remaining() {
     // I-9: Assert precondition — must be called after stop() + join()
     assert(!running_.load(std::memory_order_relaxed) && threads_.empty()
@@ -187,6 +192,7 @@ void CoreEngine::drain_inbox(uint32_t core_id) {
         if (!msg) break;
 
         if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
+            // Legacy closure-based compatibility (remove after full migration)
             auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
             if (task) {
                 try {
@@ -198,7 +204,13 @@ void CoreEngine::drain_inbox(uint32_t core_id) {
                 }
                 delete task;
             }
+        } else if (cross_core_dispatcher_.has_handler(msg->op)) {
+            // Message passing dispatch (registered handler takes priority)
+            cross_core_dispatcher_.dispatch(
+                core_id, msg->source_core, msg->op,
+                reinterpret_cast<void*>(msg->data));
         } else if (message_handler_) {
+            // Fallback: unregistered op → legacy message_handler_ path
             message_handler_(core_id, *msg);
         }
         ++processed;
