@@ -33,6 +33,8 @@ vcpkg_installed/
 # Python
 __pycache__/
 *.pyc
+.venv/
+venv/
 
 # Worktrees
 .worktrees/

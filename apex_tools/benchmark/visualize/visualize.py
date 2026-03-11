@@ -32,6 +32,9 @@ import matplotlib.pyplot as plt
 
 
 def load_json(path: str) -> dict:
+    if not os.path.exists(path):
+        print(f"Error: File not found: {path}", file=sys.stderr)
+        sys.exit(1)
     try:
         with open(path) as f:
             return json.load(f)

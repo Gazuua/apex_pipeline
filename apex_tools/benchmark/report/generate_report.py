@@ -59,6 +59,9 @@ def build_report(title: str, results_dir: str, charts_dir: str, output: str):
         elements.append(Spacer(1, 0.2 * inch))
 
         for chart_path in chart_files:
+            if not chart_path.is_file() or chart_path.stat().st_size == 0:
+                print(f"Warning: Skipping invalid chart: {chart_path}", file=sys.stderr)
+                continue
             chart_title = chart_path.stem.replace('_', ' ').title()
             elements.append(Paragraph(chart_title, styles['Heading2']))
             elements.append(Image(str(chart_path), width=6 * inch, height=3.5 * inch))
