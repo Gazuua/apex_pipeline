@@ -16,8 +16,6 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
-#include <array>
-#include <cstring>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -342,12 +340,6 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
     auto& recv_buf = session->recv_buffer();
     auto& dispatcher = per_core_[core_id]->dispatcher;
 
-    // C-05: Inline small-buffer optimization — avoid heap allocation for
-    // payloads <= 4KB (the common case). Only fall back to std::vector
-    // when the payload exceeds the stack buffer.
-    constexpr size_t kSmallPayloadThreshold = 4096;
-    std::array<uint8_t, kSmallPayloadThreshold> stack_buf;
-
     for (;;) {
         // C-3: Check decode result explicitly for error classification.
         // InsufficientData is normal (wait for more data), other errors
@@ -362,26 +354,17 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
         }
         auto& frame = *decode_result;
 
-        // C-2: Copy payload before consume_frame() to avoid dangling span.
-        // payload points into RingBuffer memory; consume_frame() advances
-        // the read position, potentially allowing overwrite on next recv.
+        // Zero-copy dispatch: payload points directly into RingBuffer memory.
+        // Safe because process_frames runs sequentially within a single coroutine,
+        // and no one else reads/writes the RingBuffer until we consume the frame.
+        // We consume AFTER dispatch completes, so the payload region stays valid.
         auto header = frame.header;
-
-        // C-05: SmallBuffer — stack for <= 4KB, heap for larger payloads
-        std::vector<uint8_t> heap_buf;
-        std::span<const uint8_t> payload_span;
-        if (frame.payload.size() <= kSmallPayloadThreshold) {
-            std::memcpy(stack_buf.data(), frame.payload.data(),
-                        frame.payload.size());
-            payload_span = {stack_buf.data(), frame.payload.size()};
-        } else {
-            heap_buf.assign(frame.payload.begin(), frame.payload.end());
-            payload_span = heap_buf;
-        }
-        TcpBinaryProtocol::consume_frame(recv_buf, frame);
+        auto payload_span = frame.payload;
 
         auto result = co_await dispatcher.dispatch(
             session, header.msg_id, payload_span);
+
+        TcpBinaryProtocol::consume_frame(recv_buf, frame);
 
         if (!result.has_value()) {
             auto error_frame = ErrorSender::build_error_frame(
