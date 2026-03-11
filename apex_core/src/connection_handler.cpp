@@ -17,7 +17,6 @@ ConnectionHandler::ConnectionHandler(SessionManager& session_mgr,
     : session_mgr_(session_mgr)
     , dispatcher_(dispatcher)
     , config_(config)
-    , logger_(spdlog::get("apex"))
 {
 }
 

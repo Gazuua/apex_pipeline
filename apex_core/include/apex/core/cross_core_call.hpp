@@ -221,11 +221,20 @@ inline Result<void> cross_core_post_msg(
 /// Broadcast a shared payload to all cores except source.
 /// Caller must call payload->set_refcount(engine.core_count() - 1) before calling.
 /// On post failure, releases the failed core's share of the refcount.
+/// No-op if core_count <= 1 (no targets) — caller should not allocate payload in this case.
 inline void broadcast_cross_core(
     CoreEngine& engine, uint32_t source_core,
     CrossCoreOp op, SharedPayload* payload)
 {
     assert(payload != nullptr && "broadcast_cross_core: payload must not be null");
+
+    // Single-core: no targets to broadcast to. Release all refcount shares
+    // to prevent memory leak (caller set refcount but nobody will release).
+    if (engine.core_count() <= 1) {
+        while (payload->refcount() > 0) payload->release();
+        return;
+    }
+
     assert(payload->refcount() > 0 && "broadcast_cross_core: refcount must be set before calling");
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
         if (i == source_core) continue;

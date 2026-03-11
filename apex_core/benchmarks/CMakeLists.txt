@@ -24,11 +24,6 @@ function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
     add_executable(${BENCH_NAME} ${BENCH_SOURCE} $<TARGET_OBJECTS:apex_bench_main>)
     target_include_directories(${BENCH_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(${BENCH_NAME} PRIVATE apex::core benchmark::benchmark)
-    if(WIN32)
-        target_compile_options(${BENCH_NAME} PRIVATE /utf-8)
-        target_compile_definitions(${BENCH_NAME} PRIVATE _WIN32_WINNT=0x0A00)
-        target_link_libraries(${BENCH_NAME} PRIVATE ws2_32 mswsock)
-    endif()
     set_target_properties(${BENCH_NAME} PROPERTIES
         OUTPUT_NAME "${BENCH_NAME}${_bench_variant_suffix}"
         RUNTIME_OUTPUT_DIRECTORY "${_bench_bin_dir}")

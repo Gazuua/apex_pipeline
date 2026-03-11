@@ -34,8 +34,19 @@ TEST(Result, VoidError) {
 
 TEST(ErrorCode, NameLookup) {
     EXPECT_EQ(error_code_name(ErrorCode::Ok), "Ok");
-    EXPECT_EQ(error_code_name(ErrorCode::Timeout), "Timeout");
+    EXPECT_EQ(error_code_name(ErrorCode::Unknown), "Unknown");
+    EXPECT_EQ(error_code_name(ErrorCode::InvalidMessage), "InvalidMessage");
     EXPECT_EQ(error_code_name(ErrorCode::HandlerNotFound), "HandlerNotFound");
+    EXPECT_EQ(error_code_name(ErrorCode::SessionClosed), "SessionClosed");
+    EXPECT_EQ(error_code_name(ErrorCode::BufferFull), "BufferFull");
+    EXPECT_EQ(error_code_name(ErrorCode::Timeout), "Timeout");
+    EXPECT_EQ(error_code_name(ErrorCode::FlatBuffersVerifyFailed), "FlatBuffersVerifyFailed");
+    EXPECT_EQ(error_code_name(ErrorCode::CrossCoreTimeout), "CrossCoreTimeout");
+    EXPECT_EQ(error_code_name(ErrorCode::CrossCoreQueueFull), "CrossCoreQueueFull");
+    EXPECT_EQ(error_code_name(ErrorCode::UnsupportedProtocolVersion), "UnsupportedProtocolVersion");
+    EXPECT_EQ(error_code_name(ErrorCode::HandlerException), "HandlerException");
+    EXPECT_EQ(error_code_name(ErrorCode::SendFailed), "SendFailed");
+    EXPECT_EQ(error_code_name(ErrorCode::AppError), "AppError");
 }
 
 TEST(ErrorSender, BuildErrorFrame) {

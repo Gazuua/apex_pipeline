@@ -85,11 +85,12 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Kafka Batch Produce** | Gateway → Kafka | 네트워크 라운드트립 최소화 | Phase 6 |
 | **Cross-Core Message Passing** | 코어 간 통신 | closure shipping 제거, handler dispatch + immutable shared payload | ✅ 구현 |
 | **intrusive_ptr Session** | 세션 관리 | shared_ptr atomic 제거, non-atomic refcount + SlabPool | ✅ 구현 |
-| **CPU Affinity + SO_REUSEPORT** | Gateway / Logic Service | 커널 레벨 코어 분배, 캐시 히트율 극대화 | Phase 5.5 |
+| **SO_REUSEPORT per-core acceptor** | Gateway / Logic Service | 커널 레벨 코어 분배, accept 크로스스레드 제거 | ✅ 구현 |
+| **CPU Affinity** | Gateway / Logic Service | 캐시 히트율 극대화 | 백로그 (Phase 10 부하 테스트 후) |
 | **L1 로컬 캐시** | 전 서비스 | 프로세스 내 해시맵(TTL) → Redis 호출도 제거 | 백로그 (Phase 10 부하 테스트 후) |
 | **코루틴 프레임 풀 할당** | 핫패스 | promise_type operator new → 슬랩 풀 할당 | 백로그 (ADR-21, 벤치마크 후) |
 | **배치 I/O (writev)** | 전 서비스 | 시스콜 횟수 최소화 | ✅ 구현 확인 (scatter-gather) |
-| **epoll 기본 / io_uring 선택** | I/O 백엔드 | CMake 옵션으로 io_uring 활성화 가능 | Phase 5.5 |
+| **epoll 기본 / io_uring 선택** | I/O 백엔드 | CMake 옵션으로 io_uring 활성화 가능 | ✅ CMake 옵션 구현 |
 
 ---
 
@@ -404,8 +405,8 @@ Phase 5.5 — 코어 프레임워크 성능적 완성도
 - [x] **Tier 2**: SessionPtr shared_ptr → intrusive_ptr (non-atomic refcount)
 - [x] **Tier 2**: Session SlabPool 전환 + sessions_/timer_to_session_ → flat_hash_map
 - [x] **Tier 2.5**: 벤치마크 시각화 + PDF 보고서 파이프라인
-- [ ] **Tier 3**: Server → Server + ConnectionHandler 분리
-- [ ] **Tier 3**: SO_REUSEPORT per-core acceptor + io_uring CMake 옵션
+- [x] **Tier 3**: Server → Server + ConnectionHandler 분리
+- [x] **Tier 3**: SO_REUSEPORT per-core acceptor + io_uring CMake 옵션 + SlabPool auto-grow
 
 #### Phase 6: Kafka 체인
 - [ ] Kafka 어댑터 (librdkafka fd → Asio, Producer 공유 + Consumer 분리)
@@ -452,7 +453,7 @@ Phase 5.5 — 코어 프레임워크 성능적 완성도
 #### 백로그 — 성능 최적화 (벤치마크 후)
 - [ ] 코루틴 프레임 풀 할당 (ADR-21 — Phase 5.5 Tier 1에서 stack_buf 제거, 풀 할당은 벤치마크 후)
 - [ ] L1 로컬 캐시 (Phase 10 부하 테스트 후)
-- [x] ~~CPU Affinity + SO_REUSEPORT~~ → Phase 5.5 Tier 3으로 흡수
+- [x] ~~SO_REUSEPORT~~ → Phase 5.5 Tier 3에서 구현 완료. CPU Affinity는 백로그 유지 (벤치마크 후 판단)
 - [x] ~~epoll → io_uring~~ → Phase 5.5 Tier 3으로 흡수
 - [x] ~~배치 I/O (writev)~~ → 이미 구현 확인 (session.cpp async_send scatter-gather)
 

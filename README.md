@@ -58,3 +58,4 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Tier 1.5: E2E echo 부하 테스터 + JSON before/after 비교 도구
   - Tier 2: intrusive_ptr 전환, Session SlabPool 할당, sessions_/timer_to_session_ flat_map
   - Tier 2.5: 벤치마크 시각화 (matplotlib) + PDF 보고서 (ReportLab) 파이프라인
+  - Tier 3: Server/ConnectionHandler 분리, SO_REUSEPORT per-core acceptor, io_uring CMake 옵션, SlabPool auto-grow

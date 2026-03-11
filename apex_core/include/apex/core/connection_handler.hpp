@@ -4,15 +4,12 @@
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
 #include <atomic>
 #include <cstdint>
-#include <memory>
 
 namespace apex::core {
 
@@ -50,7 +47,6 @@ private:
     MessageDispatcher& dispatcher_;
     ConnectionHandlerConfig config_;
     std::atomic<uint32_t> active_sessions_{0};
-    std::shared_ptr<spdlog::logger> logger_;
 };
 
 } // namespace apex::core
