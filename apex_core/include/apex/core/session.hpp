@@ -78,7 +78,7 @@ public:
     async_send_raw(std::span<const uint8_t> data);
 
     /// 세션 그레이스풀 종료.
-    void close();
+    void close() noexcept;
 
     [[nodiscard]] SessionId id() const noexcept { return id_; }
     [[nodiscard]] uint32_t core_id() const noexcept { return core_id_; }

@@ -355,6 +355,17 @@ TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain) {
     engine.join();
 }
 
+TEST(CoreEngineTest, DoubleStartThrows) {
+    CoreEngine engine({.num_cores = 2});
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    EXPECT_THROW(engine.start(), std::logic_error);
+
+    engine.stop();
+    engine.join();
+}
+
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
     CoreEngine engine({.num_cores = 2});
 

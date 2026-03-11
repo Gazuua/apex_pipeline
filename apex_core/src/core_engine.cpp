@@ -95,9 +95,10 @@ void CoreEngine::start() {
         throw std::logic_error("CoreEngine::start() called before join()");
     }
 
-    // Reset io_contexts for re-run
-    for (auto& ctx : cores_) {
-        ctx->io_ctx.restart();
+    // Reset io_contexts and drain flags for re-run
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        cores_[i]->io_ctx.restart();
+        drain_pending_[i].store(false, std::memory_order_relaxed);
     }
 
     threads_.reserve(config_.num_cores);

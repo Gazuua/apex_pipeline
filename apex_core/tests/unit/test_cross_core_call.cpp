@@ -262,6 +262,26 @@ TEST(CoreEngineTest, TlsCoreId) {
     engine.join();
 }
 
+TEST_F(CrossCoreCallTest, FuncExceptionResultsInTimeout) {
+    std::promise<ErrorCode> promise;
+    auto future = promise.get_future();
+
+    boost::asio::co_spawn(server_->core_io_context(0),
+        [this, &promise]() -> boost::asio::awaitable<void> {
+            auto result = co_await server_->cross_core_call(1,
+                []() -> int {
+                    throw std::runtime_error("intentional test exception");
+                },
+                100ms);  // short timeout
+            EXPECT_FALSE(result.has_value());
+            promise.set_value(result.error());
+        },
+        boost::asio::detached);
+
+    ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
+    EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+}
+
 TEST(CrossCorePostMsgTest, InvalidTargetReturnsError) {
     CoreEngine engine(CoreEngineConfig{.num_cores = 2});
     // Don't start — post_to with invalid target returns error immediately

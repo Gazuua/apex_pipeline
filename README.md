@@ -55,3 +55,5 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Tier 0: Google Benchmark 벤치마크 인프라 (micro 7개 + integration 4개)
   - Tier 0.5: 에러 타입 통일 (DispatchError/QueueError → ErrorCode 단일 채널)
   - Tier 1: drain/tick 분리, Cross-Core Message Passing 인프라, MessageDispatcher flat_map, zero-copy dispatch
+  - Tier 1.5: E2E echo 부하 테스터 + JSON before/after 비교 도구
+  - Tier 2: intrusive_ptr 전환, Session SlabPool 할당, sessions_/timer_to_session_ flat_map

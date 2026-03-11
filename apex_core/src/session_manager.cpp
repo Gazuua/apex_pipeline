@@ -125,10 +125,12 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
     if (timeout_callback_) {
         try {
             timeout_callback_(session);
+        } catch (const std::exception& e) {
+            spdlog::error("Timeout callback exception for session {}: {}",
+                          session_id, e.what());
         } catch (...) {
-            // Ensure session is closed even if callback throws
-            session->close();
-            throw;
+            spdlog::error("Timeout callback unknown exception for session {}",
+                          session_id);
         }
     }
 

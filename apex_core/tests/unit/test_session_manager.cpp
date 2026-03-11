@@ -244,3 +244,50 @@ TEST_F(SessionManagerTest, SlabPoolReclaimAfterRemove) {
 
     for (auto& c : clients) c.close();
 }
+
+TEST_F(SessionManagerTest, SlabPoolReturnOnRefcountZero) {
+    SessionManager mgr(0, 0, 8, 8192, 4);
+    auto [server, client] = make_socket_pair(io_ctx_);
+
+    auto session = mgr.create_session(std::move(server));
+    auto id = session->id();
+
+    // remove from mgr → only session local ref remains
+    mgr.remove_session(id);
+    EXPECT_EQ(mgr.session_count(), 0u);
+
+    // reset → refcount 0 → pool_owner_->destroy()
+    session.reset();
+
+    // If pool return succeeded, new allocation should reuse the slot
+    auto [s2, c2] = make_socket_pair(io_ctx_);
+    auto session2 = mgr.create_session(std::move(s2));
+    EXPECT_NE(session2, nullptr);
+
+    client.close();
+    c2.close();
+}
+
+TEST_F(SessionManagerTest, SlabPoolMixedAllocationRemoval) {
+    SessionManager mgr(0, 0, 8, 8192, 2);
+    std::vector<tcp::socket> clients;
+    std::vector<SessionPtr> sessions;
+    std::vector<SessionId> ids;
+
+    for (int i = 0; i < 3; ++i) {
+        auto [server, client] = make_socket_pair(io_ctx_);
+        auto s = mgr.create_session(std::move(server));
+        ids.push_back(s->id());
+        sessions.push_back(s);
+        clients.push_back(std::move(client));
+    }
+
+    // Remove in reverse: heap(3rd) first, then pool(2nd, 1st)
+    for (int i = 2; i >= 0; --i) {
+        sessions[static_cast<size_t>(i)].reset();
+        mgr.remove_session(ids[static_cast<size_t>(i)]);
+    }
+    EXPECT_EQ(mgr.session_count(), 0u);
+
+    for (auto& c : clients) c.close();
+}

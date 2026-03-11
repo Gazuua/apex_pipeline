@@ -3,6 +3,8 @@
 
 #include <atomic>
 #include <cstdint>
+#include <thread>
+#include <vector>
 
 using namespace apex::core;
 
@@ -44,4 +46,26 @@ TEST(SharedPayload, BroadcastPattern) {
     p->release();  // core 2
     EXPECT_EQ(p->refcount(), 1u);
     p->release();  // core 3 → delete
+}
+
+TEST(SharedPayload, ConcurrentRelease) {
+    constexpr int N = 8;
+    std::atomic<int> destroyed{0};
+
+    struct TrackDestroy : SharedPayload {
+        std::atomic<int>* flag;
+        explicit TrackDestroy(std::atomic<int>* f) : flag(f) {}
+        ~TrackDestroy() override { flag->fetch_add(1); }
+    };
+
+    auto* p = new TrackDestroy(&destroyed);
+    p->set_refcount(N);
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < N; ++i) {
+        threads.emplace_back([p] { p->release(); });
+    }
+    for (auto& t : threads) t.join();
+
+    EXPECT_EQ(destroyed.load(), 1);
 }

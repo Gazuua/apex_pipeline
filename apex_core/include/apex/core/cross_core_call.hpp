@@ -117,6 +117,7 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         co_return apex::core::error(ErrorCode::CrossCoreTimeout);
     }
 
+    assert(state->result.has_value() && "cross_core_call: result must be set before CAS(1)");
     co_return std::move(*state->result);
 }
 
@@ -224,6 +225,8 @@ inline void broadcast_cross_core(
     CoreEngine& engine, uint32_t source_core,
     CrossCoreOp op, SharedPayload* payload)
 {
+    assert(payload != nullptr && "broadcast_cross_core: payload must not be null");
+    assert(payload->refcount() > 0 && "broadcast_cross_core: refcount must be set before calling");
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
         if (i == source_core) continue;
         CoreMessage msg{

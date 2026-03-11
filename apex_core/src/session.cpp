@@ -71,7 +71,7 @@ awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data) {
     co_return ok();
 }
 
-void Session::close() {
+void Session::close() noexcept {
     if (state_ == State::Closed) return;
     // Bypass set_state() which asserts on Closed->Closed transition
     // (already guarded by early return above)
