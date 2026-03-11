@@ -9,25 +9,34 @@
 
 namespace apex::core {
 
+/// Configuration for SlabPool auto-grow and metrics behavior.
+struct SlabPoolConfig {
+    bool auto_grow = false;      ///< true: allocate() grows pool on exhaustion
+    size_t grow_chunk_size = 0;  ///< 0: use initial_count as grow size
+    size_t max_total_count = 0;  ///< 0: unlimited growth
+};
+
 /// Fixed-size slab memory pool for O(1) allocation/deallocation.
 /// Designed for per-core use (no thread synchronization).
 ///
 /// Memory is pre-allocated in chunks. Each chunk contains N slots of
 /// fixed size. Free slots are tracked via an intrusive free-list.
 ///
-/// @note This is a fixed-size pool. allocate() returns nullptr when exhausted.
-/// Auto-grow is intentionally not supported — callers must size the pool
-/// appropriately at construction time (e.g., based on max expected sessions per core).
+/// Supports optional auto-grow: when exhausted, allocate() grows the pool
+/// by grow_chunk_size slots (up to max_total_count). Default is fixed-size.
 ///
 /// Usage:
-///   SlabPool pool(sizeof(MyObject), 1024);  // 1024 slots
+///   SlabPool pool(sizeof(MyObject), 1024);  // fixed 1024 slots
+///   SlabPool pool(sizeof(MyObject), 256, {.auto_grow = true, .max_total_count = 4096});
 ///   void* p = pool.allocate();
 ///   pool.deallocate(p);
 class SlabPool {
 public:
-    /// @param slot_size Size of each slot in bytes (will be aligned up to alignof(max_align_t)).
-    /// @param initial_count Number of slots to pre-allocate.
+    /// Fixed-size constructor (backward compatible, auto_grow=false).
     SlabPool(size_t slot_size, size_t initial_count);
+
+    /// Extended constructor with config for auto-grow and metrics.
+    SlabPool(size_t slot_size, size_t initial_count, SlabPoolConfig config);
 
     ~SlabPool();
 
@@ -65,6 +74,12 @@ public:
     /// Check if a pointer belongs to this pool and is slot-aligned.
     [[nodiscard]] bool owns(void* ptr) const noexcept;
 
+    /// Number of times the pool has auto-grown (0 = never grown).
+    [[nodiscard]] size_t grow_count() const noexcept;
+
+    /// Peak number of simultaneously allocated slots (high water mark).
+    [[nodiscard]] size_t peak_allocated() const noexcept;
+
 private:
     struct FreeNode {
         FreeNode* next;
@@ -83,6 +98,10 @@ private:
     size_t slot_size_;       // aligned slot size
     size_t total_count_;     // total slots ever created
     size_t free_count_;      // current free slots
+    SlabPoolConfig config_;
+    size_t initial_count_;   // grow_chunk_size=0 시 fallback
+    size_t grow_count_{0};
+    size_t peak_allocated_{0};
 };
 
 /// Typed wrapper around SlabPool for type-safe allocation.
@@ -104,6 +123,9 @@ class TypedSlabPool {
 public:
     explicit TypedSlabPool(size_t initial_count)
         : pool_(sizeof(T), initial_count) {}
+
+    TypedSlabPool(size_t initial_count, SlabPoolConfig config)
+        : pool_(sizeof(T), initial_count, config) {}
 
     template <typename... Args>
     [[nodiscard]] T* construct(Args&&... args) {
@@ -128,6 +150,8 @@ public:
 
     [[nodiscard]] size_t allocated_count() const noexcept { return pool_.allocated_count(); }
     [[nodiscard]] size_t free_count() const noexcept { return pool_.free_count(); }
+    [[nodiscard]] size_t grow_count() const noexcept { return pool_.grow_count(); }
+    [[nodiscard]] size_t peak_allocated() const noexcept { return pool_.peak_allocated(); }
 
 private:
     SlabPool pool_;

@@ -18,10 +18,17 @@ static size_t align_up(size_t size, size_t alignment) {
 }
 
 SlabPool::SlabPool(size_t slot_size, size_t initial_count)
+    : SlabPool(slot_size, initial_count, SlabPoolConfig{})
+{
+}
+
+SlabPool::SlabPool(size_t slot_size, size_t initial_count, SlabPoolConfig config)
     : free_list_(nullptr)
     , slot_size_(align_up(std::max(slot_size, sizeof(FreeNode)), alignof(std::max_align_t)))
     , total_count_(0)
     , free_count_(0)
+    , config_(config)
+    , initial_count_(initial_count)
 {
     if (initial_count == 0) {
         throw std::invalid_argument("SlabPool: initial_count must be > 0");
@@ -75,14 +82,39 @@ void SlabPool::grow(size_t count) {
 }
 
 void* SlabPool::allocate() {
-    if (!free_list_) return nullptr;
+    if (!free_list_) {
+        if (!config_.auto_grow) return nullptr;
+
+        // max_total check
+        if (config_.max_total_count > 0 && total_count_ >= config_.max_total_count) {
+            return nullptr;
+        }
+
+        size_t chunk = config_.grow_chunk_size > 0
+            ? config_.grow_chunk_size
+            : initial_count_;
+
+        // Clamp to max_total
+        if (config_.max_total_count > 0) {
+            chunk = std::min(chunk, config_.max_total_count - total_count_);
+        }
+
+        if (chunk == 0) return nullptr;
+        grow(chunk);
+        ++grow_count_;
+    }
 
     FreeNode* node = free_list_;
     free_list_ = node->next;
     --free_count_;
-    // NOTE: 사용자가 슬롯 전체를 데이터로 덮어쓰면 magic 값도 소실된다.
-    // 이 경우 double-free 감지는 best-effort이며 보장되지 않음.
     node->magic = SLAB_MAGIC_ALLOCATED;
+
+    // Peak tracking
+    size_t current = allocated_count();
+    if (current > peak_allocated_) {
+        peak_allocated_ = current;
+    }
+
     return static_cast<void*>(node);
 }
 
@@ -111,9 +143,8 @@ void SlabPool::deallocate(void* ptr) noexcept {
 }
 
 bool SlabPool::owns(void* ptr) const noexcept {
-    // Linear scan over chunks. O(1) when pool has a single chunk (typical case —
-    // grow() is only called from the constructor). If auto-grow is ever added,
-    // consider a sorted vector + binary search or an interval tree.
+    // Linear scan over chunks. O(1) when pool has a single chunk (typical case).
+    // With auto-grow, chunk count grows slowly (e.g., 4→8→12→16 = 4 chunks).
     auto* p = static_cast<uint8_t*>(ptr);
     for (const auto& chunk : chunks_) {
         if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count) {
@@ -139,6 +170,14 @@ size_t SlabPool::total_count() const noexcept {
 
 size_t SlabPool::slot_size() const noexcept {
     return slot_size_;
+}
+
+size_t SlabPool::grow_count() const noexcept {
+    return grow_count_;
+}
+
+size_t SlabPool::peak_allocated() const noexcept {
+    return peak_allocated_;
 }
 
 } // namespace apex::core
