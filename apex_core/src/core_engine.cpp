@@ -12,6 +12,8 @@
 
 namespace apex::core {
 
+thread_local uint32_t CoreEngine::tls_core_id_ = UINT32_MAX;
+
 // --- CoreContext ---
 
 CoreContext::CoreContext(uint32_t id, size_t queue_capacity)
@@ -170,7 +172,12 @@ bool CoreEngine::running() const noexcept {
     return running_.load(std::memory_order_acquire);
 }
 
+uint32_t CoreEngine::current_core_id() noexcept {
+    return tls_core_id_;
+}
+
 void CoreEngine::run_core(uint32_t core_id) {
+    tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
     // Independent tick timer (heartbeat, timing wheel, etc.)

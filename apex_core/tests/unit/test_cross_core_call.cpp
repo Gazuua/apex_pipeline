@@ -232,3 +232,69 @@ TEST(CrossCorePostMsgTest, PostMsgFireAndForget) {
     engine.stop();
     engine.join();
 }
+
+TEST(CoreEngineTest, TlsCoreId) {
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+
+    std::atomic<uint32_t> id_on_core0{UINT32_MAX};
+    std::atomic<uint32_t> id_on_core1{UINT32_MAX};
+
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0101),
+        [](uint32_t core_id, uint32_t /*source*/, void* data) {
+            auto* target = static_cast<std::atomic<uint32_t>*>(data);
+            target->store(CoreEngine::current_core_id(), std::memory_order_release);
+        });
+
+    engine.start();
+
+    (void)cross_core_post_msg(engine, 0, 0, static_cast<CrossCoreOp>(0x0101), &id_on_core0);
+    (void)cross_core_post_msg(engine, 0, 1, static_cast<CrossCoreOp>(0x0101), &id_on_core1);
+
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return id_on_core0.load(std::memory_order_acquire) != UINT32_MAX &&
+               id_on_core1.load(std::memory_order_acquire) != UINT32_MAX;
+    }));
+    EXPECT_EQ(id_on_core0.load(), 0u);
+    EXPECT_EQ(id_on_core1.load(), 1u);
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(BroadcastTest, BroadcastToAllCores) {
+    CoreEngine engine(CoreEngineConfig{.num_cores = 4});
+
+    // External counter — survives SharedPayload deletion
+    std::atomic<int> received_count{0};
+
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0102),
+        [](uint32_t /*core_id*/, uint32_t /*source*/, void* data) {
+            auto* payload = static_cast<SharedPayload*>(data);
+            // Counter is stored externally; payload->release() may delete payload
+            payload->release();
+        });
+
+    engine.start();
+
+    // SharedPayload subclass that increments external counter on destruction
+    struct BroadcastData : SharedPayload {
+        std::atomic<int>* counter;
+        explicit BroadcastData(std::atomic<int>* c) : counter(c) {}
+        ~BroadcastData() override { counter->store(1, std::memory_order_release); }
+    };
+    auto* data = new BroadcastData(&received_count);
+    data->set_refcount(3);  // 4 cores - 1 source = 3
+
+    broadcast_cross_core(engine, /*source_core=*/0,
+        static_cast<CrossCoreOp>(0x0102), data);
+
+    // Wait for destructor to fire (refcount reaches 0 → delete → sets counter=1)
+    ASSERT_TRUE(apex::test::wait_for([&received_count] {
+        return received_count.load(std::memory_order_acquire) == 1;
+    }));
+
+    engine.stop();
+    engine.join();
+}

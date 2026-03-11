@@ -111,6 +111,9 @@ public:
     [[nodiscard]] boost::asio::io_context& io_context(uint32_t core_id);
     [[nodiscard]] bool running() const noexcept;
 
+    /// Current core ID via thread-local. Must be called from a core thread.
+    [[nodiscard]] static uint32_t current_core_id() noexcept;
+
 private:
     void run_core(uint32_t core_id);
     void drain_inbox(uint32_t core_id);
@@ -125,6 +128,7 @@ private:
     std::atomic<bool> running_{false};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;
     CrossCoreDispatcher cross_core_dispatcher_;
+    static thread_local uint32_t tls_core_id_;
 };
 
 } // namespace apex::core

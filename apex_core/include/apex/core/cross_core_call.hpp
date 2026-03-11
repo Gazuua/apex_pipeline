@@ -3,6 +3,7 @@
 #include <apex/core/core_engine.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/shared_payload.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/post.hpp>
@@ -213,6 +214,26 @@ inline Result<void> cross_core_post_msg(
         .data = reinterpret_cast<uintptr_t>(data)
     };
     return engine.post_to(target_core, msg);
+}
+
+/// Broadcast a shared payload to all cores except source.
+/// Caller must call payload->set_refcount(engine.core_count() - 1) before calling.
+/// On post failure, releases the failed core's share of the refcount.
+inline void broadcast_cross_core(
+    CoreEngine& engine, uint32_t source_core,
+    CrossCoreOp op, SharedPayload* payload)
+{
+    for (uint32_t i = 0; i < engine.core_count(); ++i) {
+        if (i == source_core) continue;
+        CoreMessage msg{
+            .op = op,
+            .source_core = source_core,
+            .data = reinterpret_cast<uintptr_t>(payload)
+        };
+        if (!engine.post_to(i, msg).has_value()) {
+            payload->release();  // 전송 실패 코어 분 refcount 감소
+        }
+    }
 }
 
 } // namespace apex::core
