@@ -40,7 +40,7 @@ color: green
 ### 3. MSVC 호환성 (CLAUDE.md 주의사항)
 - `std::aligned_alloc` 대신 `_aligned_malloc`/`_aligned_free` 분기 사용
 - CRTP에서 `using FrameType = Derived::FrameType` → 불완전 타입 에러 우회
-- `MessageDispatcher`: `std::array<std::function, 65536>` ~2MB → 힙 할당 사용
+- `MessageDispatcher`: `boost::unordered_flat_map` 기반 (기존 65536-entry array 제거됨)
 
 ### 4. 메모리 안전성
 - RAII 패턴 준수 여부

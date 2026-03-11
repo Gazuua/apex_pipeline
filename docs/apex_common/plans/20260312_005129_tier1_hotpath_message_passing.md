@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** drain/tick 분리로 폴링 지연을 제거하고, closure shipping을 message passing 아키텍처로 전환하여 per-message heap 할당을 없애며, MessageDispatcher를 flat_hash_map으로 교체하여 2MB 메모리 낭비를 제거한다.
+**Goal:** drain/tick 분리로 폴링 지연을 제거하고, closure shipping을 message passing 아키텍처로 전환하여 per-message heap 할당을 없애며, MessageDispatcher를 boost::unordered_flat_map으로 교체하여 2MB 메모리 낭비를 제거한다.
 
 **Architecture:** 3개 독립 축으로 진행 — (A) drain/tick 분리 (CoreEngine 내부 리팩토링), (B) message passing 전환 (CoreMessage 구조 변경 → CrossCoreDispatcher → SharedPayload → 기존 API 대체), (C) MessageDispatcher 자료구조 교체. 각 축은 내부적으로 의존성 순서를 따르되, 축 간 독립 커밋 가능.
 
