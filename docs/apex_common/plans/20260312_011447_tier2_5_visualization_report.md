@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 벤치마크 JSON 결과를 시각적 차트로 변환하고, Phase 5.5 종합 성능 보고서를 PDF로 생성하는 파이프라인을 구축한다.
+**Goal:** E2E 부하 테스트 JSON 결과를 시각적 차트로 변환하고, Phase 5.5 종합 성능 보고서를 PDF로 생성하는 파이프라인을 구축한다.
 
-**Architecture:** Python 기반 도구 체인 — visualize.py (matplotlib 차트 생성) → report.py (차트 + 텍스트 → PDF). 모든 Tier의 before/after 벤치마크 결과를 통합.
+**Architecture:** Python 기반 도구 체인 — visualize.py (matplotlib 차트 생성) → generate_report.py (차트 + 텍스트 → PDF). E2E loadtest의 before/after JSON 결과를 시각화.
 
-**Tech Stack:** Python 3.10+, matplotlib, reportlab (또는 weasyprint)
+**Tech Stack:** Python 3.10+, matplotlib, reportlab
 
 **v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 5.5 Phase B, § 6 Tier 2.5
 
@@ -20,11 +20,12 @@
 
 | File | Purpose |
 |------|---------|
-| `apex_tools/benchmark/visualize/visualize.py` | JSON → matplotlib 차트 생성 (bar/line) |
+| `apex_tools/benchmark/visualize/visualize.py` | E2E loadtest JSON → matplotlib 차트 생성 (bar chart) |
 | `apex_tools/benchmark/visualize/requirements.txt` | Python 의존성 (matplotlib) |
-| `apex_tools/benchmark/report/generate_report.py` | 차트 + 텍스트 → PDF 보고서 |
+| `apex_tools/benchmark/report/generate_report.py` | 차트 + JSON 결과 → PDF 보고서 (Tier 구조화) |
 | `apex_tools/benchmark/report/requirements.txt` | Python 의존성 (reportlab) |
-| `apex_tools/benchmark/report/template.py` | 보고서 레이아웃/스타일 정의 |
+
+> **제거된 항목**: `template.py`는 별도 파일로 분리하지 않음 — 스타일 정의가 소량이므로 generate_report.py 인라인으로 충분.
 
 ---
 
@@ -47,26 +48,34 @@ matplotlib>=3.8
 ```python
 #!/usr/bin/env python3
 """
-visualize.py — Benchmark JSON → chart generator.
+visualize.py — E2E loadtest JSON -> chart generator.
 
 Usage:
     python visualize.py --before=results/before.json --after=results/after.json --output=charts/
-    python visualize.py --micro=results/micro_*.json --output=charts/
 
 Generates:
-    - throughput_comparison.png (bar chart)
-    - latency_comparison.png (bar chart, percentiles)
-    - latency_cdf.png (line chart, cumulative distribution)
+    - throughput_comparison.png (bar chart: msg/s, MB/s)
+    - latency_comparison.png (grouped bar chart: avg, p50, p90, p99, p99.9)
+
+Input JSON format (echo_loadtest --json output):
+    {
+        "msg_per_sec": 50000,
+        "mb_per_sec": 12.5,
+        "latency_us": {"avg": 200, "p50": 150, "p90": 300, "p99": 500, "p999": 1000},
+        "connections": 100,
+        "payload_size": 256,
+        "duration_secs": 30
+    }
 """
+
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend — MUST be before pyplot import
 
 import argparse
 import json
 import os
-from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
 
 
 def load_json(path: str) -> dict:
@@ -75,17 +84,20 @@ def load_json(path: str) -> dict:
 
 
 def plot_throughput_comparison(before: dict, after: dict, output_dir: str):
-    """Bar chart comparing throughput (msg/s, MB/s)."""
-    labels = ['msg/s', 'MB/s']
-    before_vals = [before.get('msg_per_sec', 0), before.get('mb_per_sec', 0)]
-    after_vals = [after.get('msg_per_sec', 0), after.get('mb_per_sec', 0)]
+    """Bar chart comparing throughput (msg/s and MB/s as separate subplots)."""
+    metrics = [
+        ('msg_per_sec', 'Messages/sec'),
+        ('mb_per_sec', 'MB/sec'),
+    ]
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    for i, (label, bv, av) in enumerate(zip(labels, before_vals, after_vals)):
+    for i, (key, label) in enumerate(metrics):
+        bv = before.get(key, 0)
+        av = after.get(key, 0)
         bars = axes[i].bar(['Before', 'After'], [bv, av],
                            color=['#E57373', '#81C784'])
-        axes[i].set_title(f'Throughput ({label})')
-        axes[i].set_ylabel(label)
+        axes[i].set_title(f'Throughput: {label}')
+        # Value labels on bars
         for bar in bars:
             axes[i].text(bar.get_x() + bar.get_width() / 2, bar.get_height(),
                          f'{bar.get_height():.1f}', ha='center', va='bottom')
@@ -96,15 +108,15 @@ def plot_throughput_comparison(before: dict, after: dict, output_dir: str):
 
 
 def plot_latency_comparison(before: dict, after: dict, output_dir: str):
-    """Bar chart comparing latency percentiles."""
+    """Grouped bar chart comparing latency percentiles."""
     b_lat = before.get('latency_us', {})
     a_lat = after.get('latency_us', {})
 
-    percentiles = ['avg', 'p50', 'p90', 'p99', 'p999']
+    keys = ['avg', 'p50', 'p90', 'p99', 'p999']
     labels = ['avg', 'p50', 'p90', 'p99', 'p99.9']
 
-    before_vals = [b_lat.get(p, 0) for p in percentiles]
-    after_vals = [a_lat.get(p, 0) for p in percentiles]
+    before_vals = [b_lat.get(k, 0) for k in keys]
+    after_vals = [a_lat.get(k, 0) for k in keys]
 
     x = range(len(labels))
     width = 0.35
@@ -113,7 +125,7 @@ def plot_latency_comparison(before: dict, after: dict, output_dir: str):
     ax.bar([i - width / 2 for i in x], before_vals, width, label='Before', color='#E57373')
     ax.bar([i + width / 2 for i in x], after_vals, width, label='After', color='#81C784')
     ax.set_xlabel('Percentile')
-    ax.set_ylabel('Latency (μs)')
+    ax.set_ylabel('Latency (us)')
     ax.set_title('Latency Comparison')
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels)
@@ -125,10 +137,10 @@ def plot_latency_comparison(before: dict, after: dict, output_dir: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Benchmark visualization')
-    parser.add_argument('--before', required=True, help='Before JSON result')
-    parser.add_argument('--after', required=True, help='After JSON result')
-    parser.add_argument('--output', default='charts/', help='Output directory')
+    parser = argparse.ArgumentParser(description='E2E loadtest result visualization')
+    parser.add_argument('--before', required=True, help='Before JSON result (echo_loadtest --json)')
+    parser.add_argument('--after', required=True, help='After JSON result (echo_loadtest --json)')
+    parser.add_argument('--output', default='charts/', help='Output directory for PNG charts')
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -150,11 +162,13 @@ if __name__ == '__main__':
 
 ```bash
 pip install matplotlib
+echo '{"msg_per_sec":50000,"mb_per_sec":12.5,"latency_us":{"avg":200,"p50":150,"p90":300,"p99":500,"p999":1000},"connections":100,"payload_size":256,"duration_secs":30}' > /tmp/before.json
+echo '{"msg_per_sec":75000,"mb_per_sec":18.7,"latency_us":{"avg":130,"p50":100,"p90":200,"p99":350,"p999":700},"connections":100,"payload_size":256,"duration_secs":30}' > /tmp/after.json
 python3 apex_tools/benchmark/visualize/visualize.py \
     --before=/tmp/before.json --after=/tmp/after.json --output=/tmp/charts/
 ```
 
-Expected: `throughput_comparison.png`, `latency_comparison.png` 생성
+Expected: `throughput_comparison.png`, `latency_comparison.png` 생성 확인
 
 - [ ] **Step 4: 커밋**
 
@@ -175,8 +189,9 @@ git commit -m "feat(tools): 벤치마크 시각화 도구 (visualize.py)"
 
 ```
 reportlab>=4.0
-matplotlib>=3.8
 ```
+
+> matplotlib 불필요 — report는 PNG 차트를 참조만 하고 직접 생성하지 않음.
 
 - [ ] **Step 2: generate_report.py 작성**
 
@@ -192,16 +207,16 @@ Usage:
         --charts=charts/ \
         --output=report.pdf
 
-Sections:
-    1. Executive Summary
-    2. System Configuration
-    3. Tier-by-Tier Results (before/after charts + tables)
-    4. Conclusions
+Report Sections:
+    1. Title + metadata (date, system info)
+    2. Charts (throughput + latency PNG images)
+    3. Detailed Results (JSON data as tables, grouped by Tier)
 """
 
 import argparse
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 from reportlab.lib.pagesizes import A4
@@ -220,35 +235,44 @@ def build_report(title: str, results_dir: str, charts_dir: str, output: str):
                             topMargin=inch, bottomMargin=inch)
     styles = getSampleStyleSheet()
 
-    # Custom styles
     title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=24)
     heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading1'], fontSize=16)
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=10, textColor=colors.grey)
 
     elements = []
 
-    # Title
+    # --- Section 1: Title + Metadata ---
     elements.append(Paragraph(title, title_style))
-    elements.append(Spacer(1, 0.5 * inch))
-    elements.append(Paragraph("Apex Pipeline — Phase 5.5 Core Optimization", styles['Normal']))
     elements.append(Spacer(1, 0.3 * inch))
+    elements.append(Paragraph("Apex Pipeline - Phase 5.5 Core Optimization", styles['Normal']))
+    elements.append(Spacer(1, 0.2 * inch))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", meta_style))
+    elements.append(Spacer(1, 0.5 * inch))
 
-    # Charts
+    # --- Section 2: Charts ---
     chart_files = sorted(Path(charts_dir).glob('*.png'))
-    for chart_path in chart_files:
-        elements.append(Paragraph(chart_path.stem.replace('_', ' ').title(), heading_style))
-        elements.append(Image(str(chart_path), width=6 * inch, height=3.5 * inch))
-        elements.append(Spacer(1, 0.3 * inch))
+    if chart_files:
+        elements.append(Paragraph("Performance Charts", heading_style))
+        elements.append(Spacer(1, 0.2 * inch))
 
-    # Results tables
+        for chart_path in chart_files:
+            chart_title = chart_path.stem.replace('_', ' ').title()
+            elements.append(Paragraph(chart_title, styles['Heading2']))
+            elements.append(Image(str(chart_path), width=6 * inch, height=3.5 * inch))
+            elements.append(Spacer(1, 0.3 * inch))
+
+    # --- Section 3: Detailed Results ---
     json_files = sorted(Path(results_dir).glob('*.json'))
     if json_files:
         elements.append(PageBreak())
         elements.append(Paragraph("Detailed Results", heading_style))
+        elements.append(Spacer(1, 0.2 * inch))
 
         for jf in json_files:
             with open(jf) as f:
                 data = json.load(f)
 
+            # Tier name from filename (e.g., "baseline_tier0.5" or "after_tier1")
             elements.append(Paragraph(jf.stem, styles['Heading2']))
             table_data = [['Metric', 'Value']]
             for k, v in data.items():
@@ -264,6 +288,8 @@ def build_report(title: str, results_dir: str, charts_dir: str, output: str):
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             elements.append(t)
             elements.append(Spacer(1, 0.3 * inch))
@@ -276,7 +302,7 @@ def main():
     parser = argparse.ArgumentParser(description='Generate PDF benchmark report')
     parser.add_argument('--title', default='Phase 5.5 Performance Report')
     parser.add_argument('--results', default='results/', help='Results JSON directory')
-    parser.add_argument('--charts', default='charts/', help='Charts directory')
+    parser.add_argument('--charts', default='charts/', help='Charts PNG directory')
     parser.add_argument('--output', default='report.pdf', help='Output PDF path')
     args = parser.parse_args()
 
@@ -305,7 +331,7 @@ git commit -m "feat(tools): PDF 보고서 생성 파이프라인 (generate_repor
 
 - [ ] **Step 1: Tier 2 before/after 측정**
 
-각 Tier 커밋 전후로 E2E + 마이크로 벤치마크 실행, JSON 결과 저장.
+각 Tier 커밋 전후로 E2E 부하 테스트 실행, `--json` 출력을 `results/` 디렉토리에 저장.
 
 - [ ] **Step 2: 차트 생성**
 
@@ -324,8 +350,10 @@ python3 apex_tools/benchmark/report/generate_report.py \
 
 - [ ] **Step 4: 결과 커밋**
 
+> charts/ PNG 파일은 커밋하지 않음 — PDF에 이미 포함. results/ JSON과 PDF만 커밋.
+
 ```bash
-git add results/ charts/ docs/apex_common/phase5_5_report.pdf
+git add results/ docs/apex_common/phase5_5_report.pdf
 git commit -m "bench: Phase 5.5 종합 벤치마크 보고서"
 ```
 
@@ -334,8 +362,8 @@ git commit -m "bench: Phase 5.5 종합 벤치마크 보고서"
 ## Summary
 
 ### 산출물
-1. **visualize.py** — JSON → PNG 차트 (throughput + latency 비교)
-2. **generate_report.py** — 차트 + 결과 → PDF 보고서
+1. **visualize.py** — E2E loadtest JSON → PNG 차트 (throughput + latency 비교)
+2. **generate_report.py** — 차트 + JSON 결과 → 구조화된 PDF 보고서
 3. **Phase 5.5 종합 보고서** — 전 Tier before/after 통합 PDF
 
 ### Task 별 커밋 (3개)

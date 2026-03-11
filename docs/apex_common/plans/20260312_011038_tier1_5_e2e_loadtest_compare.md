@@ -6,7 +6,7 @@
 
 **Architecture:** echo_loadtest는 Boost.Asio 기반 비동기 TCP 클라이언트 풀로 multicore_echo_server에 부하를 인가하고, throughput/latency 결과를 JSON으로 출력. compare_results.py는 두 JSON 파일을 읽어 stdout 비교 테이블을 생성.
 
-**Tech Stack:** C++23, Boost.Asio, nlohmann/json (또는 FlatBuffers JSON), Python 3.10+
+**Tech Stack:** C++23, Boost.Asio, FlatBuffers, Python 3.10+
 
 **v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 5.4, § 5.5, § 6 Tier 1.5
 
@@ -20,17 +20,16 @@
 
 | File | Purpose |
 |------|---------|
-| `apex_tools/benchmark/loadtest/echo_loadtest.cpp` | E2E echo 부하 테스터 (비동기 TCP 클라이언트 풀) |
-| `apex_tools/benchmark/loadtest/CMakeLists.txt` | loadtest 빌드 설정 |
+| `apex_core/examples/echo_loadtest.cpp` | E2E echo 부하 테스터 (비동기 TCP 클라이언트 풀) |
 | `apex_tools/benchmark/compare/compare_results.py` | JSON before/after 비교 스크립트 |
-| `apex_tools/benchmark/compare/requirements.txt` | Python 의존성 (없으면 빈 파일) |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `apex_tools/CMakeLists.txt` | `add_subdirectory(benchmark/loadtest)` 추가 (있으면) |
-| 루트 `CMakeLists.txt` | apex_tools 빌드 경로 추가 (필요 시) |
+| `apex_core/CMakeLists.txt` | `echo_loadtest` 실행 파일 빌드 추가 (examples 섹션) |
+
+> **빌드 위치 결정**: loadtest는 apex_core의 wire protocol + FlatBuffers에 의존하므로 `apex_core/examples/`에 배치하고 apex_core CMakeLists.txt에서 빌드. `apex_tools/benchmark/loadtest/`에는 배치하지 않음 — 별도 CMakeLists.txt 없이 기존 빌드 시스템에 통합.
 
 ---
 
@@ -39,36 +38,20 @@
 ### Task 1: echo_loadtest.cpp — 비동기 TCP 부하 테스터
 
 **Files:**
-- Create: `apex_tools/benchmark/loadtest/echo_loadtest.cpp`
-- Create: `apex_tools/benchmark/loadtest/CMakeLists.txt`
+- Create: `apex_core/examples/echo_loadtest.cpp`
+- Modify: `apex_core/CMakeLists.txt`
 
-- [ ] **Step 1: CMakeLists.txt 생성**
+- [ ] **Step 1: CMakeLists.txt — echo_loadtest 빌드 추가**
 
-`apex_tools/benchmark/loadtest/CMakeLists.txt`:
+`apex_core/CMakeLists.txt`의 examples 섹션에 추가:
 ```cmake
-find_package(Boost REQUIRED)
-
-add_executable(echo_loadtest echo_loadtest.cpp)
-target_link_libraries(echo_loadtest PRIVATE
-    Boost::headers
-    $<$<PLATFORM_ID:Windows>:ws2_32>
-    $<$<PLATFORM_ID:Windows>:mswsock>
-)
-target_compile_features(echo_loadtest PRIVATE cxx_std_23)
-
-if(WIN32)
-    target_compile_definitions(echo_loadtest PRIVATE
-        _WIN32_WINNT=0x0A00
-        BOOST_ASIO_HAS_CO_AWAIT
-    )
-    target_compile_options(echo_loadtest PRIVATE /utf-8)
-endif()
+add_executable(echo_loadtest examples/echo_loadtest.cpp)
+target_link_libraries(echo_loadtest PRIVATE apex_core)
 ```
 
-> loadtest는 apex_core에 의존하지 않음 — 순수 TCP 클라이언트. Boost.Asio만 필요.
-> Wire protocol: WireHeader(4B msg_id + 4B body_size) + payload (echo_server와 동일).
+> loadtest는 apex_core 라이브러리에 링크하여 WireHeader::serialize/parse + FlatBuffers 생성 코드를 재사용.
 
-- [ ] **Step 2: echo_loadtest.cpp 기본 구조 작성**
+- [ ] **Step 2: echo_loadtest.cpp 작성**
 
 ```cpp
 /// echo_loadtest — E2E echo server load tester
@@ -81,15 +64,17 @@ endif()
 ///   --payload=BYTES   Echo payload size (default: 256)
 ///   --warmup=SECS     Warmup duration before measurement (default: 3)
 ///   --json            Output results as JSON to stdout
-///
-/// Metrics:
-///   - Total messages sent/received
-///   - Throughput (msg/sec, MB/sec)
-///   - Latency percentiles (p50, p90, p99, p99.9)
+
+#include <apex/core/wire_header.hpp>
+
+#include <generated/echo_generated.h>
+#include <flatbuffers/flatbuffers.h>
 
 #include <boost/asio.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/as_tuple.hpp>
+#include <boost/asio/use_awaitable.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -104,16 +89,9 @@ endif()
 
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
+using apex::core::WireHeader;
 using namespace std::chrono;
 using namespace std::chrono_literals;
-
-// --- Wire Protocol (echo_server 호환) ---
-struct WireHeader {
-    uint16_t msg_id;
-    uint16_t flags;
-    uint32_t body_size;
-};
-static_assert(sizeof(WireHeader) == 8);
 
 // --- Config ---
 struct LoadTestConfig {
@@ -152,10 +130,36 @@ struct LoadTestResult {
     std::string system_info;
 };
 
+// --- Build valid echo request frame ---
+// Uses WireHeader::serialize() for correct 10B big-endian wire format
+// and FlatBuffers EchoRequest for valid payload.
+static std::vector<uint8_t> build_echo_request(uint32_t payload_size) {
+    // Build FlatBuffers EchoRequest with 'data' field
+    flatbuffers::FlatBufferBuilder fbb(payload_size + 64);
+    std::vector<uint8_t> payload_data(payload_size, 0xAB);
+    auto data_vec = fbb.CreateVector(payload_data);
+    auto req = apex::messages::CreateEchoRequest(fbb, data_vec);
+    fbb.Finish(req);
+
+    // Serialize WireHeader (10B big-endian)
+    WireHeader header{
+        .msg_id = 0x0001,  // EchoRequest msg_id
+        .body_size = static_cast<uint32_t>(fbb.GetSize())
+    };
+    auto hdr_bytes = header.serialize();  // std::array<uint8_t, 10>
+
+    // Combine: header + FlatBuffers body
+    std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());
+    frame.insert(frame.end(),
+                 fbb.GetBufferPointer(),
+                 fbb.GetBufferPointer() + fbb.GetSize());
+    return frame;
+}
+
 // --- Echo Client Coroutine ---
 net::awaitable<void> run_client(
     tcp::endpoint endpoint,
-    const LoadTestConfig& config,
+    const std::vector<uint8_t>& send_frame,  // pre-built frame (shared, read-only)
     ConnStats& stats,
     std::atomic<bool>& measuring,
     std::atomic<bool>& stop_flag)
@@ -169,44 +173,40 @@ net::awaitable<void> run_client(
         co_return;
     }
 
-    // Build echo request frame
-    // msg_id = 0x0001 (EchoRequest), FlatBuffers payload
-    // Simplified: just send raw header + payload bytes
-    std::vector<uint8_t> send_buf(sizeof(WireHeader) + config.payload_size);
-    auto* hdr = reinterpret_cast<WireHeader*>(send_buf.data());
-    hdr->msg_id = 0x0001;
-    hdr->flags = 0;
-    hdr->body_size = config.payload_size;
-    // Fill payload with pattern
-    std::memset(send_buf.data() + sizeof(WireHeader), 0xAB, config.payload_size);
-
-    std::vector<uint8_t> recv_buf(sizeof(WireHeader) + config.payload_size + 256);
+    // Response buffer — WireHeader::SIZE(10) + max body
+    std::vector<uint8_t> recv_buf(WireHeader::SIZE + 64 * 1024);
 
     while (!stop_flag.load(std::memory_order_relaxed)) {
         auto t0 = steady_clock::now();
 
+        // Send pre-built echo request frame
         try {
             co_await net::async_write(socket,
-                net::buffer(send_buf), net::use_awaitable);
+                net::buffer(send_frame), net::use_awaitable);
         } catch (...) {
             co_return;
         }
 
-        // Read response header
-        size_t total_read = 0;
+        // Read response header (10 bytes, big-endian)
         try {
-            total_read = co_await net::async_read(socket,
-                net::buffer(recv_buf.data(), sizeof(WireHeader)),
+            co_await net::async_read(socket,
+                net::buffer(recv_buf.data(), WireHeader::SIZE),
                 net::use_awaitable);
         } catch (...) {
             co_return;
         }
 
-        auto* resp_hdr = reinterpret_cast<const WireHeader*>(recv_buf.data());
+        auto resp_hdr = WireHeader::parse(
+            std::span<const uint8_t>(recv_buf.data(), WireHeader::SIZE));
+        if (!resp_hdr) {
+            co_return;  // Invalid header
+        }
+
+        // Read response body
         if (resp_hdr->body_size > 0) {
             try {
                 co_await net::async_read(socket,
-                    net::buffer(recv_buf.data() + sizeof(WireHeader), resp_hdr->body_size),
+                    net::buffer(recv_buf.data() + WireHeader::SIZE, resp_hdr->body_size),
                     net::use_awaitable);
             } catch (...) {
                 co_return;
@@ -218,8 +218,8 @@ net::awaitable<void> run_client(
         if (measuring.load(std::memory_order_relaxed)) {
             ++stats.messages_sent;
             ++stats.messages_received;
-            stats.bytes_sent += send_buf.size();
-            stats.bytes_received += sizeof(WireHeader) + resp_hdr->body_size;
+            stats.bytes_sent += send_frame.size();
+            stats.bytes_received += WireHeader::SIZE + resp_hdr->body_size;
             stats.latencies_us.push_back(
                 static_cast<uint64_t>(duration_cast<microseconds>(t1 - t0).count()));
         }
@@ -266,7 +266,8 @@ void print_result_text(const LoadTestResult& r) {
 }
 
 void print_result_json(const LoadTestResult& r) {
-    // Manual JSON output (no dependency on json library)
+    // Manual JSON output — no external dependency needed.
+    // system_info is simple key=value format, no escaping needed.
     std::cout << "{\n";
     std::cout << "  \"connections\": " << r.connections << ",\n";
     std::cout << "  \"payload_size\": " << r.payload_size << ",\n";
@@ -282,7 +283,8 @@ void print_result_json(const LoadTestResult& r) {
     std::cout << "    \"p99\": " << r.p99_us << ",\n";
     std::cout << "    \"p999\": " << r.p999_us << "\n";
     std::cout << "  },\n";
-    std::cout << "  \"system_info\": \"" << r.system_info << "\"\n";
+    std::cout << "  \"system_info\": \"cores=" << std::thread::hardware_concurrency()
+              << " threads=" << std::max(1u, std::thread::hardware_concurrency()) << "\"\n";
     std::cout << "}\n";
 }
 
@@ -293,6 +295,9 @@ int main(int argc, char* argv[]) {
     tcp::resolver resolver(resolver_io);
     auto endpoints = resolver.resolve(config.host, std::to_string(config.port));
     auto endpoint = *endpoints.begin();
+
+    // Pre-build echo request frame (shared across all connections, read-only)
+    auto send_frame = build_echo_request(config.payload_size);
 
     // Allocate per-connection stats
     std::vector<ConnStats> all_stats(config.connections);
@@ -311,8 +316,9 @@ int main(int argc, char* argv[]) {
     net::io_context io_ctx;
 
     for (uint32_t i = 0; i < config.connections; ++i) {
-        net::co_spawn(io_ctx, run_client(endpoint, config, all_stats[i], measuring, stop_flag),
-                      net::detached);
+        net::co_spawn(io_ctx,
+            run_client(endpoint, send_frame, all_stats[i], measuring, stop_flag),
+            net::detached);
     }
 
     std::vector<std::thread> threads;
@@ -355,7 +361,7 @@ int main(int argc, char* argv[]) {
 
     result.msg_per_sec = static_cast<double>(result.total_received) / result.duration_secs;
     result.mb_per_sec = static_cast<double>(result.total_received)
-        * (sizeof(WireHeader) + config.payload_size) / (1024.0 * 1024.0) / result.duration_secs;
+        * (WireHeader::SIZE + config.payload_size) / (1024.0 * 1024.0) / result.duration_secs;
 
     if (!all_latencies.empty()) {
         std::sort(all_latencies.begin(), all_latencies.end());
@@ -373,10 +379,6 @@ int main(int argc, char* argv[]) {
             / static_cast<double>(n);
     }
 
-    auto hw = std::thread::hardware_concurrency();
-    result.system_info = "cores=" + std::to_string(hw)
-        + " threads=" + std::to_string(num_threads);
-
     if (config.json_output) {
         print_result_json(result);
     } else {
@@ -387,22 +389,23 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-> **설계 결정**: nlohmann/json 의존성 대신 수동 JSON 출력 — 의존성 최소화. 구조가 단순(flat)하므로 수동 출력으로 충분.
-> **Wire protocol**: echo_server의 WireHeader(8B) + FlatBuffers body를 그대로 사용. 단, loadtest는 FlatBuffers 없이 raw 바이트를 보내도 echo_server가 EchoRequest로 디코딩.
-> **주의**: echo_server는 FlatBuffers EchoRequest를 기대. loadtest가 올바른 FlatBuffers 페이로드를 생성해야 함. 구현 시 `flatbuffers::FlatBufferBuilder`로 EchoRequest를 빌드하거나, 사전 빌드된 바이너리를 재사용해야 한다. 위 코드는 스켈레톤이며, 실제 FlatBuffers 페이로드 생성은 구현 시 추가.
+> **핵심 수정 사항 (리뷰 반영)**:
+> 1. **WireHeader 10B big-endian**: `WireHeader::serialize()`/`WireHeader::parse()` 사용. 직접 struct 캐스팅 제거.
+> 2. **FlatBuffers EchoRequest 페이로드**: `flatbuffers::FlatBufferBuilder`로 유효한 EchoRequest 빌드. 0xAB raw 데이터는 FlatBuffers 벡터 내부에 배치.
+> 3. **apex_core 링크**: loadtest가 apex_core 라이브러리에 링크하여 WireHeader + FlatBuffers 생성 코드 재사용.
+> 4. **system_info 인라인 출력**: 별도 변수 저장 없이 직접 std::cout에 출력하여 JSON 이스케이프 문제 회피.
+> 5. **send_frame 사전 빌드**: 모든 커넥션이 동일한 프레임을 공유 (읽기 전용). 커넥션마다 재빌드 불필요.
 
 - [ ] **Step 3: 빌드 확인**
 
 Run: `cmd.exe //c "D:\.workspace\apex_core\build.bat debug"`
-Expected: echo_loadtest 바이너리 빌드 성공 (서버 없이 빌드만 확인)
-
-> loadtest는 apex_tools 하위이므로 루트 CMakeLists에서 빌드 경로 연결 필요 시 추가.
+Expected: `apex_core/bin/echo_loadtest_debug.exe` 빌드 성공
 
 - [ ] **Step 4: 커밋**
 
 ```bash
-git add apex_tools/benchmark/loadtest/echo_loadtest.cpp \
-        apex_tools/benchmark/loadtest/CMakeLists.txt
+git add apex_core/examples/echo_loadtest.cpp \
+        apex_core/CMakeLists.txt
 git commit -m "feat(tools): E2E echo 부하 테스터 (echo_loadtest)"
 ```
 
@@ -438,7 +441,7 @@ def load_json(path: str) -> dict:
 
 
 def fmt_delta(before: float, after: float, lower_is_better: bool = True) -> str:
-    """Format delta with color indicator (terminal)."""
+    """Format delta with ASCII indicator."""
     if before == 0:
         return f"{after:.1f} (new)"
     delta = after - before
@@ -446,9 +449,9 @@ def fmt_delta(before: float, after: float, lower_is_better: bool = True) -> str:
     sign = "+" if delta > 0 else ""
     # For latency: lower is better. For throughput: higher is better.
     if lower_is_better:
-        indicator = "✓" if delta < 0 else "✗" if delta > 0 else "="
+        indicator = "[OK]" if delta < 0 else "[!!]" if delta > 0 else "[==]"
     else:
-        indicator = "✓" if delta > 0 else "✗" if delta < 0 else "="
+        indicator = "[OK]" if delta > 0 else "[!!]" if delta < 0 else "[==]"
     return f"{after:.1f} ({sign}{pct:.1f}%) {indicator}"
 
 
@@ -508,6 +511,8 @@ if __name__ == "__main__":
     main()
 ```
 
+> **리뷰 반영**: Unicode emoji (checkmark/cross) → ASCII `[OK]`/`[!!]`/`[==]` — Windows cp949 터미널 호환.
+
 - [ ] **Step 2: 로컬 테스트 (더미 데이터)**
 
 ```bash
@@ -516,7 +521,7 @@ echo '{"msg_per_sec": 75000, "mb_per_sec": 18.7, "latency_us": {"avg": 130, "p50
 python3 apex_tools/benchmark/compare/compare_results.py /tmp/before.json /tmp/after.json
 ```
 
-Expected: 비교 테이블 출력, throughput ✓ (상승), latency ✓ (하강)
+Expected: 비교 테이블 출력, throughput [OK] (상승), latency [OK] (하강)
 
 - [ ] **Step 3: 커밋**
 
@@ -536,39 +541,46 @@ git commit -m "feat(tools): JSON before/after 비교 스크립트 (compare_resul
 
 > 이 Task는 Tier 0 (벤치마크 인프라) + Tier 0.5 (에러 통일) + Tier 1 (핫패스 최적화)이 모두 구현된 상태에서 실행.
 
-- [ ] **Step 1: baseline 측정 (Tier 1 적용 전 커밋 checkout)**
+- [ ] **Step 1: baseline 측정 (Tier 0.5 완료 시점)**
 
 ```bash
-# Tier 0.5 완료 시점 커밋으로 checkout하여 서버 빌드
-git stash  # 또는 별도 worktree 사용
-git checkout <tier0.5-complete-commit>
+# 현재 워크트리에서 Tier 0.5 완료 커밋으로 체크아웃
+git stash  # 필요 시
+git checkout <tier0.5-complete-commit-hash>
+
+# 서버 빌드
 cmd.exe //c "D:\.workspace\apex_core\build.bat debug"
 
-# 서버 시작 (백그라운드)
-apex_core/bin/multicore_echo_server_debug.exe 9000 4 &
+# 서버 시작 (별도 터미널)
+# Windows: start 명령으로 백그라운드 실행
+start /B apex_core\bin\multicore_echo_server_debug.exe 9000 4
 
-# baseline 측정
-apex_tools/benchmark/loadtest/echo_loadtest --connections=200 --duration=30 --payload=256 --json > results/baseline_tier0.5.json
+# baseline 측정 (10초 짧은 측정)
+mkdir -p results
+apex_core\bin\echo_loadtest_debug.exe --port=9000 --connections=200 --duration=10 --payload=256 --json > results/baseline_tier0.5.json
 
-# 서버 종료
+# 서버 종료 (Ctrl+C 또는 taskkill)
+taskkill /IM multicore_echo_server_debug.exe /F
 ```
 
 > 실제 실행 시 커밋 해시와 connection 수는 시스템 사양에 맞게 조절.
+> Windows에서는 `&` 백그라운드 대신 `start /B`를 사용.
 
-- [ ] **Step 2: after 측정 (Tier 1 완료 커밋)**
+- [ ] **Step 2: after 측정 (Tier 1 완료 시점)**
 
 ```bash
-# Tier 1 완료 커밋으로 checkout
-git checkout <tier1-complete-commit>
-cmd.exe //c "D:\.workspace\apex_core\build.bat debug"
+# Tier 1 완료 커밋으로 체크아웃
+git checkout <tier1-complete-commit-hash>
 
-# 서버 시작
-apex_core/bin/multicore_echo_server_debug.exe 9000 4 &
+# 서버 빌드 + 시작
+cmd.exe //c "D:\.workspace\apex_core\build.bat debug"
+start /B apex_core\bin\multicore_echo_server_debug.exe 9000 4
 
 # after 측정
-apex_tools/benchmark/loadtest/echo_loadtest --connections=200 --duration=30 --payload=256 --json > results/after_tier1.json
+apex_core\bin\echo_loadtest_debug.exe --port=9000 --connections=200 --duration=10 --payload=256 --json > results/after_tier1.json
 
 # 서버 종료
+taskkill /IM multicore_echo_server_debug.exe /F
 ```
 
 - [ ] **Step 3: 비교**
@@ -584,7 +596,6 @@ Expected: Tier 1 최적화 효과 확인
 - [ ] **Step 4: 결과 JSON 커밋 (선택)**
 
 ```bash
-mkdir -p results
 git add results/baseline_tier0.5.json results/after_tier1.json
 git commit -m "bench: Tier 1 before/after E2E 벤치마크 결과"
 ```
@@ -594,20 +605,20 @@ git commit -m "bench: Tier 1 before/after E2E 벤치마크 결과"
 ## Summary
 
 ### 핵심 산출물 2개
-1. **echo_loadtest** (C++) — 비동기 TCP 부하 테스터, `--json` 출력
-2. **compare_results.py** (Python) — JSON 비교 테이블 생성
+1. **echo_loadtest** (C++) — 비동기 TCP 부하 테스터, FlatBuffers EchoRequest + WireHeader 10B big-endian, `--json` 출력
+2. **compare_results.py** (Python) — JSON 비교 테이블 생성 (ASCII 포맷, Windows cp949 호환)
 
 ### 디렉토리 구조
 ```
+apex_core/examples/
+    echo_loadtest.cpp         <- NEW (apex_core에서 빌드)
+
 apex_tools/benchmark/
-├── loadtest/
-│   ├── CMakeLists.txt
-│   └── echo_loadtest.cpp
-└── compare/
-    └── compare_results.py
+    compare/
+        compare_results.py    <- NEW
 ```
 
-### Task 별 커밋 (2–3개)
+### Task 별 커밋 (2-3개)
 1. `feat(tools): E2E echo 부하 테스터 (echo_loadtest)`
 2. `feat(tools): JSON before/after 비교 스크립트 (compare_results.py)`
 3. `bench: Tier 1 before/after E2E 벤치마크 결과` (선택)
