@@ -196,4 +196,23 @@ Result<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func)
     return ok();
 }
 
+/// Zero-allocation fire-and-forget message passing via CrossCoreOp.
+/// Unlike cross_core_post(), this sends a trivially-copyable CoreMessage
+/// with no heap allocation. The registered CrossCoreHandler on the target
+/// core processes the message.
+///
+/// @param data  Opaque pointer passed to handler. Caller owns lifetime.
+/// @return ErrorCode::CrossCoreQueueFull if target core's queue is full.
+inline Result<void> cross_core_post_msg(
+    CoreEngine& engine, uint32_t source_core,
+    uint32_t target_core, CrossCoreOp op, void* data = nullptr)
+{
+    CoreMessage msg{
+        .op = op,
+        .source_core = source_core,
+        .data = reinterpret_cast<uintptr_t>(data)
+    };
+    return engine.post_to(target_core, msg);
+}
+
 } // namespace apex::core

@@ -199,3 +199,36 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     EXPECT_EQ(sentinel.use_count(), 1)
         << "Queued tasks were not properly cleaned up during shutdown";
 }
+
+TEST(CrossCorePostMsgTest, PostMsgFireAndForget) {
+    // CoreEngine directly — register_cross_core_handler must be called before start()
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+
+    std::atomic<int> received_value{0};
+    std::atomic<uint32_t> received_source{999};
+
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0100),
+        [](uint32_t /*core_id*/, uint32_t source_core, void* data) {
+            auto* pair = static_cast<std::pair<std::atomic<int>*, std::atomic<uint32_t>*>*>(data);
+            pair->first->store(42, std::memory_order_release);
+            pair->second->store(source_core, std::memory_order_release);
+        });
+
+    engine.start();
+
+    std::pair<std::atomic<int>*, std::atomic<uint32_t>*> payload{&received_value, &received_source};
+
+    auto result = cross_core_post_msg(
+        engine, /*source_core=*/0,
+        /*target_core=*/1, static_cast<CrossCoreOp>(0x0100), &payload);
+    EXPECT_TRUE(result.has_value());
+
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return received_value.load(std::memory_order_acquire) == 42;
+    }));
+    EXPECT_EQ(received_source.load(std::memory_order_acquire), 0u);
+
+    engine.stop();
+    engine.join();
+}
