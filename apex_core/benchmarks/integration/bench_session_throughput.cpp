@@ -21,7 +21,7 @@ static void BM_Session_EchoRoundTrip(benchmark::State& state) {
     boost::asio::io_context io_ctx;
 
     auto [client, server] = apex::bench::make_socket_pair(io_ctx);
-    auto session = std::make_shared<Session>(1, std::move(server), 0, payload_size * 4);
+    SessionPtr session(new Session(1, std::move(server), 0, payload_size * 4));
 
     auto frame = apex::bench::build_frame(0x0001, payload_size);
     std::vector<uint8_t> recv_buf(frame.size());

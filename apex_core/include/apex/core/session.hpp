@@ -8,18 +8,21 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/awaitable.hpp>
+#include <boost/intrusive_ptr.hpp>
 
 #include <cassert>
 #include <cstdint>
-#include <memory>
 
 namespace apex::core {
 
 /// 고유 세션 식별자 (코어별 단조 증가)
 using SessionId = uint64_t;
 
+/// Forward declarations for SlabPool integration (Tier 2 Task 2)
+template <typename T> class TypedSlabPool;
+
 /// 단일 클라이언트 연결을 나타내는 클래스.
-/// SessionManager가 shared_ptr로 소유 (코루틴 안전성 보장).
+/// SessionManager가 intrusive_ptr로 소유 (코루틴 안전성 보장).
 ///
 /// 생명주기: Connected -> Active -> Closed
 ///
@@ -28,10 +31,10 @@ using SessionId = uint64_t;
 /// dispatch operations from other threads. state_ is intentionally non-atomic
 /// because each Session is confined to a single core's strand.
 ///
-/// @note enable_shared_from_this is reserved for future use (m-10):
-/// coroutine self-capture pattern where the Session must prevent its own
-/// destruction while an async operation is in flight.
-class Session : public std::enable_shared_from_this<Session> {
+/// @note intrusive_ptr with non-atomic refcount: per-core architecture guarantees
+/// Session objects are accessed from a single core thread only. Cross-core
+/// communication uses SessionId (uint64_t), never SessionPtr.
+class Session {
 public:
     enum class State : uint8_t {
         Connected,
@@ -48,6 +51,16 @@ public:
 
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
+
+    // --- intrusive_ptr refcount (non-atomic: per-core only) ---
+    [[nodiscard]] uint32_t refcount() const noexcept { return refcount_; }
+
+    friend void intrusive_ptr_add_ref(Session* s) noexcept {
+        assert(s->refcount_ < UINT32_MAX && "Session refcount overflow");
+        ++s->refcount_;
+    }
+
+    friend void intrusive_ptr_release(Session* s) noexcept;
 
     /// 프레임 응답을 이 세션에 비동기 전송.
     /// @pre 호출자는 이 세션이 속한 io_context의 implicit strand에서 호출해야 한다.
@@ -86,6 +99,9 @@ private:
     }
     friend class SessionManager;
 
+    uint32_t refcount_{0};  // non-atomic: per-core only
+    TypedSlabPool<Session>* pool_owner_{nullptr};  // set by SessionManager when pool-allocated
+
     SessionId id_;
     uint32_t core_id_;
     State state_{State::Connected};
@@ -97,6 +113,6 @@ private:
     TimingWheel::EntryId timer_entry_id_{0};
 };
 
-using SessionPtr = std::shared_ptr<Session>;
+using SessionPtr = boost::intrusive_ptr<Session>;
 
 } // namespace apex::core

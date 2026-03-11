@@ -16,7 +16,7 @@ static void BM_Session_Create(benchmark::State& state) {
         client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
         auto server_sock = acc.accept();
 
-        auto session = std::make_shared<Session>(1, std::move(server_sock), 0, 8192);
+        SessionPtr session(new Session(1, std::move(server_sock), 0, 8192));
         benchmark::DoNotOptimize(session.get());
 
         client.close();
@@ -33,7 +33,7 @@ static void BM_SessionPtr_Copy(benchmark::State& state) {
     client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
     auto server_sock = acc.accept();
 
-    auto session = std::make_shared<Session>(1, std::move(server_sock), 0, 8192);
+    SessionPtr session(new Session(1, std::move(server_sock), 0, 8192));
     for (auto _ : state) {
         auto copy = session;
         benchmark::DoNotOptimize(copy.get());

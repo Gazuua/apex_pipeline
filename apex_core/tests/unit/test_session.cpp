@@ -38,7 +38,7 @@ TEST_F(SessionTest, InitialState) {
 
 TEST_F(SessionTest, SendFrame) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
     WireHeader header{.msg_id = 0x0042,
@@ -59,7 +59,7 @@ TEST_F(SessionTest, SendFrame) {
 
 TEST_F(SessionTest, SendAfterClose) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -97,7 +97,7 @@ TEST_F(SessionTest, RecvBufferAccessible) {
 
 TEST_F(SessionTest, SendRawSucceeds) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     // Build a raw frame: WireHeader + payload
     std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
@@ -120,7 +120,7 @@ TEST_F(SessionTest, SendRawSucceeds) {
 
 TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -135,7 +135,7 @@ TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
 
 TEST_F(SessionTest, DoubleCloseIsSafe) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -153,7 +153,7 @@ TEST_F(SessionTest, DoubleCloseIsSafe) {
 // - The key invariant is that the Session handles it gracefully without crash.
 TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     auto [server_sock, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server_sock), 0);
+    SessionPtr session(new Session(1, std::move(server_sock), 0));
 
     // Close the client side first to simulate peer disconnect
     client.close();
@@ -179,4 +179,36 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
     EXPECT_FALSE(session->is_open());
+}
+
+TEST_F(SessionTest, IntrusiveRefcount) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto* raw = new Session(1, std::move(server), 0, 8192);
+
+    EXPECT_EQ(raw->refcount(), 0u);
+
+    {
+        SessionPtr p1(raw);
+        EXPECT_EQ(raw->refcount(), 1u);
+
+        SessionPtr p2 = p1;
+        EXPECT_EQ(raw->refcount(), 2u);
+    }
+    // p1, p2 destroyed → refcount 0 → delete (ASAN leak check)
+
+    client.close();
+}
+
+TEST_F(SessionTest, IntrusiveMoveSemantics) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto* raw = new Session(1, std::move(server), 0, 8192);
+
+    SessionPtr p1(raw);
+    EXPECT_EQ(raw->refcount(), 1u);
+
+    SessionPtr p2 = std::move(p1);
+    EXPECT_EQ(p1.get(), nullptr);
+    EXPECT_EQ(raw->refcount(), 1u);
+
+    client.close();
 }

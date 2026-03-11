@@ -1,10 +1,22 @@
 #include <apex/core/session.hpp>
+#include <apex/core/slab_pool.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
 namespace apex::core {
+
+void intrusive_ptr_release(Session* s) noexcept {
+    assert(s->refcount_ > 0 && "Session refcount underflow");
+    if (--s->refcount_ == 0) {
+        if (s->pool_owner_) {
+            s->pool_owner_->destroy(s);
+        } else {
+            delete s;
+        }
+    }
+}
 
 using boost::asio::awaitable;
 

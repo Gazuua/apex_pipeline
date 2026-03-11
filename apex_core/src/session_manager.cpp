@@ -21,8 +21,8 @@ SessionPtr SessionManager::create_session(
     boost::asio::ip::tcp::socket socket)
 {
     SessionId id = next_id_++;
-    auto session = std::make_shared<Session>(
-        id, std::move(socket), core_id_, recv_buf_capacity_);
+    SessionPtr session(new Session(
+        id, std::move(socket), core_id_, recv_buf_capacity_));
     session->set_state(Session::State::Active);
 
     sessions_[id] = session;
