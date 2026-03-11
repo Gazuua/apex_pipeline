@@ -97,8 +97,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         });
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
 
     auto post_result = engine.post_to(target_core, msg);
     if (!post_result) {
@@ -158,8 +158,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         });
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
 
     auto post_result = engine.post_to(target_core, msg);
     if (!post_result) {
@@ -186,8 +186,8 @@ template <typename F>
 Result<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func) {
     auto* task = new std::function<void()>(std::forward<F>(func));
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCorePost;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
     auto result = engine.post_to(target_core, msg);
     if (!result) {
         delete task;

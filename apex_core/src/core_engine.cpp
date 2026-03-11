@@ -63,8 +63,7 @@ void CoreEngine::drain_remaining() {
 
     for (auto& ctx : cores_) {
         while (auto msg = ctx->inbox->dequeue()) {
-            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
-                msg->type == CoreMessage::Type::CrossCorePost) {
+            if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
                 auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
                 delete task;
             }
@@ -173,9 +172,8 @@ void CoreEngine::start_drain_timer(uint32_t core_id) {
 
         // Drain all pending messages from the inbox
         while (auto msg = core_ctx.inbox->dequeue()) {
-            // Built-in handling for cross-core tasks
-            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
-                msg->type == CoreMessage::Type::CrossCorePost) {
+            // Legacy closure-based cross-core tasks (Tier 1 전환 기간 동안 유지)
+            if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
                 auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
                 if (task) {
                     try {

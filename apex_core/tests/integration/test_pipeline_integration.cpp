@@ -142,7 +142,7 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     std::atomic<int> core1_received{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
-        if (msg.type == CoreMessage::Type::Custom) {
+        if (msg.op == CrossCoreOp::Custom) {
             if (core_id == 0) ++core0_received;
             if (core_id == 1) ++core1_received;
         }
@@ -152,10 +152,10 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
 
     // Core 0 -> Core 1
-    (void)engine.post_to(1, {.type = CoreMessage::Type::Custom, .source_core = 0, .data = 1});
-    (void)engine.post_to(1, {.type = CoreMessage::Type::Custom, .source_core = 0, .data = 2});
+    (void)engine.post_to(1, {.op = CrossCoreOp::Custom, .source_core = 0, .data = 1});
+    (void)engine.post_to(1, {.op = CrossCoreOp::Custom, .source_core = 0, .data = 2});
     // Core 1 -> Core 0
-    (void)engine.post_to(0, {.type = CoreMessage::Type::Custom, .source_core = 1, .data = 3});
+    (void)engine.post_to(0, {.op = CrossCoreOp::Custom, .source_core = 1, .data = 3});
 
     ASSERT_TRUE(apex::test::wait_for([&] {
         return core0_received.load() >= 1 && core1_received.load() >= 2;

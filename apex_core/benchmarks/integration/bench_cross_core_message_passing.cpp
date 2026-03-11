@@ -11,7 +11,7 @@ static void BM_CrossCore_PostThroughput(benchmark::State& state) {
 
     std::atomic<uint64_t> received{0};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
-        if (msg.type == CoreMessage::Type::Custom) {
+        if (msg.op == CrossCoreOp::Custom) {
             received.fetch_add(1, std::memory_order_relaxed);
         }
     });
@@ -19,7 +19,7 @@ static void BM_CrossCore_PostThroughput(benchmark::State& state) {
     engine.start();
 
     for (auto _ : state) {
-        CoreMessage msg{.type = CoreMessage::Type::Custom, .source_core = 0, .data = 42};
+        CoreMessage msg{.op = CrossCoreOp::Custom, .source_core = 0, .data = 42};
         auto result = engine.post_to(1, msg);
         benchmark::DoNotOptimize(result);
     }

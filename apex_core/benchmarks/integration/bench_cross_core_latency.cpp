@@ -14,10 +14,10 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
     std::atomic<uint64_t> pong_time_ns{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
-        if (msg.type == CoreMessage::Type::Custom) {
+        if (msg.op == CrossCoreOp::Custom) {
             if (core_id == 1) {
                 // Pong back to core 0
-                CoreMessage pong{.type = CoreMessage::Type::Custom, .source_core = 1, .data = msg.data};
+                CoreMessage pong{.op = CrossCoreOp::Custom, .source_core = 1, .data = msg.data};
                 (void)engine.post_to(0, pong);
             } else {
                 // Core 0 received pong
@@ -33,8 +33,8 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
 
     for (auto _ : state) {
         auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-        CoreMessage ping{.type = CoreMessage::Type::Custom, .source_core = 0,
-                         .data = static_cast<uint64_t>(now)};
+        CoreMessage ping{.op = CrossCoreOp::Custom, .source_core = 0,
+                         .data = static_cast<uintptr_t>(now)};
         (void)engine.post_to(1, ping);
 
         auto expected = pong_count.load(std::memory_order_acquire) + 1;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/cross_core_op.hpp>
 #include <apex/core/mpsc_queue.hpp>
 #include <apex/core/result.hpp>
 
@@ -16,19 +17,12 @@ namespace apex::core {
 
 /// Trivially-copyable message for inter-core communication via MpscQueue.
 struct CoreMessage {
-    enum class Type : uint8_t {
-        Shutdown = 0,
-        DrainComplete,
-        Custom,
-        CrossCoreRequest,   // cross_core_call request (data = CrossCoreTask*)
-        CrossCorePost,      // cross_core_post fire-and-forget (data = CrossCoreTask*)
-    };
-
-    Type type{Type::Custom};
+    CrossCoreOp op{CrossCoreOp::Noop};
     uint32_t source_core{0};
-    uint64_t data{0};
+    uintptr_t data{0};
 };
 static_assert(std::is_trivially_copyable_v<CoreMessage>);
+static_assert(sizeof(CoreMessage) <= 16);
 
 /// Per-core execution context. Each core owns its own io_context and MPSC inbox.
 /// NOT thread-safe -- only accessed by the owning core thread.
