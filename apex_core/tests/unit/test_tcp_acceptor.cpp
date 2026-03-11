@@ -101,6 +101,41 @@ TEST(TcpAcceptor, StopPreventsNewAccepts) {
     EXPECT_EQ(accept_count.load(), 0);
 }
 
+#ifndef _WIN32
+TEST(TcpAcceptor, ReusePortMultipleAcceptors) {
+    boost::asio::io_context io1, io2;
+    std::atomic<int> count1{0}, count2{0};
+
+    TcpAcceptor acc1(io1, 0, [&](tcp::socket) { ++count1; },
+                     tcp::v4(), /*reuseport=*/true);
+    acc1.start();
+    auto port = acc1.port();
+
+    TcpAcceptor acc2(io2, port, [&](tcp::socket) { ++count2; },
+                     tcp::v4(), /*reuseport=*/true);
+    acc2.start();
+
+    std::thread t1([&] { io1.run(); });
+    std::thread t2([&] { io2.run(); });
+
+    // Multiple connections — kernel distributes across both acceptors
+    boost::asio::io_context client_ctx;
+    for (int i = 0; i < 10; ++i) {
+        tcp::socket client(client_ctx);
+        client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
+        client.close();
+    }
+
+    ASSERT_TRUE(apex::test::wait_for(
+        [&] { return count1.load() + count2.load() >= 10; },
+        std::chrono::milliseconds(3000)));
+    EXPECT_EQ(count1.load() + count2.load(), 10);
+
+    acc1.stop(); acc2.stop();
+    t1.join(); t2.join();
+}
+#endif
+
 TEST(TcpAcceptor, IPv6AcceptConnection) {
     // Skip if IPv6 is not available on this machine
     boost::asio::io_context probe_ctx;

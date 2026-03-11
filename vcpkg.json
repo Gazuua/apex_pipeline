@@ -9,6 +9,8 @@
       "name": "boost-asio",
       "version>=": "1.84.0"
     },
+    "benchmark",
+    "boost-unordered",
     "flatbuffers",
     "gtest",
     "spdlog",

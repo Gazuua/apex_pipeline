@@ -146,10 +146,10 @@ port = -1
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }
 
-TEST_F(ConfigTest, DrainIntervalNegativeThrows) {
-    auto path = write_toml("neg_drain.toml", R"(
+TEST_F(ConfigTest, TickIntervalNegativeThrows) {
+    auto path = write_toml("neg_tick.toml", R"(
 [server]
-drain_interval_us = -1
+tick_interval_ms = -1
 )");
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }

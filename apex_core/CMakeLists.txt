@@ -13,7 +13,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-    # TODO: Linux io_uring 통합 시 활성화
     option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
     enable_testing()
@@ -56,6 +55,7 @@ add_library(apex_core STATIC
     src/ring_buffer.cpp
     src/timing_wheel.cpp
     src/core_engine.cpp
+    src/cross_core_dispatcher.cpp
     src/message_dispatcher.cpp
     src/wire_header.cpp
     src/frame_codec.cpp
@@ -63,6 +63,7 @@ add_library(apex_core STATIC
     src/session_manager.cpp
     src/error_sender.cpp
     src/tcp_acceptor.cpp
+    src/connection_handler.cpp
     src/config.cpp
     src/logging.cpp
     src/server.cpp
@@ -88,6 +89,19 @@ target_link_libraries(apex_core
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
 
+# io_uring backend (Linux only)
+if(APEX_USE_IO_URING)
+    if(NOT UNIX OR APPLE)
+        message(FATAL_ERROR "APEX_USE_IO_URING requires Linux")
+    endif()
+    target_compile_definitions(apex_core PUBLIC
+        BOOST_ASIO_HAS_IO_URING
+        BOOST_ASIO_DISABLE_EPOLL
+    )
+    find_library(URING_LIB uring REQUIRED)
+    target_link_libraries(apex_core PUBLIC ${URING_LIB})
+endif()
+
 # Windows: UTF-8 source, suppress _WIN32_WINNT warning, link Winsock
 if(WIN32)
     target_compile_options(apex_core PUBLIC /utf-8)
@@ -97,3 +111,4 @@ endif()
 
 add_subdirectory(tests)
 add_subdirectory(examples)
+add_subdirectory(benchmarks)

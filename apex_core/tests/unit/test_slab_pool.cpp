@@ -136,6 +136,98 @@ TEST(SlabPool, DoubleFreeProtection_Debug) {
 }
 #endif
 
+// --- auto-grow + metrics ---
+
+TEST(SlabPool, AutoGrowOnExhaustion) {
+    // auto_grow=true, initial=4, grow_chunk=4, max_total=16
+    SlabPool pool(64, 4, SlabPoolConfig{.auto_grow = true, .grow_chunk_size = 4, .max_total_count = 16});
+    EXPECT_EQ(pool.total_count(), 4u);
+
+    // 4개 할당 후 exhaustion
+    std::vector<void*> ptrs;
+    for (int i = 0; i < 4; ++i) {
+        ptrs.push_back(pool.allocate());
+        ASSERT_NE(ptrs.back(), nullptr);
+    }
+    EXPECT_EQ(pool.free_count(), 0u);
+    EXPECT_EQ(pool.grow_count(), 0u);
+
+    // 5번째 할당 → auto-grow 트리거
+    void* p5 = pool.allocate();
+    ASSERT_NE(p5, nullptr);
+    ptrs.push_back(p5);
+    EXPECT_EQ(pool.total_count(), 8u);   // 4 + 4(grow_chunk)
+    EXPECT_EQ(pool.grow_count(), 1u);
+
+    // 나머지 3개 할당 (total=8 사용)
+    for (int i = 0; i < 3; ++i) {
+        ptrs.push_back(pool.allocate());
+        ASSERT_NE(ptrs.back(), nullptr);
+    }
+    // total=8, allocated=8 → 다시 grow → total=12
+    ptrs.push_back(pool.allocate());
+    ASSERT_NE(ptrs.back(), nullptr);
+    EXPECT_EQ(pool.total_count(), 12u);
+
+    // total=12, fill up → grow → total=16
+    for (int i = 0; i < 3; ++i) {
+        ptrs.push_back(pool.allocate());
+        ASSERT_NE(ptrs.back(), nullptr);
+    }
+    ptrs.push_back(pool.allocate());
+    ASSERT_NE(ptrs.back(), nullptr);
+    EXPECT_EQ(pool.total_count(), 16u);
+
+    // fill remaining
+    for (int i = 0; i < 3; ++i) {
+        ptrs.push_back(pool.allocate());
+        ASSERT_NE(ptrs.back(), nullptr);
+    }
+
+    // total=16, allocated=16 → max → nullptr
+    EXPECT_EQ(pool.allocate(), nullptr);
+    EXPECT_EQ(pool.total_count(), 16u);
+
+    for (void* p : ptrs) pool.deallocate(p);
+}
+
+TEST(SlabPool, MetricsTracking) {
+    SlabPool pool(64, 10, SlabPoolConfig{.auto_grow = false});
+
+    void* p1 = pool.allocate();
+    void* p2 = pool.allocate();
+    void* p3 = pool.allocate();
+    EXPECT_EQ(pool.peak_allocated(), 3u);
+
+    pool.deallocate(p2);
+    EXPECT_EQ(pool.peak_allocated(), 3u);  // high water mark 유지
+
+    pool.deallocate(p1);
+    pool.deallocate(p3);
+    EXPECT_EQ(pool.peak_allocated(), 3u);  // 여전히 3
+}
+
+TEST(SlabPool, AutoGrowDisabledByDefault) {
+    SlabPool pool(64, 4);  // 기존 생성자 — auto_grow=false
+    for (int i = 0; i < 4; ++i) pool.allocate();
+    EXPECT_EQ(pool.allocate(), nullptr);  // 기존 동작 유지
+}
+
+TEST(SlabPool, AutoGrowDefaultChunkSize) {
+    // grow_chunk_size=0 → initial_count 크기로 grow
+    SlabPool pool(64, 8, SlabPoolConfig{.auto_grow = true, .grow_chunk_size = 0});
+    std::vector<void*> ptrs;
+    for (int i = 0; i < 8; ++i) ptrs.push_back(pool.allocate());
+    EXPECT_EQ(pool.total_count(), 8u);
+
+    // 9번째 → grow(8)
+    ptrs.push_back(pool.allocate());
+    ASSERT_NE(ptrs.back(), nullptr);
+    EXPECT_EQ(pool.total_count(), 16u);
+
+    for (void* p : ptrs) pool.deallocate(p);
+}
+
 // owns()가 슬롯 정렬을 검증하는지 확인
 TEST(SlabPool, OwnsSlotAlignment) {
     SlabPool pool(64, 4);

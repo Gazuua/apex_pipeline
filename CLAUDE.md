@@ -13,7 +13,7 @@ D:\.workspace/
 ├── build.bat / build.sh               ← 루트 빌드 스크립트
 ├── apex_core/          ← 코어 프레임워크 (C++23, Boost.Asio 코루틴)
 │   ├── include/apex/core/  ← 헤더
-│   ├── src/ tests/ examples/ schemas/
+│   ├── src/ tests/ examples/ benchmarks/ schemas/
 │   ├── bin/            ← 빌드 출력
 │   └── build.bat / build.sh / CMakePresets.json
 ├── docs/               ← 전체 프로젝트 문서 (중앙 집중)
@@ -39,13 +39,13 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: boost-asio, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
+- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
 
 ### MSVC 주의사항
 
 - `std::aligned_alloc` 미지원 → `_aligned_malloc` / `_aligned_free` 분기 필요
 - CRTP에서 `using FrameType = Derived::FrameType` → 불완전 타입 에러 (템플릿 파라미터로 우회)
-- `MessageDispatcher`: `std::array<std::function, 65536>` ~2MB → 힙 할당 필수
+- `MessageDispatcher`: `boost::unordered_flat_map` 기반 (기존 `std::array<std::function, 65536>` ~2MB 이슈 해결됨)
 - Windows TCP: ws2_32 + mswsock 링크, `_WIN32_WINNT=0x0A00`, IOCP 클라이언트 소켓은 별도 io_context
 
 ## 아키텍처 결정
@@ -57,8 +57,9 @@ D:\.workspace/
 
 ## 로드맵
 
-- Phase 1~4.7 레거시 넘버링 동결, 5+ 순차 정수 (8a/8b 허용)
-- Phase 5~10 의존성 기반 재분할
+- Phase 1~4.7 레거시 넘버링 동결, 5+ 순차 정수 (5.5/8a/8b 허용)
+- Phase 5 완료 → **Phase 5.5 (코어 성능 완성)** → Phase 6~10 의존성 기반 재분할
+- Phase 5.5 상세: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md`
 - 버전: v0.3.0(P6+7), v0.4.0(P8b), v0.5.0(P9), v1.0.0(P10)
 
 ## 워크플로우 규칙

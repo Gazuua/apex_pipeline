@@ -55,12 +55,11 @@ ServerConfig parse_server(const toml::table& root) {
         get_or<int64_t>(*tbl, "mpsc_queue_capacity", int64_t{65536}),
         "mpsc_queue_capacity");
     {
-        // I-15: Validate drain_interval_us is non-negative (same as drain_timeout_s)
-        auto drain_us = get_or<int64_t>(*tbl, "drain_interval_us", cfg.drain_interval.count());
-        if (drain_us < 0) {
-            throw std::invalid_argument("Config: value out of range for 'drain_interval_us'");
+        auto tick_ms = get_or<int64_t>(*tbl, "tick_interval_ms", cfg.tick_interval.count());
+        if (tick_ms < 0) {
+            throw std::invalid_argument("Config: value out of range for 'tick_interval_ms'");
         }
-        cfg.drain_interval = std::chrono::microseconds(drain_us);
+        cfg.tick_interval = std::chrono::milliseconds(tick_ms);
     }
     cfg.heartbeat_timeout_ticks = checked_narrow<uint32_t>(
         get_or<int64_t>(*tbl, "heartbeat_timeout_ticks", cfg.heartbeat_timeout_ticks),

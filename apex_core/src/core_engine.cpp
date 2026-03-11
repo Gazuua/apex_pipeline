@@ -12,6 +12,8 @@
 
 namespace apex::core {
 
+thread_local uint32_t CoreEngine::tls_core_id_ = UINT32_MAX;
+
 // --- CoreContext ---
 
 CoreContext::CoreContext(uint32_t id, size_t queue_capacity)
@@ -30,6 +32,12 @@ CoreEngine::CoreEngine(CoreEngineConfig config)
     if (config_.num_cores == 0) {
         auto hw = std::thread::hardware_concurrency();
         config_.num_cores = (hw > 0) ? hw : 1;
+    }
+
+    // Per-core drain coalescing flags
+    drain_pending_ = std::make_unique<std::atomic<bool>[]>(config_.num_cores);
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        drain_pending_[i].store(false, std::memory_order_relaxed);
     }
 
     cores_.reserve(config_.num_cores);
@@ -51,9 +59,14 @@ void CoreEngine::set_message_handler(MessageHandler handler) {
     message_handler_ = std::move(handler);
 }
 
-void CoreEngine::set_drain_callback(DrainCallback callback) {
-    assert(!running_.load(std::memory_order_acquire) && "set_drain_callback must be called before start()");
-    drain_callback_ = std::move(callback);
+void CoreEngine::set_tick_callback(TickCallback callback) {
+    assert(!running_.load(std::memory_order_acquire) && "set_tick_callback must be called before start()");
+    tick_callback_ = std::move(callback);
+}
+
+void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler) {
+    assert(!running_.load(std::memory_order_acquire) && "register_cross_core_handler must be called before start()");
+    cross_core_dispatcher_.register_handler(op, handler);
 }
 
 void CoreEngine::drain_remaining() {
@@ -63,8 +76,7 @@ void CoreEngine::drain_remaining() {
 
     for (auto& ctx : cores_) {
         while (auto msg = ctx->inbox->dequeue()) {
-            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
-                msg->type == CoreMessage::Type::CrossCorePost) {
+            if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
                 auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
                 delete task;
             }
@@ -83,9 +95,10 @@ void CoreEngine::start() {
         throw std::logic_error("CoreEngine::start() called before join()");
     }
 
-    // Reset io_contexts for re-run
-    for (auto& ctx : cores_) {
-        ctx->io_ctx.restart();
+    // Reset io_contexts and drain flags for re-run
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        cores_[i]->io_ctx.restart();
+        drain_pending_[i].store(false, std::memory_order_relaxed);
     }
 
     threads_.reserve(config_.num_cores);
@@ -116,12 +129,31 @@ void CoreEngine::stop() {
     }
 }
 
-bool CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
+Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
     if (target_core >= cores_.size()) {
-        return false;
+        return error(ErrorCode::Unknown);
     }
     auto result = cores_[target_core]->inbox->enqueue(msg);
-    return result.has_value();
+    if (!result) {
+        return error(ErrorCode::CrossCoreQueueFull);
+    }
+    schedule_drain(target_core);
+    return ok();
+}
+
+void CoreEngine::schedule_drain(uint32_t target_core) {
+    // Atomic coalescing: only one drain per batch. If drain is already pending,
+    // the running drain_inbox will pick up the newly enqueued messages.
+    if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel)) {
+        boost::asio::post(cores_[target_core]->io_ctx, [this, target_core] {
+            drain_inbox(target_core);
+            drain_pending_[target_core].store(false, std::memory_order_release);
+            // Re-check: messages may have arrived during drain
+            if (!cores_[target_core]->inbox->empty()) {
+                schedule_drain(target_core);
+            }
+        });
+    }
 }
 
 void CoreEngine::broadcast(CoreMessage msg) {
@@ -145,12 +177,17 @@ bool CoreEngine::running() const noexcept {
     return running_.load(std::memory_order_acquire);
 }
 
+uint32_t CoreEngine::current_core_id() noexcept {
+    return tls_core_id_;
+}
+
 void CoreEngine::run_core(uint32_t core_id) {
+    tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
-    // Create drain timer
-    ctx.drain_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
-    start_drain_timer(core_id);
+    // Independent tick timer (heartbeat, timing wheel, etc.)
+    ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
+    start_tick_timer(core_id);
 
     // Work guard keeps io_context alive even when no pending work
     auto work_guard = boost::asio::make_work_guard(ctx.io_ctx);
@@ -158,53 +195,63 @@ void CoreEngine::run_core(uint32_t core_id) {
     ctx.io_ctx.run();
 }
 
-void CoreEngine::start_drain_timer(uint32_t core_id) {
-    auto& ctx = *cores_[core_id];
-    ctx.drain_timer->expires_after(config_.drain_interval);
-    ctx.drain_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
-        if (ec) {
-            return;  // timer cancelled or error
-        }
+void CoreEngine::drain_inbox(uint32_t core_id) {
+    auto& core_ctx = *cores_[core_id];
+    size_t processed = 0;
 
-        auto& core_ctx = *cores_[core_id];
+    while (processed < config_.drain_batch_limit) {
+        auto msg = core_ctx.inbox->dequeue();
+        if (!msg) break;
 
-        // Drain all pending messages from the inbox
-        while (auto msg = core_ctx.inbox->dequeue()) {
-            // Built-in handling for cross-core tasks
-            if (msg->type == CoreMessage::Type::CrossCoreRequest ||
-                msg->type == CoreMessage::Type::CrossCorePost) {
-                auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
-                if (task) {
-                    try {
-                        (*task)();
-                    } catch (const std::exception& e) {
-                        spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
-                    } catch (...) {
-                        spdlog::error("Core {} cross-core task unknown exception", core_id);
-                    }
-                    delete task;
+        if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
+            // Legacy closure-based compatibility (remove after full migration)
+            auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
+            if (task) {
+                try {
+                    (*task)();
+                } catch (const std::exception& e) {
+                    spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
+                } catch (...) {
+                    spdlog::error("Core {} cross-core task unknown exception", core_id);
                 }
-                continue;
+                delete task;
             }
-            if (message_handler_) {
-                message_handler_(core_id, *msg);
-            }
+        } else if (cross_core_dispatcher_.has_handler(msg->op)) {
+            // Message passing dispatch (registered handler takes priority)
+            cross_core_dispatcher_.dispatch(
+                core_id, msg->source_core, msg->op,
+                reinterpret_cast<void*>(msg->data));
+        } else if (message_handler_) {
+            // Fallback: unregistered op → legacy message_handler_ path
+            message_handler_(core_id, *msg);
         }
+        ++processed;
+    }
 
-        // Drain callback (tick, etc.)
-        if (drain_callback_) {
+    // If batch limit reached, yield to io_context (timers, IO) then continue.
+    // The schedule_drain lambda's post-drain re-check will pick up remaining messages.
+    // No self-post needed — avoids handler accumulation under burst load.
+}
+
+void CoreEngine::start_tick_timer(uint32_t core_id) {
+    auto& ctx = *cores_[core_id];
+    ctx.tick_timer->expires_after(config_.tick_interval);
+    ctx.tick_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
+        if (ec) return;  // timer cancelled or error
+
+        if (tick_callback_) {
             try {
-                drain_callback_(core_id);
+                tick_callback_(core_id);
             } catch (const std::exception& e) {
-                spdlog::error("Core {} drain_callback exception: {}", core_id, e.what());
+                spdlog::error("Core {} tick_callback exception: {}", core_id, e.what());
             } catch (...) {
-                spdlog::error("Core {} drain_callback unknown exception", core_id);
+                spdlog::error("Core {} tick_callback unknown exception", core_id);
             }
         }
 
         // Re-arm the timer
         if (running_.load(std::memory_order_acquire)) {
-            start_drain_timer(core_id);
+            start_tick_timer(core_id);
         }
     });
 }

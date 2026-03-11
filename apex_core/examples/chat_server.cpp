@@ -59,7 +59,7 @@ public:
             sessions.push_back(s);
         });
         for (auto& s : sessions) {
-            if (!co_await s->async_send(header, payload_span)) {
+            if (!(co_await s->async_send(header, payload_span)).has_value()) {
                 // Send failed — peer likely disconnected. Session cleanup
                 // is handled by the read_loop, so we just skip here.
             }

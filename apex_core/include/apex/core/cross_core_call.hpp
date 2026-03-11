@@ -3,6 +3,7 @@
 #include <apex/core/core_engine.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/shared_payload.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/post.hpp>
@@ -97,12 +98,13 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         });
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
 
-    if (!engine.post_to(target_core, msg)) {
+    auto post_result = engine.post_to(target_core, msg);
+    if (!post_result) {
         delete task;
-        co_return apex::core::error(ErrorCode::CrossCoreQueueFull);
+        co_return apex::core::error(post_result.error());
     }
 
     // Wait for either task completion (timer cancel) or timeout
@@ -115,6 +117,7 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         co_return apex::core::error(ErrorCode::CrossCoreTimeout);
     }
 
+    assert(state->result.has_value() && "cross_core_call: result must be set before CAS(1)");
     co_return std::move(*state->result);
 }
 
@@ -157,12 +160,13 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         });
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
 
-    if (!engine.post_to(target_core, msg)) {
+    auto post_result = engine.post_to(target_core, msg);
+    if (!post_result) {
         delete task;
-        co_return apex::core::error(ErrorCode::CrossCoreQueueFull);
+        co_return apex::core::error(post_result.error());
     }
 
     (void)co_await timer->async_wait(
@@ -179,18 +183,70 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
 /// Fire-and-forget execution on target core (no timeout, no result).
 /// Preferred over cross_core_call() for high-frequency inter-core messaging
 /// where the caller does not need a response.
-/// Returns false if queue is full.
+/// Returns ErrorCode::CrossCoreQueueFull if queue is full.
 template <typename F>
-bool cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func) {
+Result<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func) {
     auto* task = new std::function<void()>(std::forward<F>(func));
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCorePost;
-    msg.data = reinterpret_cast<uint64_t>(task);
-    if (!engine.post_to(target_core, msg)) {
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
+    auto result = engine.post_to(target_core, msg);
+    if (!result) {
         delete task;
-        return false;
+        return result;
     }
-    return true;
+    return ok();
+}
+
+/// Zero-allocation fire-and-forget message passing via CrossCoreOp.
+/// Unlike cross_core_post(), this sends a trivially-copyable CoreMessage
+/// with no heap allocation. The registered CrossCoreHandler on the target
+/// core processes the message.
+///
+/// @param data  Opaque pointer passed to handler. Caller owns lifetime.
+/// @return ErrorCode::CrossCoreQueueFull if target core's queue is full.
+inline Result<void> cross_core_post_msg(
+    CoreEngine& engine, uint32_t source_core,
+    uint32_t target_core, CrossCoreOp op, void* data = nullptr)
+{
+    assert(source_core < engine.core_count() && "invalid source_core");
+    CoreMessage msg{
+        .op = op,
+        .source_core = source_core,
+        .data = reinterpret_cast<uintptr_t>(data)
+    };
+    return engine.post_to(target_core, msg);
+}
+
+/// Broadcast a shared payload to all cores except source.
+/// Caller must call payload->set_refcount(engine.core_count() - 1) before calling.
+/// On post failure, releases the failed core's share of the refcount.
+/// No-op if core_count <= 1 (no targets) — caller should not allocate payload in this case.
+inline void broadcast_cross_core(
+    CoreEngine& engine, uint32_t source_core,
+    CrossCoreOp op, SharedPayload* payload)
+{
+    assert(payload != nullptr && "broadcast_cross_core: payload must not be null");
+
+    // Single-core: no targets to broadcast to. Direct delete handles any
+    // refcount value (including 0) safely via virtual destructor.
+    if (engine.core_count() <= 1) {
+        delete payload;
+        return;
+    }
+
+    assert(payload->refcount() > 0 && "broadcast_cross_core: refcount must be set before calling");
+    for (uint32_t i = 0; i < engine.core_count(); ++i) {
+        if (i == source_core) continue;
+        CoreMessage msg{
+            .op = op,
+            .source_core = source_core,
+            .data = reinterpret_cast<uintptr_t>(payload)
+        };
+        if (!engine.post_to(i, msg).has_value()) {
+            payload->release();  // 전송 실패 코어 분 refcount 감소
+        }
+    }
 }
 
 } // namespace apex::core

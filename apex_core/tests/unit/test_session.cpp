@@ -38,13 +38,13 @@ TEST_F(SessionTest, InitialState) {
 
 TEST_F(SessionTest, SendFrame) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
     WireHeader header{.msg_id = 0x0042,
                       .body_size = static_cast<uint32_t>(payload.size())};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    EXPECT_TRUE(sent);
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_TRUE(result.has_value());
 
     std::vector<uint8_t> response(WireHeader::SIZE + payload.size());
     boost::asio::read(client, boost::asio::buffer(response));
@@ -59,7 +59,7 @@ TEST_F(SessionTest, SendFrame) {
 
 TEST_F(SessionTest, SendAfterClose) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -67,8 +67,9 @@ TEST_F(SessionTest, SendAfterClose) {
 
     std::vector<uint8_t> payload = {0x01};
     WireHeader header{.msg_id = 1, .body_size = 1};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    EXPECT_FALSE(sent);
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
 
     client.close();
 }
@@ -96,7 +97,7 @@ TEST_F(SessionTest, RecvBufferAccessible) {
 
 TEST_F(SessionTest, SendRawSucceeds) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     // Build a raw frame: WireHeader + payload
     std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
@@ -106,8 +107,8 @@ TEST_F(SessionTest, SendRawSucceeds) {
     std::vector<uint8_t> raw_frame(hdr_bytes.begin(), hdr_bytes.end());
     raw_frame.insert(raw_frame.end(), payload.begin(), payload.end());
 
-    bool sent = run_coro(io_ctx_, session->async_send_raw(raw_frame));
-    EXPECT_TRUE(sent);
+    auto result = run_coro(io_ctx_, session->async_send_raw(raw_frame));
+    EXPECT_TRUE(result.has_value());
 
     // Receive and verify on the client side
     std::vector<uint8_t> received(raw_frame.size());
@@ -119,21 +120,22 @@ TEST_F(SessionTest, SendRawSucceeds) {
 
 TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
 
     std::vector<uint8_t> data = {0x01, 0x02};
-    bool sent = run_coro(io_ctx_, session->async_send_raw(data));
-    EXPECT_FALSE(sent);
+    auto result = run_coro(io_ctx_, session->async_send_raw(data));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
 
     client.close();
 }
 
 TEST_F(SessionTest, DoubleCloseIsSafe) {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server), 0);
+    SessionPtr session(new Session(1, std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -151,7 +153,7 @@ TEST_F(SessionTest, DoubleCloseIsSafe) {
 // - The key invariant is that the Session handles it gracefully without crash.
 TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     auto [server_sock, client] = make_socket_pair(io_ctx_);
-    auto session = std::make_shared<Session>(1, std::move(server_sock), 0);
+    SessionPtr session(new Session(1, std::move(server_sock), 0));
 
     // Close the client side first to simulate peer disconnect
     client.close();
@@ -164,19 +166,49 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     std::vector<uint8_t> payload = {0xDE, 0xAD};
     WireHeader header{.msg_id = 0x0001,
                       .body_size = static_cast<uint32_t>(payload.size())};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    // Send may return true on first attempt (buffered) or false if connection reset.
-    // The key assertion is that it does not crash or throw.
-    // If first send succeeded, a second send after a brief delay should fail.
-    if (sent) {
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    // Send may succeed (buffered) or fail (connection reset).
+    if (result.has_value()) {
         io_ctx_.run_for(std::chrono::milliseconds(10));
         io_ctx_.restart();
-        bool sent2 = run_coro(io_ctx_, session->async_send(header, payload));
-        (void)sent2;  // may or may not fail depending on OS buffering
+        auto result2 = run_coro(io_ctx_, session->async_send(header, payload));
+        (void)result2;
     }
 
     // Regardless of send results, close the session and verify terminal state
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
     EXPECT_FALSE(session->is_open());
+}
+
+TEST_F(SessionTest, IntrusiveRefcount) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto* raw = new Session(1, std::move(server), 0, 8192);
+
+    EXPECT_EQ(raw->refcount(), 0u);
+
+    {
+        SessionPtr p1(raw);
+        EXPECT_EQ(raw->refcount(), 1u);
+
+        SessionPtr p2 = p1;
+        EXPECT_EQ(raw->refcount(), 2u);
+    }
+    // p1, p2 destroyed → refcount 0 → delete (ASAN leak check)
+
+    client.close();
+}
+
+TEST_F(SessionTest, IntrusiveMoveSemantics) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    auto* raw = new Session(1, std::move(server), 0, 8192);
+
+    SessionPtr p1(raw);
+    EXPECT_EQ(raw->refcount(), 1u);
+
+    SessionPtr p2 = std::move(p1);
+    EXPECT_EQ(p1.get(), nullptr);
+    EXPECT_EQ(raw->refcount(), 1u);
+
+    client.close();
 }

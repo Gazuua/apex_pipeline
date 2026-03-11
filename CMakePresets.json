@@ -56,6 +56,19 @@
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread",
         "APEX_BUILD_VARIANT": "tsan"
       }
+    },
+    {
+      "name": "iouring",
+      "displayName": "Debug + io_uring (Linux only)",
+      "inherits": "debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "APEX_USE_IO_URING": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -63,7 +76,8 @@
     { "name": "debug", "configurePreset": "debug" },
     { "name": "asan", "configurePreset": "asan" },
     { "name": "asan-msvc", "configurePreset": "asan-msvc" },
-    { "name": "tsan", "configurePreset": "tsan" }
+    { "name": "tsan", "configurePreset": "tsan" },
+    { "name": "iouring", "configurePreset": "iouring" }
   ],
   "testPresets": [
     {
@@ -97,6 +111,11 @@
       "environment": {
         "TSAN_OPTIONS": "suppressions=${sourceDir}/tsan_suppressions.txt halt_on_error=1"
       }
+    },
+    {
+      "name": "iouring",
+      "configurePreset": "iouring",
+      "output": { "outputOnFailure": true }
     }
   ]
 }

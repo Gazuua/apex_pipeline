@@ -23,6 +23,10 @@ apex_add_unit_test(test_service_base test_service_base.cpp)
 apex_add_unit_test(test_wire_header test_wire_header.cpp)
 apex_add_unit_test(test_frame_codec test_frame_codec.cpp)
 
+# 크로스코어 인프라 테스트
+apex_add_unit_test(test_shared_payload test_shared_payload.cpp)
+apex_add_unit_test(test_cross_core_dispatcher test_cross_core_dispatcher.cpp)
+
 # 세션 / 에러 처리 테스트
 apex_add_unit_test(test_session test_session.cpp)
 apex_add_unit_test(test_session_manager test_session_manager.cpp)
@@ -36,6 +40,7 @@ apex_add_unit_test(test_tcp_binary_protocol test_tcp_binary_protocol.cpp)
 # 멀티코어 / 서버 통합 테스트
 apex_add_unit_test(test_server_multicore test_server_multicore.cpp)
 apex_add_unit_test(test_cross_core_call test_cross_core_call.cpp)
+apex_add_unit_test(test_drain_tick test_drain_tick.cpp)
 
 # Phase 5: Config, Logging
 apex_add_unit_test(test_config test_config.cpp)
@@ -60,6 +65,9 @@ set_tests_properties(
     test_tcp_binary_protocol
     test_server_multicore
     test_cross_core_call
+    test_shared_payload
+    test_cross_core_dispatcher
+    test_drain_tick
     test_config
     test_logging
     PROPERTIES TIMEOUT 30

@@ -96,7 +96,7 @@ public:
             .msg_id = msg_id,
             .body_size = static_cast<uint32_t>(builder.GetSize())
         };
-        co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
+        (void)co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         co_return ok();
     }
 };
@@ -300,7 +300,7 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
 
     auto err = flatbuffers::GetRoot<apex::messages::ErrorResponse>(
         response.data() + WireHeader::SIZE);
-    EXPECT_EQ(err->code(), static_cast<uint16_t>(ErrorCode::Unknown));
+    EXPECT_EQ(err->code(), static_cast<uint16_t>(ErrorCode::HandlerException));
 
     client.close();
     stop_and_join(server);

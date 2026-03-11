@@ -20,6 +20,9 @@ compile_commands.json
 .idea/
 *.user
 
+# Logs
+*.log
+
 # OS
 Thumbs.db
 .DS_Store
@@ -29,6 +32,12 @@ vcpkg_installed/
 
 # Secrets
 .env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
 
 # Worktrees
 .worktrees/

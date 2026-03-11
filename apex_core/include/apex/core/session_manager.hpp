@@ -1,13 +1,15 @@
 #pragma once
 
 #include <apex/core/session.hpp>
+#include <apex/core/slab_pool.hpp>
 #include <apex/core/timing_wheel.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <cstdint>
 #include <functional>
-#include <unordered_map>
 
 namespace apex::core {
 
@@ -18,7 +20,8 @@ public:
     explicit SessionManager(uint32_t core_id,
                             uint32_t heartbeat_timeout_ticks = 300,
                             size_t timer_wheel_slots = 1024,
-                            size_t recv_buf_capacity = 8192);
+                            size_t recv_buf_capacity = 8192,
+                            size_t max_sessions_per_core = 1024);
 
     ~SessionManager();
 
@@ -69,10 +72,11 @@ private:
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     SessionId next_id_{1};
 
-    std::unordered_map<SessionId, SessionPtr> sessions_;
+    TypedSlabPool<Session> session_pool_;
+    boost::unordered_flat_map<SessionId, SessionPtr> sessions_;
     TimingWheel timer_wheel_;
 
-    std::unordered_map<TimingWheel::EntryId, SessionId> timer_to_session_;
+    boost::unordered_flat_map<TimingWheel::EntryId, SessionId> timer_to_session_;
     // I-07: session_to_timer_ map removed. Timer entry ID is now embedded in
     // Session::timer_entry_id_ (accessed via friend). This eliminates one of three
     // unordered_maps, reducing per-session memory overhead and lookup cost.

@@ -78,7 +78,7 @@ public:
     void bind_dispatcher(MessageDispatcher& external) override {
         assert(!started_ && "bind_dispatcher must be called before start()");
         dispatcher_ = &external;
-        owned_dispatcher_.reset();  // ~2MB 메모리 해제
+        owned_dispatcher_.reset();  // standalone dispatcher 해제
     }
 
 protected:
@@ -124,9 +124,9 @@ protected:
 
 private:
     std::string name_;
-    // m-06: owned_dispatcher_ provides a default ~2MB dispatcher for standalone use.
+    // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
     // When used with Server, bind_dispatcher() replaces it with the shared per-core
-    // dispatcher and immediately resets owned_dispatcher_ to free the ~2MB.
+    // dispatcher and immediately resets owned_dispatcher_ to free it.
     std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};

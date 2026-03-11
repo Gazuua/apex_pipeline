@@ -16,10 +16,12 @@ class TcpAcceptor {
 public:
     using AcceptCallback = std::function<void(boost::asio::ip::tcp::socket)>;
 
-    /// @param protocol  IPv4/IPv6 selection (default v4, backward compatible).
+    /// @param protocol   IPv4/IPv6 selection (default v4, backward compatible).
+    /// @param reuseport  Enable SO_REUSEPORT (Linux only, ignored on Windows).
     TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
                 AcceptCallback on_accept,
-                boost::asio::ip::tcp protocol = boost::asio::ip::tcp::v4());
+                boost::asio::ip::tcp protocol = boost::asio::ip::tcp::v4(),
+                bool reuseport = false);
     ~TcpAcceptor();
 
     TcpAcceptor(const TcpAcceptor&) = delete;
@@ -46,6 +48,7 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::steady_timer backoff_timer_;  // Member — stop() can cancel
     AcceptCallback on_accept_;
+    bool reuseport_;
     std::atomic<bool> running_{false};
 };
 

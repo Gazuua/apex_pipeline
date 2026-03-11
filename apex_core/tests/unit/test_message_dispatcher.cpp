@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-using apex::core::DispatchError;
+using apex::core::ErrorCode;
 using apex::core::MessageDispatcher;
 using apex::core::Result;
 using apex::core::SessionPtr;
@@ -45,14 +45,13 @@ TEST_F(MessageDispatcherTest, RegisterAndDispatch) {
 
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
     EXPECT_TRUE(called);
 }
 
 TEST_F(MessageDispatcherTest, DispatchUnknownReturnsError) {
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x9999, {}));
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
+    EXPECT_EQ(result.error(), ErrorCode::HandlerNotFound);
 }
 
 TEST_F(MessageDispatcherTest, PayloadPassedThrough) {
@@ -66,7 +65,6 @@ TEST_F(MessageDispatcherTest, PayloadPassedThrough) {
     std::vector<uint8_t> data = {0xDE, 0xAD, 0xBE, 0xEF};
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0010, data));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(received, data);
 }
 
@@ -124,7 +122,6 @@ TEST_F(MessageDispatcherTest, MultipleHandlers) {
     for (uint16_t i = 0; i < 5; ++i) {
         auto result = run_coro(io_ctx_, d->dispatch(nullptr, i, {}));
         EXPECT_TRUE(result.has_value());
-        EXPECT_TRUE(result.value().has_value());
         EXPECT_EQ(counts[i], 1);
     }
 }
@@ -141,11 +138,10 @@ TEST_F(MessageDispatcherTest, MaxMsgId) {
 
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0xFFFF, {}));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
     EXPECT_TRUE(called);
 }
 
-TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerFailed) {
+TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerException) {
     d->register_handler(0x0001,
         [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             throw std::runtime_error("test error");
@@ -153,7 +149,7 @@ TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerFailed) {
         });
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), DispatchError::HandlerFailed);
+    EXPECT_EQ(result.error(), ErrorCode::HandlerException);
 }
 
 TEST_F(MessageDispatcherTest, HandlerReturnsErrorCode) {
@@ -162,7 +158,6 @@ TEST_F(MessageDispatcherTest, HandlerReturnsErrorCode) {
             co_return apex::core::error(apex::core::ErrorCode::Timeout);
         });
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));
-    EXPECT_TRUE(result.has_value());
-    EXPECT_FALSE(result.value().has_value());
-    EXPECT_EQ(result.value().error(), apex::core::ErrorCode::Timeout);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), apex::core::ErrorCode::Timeout);
 }

@@ -16,7 +16,8 @@ TEST(CoreEngineTest, DefaultConfig) {
     CoreEngineConfig config;
     EXPECT_EQ(config.num_cores, 0u);
     EXPECT_EQ(config.mpsc_queue_capacity, 65536u);
-    EXPECT_EQ(config.drain_interval, 100us);
+    EXPECT_EQ(config.tick_interval, std::chrono::milliseconds(100));
+    EXPECT_EQ(config.drain_batch_limit, 1024u);
 }
 
 TEST(CoreEngineTest, CreateWithExplicitCores) {
@@ -40,7 +41,7 @@ TEST(CoreEngineTest, RunAndStop) {
 }
 
 TEST(CoreEngineTest, PostToCore) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<uint64_t> received_data{0};
     std::atomic<uint32_t> received_core{UINT32_MAX};
@@ -55,7 +56,7 @@ TEST(CoreEngineTest, PostToCore) {
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.source_core = 0;
     msg.data = 42;
     EXPECT_TRUE(engine.post_to(1, msg));
@@ -70,7 +71,7 @@ TEST(CoreEngineTest, PostToCore) {
 
 TEST(CoreEngineTest, Broadcast) {
     constexpr uint32_t num_cores = 4;
-    CoreEngine engine({.num_cores = num_cores, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = num_cores});
 
     std::atomic<uint32_t> count{0};
 
@@ -83,7 +84,7 @@ TEST(CoreEngineTest, Broadcast) {
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.data = 99;
     engine.broadcast(msg);
 
@@ -100,7 +101,7 @@ TEST(CoreEngineTest, PostToFullQueueReturnsFalse) {
 
     // Queue capacity is rounded up to next power of 2, so 4 stays 4
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.data = 1;
 
     // Fill the queue (don't run the engine so nothing drains)
@@ -122,7 +123,7 @@ TEST(CoreEngineTest, IoContextAccessValid) {
 }
 
 TEST(CoreEngineTest, StartAndJoin) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<uint64_t> received{0};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -133,7 +134,7 @@ TEST(CoreEngineTest, StartAndJoin) {
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.data = 777;
     EXPECT_TRUE(engine.post_to(1, msg));
 
@@ -148,35 +149,35 @@ TEST(CoreEngineTest, StartAndJoin) {
 TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse) {
     CoreEngine engine({.num_cores = 2});
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.data = 1;
     EXPECT_FALSE(engine.post_to(99, msg));
 }
 
-TEST(CoreEngineTest, DrainCallback) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+TEST(CoreEngineTest, TickCallback) {
+    CoreEngine engine({.num_cores = 2, .tick_interval = std::chrono::milliseconds(50)});
 
-    std::atomic<uint32_t> drain_count{0};
-    engine.set_drain_callback([&](uint32_t) {
-        drain_count.fetch_add(1, std::memory_order_relaxed);
+    std::atomic<uint32_t> tick_count{0};
+    engine.set_tick_callback([&](uint32_t) {
+        tick_count.fetch_add(1, std::memory_order_relaxed);
     });
 
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
-    // drain_timer fires multiple times (Windows timer resolution ~15.6ms)
-    ASSERT_TRUE(apex::test::wait_for([&]() { return drain_count.load() > 0; }));
+    // tick_timer fires independently (Windows timer resolution ~15.6ms)
+    ASSERT_TRUE(apex::test::wait_for([&]() { return tick_count.load() > 0; }));
 
     engine.stop();
     engine.join();
 }
 
 TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
-    std::atomic<uint8_t> received_type{255};
+    std::atomic<uint16_t> received_type{0xFFFF};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
-        received_type.store(static_cast<uint8_t>(msg.type), std::memory_order_relaxed);
+        received_type.store(static_cast<uint16_t>(msg.op), std::memory_order_relaxed);
     });
 
     engine.start();
@@ -184,20 +185,20 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
 
     // Custom messages go through message_handler_
     CoreMessage msg;
-    msg.type = CoreMessage::Type::Custom;
+    msg.op = CrossCoreOp::Custom;
     msg.data = 123;
     EXPECT_TRUE(engine.post_to(1, msg));
 
-    ASSERT_TRUE(apex::test::wait_for([&]() { return received_type.load() != 255; }));
+    ASSERT_TRUE(apex::test::wait_for([&]() { return received_type.load() != 0xFFFF; }));
     EXPECT_EQ(received_type.load(),
-              static_cast<uint8_t>(CoreMessage::Type::Custom));
+              static_cast<uint16_t>(CrossCoreOp::Custom));
 
     engine.stop();
     engine.join();
 }
 
 TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<int> value{0};
     auto* task = new std::function<void()>([&value] {
@@ -208,8 +209,8 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
     CoreMessage msg;
-    msg.type = CoreMessage::Type::CrossCoreRequest;
-    msg.data = reinterpret_cast<uint64_t>(task);
+    msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg.data = reinterpret_cast<uintptr_t>(task);
     EXPECT_TRUE(engine.post_to(1, msg));
 
     ASSERT_TRUE(apex::test::wait_for([&]() { return value.load() == 42; }));
@@ -219,7 +220,7 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
 }
 
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
-    CoreEngine engine({.num_cores = 1, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 1});
 
     // Track whether each task's destructor was called by watching an external flag
     auto flag1 = std::make_shared<bool>(false);
@@ -228,15 +229,15 @@ TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
     // CrossCoreRequest: captures shared_ptr, destructor sets flag
     auto* task1 = new std::function<void()>([flag1] { *flag1 = true; });
     CoreMessage msg1;
-    msg1.type = CoreMessage::Type::CrossCoreRequest;
-    msg1.data = reinterpret_cast<uint64_t>(task1);
+    msg1.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg1.data = reinterpret_cast<uintptr_t>(task1);
     EXPECT_TRUE(engine.post_to(0, msg1));
 
     // CrossCorePost: same pattern
     auto* task2 = new std::function<void()>([flag2] { *flag2 = true; });
     CoreMessage msg2;
-    msg2.type = CoreMessage::Type::CrossCorePost;
-    msg2.data = reinterpret_cast<uint64_t>(task2);
+    msg2.op = CrossCoreOp::LegacyCrossCoreFn;
+    msg2.data = reinterpret_cast<uintptr_t>(task2);
     EXPECT_TRUE(engine.post_to(0, msg2));
 
     // Verify tasks have NOT been executed (engine was never started)
@@ -265,8 +266,8 @@ TEST(CoreEngineTest, DestructorDrainsRemaining) {
 
         auto* task = new std::function<void()>([flag] { *flag = true; });
         CoreMessage msg;
-        msg.type = CoreMessage::Type::CrossCorePost;
-        msg.data = reinterpret_cast<uint64_t>(task);
+        msg.op = CrossCoreOp::LegacyCrossCoreFn;
+        msg.data = reinterpret_cast<uintptr_t>(task);
         EXPECT_TRUE(engine.post_to(0, msg));
         // ~CoreEngine should call drain_remaining()
     }
@@ -275,8 +276,98 @@ TEST(CoreEngineTest, DestructorDrainsRemaining) {
     EXPECT_EQ(flag.use_count(), 1);
 }
 
+TEST(CoreEngineTest, CrossCoreDispatcherPriorityOverMessageHandler) {
+    // When both CrossCoreDispatcher handler and message_handler_ are set,
+    // registered ops should go to CrossCoreDispatcher, unregistered ops to message_handler_
+    CoreEngine engine({.num_cores = 2});
+
+    std::atomic<int> dispatcher_count{0};
+    std::atomic<int> handler_count{0};
+
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0300),
+        [](uint32_t, uint32_t, void* data) {
+            static_cast<std::atomic<int>*>(data)->fetch_add(1, std::memory_order_relaxed);
+        });
+
+    engine.set_message_handler([&](uint32_t, const CoreMessage&) {
+        handler_count.fetch_add(1, std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    // Send registered op → should go to CrossCoreDispatcher
+    CoreMessage registered_msg{
+        .op = static_cast<CrossCoreOp>(0x0300),
+        .source_core = 0,
+        .data = reinterpret_cast<uintptr_t>(&dispatcher_count)};
+    EXPECT_TRUE(engine.post_to(1, registered_msg));
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return dispatcher_count.load(std::memory_order_acquire) == 1;
+    }));
+    EXPECT_EQ(handler_count.load(), 0);  // message_handler_ NOT called
+
+    // Send unregistered op → should go to message_handler_
+    CoreMessage unregistered_msg{.op = CrossCoreOp::Custom, .source_core = 0, .data = 0};
+    EXPECT_TRUE(engine.post_to(1, unregistered_msg));
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return handler_count.load(std::memory_order_acquire) == 1;
+    }));
+    EXPECT_EQ(dispatcher_count.load(), 1);  // CrossCoreDispatcher NOT called again
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain) {
+    // A legacy closure that throws should not prevent subsequent messages from processing
+    CoreEngine engine({.num_cores = 2});
+
+    std::atomic<int> after_exception{0};
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    // Post a throwing task first
+    auto* bad_task = new std::function<void()>([] {
+        throw std::runtime_error("intentional test exception");
+    });
+    CoreMessage bad_msg;
+    bad_msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    bad_msg.data = reinterpret_cast<uintptr_t>(bad_task);
+    EXPECT_TRUE(engine.post_to(1, bad_msg));
+
+    // Post a normal task after — should still execute despite the exception above
+    auto* good_task = new std::function<void()>([&after_exception] {
+        after_exception.store(1, std::memory_order_release);
+    });
+    CoreMessage good_msg;
+    good_msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    good_msg.data = reinterpret_cast<uintptr_t>(good_task);
+    EXPECT_TRUE(engine.post_to(1, good_msg));
+
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return after_exception.load(std::memory_order_acquire) == 1;
+    }));
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, DoubleStartThrows) {
+    CoreEngine engine({.num_cores = 2});
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    EXPECT_THROW(engine.start(), std::logic_error);
+
+    engine.stop();
+    engine.join();
+}
+
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     constexpr int num_messages = 100;
     std::atomic<uint64_t> sum{0};
@@ -295,9 +386,9 @@ TEST(CoreEngineTest, MultipleInterCoreMessages) {
     uint64_t expected_sum = 0;
     for (int i = 1; i <= num_messages; ++i) {
         CoreMessage msg;
-        msg.type = CoreMessage::Type::Custom;
+        msg.op = CrossCoreOp::Custom;
         msg.source_core = 0;
-        msg.data = static_cast<uint64_t>(i);
+        msg.data = static_cast<uintptr_t>(i);
         EXPECT_TRUE(engine.post_to(1, msg));
         expected_sum += i;
     }

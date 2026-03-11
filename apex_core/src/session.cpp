@@ -1,10 +1,22 @@
 #include <apex/core/session.hpp>
+#include <apex/core/slab_pool.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
 namespace apex::core {
+
+void intrusive_ptr_release(Session* s) noexcept {
+    assert(s->refcount_ > 0 && "Session refcount underflow");
+    if (--s->refcount_ == 0) {
+        if (s->pool_owner_) {
+            s->pool_owner_->destroy(s);
+        } else {
+            delete s;
+        }
+    }
+}
 
 using boost::asio::awaitable;
 
@@ -22,9 +34,9 @@ Session::~Session() {
     close();
 }
 
-awaitable<bool> Session::async_send(const WireHeader& header,
-                                    std::span<const uint8_t> payload) {
-    if (!is_open()) co_return false;
+awaitable<Result<void>> Session::async_send(const WireHeader& header,
+                                            std::span<const uint8_t> payload) {
+    if (!is_open()) co_return error(ErrorCode::SessionClosed);
 
     std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
     header.serialize(hdr_buf);
@@ -40,13 +52,13 @@ awaitable<bool> Session::async_send(const WireHeader& header,
 
     if (ec) {
         close();
-        co_return false;
+        co_return error(ErrorCode::SendFailed);
     }
-    co_return true;
+    co_return ok();
 }
 
-awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
-    if (!is_open()) co_return false;
+awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data) {
+    if (!is_open()) co_return error(ErrorCode::SessionClosed);
 
     auto [ec, bytes] = co_await boost::asio::async_write(
         socket_, boost::asio::buffer(data.data(), data.size()),
@@ -54,12 +66,12 @@ awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
 
     if (ec) {
         close();
-        co_return false;
+        co_return error(ErrorCode::SendFailed);
     }
-    co_return true;
+    co_return ok();
 }
 
-void Session::close() {
+void Session::close() noexcept {
     if (state_ == State::Closed) return;
     // Bypass set_state() which asserts on Closed->Closed transition
     // (already guarded by early return above)

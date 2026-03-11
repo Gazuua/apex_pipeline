@@ -103,7 +103,6 @@ TEST(ServiceBase, HandleRegistersAndDispatches) {
     std::vector<uint8_t> data = {0x01, 0x02, 0x03};
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0001, data));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
 }
@@ -115,7 +114,7 @@ TEST(ServiceBase, UnregisteredMsgReturnsError) {
 
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x9999, {}));
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
+    EXPECT_EQ(result.error(), ErrorCode::HandlerNotFound);
 }
 
 TEST(ServiceBase, MultipleHandlers) {
@@ -157,7 +156,6 @@ TEST(ServiceBase, BindExternalDispatcher) {
     std::vector<uint8_t> data = {0xAA, 0xBB};
     auto result = run_coro(io_ctx, external_dispatcher->dispatch(nullptr, 0x0001, data));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
     EXPECT_EQ(svc->last_msg_id, 0x0001);
     EXPECT_EQ(svc->last_payload, data);
 }
