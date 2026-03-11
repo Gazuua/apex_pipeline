@@ -13,7 +13,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-    # TODO: Linux io_uring 통합 시 활성화
     option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
     enable_testing()
@@ -89,6 +88,19 @@ target_link_libraries(apex_core
 )
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
+
+# io_uring backend (Linux only)
+if(APEX_USE_IO_URING)
+    if(NOT UNIX OR APPLE)
+        message(FATAL_ERROR "APEX_USE_IO_URING requires Linux")
+    endif()
+    target_compile_definitions(apex_core PUBLIC
+        BOOST_ASIO_HAS_IO_URING
+        BOOST_ASIO_DISABLE_EPOLL
+    )
+    find_library(URING_LIB uring REQUIRED)
+    target_link_libraries(apex_core PUBLIC ${URING_LIB})
+endif()
 
 # Windows: UTF-8 source, suppress _WIN32_WINNT warning, link Winsock
 if(WIN32)
