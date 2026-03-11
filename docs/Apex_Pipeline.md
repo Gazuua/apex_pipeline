@@ -76,7 +76,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 
 | 기법 | 적용 위치 | 효과 | 상태 |
 |------|----------|------|------|
-| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ Server 통합 완료 (ContextProvider 기반 per-core IOCP 직접 바인딩 완료) |
+| **io_context-per-core (shared-nothing)** | 전 서비스 | 코어별 독립 이벤트 루프, 락 제거 | ✅ Server 통합 완료 (accept→post()로 코어 이관, SO_REUSEPORT 시 per-core accept) |
 | **Lock-free MPSC Queue** | 코어 간 통신 | 코어당 수신 큐 1개, O(1) enqueue | ✅ 구현 |
 | **Slab Memory Pool** | 코어별 독립 | 핫패스 malloc 제거, O(1) 할당 | ✅ 구현 |
 | **Zero-copy Ring Buffer** | 수신 버퍼 | memmove 제거, FlatBuffers 직접 접근 | ✅ 구현 |

@@ -228,10 +228,10 @@ inline void broadcast_cross_core(
 {
     assert(payload != nullptr && "broadcast_cross_core: payload must not be null");
 
-    // Single-core: no targets to broadcast to. Release all refcount shares
-    // to prevent memory leak (caller set refcount but nobody will release).
+    // Single-core: no targets to broadcast to. Direct delete handles any
+    // refcount value (including 0) safely via virtual destructor.
     if (engine.core_count() <= 1) {
-        while (payload->refcount() > 0) payload->release();
+        delete payload;
         return;
     }
 

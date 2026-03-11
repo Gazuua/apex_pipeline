@@ -47,6 +47,9 @@ TEST(ErrorCode, NameLookup) {
     EXPECT_EQ(error_code_name(ErrorCode::HandlerException), "HandlerException");
     EXPECT_EQ(error_code_name(ErrorCode::SendFailed), "SendFailed");
     EXPECT_EQ(error_code_name(ErrorCode::AppError), "AppError");
+
+    // default branch: invalid enum value falls back to "Unknown"
+    EXPECT_EQ(error_code_name(static_cast<ErrorCode>(9999)), "Unknown");
 }
 
 TEST(ErrorSender, BuildErrorFrame) {
@@ -66,14 +69,6 @@ TEST(ErrorSender, BuildErrorFrame) {
         payload.data());
     EXPECT_EQ(resp->code(), static_cast<uint16_t>(ErrorCode::Timeout));
     EXPECT_STREQ(resp->message()->c_str(), "request timed out");
-}
-
-TEST(ErrorCode, HandlerExceptionName) {
-    EXPECT_EQ(error_code_name(ErrorCode::HandlerException), "HandlerException");
-}
-
-TEST(ErrorCode, SendFailedName) {
-    EXPECT_EQ(error_code_name(ErrorCode::SendFailed), "SendFailed");
 }
 
 TEST(Result, HandlerExceptionError) {
