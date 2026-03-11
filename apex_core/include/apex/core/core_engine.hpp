@@ -30,7 +30,7 @@ struct CoreContext {
     uint32_t core_id;
     boost::asio::io_context io_ctx{1};  // concurrency_hint=1 (single thread)
     std::unique_ptr<MpscQueue<CoreMessage>> inbox;
-    std::unique_ptr<boost::asio::steady_timer> drain_timer;
+    std::unique_ptr<boost::asio::steady_timer> tick_timer;
 
     CoreContext(uint32_t id, size_t queue_capacity);
     ~CoreContext();
@@ -43,11 +43,15 @@ struct CoreContext {
 struct CoreEngineConfig {
     uint32_t num_cores{0};              // 0 = auto-detect (hardware_concurrency)
     size_t mpsc_queue_capacity{65536};
-    std::chrono::microseconds drain_interval{100};  // MPSC poll interval
+    std::chrono::milliseconds tick_interval{100};  // per-core tick timer interval
+    size_t drain_batch_limit{1024};                // max messages per drain cycle
 };
 
 /// io_context-per-core engine. Creates N cores, each with its own
 /// io_context + thread + MPSC inbox. Provides inter-core messaging.
+///
+/// Drain is event-driven: post_to() triggers immediate drain via post().
+/// Tick is independent: periodic timer for heartbeat/timing wheel.
 ///
 /// Usage:
 ///   CoreEngine engine({.num_cores = 4});
@@ -58,7 +62,7 @@ struct CoreEngineConfig {
 class CoreEngine {
 public:
     using MessageHandler = std::function<void(uint32_t core_id, const CoreMessage& msg)>;
-    using DrainCallback = std::function<void(uint32_t core_id)>;
+    using TickCallback = std::function<void(uint32_t core_id)>;
 
     explicit CoreEngine(CoreEngineConfig config = {});
     ~CoreEngine();
@@ -69,11 +73,11 @@ public:
     /// Set handler for inter-core messages. Must be called before start().
     void set_message_handler(MessageHandler handler);
 
-    /// Set callback invoked on each drain cycle per core (for tick, etc.).
-    void set_drain_callback(DrainCallback callback);
+    /// Set callback invoked on each tick cycle per core (heartbeat, timing wheel, etc.).
+    void set_tick_callback(TickCallback callback);
 
     /// Drain remaining messages from all inboxes, cleaning up heap pointers
-    /// for CrossCoreRequest/CrossCorePost messages. Call after stop() + join().
+    /// for LegacyCrossCoreFn messages. Call after stop() + join().
     void drain_remaining();
 
     /// Start all core threads (non-blocking).
@@ -92,6 +96,7 @@ public:
     void stop();
 
     /// Post a message to a specific core's MPSC inbox. Thread-safe.
+    /// Triggers immediate event-driven drain on the target core.
     /// @return ErrorCode::CrossCoreQueueFull if target core's queue is full.
     [[nodiscard]] Result<void> post_to(uint32_t target_core, CoreMessage msg);
 
@@ -104,14 +109,17 @@ public:
 
 private:
     void run_core(uint32_t core_id);
-    void start_drain_timer(uint32_t core_id);
+    void drain_inbox(uint32_t core_id);
+    void start_tick_timer(uint32_t core_id);
+    void schedule_drain(uint32_t target_core);
 
     CoreEngineConfig config_;
     std::vector<std::unique_ptr<CoreContext>> cores_;
     std::vector<std::thread> threads_;
     MessageHandler message_handler_;
-    DrainCallback drain_callback_;
+    TickCallback tick_callback_;
     std::atomic<bool> running_{false};
+    std::unique_ptr<std::atomic<bool>[]> drain_pending_;
 };
 
 } // namespace apex::core

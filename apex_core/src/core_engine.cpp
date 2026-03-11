@@ -32,6 +32,12 @@ CoreEngine::CoreEngine(CoreEngineConfig config)
         config_.num_cores = (hw > 0) ? hw : 1;
     }
 
+    // Per-core drain coalescing flags
+    drain_pending_ = std::make_unique<std::atomic<bool>[]>(config_.num_cores);
+    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+        drain_pending_[i].store(false, std::memory_order_relaxed);
+    }
+
     cores_.reserve(config_.num_cores);
     for (uint32_t i = 0; i < config_.num_cores; ++i) {
         cores_.push_back(std::make_unique<CoreContext>(i, config_.mpsc_queue_capacity));
@@ -51,9 +57,9 @@ void CoreEngine::set_message_handler(MessageHandler handler) {
     message_handler_ = std::move(handler);
 }
 
-void CoreEngine::set_drain_callback(DrainCallback callback) {
-    assert(!running_.load(std::memory_order_acquire) && "set_drain_callback must be called before start()");
-    drain_callback_ = std::move(callback);
+void CoreEngine::set_tick_callback(TickCallback callback) {
+    assert(!running_.load(std::memory_order_acquire) && "set_tick_callback must be called before start()");
+    tick_callback_ = std::move(callback);
 }
 
 void CoreEngine::drain_remaining() {
@@ -123,7 +129,19 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
     if (!result) {
         return error(ErrorCode::CrossCoreQueueFull);
     }
+    schedule_drain(target_core);
     return ok();
+}
+
+void CoreEngine::schedule_drain(uint32_t target_core) {
+    // Atomic coalescing: only one drain per batch. If drain is already pending,
+    // the running drain_inbox will pick up the newly enqueued messages.
+    if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel)) {
+        boost::asio::post(cores_[target_core]->io_ctx, [this, target_core] {
+            drain_pending_[target_core].store(false, std::memory_order_release);
+            drain_inbox(target_core);
+        });
+    }
 }
 
 void CoreEngine::broadcast(CoreMessage msg) {
@@ -150,9 +168,9 @@ bool CoreEngine::running() const noexcept {
 void CoreEngine::run_core(uint32_t core_id) {
     auto& ctx = *cores_[core_id];
 
-    // Create drain timer
-    ctx.drain_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
-    start_drain_timer(core_id);
+    // Independent tick timer (heartbeat, timing wheel, etc.)
+    ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
+    start_tick_timer(core_id);
 
     // Work guard keeps io_context alive even when no pending work
     auto work_guard = boost::asio::make_work_guard(ctx.io_ctx);
@@ -160,52 +178,59 @@ void CoreEngine::run_core(uint32_t core_id) {
     ctx.io_ctx.run();
 }
 
-void CoreEngine::start_drain_timer(uint32_t core_id) {
-    auto& ctx = *cores_[core_id];
-    ctx.drain_timer->expires_after(config_.drain_interval);
-    ctx.drain_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
-        if (ec) {
-            return;  // timer cancelled or error
-        }
+void CoreEngine::drain_inbox(uint32_t core_id) {
+    auto& core_ctx = *cores_[core_id];
+    size_t processed = 0;
 
-        auto& core_ctx = *cores_[core_id];
+    while (processed < config_.drain_batch_limit) {
+        auto msg = core_ctx.inbox->dequeue();
+        if (!msg) break;
 
-        // Drain all pending messages from the inbox
-        while (auto msg = core_ctx.inbox->dequeue()) {
-            // Legacy closure-based cross-core tasks (Tier 1 전환 기간 동안 유지)
-            if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
-                auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
-                if (task) {
-                    try {
-                        (*task)();
-                    } catch (const std::exception& e) {
-                        spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
-                    } catch (...) {
-                        spdlog::error("Core {} cross-core task unknown exception", core_id);
-                    }
-                    delete task;
+        if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
+            auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
+            if (task) {
+                try {
+                    (*task)();
+                } catch (const std::exception& e) {
+                    spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
+                } catch (...) {
+                    spdlog::error("Core {} cross-core task unknown exception", core_id);
                 }
-                continue;
+                delete task;
             }
-            if (message_handler_) {
-                message_handler_(core_id, *msg);
-            }
+        } else if (message_handler_) {
+            message_handler_(core_id, *msg);
         }
+        ++processed;
+    }
 
-        // Drain callback (tick, etc.)
-        if (drain_callback_) {
+    // If batch limit reached, there may be more — re-post to process remaining
+    if (processed == config_.drain_batch_limit) {
+        boost::asio::post(core_ctx.io_ctx, [this, core_id] {
+            drain_inbox(core_id);
+        });
+    }
+}
+
+void CoreEngine::start_tick_timer(uint32_t core_id) {
+    auto& ctx = *cores_[core_id];
+    ctx.tick_timer->expires_after(config_.tick_interval);
+    ctx.tick_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
+        if (ec) return;  // timer cancelled or error
+
+        if (tick_callback_) {
             try {
-                drain_callback_(core_id);
+                tick_callback_(core_id);
             } catch (const std::exception& e) {
-                spdlog::error("Core {} drain_callback exception: {}", core_id, e.what());
+                spdlog::error("Core {} tick_callback exception: {}", core_id, e.what());
             } catch (...) {
-                spdlog::error("Core {} drain_callback unknown exception", core_id);
+                spdlog::error("Core {} tick_callback unknown exception", core_id);
             }
         }
 
         // Re-arm the timer
         if (running_.load(std::memory_order_acquire)) {
-            start_drain_timer(core_id);
+            start_tick_timer(core_id);
         }
     });
 }

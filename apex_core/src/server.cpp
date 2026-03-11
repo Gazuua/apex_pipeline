@@ -61,7 +61,7 @@ Server::Server(ServerConfig config)
     CoreEngineConfig engine_config{
         .num_cores = config_.num_cores,
         .mpsc_queue_capacity = config_.mpsc_queue_capacity,
-        .drain_interval = config_.drain_interval,
+        .tick_interval = config_.tick_interval,
     };
     core_engine_ = std::make_unique<CoreEngine>(engine_config);
 
@@ -129,8 +129,8 @@ void Server::run() {
         }
     }
 
-    // Drain callback — SessionManager tick on each drain cycle
-    core_engine_->set_drain_callback([this](uint32_t core_id) {
+    // Tick callback — SessionManager tick on each tick cycle (heartbeat, timing wheel)
+    core_engine_->set_tick_callback([this](uint32_t core_id) {
         if (core_id < per_core_.size()) {
             per_core_[core_id]->session_mgr.tick();
         }

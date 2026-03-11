@@ -31,7 +31,7 @@ struct ServerConfig {
     // Multicore
     uint32_t num_cores = 1;
     size_t mpsc_queue_capacity = 65536;
-    std::chrono::microseconds drain_interval{100};
+    std::chrono::milliseconds tick_interval{100};
 
     // Session
     uint32_t heartbeat_timeout_ticks = 300;  // 0 = disabled

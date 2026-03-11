@@ -21,7 +21,6 @@ protected:
         server_ = std::make_unique<Server>(ServerConfig{
             .port = 0,
             .num_cores = 2,
-            .drain_interval = std::chrono::microseconds{50},
             .heartbeat_timeout_ticks = 0,
             .handle_signals = false,
         });
@@ -139,29 +138,39 @@ TEST_F(CrossCoreCallTest, MultipleSequentialCalls) {
 }
 
 TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
-    // Use a tiny MPSC queue (capacity=2) and very long drain interval
-    // so the queue stays full during the test.
+    // Use a tiny MPSC queue (capacity=2). With event-driven drain, we need
+    // a blocking lambda on core 1 to prevent it from draining the queue.
     auto server = std::make_unique<Server>(ServerConfig{
         .port = 0,
         .num_cores = 2,
         .mpsc_queue_capacity = 2,
-        .drain_interval = std::chrono::microseconds{60'000'000},  // 60s — no drain during test
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
     });
     std::thread server_thread([&] { server->run(); });
 
-    // Wait for server to be running
     ASSERT_TRUE(apex::test::wait_for([&] { return server->running(); }, std::chrono::milliseconds(5000)));
 
-    // Fill core 1's inbox (capacity=2) with fire-and-forget posts.
-    // Each lambda captures a shared_ptr; when the server shuts down and
-    // drain_remaining() deletes the queued tasks, the shared_ptr destructor
-    // fires and decrements the ref-count, proving resources were released.
+    // Post a blocking lambda to core 1 — this will be dequeued and block
+    // the drain_inbox, preventing further items from being processed.
+    std::atomic<bool> blocker_started{false};
+    std::atomic<bool> unblock{false};
+    auto posted = server->cross_core_post(1, [&blocker_started, &unblock] {
+        blocker_started.store(true, std::memory_order_release);
+        while (!unblock.load(std::memory_order_acquire)) {
+            std::this_thread::yield();
+        }
+    });
+    ASSERT_TRUE(posted.has_value());
+
+    // Wait for core 1 to start executing the blocker (confirms it was dequeued)
+    ASSERT_TRUE(apex::test::wait_for([&] { return blocker_started.load(std::memory_order_acquire); }));
+
+    // Core 1 is blocked in drain_inbox. Fill the remaining queue (capacity=2).
     auto sentinel = std::make_shared<int>(0);
     for (int i = 0; i < 2; ++i) {
-        auto posted = server->cross_core_post(1, [sentinel] { /* no-op */ });
-        ASSERT_TRUE(posted.has_value()) << "post #" << i << " should succeed";
+        auto p = server->cross_core_post(1, [sentinel] { /* no-op */ });
+        ASSERT_TRUE(p.has_value()) << "post #" << i << " should succeed";
     }
 
     // Now core 1's queue is full — cross_core_call should fail with QueueFull
@@ -181,12 +190,12 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
     EXPECT_EQ(future.get(), ErrorCode::CrossCoreQueueFull);
 
+    // Unblock core 1 so shutdown can proceed
+    unblock.store(true, std::memory_order_release);
+
     server->stop();
     if (server_thread.joinable()) server_thread.join();
 
-    // After server shutdown, drain_remaining() should have deleted the queued
-    // tasks. The lambdas captured `sentinel` by value (shared_ptr copy), so
-    // only the test's own copy should remain — use_count must be exactly 1.
     EXPECT_EQ(sentinel.use_count(), 1)
         << "Queued tasks were not properly cleaned up during shutdown";
 }

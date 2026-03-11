@@ -16,7 +16,8 @@ TEST(CoreEngineTest, DefaultConfig) {
     CoreEngineConfig config;
     EXPECT_EQ(config.num_cores, 0u);
     EXPECT_EQ(config.mpsc_queue_capacity, 65536u);
-    EXPECT_EQ(config.drain_interval, 100us);
+    EXPECT_EQ(config.tick_interval, std::chrono::milliseconds(100));
+    EXPECT_EQ(config.drain_batch_limit, 1024u);
 }
 
 TEST(CoreEngineTest, CreateWithExplicitCores) {
@@ -40,7 +41,7 @@ TEST(CoreEngineTest, RunAndStop) {
 }
 
 TEST(CoreEngineTest, PostToCore) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<uint64_t> received_data{0};
     std::atomic<uint32_t> received_core{UINT32_MAX};
@@ -70,7 +71,7 @@ TEST(CoreEngineTest, PostToCore) {
 
 TEST(CoreEngineTest, Broadcast) {
     constexpr uint32_t num_cores = 4;
-    CoreEngine engine({.num_cores = num_cores, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = num_cores});
 
     std::atomic<uint32_t> count{0};
 
@@ -122,7 +123,7 @@ TEST(CoreEngineTest, IoContextAccessValid) {
 }
 
 TEST(CoreEngineTest, StartAndJoin) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<uint64_t> received{0};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -153,26 +154,26 @@ TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse) {
     EXPECT_FALSE(engine.post_to(99, msg));
 }
 
-TEST(CoreEngineTest, DrainCallback) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+TEST(CoreEngineTest, TickCallback) {
+    CoreEngine engine({.num_cores = 2, .tick_interval = std::chrono::milliseconds(50)});
 
-    std::atomic<uint32_t> drain_count{0};
-    engine.set_drain_callback([&](uint32_t) {
-        drain_count.fetch_add(1, std::memory_order_relaxed);
+    std::atomic<uint32_t> tick_count{0};
+    engine.set_tick_callback([&](uint32_t) {
+        tick_count.fetch_add(1, std::memory_order_relaxed);
     });
 
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
-    // drain_timer fires multiple times (Windows timer resolution ~15.6ms)
-    ASSERT_TRUE(apex::test::wait_for([&]() { return drain_count.load() > 0; }));
+    // tick_timer fires independently (Windows timer resolution ~15.6ms)
+    ASSERT_TRUE(apex::test::wait_for([&]() { return tick_count.load() > 0; }));
 
     engine.stop();
     engine.join();
 }
 
 TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<uint16_t> received_type{0xFFFF};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -197,7 +198,7 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler) {
 }
 
 TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     std::atomic<int> value{0};
     auto* task = new std::function<void()>([&value] {
@@ -219,7 +220,7 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted) {
 }
 
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
-    CoreEngine engine({.num_cores = 1, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 1});
 
     // Track whether each task's destructor was called by watching an external flag
     auto flag1 = std::make_shared<bool>(false);
@@ -229,14 +230,14 @@ TEST(CoreEngineTest, DrainRemainingCleansUpPointers) {
     auto* task1 = new std::function<void()>([flag1] { *flag1 = true; });
     CoreMessage msg1;
     msg1.op = CrossCoreOp::LegacyCrossCoreFn;
-    msg1.data = reinterpret_cast<uint64_t>(task1);
+    msg1.data = reinterpret_cast<uintptr_t>(task1);
     EXPECT_TRUE(engine.post_to(0, msg1));
 
     // CrossCorePost: same pattern
     auto* task2 = new std::function<void()>([flag2] { *flag2 = true; });
     CoreMessage msg2;
     msg2.op = CrossCoreOp::LegacyCrossCoreFn;
-    msg2.data = reinterpret_cast<uint64_t>(task2);
+    msg2.data = reinterpret_cast<uintptr_t>(task2);
     EXPECT_TRUE(engine.post_to(0, msg2));
 
     // Verify tasks have NOT been executed (engine was never started)
@@ -276,7 +277,7 @@ TEST(CoreEngineTest, DestructorDrainsRemaining) {
 }
 
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
-    CoreEngine engine({.num_cores = 2, .drain_interval = 50us});
+    CoreEngine engine({.num_cores = 2});
 
     constexpr int num_messages = 100;
     std::atomic<uint64_t> sum{0};
@@ -297,7 +298,7 @@ TEST(CoreEngineTest, MultipleInterCoreMessages) {
         CoreMessage msg;
         msg.op = CrossCoreOp::Custom;
         msg.source_core = 0;
-        msg.data = static_cast<uint64_t>(i);
+        msg.data = static_cast<uintptr_t>(i);
         EXPECT_TRUE(engine.post_to(1, msg));
         expected_sum += i;
     }
