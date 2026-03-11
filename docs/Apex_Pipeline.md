@@ -83,7 +83,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **FlatBuffers 직렬화** | 전 구간 | 역직렬화 비용 제로 (zero-copy 읽기) | ✅ 구현 |
 | **Connection Pool** | Service → Redis/PostgreSQL | 커넥션 생성 비용 제거 | Phase 7 |
 | **Kafka Batch Produce** | Gateway → Kafka | 네트워크 라운드트립 최소화 | Phase 6 |
-| **Cross-Core Message Passing** | 코어 간 통신 | closure shipping 제거, handler dispatch + immutable shared payload | Phase 5.5 |
+| **Cross-Core Message Passing** | 코어 간 통신 | closure shipping 제거, handler dispatch + immutable shared payload | ✅ 구현 |
 | **intrusive_ptr Session** | 세션 관리 | shared_ptr atomic 제거, non-atomic refcount | Phase 5.5 |
 | **CPU Affinity + SO_REUSEPORT** | Gateway / Logic Service | 커널 레벨 코어 분배, 캐시 히트율 극대화 | Phase 5.5 |
 | **L1 로컬 캐시** | 전 서비스 | 프로세스 내 해시맵(TTL) → Redis 호출도 제거 | 백로그 (Phase 10 부하 테스트 후) |

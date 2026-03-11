@@ -267,6 +267,7 @@ TEST(CrossCorePostMsgTest, InvalidTargetReturnsError) {
     // Don't start — post_to with invalid target returns error immediately
     auto result = cross_core_post_msg(engine, 0, 99, CrossCoreOp::Custom);
     EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::Unknown);
 }
 
 TEST(CrossCorePostMsgTest, QueueFullReturnsError) {

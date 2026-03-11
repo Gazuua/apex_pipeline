@@ -13,7 +13,7 @@ D:\.workspace/
 ├── build.bat / build.sh               ← 루트 빌드 스크립트
 ├── apex_core/          ← 코어 프레임워크 (C++23, Boost.Asio 코루틴)
 │   ├── include/apex/core/  ← 헤더
-│   ├── src/ tests/ examples/ schemas/
+│   ├── src/ tests/ examples/ benchmarks/ schemas/
 │   ├── bin/            ← 빌드 출력
 │   └── build.bat / build.sh / CMakePresets.json
 ├── docs/               ← 전체 프로젝트 문서 (중앙 집중)
