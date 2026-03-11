@@ -9,6 +9,7 @@
       "name": "boost-asio",
       "version>=": "1.84.0"
     },
+    "benchmark",
     "flatbuffers",
     {
       "name": "gtest"

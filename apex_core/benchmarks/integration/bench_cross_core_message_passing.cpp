@@ -1,0 +1,34 @@
+#include <apex/core/core_engine.hpp>
+#include <benchmark/benchmark.h>
+#include <atomic>
+
+using namespace apex::core;
+
+// Measures throughput of inter-core message posting
+static void BM_CrossCore_PostThroughput(benchmark::State& state) {
+    CoreEngineConfig config{.num_cores = 2, .mpsc_queue_capacity = 65536};
+    CoreEngine engine(config);
+
+    std::atomic<uint64_t> received{0};
+    engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
+        if (msg.type == CoreMessage::Type::Custom) {
+            received.fetch_add(1, std::memory_order_relaxed);
+        }
+    });
+
+    engine.start();
+
+    for (auto _ : state) {
+        CoreMessage msg{.type = CoreMessage::Type::Custom, .source_core = 0, .data = 42};
+        auto result = engine.post_to(1, msg);
+        benchmark::DoNotOptimize(result);
+    }
+
+    engine.stop();
+    engine.join();
+    engine.drain_remaining();
+
+    state.SetItemsProcessed(state.iterations());
+    state.counters["received"] = benchmark::Counter(static_cast<double>(received.load()));
+}
+BENCHMARK(BM_CrossCore_PostThroughput)->UseRealTime();
