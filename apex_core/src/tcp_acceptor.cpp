@@ -6,16 +6,35 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
+#if !defined(_WIN32)
+#include <sys/socket.h>  // SOL_SOCKET, SO_REUSEPORT
+#endif
+
 namespace apex::core {
 
 TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port,
                           AcceptCallback on_accept,
-                          boost::asio::ip::tcp protocol)
+                          boost::asio::ip::tcp protocol,
+                          bool reuseport)
     : io_ctx_(io_ctx)
-    , acceptor_(io_ctx, boost::asio::ip::tcp::endpoint(protocol, port))
+    , acceptor_(io_ctx)
     , backoff_timer_(io_ctx)
     , on_accept_(std::move(on_accept))
+    , reuseport_(reuseport)
 {
+    acceptor_.open(protocol);
+    acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
+
+#if !defined(_WIN32) && defined(SO_REUSEPORT)
+    if (reuseport_) {
+        using reuseport_option = boost::asio::detail::socket_option::boolean<
+            SOL_SOCKET, SO_REUSEPORT>;
+        acceptor_.set_option(reuseport_option(true));
+    }
+#endif
+
+    acceptor_.bind(boost::asio::ip::tcp::endpoint(protocol, port));
+    acceptor_.listen();
 }
 
 TcpAcceptor::~TcpAcceptor() { stop(); }

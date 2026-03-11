@@ -39,6 +39,9 @@ struct ServerConfig {
     size_t recv_buf_capacity = 8192;
     size_t timer_wheel_slots = 1024;
 
+    // Platform I/O
+    bool reuseport = false;  // Linux: per-core SO_REUSEPORT, Windows: ignored
+
     // Lifecycle
     bool handle_signals = true;
     std::chrono::seconds drain_timeout{25};  // Graceful Shutdown drain timeout
@@ -157,10 +160,10 @@ private:
     void finalize_shutdown();
 
     ServerConfig config_;
-    boost::asio::io_context accept_io_;
+    boost::asio::io_context control_io_;
     std::unique_ptr<CoreEngine> core_engine_;
     std::vector<std::unique_ptr<PerCoreState>> per_core_;
-    std::unique_ptr<TcpAcceptor> acceptor_;
+    std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;
     std::vector<ServiceFactory> service_factories_;
 
     std::atomic<uint32_t> next_core_{0};

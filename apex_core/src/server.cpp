@@ -66,15 +66,33 @@ Server::Server(ServerConfig config)
     }
 
     // TcpAcceptor — bind immediately so port() works.
-    // C-01 fix: No context_provider. Sockets are accepted on accept_io_ and
-    // then moved to the target core's io_context in on_accept() via post().
-    // This eliminates the TOCTOU race between context_provider's load() and
-    // on_accept()'s fetch_add() that could cause core index mismatch.
-    acceptor_ = std::make_unique<TcpAcceptor>(
-        accept_io_, config_.port,
-        [this](boost::asio::ip::tcp::socket socket) {
-            on_accept(std::move(socket));
-        });
+#if !defined(_WIN32)
+    if (config_.reuseport) {
+        // Linux: per-core acceptor with SO_REUSEPORT — kernel distributes
+        // incoming connections directly to the correct core's io_context,
+        // eliminating the cross-thread post() overhead of round-robin.
+        for (uint32_t i = 0; i < config_.num_cores; ++i) {
+            auto& core_io = core_engine_->io_context(i);
+            acceptors_.push_back(std::make_unique<TcpAcceptor>(
+                core_io, config_.port,
+                [this, i](boost::asio::ip::tcp::socket socket) {
+                    per_core_[i]->handler.accept_connection(
+                        std::move(socket), core_engine_->io_context(i));
+                },
+                boost::asio::ip::tcp::v4(),
+                /*reuseport=*/true));
+        }
+    } else
+#endif
+    {
+        // Windows or reuseport=false: single acceptor on control_io_,
+        // round-robin via on_accept().
+        acceptors_.push_back(std::make_unique<TcpAcceptor>(
+            control_io_, config_.port,
+            [this](boost::asio::ip::tcp::socket socket) {
+                on_accept(std::move(socket));
+            }));
+    }
 }
 
 Server::~Server() {
@@ -98,7 +116,7 @@ void Server::run() {
     // I-09: Cache spdlog logger for hot-path use (avoid mutex per call)
     logger_ = spdlog::get("apex");
 
-    accept_io_.restart();
+    control_io_.restart();
 
     // I-2: Clear leftover services from a previous run() cycle to prevent
     // double-start. Services are stopped in poll_shutdown(), but clearing
@@ -127,29 +145,29 @@ void Server::run() {
     // Start CoreEngine (non-blocking)
     core_engine_->start();
 
-    // Start accept loop
-    acceptor_->start();
+    // Start accept loop(s)
+    for (auto& acc : acceptors_) acc->start();
 
     // I-18: Set running_ after all initialization (services, CoreEngine,
     // acceptor) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
     running_.store(true, std::memory_order_release);
 
-    // Work guard keeps accept_io_ alive until shutdown completes.
-    // Sockets are accepted on accept_io_ then moved to per-core io_contexts
-    // in on_accept(). accept_io_ still needs to run for:
-    // - the accept loop coroutine itself
+    // Work guard keeps control_io_ alive until shutdown completes.
+    // In reuseport mode, accept happens on per-core io_contexts; otherwise
+    // on control_io_ with round-robin. control_io_ always runs for:
     // - signal handling
     // - shutdown coordination (begin_shutdown/poll_shutdown)
-    auto work = boost::asio::make_work_guard(accept_io_);
+    // - accept loop coroutine (non-reuseport mode)
+    auto work = boost::asio::make_work_guard(control_io_);
 
-    // Block on accept_io_ (with optional signal handling)
+    // Block on control_io_ (with optional signal handling)
     if (config_.handle_signals) {
-        boost::asio::signal_set signals(accept_io_, SIGINT, SIGTERM);
+        boost::asio::signal_set signals(control_io_, SIGINT, SIGTERM);
         signals.async_wait([this](auto, auto) { stop(); });
-        accept_io_.run();
+        control_io_.run();
     } else {
-        accept_io_.run();
+        control_io_.run();
     }
 
     // Shutdown already completed inside begin_shutdown()/poll_shutdown().
@@ -159,11 +177,11 @@ void Server::run() {
 void Server::stop() {
     if (stopping_.exchange(true)) return;
 
-    if (acceptor_) acceptor_->stop();
+    for (auto& acc : acceptors_) acc->stop();
 
-    // Post shutdown to accept_io_ so it keeps processing IOCP completions
+    // Post shutdown to control_io_ so it keeps processing IOCP completions
     // for session sockets while we drain active coroutines.
-    boost::asio::post(accept_io_, [this] { begin_shutdown(); });
+    boost::asio::post(control_io_, [this] { begin_shutdown(); });
 }
 
 void Server::begin_shutdown() {
@@ -184,7 +202,7 @@ void Server::begin_shutdown() {
     }
 
     // Poll until all read_loop coroutines have exited
-    shutdown_timer_ = std::make_unique<boost::asio::steady_timer>(accept_io_);
+    shutdown_timer_ = std::make_unique<boost::asio::steady_timer>(control_io_);
     poll_shutdown();
 }
 
@@ -234,12 +252,12 @@ void Server::finalize_shutdown() {
         }
     }
 
-    // Finally stop accept_io_ (causes run() to return)
-    accept_io_.stop();
+    // Finally stop control_io_ (causes run() to return)
+    control_io_.stop();
 }
 
 uint16_t Server::port() const noexcept {
-    return acceptor_ ? acceptor_->port() : 0;
+    return acceptors_.empty() ? 0 : acceptors_[0]->port();
 }
 
 uint32_t Server::core_count() const noexcept {
