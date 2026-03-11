@@ -173,13 +173,6 @@ TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances) {
 
 // --- Constructor validation tests ---
 
-TEST(ServerMulticoreTest, InvalidRecvBufCapacityThrows) {
-    // recv_buf_capacity must be >= TMP_BUF_SIZE (4096)
-    EXPECT_THROW(
-        Server({.port = 0, .recv_buf_capacity = 100, .handle_signals = false}),
-        std::invalid_argument);
-}
-
 TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows) {
     // heartbeat_timeout_ticks must be < effective timer_wheel_slots
     // timer_wheel_slots=8 (power of 2), so heartbeat_timeout_ticks >= 8 throws

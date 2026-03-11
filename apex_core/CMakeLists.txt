@@ -64,6 +64,7 @@ add_library(apex_core STATIC
     src/session_manager.cpp
     src/error_sender.cpp
     src/tcp_acceptor.cpp
+    src/connection_handler.cpp
     src/config.cpp
     src/logging.cpp
     src/server.cpp

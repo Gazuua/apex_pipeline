@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/connection_handler.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/message_dispatcher.hpp>
@@ -53,10 +54,12 @@ struct PerCoreState {
     uint32_t core_id;
     SessionManager session_mgr;
     MessageDispatcher dispatcher;
+    ConnectionHandler handler;
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
     explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
-                          size_t timer_wheel_slots, size_t recv_buf_capacity);
+                          size_t timer_wheel_slots, size_t recv_buf_capacity,
+                          ConnectionHandlerConfig handler_config);
 };
 
 /// Multicore server — io_context-per-core architecture.
@@ -126,6 +129,9 @@ public:
     /// Access core's io_context (for cross_core_call / tests).
     [[nodiscard]] boost::asio::io_context& core_io_context(uint32_t core_id);
 
+    /// Total active sessions across all cores.
+    [[nodiscard]] uint32_t total_active_sessions() const noexcept;
+
     /// Execute func on target_core and co_await the result (coroutine).
     template <typename F>
     auto cross_core_call(uint32_t target_core, F&& func,
@@ -145,8 +151,6 @@ private:
     using ServiceFactory = std::function<
         std::unique_ptr<ServiceBaseInterface>(PerCoreState&)>;
 
-    boost::asio::awaitable<void> read_loop(SessionPtr session, uint32_t core_id);
-    boost::asio::awaitable<void> process_frames(SessionPtr session, uint32_t core_id);
     void on_accept(boost::asio::ip::tcp::socket socket);
     void begin_shutdown();
     void poll_shutdown();
@@ -160,15 +164,12 @@ private:
     std::vector<ServiceFactory> service_factories_;
 
     std::atomic<uint32_t> next_core_{0};
-    std::atomic<uint32_t> active_sessions_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
     std::atomic<uint32_t> run_count_{0};  // I-21: prevent re-entry
     std::unique_ptr<boost::asio::steady_timer> shutdown_timer_;
     std::chrono::steady_clock::time_point shutdown_deadline_;
     std::shared_ptr<spdlog::logger> logger_;  // I-09: cached logger
-
-    static constexpr size_t TMP_BUF_SIZE = 4096;
 };
 
 } // namespace apex::core
