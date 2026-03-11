@@ -22,8 +22,10 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -110,9 +112,10 @@ net::awaitable<void> run_client(
         co_return;
     }
 
-    std::vector<uint8_t> recv_buf(WireHeader::SIZE + 64 * 1024);
+    // Buffer sized to fit response: header + body (at least as large as request)
+    std::vector<uint8_t> recv_buf(send_frame.size() + 256);
 
-    while (!stop_flag.load(std::memory_order_relaxed)) {
+    while (!stop_flag.load(std::memory_order_acquire)) {
         auto t0 = steady_clock::now();
 
         try {
@@ -136,6 +139,10 @@ net::awaitable<void> run_client(
             co_return;
         }
 
+        if (resp_hdr->body_size > recv_buf.size() - WireHeader::SIZE) {
+            co_return;  // body too large for buffer
+        }
+
         if (resp_hdr->body_size > 0) {
             try {
                 co_await net::async_read(socket,
@@ -148,7 +155,7 @@ net::awaitable<void> run_client(
 
         auto t1 = steady_clock::now();
 
-        if (measuring.load(std::memory_order_relaxed)) {
+        if (measuring.load(std::memory_order_acquire)) {
             ++stats.messages_sent;
             ++stats.messages_received;
             stats.bytes_sent += send_frame.size();
@@ -167,16 +174,21 @@ LoadTestConfig parse_args(int argc, char* argv[]) {
     LoadTestConfig config;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg.starts_with("--host=")) config.host = arg.substr(7);
-        else if (arg.starts_with("--port=")) config.port = static_cast<uint16_t>(std::stoi(arg.substr(7)));
-        else if (arg.starts_with("--connections=")) {
-            auto val = arg.substr(14);
-            config.connections = (val == "auto") ? 0 : static_cast<uint32_t>(std::stoi(val));
+        try {
+            if (arg.starts_with("--host=")) config.host = arg.substr(7);
+            else if (arg.starts_with("--port=")) config.port = static_cast<uint16_t>(std::stoi(arg.substr(7)));
+            else if (arg.starts_with("--connections=")) {
+                auto val = arg.substr(14);
+                config.connections = (val == "auto") ? 0 : static_cast<uint32_t>(std::stoi(val));
+            }
+            else if (arg.starts_with("--duration=")) config.duration_secs = static_cast<uint32_t>(std::stoi(arg.substr(11)));
+            else if (arg.starts_with("--payload=")) config.payload_size = static_cast<uint32_t>(std::stoi(arg.substr(10)));
+            else if (arg.starts_with("--warmup=")) config.warmup_secs = static_cast<uint32_t>(std::stoi(arg.substr(9)));
+            else if (arg == "--json") config.json_output = true;
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid argument: " << arg << " (" << e.what() << ")\n";
+            std::exit(1);
         }
-        else if (arg.starts_with("--duration=")) config.duration_secs = static_cast<uint32_t>(std::stoi(arg.substr(11)));
-        else if (arg.starts_with("--payload=")) config.payload_size = static_cast<uint32_t>(std::stoi(arg.substr(10)));
-        else if (arg.starts_with("--warmup=")) config.warmup_secs = static_cast<uint32_t>(std::stoi(arg.substr(9)));
-        else if (arg == "--json") config.json_output = true;
     }
     if (config.connections == 0) {
         config.connections = std::max(1u, std::thread::hardware_concurrency() * 50);
@@ -199,6 +211,7 @@ void print_result_text(const LoadTestResult& r) {
 }
 
 void print_result_json(const LoadTestResult& r) {
+    std::cout << std::fixed << std::setprecision(2);
     std::cout << "{\n";
     std::cout << "  \"connections\": " << r.connections << ",\n";
     std::cout << "  \"payload_size\": " << r.payload_size << ",\n";
@@ -287,9 +300,13 @@ int main(int argc, char* argv[]) {
             s.latencies_us.begin(), s.latencies_us.end());
     }
 
+    uint64_t total_bytes = 0;
+    for (auto& s : all_stats) {
+        total_bytes += s.bytes_sent + s.bytes_received;
+    }
+
     result.msg_per_sec = static_cast<double>(result.total_received) / result.duration_secs;
-    result.mb_per_sec = static_cast<double>(result.total_received)
-        * (WireHeader::SIZE + config.payload_size) / (1024.0 * 1024.0) / result.duration_secs;
+    result.mb_per_sec = static_cast<double>(total_bytes) / (1024.0 * 1024.0) / result.duration_secs;
 
     if (!all_latencies.empty()) {
         std::sort(all_latencies.begin(), all_latencies.end());

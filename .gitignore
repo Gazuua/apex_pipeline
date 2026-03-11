@@ -30,5 +30,9 @@ vcpkg_installed/
 # Secrets
 .env
 
+# Python
+__pycache__/
+*.pyc
+
 # Worktrees
 .worktrees/
