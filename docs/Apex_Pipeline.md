@@ -333,7 +333,7 @@ Phase 5.5 — 코어 프레임워크 성능적 완성도
     │  Tier 0.5: 에러 기반 정비 (ErrorCode 통일 + async_send Result)
     │  Tier 1:   핫패스 + Cross-Core Message Passing 아키텍처 전환
     │  Tier 1.5: E2E 부하 테스터 + 비교 도구
-    │  Tier 2:   메모리 아키텍처 (intrusive_ptr, SlabPool, flat_hash_map)
+    │  Tier 2:   메모리 아키텍처 (intrusive_ptr, SlabPool, unordered_flat_map)
     │  Tier 2.5: 시각화 + PDF 보고서
     │  Tier 3:   구조 + I/O (ConnectionHandler, SO_REUSEPORT, io_uring)
     │
@@ -403,7 +403,7 @@ Phase 5.5 — 코어 프레임워크 성능적 완성도
 - [x] **Tier 1**: payload zero-copy dispatch (consume 순서 변경)
 - [x] **Tier 1.5**: E2E echo 부하 테스터 + JSON before/after 비교 도구
 - [x] **Tier 2**: SessionPtr shared_ptr → intrusive_ptr (non-atomic refcount)
-- [x] **Tier 2**: Session SlabPool 전환 + sessions_/timer_to_session_ → flat_hash_map
+- [x] **Tier 2**: Session SlabPool 전환 + sessions_/timer_to_session_ → boost::unordered_flat_map
 - [x] **Tier 2.5**: 벤치마크 시각화 + PDF 보고서 파이프라인
 - [x] **Tier 3**: Server → Server + ConnectionHandler 분리
 - [x] **Tier 3**: SO_REUSEPORT per-core acceptor + io_uring CMake 옵션 + SlabPool auto-grow

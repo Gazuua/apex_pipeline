@@ -20,6 +20,9 @@ compile_commands.json
 .idea/
 *.user
 
+# Logs
+*.log
+
 # OS
 Thumbs.db
 .DS_Store
