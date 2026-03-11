@@ -384,15 +384,8 @@ boost::asio::awaitable<void> Server::process_frames(SessionPtr session,
             session, header.msg_id, payload_span);
 
         if (!result.has_value()) {
-            ErrorCode code = (result.error() == DispatchError::UnknownMessage)
-                ? ErrorCode::HandlerNotFound
-                : ErrorCode::Unknown;
             auto error_frame = ErrorSender::build_error_frame(
-                header.msg_id, code);
-            (void)co_await session->async_send_raw(error_frame);
-        } else if (!result.value().has_value()) {
-            auto error_frame = ErrorSender::build_error_frame(
-                header.msg_id, result.value().error());
+                header.msg_id, result.error());
             (void)co_await session->async_send_raw(error_frame);
         }
 

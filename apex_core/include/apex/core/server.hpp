@@ -136,7 +136,7 @@ public:
 
     /// Fire-and-forget execution on target core.
     template <typename F>
-    bool cross_core_post(uint32_t target_core, F&& func) {
+    Result<void> cross_core_post(uint32_t target_core, F&& func) {
         return apex::core::cross_core_post(
             *core_engine_, target_core, std::forward<F>(func));
     }

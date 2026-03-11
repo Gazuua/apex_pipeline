@@ -80,10 +80,10 @@ TEST_F(CrossCoreCallTest, VoidCall) {
 TEST_F(CrossCoreCallTest, PostFireAndForget) {
     std::atomic<int> value{0};
 
-    bool posted = server_->cross_core_post(1, [&value] {
+    auto posted = server_->cross_core_post(1, [&value] {
         value.store(99, std::memory_order_relaxed);
     });
-    EXPECT_TRUE(posted);
+    EXPECT_TRUE(posted.has_value());
 
     ASSERT_TRUE(apex::test::wait_for([&] { return value.load() == 99; }));
 }
@@ -160,8 +160,8 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     // fires and decrements the ref-count, proving resources were released.
     auto sentinel = std::make_shared<int>(0);
     for (int i = 0; i < 2; ++i) {
-        bool posted = server->cross_core_post(1, [sentinel] { /* no-op */ });
-        ASSERT_TRUE(posted) << "post #" << i << " should succeed";
+        auto posted = server->cross_core_post(1, [sentinel] { /* no-op */ });
+        ASSERT_TRUE(posted.has_value()) << "post #" << i << " should succeed";
     }
 
     // Now core 1's queue is full — cross_core_call should fail with QueueFull

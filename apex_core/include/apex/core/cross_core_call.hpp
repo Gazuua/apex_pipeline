@@ -100,9 +100,10 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
     msg.type = CoreMessage::Type::CrossCoreRequest;
     msg.data = reinterpret_cast<uint64_t>(task);
 
-    if (!engine.post_to(target_core, msg)) {
+    auto post_result = engine.post_to(target_core, msg);
+    if (!post_result) {
         delete task;
-        co_return apex::core::error(ErrorCode::CrossCoreQueueFull);
+        co_return apex::core::error(post_result.error());
     }
 
     // Wait for either task completion (timer cancel) or timeout
@@ -160,9 +161,10 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
     msg.type = CoreMessage::Type::CrossCoreRequest;
     msg.data = reinterpret_cast<uint64_t>(task);
 
-    if (!engine.post_to(target_core, msg)) {
+    auto post_result = engine.post_to(target_core, msg);
+    if (!post_result) {
         delete task;
-        co_return apex::core::error(ErrorCode::CrossCoreQueueFull);
+        co_return apex::core::error(post_result.error());
     }
 
     (void)co_await timer->async_wait(
@@ -179,18 +181,19 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
 /// Fire-and-forget execution on target core (no timeout, no result).
 /// Preferred over cross_core_call() for high-frequency inter-core messaging
 /// where the caller does not need a response.
-/// Returns false if queue is full.
+/// Returns ErrorCode::CrossCoreQueueFull if queue is full.
 template <typename F>
-bool cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func) {
+Result<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func) {
     auto* task = new std::function<void()>(std::forward<F>(func));
     CoreMessage msg;
     msg.type = CoreMessage::Type::CrossCorePost;
     msg.data = reinterpret_cast<uint64_t>(task);
-    if (!engine.post_to(target_core, msg)) {
+    auto result = engine.post_to(target_core, msg);
+    if (!result) {
         delete task;
-        return false;
+        return result;
     }
-    return true;
+    return ok();
 }
 
 } // namespace apex::core

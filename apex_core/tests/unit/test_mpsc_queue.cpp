@@ -1,4 +1,5 @@
 #include <apex/core/mpsc_queue.hpp>
+#include <apex/core/result.hpp>
 #include <gtest/gtest.h>
 #include <thread>
 #include <vector>
@@ -56,7 +57,7 @@ TEST(MpscQueue, Backpressure_WhenFull) {
     }
     auto result = q.enqueue(999);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), QueueError::Full);
+    EXPECT_EQ(result.error(), ErrorCode::BufferFull);
 }
 
 TEST(MpscQueue, WrapAround) {

@@ -18,29 +18,26 @@ void MessageDispatcher::unregister_handler(uint16_t msg_id) {
     }
 }
 
-boost::asio::awaitable<std::expected<Result<void>, DispatchError>>
+boost::asio::awaitable<Result<void>>
 MessageDispatcher::dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const {
     auto& handler = (*handlers_)[msg_id];
     if (!handler) {
-        co_return std::unexpected(DispatchError::UnknownMessage);
+        co_return error(ErrorCode::HandlerNotFound);
     }
     try {
-        auto result = co_await handler(std::move(session), msg_id, payload);
-        co_return result;
-    // I-3: Log exception details before swallowing
-    // m-09: Use spdlog instead of fprintf for consistent log routing
+        co_return co_await handler(std::move(session), msg_id, payload);
     } catch (const std::exception& e) {
         if (auto logger = spdlog::get("apex")) {
             logger->error("MessageDispatcher: handler for msg_id 0x{:04x} threw: {}",
                 static_cast<unsigned>(msg_id), e.what());
         }
-        co_return std::unexpected(DispatchError::HandlerFailed);
+        co_return error(ErrorCode::HandlerException);
     } catch (...) {
         if (auto logger = spdlog::get("apex")) {
             logger->error("MessageDispatcher: handler for msg_id 0x{:04x} threw unknown exception",
                 static_cast<unsigned>(msg_id));
         }
-        co_return std::unexpected(DispatchError::HandlerFailed);
+        co_return error(ErrorCode::HandlerException);
     }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/mpsc_queue.hpp>
+#include <apex/core/result.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -97,8 +98,8 @@ public:
     void stop();
 
     /// Post a message to a specific core's MPSC inbox. Thread-safe.
-    /// @return false if the target core's queue is full (backpressure).
-    [[nodiscard]] bool post_to(uint32_t target_core, CoreMessage msg);
+    /// @return ErrorCode::CrossCoreQueueFull if target core's queue is full.
+    [[nodiscard]] Result<void> post_to(uint32_t target_core, CoreMessage msg);
 
     /// Broadcast a message to all cores. Thread-safe. Best-effort.
     void broadcast(CoreMessage msg);

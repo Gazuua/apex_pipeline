@@ -130,7 +130,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
     auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
         frame->header.msg_id, frame->payload));
     EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), DispatchError::UnknownMessage);
+    EXPECT_EQ(result.error(), apex::core::ErrorCode::HandlerNotFound);
 }
 
 // --- CoreEngine + ServiceBase integration ---

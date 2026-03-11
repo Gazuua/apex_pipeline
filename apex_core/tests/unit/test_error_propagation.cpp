@@ -57,6 +57,26 @@ TEST(ErrorSender, BuildErrorFrame) {
     EXPECT_STREQ(resp->message()->c_str(), "request timed out");
 }
 
+TEST(ErrorCode, HandlerExceptionName) {
+    EXPECT_EQ(error_code_name(ErrorCode::HandlerException), "HandlerException");
+}
+
+TEST(ErrorCode, SendFailedName) {
+    EXPECT_EQ(error_code_name(ErrorCode::SendFailed), "SendFailed");
+}
+
+TEST(Result, HandlerExceptionError) {
+    Result<void> r = error(ErrorCode::HandlerException);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), ErrorCode::HandlerException);
+}
+
+TEST(Result, SendFailedError) {
+    Result<void> r = error(ErrorCode::SendFailed);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), ErrorCode::SendFailed);
+}
+
 TEST(ErrorSender, BuildErrorFrameNoMessage) {
     auto frame = ErrorSender::build_error_frame(
         0x0001, ErrorCode::HandlerNotFound);

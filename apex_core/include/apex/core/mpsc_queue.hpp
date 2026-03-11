@@ -4,19 +4,15 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <expected>
 #include <new>
 #include <optional>
 #include <stdexcept>
 #include <type_traits>
 
 #include <apex/core/detail/math_utils.hpp>
+#include <apex/core/result.hpp>
 
 namespace apex::core {
-
-enum class QueueError : uint8_t {
-    Full,
-};
 
 /// Lock-free bounded MPSC (Multi-Producer, Single-Consumer) queue.
 /// Designed for inter-core communication in shared-nothing architecture.
@@ -72,8 +68,8 @@ public:
     MpscQueue& operator=(MpscQueue&&) = delete;
 
     /// Thread-safe. Lock-free. Called by any producer core.
-    /// @return QueueError::Full if queue is at capacity (backpressure).
-    [[nodiscard]] std::expected<void, QueueError> enqueue(const T& item);
+    /// @return ErrorCode::BufferFull if queue is at capacity (backpressure).
+    [[nodiscard]] Result<void> enqueue(const T& item);
 
     /// NOT thread-safe. Called only by the owning consumer core.
     /// @return std::nullopt if queue is empty.
@@ -143,12 +139,12 @@ MpscQueue<T>::~MpscQueue() {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
+Result<void> MpscQueue<T>::enqueue(const T& item) {
     size_t head = head_.load(std::memory_order_relaxed);
     size_t tail = tail_.load(std::memory_order_acquire);
     for (;;) {
         if (head - tail >= capacity_) {
-            return std::unexpected(QueueError::Full);
+            return error(ErrorCode::BufferFull);
         }
 
         if (head_.compare_exchange_weak(head, head + 1,
@@ -156,7 +152,7 @@ std::expected<void, QueueError> MpscQueue<T>::enqueue(const T& item) {
             Slot& slot = slots_[head & mask_];
             slot.data = item;
             slot.ready.store(true, std::memory_order_release);
-            return {};
+            return ok();
         }
         // CAS failed — head was updated by compare_exchange_weak.
         // Reload tail: consumer may have advanced since our last read,

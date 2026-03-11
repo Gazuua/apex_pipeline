@@ -59,7 +59,6 @@ TEST(FlatBuffersDispatch, RouteTypedMessage) {
     auto payload = build_echo_payload({0xDE, 0xAD});
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, payload));
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(result.value().has_value());
 
     EXPECT_EQ(svc->call_count, 1);
     EXPECT_EQ(svc->last_data, (std::vector<uint8_t>{0xDE, 0xAD}));
@@ -73,9 +72,8 @@ TEST(FlatBuffersDispatch, RouteInvalidFlatBuffer) {
     std::vector<uint8_t> garbage = {0xFF, 0xFF, 0xFF};
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, garbage));
     // route()가 검증 실패 시 ErrorCode::FlatBuffersVerifyFailed 반환
-    EXPECT_TRUE(result.has_value());
-    EXPECT_FALSE(result.value().has_value());
-    EXPECT_EQ(result.value().error(), ErrorCode::FlatBuffersVerifyFailed);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::FlatBuffersVerifyFailed);
 
     EXPECT_EQ(svc->call_count, 0);
 }
@@ -95,10 +93,8 @@ TEST(FlatBuffersDispatch, RouteAndRawHandlerCoexist) {
     auto payload = build_echo_payload({0x42});
     auto r1 = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, payload));
     EXPECT_TRUE(r1.has_value());
-    EXPECT_TRUE(r1.value().has_value());
     auto r2 = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0020, {}));
     EXPECT_TRUE(r2.has_value());
-    EXPECT_TRUE(r2.value().has_value());
 
     EXPECT_EQ(svc->call_count, 1);
     EXPECT_EQ(raw_count, 1);

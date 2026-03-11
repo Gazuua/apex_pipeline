@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/frame_codec.hpp>
+#include <apex/core/result.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/timing_wheel.hpp>
 #include <apex/core/wire_header.hpp>
@@ -56,11 +57,11 @@ public:
     /// in-flight per Session at any time. Concurrent writes to the same
     /// socket produce undefined behavior. The Server pipeline guarantees
     /// this by processing one frame at a time per session.
-    [[nodiscard]] boost::asio::awaitable<bool>
+    [[nodiscard]] boost::asio::awaitable<Result<void>>
     async_send(const WireHeader& header, std::span<const uint8_t> payload);
 
     /// 미리 빌드된 로우 프레임 비동기 전송.
-    [[nodiscard]] boost::asio::awaitable<bool>
+    [[nodiscard]] boost::asio::awaitable<Result<void>>
     async_send_raw(std::span<const uint8_t> data);
 
     /// 세션 그레이스풀 종료.

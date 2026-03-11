@@ -22,9 +22,9 @@ Session::~Session() {
     close();
 }
 
-awaitable<bool> Session::async_send(const WireHeader& header,
-                                    std::span<const uint8_t> payload) {
-    if (!is_open()) co_return false;
+awaitable<Result<void>> Session::async_send(const WireHeader& header,
+                                            std::span<const uint8_t> payload) {
+    if (!is_open()) co_return error(ErrorCode::SessionClosed);
 
     std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
     header.serialize(hdr_buf);
@@ -40,13 +40,13 @@ awaitable<bool> Session::async_send(const WireHeader& header,
 
     if (ec) {
         close();
-        co_return false;
+        co_return error(ErrorCode::SendFailed);
     }
-    co_return true;
+    co_return ok();
 }
 
-awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
-    if (!is_open()) co_return false;
+awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data) {
+    if (!is_open()) co_return error(ErrorCode::SessionClosed);
 
     auto [ec, bytes] = co_await boost::asio::async_write(
         socket_, boost::asio::buffer(data.data(), data.size()),
@@ -54,9 +54,9 @@ awaitable<bool> Session::async_send_raw(std::span<const uint8_t> data) {
 
     if (ec) {
         close();
-        co_return false;
+        co_return error(ErrorCode::SendFailed);
     }
-    co_return true;
+    co_return ok();
 }
 
 void Session::close() {

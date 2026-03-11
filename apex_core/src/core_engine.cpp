@@ -116,12 +116,15 @@ void CoreEngine::stop() {
     }
 }
 
-bool CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
+Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
     if (target_core >= cores_.size()) {
-        return false;
+        return error(ErrorCode::Unknown);
     }
     auto result = cores_[target_core]->inbox->enqueue(msg);
-    return result.has_value();
+    if (!result) {
+        return error(ErrorCode::CrossCoreQueueFull);
+    }
+    return ok();
 }
 
 void CoreEngine::broadcast(CoreMessage msg) {

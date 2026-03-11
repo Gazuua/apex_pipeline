@@ -43,8 +43,8 @@ TEST_F(SessionTest, SendFrame) {
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
     WireHeader header{.msg_id = 0x0042,
                       .body_size = static_cast<uint32_t>(payload.size())};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    EXPECT_TRUE(sent);
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_TRUE(result.has_value());
 
     std::vector<uint8_t> response(WireHeader::SIZE + payload.size());
     boost::asio::read(client, boost::asio::buffer(response));
@@ -67,8 +67,9 @@ TEST_F(SessionTest, SendAfterClose) {
 
     std::vector<uint8_t> payload = {0x01};
     WireHeader header{.msg_id = 1, .body_size = 1};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    EXPECT_FALSE(sent);
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
 
     client.close();
 }
@@ -106,8 +107,8 @@ TEST_F(SessionTest, SendRawSucceeds) {
     std::vector<uint8_t> raw_frame(hdr_bytes.begin(), hdr_bytes.end());
     raw_frame.insert(raw_frame.end(), payload.begin(), payload.end());
 
-    bool sent = run_coro(io_ctx_, session->async_send_raw(raw_frame));
-    EXPECT_TRUE(sent);
+    auto result = run_coro(io_ctx_, session->async_send_raw(raw_frame));
+    EXPECT_TRUE(result.has_value());
 
     // Receive and verify on the client side
     std::vector<uint8_t> received(raw_frame.size());
@@ -125,8 +126,9 @@ TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
     EXPECT_EQ(session->state(), Session::State::Closed);
 
     std::vector<uint8_t> data = {0x01, 0x02};
-    bool sent = run_coro(io_ctx_, session->async_send_raw(data));
-    EXPECT_FALSE(sent);
+    auto result = run_coro(io_ctx_, session->async_send_raw(data));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
 
     client.close();
 }
@@ -164,15 +166,13 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     std::vector<uint8_t> payload = {0xDE, 0xAD};
     WireHeader header{.msg_id = 0x0001,
                       .body_size = static_cast<uint32_t>(payload.size())};
-    bool sent = run_coro(io_ctx_, session->async_send(header, payload));
-    // Send may return true on first attempt (buffered) or false if connection reset.
-    // The key assertion is that it does not crash or throw.
-    // If first send succeeded, a second send after a brief delay should fail.
-    if (sent) {
+    auto result = run_coro(io_ctx_, session->async_send(header, payload));
+    // Send may succeed (buffered) or fail (connection reset).
+    if (result.has_value()) {
         io_ctx_.run_for(std::chrono::milliseconds(10));
         io_ctx_.restart();
-        bool sent2 = run_coro(io_ctx_, session->async_send(header, payload));
-        (void)sent2;  // may or may not fail depending on OS buffering
+        auto result2 = run_coro(io_ctx_, session->async_send(header, payload));
+        (void)result2;
     }
 
     // Regardless of send results, close the session and verify terminal state
