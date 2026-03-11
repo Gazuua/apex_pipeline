@@ -192,3 +192,55 @@ TEST_F(SessionManagerTest, CreateSessionTransitionsToActive) {
 
     client.close();
 }
+
+TEST_F(SessionManagerTest, SlabPoolAllocation) {
+    // max_sessions_per_core = 2 → 3rd session falls back to heap
+    SessionManager mgr(0, 0, 8, 8192, 2);
+    std::vector<tcp::socket> clients;
+    std::vector<SessionPtr> sessions;
+
+    for (int i = 0; i < 3; ++i) {
+        auto [server, client] = make_socket_pair(io_ctx_);
+        auto s = mgr.create_session(std::move(server));
+        ASSERT_NE(s, nullptr);
+        sessions.push_back(s);
+        clients.push_back(std::move(client));
+    }
+
+    EXPECT_EQ(mgr.session_count(), 3u);
+
+    // All sessions should be functional regardless of allocation source
+    for (auto& s : sessions) {
+        EXPECT_TRUE(s->is_open());
+    }
+
+    for (auto& c : clients) c.close();
+}
+
+TEST_F(SessionManagerTest, SlabPoolReclaimAfterRemove) {
+    SessionManager mgr(0, 0, 8, 8192, 2);
+    std::vector<tcp::socket> clients;
+
+    // Fill pool (2 sessions)
+    auto [s1, c1] = make_socket_pair(io_ctx_);
+    auto session1 = mgr.create_session(std::move(s1));
+    auto id1 = session1->id();
+    clients.push_back(std::move(c1));
+
+    auto [s2, c2] = make_socket_pair(io_ctx_);
+    auto session2 = mgr.create_session(std::move(s2));
+    clients.push_back(std::move(c2));
+
+    // Remove session1 → slot returns to pool
+    session1.reset();
+    mgr.remove_session(id1);
+
+    // Create another — should use reclaimed pool slot, not heap
+    auto [s3, c3] = make_socket_pair(io_ctx_);
+    auto session3 = mgr.create_session(std::move(s3));
+    ASSERT_NE(session3, nullptr);
+    EXPECT_TRUE(session3->is_open());
+    clients.push_back(std::move(c3));
+
+    for (auto& c : clients) c.close();
+}

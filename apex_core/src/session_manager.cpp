@@ -1,14 +1,18 @@
 #include <apex/core/session_manager.hpp>
 
+#include <spdlog/spdlog.h>
+
 namespace apex::core {
 
 SessionManager::SessionManager(uint32_t core_id,
                                uint32_t heartbeat_timeout_ticks,
                                size_t timer_wheel_slots,
-                               size_t recv_buf_capacity)
+                               size_t recv_buf_capacity,
+                               size_t max_sessions_per_core)
     : core_id_(core_id)
     , heartbeat_timeout_ticks_(heartbeat_timeout_ticks)
     , recv_buf_capacity_(recv_buf_capacity)
+    , session_pool_(max_sessions_per_core)
     , timer_wheel_(timer_wheel_slots, [this](TimingWheel::EntryId entry_id) {
           on_timer_expire(entry_id);
       })
@@ -21,8 +25,16 @@ SessionPtr SessionManager::create_session(
     boost::asio::ip::tcp::socket socket)
 {
     SessionId id = next_id_++;
-    SessionPtr session(new Session(
-        id, std::move(socket), core_id_, recv_buf_capacity_));
+    Session* raw = session_pool_.construct(
+        id, std::move(socket), core_id_, recv_buf_capacity_);
+    if (raw) {
+        raw->pool_owner_ = &session_pool_;
+    } else {
+        // SlabPool exhausted → heap fallback
+        raw = new Session(id, std::move(socket), core_id_, recv_buf_capacity_);
+        spdlog::warn("Session SlabPool exhausted, heap fallback (core {})", core_id_);
+    }
+    SessionPtr session(raw);
     session->set_state(Session::State::Active);
 
     sessions_[id] = session;

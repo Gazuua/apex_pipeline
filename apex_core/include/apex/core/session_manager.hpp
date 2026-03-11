@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/session.hpp>
+#include <apex/core/slab_pool.hpp>
 #include <apex/core/timing_wheel.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
@@ -18,7 +19,8 @@ public:
     explicit SessionManager(uint32_t core_id,
                             uint32_t heartbeat_timeout_ticks = 300,
                             size_t timer_wheel_slots = 1024,
-                            size_t recv_buf_capacity = 8192);
+                            size_t recv_buf_capacity = 8192,
+                            size_t max_sessions_per_core = 1024);
 
     ~SessionManager();
 
@@ -69,6 +71,7 @@ private:
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     SessionId next_id_{1};
 
+    TypedSlabPool<Session> session_pool_;
     std::unordered_map<SessionId, SessionPtr> sessions_;
     TimingWheel timer_wheel_;
 
