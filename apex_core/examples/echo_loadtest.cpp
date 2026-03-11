@@ -176,14 +176,35 @@ LoadTestConfig parse_args(int argc, char* argv[]) {
         std::string arg = argv[i];
         try {
             if (arg.starts_with("--host=")) config.host = arg.substr(7);
-            else if (arg.starts_with("--port=")) config.port = static_cast<uint16_t>(std::stoi(arg.substr(7)));
-            else if (arg.starts_with("--connections=")) {
-                auto val = arg.substr(14);
-                config.connections = (val == "auto") ? 0 : static_cast<uint32_t>(std::stoi(val));
+            else if (arg.starts_with("--port=")) {
+                int val = std::stoi(arg.substr(7));
+                if (val < 0 || val > 65535) throw std::out_of_range("port");
+                config.port = static_cast<uint16_t>(val);
             }
-            else if (arg.starts_with("--duration=")) config.duration_secs = static_cast<uint32_t>(std::stoi(arg.substr(11)));
-            else if (arg.starts_with("--payload=")) config.payload_size = static_cast<uint32_t>(std::stoi(arg.substr(10)));
-            else if (arg.starts_with("--warmup=")) config.warmup_secs = static_cast<uint32_t>(std::stoi(arg.substr(9)));
+            else if (arg.starts_with("--connections=")) {
+                auto str = arg.substr(14);
+                if (str == "auto") { config.connections = 0; }
+                else {
+                    int val = std::stoi(str);
+                    if (val < 0) throw std::out_of_range("connections");
+                    config.connections = static_cast<uint32_t>(val);
+                }
+            }
+            else if (arg.starts_with("--duration=")) {
+                int val = std::stoi(arg.substr(11));
+                if (val <= 0) throw std::out_of_range("duration");
+                config.duration_secs = static_cast<uint32_t>(val);
+            }
+            else if (arg.starts_with("--payload=")) {
+                int val = std::stoi(arg.substr(10));
+                if (val < 0) throw std::out_of_range("payload");
+                config.payload_size = static_cast<uint32_t>(val);
+            }
+            else if (arg.starts_with("--warmup=")) {
+                int val = std::stoi(arg.substr(9));
+                if (val < 0) throw std::out_of_range("warmup");
+                config.warmup_secs = static_cast<uint32_t>(val);
+            }
             else if (arg == "--json") config.json_output = true;
         } catch (const std::exception& e) {
             std::cerr << "Invalid argument: " << arg << " (" << e.what() << ")\n";
@@ -197,6 +218,7 @@ LoadTestConfig parse_args(int argc, char* argv[]) {
 }
 
 void print_result_text(const LoadTestResult& r) {
+    std::cout << std::fixed << std::setprecision(2);
     std::cout << "\n=== Echo Load Test Results ===\n";
     std::cout << "Connections: " << r.connections << "\n";
     std::cout << "Payload: " << r.payload_size << " bytes\n";
@@ -237,8 +259,15 @@ int main(int argc, char* argv[]) {
 
     auto resolver_io = net::io_context{};
     tcp::resolver resolver(resolver_io);
-    auto endpoints = resolver.resolve(config.host, std::to_string(config.port));
-    auto endpoint = *endpoints.begin();
+    tcp::endpoint endpoint;
+    try {
+        auto endpoints = resolver.resolve(config.host, std::to_string(config.port));
+        endpoint = *endpoints.begin();
+    } catch (const boost::system::system_error& e) {
+        std::cerr << "Failed to resolve " << config.host << ":"
+                  << config.port << " — " << e.what() << "\n";
+        return 1;
+    }
 
     auto send_frame = build_echo_request(config.payload_size);
 
@@ -273,6 +302,11 @@ int main(int argc, char* argv[]) {
     }
     std::this_thread::sleep_for(seconds(config.warmup_secs));
 
+    // Pre-allocate latency storage to avoid reallocation noise in measurements
+    for (auto& s : all_stats) {
+        s.latencies_us.reserve(config.duration_secs * 10000);
+    }
+
     // Measurement phase
     measuring.store(true, std::memory_order_release);
     if (!config.json_output) {
@@ -293,16 +327,13 @@ int main(int argc, char* argv[]) {
     result.duration_secs = static_cast<double>(config.duration_secs);
 
     std::vector<uint64_t> all_latencies;
+    uint64_t total_bytes = 0;
     for (auto& s : all_stats) {
         result.total_sent += s.messages_sent;
         result.total_received += s.messages_received;
+        total_bytes += s.bytes_sent + s.bytes_received;
         all_latencies.insert(all_latencies.end(),
             s.latencies_us.begin(), s.latencies_us.end());
-    }
-
-    uint64_t total_bytes = 0;
-    for (auto& s : all_stats) {
-        total_bytes += s.bytes_sent + s.bytes_received;
     }
 
     result.msg_per_sec = static_cast<double>(result.total_received) / result.duration_secs;

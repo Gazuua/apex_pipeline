@@ -15,8 +15,12 @@ from pathlib import Path
 
 
 def load_json(path: str) -> dict:
-    with open(path, "r") as f:
-        return json.load(f)
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error: invalid JSON in {path}: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def fmt_delta(before: float, after: float, lower_is_better: bool = True) -> str:
