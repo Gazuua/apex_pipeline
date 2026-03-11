@@ -6,9 +6,10 @@
 
 #include <boost/asio/ip/tcp.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <cstdint>
 #include <functional>
-#include <unordered_map>
 
 namespace apex::core {
 
@@ -72,10 +73,10 @@ private:
     SessionId next_id_{1};
 
     TypedSlabPool<Session> session_pool_;
-    std::unordered_map<SessionId, SessionPtr> sessions_;
+    boost::unordered_flat_map<SessionId, SessionPtr> sessions_;
     TimingWheel timer_wheel_;
 
-    std::unordered_map<TimingWheel::EntryId, SessionId> timer_to_session_;
+    boost::unordered_flat_map<TimingWheel::EntryId, SessionId> timer_to_session_;
     // I-07: session_to_timer_ map removed. Timer entry ID is now embedded in
     // Session::timer_entry_id_ (accessed via friend). This eliminates one of three
     // unordered_maps, reducing per-session memory overhead and lookup cost.
