@@ -48,3 +48,10 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **빌드 스크립트 사전 체크 동기화**
   - 공용 헬퍼 (`apex_tools/build-preflight.sh|bat`) 분리 — 루트/apex_core 양쪽에서 공유
   - Dockerfile vcpkg.json COPY 범위 확장 (모노레포 서브프로젝트 대비)
+
+### 진행 중
+
+- **Phase 5.5 — 코어 프레임워크 성능 완성**
+  - Tier 0: Google Benchmark 벤치마크 인프라 (micro 7개 + integration 4개)
+  - Tier 0.5: 에러 타입 통일 (DispatchError/QueueError → ErrorCode 단일 채널)
+  - Tier 1: drain/tick 분리, Cross-Core Message Passing 인프라, MessageDispatcher flat_map, zero-copy dispatch

@@ -262,6 +262,68 @@ TEST(CoreEngineTest, TlsCoreId) {
     engine.join();
 }
 
+TEST(CrossCorePostMsgTest, InvalidTargetReturnsError) {
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+    // Don't start — post_to with invalid target returns error immediately
+    auto result = cross_core_post_msg(engine, 0, 99, CrossCoreOp::Custom);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(CrossCorePostMsgTest, QueueFullReturnsError) {
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = 2});
+    // Don't start — fill queue without draining
+    for (int i = 0; i < 2; ++i) {
+        auto r = cross_core_post_msg(engine, 0, 1, CrossCoreOp::Custom);
+        EXPECT_TRUE(r.has_value()) << "post #" << i;
+    }
+    auto r = cross_core_post_msg(engine, 0, 1, CrossCoreOp::Custom);
+    EXPECT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), ErrorCode::CrossCoreQueueFull);
+}
+
+TEST(BroadcastTest, PartialFailureReleasesRefcount) {
+    // Small queue — some cores' posts will fail, broadcast should release for them
+    CoreEngine engine(CoreEngineConfig{.num_cores = 3, .mpsc_queue_capacity = 2});
+
+    // Fill core 2's queue (don't start engine — no draining)
+    for (int i = 0; i < 2; ++i) {
+        CoreMessage filler{.op = CrossCoreOp::Custom, .source_core = 0, .data = 0};
+        ASSERT_TRUE(engine.post_to(2, filler));
+    }
+
+    // Register handler that releases the payload
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0200),
+        [](uint32_t, uint32_t, void* data) {
+            auto* p = static_cast<SharedPayload*>(data);
+            p->release();
+        });
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    std::atomic<int> destroyed{0};
+    struct TrackPayload : SharedPayload {
+        std::atomic<int>* flag;
+        explicit TrackPayload(std::atomic<int>* f) : flag(f) {}
+        ~TrackPayload() override { flag->store(1, std::memory_order_release); }
+    };
+
+    auto* data = new TrackPayload(&destroyed);
+    // source=0, targets=1,2. Core 2's queue is full → post fails → broadcast releases for it
+    data->set_refcount(2);
+    broadcast_cross_core(engine, 0, static_cast<CrossCoreOp>(0x0200), data);
+
+    // Despite core 2 failing, refcount should reach 0 and payload should be deleted
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return destroyed.load(std::memory_order_acquire) == 1;
+    }));
+
+    engine.stop();
+    engine.join();
+    engine.drain_remaining();
+}
+
 TEST(BroadcastTest, BroadcastToAllCores) {
     CoreEngine engine(CoreEngineConfig{.num_cores = 4});
 

@@ -11,7 +11,7 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
     CoreEngine engine(config);
 
     std::atomic<uint64_t> pong_count{0};
-    std::atomic<uint64_t> pong_time_ns{0};
+    std::atomic<uint64_t> total_rtt_ns{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
         if (msg.op == CrossCoreOp::Custom) {
@@ -20,10 +20,10 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
                 CoreMessage pong{.op = CrossCoreOp::Custom, .source_core = 1, .data = msg.data};
                 (void)engine.post_to(0, pong);
             } else {
-                // Core 0 received pong
+                // Core 0 received pong — accumulate RTT
                 auto now = std::chrono::steady_clock::now().time_since_epoch().count();
                 auto sent = static_cast<int64_t>(msg.data);
-                pong_time_ns.store(static_cast<uint64_t>(now - sent), std::memory_order_relaxed);
+                total_rtt_ns.fetch_add(static_cast<uint64_t>(now - sent), std::memory_order_relaxed);
                 pong_count.fetch_add(1, std::memory_order_release);
             }
         }
@@ -43,9 +43,11 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
         }
     }
 
-    auto rtt_ns = pong_time_ns.load();
-    state.counters["rtt_ns"] = benchmark::Counter(static_cast<double>(rtt_ns));
-    state.counters["one_way_ns"] = benchmark::Counter(static_cast<double>(rtt_ns / 2));
+    auto count = pong_count.load();
+    auto total_ns = total_rtt_ns.load();
+    auto avg_rtt = count > 0 ? static_cast<double>(total_ns) / static_cast<double>(count) : 0.0;
+    state.counters["avg_rtt_ns"] = benchmark::Counter(avg_rtt);
+    state.counters["avg_one_way_ns"] = benchmark::Counter(avg_rtt / 2.0);
 
     engine.stop();
     engine.join();

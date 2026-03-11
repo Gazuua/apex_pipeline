@@ -39,13 +39,13 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: boost-asio, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
+- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
 
 ### MSVC 주의사항
 
 - `std::aligned_alloc` 미지원 → `_aligned_malloc` / `_aligned_free` 분기 필요
 - CRTP에서 `using FrameType = Derived::FrameType` → 불완전 타입 에러 (템플릿 파라미터로 우회)
-- `MessageDispatcher`: `std::array<std::function, 65536>` ~2MB → 힙 할당 필수
+- `MessageDispatcher`: `boost::unordered_flat_map` 기반 (기존 `std::array<std::function, 65536>` ~2MB 이슈 해결됨)
 - Windows TCP: ws2_32 + mswsock 링크, `_WIN32_WINNT=0x0A00`, IOCP 클라이언트 소켓은 별도 io_context
 
 ## 아키텍처 결정

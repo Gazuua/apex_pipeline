@@ -276,6 +276,85 @@ TEST(CoreEngineTest, DestructorDrainsRemaining) {
     EXPECT_EQ(flag.use_count(), 1);
 }
 
+TEST(CoreEngineTest, CrossCoreDispatcherPriorityOverMessageHandler) {
+    // When both CrossCoreDispatcher handler and message_handler_ are set,
+    // registered ops should go to CrossCoreDispatcher, unregistered ops to message_handler_
+    CoreEngine engine({.num_cores = 2});
+
+    std::atomic<int> dispatcher_count{0};
+    std::atomic<int> handler_count{0};
+
+    engine.register_cross_core_handler(
+        static_cast<CrossCoreOp>(0x0300),
+        [](uint32_t, uint32_t, void* data) {
+            static_cast<std::atomic<int>*>(data)->fetch_add(1, std::memory_order_relaxed);
+        });
+
+    engine.set_message_handler([&](uint32_t, const CoreMessage&) {
+        handler_count.fetch_add(1, std::memory_order_relaxed);
+    });
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    // Send registered op → should go to CrossCoreDispatcher
+    CoreMessage registered_msg{
+        .op = static_cast<CrossCoreOp>(0x0300),
+        .source_core = 0,
+        .data = reinterpret_cast<uintptr_t>(&dispatcher_count)};
+    EXPECT_TRUE(engine.post_to(1, registered_msg));
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return dispatcher_count.load(std::memory_order_acquire) == 1;
+    }));
+    EXPECT_EQ(handler_count.load(), 0);  // message_handler_ NOT called
+
+    // Send unregistered op → should go to message_handler_
+    CoreMessage unregistered_msg{.op = CrossCoreOp::Custom, .source_core = 0, .data = 0};
+    EXPECT_TRUE(engine.post_to(1, unregistered_msg));
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return handler_count.load(std::memory_order_acquire) == 1;
+    }));
+    EXPECT_EQ(dispatcher_count.load(), 1);  // CrossCoreDispatcher NOT called again
+
+    engine.stop();
+    engine.join();
+}
+
+TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain) {
+    // A legacy closure that throws should not prevent subsequent messages from processing
+    CoreEngine engine({.num_cores = 2});
+
+    std::atomic<int> after_exception{0};
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
+
+    // Post a throwing task first
+    auto* bad_task = new std::function<void()>([] {
+        throw std::runtime_error("intentional test exception");
+    });
+    CoreMessage bad_msg;
+    bad_msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    bad_msg.data = reinterpret_cast<uintptr_t>(bad_task);
+    EXPECT_TRUE(engine.post_to(1, bad_msg));
+
+    // Post a normal task after — should still execute despite the exception above
+    auto* good_task = new std::function<void()>([&after_exception] {
+        after_exception.store(1, std::memory_order_release);
+    });
+    CoreMessage good_msg;
+    good_msg.op = CrossCoreOp::LegacyCrossCoreFn;
+    good_msg.data = reinterpret_cast<uintptr_t>(good_task);
+    EXPECT_TRUE(engine.post_to(1, good_msg));
+
+    ASSERT_TRUE(apex::test::wait_for([&] {
+        return after_exception.load(std::memory_order_acquire) == 1;
+    }));
+
+    engine.stop();
+    engine.join();
+}
+
 TEST(CoreEngineTest, MultipleInterCoreMessages) {
     CoreEngine engine({.num_cores = 2});
 

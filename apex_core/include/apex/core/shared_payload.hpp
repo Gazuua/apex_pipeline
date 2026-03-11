@@ -31,7 +31,7 @@ public:
 
     /// Set refcount directly (for broadcast: set to receiver count).
     void set_refcount(uint32_t count) noexcept {
-        refcount_.store(count, std::memory_order_relaxed);
+        refcount_.store(count, std::memory_order_release);
     }
 
     /// Decrement refcount. Deletes this when refcount reaches 0.

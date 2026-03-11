@@ -11,6 +11,14 @@ add_library(apex_bench_main OBJECT bench_main.cpp)
 target_include_directories(apex_bench_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(apex_bench_main PRIVATE benchmark::benchmark)
 
+# Variant suffix for output binaries (matches examples convention)
+if(APEX_BUILD_VARIANT)
+    set(_bench_variant_suffix "_${APEX_BUILD_VARIANT}")
+else()
+    set(_bench_variant_suffix "")
+endif()
+set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin")
+
 # Helper function — each benchmark is an independent executable
 function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
     add_executable(${BENCH_NAME} ${BENCH_SOURCE} $<TARGET_OBJECTS:apex_bench_main>)
@@ -22,7 +30,8 @@ function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
         target_link_libraries(${BENCH_NAME} PRIVATE ws2_32 mswsock)
     endif()
     set_target_properties(${BENCH_NAME} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
+        OUTPUT_NAME "${BENCH_NAME}${_bench_variant_suffix}"
+        RUNTIME_OUTPUT_DIRECTORY "${_bench_bin_dir}")
 endfunction()
 
 # --- Micro benchmarks ---

@@ -145,8 +145,12 @@ void CoreEngine::schedule_drain(uint32_t target_core) {
     // the running drain_inbox will pick up the newly enqueued messages.
     if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel)) {
         boost::asio::post(cores_[target_core]->io_ctx, [this, target_core] {
-            drain_pending_[target_core].store(false, std::memory_order_release);
             drain_inbox(target_core);
+            drain_pending_[target_core].store(false, std::memory_order_release);
+            // Re-check: messages may have arrived during drain
+            if (!cores_[target_core]->inbox->empty()) {
+                schedule_drain(target_core);
+            }
         });
     }
 }
@@ -223,12 +227,9 @@ void CoreEngine::drain_inbox(uint32_t core_id) {
         ++processed;
     }
 
-    // If batch limit reached, there may be more — re-post to process remaining
-    if (processed == config_.drain_batch_limit) {
-        boost::asio::post(core_ctx.io_ctx, [this, core_id] {
-            drain_inbox(core_id);
-        });
-    }
+    // If batch limit reached, yield to io_context (timers, IO) then continue.
+    // The schedule_drain lambda's post-drain re-check will pick up remaining messages.
+    // No self-post needed — avoids handler accumulation under burst load.
 }
 
 void CoreEngine::start_tick_timer(uint32_t core_id) {

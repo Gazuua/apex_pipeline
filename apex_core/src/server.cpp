@@ -103,7 +103,7 @@ void Server::run() {
         throw std::logic_error("Server::run() must not be called more than once");
     }
 
-    stopping_.store(false);
+    stopping_.store(false, std::memory_order_relaxed);  // run() init, single thread
 
     // I-09: Cache spdlog logger for hot-path use (avoid mutex per call)
     logger_ = spdlog::get("apex");

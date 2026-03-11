@@ -208,6 +208,7 @@ inline Result<void> cross_core_post_msg(
     CoreEngine& engine, uint32_t source_core,
     uint32_t target_core, CrossCoreOp op, void* data = nullptr)
 {
+    assert(source_core < engine.core_count() && "invalid source_core");
     CoreMessage msg{
         .op = op,
         .source_core = source_core,
