@@ -146,6 +146,7 @@ apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통�
 │   ├── config/                       ← 기본 설정 파일 (default.toml)
 │   ├── schemas/                      ← FlatBuffers 스키마 (프레임워크 내장)
 │   ├── tests/                        ← unit/integration
+│   ├── benchmarks/                   ← Google Benchmark (micro/integration)
 │   ├── examples/                     ← 프레임워크 사용 예제
 │   ├── bin/                          ← 빌드 출력 (echo_server_debug.exe 등)
 │   └── CMakeLists.txt
