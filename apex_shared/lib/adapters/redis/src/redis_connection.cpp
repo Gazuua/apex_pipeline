@@ -63,10 +63,11 @@ bool RedisConnection::validate() const noexcept {
 void RedisConnection::disconnect() {
     if (connected_ && ac_) {
         connected_ = false;
-        // asio_adapter 먼저 정리 (cleanup 콜백에서 socket release)
-        asio_adapter_.reset();
+        // redisAsyncFree가 on_cleanup 콜백을 호출하므로
+        // adapter가 살아있는 동안 먼저 호출해야 한다.
         redisAsyncFree(ac_);
         ac_ = nullptr;
+        asio_adapter_.reset();
     }
 }
 
