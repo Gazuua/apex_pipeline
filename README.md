@@ -45,17 +45,19 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - CI Docker 이미지 (ubuntu:24.04 + GCC 14 + vcpkg 사전 설치, Linux 잡 apt-get/vcpkg 설치 완전 제거)
   - GitHub Actions CI 5개 잡 병렬 (linux-gcc/asan/tsan + windows-msvc + root-linux-gcc)
 
-- **빌드 스크립트 사전 체크 동기화**
+- **빌드 스크립트 사전 체크 동기화** (PR #9 merged)
   - 공용 헬퍼 (`apex_tools/build-preflight.sh|bat`) 분리 — 루트/apex_core 양쪽에서 공유
   - Dockerfile vcpkg.json COPY 범위 확장 (모노레포 서브프로젝트 대비)
 
-### 진행 중
-
-- **Phase 5.5 — 코어 프레임워크 성능 완성**
+- **Phase 5.5 — 코어 프레임워크 성능 완성** (PR #10 merged)
   - Tier 0: Google Benchmark 벤치마크 인프라 (micro 7개 + integration 4개)
-  - Tier 0.5: 에러 타입 통일 (DispatchError/QueueError → ErrorCode 단일 채널)
+  - Tier 0.5: 에러 타입 통일 (DispatchError/QueueError → ErrorCode 단일 채널, Result<T> 도입)
   - Tier 1: drain/tick 분리, Cross-Core Message Passing 인프라, MessageDispatcher unordered_flat_map, zero-copy dispatch
   - Tier 1.5: E2E echo 부하 테스터 + JSON before/after 비교 도구
   - Tier 2: intrusive_ptr 전환, Session SlabPool 할당, sessions_/timer_to_session_ unordered_flat_map
   - Tier 2.5: 벤치마크 시각화 (matplotlib) + PDF 보고서 (ReportLab) 파이프라인
   - Tier 3: Server/ConnectionHandler 분리, SO_REUSEPORT per-core acceptor, io_uring CMake 옵션, SlabPool auto-grow
+
+### 다음
+
+- **Phase 6** — 예정
