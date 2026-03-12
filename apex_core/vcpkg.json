@@ -15,6 +15,7 @@
     {
       "name": "gtest"
     },
+    "librdkafka",
     "spdlog",
     "tomlplusplus"
   ]
