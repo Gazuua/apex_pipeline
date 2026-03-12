@@ -1,7 +1,7 @@
 # Apex Core Benchmarks
 
-Phase 5.5에서 도입된 벤치마크 인프라 가이드.
-C++ 마이크로/통합 벤치마크(Google Benchmark)와 Python 분석 도구로 구성된다.
+v0.3.0.0에서 도입된 벤치마크 인프라 가이드.
+C++ 마이크로/통합 벤치마크(Google Benchmark)와 Python 보고서 생성 도구로 구성된다.
 
 ## 디렉토리 구조
 
@@ -24,15 +24,11 @@ apex_core/benchmarks/          ← C++ 벤치마크 (빌드 시스템 통합)
     ├── bench_frame_pipeline.cpp
     └── bench_session_throughput.cpp
 
-apex_tools/benchmark/          ← Python 분석 파이프라인
-├── compare/
-│   └── compare_results.py     ← before/after JSON 비교
-├── visualize/
-│   ├── visualize.py           ← matplotlib 차트 생성
-│   └── requirements.txt
+apex_tools/benchmark/          ← Python 보고서 생성 도구
 └── report/
-    ├── generate_report.py     ← ReportLab PDF 보고서
-    └── requirements.txt
+    ├── generate_benchmark_report.py  ← 시각화 차트 + PDF 보고서 통합
+    ├── requirements.txt
+    └── README.md                     ← 상세 사용법
 
 apex_core/bin/{variant}/       ← 실행 파일 출력 (debug/, release/)
 apex_core/benchmark_results/   ← 결과 JSON 저장 (gitignore)
@@ -140,59 +136,29 @@ apex_core/bin/release/echo_loadtest.exe --json > apex_core/benchmark_results/loa
 | `--warmup=SECS` | `3` | 워밍업 시간 |
 | `--json` | off | JSON stdout 출력 |
 
-## Python 분석 도구
+## PDF 보고서 생성
+
+Google Benchmark JSON 결과를 시각화 차트 + PDF 보고서로 생성한다.
+상세 사용법은 `apex_tools/benchmark/report/README.md` 참조.
 
 ### 설치
 
 ```bash
-pip install matplotlib>=3.8 reportlab>=4.0
+pip install -r apex_tools/benchmark/report/requirements.txt
 ```
 
-### 1. 결과 비교 (compare)
-
-before/after JSON을 비교해 처리량(높을수록 좋음)과 지연시간(낮을수록 좋음)의 변화를 보여준다.
+### 실행
 
 ```bash
-python apex_tools/benchmark/compare/compare_results.py \
-    apex_core/benchmark_results/before.json \
-    apex_core/benchmark_results/after.json
+python apex_tools/benchmark/report/generate_benchmark_report.py \
+    --release=apex_core/benchmark_results/release \
+    --debug=apex_core/benchmark_results/debug \
+    --analysis=apex_core/benchmark_results/analysis.json \
+    --output=apex_core/benchmark_results/report
 ```
 
-출력 예시:
-```
-==================================================================
-Metric                        Before                   After
-==================================================================
-Throughput (msg/s)          45000.0    50000.0 (+11.1%) [OK]
-Latency avg (us)              220.0      200.0 (-9.1%) [OK]
-```
-
-### 2. 시각화 (visualize)
-
-before/after JSON에서 PNG 차트를 생성한다.
-
-```bash
-python apex_tools/benchmark/visualize/visualize.py \
-    --before=apex_core/benchmark_results/before.json \
-    --after=apex_core/benchmark_results/after.json \
-    --output=charts/
-```
-
-생성 파일:
-- `throughput_comparison.png` — 처리량 막대 그래프
-- `latency_comparison.png` — 지연시간 백분위 그룹 막대 그래프
-
-### 3. PDF 보고서 (report)
-
-차트 + 상세 결과를 A4 PDF로 묶는다.
-
-```bash
-python apex_tools/benchmark/report/generate_report.py \
-    --title="Phase 5.5 Performance Report" \
-    --results=apex_core/benchmark_results/ \
-    --charts=charts/ \
-    --output=report.pdf
-```
+- `--analysis` 생략 시 분석 코멘터리 없이 데이터+차트만 생성
+- 출력: `report/benchmark_report.pdf` (9페이지) + `report/charts/*.png`
 
 ## 시스템 프로파일
 
@@ -233,8 +199,10 @@ done
 # 4. E2E 부하 테스트 (서버 별도 실행 필요)
 apex_core/bin/release/echo_loadtest.exe --json > apex_core/benchmark_results/loadtest.json
 
-# 5. 비교 + 시각화 + PDF
-python apex_tools/benchmark/compare/compare_results.py before.json after.json
-python apex_tools/benchmark/visualize/visualize.py --before=before.json --after=after.json --output=charts/
-python apex_tools/benchmark/report/generate_report.py --results=apex_core/benchmark_results/ --charts=charts/ --output=report.pdf
+# 5. PDF 보고서 생성
+python apex_tools/benchmark/report/generate_benchmark_report.py \
+    --release=apex_core/benchmark_results/release \
+    --debug=apex_core/benchmark_results/debug \
+    --analysis=apex_core/benchmark_results/analysis.json \
+    --output=apex_core/benchmark_results/report
 ```

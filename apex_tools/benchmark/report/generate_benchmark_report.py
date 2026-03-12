@@ -51,7 +51,6 @@ def register_fonts():
     """한글 폰트 등록."""
     pdfmetrics.registerFont(TTFont('MalgunGothic', f'{FONT_DIR}/malgun.ttf'))
     pdfmetrics.registerFont(TTFont('MalgunGothic-Bold', f'{FONT_DIR}/malgunbd.ttf'))
-    pdfmetrics.registerFont(TTFont('NanumSquare', f'{FONT_DIR}/NanumSquareR.ttf'))
     pdfmetrics.registerFontFamily(
         'MalgunGothic', normal='MalgunGothic', bold='MalgunGothic-Bold')
 
@@ -385,6 +384,8 @@ def gen_slab(rel, d):
             if b['name'] == f'BM_SlabPool_AllocDealloc/{sz}': sv.append(b['cpu_time'])
             elif b['name'] == f'BM_Malloc_AllocFree/{sz}': mv.append(b['cpu_time'])
         if b['name'] == 'BM_MakeShared_AllocDealloc': shared = b['cpu_time']
+    if len(sv) != len(sizes) or len(mv) != len(sizes):
+        return None
     x = np.arange(len(sizes)); w = 0.28
     fig, ax = plt.subplots(figsize=(8, 4.5))
     ax.bar(x - w, sv, w, label='SlabPool', color=CH['slab'], zorder=3)
