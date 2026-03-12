@@ -183,7 +183,7 @@
 
 ### Graceful Shutdown
 - SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → 종료
-- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (Phase 5에서 구현)
+- drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (v0.2.0.0에서 구현)
 
 ### 세션 관리
 - **코어 로컬 해시맵 + Redis 백업** (세션 상태 저장)
@@ -204,7 +204,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: apex_tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — Phase 5 완료 기준 boost-asio, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → Phase 5에서 추가, tomlplusplus → Phase 5에서 추가), 나머지는 해당 Phase에서 추가 (Kafka/KafkaSink → Phase 6, Redis/libpq → Phase 7, jwt-cpp → Phase 8b, prometheus-cpp → Phase 9)
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.0.0 완료 기준 boost-asio, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → v0.2.0.0에서 추가, tomlplusplus → v0.2.0.0에서 추가), 나머지는 해당 버전에서 추가 (Kafka/KafkaSink → v0.4.1, Redis → v0.4.2, libpq → v0.4.3, jwt-cpp → v0.5.3, prometheus-cpp → v0.6.1)
 
 ---
 
@@ -216,74 +216,75 @@
 - 각 세션 종료 시 docs/apex_common/progress/ 에 체크포인트 문서 작성
 - 패턴: 병렬 구현 → 단일 통합 → 태그
 
-### Phase 1: 프로젝트 셋업 (단일 세션)
-- CMake 구조, vcpkg.json, 디렉토리 스캐폴딩
-- 모든 컴포넌트의 **헤더 인터페이스 사전 정의** (병렬 작업의 계약)
+### v0.1 — 코어 프레임워크 기초
 
-### Phase 2: 기반 컴포넌트 (에이전트 팀 4병렬)
+**v0.1.0.0: 프로젝트 셋업 + 기반 컴포넌트 (4병렬)**
+- 단일 세션: CMake 구조, vcpkg.json, 디렉토리 스캐폴딩, 헤더 인터페이스 사전 정의
 - Agent A: MPSC 락프리 큐 + GTest
 - Agent B: 슬랩 메모리 풀 + GTest
 - Agent C: 링 버퍼 + GTest
 - Agent D: 타이머 휠 + GTest
 
-### Phase 3: 코어 프레임워크 (에이전트 팀 3병렬)
+**v0.1.1.0: 코어 프레임워크 통합 (3병렬)**
 - Agent A: io_context-per-core 엔진 + 테스트
-- Agent B: ServiceBase<T> CRTP + route<T> 디스패치 + 테스트
+- Agent B: ServiceBase\<T\> CRTP + route\<T\> 디스패치 + 테스트
 - Agent C: 와이어 프로토콜 (TCP/WebSocket) + 테스트
+- 통합: 에코 서버 예제 + 통합 테스트
 
-### Phase 3.5: 통합 (단일 세션)
-- Phase 2 + 3 컴포넌트 통합
-- 에코 서버 예제 + 통합 테스트 → **v0.1.0**
-
-### Phase 4: 프로토콜 + 세션 (에이전트 팀 3병렬)
+**v0.1.2.0~v0.1.4.0: 프로토콜 + 세션 (3병렬)**
 - Agent A: FlatBuffers 스키마 + 코드 생성 파이프라인
 - Agent B: 세션 관리 (코어 로컬 + 타이머 휠 연동)
 - Agent C: 에러 전파 (자동 ErrorResponse + apex::error)
+- 통합: 채팅 예제 + 통합 테스트
 
-### Phase 4.5: 통합 (단일 세션)
-- 채팅 예제 + 통합 테스트 → **v0.2.0**
+### v0.2 — 개발 인프라
 
-### Phase 5: 기반 정비 (CI/CD + 설정 + 로깅 + Graceful Shutdown)
+**v0.2.0.0: 기반 정비**
 - CI/CD: GitHub Actions (빌드+단위 테스트 자동화)
 - TOML 설정: toml++ 통합, ServerConfig TOML 로딩, 설정 파일 구조
 - spdlog 기본 통합: ConsoleSink + FileSink, 구조화 JSON, Sink 구성 TOML 연동
 - Graceful Shutdown: TOML에서 drain_timeout 로딩, Server::stop() 적용, SIGHUP 로그 레벨
 
-### Phase 6: Kafka 체인 (Phase 7과 병렬 가능)
+### v0.3 — 코어 성능 완성
+
+**v0.3.0.0: 벤치마크 + 핫패스/메모리/구조 최적화 (7 Tier)**
+- 상세: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md`
+
+### v0.4 — 외부 어댑터
+
+**v0.4.1.0: Kafka 체인 (v0.4.2~4와 병렬 가능)**
 - Kafka 어댑터: KafkaProducer 래퍼 (전역 공유, ADR-08), KafkaConsumer (파티션:코어 매핑), librdkafka fd → Asio
 - KafkaSink: spdlog sink 추가 (중앙 집중 로그 파이프라인 완성), trace_id 자동 주입
 - 내부 의존: Kafka 어댑터 → KafkaSink
 
-### Phase 7: 데이터 체인 (Phase 6과 병렬 가능)
+**v0.4.2~4.0: 데이터 체인 (v0.4.1과 병렬 가능)**
 - Redis 어댑터: redis-plus-plus async (Asio 백엔드)
 - PG 어댑터: libpq fd → Asio 등록, 비동기 쿼리 래퍼
 - Connection Pool: 공통 풀 추상화, 코어별 인스턴스 (shared-nothing), health check
 - 내부 의존: Redis ∥ PG → Connection Pool
+- 어댑터 통합 테스트
 
-### Phase 7.5: 어댑터 통합 (단일 세션)
-- Phase 6 + 7 어댑터 통합 테스트 → **v0.3.0**
+### v0.5 — 서비스 체인
 
-### Phase 8a: WebSocket 프로토콜
+**v0.5.1.0: WebSocket 프로토콜**
 - WebSocketProtocol (ProtocolBase CRTP), Beast 통합, ping/pong (ADR-06)
 - 프레임워크 레벨 확장 — Gateway와 독립적으로 완성 가능
 
-### Phase 8b: Gateway + Auth 서비스
+**v0.5.2~3.0: Gateway + Auth 서비스**
 - Gateway: TLS 종단, JWT 검증 (ADR-07), 블룸필터, Kafka 라우팅, Rate Limiting
 - Auth 서비스: JWT 발급/갱신, Redis 블랙리스트, 블룸필터 Pub/Sub, PG 스키마
-- 내부 의존: Phase 8a(WebSocket) → Gateway ∥ Auth
+- 내부 의존: v0.5.1(WebSocket) → Gateway ∥ Auth
 
-### Phase 8.5: 파이프라인 통합 (단일 세션)
-- E2E 통합 테스트 → **v0.4.0**
-- 코어 프레임워크 baseline 벤치마크 (Google Benchmark — TPS/Latency)
+**v0.5.4.0: 파이프라인 E2E 통합 테스트**
 
-### Phase 9: 운영 인프라 (4작업 완전 병렬) → **v0.5.0**
+### v0.6 — 운영 인프라 (4작업 완전 병렬)
 - 메트릭: prometheus-cpp, Grafana 대시보드
 - Docker: 서비스별 Dockerfile (멀티스테이지)
 - K8s: Helm Chart, HPA, ConfigMap, Health Check
 - CI/CD 고도화: Docker 빌드 + 배포, docker-compose 통합 테스트, 스캐폴딩 스크립트
 
-### Phase 10: 최종 통합 (단일 세션)
-- K8s E2E, 부하 테스트, 문서 정리 → **v1.0.0**
+### v1.0.0.0 — 프레임워크 완성
+- K8s E2E, 부하 테스트, 서비스 스캐폴딩, 문서 정리
 
 ---
 

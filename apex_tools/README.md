@@ -72,4 +72,4 @@ apex_tools/
 
 ## 기타
 
-- `new-service.sh` — 서비스 스캐폴딩 스크립트 (Phase 9에서 추가)
+- `new-service.sh` — 서비스 스캐폴딩 스크립트 (v1.0.0.0에서 추가)
