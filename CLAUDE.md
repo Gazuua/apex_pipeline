@@ -130,3 +130,4 @@ D:\.workspace/
 - **CI path filter**: 소스(`.cpp/.hpp`, `CMakeLists.txt`, `vcpkg.json` 등) 미변경 시 빌드/테스트 자동 스킵 — 문서/도구만 변경된 커밋은 CI 불필요
 - **CI 실패 분석 원칙**: 한 잡만 보고 판단하지 말고 **모든 실패 잡의 로그를 확인** — 잡마다 실패 원인이 다를 수 있음
 - **CI 대기**: `gh run watch`는 **반드시 백그라운드(`run_in_background`)로 실행** — 타임아웃 제한 없이 완료까지 대기
+- **GCC `SIZE_MAX`**: `<cstdint>` include 필수. MSVC는 transitively include되어 빌드되지만, GCC에서 직접 include하면 `'SIZE_MAX' was not declared` 에러

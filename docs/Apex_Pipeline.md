@@ -346,6 +346,7 @@ v[메이저].[대].[중].[소]
 | 버전 | 규모 | 내용 | 비고 |
 |------|------|------|------|
 | v0.3.0.0 | 대 | 벤치마크 인프라 + 에러 타입 통일 + 핫패스/메모리/구조 최적화 (7 Tier 일괄) | PR #10, +26 파일 |
+| v0.3.0.1 | 소 | auto-review 품질 개선: RAII guard(active_sessions_), payload lifetime 문서화, CI permissions 최소 권한, 버전 동기화(0.3.0), 누락 테스트 3건 추가, 에이전트 템플릿 범위 확대 | PR #14, 19 파일 |
 
 Tier 상세:
 - Tier 0: Google Benchmark 인프라 (micro 7 + integration 4)
