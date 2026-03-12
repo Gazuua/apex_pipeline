@@ -59,3 +59,6 @@ endif()
 
 # --- Adapters ---
 add_subdirectory(lib/adapters)
+
+# --- Tests ---
+add_subdirectory(tests)

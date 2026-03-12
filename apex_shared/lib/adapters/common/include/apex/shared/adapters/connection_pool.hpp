@@ -21,15 +21,16 @@ struct PoolConfig {
 /// Redis/PG 커넥션 풀 공통 추상화 (CRTP).
 /// 코어별 독립 인스턴스로 사용 — 락 불필요.
 ///
+/// Conn 템플릿 파라미터로 커넥션 타입을 전달 (MSVC 불완전 타입 우회).
+///
 /// Derived가 구현해야 할 메서드:
-///   using ConnectionType = ...;
-///   ConnectionType do_create_connection()
-///   void do_destroy_connection(ConnectionType& conn)
-///   bool do_validate(ConnectionType& conn)
-template <typename Derived>
+///   Conn do_create_connection()
+///   void do_destroy_connection(Conn& conn)
+///   bool do_validate(Conn& conn)
+template <typename Derived, typename Conn>
 class ConnectionPool {
 public:
-    using Connection = typename Derived::ConnectionType;
+    using Connection = Conn;
 
     explicit ConnectionPool(PoolConfig config) : config_(std::move(config)) {}
     ~ConnectionPool() { close_all(); }
