@@ -4,15 +4,14 @@
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/core/result.hpp>
 
+#include <hiredis/async.h>
+
 #include <boost/asio/io_context.hpp>
 
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-
-struct redisAsyncContext;
-struct redisReply;
 
 namespace apex::shared::adapters::redis {
 
