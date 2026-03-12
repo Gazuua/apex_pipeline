@@ -506,7 +506,7 @@ apex-pipeline/
 ### 결정: MPSC 큐 용량 제한 + 백프레셔 전파
 
 ### 근거
-1. max_capacity 초과 시 enqueue가 expected<void, BackpressureError> 반환
+1. max_capacity 초과 시 enqueue가 Result<void> 반환 (ErrorCode::BufferFull)
 2. 큐 80% 도달 시 Gateway에 슬로우다운 시그널
 3. Gateway가 클라이언트에 429 Too Many Requests 응답
 4. 단순한 메커니즘으로 OOM 방지 — 복잡한 flow control 불필요
