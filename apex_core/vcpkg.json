@@ -15,7 +15,13 @@
     {
       "name": "gtest"
     },
+    "hiredis",
+    "libpq",
     "librdkafka",
+    {
+      "name": "redis-plus-plus",
+      "features": ["cxx17"]
+    },
     "spdlog",
     "tomlplusplus"
   ]
