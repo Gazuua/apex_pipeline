@@ -190,6 +190,7 @@ apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통�
 |----------|------|-----------|------|
 | Language | C++23 | MSVC 19.44+ / GCC 14+ / Clang 17+ | 현재 사용 중 |
 | Networking | Boost.Asio | Boost 1.84+ | 현재 사용 중 |
+| Hash Map | boost::unordered_flat_map | boost-unordered (vcpkg) | 현재 사용 중 |
 | WebSocket | Boost.Beast | Boost 1.84+ (v0.5.1.0에서 vcpkg 추가 예정) | v0.5.1.0 |
 | Framework | apex_core | 자체 개발 (ServiceBase CRTP) | 현재 사용 중 |
 | Serialization | FlatBuffers | flatbuffers (zero-copy) | 현재 사용 중 |
