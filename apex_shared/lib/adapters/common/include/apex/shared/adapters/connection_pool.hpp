@@ -5,10 +5,21 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <functional>
 
 namespace apex::shared::adapters {
+
+/// ConnectionPool 통계 카운터.
+/// 풀 가동 후 누적 acquire/release/create/destroy/fail 횟수.
+struct PoolStats {
+    uint64_t total_acquired = 0;
+    uint64_t total_released = 0;
+    uint64_t total_created = 0;
+    uint64_t total_destroyed = 0;
+    uint64_t total_failed = 0;
+};
 
 /// ConnectionPool 설정
 struct PoolConfig {
@@ -47,24 +58,30 @@ public:
             idle_.pop_front();
             if (derived().do_validate(conn)) {
                 ++active_count_;
+                ++stats_.total_acquired;
                 return conn;
             }
             derived().do_destroy_connection(conn);
             --total_count_;
+            ++stats_.total_destroyed;
         }
         // 새 커넥션 생성 (한도 내)
         if (total_count_ < config_.max_size) {
             auto conn = derived().do_create_connection();
             ++total_count_;
             ++active_count_;
+            ++stats_.total_created;
+            ++stats_.total_acquired;
             return conn;
         }
+        ++stats_.total_failed;
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     /// 커넥션 반환
     void release(Connection conn) {
         --active_count_;
+        ++stats_.total_released;
         idle_.push_back({std::move(conn), std::chrono::steady_clock::now()});
     }
 
@@ -77,6 +94,7 @@ public:
             derived().do_destroy_connection(entry.conn);
             idle_.pop_front();
             --total_count_;
+            ++stats_.total_destroyed;
         }
     }
 
@@ -91,6 +109,7 @@ public:
             } else {
                 derived().do_destroy_connection(entry.conn);
                 --total_count_;
+                ++stats_.total_destroyed;
             }
         }
         idle_ = std::move(valid);
@@ -110,6 +129,7 @@ public:
     [[nodiscard]] size_t idle_count() const noexcept { return idle_.size(); }
     [[nodiscard]] size_t total_count() const noexcept { return total_count_; }
     [[nodiscard]] const PoolConfig& config() const noexcept { return config_; }
+    [[nodiscard]] const PoolStats& stats() const noexcept { return stats_; }
 
 private:
     Derived& derived() noexcept { return static_cast<Derived&>(*this); }
@@ -123,6 +143,7 @@ private:
     std::deque<IdleEntry> idle_;
     size_t total_count_ = 0;
     size_t active_count_ = 0;
+    PoolStats stats_;
 };
 
 } // namespace apex::shared::adapters
