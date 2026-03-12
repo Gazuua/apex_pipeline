@@ -21,7 +21,8 @@ color: green
 - diff 컨텍스트(변경 함수 전체)를 읽어서 리뷰
 
 ### full 모드
-- `include/apex/core/`, `src/`, `examples/` 전체 대상
+- 모노레포 전체 C++/헤더/예제 파일 대상 (빌드 출력 `bin/`, `build/` 제외)
+- 서브프로젝트별: `apex_core/`, `apex_shared/`, `apex_services/` 등 모든 `include/`, `src/`, `examples/`
 
 ## 체크 대상
 

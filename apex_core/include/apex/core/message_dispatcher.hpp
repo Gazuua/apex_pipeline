@@ -17,6 +17,9 @@ namespace apex::core {
 /// Thread-safe for concurrent reads after setup. NOT thread-safe for concurrent read-write.
 class MessageDispatcher {
 public:
+    /// @note payload span은 co_await 시점까지만 유효합니다.
+    ///       핸들러 내에서 co_await 이후에 payload 데이터에 접근하면
+    ///       댕글링 참조가 발생합니다. 데이터를 보존하려면 co_await 전에 복사하세요.
     using Handler = std::function<
         boost::asio::awaitable<Result<void>>(SessionPtr, uint16_t, std::span<const uint8_t>)>;
 

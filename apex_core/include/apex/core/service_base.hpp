@@ -102,6 +102,9 @@ protected:
     }
 
     /// FlatBuffers 타입 핸들러 등록 (코루틴, Result<void> 반환).
+    /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
+    ///       핸들러 내에서 async_send 등 co_await 이후에 메시지 필드에 접근하면
+    ///       댕글링 참조가 발생합니다. 필요한 데이터는 co_await 전에 로컬 변수에 복사하세요.
     template <typename FbsType>
     void route(uint16_t msg_id,
                boost::asio::awaitable<Result<void>> (Derived::*method)(

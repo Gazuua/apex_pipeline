@@ -22,7 +22,8 @@ color: yellow
 - 새 기능/수정에 대한 테스트 누락 감지
 
 ### full 모드
-- `tests/` 디렉토리 전체 리뷰
+- 모노레포 전체 `tests/` 디렉토리 리뷰 (모든 서브프로젝트 대상)
+- 서브프로젝트별: `apex_core/tests/`, `apex_shared/tests/`, `apex_services/tests/` 등
 - 소스 코드 대비 테스트 커버리지 전반 평가
 
 ## 체크 대상

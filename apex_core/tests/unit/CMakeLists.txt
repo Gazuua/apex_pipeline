@@ -11,6 +11,7 @@ function(apex_add_unit_test TEST_NAME TEST_SOURCE)
 endfunction()
 
 # 기반 컴포넌트 테스트
+apex_add_unit_test(test_math_utils test_math_utils.cpp)
 apex_add_unit_test(test_mpsc_queue test_mpsc_queue.cpp)
 apex_add_unit_test(test_slab_pool test_slab_pool.cpp)
 apex_add_unit_test(test_ring_buffer test_ring_buffer.cpp)
@@ -48,6 +49,7 @@ apex_add_unit_test(test_logging test_logging.cpp)
 
 # 단위 테스트 일괄 타임아웃 (30초)
 set_tests_properties(
+    test_math_utils
     test_mpsc_queue
     test_slab_pool
     test_ring_buffer

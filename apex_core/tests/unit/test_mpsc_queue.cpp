@@ -137,6 +137,24 @@ TEST(MpscQueue, MultiProducerSingleConsumer) {
     EXPECT_EQ(static_cast<int>(received.size()), total);
 }
 
+TEST(MpscQueue, MinCapacityOne) {
+    MpscQueue<int> q(1);
+    EXPECT_EQ(q.capacity(), 1u);
+
+    ASSERT_TRUE(q.enqueue(42).has_value());
+    EXPECT_FALSE(q.enqueue(99).has_value()); // full
+
+    auto item = q.dequeue();
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(*item, 42);
+
+    // Reuse after drain
+    ASSERT_TRUE(q.enqueue(100).has_value());
+    item = q.dequeue();
+    ASSERT_TRUE(item.has_value());
+    EXPECT_EQ(*item, 100);
+}
+
 // T1: Per-producer FIFO order verification
 TEST(MpscQueue, MultiProducerFIFOOrder) {
     constexpr int kNumProducers = 4;
