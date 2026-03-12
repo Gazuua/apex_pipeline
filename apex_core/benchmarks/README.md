@@ -34,22 +34,30 @@ apex_tools/benchmark/          ← Python 분석 파이프라인
     ├── generate_report.py     ← ReportLab PDF 보고서
     └── requirements.txt
 
+apex_core/bin/{variant}/       ← 실행 파일 출력 (debug/, release/)
 apex_core/benchmark_results/   ← 결과 JSON 저장 (gitignore)
 ```
 
 ## 빌드
 
-벤치마크는 **Release 빌드**(`default` 프리셋)로 측정해야 한다. Debug는 참고용.
+벤치마크는 **Release 빌드**(`release` 프리셋)로 측정해야 한다. Debug는 참고용.
 
 ```bash
-# Windows (MSYS bash)
-cmd.exe //c "D:\\.workspace\\apex_core\\build.bat"
+# Windows (MSYS bash) — Release
+cmd.exe //c "D:\\.workspace\\apex_core\\build.bat release"
 
-# Linux
-./apex_core/build.sh
+# Windows (MSYS bash) — Debug
+cmd.exe //c "D:\\.workspace\\apex_core\\build.bat debug"
+
+# Linux — Release
+./apex_core/build.sh release
 ```
 
-바이너리 출력: `apex_core/bin/bench_*[_variant].exe`
+바이너리 출력: `apex_core/bin/{variant}/bench_*.exe`
+
+- Release → `bin/release/`
+- Debug → `bin/debug/`
+- DLL은 빌드 시 자동 복사 (`$<TARGET_RUNTIME_DLLS>`)
 
 ## 실행
 
@@ -63,17 +71,17 @@ cmd.exe //c "D:\\.workspace\\apex_core\\build.bat"
 개별 컴포넌트의 단위 성능을 측정한다.
 
 ```bash
-# 전체 실행
-apex_core/bin/bench_mpsc_queue.exe
-apex_core/bin/bench_ring_buffer.exe
-apex_core/bin/bench_frame_codec.exe
-apex_core/bin/bench_dispatcher.exe
-apex_core/bin/bench_timing_wheel.exe
-apex_core/bin/bench_slab_pool.exe
-apex_core/bin/bench_session_lifecycle.exe
+# 전체 실행 (Release)
+apex_core/bin/release/bench_mpsc_queue.exe
+apex_core/bin/release/bench_ring_buffer.exe
+apex_core/bin/release/bench_frame_codec.exe
+apex_core/bin/release/bench_dispatcher.exe
+apex_core/bin/release/bench_timing_wheel.exe
+apex_core/bin/release/bench_slab_pool.exe
+apex_core/bin/release/bench_session_lifecycle.exe
 
 # JSON 출력 (결과 저장용)
-apex_core/bin/bench_mpsc_queue.exe --benchmark_format=json \
+apex_core/bin/release/bench_mpsc_queue.exe --benchmark_format=json \
     --benchmark_out=apex_core/benchmark_results/mpsc_queue.json
 ```
 
@@ -92,10 +100,10 @@ apex_core/bin/bench_mpsc_queue.exe --benchmark_format=json \
 여러 컴포넌트가 조합된 파이프라인 성능을 측정한다.
 
 ```bash
-apex_core/bin/bench_cross_core_latency.exe
-apex_core/bin/bench_cross_core_message_passing.exe
-apex_core/bin/bench_frame_pipeline.exe
-apex_core/bin/bench_session_throughput.exe
+apex_core/bin/release/bench_cross_core_latency.exe
+apex_core/bin/release/bench_cross_core_message_passing.exe
+apex_core/bin/release/bench_frame_pipeline.exe
+apex_core/bin/release/bench_session_throughput.exe
 ```
 
 | 벤치마크 | 측정 대상 |
@@ -111,13 +119,13 @@ echo 서버를 띄운 뒤 부하 테스터로 실측한다.
 
 ```bash
 # 1) echo 서버 실행
-apex_core/bin/echo_server_debug.exe
+apex_core/bin/debug/echo_server.exe
 
 # 2) 부하 테스트 (별도 터미널)
-apex_core/bin/echo_loadtest.exe --connections=100 --duration=30 --payload=256
+apex_core/bin/release/echo_loadtest.exe --connections=100 --duration=30 --payload=256
 
 # JSON 출력
-apex_core/bin/echo_loadtest.exe --json > apex_core/benchmark_results/loadtest_after.json
+apex_core/bin/release/echo_loadtest.exe --json > apex_core/benchmark_results/loadtest_after.json
 ```
 
 **옵션:**
@@ -206,24 +214,24 @@ Bench cores:    6
 
 ```bash
 # 1. Release 빌드
-cmd.exe //c "D:\\.workspace\\apex_core\\build.bat"
+cmd.exe //c "D:\\.workspace\\apex_core\\build.bat release"
 
 # 2. 마이크로 벤치마크 순차 실행 (JSON 저장)
 for bench in mpsc_queue ring_buffer frame_codec dispatcher timing_wheel slab_pool session_lifecycle; do
-    apex_core/bin/bench_${bench}.exe \
+    apex_core/bin/release/bench_${bench}.exe \
         --benchmark_format=json \
         --benchmark_out=apex_core/benchmark_results/${bench}.json
 done
 
 # 3. 통합 벤치마크 순차 실행
 for bench in cross_core_latency cross_core_message_passing frame_pipeline session_throughput; do
-    apex_core/bin/bench_${bench}.exe \
+    apex_core/bin/release/bench_${bench}.exe \
         --benchmark_format=json \
         --benchmark_out=apex_core/benchmark_results/${bench}.json
 done
 
 # 4. E2E 부하 테스트 (서버 별도 실행 필요)
-apex_core/bin/echo_loadtest.exe --json > apex_core/benchmark_results/loadtest.json
+apex_core/bin/release/echo_loadtest.exe --json > apex_core/benchmark_results/loadtest.json
 
 # 5. 비교 + 시각화 + PDF
 python apex_tools/benchmark/compare/compare_results.py before.json after.json

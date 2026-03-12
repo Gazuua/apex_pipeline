@@ -149,7 +149,7 @@ apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통�
 │   ├── tests/                        ← unit/integration
 │   ├── benchmarks/                   ← Google Benchmark (micro/integration)
 │   ├── examples/                     ← 프레임워크 사용 예제
-│   ├── bin/                          ← 빌드 출력 (echo_server_debug.exe 등)
+│   ├── bin/{variant}/                ← 빌드 출력 (bin/debug/, bin/release/)
 │   └── CMakeLists.txt
 ├── apex_services/                    ← MSA 서비스 (각 서비스 독립 Docker 이미지)
 │   ├── gateway/                      ← Gateway 서비스

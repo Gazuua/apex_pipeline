@@ -30,10 +30,6 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Tier 2.5: 벤치마크 시각화 (matplotlib) + PDF 보고서 (ReportLab) 파이프라인
   - Tier 3: Server/ConnectionHandler 분리, SO_REUSEPORT per-core acceptor, io_uring CMake 옵션, SlabPool auto-grow
 
-### Known Issues
-
-- **Debug 벤치마크 CRT mismatch crash** — vcpkg `benchmark.dll`이 release/debug 동일 파일명이라, `bin/` 공유 디렉토리에서 release DLL이 debug 바이너리에 로드됨 → exit code 3 크래시. spdlog/fmt는 `d` suffix(`spdlogd.dll`)로 구분되나 Google Benchmark는 미지원. 다음 세션에서 벤치마크 빌드 안정화 태스크로 수정 예정.
-
 ### 다음
 
 - **v0.4 — 외부 어댑터** (Kafka + Redis + PostgreSQL + Connection Pool)

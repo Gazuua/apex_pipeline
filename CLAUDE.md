@@ -14,7 +14,7 @@ D:\.workspace/
 ├── apex_core/          ← 코어 프레임워크 (C++23, Boost.Asio 코루틴)
 │   ├── include/apex/core/  ← 헤더
 │   ├── src/ tests/ examples/ benchmarks/ schemas/
-│   ├── bin/            ← 빌드 출력
+│   ├── bin/{variant}/  ← 빌드 출력 (debug/, release/)
 │   └── build.bat / build.sh / CMakePresets.json
 ├── docs/               ← 전체 프로젝트 문서 (중앙 집중)
 │   ├── Apex_Pipeline.md  ← 마스터 설계서
@@ -36,8 +36,8 @@ D:\.workspace/
   # MSYS bash에서 실행 (//c 필수 — /c는 MSYS가 경로로 변환함)
   cmd.exe //c "D:\\.workspace\\apex_core\\build.bat debug"
   ```
-- **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
-- **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
+- **빌드 변형**: `APEX_BUILD_VARIANT` = release / debug / asan / tsan
+- **출력**: `apex_core/bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`, `bin/release/bench_mpsc_queue.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
 - **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
 
@@ -92,7 +92,7 @@ D:\.workspace/
 - **구조/실행 가이드**: `apex_core/benchmarks/README.md` 참조 (벤치마크 목록, 실행 방법, JSON 출력 옵션)
 - **순차 실행 필수** — 병렬 실행 시 CPU 경합으로 결과 오염. 절대 동시에 돌리지 않는다
 - **백그라운드 서브에이전트 1개**에서 11개를 순차 실행 (Bash 타임아웃 회피)
-- **Release 빌드**(`default` 프리셋)로 측정 — Debug는 참고용
+- **Release 빌드**(`release` 프리셋)로 측정 — Debug는 참고용
 - 결과 JSON 저장: `apex_core/benchmark_results/`
 
 ### 에이전트 작업

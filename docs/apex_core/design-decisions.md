@@ -138,7 +138,7 @@
 - CMake + Ninja (크로스 플랫폼 고속 빌드)
 - vcpkg (의존성 관리, vcpkg.json 선언형)
 - Docker 컨테이너화 (빌드 환경 표준화, 멀티스테이지)
-- CMakePresets.json으로 원커맨드 빌드 (`cmake --preset default`)
+- CMakePresets.json으로 원커맨드 빌드 (`cmake --preset release`)
 
 ### 형상 관리
 - **GitHub Flow** (main + feature 브랜치, PR 기반 머지)

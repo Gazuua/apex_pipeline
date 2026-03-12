@@ -11,13 +11,12 @@ add_library(apex_bench_main OBJECT bench_main.cpp)
 target_include_directories(apex_bench_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(apex_bench_main PRIVATE benchmark::benchmark)
 
-# Variant suffix for output binaries (matches examples convention)
+# Output directory: bin/{variant}/ (debug, release, asan, tsan)
 if(APEX_BUILD_VARIANT)
-    set(_bench_variant_suffix "_${APEX_BUILD_VARIANT}")
+    set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/${APEX_BUILD_VARIANT}")
 else()
-    set(_bench_variant_suffix "")
+    set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/release")
 endif()
-set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin")
 
 # Helper function — each benchmark is an independent executable
 function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
@@ -25,8 +24,15 @@ function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
     target_include_directories(${BENCH_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(${BENCH_NAME} PRIVATE apex::core benchmark::benchmark)
     set_target_properties(${BENCH_NAME} PROPERTIES
-        OUTPUT_NAME "${BENCH_NAME}${_bench_variant_suffix}"
         RUNTIME_OUTPUT_DIRECTORY "${_bench_bin_dir}")
+    if(WIN32)
+        add_custom_command(TARGET ${BENCH_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:${BENCH_NAME}>
+                $<TARGET_FILE_DIR:${BENCH_NAME}>
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
 endfunction()
 
 # --- Micro benchmarks ---
