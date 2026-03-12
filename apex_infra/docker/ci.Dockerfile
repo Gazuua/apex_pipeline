@@ -5,6 +5,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     g++-14 cmake ninja-build git curl zip unzip tar pkg-config ca-certificates python3 \
+    make linux-libc-dev perl \
+    autoconf automake libtool bison flex libreadline-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set GCC 14 as default
@@ -22,13 +24,17 @@ RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
 # Pre-install vcpkg dependencies (warms binary cache for CI)
 COPY vcpkg.json /tmp/vcpkg-manifest/vcpkg.json
 COPY apex_core/vcpkg.json /tmp/vcpkg-core/vcpkg.json
+COPY apex_shared/vcpkg.json /tmp/vcpkg-shared/vcpkg.json
 RUN $VCPKG_ROOT/vcpkg install \
     --x-manifest-root=/tmp/vcpkg-manifest \
     --x-install-root=/opt/vcpkg_installed \
     && $VCPKG_ROOT/vcpkg install \
     --x-manifest-root=/tmp/vcpkg-core \
     --x-install-root=/opt/vcpkg_installed \
-    && rm -rf /tmp/vcpkg-manifest /tmp/vcpkg-core
+    && $VCPKG_ROOT/vcpkg install \
+    --x-manifest-root=/tmp/vcpkg-shared \
+    --x-install-root=/opt/vcpkg_installed \
+    && rm -rf /tmp/vcpkg-manifest /tmp/vcpkg-core /tmp/vcpkg-shared
 
 ENV CC=gcc-14 CXX=g++-14 \
     VCPKG_INSTALLED_DIR=/opt/vcpkg_installed

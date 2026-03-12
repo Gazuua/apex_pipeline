@@ -1,0 +1,32 @@
+# apex_shared/lib/adapters/kafka/CMakeLists.txt
+find_package(RdKafka CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
+
+add_library(apex_shared_adapters_kafka STATIC
+    src/kafka_config.cpp
+    src/kafka_producer.cpp
+    src/kafka_consumer.cpp
+    src/kafka_adapter.cpp
+    src/kafka_sink.cpp
+)
+add_library(apex::shared::adapters::kafka ALIAS apex_shared_adapters_kafka)
+
+target_include_directories(apex_shared_adapters_kafka
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(apex_shared_adapters_kafka
+    PUBLIC
+        apex::shared::adapters::common
+        RdKafka::rdkafka        # C API
+        RdKafka::rdkafka++      # C++ API
+        spdlog::spdlog
+)
+
+target_compile_features(apex_shared_adapters_kafka PUBLIC cxx_std_23)
+
+if(WIN32)
+    target_compile_options(apex_shared_adapters_kafka PUBLIC /utf-8)
+endif()

@@ -36,17 +36,19 @@
 ### 비동기 I/O 통합 (모든 I/O를 Asio 이벤트 루프 위에)
 - TCP/WebSocket: Boost.Asio 네이티브
 - Kafka: librdkafka fd를 Asio에 등록 (io_event_enable)
-- Redis: redis-plus-plus async (Asio 백엔드)
+- Redis: hiredis fd를 Asio에 직접 등록 (HiredisAsioAdapter 자체 구현)
 - PostgreSQL: libpq fd를 Asio에 등록 (PQsocket)
 - 프레임워크는 어댑터를 제공하되 통신 경로를 강제하지 않음
 
 ### Kafka와 shared-nothing 원칙
 - Kafka는 shared-nothing의 **현실적 예외**
 - **KafkaProducer**: 전역 공유 인스턴스 1개 (librdkafka 내부가 이미 스레드세이프, 브로커별 커넥션 자동 관리)
-  - 각 코어 → SPSC 큐 → 공유 Producer로 전달
+  - `rd_kafka_produce()` 직접 호출 — SPSC 큐 불필요 (librdkafka 내부 큐가 배치 처리 담당)
   - 싱글톤 패턴 아닌, 프레임워크 초기화 시 생성 후 참조 전달 (테스트 용이성)
+  - delivery callback → atomic 카운터로 결과 추적 (콜백은 librdkafka 내부 스레드에서 실행)
 - **KafkaConsumer**: 파티션:코어 매핑으로 자연스럽게 분리
   - Kafka consumer group이 파티션을 코어에 자동 분배
+  - Asio 통합: Linux → `io_event_enable()` pipe fd, Windows → `steady_timer` 폴링 (5ms)
 - DB와 달리 Proxy/커넥션 풀 불필요 (Kafka 커넥션은 영속 TCP, 브로커 수에 비례하는 고정 수량)
 
 ### DBMS
@@ -182,7 +184,7 @@
 - 서비스들은 CMake find_package(ApexCore)로 의존
 
 ### Graceful Shutdown
-- SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → 종료
+- SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → 어댑터 drain(새 요청 거부, is_ready=false) → 서비스 on_stop() → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 어댑터 close(Kafka flush, Redis/PG 풀 close_all) → shutdown_logging → 종료
 - drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (v0.2.0.0에서 구현)
 
 ### 세션 관리
@@ -204,7 +206,7 @@
 ### 개발 편의
 - **docker-compose 프로파일**: 기본(Kafka,Redis,PG — 프로파일 없이 항상 실행) / observability(+Prometheus,Grafana) / full(향후)
 - **서비스 스캐폴딩**: apex_tools/new-service.sh로 보일러플레이트 자동 생성
-- **외부 의존성**: Boost, FlatBuffers, librdkafka, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.0.0 완료 기준 boost-asio, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → v0.2.0.0에서 추가, tomlplusplus → v0.2.0.0에서 추가), 나머지는 해당 버전에서 추가 (Kafka/KafkaSink → v0.4.1, Redis → v0.4.2, libpq → v0.4.3, jwt-cpp → v0.5.3, prometheus-cpp → v0.6.1)
+- **외부 의존성**: Boost, FlatBuffers, librdkafka, hiredis, redis-plus-plus, libpq, spdlog, prometheus-cpp, toml++, jwt-cpp, GTest, GBenchmark (전부 vcpkg) — v0.2.0.0 완료 기준 boost-asio, flatbuffers, gtest, spdlog, tomlplusplus 사용 중 (spdlog → v0.2.0.0에서 추가, tomlplusplus → v0.2.0.0에서 추가), 나머지는 해당 버전에서 추가 (Kafka/KafkaSink → v0.4.1, Redis → v0.4.2, libpq → v0.4.3, jwt-cpp → v0.5.3, prometheus-cpp → v0.6.1)
 
 ---
 
@@ -258,7 +260,7 @@
 - 내부 의존: Kafka 어댑터 → KafkaSink
 
 **v0.4.2~4.0: 데이터 체인 (v0.4.1과 병렬 가능)**
-- Redis 어댑터: redis-plus-plus async (Asio 백엔드)
+- Redis 어댑터: hiredis Asio 직접 통합 (HiredisAsioAdapter 자체 구현)
 - PG 어댑터: libpq fd → Asio 등록, 비동기 쿼리 래퍼
 - Connection Pool: 공통 풀 추상화, 코어별 인스턴스 (shared-nothing), health check
 - 내부 의존: Redis ∥ PG → Connection Pool

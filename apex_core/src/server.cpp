@@ -125,6 +125,11 @@ void Server::run() {
         state->services.clear();
     }
 
+    // Initialize adapters before services
+    for (auto& adapter : adapters_) {
+        adapter->init(*core_engine_);
+    }
+
     // Per-core service instances
     for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
         auto& state = *per_core_[core_id];
@@ -238,18 +243,31 @@ void Server::poll_shutdown() {
 void Server::finalize_shutdown() {
     shutdown_timer_.reset();
 
-    // All coroutines exited (or timeout) — safe to stop core engine.
-    // Order matters: stop() signals threads, join() waits for exit,
-    // drain_remaining() cleans up leftover MPSC messages.
-    core_engine_->stop();
-    core_engine_->join();
-    core_engine_->drain_remaining();
+    // 1. Adapter drain (새 요청 거부)
+    for (auto& adapter : adapters_) {
+        adapter->drain();
+    }
 
-    // Stop services
+    // 2. Stop services
     for (auto& state : per_core_) {
         for (auto& svc : state->services) {
             svc->stop();
         }
+    }
+
+    // 3. CoreEngine stop + join + drain
+    // Order matters: stop() signals threads, join() waits for exit,
+    // drain_remaining() cleans up leftover MPSC messages.
+    // CoreEngine must stop before adapter close -- pending completion handlers
+    // on core threads may reference adapter resources (e.g. KafkaConsumer).
+    core_engine_->stop();
+    core_engine_->join();
+    core_engine_->drain_remaining();
+
+    // 4. Adapter close (flush + 커넥션 정리)
+    // Safe now: all core threads have exited, no pending handlers.
+    for (auto& adapter : adapters_) {
+        adapter->close();
     }
 
     // Finally stop control_io_ (causes run() to return)

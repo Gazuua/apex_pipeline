@@ -23,8 +23,11 @@ enum class ErrorCode : uint16_t {
     HandlerException = 11,      // dispatch handler threw exception
     SendFailed = 12,            // async_send network write failure
 
-    // Application errors (1000+)
+    // Application errors (1000-1999)
     AppError = 1000,
+
+    // Adapter errors (2000+)
+    AdapterError = 2000,
 };
 
 constexpr std::string_view error_code_name(ErrorCode code) noexcept {
@@ -43,6 +46,7 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::HandlerException: return "HandlerException";
         case ErrorCode::SendFailed: return "SendFailed";
         case ErrorCode::AppError: return "AppError";
+        case ErrorCode::AdapterError: return "AdapterError";
         default: return "Unknown";
     }
 }
