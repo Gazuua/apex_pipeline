@@ -142,11 +142,69 @@ TEST(RedisPool, ReleaseAfterDrainDoesNotCrash) {
     EXPECT_EQ(pool.idle_count(), 1u);
 }
 
+TEST(RedisPool, PoolExhaustionReturnsAdapterError) {
+    FakeRedisPool pool({.min_size = 1, .max_size = 1});
+
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+
+    // 풀 소진 시 AdapterError 반환
+    auto c2 = pool.acquire();
+    EXPECT_FALSE(c2.has_value());
+    EXPECT_EQ(c2.error(), apex::core::ErrorCode::AdapterError);
+}
+
+TEST(RedisPool, ConcurrentAcquireWithinSingleCore) {
+    // 코어 내 여러 코루틴이 동시에 acquire할 때
+    // (실제로는 single-threaded이므로 순차적이지만 로직상 안전성 확인)
+    FakeRedisPool pool({.min_size = 1, .max_size = 4});
+
+    auto c1 = pool.acquire();
+    auto c2 = pool.acquire();
+    auto c3 = pool.acquire();
+    auto c4 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    ASSERT_TRUE(c2.has_value());
+    ASSERT_TRUE(c3.has_value());
+    ASSERT_TRUE(c4.has_value());
+
+    EXPECT_EQ(pool.active_count(), 4u);
+    EXPECT_EQ(pool.total_count(), 4u);
+
+    // max_size 초과
+    auto c5 = pool.acquire();
+    EXPECT_FALSE(c5.has_value());
+
+    // 모두 반환
+    pool.release(std::move(*c1));
+    pool.release(std::move(*c2));
+    pool.release(std::move(*c3));
+    pool.release(std::move(*c4));
+    EXPECT_EQ(pool.active_count(), 0u);
+    EXPECT_EQ(pool.idle_count(), 4u);
+}
+
+TEST(RedisPool, AcquireReusesIdleBeforeCreatingNew) {
+    FakeRedisPool pool({.min_size = 1, .max_size = 4});
+
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    int first_id = c1->id;
+
+    pool.release(std::move(*c1));
+
+    // 재 acquire 시 idle에서 재사용
+    auto c2 = pool.acquire();
+    ASSERT_TRUE(c2.has_value());
+    EXPECT_EQ(c2->id, first_id);  // 같은 커넥션 재사용
+    EXPECT_EQ(pool.total_count(), 1u);
+}
+
 // --- RedisPool 실제 클래스 컴파일 검증 ---
 
 TEST(RedisPool, RedisPoolCompileCheck) {
     // RedisPool 구조체가 올바르게 컴파일되는지 확인
-    // 실제 Redis 서버 없이는 커넥션 생성 불가 → 구조만 검증
+    // 실제 Redis 서버 없이는 커넥션 생성 불가 -> 구조만 검증
     boost::asio::io_context io_ctx;
     RedisConfig config;
     PoolConfig pool_config{

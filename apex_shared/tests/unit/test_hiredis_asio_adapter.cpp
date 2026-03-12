@@ -173,3 +173,67 @@ TEST(RedisConnection, IsNotErrorReply) {
     EXPECT_FALSE(RedisConnection::is_error_reply(&reply));
     EXPECT_TRUE(RedisConnection::get_error_message(&reply).empty());
 }
+
+// --- 보강 테스트: 에지 케이스 ---
+
+TEST(RedisConnection, ParseIntegerReplyFromNull) {
+    auto result = RedisConnection::parse_integer_reply(nullptr);
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), apex::core::ErrorCode::AdapterError);
+}
+
+TEST(RedisConnection, IsErrorReplyNull) {
+    EXPECT_FALSE(RedisConnection::is_error_reply(nullptr));
+}
+
+TEST(RedisConnection, GetErrorMessageNull) {
+    EXPECT_TRUE(RedisConnection::get_error_message(nullptr).empty());
+}
+
+TEST(RedisConnection, ParseStringReplyFromInteger) {
+    // INTEGER 타입은 string 파싱 시 nullopt
+    redisReply reply{};
+    reply.type = REDIS_REPLY_INTEGER;
+    reply.integer = 100;
+
+    auto result = RedisConnection::parse_string_reply(&reply);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(RedisConnection, ParseIntegerReplyNegative) {
+    redisReply reply{};
+    reply.type = REDIS_REPLY_INTEGER;
+    reply.integer = -1;
+
+    auto result = RedisConnection::parse_integer_reply(&reply);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, -1);
+}
+
+TEST(RedisConnection, ParseStringReplyEmptyString) {
+    redisReply reply{};
+    reply.type = REDIS_REPLY_STRING;
+    const char* str = "";
+    reply.str = const_cast<char*>(str);
+    reply.len = 0;
+
+    auto result = RedisConnection::parse_string_reply(&reply);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(*result, "");
+}
+
+TEST(RedisConnection, DisconnectDoubleCallSafe) {
+    boost::asio::io_context io_ctx;
+    RedisConfig config{.host = "127.0.0.1", .port = 59999};
+
+    auto conn = RedisConnection::create(io_ctx, config);
+    if (!conn) {
+        SUCCEED();
+        return;
+    }
+
+    // 두 번 disconnect 호출해도 크래시 없음
+    conn->disconnect();
+    EXPECT_NO_THROW(conn->disconnect());
+    EXPECT_FALSE(conn->is_connected());
+}

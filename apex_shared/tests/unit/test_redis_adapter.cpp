@@ -131,3 +131,59 @@ TEST(RedisAdapter, ActiveAndIdleConnectionsInitiallyZero) {
     EXPECT_EQ(adapter.active_connections(), 0u);
     EXPECT_EQ(adapter.idle_connections(), 0u);
 }
+
+TEST(RedisAdapter, DrainWithoutInit) {
+    // init() 없이 drain() 호출 시 크래시 없음
+    RedisConfig config;
+    RedisAdapter adapter(config);
+    EXPECT_NO_THROW(adapter.drain());
+}
+
+TEST(RedisAdapter, FullLifecycle) {
+    // init -> drain -> close 전체 라이프사이클
+    RedisConfig config;
+    RedisAdapter adapter(config);
+
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngine engine(engine_config);
+
+    EXPECT_FALSE(adapter.is_ready());
+
+    adapter.init(engine);
+    EXPECT_TRUE(adapter.is_ready());
+
+    adapter.drain();
+    EXPECT_FALSE(adapter.is_ready());
+
+    adapter.close();
+    EXPECT_FALSE(adapter.is_ready());
+
+    // close 후 재 init은 지원하지 않지만 크래시 없어야 함
+    EXPECT_NO_THROW(adapter.init(engine));
+}
+
+TEST(RedisAdapter, PoolConfigMatchesRedisConfig) {
+    RedisConfig config{
+        .pool_size_per_core = 5,
+        .pool_max_size_per_core = 10,
+    };
+    RedisAdapter adapter(config);
+
+    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngine engine(engine_config);
+
+    adapter.init(engine);
+
+    // 풀 설정이 RedisConfig에서 전파되었는지 확인
+    auto& pool = adapter.pool(0);
+    EXPECT_EQ(pool.config().min_size, 5u);
+    EXPECT_EQ(pool.config().max_size, 10u);
+}
+
+TEST(RedisAdapter, ActiveAndIdleWithoutInit) {
+    // init 전에도 active/idle 호출 가능 (0 반환)
+    RedisConfig config;
+    RedisAdapter adapter(config);
+    EXPECT_EQ(adapter.active_connections(), 0u);
+    EXPECT_EQ(adapter.idle_connections(), 0u);
+}
