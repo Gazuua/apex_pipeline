@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     g++-14 cmake ninja-build git curl zip unzip tar pkg-config ca-certificates python3 \
     make linux-libc-dev perl \
+    bison flex libreadline-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set GCC 14 as default
