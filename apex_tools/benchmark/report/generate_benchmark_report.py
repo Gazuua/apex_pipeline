@@ -31,11 +31,11 @@ import numpy as np
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import inch, mm
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle,
-    PageBreak, KeepTogether, Flowable
+    PageBreak, Flowable
 )
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
@@ -49,8 +49,14 @@ FONT_DIR = 'C:/Windows/Fonts'
 
 def register_fonts():
     """한글 폰트 등록."""
-    pdfmetrics.registerFont(TTFont('MalgunGothic', f'{FONT_DIR}/malgun.ttf'))
-    pdfmetrics.registerFont(TTFont('MalgunGothic-Bold', f'{FONT_DIR}/malgunbd.ttf'))
+    malgun = f'{FONT_DIR}/malgun.ttf'
+    malgun_bold = f'{FONT_DIR}/malgunbd.ttf'
+    if not os.path.exists(malgun) or not os.path.exists(malgun_bold):
+        print(f"오류: 맑은 고딕 폰트를 찾을 수 없습니다 ({FONT_DIR})", file=sys.stderr)
+        print("Windows 환경에서만 실행 가능합니다.", file=sys.stderr)
+        sys.exit(1)
+    pdfmetrics.registerFont(TTFont('MalgunGothic', malgun))
+    pdfmetrics.registerFont(TTFont('MalgunGothic-Bold', malgun_bold))
     pdfmetrics.registerFontFamily(
         'MalgunGothic', normal='MalgunGothic', bold='MalgunGothic-Bold')
 
@@ -776,7 +782,9 @@ def main():
     ch['ringbuf']     = gen_ringbuf(rel, cd)
     ch['codec']       = gen_codec(rel, cd)
     ch['dispatcher']  = gen_dispatcher(rel, dbg, cd)
-    ch['slab']        = gen_slab(rel, cd)
+    slab_path = gen_slab(rel, cd)
+    if slab_path:
+        ch['slab'] = slab_path
     ch['integration'] = gen_integration(rel, dbg, cd)
     ch['overview']    = gen_overview(rel, dbg, cd)
     print(f"  {len(ch)}개 차트 생성 완료")

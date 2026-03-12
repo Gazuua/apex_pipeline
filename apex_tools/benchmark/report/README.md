@@ -101,6 +101,5 @@ python apex_tools/benchmark/report/generate_benchmark_report.py \
 Windows 환경에서 `C:/Windows/Fonts/` 경로의 폰트를 사용한다:
 
 - **맑은 고딕** (malgun.ttf, malgunbd.ttf) — PDF 본문/제목
-- **나눔스퀘어** (NanumSquareR.ttf) — 보조 폰트
 
 차트는 matplotlib의 Malgun Gothic을 사용한다.
