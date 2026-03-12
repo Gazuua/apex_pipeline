@@ -3,3 +3,4 @@
 # in Boost.Asio's internal scheduler and epoll reactor.
 race:boost::asio::detail::*
 race:boost::asio::io_context::*
+mutex:boost::asio::detail::posix_mutex::lock

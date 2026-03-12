@@ -3,8 +3,8 @@
   "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
   "configurePresets": [
     {
-      "name": "default",
-      "displayName": "Default (Release)",
+      "name": "release",
+      "displayName": "Release",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/${hostSystemName}/${presetName}",
       "environment": {
@@ -16,13 +16,14 @@
         "CMAKE_CXX_STANDARD_REQUIRED": "ON",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed"
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "APEX_BUILD_VARIANT": "release"
       }
     },
     {
       "name": "debug",
       "displayName": "Debug",
-      "inherits": "default",
+      "inherits": "release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "APEX_BUILD_VARIANT": "debug"
@@ -67,12 +68,13 @@
         "rhs": "Linux"
       },
       "cacheVariables": {
-        "APEX_USE_IO_URING": "ON"
+        "APEX_USE_IO_URING": "ON",
+        "APEX_BUILD_VARIANT": "iouring"
       }
     }
   ],
   "buildPresets": [
-    { "name": "default", "configurePreset": "default" },
+    { "name": "release", "configurePreset": "release" },
     { "name": "debug", "configurePreset": "debug" },
     { "name": "asan", "configurePreset": "asan" },
     { "name": "asan-msvc", "configurePreset": "asan-msvc" },
@@ -81,8 +83,8 @@
   ],
   "testPresets": [
     {
-      "name": "default",
-      "configurePreset": "default",
+      "name": "release",
+      "configurePreset": "release",
       "output": { "outputOnFailure": true }
     },
     {

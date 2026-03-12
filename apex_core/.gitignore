@@ -24,5 +24,8 @@ compile_commands.json
 Thumbs.db
 .DS_Store
 
+# Benchmark results
+benchmark_results/
+
 # vcpkg local
 vcpkg_installed/

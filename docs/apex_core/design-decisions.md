@@ -74,7 +74,7 @@
 ### 메시지 디스패치
 - **route<T> 기반 하이브리드 디스패치**
   - 등록: `route<LoginRequest>(MsgId::Login, &MyService::on_login)`
-  - 내부: boost::unordered_flat_map 기반 O(1) 해시 조회 (기존 std::array<Handler, 65536>에서 전환)
+  - 내부: boost::unordered_flat_map<uint16_t, Handler> O(1) 해시 조회 (기존 std::array<Handler, 65536>에서 전환)
   - 핸들러 시그니처에서 FlatBuffers 타입 강제 (타입 안전)
   - msg_id와 FlatBuffers 타입 불일치 시 컴파일 에러
 
@@ -107,7 +107,7 @@
 
 ### 백프레셔
 - MPSC 큐에 **max_capacity 제한**
-- enqueue 실패 시 `ErrorCode::BufferFull` 반환 (`Result<void>`)
+- enqueue 실패 시 `Result<void>` 반환 (`ErrorCode::BufferFull`)
 - 큐 80% 도달 시 Gateway에 슬로우다운 시그널 → 클라이언트에 429 응답
 - Kafka 토픽은 디스크 기반이라 자연스러운 버퍼 역할
 
@@ -138,7 +138,7 @@
 - CMake + Ninja (크로스 플랫폼 고속 빌드)
 - vcpkg (의존성 관리, vcpkg.json 선언형)
 - Docker 컨테이너화 (빌드 환경 표준화, 멀티스테이지)
-- CMakePresets.json으로 원커맨드 빌드 (`cmake --preset default`)
+- CMakePresets.json으로 원커맨드 빌드 (`cmake --preset release`)
 
 ### 형상 관리
 - **GitHub Flow** (main + feature 브랜치, PR 기반 머지)
