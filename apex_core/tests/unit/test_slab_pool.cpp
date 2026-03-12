@@ -209,7 +209,7 @@ TEST(SlabPool, MetricsTracking) {
 
 TEST(SlabPool, AutoGrowDisabledByDefault) {
     SlabPool pool(64, 4);  // 기존 생성자 — auto_grow=false
-    for (int i = 0; i < 4; ++i) pool.allocate();
+    for (int i = 0; i < 4; ++i) (void)pool.allocate();
     EXPECT_EQ(pool.allocate(), nullptr);  // 기존 동작 유지
 }
 
