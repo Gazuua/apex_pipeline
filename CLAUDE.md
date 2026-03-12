@@ -95,6 +95,21 @@ D:\.workspace/
 - **Release 빌드**(`release` 프리셋)로 측정 — Debug는 참고용
 - 결과 JSON 저장: `apex_core/benchmark_results/`
 
+### 벤치마크 보고서 생성
+- **도구 가이드**: `apex_tools/benchmark/report/README.md` 참조
+- **템플릿/분석 분리 구조**:
+  - `apex_tools/benchmark/report/generate_benchmark_report.py` — 레이아웃/디자인/차트 템플릿 (**수정하지 않는다**)
+  - `apex_core/benchmark_results/analysis.json` — 섹션별 분석 텍스트 (매번 새로 작성)
+  - `apex_core/benchmark_results/{release,debug}/*.json` — 벤치마크 데이터
+- **에이전트 워크플로우**:
+  1. Release/Debug 벤치마크 11개 순차 실행 → JSON 저장
+  2. 결과 데이터를 분석하여 `analysis.json` 작성 (8개 섹션)
+  3. 스크립트 실행: `python generate_benchmark_report.py --release=... --debug=... --analysis=... --output=...`
+- **analysis.json 작성 규칙**:
+  - 한글 베이스 + 영어 기술 용어 혼용, HTML 태그 사용 (`<b>`, `<br/>`)
+  - 각 섹션 3~10줄 — 핵심 수치 강조 + 아키텍처 맥락에서의 의미 해석
+  - 8개 키: `mpsc_queue`, `ring_buffer`, `frame_codec`, `dispatcher`, `slab_pool`, `timing_session`, `integration`, `overview`
+
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 
