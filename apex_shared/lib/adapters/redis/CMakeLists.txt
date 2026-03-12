@@ -3,6 +3,14 @@ find_package(hiredis CONFIG REQUIRED)
 find_package(redis++ CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
+# redis-plus-plus: static triplet (Linux) → redis++::redis++_static
+#                  dynamic triplet (Windows) → redis++::redis++
+if(TARGET redis++::redis++_static)
+    set(REDIS_PP_TARGET redis++::redis++_static)
+else()
+    set(REDIS_PP_TARGET redis++::redis++)
+endif()
+
 add_library(apex_shared_adapters_redis STATIC
     src/redis_config.cpp
     src/hiredis_asio_adapter.cpp
@@ -22,7 +30,7 @@ target_link_libraries(apex_shared_adapters_redis
     PUBLIC
         apex::shared::adapters::common
         hiredis::hiredis
-        redis++::redis++
+        ${REDIS_PP_TARGET}
         spdlog::spdlog
 )
 
