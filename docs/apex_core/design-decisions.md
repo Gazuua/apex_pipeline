@@ -107,7 +107,7 @@
 
 ### 백프레셔
 - MPSC 큐에 **max_capacity 제한**
-- enqueue 실패 시 `ErrorCode::BufferFull` 반환 (`Result<void>`)
+- enqueue 실패 시 `Result<void>` 반환 (`ErrorCode::BufferFull`)
 - 큐 80% 도달 시 Gateway에 슬로우다운 시그널 → 클라이언트에 429 응답
 - Kafka 토픽은 디스크 기반이라 자연스러운 버퍼 역할
 
