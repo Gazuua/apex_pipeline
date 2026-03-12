@@ -47,3 +47,4 @@ function(apex_shared_add_redis_test TEST_NAME TEST_SOURCE)
 endfunction()
 
 apex_shared_add_redis_test(test_hiredis_asio_adapter test_hiredis_asio_adapter.cpp)
+apex_shared_add_redis_test(test_redis_pool test_redis_pool.cpp)
