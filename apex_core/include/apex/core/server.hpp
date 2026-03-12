@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/adapter_interface.hpp>
 #include <apex/core/connection_handler.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
@@ -15,11 +16,20 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <typeindex>
+#include <unordered_map>
 #include <vector>
+
+// Forward declaration — template instantiation happens at the call site
+// where the caller includes <apex/shared/adapters/adapter_base.hpp>.
+namespace apex::shared::adapters {
+template <typename Derived> class AdapterWrapper;
+} // namespace apex::shared::adapters
 
 namespace apex::core {
 
@@ -113,6 +123,31 @@ public:
         return *this;
     }
 
+    /// 어댑터(인프라 컴포넌트) 등록. 체이닝 지원.
+    /// 등록 순서는 무관 — run()에서 서비스보다 먼저 초기화됨.
+    /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
+    ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
+    template <typename T, typename... Args>
+    Server& add_adapter(Args&&... args) {
+        auto wrapper = std::make_unique<apex::shared::adapters::AdapterWrapper<T>>(
+            std::forward<Args>(args)...);
+        auto* raw = wrapper.get();
+        auto key = std::type_index(typeid(T));
+        adapter_map_[key] = raw;
+        adapters_.push_back(std::move(wrapper));
+        return *this;
+    }
+
+    /// 등록된 어댑터 접근 (타입 기반).
+    /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
+    template <typename T>
+    T& adapter() const {
+        auto key = std::type_index(typeid(T));
+        auto it = adapter_map_.find(key);
+        assert(it != adapter_map_.end() && "Adapter not registered");
+        return static_cast<apex::shared::adapters::AdapterWrapper<T>*>(it->second)->get();
+    }
+
     /// Blocking run. Owns all io_contexts and threads internally.
     void run();
 
@@ -165,6 +200,8 @@ private:
     std::vector<std::unique_ptr<PerCoreState>> per_core_;
     std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;
     std::vector<ServiceFactory> service_factories_;
+    std::vector<std::unique_ptr<AdapterInterface>> adapters_;
+    std::unordered_map<std::type_index, AdapterInterface*> adapter_map_;
 
     std::atomic<uint32_t> next_core_{0};
     std::atomic<bool> running_{false};

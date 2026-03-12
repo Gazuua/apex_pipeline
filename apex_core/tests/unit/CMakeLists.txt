@@ -47,6 +47,16 @@ apex_add_unit_test(test_drain_tick test_drain_tick.cpp)
 apex_add_unit_test(test_config test_config.cpp)
 apex_add_unit_test(test_logging test_logging.cpp)
 
+# v0.4: Adapter integration
+add_executable(test_server_adapter test_server_adapter.cpp)
+target_link_libraries(test_server_adapter
+    PRIVATE
+        apex::core
+        apex::shared::adapters::common
+        GTest::gtest_main
+)
+add_test(NAME test_server_adapter COMMAND test_server_adapter)
+
 # 단위 테스트 일괄 타임아웃 (30초)
 set_tests_properties(
     test_math_utils
@@ -72,5 +82,6 @@ set_tests_properties(
     test_drain_tick
     test_config
     test_logging
+    test_server_adapter
     PROPERTIES TIMEOUT 30
 )
