@@ -151,7 +151,7 @@ apex-pipeline/
 
 **A. 10초** — 빠른 종료 우선, 미처리 건은 재연결 후 재시도
 **B. 25초** — K8s 30초 내에서 여유 5초 두고 최대한 drain
-**C. 설정 가능, 기본값 25초** — TOML에서 오버라이드 가능 (Phase 5에서 구현)
+**C. 설정 가능, 기본값 25초** — TOML에서 오버라이드 가능 (v0.2.0.0에서 구현)
 
 ### 결정: C (설정 가능, 기본값 25초)
 
@@ -428,7 +428,7 @@ apex-pipeline/
 
 ### 근거
 1. 1세션 = 파일 1~3개 + 테스트로 컨텍스트 크기 제한 → 품질 유지
-2. Phase 1에서 헤더 인터페이스 사전 정의 → 병렬 작업의 "계약"
+2. v0.1.0.0에서 헤더 인터페이스 사전 정의 → 병렬 작업의 "계약"
 3. .5 통합 세션이 품질 체크포인트 역할
 4. 각 세션 종료 시 docs/apex_common/progress/ 체크포인트 → 다음 세션에서 컨텍스트 복구
 5. Phase당 3~4 에이전트 병렬 → 순차 대비 약 3배 속도 향상
@@ -471,13 +471,13 @@ apex-pipeline/
 - C++ 비동기 코드의 가장 흔한 크래시 원인
 - 서비스 개발자에게 수명 관리를 맡기면 100% 버그 발생
 
-### 결정: 프레임워크가 shared_ptr로 세션 수명 강제 관리
+### 결정: 프레임워크가 intrusive_ptr로 세션 수명 강제 관리
 
 ### 근거
-1. 코루틴이 shared_ptr<Session>을 캡처 → co_await 중에도 세션 유지
+1. 코루틴이 intrusive_ptr<Session>을 캡처 → co_await 중에도 세션 유지
 2. 이미 끊긴 세션에 send 시 graceful 무시 (크래시 방지)
 3. 서비스 개발자가 수명을 의식할 필요 없음 — 프레임워크의 존재 이유
-4. enable_shared_from_this + co_spawn 패턴으로 구현
+4. intrusive_ptr + co_spawn 패턴으로 구현 (non-atomic refcount, per-core 단일 스레드 보장)
 
 ---
 
@@ -506,7 +506,7 @@ apex-pipeline/
 ### 결정: MPSC 큐 용량 제한 + 백프레셔 전파
 
 ### 근거
-1. max_capacity 초과 시 enqueue가 expected<void, BackpressureError> 반환
+1. max_capacity 초과 시 enqueue가 Result<void> 반환 (ErrorCode::BufferFull)
 2. 큐 80% 도달 시 Gateway에 슬로우다운 시그널
 3. Gateway가 클라이언트에 429 Too Many Requests 응답
 4. 단순한 메커니즘으로 OOM 방지 — 복잡한 flow control 불필요

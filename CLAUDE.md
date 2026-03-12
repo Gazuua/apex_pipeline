@@ -39,7 +39,7 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = debug / asan / tsan
 - **출력**: `apex_core/bin/{target}_{variant}.exe` (예: `echo_server_debug.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (Phase 8a)
+- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
 
 ### MSVC 주의사항
 
@@ -57,10 +57,11 @@ D:\.workspace/
 
 ## 로드맵
 
-- Phase 1~4.7 레거시 넘버링 동결, 5+ 순차 정수 (5.5/8a/8b 허용)
-- Phase 5 완료 → **Phase 5.5 (코어 성능 완성)** → Phase 6~10 의존성 기반 재분할
-- Phase 5.5 상세: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md`
-- 버전: v0.3.0(P6+7), v0.4.0(P8b), v0.5.0(P9), v1.0.0(P10)
+- **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 대=도메인 전환, 중=마일스톤, 소=수정/리뷰
+- **현재**: v0.3.0.0 (코어 성능 완성)
+- **다음**: v0.4 (외부 어댑터) → v0.5 (서비스 체인) → v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
+- **v1.0.0.0 이후**: v1.1+ (게임 레퍼런스 — 게임 서비스 + Android 클라이언트 + AWS)
+- 상세: `docs/Apex_Pipeline.md` §10
 
 ## 워크플로우 규칙
 
