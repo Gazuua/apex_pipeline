@@ -14,11 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── Docker image rebuild (if needed) ─────────────
-  check-image:
+  # ── Path filter (Docker / Source 변경 감지) ────
+  changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.filter.outputs.docker }}
+      docker: ${{ steps.filter.outputs.docker }}
+      source: ${{ steps.filter.outputs.source }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -28,10 +29,23 @@ jobs:
             docker:
               - 'apex_infra/docker/ci.Dockerfile'
               - '**/vcpkg.json'
+            source:
+              - '**/*.cpp'
+              - '**/*.hpp'
+              - '**/*.h'
+              - '**/CMakeLists.txt'
+              - '**/CMakePresets.json'
+              - '**/vcpkg.json'
+              - '**/*_suppressions.txt'
+              - '.github/workflows/**'
+              - 'build.bat'
+              - 'build.sh'
+              - 'apex_core/build.bat'
+              - 'apex_core/build.sh'
 
   build-image:
-    needs: check-image
-    if: needs.check-image.outputs.changed == 'true'
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
     uses: ./.github/workflows/docker-build.yml
     permissions:
       contents: read
@@ -39,9 +53,10 @@ jobs:
 
   # ── Source build & test ──────────────────────────
   build:
-    needs: [check-image, build-image]
+    needs: [changes, build-image]
     if: >-
       always() &&
+      needs.changes.outputs.source == 'true' &&
       (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
     strategy:
       fail-fast: false
@@ -113,9 +128,10 @@ jobs:
 
   # ── Root build integrity check ───────────────────
   build-root:
-    needs: [check-image, build-image]
+    needs: [changes, build-image]
     if: >-
       always() &&
+      needs.changes.outputs.source == 'true' &&
       (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
     name: root-linux-gcc
     runs-on: ubuntu-latest
