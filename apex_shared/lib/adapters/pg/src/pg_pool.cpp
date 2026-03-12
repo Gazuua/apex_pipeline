@@ -61,7 +61,8 @@ PgPool::acquire_connected() {
     // Not yet connected -> establish connection
     auto connect_result = co_await conn->connect_async(config_.connection_string);
     if (!connect_result.has_value()) {
-        // Connection failed -- destroy, don't return to pool
+        // Connection failed -- discard to update pool counters, don't return to pool
+        discard(std::move(conn));
         co_return std::unexpected(connect_result.error());
     }
     co_return std::move(conn);

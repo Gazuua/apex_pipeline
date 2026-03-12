@@ -66,9 +66,10 @@ PgAdapter::query(std::string_view sql) {
     }
     auto conn = std::move(conn_result.value());
     auto result = co_await conn->query_async(sql);
-    // Return connection to pool on success; on error, connection is destroyed
     if (result.has_value()) {
         current_pool().release(std::move(conn));
+    } else {
+        current_pool().discard(std::move(conn));
     }
     co_return result;
 }
@@ -83,6 +84,8 @@ PgAdapter::query(std::string_view sql, std::span<const std::string> params) {
     auto result = co_await conn->query_params_async(sql, params);
     if (result.has_value()) {
         current_pool().release(std::move(conn));
+    } else {
+        current_pool().discard(std::move(conn));
     }
     co_return result;
 }
@@ -97,6 +100,8 @@ PgAdapter::execute(std::string_view sql) {
     auto result = co_await conn->execute_async(sql);
     if (result.has_value()) {
         current_pool().release(std::move(conn));
+    } else {
+        current_pool().discard(std::move(conn));
     }
     co_return result;
 }
@@ -111,6 +116,8 @@ PgAdapter::execute(std::string_view sql, std::span<const std::string> params) {
     auto result = co_await conn->execute_params_async(sql, params);
     if (result.has_value()) {
         current_pool().release(std::move(conn));
+    } else {
+        current_pool().discard(std::move(conn));
     }
     co_return result;
 }
