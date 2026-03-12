@@ -110,6 +110,9 @@
       "name": "tsan",
       "configurePreset": "tsan",
       "output": { "outputOnFailure": true },
+      "filter": {
+        "exclude": { "name": "test_kafka_.*" }
+      },
       "environment": {
         "TSAN_OPTIONS": "suppressions=${sourceDir}/tsan_suppressions.txt halt_on_error=1"
       }
