@@ -1,13 +1,14 @@
 # apex_shared/lib/adapters/redis/CMakeLists.txt
 find_package(hiredis CONFIG REQUIRED)
 find_package(redis++ CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 add_library(apex_shared_adapters_redis STATIC
     src/redis_config.cpp
     src/hiredis_asio_adapter.cpp
     src/redis_connection.cpp
     src/redis_pool.cpp
-    # src/redis_adapter.cpp          # Task 4
+    src/redis_adapter.cpp
 )
 add_library(apex::shared::adapters::redis ALIAS apex_shared_adapters_redis)
 
@@ -22,6 +23,7 @@ target_link_libraries(apex_shared_adapters_redis
         apex::shared::adapters::common
         hiredis::hiredis
         redis++::redis++
+        spdlog::spdlog
 )
 
 target_compile_features(apex_shared_adapters_redis PUBLIC cxx_std_23)
