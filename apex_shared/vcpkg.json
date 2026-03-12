@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "apex-shared",
+  "version-semver": "0.4.0",
+  "description": "Apex Shared — Adapters and shared utilities",
+  "dependencies": [
+    "librdkafka",
+    "hiredis",
+    {
+      "name": "redis-plus-plus",
+      "features": ["cxx17"]
+    },
+    "libpq"
+  ]
+}

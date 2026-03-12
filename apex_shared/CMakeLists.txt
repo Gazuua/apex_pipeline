@@ -56,3 +56,6 @@ target_compile_features(apex_shared PUBLIC cxx_std_23)
 if(WIN32)
     target_compile_options(apex_shared PUBLIC /utf-8)
 endif()
+
+# --- Adapters ---
+add_subdirectory(lib/adapters)

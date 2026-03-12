@@ -13,6 +13,10 @@
     "boost-unordered",
     "flatbuffers",
     "gtest",
+    "hiredis",
+    "libpq",
+    "librdkafka",
+    "redis-plus-plus",
     "spdlog",
     "tomlplusplus"
   ]
