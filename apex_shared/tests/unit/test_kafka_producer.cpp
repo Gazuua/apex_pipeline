@@ -69,10 +69,13 @@ TEST(KafkaProducer, ProduceAfterInit) {
     }
 
     // produce() only enqueues internally -- succeeds without broker
+    auto before = producer.outq_len() + static_cast<int32_t>(producer.total_produced());
     auto result = producer.produce("test-topic", "key",
         std::string_view("hello kafka"));
     EXPECT_TRUE(result.has_value());
-    EXPECT_GE(producer.outq_len(), 0);  // queued or already delivered
+    producer.poll(100);
+    auto after = producer.outq_len() + static_cast<int32_t>(producer.total_produced());
+    EXPECT_GT(after, before) << "produce should enqueue at least one message";
 }
 
 TEST(KafkaProducer, ProduceWithSpanPayload) {

@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cstring>
+#include <mutex>
 
 namespace apex::shared::adapters::kafka {
 
@@ -28,27 +29,27 @@ apex::core::Result<void> KafkaProducer::init() {
     char errstr[512];
     rd_kafka_conf_t* conf = rd_kafka_conf_new();
 
+    // Helper: set config with warning on failure
+    auto conf_set = [&](const char* key, const char* val) {
+        if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, val, errstr);
+        }
+    };
+
     // Broker
-    rd_kafka_conf_set(conf, "bootstrap.servers", config_.brokers.c_str(),
-                      errstr, sizeof(errstr));
+    conf_set("bootstrap.servers", config_.brokers.c_str());
 
     // client.id
-    rd_kafka_conf_set(conf, "client.id", config_.client_id.c_str(),
-                      errstr, sizeof(errstr));
+    conf_set("client.id", config_.client_id.c_str());
 
     // Producer batch settings
-    rd_kafka_conf_set(conf, "linger.ms",
-                      std::to_string(config_.producer_batch_ms.count()).c_str(),
-                      errstr, sizeof(errstr));
-    rd_kafka_conf_set(conf, "batch.size",
-                      std::to_string(config_.producer_batch_size).c_str(),
-                      errstr, sizeof(errstr));
-    rd_kafka_conf_set(conf, "compression.type",
-                      config_.compression_type.c_str(),
-                      errstr, sizeof(errstr));
-    rd_kafka_conf_set(conf, "queue.buffering.max.messages",
-                      std::to_string(config_.queue_buffering_max_messages).c_str(),
-                      errstr, sizeof(errstr));
+    conf_set("linger.ms",
+             std::to_string(config_.producer_batch_ms.count()).c_str());
+    conf_set("batch.size",
+             std::to_string(config_.producer_batch_size).c_str());
+    conf_set("compression.type", config_.compression_type.c_str());
+    conf_set("queue.buffering.max.messages",
+             std::to_string(config_.queue_buffering_max_messages).c_str());
 
     // Delivery report callback
     rd_kafka_conf_set_dr_msg_cb(conf, &KafkaProducer::delivery_report_cb);
@@ -148,6 +149,7 @@ void KafkaProducer::delivery_report_cb(
 }
 
 rd_kafka_topic_t* KafkaProducer::get_or_create_topic(std::string_view topic) {
+    std::lock_guard lock(topic_mutex_);
     // Cache lookup
     for (auto& entry : topic_cache_) {
         if (entry.name == topic) return entry.rkt;

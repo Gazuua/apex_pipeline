@@ -40,14 +40,15 @@ TEST_F(KafkaSinkTest, SinkWithLogger) {
     auto sink = std::make_shared<KafkaSink>(*producer_, "test-logs");
     auto logger = std::make_shared<spdlog::logger>("test-kafka", sink);
 
-    // Log messages -- enqueued even without broker
+    auto before = producer_->total_produced() + producer_->outq_len();
+
     logger->info("test message {}", 42);
     logger->warn("warning message");
     logger->flush();
+    producer_->poll(100);
 
-    // Indirect verify that produce was called (outq_len or statistics)
-    // Without broker, delivery fails but enqueue succeeds
-    SUCCEED();
+    auto after = producer_->total_produced() + producer_->outq_len();
+    EXPECT_GT(after, before) << "KafkaSink should produce messages to Kafka";
 }
 
 TEST_F(KafkaSinkTest, SinkWithDifferentLevels) {
@@ -57,14 +58,19 @@ TEST_F(KafkaSinkTest, SinkWithDifferentLevels) {
     auto logger = std::make_shared<spdlog::logger>("level-test", sink);
     logger->set_level(spdlog::level::trace);
 
+    auto before = producer_->total_produced() + producer_->outq_len();
+
     logger->trace("trace msg");
     logger->debug("debug msg");
     logger->info("info msg");
     logger->warn("warn msg");
     logger->error("error msg");
     logger->critical("critical msg");
+    logger->flush();
+    producer_->poll(100);
 
-    SUCCEED();
+    auto after = producer_->total_produced() + producer_->outq_len();
+    EXPECT_GT(after, before) << "KafkaSink should produce messages for all log levels";
 }
 
 TEST_F(KafkaSinkTest, SinkHandlesSpecialCharacters) {
@@ -73,9 +79,14 @@ TEST_F(KafkaSinkTest, SinkHandlesSpecialCharacters) {
     auto sink = std::make_shared<KafkaSink>(*producer_, "test-logs");
     auto logger = std::make_shared<spdlog::logger>("escape-test", sink);
 
+    auto before = producer_->total_produced() + producer_->outq_len();
+
     // Characters that need JSON escaping
     logger->info("message with \"quotes\" and \\backslash");
     logger->info("newline\nand\ttab");
+    logger->flush();
+    producer_->poll(100);
 
-    SUCCEED();
+    auto after = producer_->total_produced() + producer_->outq_len();
+    EXPECT_GT(after, before) << "KafkaSink should handle special characters and produce messages";
 }

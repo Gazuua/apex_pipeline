@@ -79,7 +79,7 @@ services:
     ports:
       - "6432:6432"
     environment:
-      DATABASE_URL: postgres://apex:apex@postgres:5432/apex
+      DATABASE_URL: postgres://apex:${POSTGRES_PASSWORD:-apex}@postgres:5432/apex
     volumes:
       - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro

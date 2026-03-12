@@ -3,6 +3,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <boost/asio/redirect_error.hpp>
 #include <boost/asio/socket_base.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
@@ -152,17 +153,24 @@ boost::asio::awaitable<apex::core::Result<void>>
 PgConnection::poll_connect() {
     for (;;) {
         auto status = PQconnectPoll(conn_);
+        boost::system::error_code ec;
         switch (status) {
             case PGRES_POLLING_READING:
                 co_await socket_->async_wait(
                     boost::asio::socket_base::wait_read,
-                    boost::asio::use_awaitable);
+                    boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+                if (ec) {
+                    co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+                }
                 break;
 
             case PGRES_POLLING_WRITING:
                 co_await socket_->async_wait(
                     boost::asio::socket_base::wait_write,
-                    boost::asio::use_awaitable);
+                    boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+                if (ec) {
+                    co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+                }
                 break;
 
             case PGRES_POLLING_OK:
@@ -252,9 +260,13 @@ PgConnection::collect_result() {
 
     for (;;) {
         // Wait for data to be available
+        boost::system::error_code ec;
         co_await socket_->async_wait(
             boost::asio::socket_base::wait_read,
-            boost::asio::use_awaitable);
+            boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+        if (ec) {
+            co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+        }
 
         // Consume input from the socket
         if (PQconsumeInput(conn_) == 0) {

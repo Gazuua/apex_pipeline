@@ -119,3 +119,97 @@ TEST(ConnectionPool, CloseAllCleansUp) {
     EXPECT_EQ(pool.idle_count(), static_cast<size_t>(0));
     EXPECT_EQ(pool.total_count(), static_cast<size_t>(0));
 }
+
+// --- PoolStats tests ---
+
+TEST(ConnectionPool, PoolStatsAcquireRelease) {
+    FakePool pool({.min_size = 1, .max_size = 4});
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    pool.release(std::move(*c1));
+
+    const auto& stats = pool.stats();
+    EXPECT_EQ(stats.total_acquired, 1u);
+    EXPECT_EQ(stats.total_released, 1u);
+    EXPECT_EQ(stats.total_created, 1u);
+    EXPECT_EQ(stats.total_destroyed, 0u);
+    EXPECT_EQ(stats.total_failed, 0u);
+}
+
+TEST(ConnectionPool, PoolStatsExhaustedIncrementsFailCount) {
+    FakePool pool({.min_size = 0, .max_size = 1});
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    auto c2 = pool.acquire();
+    EXPECT_FALSE(c2.has_value());
+    EXPECT_EQ(pool.stats().total_failed, 1u);
+    pool.release(std::move(*c1));
+}
+
+TEST(ConnectionPool, PoolStatsDestroyOnInvalidValidation) {
+    FakePool pool({.min_size = 0, .max_size = 4});
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    c1->valid = false;
+    pool.release(std::move(*c1));
+
+    // acquire pulls from idle, validates, destroys invalid, creates new
+    auto c2 = pool.acquire();
+    ASSERT_TRUE(c2.has_value());
+
+    const auto& stats = pool.stats();
+    EXPECT_EQ(stats.total_created, 2u);
+    EXPECT_EQ(stats.total_destroyed, 1u);
+}
+
+TEST(ConnectionPool, PoolStatsMultipleAcquireReleaseCycles) {
+    FakePool pool({.min_size = 0, .max_size = 4});
+
+    // 3 acquire-release cycles
+    for (int i = 0; i < 3; ++i) {
+        auto c = pool.acquire();
+        ASSERT_TRUE(c.has_value());
+        pool.release(std::move(*c));
+    }
+
+    const auto& stats = pool.stats();
+    EXPECT_EQ(stats.total_acquired, 3u);
+    EXPECT_EQ(stats.total_released, 3u);
+    EXPECT_EQ(stats.total_created, 1u);  // reused from idle
+    EXPECT_EQ(stats.total_destroyed, 0u);
+    EXPECT_EQ(stats.total_failed, 0u);
+}
+
+// --- discard() tests ---
+
+TEST(ConnectionPool, DiscardDecrementsCounters) {
+    FakePool pool({.min_size = 0, .max_size = 4});
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    EXPECT_EQ(pool.active_count(), static_cast<size_t>(1));
+    EXPECT_EQ(pool.total_count(), static_cast<size_t>(1));
+
+    pool.discard(std::move(*c1));
+    EXPECT_EQ(pool.active_count(), static_cast<size_t>(0));
+    EXPECT_EQ(pool.total_count(), static_cast<size_t>(0));
+    EXPECT_EQ(pool.stats().total_destroyed, 1u);
+}
+
+TEST(ConnectionPool, DiscardAllowsNewAcquire) {
+    FakePool pool({.min_size = 0, .max_size = 1});
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+
+    // Pool exhausted
+    auto c2 = pool.acquire();
+    EXPECT_FALSE(c2.has_value());
+
+    // Discard frees the slot
+    pool.discard(std::move(*c1));
+
+    // Now acquire succeeds again
+    auto c3 = pool.acquire();
+    EXPECT_TRUE(c3.has_value());
+    EXPECT_EQ(pool.stats().total_destroyed, 1u);
+    EXPECT_EQ(pool.stats().total_created, 2u);
+}

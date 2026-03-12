@@ -18,7 +18,13 @@ KafkaConsumer::~KafkaConsumer() {
     if (rk_) {
         rd_kafka_consumer_close(rk_);
 #ifndef _WIN32
-        if (pipe_fds_[0] != -1) { close(pipe_fds_[0]); close(pipe_fds_[1]); }
+        // pipe_desc_ owns pipe_fds_[0] via assign() -- reset it first
+        // to close pipe_fds_[0] exactly once (stream_descriptor dtor).
+        pipe_desc_.reset();
+        // pipe_fds_[1] is NOT owned by stream_descriptor, close manually.
+        if (pipe_fds_[1] != -1) { ::close(pipe_fds_[1]); pipe_fds_[1] = -1; }
+        // pipe_fds_[0] already closed by stream_descriptor, just clear.
+        pipe_fds_[0] = -1;
 #endif
         if (rkqu_) rd_kafka_queue_destroy(rkqu_);
         rd_kafka_destroy(rk_);
@@ -30,19 +36,21 @@ apex::core::Result<void> KafkaConsumer::init() {
     char errstr[512];
     rd_kafka_conf_t* conf = rd_kafka_conf_new();
 
-    rd_kafka_conf_set(conf, "bootstrap.servers", config_.brokers.c_str(),
-                      errstr, sizeof(errstr));
-    rd_kafka_conf_set(conf, "group.id", config_.consumer_group.c_str(),
-                      errstr, sizeof(errstr));
-    rd_kafka_conf_set(conf, "client.id",
-                      (config_.client_id + "-consumer-" + std::to_string(core_id_)).c_str(),
-                      errstr, sizeof(errstr));
+    // Helper: set config with warning on failure
+    auto conf_set = [&](const char* key, const char* val) {
+        if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, val, errstr);
+        }
+    };
+
+    conf_set("bootstrap.servers", config_.brokers.c_str());
+    conf_set("group.id", config_.consumer_group.c_str());
+    conf_set("client.id",
+             (config_.client_id + "-consumer-" + std::to_string(core_id_)).c_str());
     // auto.offset.reset = earliest (for new consumer groups)
-    rd_kafka_conf_set(conf, "auto.offset.reset", "earliest",
-                      errstr, sizeof(errstr));
+    conf_set("auto.offset.reset", "earliest");
     // enable.auto.commit = true (default, kept for convenience)
-    rd_kafka_conf_set(conf, "enable.auto.commit", "true",
-                      errstr, sizeof(errstr));
+    conf_set("enable.auto.commit", "true");
 
     rk_ = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk_) {

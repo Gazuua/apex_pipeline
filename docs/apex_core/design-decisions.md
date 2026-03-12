@@ -36,7 +36,7 @@
 ### 비동기 I/O 통합 (모든 I/O를 Asio 이벤트 루프 위에)
 - TCP/WebSocket: Boost.Asio 네이티브
 - Kafka: librdkafka fd를 Asio에 등록 (io_event_enable)
-- Redis: redis-plus-plus async (Asio 백엔드)
+- Redis: hiredis fd를 Asio에 직접 등록 (HiredisAsioAdapter 자체 구현)
 - PostgreSQL: libpq fd를 Asio에 등록 (PQsocket)
 - 프레임워크는 어댑터를 제공하되 통신 경로를 강제하지 않음
 
@@ -184,7 +184,7 @@
 - 서비스들은 CMake find_package(ApexCore)로 의존
 
 ### Graceful Shutdown
-- SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 서비스 정지 → 종료
+- SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → 어댑터 drain(새 요청 거부, is_ready=false) → 서비스 on_stop() → CoreEngine stop → CoreEngine join → drain_remaining(잔여 MPSC 메시지 소비) → 어댑터 close(Kafka flush, Redis/PG 풀 close_all) → shutdown_logging → 종료
 - drain 타임아웃: 설정 가능, 기본값 25초 (K8s 30초 대비 5초 여유) (v0.2.0.0에서 구현)
 
 ### 세션 관리
@@ -260,7 +260,7 @@
 - 내부 의존: Kafka 어댑터 → KafkaSink
 
 **v0.4.2~4.0: 데이터 체인 (v0.4.1과 병렬 가능)**
-- Redis 어댑터: redis-plus-plus async (Asio 백엔드)
+- Redis 어댑터: hiredis Asio 직접 통합 (HiredisAsioAdapter 자체 구현)
 - PG 어댑터: libpq fd → Asio 등록, 비동기 쿼리 래퍼
 - Connection Pool: 공통 풀 추상화, 코어별 인스턴스 (shared-nothing), health check
 - 내부 의존: Redis ∥ PG → Connection Pool

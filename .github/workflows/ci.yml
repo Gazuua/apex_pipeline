@@ -107,7 +107,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: apex_core/vcpkg_installed
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'apex_core/vcpkg.json') }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'apex_core/vcpkg.json', 'apex_shared/vcpkg.json') }}
 
       - name: Setup Ninja
         if: ${{ !matrix.container }}

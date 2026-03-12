@@ -58,3 +58,25 @@ TEST(AdapterWrapper, TypeErasureWorks) {
     EXPECT_EQ(iface->name(), "mock");
     EXPECT_FALSE(iface->is_ready());
 }
+
+TEST(AdapterWrapper, LifecycleDelegation) {
+    auto wrapper = std::make_unique<AdapterWrapper<MockAdapter>>();
+    apex::core::AdapterInterface* iface = wrapper.get();
+    auto& mock = wrapper->get();
+
+    // init delegation
+    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngine engine(config);
+    iface->init(engine);
+    EXPECT_TRUE(mock.init_called);
+    EXPECT_TRUE(iface->is_ready());
+
+    // drain delegation
+    iface->drain();
+    EXPECT_TRUE(mock.drain_called);
+    EXPECT_FALSE(iface->is_ready());
+
+    // close delegation
+    iface->close();
+    EXPECT_TRUE(mock.close_called);
+}

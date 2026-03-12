@@ -255,17 +255,20 @@ void Server::finalize_shutdown() {
         }
     }
 
-    // 3. Adapter close (flush + 커넥션 정리)
-    for (auto& adapter : adapters_) {
-        adapter->close();
-    }
-
-    // 4. CoreEngine stop + join + drain
+    // 3. CoreEngine stop + join + drain
     // Order matters: stop() signals threads, join() waits for exit,
     // drain_remaining() cleans up leftover MPSC messages.
+    // CoreEngine must stop before adapter close -- pending completion handlers
+    // on core threads may reference adapter resources (e.g. KafkaConsumer).
     core_engine_->stop();
     core_engine_->join();
     core_engine_->drain_remaining();
+
+    // 4. Adapter close (flush + 커넥션 정리)
+    // Safe now: all core threads have exited, no pending handlers.
+    for (auto& adapter : adapters_) {
+        adapter->close();
+    }
 
     // Finally stop control_io_ (causes run() to return)
     control_io_.stop();

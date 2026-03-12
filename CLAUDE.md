@@ -21,7 +21,9 @@ D:\.workspace/
 │   ├── apex_common/      ← 공통 (plans/progress/review)
 │   └── apex_core/ apex_infra/ apex_shared/ apex_tools/
 ├── apex_services/      ← MSA 서비스
-├── apex_shared/        ← FlatBuffers 스키마 + 공유 C++ 라이브러리 (apex::shared)
+├── apex_shared/        ← 공유 C++ 라이브러리 + 외부 어댑터
+│   ├── lib/adapters/     ← 외부 어댑터 (common, kafka, redis, pg)
+│   └── tests/            ← unit/ + integration/ 테스트
 ├── apex_infra/         ← Docker, K8s 인프라 (Kafka/Redis/PG + Prometheus/Grafana)
 │   └── docker/ci.Dockerfile  ← CI + 로컬 Linux 빌드 겸용 Docker 이미지
 └── apex_tools/         ← CLI, 스크립트, git-hooks
@@ -39,7 +41,7 @@ D:\.workspace/
 - **빌드 변형**: `APEX_BUILD_VARIANT` = release / debug / asan / tsan
 - **출력**: `apex_core/bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`, `bin/release/bench_mpsc_queue.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
+- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, hiredis, libpq, librdkafka, redis-plus-plus, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
 
 ### MSVC 주의사항
 
@@ -58,7 +60,7 @@ D:\.workspace/
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 대=도메인 전환, 중=마일스톤, 소=수정/리뷰
-- **현재**: v0.3.0.0 (코어 성능 완성)
+- **현재**: v0.4.4.0 (외부 어댑터 완료)
 - **다음**: v0.4 (외부 어댑터) → v0.5 (서비스 체인) → v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - **v1.0.0.0 이후**: v1.1+ (게임 레퍼런스 — 게임 서비스 + Android 클라이언트 + AWS)
 - 상세: `docs/Apex_Pipeline.md` §10

@@ -3,6 +3,7 @@
   "name": "apex-shared",
   "version-semver": "0.4.0",
   "description": "Apex Shared — Adapters and shared utilities",
+  "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01",
   "dependencies": [
     "librdkafka",
     "hiredis",

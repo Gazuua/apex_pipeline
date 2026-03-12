@@ -7,6 +7,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -93,6 +94,7 @@ private:
         rd_kafka_topic_t* rkt = nullptr;
     };
     std::vector<TopicEntry> topic_cache_;
+    mutable std::mutex topic_mutex_;                    ///< Protects topic_cache_
 
     // Statistics (atomic -- concurrent produce from multiple cores)
     std::atomic<uint64_t> total_produced_{0};

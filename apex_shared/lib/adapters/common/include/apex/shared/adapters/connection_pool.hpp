@@ -68,6 +68,13 @@ public:
         // 새 커넥션 생성 (한도 내)
         if (total_count_ < config_.max_size) {
             auto conn = derived().do_create_connection();
+            // Null check for pointer-like Connection types (e.g. unique_ptr)
+            if constexpr (requires { !conn; }) {
+                if (!conn) {
+                    ++stats_.total_failed;
+                    return std::unexpected(apex::core::ErrorCode::AdapterError);
+                }
+            }
             ++total_count_;
             ++active_count_;
             ++stats_.total_created;
@@ -83,6 +90,14 @@ public:
         --active_count_;
         ++stats_.total_released;
         idle_.push_back({std::move(conn), std::chrono::steady_clock::now()});
+    }
+
+    /// 커넥션 폐기 (풀에 반환하지 않고 카운트 감소)
+    void discard(Connection conn) {
+        derived().do_destroy_connection(conn);
+        --active_count_;
+        --total_count_;
+        ++stats_.total_destroyed;
     }
 
     /// 유휴 커넥션 폐기 (max_idle_time 초과)

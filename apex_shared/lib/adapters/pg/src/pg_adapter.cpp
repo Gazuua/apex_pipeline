@@ -25,8 +25,16 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine) {
             engine.io_context(i), config_));
     }
 
+    // Mask password in connection string for logging
+    auto masked = config_.connection_string;
+    auto pos = masked.find("password=");
+    if (pos != std::string::npos) {
+        auto end = masked.find(' ', pos);
+        if (end == std::string::npos) end = masked.size();
+        masked.replace(pos, end - pos, "password=***");
+    }
     spdlog::info("PgAdapter initialized: {} cores, conninfo={}",
-                  engine.core_count(), config_.connection_string);
+                  engine.core_count(), masked);
 }
 
 void PgAdapter::do_drain() {
