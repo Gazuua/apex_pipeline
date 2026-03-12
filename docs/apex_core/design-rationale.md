@@ -283,6 +283,10 @@ apex-pipeline/
 4. "원칙을 알되 현실적 예외를 인지한다"는 설계 태도가 포트폴리오에서 좋은 메시지
 5. 싱글톤 패턴 대신 프레임워크 초기화 시 생성 후 참조 전달 (테스트 용이성)
 
+### v0.4 구현 후 업데이트
+- **Producer**: SPSC 큐 불필요로 확정. `rd_kafka_produce()`가 스레드세이프하므로 코어에서 직접 호출. librdkafka 내부 큐가 linger.ms/batch.size 기반 배치 처리를 담당한다. delivery callback은 librdkafka 내부 스레드에서 실행되므로 atomic 카운터로 결과 추적.
+- **Consumer Asio 통합**: Linux는 `rd_kafka_queue_io_event_enable()` → pipe fd → Asio `stream_descriptor` → 이벤트 드리븐. Windows는 `steady_timer` 기반 5ms 주기 폴링 (io_event_enable이 Linux 전용).
+
 ### 설정 리로드 보완 (ADR-02 후속)
 - 전체 설정 hot-reload는 YAGNI
 - **로그 레벨만 SIGHUP으로 런타임 변경 가능** (spdlog set_level() 활용)

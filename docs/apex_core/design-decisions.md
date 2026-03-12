@@ -43,10 +43,12 @@
 ### Kafka와 shared-nothing 원칙
 - Kafka는 shared-nothing의 **현실적 예외**
 - **KafkaProducer**: 전역 공유 인스턴스 1개 (librdkafka 내부가 이미 스레드세이프, 브로커별 커넥션 자동 관리)
-  - 각 코어 → SPSC 큐 → 공유 Producer로 전달
+  - `rd_kafka_produce()` 직접 호출 — SPSC 큐 불필요 (librdkafka 내부 큐가 배치 처리 담당)
   - 싱글톤 패턴 아닌, 프레임워크 초기화 시 생성 후 참조 전달 (테스트 용이성)
+  - delivery callback → atomic 카운터로 결과 추적 (콜백은 librdkafka 내부 스레드에서 실행)
 - **KafkaConsumer**: 파티션:코어 매핑으로 자연스럽게 분리
   - Kafka consumer group이 파티션을 코어에 자동 분배
+  - Asio 통합: Linux → `io_event_enable()` pipe fd, Windows → `steady_timer` 폴링 (5ms)
 - DB와 달리 Proxy/커넥션 풀 불필요 (Kafka 커넥션은 영속 TCP, 브로커 수에 비례하는 고정 수량)
 
 ### DBMS
