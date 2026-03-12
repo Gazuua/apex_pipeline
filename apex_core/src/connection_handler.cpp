@@ -36,7 +36,12 @@ void ConnectionHandler::accept_connection(
 }
 
 boost::asio::awaitable<void> ConnectionHandler::read_loop(SessionPtr session) {
+    struct ActiveSessionGuard {
+        std::atomic<uint32_t>& counter;
+        ~ActiveSessionGuard() { counter.fetch_sub(1, std::memory_order_release); }
+    };
     active_sessions_.fetch_add(1, std::memory_order_relaxed);
+    ActiveSessionGuard guard{active_sessions_};
 
     while (session->is_open()) {
         auto& rb = session->recv_buffer();
@@ -59,7 +64,6 @@ boost::asio::awaitable<void> ConnectionHandler::read_loop(SessionPtr session) {
     }
 
     session_mgr_.remove_session(session->id());
-    active_sessions_.fetch_sub(1, std::memory_order_release);
 }
 
 boost::asio::awaitable<void> ConnectionHandler::process_frames(SessionPtr session) {

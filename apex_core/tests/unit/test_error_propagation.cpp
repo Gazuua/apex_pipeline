@@ -6,6 +6,7 @@
 #include <generated/error_response_generated.h>
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
+#include <sstream>
 
 using namespace apex::core;
 
@@ -81,6 +82,12 @@ TEST(Result, SendFailedError) {
     Result<void> r = error(ErrorCode::SendFailed);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), ErrorCode::SendFailed);
+}
+
+TEST(ErrorCode, StreamOperator) {
+    std::ostringstream oss;
+    oss << ErrorCode::Timeout;
+    EXPECT_EQ(oss.str(), "Timeout");
 }
 
 TEST(ErrorSender, BuildErrorFrameNoMessage) {

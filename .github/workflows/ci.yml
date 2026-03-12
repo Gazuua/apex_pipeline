@@ -1,5 +1,7 @@
 name: CI
 
+permissions: {}
+
 on:
   push:
     branches: [main]
@@ -16,6 +18,8 @@ concurrency:
 jobs:
   # ── Path filter (Docker / Source 변경 감지) ────
   changes:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     outputs:
       docker: ${{ steps.filter.outputs.docker }}
@@ -53,6 +57,8 @@ jobs:
 
   # ── Source build & test ──────────────────────────
   build:
+    permissions:
+      contents: read
     needs: [changes, build-image]
     if: >-
       always() &&
@@ -128,6 +134,8 @@ jobs:
 
   # ── Root build integrity check ───────────────────
   build-root:
+    permissions:
+      contents: read
     needs: [changes, build-image]
     if: >-
       always() &&

@@ -50,7 +50,7 @@ build.bat release  # 릴리스 빌드
 
 benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus
 
-> 향후 추가 예정: librdkafka + KafkaSink (v0.4.1), redis-plus-plus (v0.4.2), libpq (v0.4.3), prometheus-cpp (v0.6.1), jwt-cpp (v0.5.3), boost-beast (v0.5.1)
+> 향후 추가 예정: librdkafka + KafkaSink (v0.4.1), redis-plus-plus (v0.4.2), libpq (v0.4.3), prometheus-cpp (v0.6.1), jwt-cpp (v0.5.3), boost-beast (v0.5.1.0)
 
 ## 문서
 
