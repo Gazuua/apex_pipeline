@@ -4,8 +4,8 @@ find_package(redis++ CONFIG REQUIRED)
 
 add_library(apex_shared_adapters_redis STATIC
     src/redis_config.cpp
-    # src/hiredis_asio_adapter.cpp   # Task 2
-    # src/redis_connection.cpp       # Task 2
+    src/hiredis_asio_adapter.cpp
+    src/redis_connection.cpp
     # src/redis_pool.cpp             # Task 3
     # src/redis_adapter.cpp          # Task 4
 )
