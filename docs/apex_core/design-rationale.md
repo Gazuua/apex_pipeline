@@ -471,13 +471,13 @@ apex-pipeline/
 - C++ 비동기 코드의 가장 흔한 크래시 원인
 - 서비스 개발자에게 수명 관리를 맡기면 100% 버그 발생
 
-### 결정: 프레임워크가 shared_ptr로 세션 수명 강제 관리
+### 결정: 프레임워크가 intrusive_ptr로 세션 수명 강제 관리
 
 ### 근거
-1. 코루틴이 shared_ptr<Session>을 캡처 → co_await 중에도 세션 유지
+1. 코루틴이 intrusive_ptr<Session>을 캡처 → co_await 중에도 세션 유지
 2. 이미 끊긴 세션에 send 시 graceful 무시 (크래시 방지)
 3. 서비스 개발자가 수명을 의식할 필요 없음 — 프레임워크의 존재 이유
-4. enable_shared_from_this + co_spawn 패턴으로 구현
+4. intrusive_ptr + co_spawn 패턴으로 구현 (non-atomic refcount, per-core 단일 스레드 보장)
 
 ---
 
