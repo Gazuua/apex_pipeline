@@ -74,7 +74,7 @@
 ### 메시지 디스패치
 - **route<T> 기반 하이브리드 디스패치**
   - 등록: `route<LoginRequest>(MsgId::Login, &MyService::on_login)`
-  - 내부: boost::unordered_flat_map 기반 O(1) 해시 조회 (기존 std::array<Handler, 65536>에서 전환)
+  - 내부: boost::unordered_flat_map<uint16_t, Handler> O(1) 해시 조회 (기존 std::array<Handler, 65536>에서 전환)
   - 핸들러 시그니처에서 FlatBuffers 타입 강제 (타입 안전)
   - msg_id와 FlatBuffers 타입 불일치 시 컴파일 에러
 

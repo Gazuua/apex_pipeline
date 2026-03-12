@@ -68,7 +68,8 @@
         "rhs": "Linux"
       },
       "cacheVariables": {
-        "APEX_USE_IO_URING": "ON"
+        "APEX_USE_IO_URING": "ON",
+        "APEX_BUILD_VARIANT": "iouring"
       }
     }
   ],
