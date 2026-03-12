@@ -74,7 +74,7 @@
 ### 메시지 디스패치
 - **route<T> 기반 하이브리드 디스패치**
   - 등록: `route<LoginRequest>(MsgId::Login, &MyService::on_login)`
-  - 내부: std::array<Handler, 65536> 인덱스 직접 접근 O(1)
+  - 내부: boost::unordered_flat_map 기반 O(1) 해시 조회 (기존 std::array<Handler, 65536>에서 전환)
   - 핸들러 시그니처에서 FlatBuffers 타입 강제 (타입 안전)
   - msg_id와 FlatBuffers 타입 불일치 시 컴파일 에러
 
@@ -89,7 +89,7 @@
   - 핸들러가 에러를 리턴했는데 응답을 안 보냈으면 자동 ErrorResponse 생성
 
 ### 코루틴 + 세션 수명 안전
-- **세션을 shared_ptr로 관리**, 코루틴이 shared_ptr을 캡처하여 수명 보장
+- **세션을 intrusive_ptr로 관리** (non-atomic refcount, per-core 단일 스레드 보장), 코루틴이 intrusive_ptr을 캡처하여 수명 보장
 - co_await 중 클라이언트 연결 끊김 → 세션 객체는 코루틴 종료까지 유지
 - 이미 끊긴 세션에 send 시 graceful하게 무시 (크래시 방지)
 - 프레임워크가 강제 — 서비스 개발자가 수명 관리를 신경 쓸 필요 없음
@@ -142,7 +142,7 @@
 
 ### 형상 관리
 - **GitHub Flow** (main + feature 브랜치, PR 기반 머지)
-- **Semantic Versioning** 태깅 (v0.1.0, v0.2.0, ... v1.0.0)
+- **4자리 버전 체계** 태깅 (`v[메이저].[대].[중].[소]` — v0.1.0.0, v0.2.0.0, ... v1.0.0.0)
 - PR 단위로 작업 기록 → 포트폴리오 가치 + 나중에 협업 확장 가능
 - GitHub Actions CI: PR마다 자동 빌드/테스트
 
