@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.3.0.0
+## 현재 상태 — v0.4.4.0
 
 ### 완료
 
@@ -30,9 +30,17 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Tier 2.5: 벤치마크 시각화 (matplotlib) + PDF 보고서 (ReportLab) 파이프라인
   - Tier 3: Server/ConnectionHandler 분리, SO_REUSEPORT per-core acceptor, io_uring CMake 옵션, SlabPool auto-grow
 
+- **v0.4 — 외부 어댑터** (PR #15 merged)
+  - 공통 추상화: AdapterBase CRTP + ConnectionPool CRTP + AdapterInterface 타입 소거
+  - Kafka 어댑터: librdkafka Producer/Consumer + Asio 통합 + KafkaSink (spdlog → Kafka)
+  - Redis 어댑터: hiredis fd → Asio 직접 등록 (HiredisAsioAdapter) + 코루틴 브릿지
+  - PostgreSQL 어댑터: libpq async → Asio + PgPool lazy connect + PgBouncer 전제
+  - Server 통합: add_adapter API + Graceful Shutdown 순서 보장
+  - 통합 테스트 인프라: docker-compose (Kafka/Redis/PG/PgBouncer) + CMake option
+  - 41 단위 테스트 + 4 통합 테스트, Auto-review 3 rounds Clean
+
 ### 다음
 
-- **v0.4 — 외부 어댑터** (Kafka + Redis + PostgreSQL + Connection Pool)
 - **v0.5 — 서비스 체인** (WebSocket + Gateway + Auth + E2E)
 - **v0.6 — 운영 인프라** (Prometheus + Docker + K8s + CI/CD)
 - **v1.0.0.0 — 프레임워크 완성**
