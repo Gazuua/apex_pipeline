@@ -7,14 +7,7 @@ WORKSPACE="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 echo "=== Project Context (auto-injected) ==="
 
-# 1. README.md
-if [ -f "${WORKSPACE}/README.md" ]; then
-  echo ""
-  echo "--- README.md ---"
-  cat "${WORKSPACE}/README.md"
-fi
-
-# 2. Git 상태 요약
+# Git 상태 요약
 echo ""
 echo "--- Git Status ---"
 cd "${WORKSPACE}"
