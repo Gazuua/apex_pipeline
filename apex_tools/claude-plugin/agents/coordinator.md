@@ -83,6 +83,7 @@ reviewer_count: 11
 - diff 내용 또는 diff 참조
 - 리뷰 모드 (task/full)
 - find-and-fix 프로토콜 상기
+- **자율 판단 권한 부여** — 리뷰어는 자신의 도메인 내에서 find-and-fix 판단을 자율적으로 수행한다. 규칙과 가이드라인 범위 내에서 수정이 필요하다고 판단하면 확인 요청 없이 직접 수정한다. 잘못된 판단은 다음 라운드 리뷰에서 교정되므로 눈치 보지 않는다.
 - 작업 완료 후 SendMessage로 coordinator에게 finding 보고 지시
 
 > **참고**: 리뷰어들은 메인이 coordinator와 함께 같은 팀에 스폰한 teammate이다. coordinator는 스폰 권한이 없으며, 이미 등록된 리뷰어에게 SendMessage로 관리만 수행한다.
