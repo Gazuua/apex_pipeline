@@ -1,5 +1,6 @@
 #include <apex/shared/adapters/pg/pg_result.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
+#include <apex/core/bump_allocator.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <gtest/gtest.h>
@@ -113,4 +114,63 @@ TEST(PgConnection, DestructorHandlesCleanup) {
         // Destructor should call close() safely
     }
     // No crash = pass
+}
+
+// =============================================================================
+// Poisoned state tests
+// =============================================================================
+
+TEST(PgConnection, MarkPoisoned) {
+    boost::asio::io_context io_ctx;
+    PgConnection conn(io_ctx);
+    EXPECT_FALSE(conn.is_poisoned());
+    conn.mark_poisoned();
+    EXPECT_TRUE(conn.is_poisoned());
+}
+
+TEST(PgConnection, PoisonedStateNotSetByDefault) {
+    boost::asio::io_context io_ctx;
+    PgConnection conn(io_ctx);
+    EXPECT_FALSE(conn.is_poisoned());
+}
+
+// =============================================================================
+// BumpAllocator injection tests
+// =============================================================================
+
+TEST(PgConnection, ConstructWithBumpAllocator) {
+    boost::asio::io_context io_ctx;
+    apex::core::BumpAllocator alloc(4096);
+    PgConnection conn(io_ctx, &alloc);
+    // Construction should succeed without crash
+    EXPECT_FALSE(conn.is_connected());
+}
+
+TEST(PgConnection, ConstructWithNullAllocator) {
+    boost::asio::io_context io_ctx;
+    PgConnection conn(io_ctx, nullptr);
+    // Equivalent to default constructor
+    EXPECT_FALSE(conn.is_connected());
+}
+
+TEST(PgConnection, MovePreservesPoisonedState) {
+    boost::asio::io_context io_ctx;
+    PgConnection conn1(io_ctx);
+    conn1.mark_poisoned();
+    EXPECT_TRUE(conn1.is_poisoned());
+
+    PgConnection conn2(std::move(conn1));
+    EXPECT_TRUE(conn2.is_poisoned());
+}
+
+TEST(PgConnection, MoveAssignmentPreservesPoisonedState) {
+    boost::asio::io_context io_ctx;
+    PgConnection conn1(io_ctx);
+    conn1.mark_poisoned();
+
+    PgConnection conn2(io_ctx);
+    EXPECT_FALSE(conn2.is_poisoned());
+
+    conn2 = std::move(conn1);
+    EXPECT_TRUE(conn2.is_poisoned());
 }
