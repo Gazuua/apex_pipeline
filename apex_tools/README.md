@@ -27,7 +27,7 @@ Claude가 매 세션마다 별도 질문 없이 프로젝트 현황을 파악한
 
 ## Auto-Review 플러그인
 
-멀티에이전트 자동 리뷰 플러그인. 5개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
+멀티에이전트 자동 리뷰 플러그인. 11개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
 
 ### 셋업
 
@@ -50,11 +50,17 @@ bash apex_tools/setup-claude-plugin.sh
 
 | 에이전트 | 담당 |
 |---------|------|
-| `reviewer-docs` | 문서 정합성 (마스터 설계서, README, MEMORY) |
-| `reviewer-structure` | 구조/구현 정합성 (디렉토리, CMake, 모듈 경계) |
-| `reviewer-code` | 코드 품질 (버그, 보안, 성능, 설계 패턴) |
-| `reviewer-test` | 테스트 (커버리지, 엣지 케이스, 격리, assertion) |
-| `reviewer-general` | 기타 (빌드, CI/CD, 의존성, 라이선싱) |
+| `reviewer-docs-spec` | 원천 문서 정합성 (설계서/README/CLAUDE.md 간 버전/용어/로드맵 일치) |
+| `reviewer-docs-records` | 기록 문서 형식/완결성 (plans/progress/review) |
+| `reviewer-architecture` | 설계서 ↔ 코드 정합 (아키텍처 패턴, 모듈 경계) |
+| `reviewer-logic` | 비즈니스 로직/알고리즘 정확성 |
+| `reviewer-memory` | 메모리 관리 (할당기, 수명, 해제) |
+| `reviewer-concurrency` | 동시성/스레드 안전성 (락프리, 코루틴, MPSC) |
+| `reviewer-api` | API 설계/일관성 (인터페이스, CRTP, concept) |
+| `reviewer-test-coverage` | 테스트 커버리지 (누락 경로, 경계 조건) |
+| `reviewer-test-quality` | 테스트 품질 (격리, assertion, 안정성) |
+| `reviewer-infra` | 인프라/빌드 (CMake, Docker, CI/CD, vcpkg) |
+| `reviewer-security` | 보안 (입력 검증, 인증, 주입, 정보 노출) |
 
 ### 플러그인 구조
 
@@ -63,11 +69,12 @@ apex_tools/
 ├── .claude-plugin/marketplace.json       ← 로컬 마켓플레이스
 ├── setup-claude-plugin.sh                ← 자동 셋업 스크립트
 ├── session-context.sh                    ← 세션 컨텍스트 자동 주입
+├── auto-review/config.md                 ← auto-review 설정
 └── claude-plugin/
-    ├── .claude-plugin/plugin.json        ← 플러그인 매니페스트
     ├── commands/auto-review.md           ← 오케스트레이터
     └── agents/
-        └── reviewer-{docs,structure,code,test,general}.md
+        ├── coordinator.md                ← 리뷰 코디네이터
+        └── reviewer-{docs-spec,docs-records,architecture,...}.md
 ```
 
 ## 기타

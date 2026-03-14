@@ -15,6 +15,7 @@
 | Kafka (KRaft) | apache/kafka | 9092 | 기본 |
 | Redis | redis:7-alpine | 6379 | 기본 |
 | PostgreSQL | postgres:16-alpine | 5432 | 기본 |
+| PgBouncer | bitnami/pgbouncer | 6432 | 기본 |
 | Prometheus | prom/prometheus | 9090 | observability |
 | Grafana | grafana/grafana | 3000 | observability |
 

@@ -46,13 +46,11 @@ build.bat release  # 릴리스 빌드
 
 출력: `bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`)
 
-## 의존성 (현재 사용 중)
+## 의존성
 
-benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus
+**현재 사용 중**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, hiredis, libpq, librdkafka, redis-plus-plus, spdlog, tomlplusplus
 
-> 현재 추가됨: hiredis, libpq, librdkafka, redis-plus-plus
->
-> 향후 추가 예정: boost-beast (v0.5.1.0), prometheus-cpp (v0.6.1), jwt-cpp (v0.5.3)
+**향후 추가 예정**: boost-beast (v0.5.1.0), prometheus-cpp (v0.6.1.0), jwt-cpp (v0.5.3.0)
 
 ## 문서
 

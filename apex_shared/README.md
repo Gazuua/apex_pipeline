@@ -8,6 +8,12 @@
 - `lib/` — 공유 C++ 코드 (STATIC 라이브러리)
   - `include/apex/shared/` — 공유 헤더
   - `src/` — 구현
+  - `adapters/` — 외부 어댑터 라이브러리 (apex::shared::adapters)
+    - `common/` — AdapterBase CRTP, PoolLike concept, PoolStats/PoolConfig
+    - `kafka/` — KafkaProducer, KafkaConsumer, KafkaAdapter, KafkaSink
+    - `redis/` — RedisConnection, RedisMultiplexer, RedisAdapter, HiredisAsioAdapter, RedisReply
+    - `pg/` — PgConnection, PgResult, PgPool, PgAdapter, PgTransaction
+- `tests/` — unit/ + integration/ (docker-compose 기반)
 
 ## FlatBuffers 네임스페이스 규칙
 
