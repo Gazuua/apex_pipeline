@@ -20,6 +20,13 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 빌드 실패가 코드 문제가 아닌 환경 문제로 의심되면, 메인 워크스페이스(`D:\.workspace`)에서 검증 권장
 - 상세 (의존성, MSVC 주의사항, 빌드 변형) → `apex_core/CLAUDE.md`
 
+## clangd
+
+- **clangd가 Claude Code에 LSP로 연결**되어 있음 — 별도 에디터 없음
+- `.clangd` 설정이 MSVC 플래그를 clang 호환으로 변환 (Remove + Add)
+- `compile_commands.json`은 `build.bat`이 빌드 후 루트로 복사
+- vcpkg 인클루드 경로: `-external:I` → Remove로 제거되므로 `.clangd` Add에 `-I`로 재추가 필수
+
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
