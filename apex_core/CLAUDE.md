@@ -12,6 +12,10 @@
 - **빌드 변형**: `APEX_BUILD_VARIANT` = release / debug / asan / tsan
 - **출력**: `apex_core/bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`, `bin/release/bench_mpsc_queue.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
+- **워크트리 빌드 주의사항**:
+  - `build.bat`은 `%~dp0` 기반이라 워크트리에서도 스크립트 경로 자체는 정상 동작
+  - `vswhere.exe` 실행이 워크트리 환경에서 실패할 수 있음 → 스크립트 내 fallback 경로(`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"`) 사용
+  - fallback 경로에도 `vswhere.exe`가 없으면 빌드 불가 — 메인 워크스페이스에서 빌드 검증 필요
 - **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, hiredis, libpq, librdkafka, redis-plus-plus, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
 
 ## MSVC 주의사항
