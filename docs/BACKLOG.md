@@ -27,6 +27,19 @@
 - [ ] **CI에서 Windows apex_shared 어댑터 빌드 미검증** — CI가 apex_core만 빌드, apex_shared 어댑터는 Windows에서 미커버 — 출처: review/20260314_140000_auto-review.md (v0.5+)
 - [ ] **pgbouncer md5 auth** — 로컬 개발 환경 인증 방식 개선 필요 — 출처: review/20260314_140000_auto-review.md (v0.5+)
 
+## 어댑터 회복력 (E-2) — v0.5.2 Gateway 마일스톤
+
+### 현재 상태: 최소 구현 (init 실패 throw)
+
+### TODO (v0.5.2)
+- [ ] 공통 retry with exponential backoff 레이어
+- [ ] Circuit Breaker 패턴 (연속 실패 시 빠른 실패 반환)
+- [ ] Dead Letter Queue (Kafka Consumer 처리 실패 메시지)
+- [ ] Redis AUTH 구현
+
+### 관련 설계서
+- Apex_Pipeline.md §5 안정성 설계
+
 ## Low / Info
 
 - [ ] **design-decisions ADR-04 초기 디렉토리 구조 stale** — 모노레포 전환 이후 ADR-04 내용이 현재 구조와 불일치 — 출처: review/20260314_140000_auto-review.md
