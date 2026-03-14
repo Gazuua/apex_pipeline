@@ -81,8 +81,15 @@ std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
 
     // source location (if available)
     if (!msg.source.empty()) {
-        oss << ",\"file\":\"" << msg.source.filename << "\""
-            << ",\"line\":" << msg.source.line;
+        oss << ",\"file\":\"";
+        // JSON-escape filename (Windows paths contain backslashes)
+        std::string_view filename_sv(msg.source.filename);
+        for (char fc : filename_sv) {
+            if (fc == '\\') oss << "\\\\";
+            else if (fc == '"') oss << "\\\"";
+            else oss << fc;
+        }
+        oss << "\",\"line\":" << msg.source.line;
     }
 
     // trace_id: extract from spdlog MDC (thread-local storage)

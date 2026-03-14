@@ -62,7 +62,7 @@
 
 ### S-1: auth-svc 네임스페이스 통일 -- PARTIAL (새 이슈 발생)
 
-**파일:** `docs/apex_common/plans/20260307_174528_directory-structure-design.md` (line 55, 62, 65)
+**파일:** `docs/apex_common/plans/20260307_175218_directory-structure-design.md` (line 55, 62, 65)
 
 네임스페이스 갱신 자체는 올바르게 수행되었다:
 - `include/apex/auth/` -> `include/apex/auth_svc/` (OK)
@@ -88,7 +88,7 @@ auth-svc만 `|   |   |   +--` (pipe 3개)로 되어 있고, gateway/chat-svc는 
 
 ### S-2: k8s/log-svc/ 설계 문서 추가 -- PASS
 
-**파일:** `docs/apex_common/plans/20260307_174528_directory-structure-design.md` (line 85)
+**파일:** `docs/apex_common/plans/20260307_175218_directory-structure-design.md` (line 85)
 
 ```
 |       +-- gateway/
@@ -103,7 +103,7 @@ auth-svc만 `|   |   |   +--` (pipe 3개)로 되어 있고, gateway/chat-svc는 
 
 ### S-3: 완료 보고서 커밋 해시 보완 -- PASS
 
-**파일:** `docs/apex_common/progress/20260307_192555_docs-path-update-and-scaffolding.md` (line 4)
+**파일:** `docs/apex_common/progress/20260307_192618_docs-path-update-and-scaffolding.md` (line 4)
 
 수정 전:
 ```
@@ -129,7 +129,7 @@ auth-svc만 `|   |   |   +--` (pipe 3개)로 되어 있고, gateway/chat-svc는 
 
 ### N-1: auth-svc include 라인 트리 들여쓰기 오류 [Suggestion]
 
-**파일:** `docs/apex_common/plans/20260307_174528_directory-structure-design.md` (line 55)
+**파일:** `docs/apex_common/plans/20260307_175218_directory-structure-design.md` (line 55)
 
 **현재 (잘못됨):**
 ```

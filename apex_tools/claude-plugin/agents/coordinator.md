@@ -99,8 +99,11 @@ reviewer_count: 11
 
 ### Step 5: finding 취합
 
-리뷰어들의 finding 메시지를 수집:
-- **[수정됨]**: 수정 완료 건 -- 기록만
+리뷰어들의 finding 메시지를 수집. 각 finding에는 아래 필드가 포함된다:
+- `re_review_scope`: 수정 영향도 (`self_contained` / `same_domain` / `cross_domain: [domains]`) — Step 8 재리뷰 대상 결정에 사용
+
+메시지 유형별 처리:
+- **[수정됨]**: 수정 완료 건 -- 기록 + `re_review_scope` 취합
 - **[에스컬레이션]**: 3가지 중 택 1 처리
   1. 다른 리뷰어에게 재배정 (소유권 이전)
   2. 관련자 모아 협의 지시 (share + reassign 조합)
@@ -131,17 +134,23 @@ cmd.exe //c "D:\\.workspace\\build.bat debug"
 cd build && ctest --preset debug-test
 ```
 
+- **빌드 실행 규칙**: `run_in_background: true` 필수, `timeout` 파라미터 절대 설정 금지. 워크트리 첫 빌드는 vcpkg 패키지 설치 포함 수 분~수십 분 소요. 빌드 완료 알림이 올 때까지 무한 대기.
 - **통과**: Clean 판정으로 이동
 - **실패**: 빌드 실패 원인 파일의 소유 리뷰어에게 수정 지시 -> 수정 후 재빌드
 
 ### Step 8: Clean 판정 + 라운드 관리
 
-- 이슈 0건 (수정됨만, 에스컬레이션 0건) -> **Clean 판정**. team-lead(메인)의 요청을 기다리지 않고 즉시 SendMessage로 `[report]` 형식의 최종 보고서를 team-lead에게 전송한다.
-- 에스컬레이션 잔존 -> 에스컬레이션 결정 후에도 즉시 SendMessage로 `[report]`를 team-lead에게 전송한다 (미해결 이슈 포함).
-- 이슈 잔존 (재리뷰 필요) -> 재리뷰 스마트 스킵 적용 -> 다음 라운드
-  1. 수정된 파일 기반으로 영향 리뷰어 재선정
-  2. 직전 라운드 Clean(이슈 0건) 리뷰어는 스킵
-  3. 재량으로 추가/제외 조정
+- **수정 0건** + 에스컬레이션 0건 -> **Clean 판정**. 즉시 [report]를 team-lead에게 전송.
+- **에스컬레이션 잔존** -> 에스컬레이션 결정 후 즉시 [report] 전송 (미해결 이슈 포함).
+- **수정 발생** (1건 이상) -> **무조건 재리뷰 분기**. 다음 절차로 재리뷰 대상 결정:
+  1. 각 리뷰어의 `re_review_scope` 보고 취합:
+     - `self_contained`: 수정이 로컬에 한정, 외부 영향 없음
+     - `same_domain`: 같은 도메인 내 재리뷰 필요
+     - `cross_domain: [domains]`: 다른 도메인에도 영향
+  2. 전부 `self_contained` → 수정된 파일을 스마트 스킵 테이블에 대입하여 보수적 검증. 매핑된 리뷰어 중 직전 라운드 Clean 리뷰어는 스킵 가능.
+  3. `same_domain` 있음 → 해당 리뷰어에게 수정 부분 재리뷰 지시
+  4. `cross_domain` 있음 → `affected_domains` + 파일 매핑 합집합으로 재리뷰 대상 결정
+  5. 재리뷰에서 추가 수정 0건 → Clean. 추가 수정 있음 → 위 과정 반복 (round_limit까지)
 
 ### 안전장치
 

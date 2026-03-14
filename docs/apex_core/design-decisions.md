@@ -250,7 +250,7 @@
 ### v0.3 — 코어 성능 완성
 
 **v0.3.0.0: 벤치마크 + 핫패스/메모리/구조 최적화 (7 Tier)**
-- 상세: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md`
+- 상세: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md`
 
 ### v0.4 — 외부 어댑터
 
@@ -265,28 +265,6 @@
 - Connection Pool: 공통 풀 추상화, 코어별 인스턴스 (shared-nothing), health check
 - 내부 의존: Redis ∥ PG → Connection Pool
 - 어댑터 통합 테스트
-
-### v0.5 — 서비스 체인
-
-**v0.5.1.0: WebSocket 프로토콜**
-- WebSocketProtocol (ProtocolBase CRTP), Beast 통합, ping/pong (ADR-06)
-- 프레임워크 레벨 확장 — Gateway와 독립적으로 완성 가능
-
-**v0.5.2~3.0: Gateway + Auth 서비스**
-- Gateway: TLS 종단, JWT 검증 (ADR-07), 블룸필터, Kafka 라우팅, Rate Limiting
-- Auth 서비스: JWT 발급/갱신, Redis 블랙리스트, 블룸필터 Pub/Sub, PG 스키마
-- 내부 의존: v0.5.1(WebSocket) → Gateway ∥ Auth
-
-**v0.5.4.0: 파이프라인 E2E 통합 테스트**
-
-### v0.6 — 운영 인프라 (4작업 완전 병렬)
-- 메트릭: prometheus-cpp, Grafana 대시보드
-- Docker: 서비스별 Dockerfile (멀티스테이지)
-- K8s: Helm Chart, HPA, ConfigMap, Health Check
-- CI/CD 고도화: Docker 빌드 + 배포, docker-compose 통합 테스트, 스캐폴딩 스크립트
-
-### v1.0.0.0 — 프레임워크 완성
-- K8s E2E, 부하 테스트, 서비스 스캐폴딩, 문서 정리
 
 ---
 
