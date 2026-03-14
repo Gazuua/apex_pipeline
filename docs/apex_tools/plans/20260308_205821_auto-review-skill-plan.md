@@ -8,7 +8,7 @@
 
 **Tech Stack:** Claude Code Plugin (Markdown), gh CLI, git
 
-**설계서:** `docs/plans/2026-03-08-auto-review-skill-design.md`
+**설계서:** `docs/apex_tools/plans/20260308_205821_auto-review-skill-design.md`
 
 ---
 
