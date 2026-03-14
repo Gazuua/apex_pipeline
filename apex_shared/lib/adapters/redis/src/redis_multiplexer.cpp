@@ -68,6 +68,14 @@ RedisMultiplexer::command(std::string_view cmd) {
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     pending.timeout.cancel();
+
+    // Remove from pending_ to prevent dangling pointer access from hiredis callback
+    // after this coroutine frame is destroyed (especially on timeout).
+    auto it = std::find(pending_.begin(), pending_.end(), &pending);
+    if (it != pending_.end()) {
+        pending_.erase(it);
+    }
+
     co_return std::move(pending.result);
 }
 

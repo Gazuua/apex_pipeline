@@ -39,6 +39,7 @@ ArenaAllocator& ArenaAllocator::operator=(ArenaAllocator&& other) noexcept {
 
 void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
     if (size == 0) return nullptr;
+    if (align == 0 || (align & (align - 1)) != 0) return nullptr;
 
     // Try current block first.
     auto& current = blocks_.back();
@@ -72,6 +73,8 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
 }
 
 void ArenaAllocator::reset() noexcept {
+    if (blocks_.empty()) return;  // moved-from guard
+
     // Keep only the first block, free the rest.
     for (std::size_t i = 1; i < blocks_.size(); ++i) {
         free_block(blocks_[i]);

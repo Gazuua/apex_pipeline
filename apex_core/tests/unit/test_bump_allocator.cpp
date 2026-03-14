@@ -99,3 +99,58 @@ TEST(BumpAllocator, LargeAlignment) {
     ASSERT_NE(p, nullptr);
     EXPECT_EQ(reinterpret_cast<uintptr_t>(p) % 64, 0);
 }
+
+TEST(BumpAllocator, MoveConstruction) {
+    BumpAllocator src(256);
+    void* p = src.allocate(64, 1);
+    ASSERT_NE(p, nullptr);
+
+    BumpAllocator dst(std::move(src));
+    EXPECT_EQ(src.capacity(), 0);
+    EXPECT_EQ(src.used_bytes(), 0);
+    EXPECT_TRUE(dst.owns(p));
+    EXPECT_EQ(dst.capacity(), 256);
+    // 이동 후에도 정상 할당 가능
+    void* p2 = dst.allocate(32, 1);
+    ASSERT_NE(p2, nullptr);
+}
+
+TEST(BumpAllocator, MoveAssignment) {
+    BumpAllocator src(256);
+    void* p = src.allocate(64, 1);
+    ASSERT_NE(p, nullptr);
+
+    BumpAllocator dst(128);
+    dst = std::move(src);
+    EXPECT_EQ(src.capacity(), 0);
+    EXPECT_EQ(src.used_bytes(), 0);
+    EXPECT_TRUE(dst.owns(p));
+    EXPECT_EQ(dst.capacity(), 256);
+    // 이동 후에도 정상 할당 가능
+    void* p2 = dst.allocate(32, 1);
+    ASSERT_NE(p2, nullptr);
+}
+
+TEST(BumpAllocator, ZeroCapacityConstruction) {
+    BumpAllocator alloc(0);
+    EXPECT_EQ(alloc.capacity(), 0);
+    EXPECT_EQ(alloc.used_bytes(), 0);
+    // 할당 불가
+    void* p = alloc.allocate(1, 1);
+    EXPECT_EQ(p, nullptr);
+    // reset 안전
+    alloc.reset();
+    EXPECT_EQ(alloc.used_bytes(), 0);
+}
+
+TEST(BumpAllocator, InvalidAlignmentReturnsNullptr) {
+    BumpAllocator alloc(256);
+    // align=0
+    void* p1 = alloc.allocate(16, 0);
+    EXPECT_EQ(p1, nullptr);
+    // align=3 (2의 거듭제곱 아님)
+    void* p2 = alloc.allocate(16, 3);
+    EXPECT_EQ(p2, nullptr);
+    // 유효하지 않은 alignment로 사용량 변화 없음
+    EXPECT_EQ(alloc.used_bytes(), 0);
+}

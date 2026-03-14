@@ -6,9 +6,18 @@ PgTransaction::PgTransaction(PgConnection& conn, PgPool& pool)
     : conn_(conn), pool_(pool) {}
 
 PgTransaction::~PgTransaction() {
-    if (!finished_) {
+    if (begun_ && !finished_) {
         conn_.mark_poisoned();
     }
+}
+
+boost::asio::awaitable<apex::core::Result<void>>
+PgTransaction::begin() {
+    auto result = co_await conn_.query_async("BEGIN");
+    if (result) {
+        begun_ = true;
+    }
+    co_return result.transform([](auto&&) {});
 }
 
 boost::asio::awaitable<apex::core::Result<PgResult>>

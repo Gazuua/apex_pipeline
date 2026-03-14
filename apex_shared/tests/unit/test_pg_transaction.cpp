@@ -7,7 +7,7 @@
 
 using namespace apex::shared::adapters::pg;
 
-TEST(PgTransaction, DestructorWithoutCommitMarksPoisoned) {
+TEST(PgTransaction, DestructorWithoutBegunDoesNotPoison) {
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     EXPECT_FALSE(conn.is_poisoned());
@@ -17,12 +17,17 @@ TEST(PgTransaction, DestructorWithoutCommitMarksPoisoned) {
     PgPool pool(io_ctx, pg_config);
     {
         PgTransaction txn(conn, pool);
-        // commit()/rollback() not called — destructor should mark poisoned
+        // begin() not called — destructor should NOT mark poisoned
     }
-    EXPECT_TRUE(conn.is_poisoned());
+    EXPECT_FALSE(conn.is_poisoned());
 }
 
 TEST(PgTransaction, CommitPreventsPoison) {
-    // Actual commit requires DB connection — verified in integration tests.
-    SUCCEED();
+    // begin()/commit() are async coroutines requiring a DB connection.
+    GTEST_SKIP() << "commit() requires async DB connection";
+}
+
+TEST(PgTransaction, BeginRequiresAsyncConnection) {
+    // begin() is an async coroutine that sends "BEGIN" to PostgreSQL.
+    GTEST_SKIP() << "begin() requires async DB connection";
 }

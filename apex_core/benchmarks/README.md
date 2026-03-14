@@ -16,7 +16,7 @@ apex_core/benchmarks/          ← C++ 벤치마크 (빌드 시스템 통합)
 │   ├── bench_frame_codec.cpp
 │   ├── bench_dispatcher.cpp
 │   ├── bench_timing_wheel.cpp
-│   ├── bench_slab_pool.cpp
+│   ├── bench_slab_allocator.cpp
 │   └── bench_session_lifecycle.cpp
 └── integration/               ← 통합 벤치마크 (컴포넌트 조합)
     ├── bench_cross_core_latency.cpp
@@ -73,7 +73,7 @@ apex_core/bin/release/bench_ring_buffer.exe
 apex_core/bin/release/bench_frame_codec.exe
 apex_core/bin/release/bench_dispatcher.exe
 apex_core/bin/release/bench_timing_wheel.exe
-apex_core/bin/release/bench_slab_pool.exe
+apex_core/bin/release/bench_slab_allocator.exe
 apex_core/bin/release/bench_session_lifecycle.exe
 
 # JSON 출력 (결과 저장용)
@@ -88,7 +88,7 @@ apex_core/bin/release/bench_mpsc_queue.exe --benchmark_format=json \
 | `bench_frame_codec` | FrameCodec encode/decode |
 | `bench_dispatcher` | MessageDispatcher 핸들러 조회 (10/100/1000 핸들러) |
 | `bench_timing_wheel` | TimingWheel O(1) 타임아웃 관리 |
-| `bench_slab_pool` | SlabPool vs malloc vs make_shared |
+| `bench_slab_allocator` | SlabAllocator vs malloc vs make_shared |
 | `bench_session_lifecycle` | Session 생성/소멸 사이클 |
 
 ### 통합 벤치마크
@@ -183,7 +183,7 @@ Bench cores:    6
 cmd.exe //c "D:\\.workspace\\apex_core\\build.bat release"
 
 # 2. 마이크로 벤치마크 순차 실행 (JSON 저장)
-for bench in mpsc_queue ring_buffer frame_codec dispatcher timing_wheel slab_pool session_lifecycle; do
+for bench in mpsc_queue ring_buffer frame_codec dispatcher timing_wheel slab_allocator session_lifecycle; do
     apex_core/bin/release/bench_${bench}.exe \
         --benchmark_format=json \
         --benchmark_out=apex_core/benchmark_results/${bench}.json

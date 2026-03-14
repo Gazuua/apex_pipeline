@@ -194,6 +194,50 @@ TEST(PgPool, ReleasePoisonedConnectionDiscards) {
     EXPECT_EQ(pool.stats().total_destroyed, 1u);
 }
 
+TEST(PgPool, ShrinkIdleRemovesExpiredConnections) {
+    boost::asio::io_context io_ctx;
+    PgAdapterConfig config{
+        .pool_size_per_core = 2,
+        .max_idle_time = std::chrono::seconds{0},  // expire immediately
+    };
+    PgPool pool(io_ctx, config);
+
+    // Acquire and release to place connection in idle queue
+    auto result = pool.acquire();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(pool.active_count(), 1u);
+
+    pool.release(std::move(result.value()));
+    // Unconnected connections fail validate in release path, but release()
+    // does not validate — it pushes to idle directly. So idle_count may be 1
+    // if the connection is not poisoned.
+    // However, unconnected PgConnection is not poisoned, so it goes to idle.
+    EXPECT_EQ(pool.idle_count(), 1u);
+
+    // shrink_idle with max_idle_time=0 should remove all expired connections
+    pool.shrink_idle();
+    EXPECT_EQ(pool.idle_count(), 0u);
+    EXPECT_EQ(pool.stats().total_destroyed, 1u);
+}
+
+TEST(PgPool, HealthCheckTickRemovesInvalidConnections) {
+    boost::asio::io_context io_ctx;
+    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgPool pool(io_ctx, config);
+
+    // Acquire and release — unconnected PgConnection will fail is_valid()
+    auto result = pool.acquire();
+    ASSERT_TRUE(result.has_value());
+
+    pool.release(std::move(result.value()));
+    EXPECT_EQ(pool.idle_count(), 1u);
+
+    // health_check_tick validates each idle connection — unconnected fails
+    pool.health_check_tick();
+    EXPECT_EQ(pool.idle_count(), 0u);
+    EXPECT_EQ(pool.stats().total_destroyed, 1u);
+}
+
 TEST(PgPool, PoolLikeConceptSatisfied) {
     // Compile-time verification that PgPool satisfies PoolLike concept
     static_assert(PoolLike<PgPool>);

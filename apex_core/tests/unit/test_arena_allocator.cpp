@@ -97,3 +97,53 @@ TEST(ArenaAllocator, LargeAllocationSpanningBlock) {
     ASSERT_NE(p, nullptr);
     EXPECT_TRUE(alloc.owns(p));
 }
+
+TEST(ArenaAllocator, ZeroSizeAllocateReturnsNullptr) {
+    ArenaAllocator alloc(256, 4096);
+    auto before = alloc.used_bytes();
+    void* p = alloc.allocate(0, 1);
+    EXPECT_EQ(p, nullptr);
+    EXPECT_EQ(alloc.used_bytes(), before);  // 사용량 변화 없음
+}
+
+TEST(ArenaAllocator, MoveConstruction) {
+    ArenaAllocator src(256, 4096);
+    void* p = src.allocate(64, 1);
+    ASSERT_NE(p, nullptr);
+
+    ArenaAllocator dst(std::move(src));
+    // moved-from 상태: owns()는 빈 blocks_ 순회 → false
+    EXPECT_FALSE(src.owns(p));
+    EXPECT_TRUE(dst.owns(p));
+    EXPECT_EQ(dst.capacity(), 256);
+    // 이동 후에도 정상 할당 가능
+    void* p2 = dst.allocate(32, 1);
+    ASSERT_NE(p2, nullptr);
+}
+
+TEST(ArenaAllocator, MoveAssignment) {
+    ArenaAllocator src(256, 4096);
+    void* p = src.allocate(64, 1);
+    ASSERT_NE(p, nullptr);
+
+    ArenaAllocator dst(128, 4096);
+    dst = std::move(src);
+    EXPECT_FALSE(src.owns(p));
+    EXPECT_TRUE(dst.owns(p));
+    EXPECT_EQ(dst.capacity(), 256);
+    // 이동 후에도 정상 할당 가능
+    void* p2 = dst.allocate(32, 1);
+    ASSERT_NE(p2, nullptr);
+}
+
+TEST(ArenaAllocator, InvalidAlignmentReturnsNullptr) {
+    ArenaAllocator alloc(256, 4096);
+    // align=0
+    void* p1 = alloc.allocate(16, 0);
+    EXPECT_EQ(p1, nullptr);
+    // align=5 (2의 거듭제곱 아님)
+    void* p2 = alloc.allocate(16, 5);
+    EXPECT_EQ(p2, nullptr);
+    // 유효하지 않은 alignment로 사용량 변화 없음
+    EXPECT_EQ(alloc.used_bytes(), 0);
+}

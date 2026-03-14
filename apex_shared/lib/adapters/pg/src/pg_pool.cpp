@@ -65,8 +65,8 @@ void PgPool::release(Connection conn) {
 
 void PgPool::discard(Connection conn) {
     do_destroy_connection(conn);
-    --active_count_;
-    --total_count_;
+    if (active_count_ > 0) --active_count_;
+    if (total_count_ > 0) --total_count_;
     ++stats_.total_destroyed;
 }
 

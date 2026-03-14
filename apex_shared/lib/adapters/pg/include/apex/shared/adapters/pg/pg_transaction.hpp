@@ -28,6 +28,10 @@ public:
     PgTransaction(const PgTransaction&) = delete;
     PgTransaction& operator=(const PgTransaction&) = delete;
 
+    /// Begin the transaction (sends "BEGIN" to PostgreSQL).
+    /// Must be called before any execute/commit/rollback.
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> begin();
+
     /// Execute a SQL statement within this transaction.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
     execute(std::string_view sql);
@@ -46,6 +50,7 @@ public:
 private:
     PgConnection& conn_;
     PgPool& pool_;
+    bool begun_{false};
     bool finished_{false};
 };
 

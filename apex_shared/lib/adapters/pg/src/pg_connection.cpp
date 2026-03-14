@@ -86,6 +86,7 @@ PgConnection::PgConnection(PgConnection&& other) noexcept
     , poisoned_(std::exchange(other.poisoned_, false)) {}
 
 PgConnection& PgConnection::operator=(PgConnection&& other) noexcept {
+    assert(&io_ctx_ == &other.io_ctx_ && "PgConnection move requires same io_context");
     if (this != &other) {
         close();
         request_alloc_ = std::exchange(other.request_alloc_, nullptr);
