@@ -4,6 +4,8 @@
 
 #include <cassert>
 #include <chrono>
+#include <stdexcept>
+#include <string>
 
 namespace apex::shared::adapters::kafka {
 
@@ -30,8 +32,8 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine) {
     // 1. Initialize Producer
     auto result = producer_->init();
     if (!result.has_value()) {
-        spdlog::error("KafkaAdapter: Producer init failed");
-        return;  // TODO: error propagation strategy
+        spdlog::error("KafkaAdapter: Producer init failed — aborting adapter init");
+        throw std::runtime_error("KafkaAdapter: Producer init failed");
     }
 
     // 2. Create + initialize per-core Consumers
@@ -45,7 +47,9 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine) {
         }
         auto init_result = consumer->init();
         if (!init_result.has_value()) {
-            spdlog::error("KafkaAdapter: Consumer[core={}] init failed", i);
+            spdlog::error("KafkaAdapter: Consumer[core={}] init failed — aborting adapter init", i);
+            throw std::runtime_error(
+                "KafkaAdapter: Consumer[core=" + std::to_string(i) + "] init failed");
         }
         consumers_.push_back(std::move(consumer));
     }

@@ -72,6 +72,11 @@ public:
     /// Reset read/write positions to start.
     void reset() noexcept;
 
+    /// Shrink the linearization buffer if it is oversized relative to recent usage.
+    /// If linear_buf_size_ >= 4 * readable_size(), shrinks to 2 * readable_size().
+    /// If readable_size() is 0, frees linear_buf_ entirely.
+    void shrink_to_fit() noexcept;
+
 private:
     uint8_t* buffer_;
     // linear_buf_ is managed with malloc/realloc/free (not unique_ptr) because

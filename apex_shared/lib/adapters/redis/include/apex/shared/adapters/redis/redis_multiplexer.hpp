@@ -4,6 +4,7 @@
 #include <apex/shared/adapters/redis/redis_connection.hpp>
 #include <apex/shared/adapters/redis/redis_reply.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/slab_allocator.hpp>
 
 #include <hiredis/async.h>
 
@@ -81,10 +82,17 @@ private:
     /// Handle disconnect from hiredis
     void on_disconnect();
 
+    /// Remove a PendingCommand from pending_ and return it to the slab.
+    void release_pending(PendingCommand* cmd);
+
+    /// Cancel all pending commands with the given error and release them.
+    void cancel_all_pending(apex::core::ErrorCode error);
+
     /// Exponential backoff reconnect loop
     boost::asio::awaitable<void> reconnect_loop();
 
     std::deque<PendingCommand*> pending_;
+    apex::core::TypedSlabAllocator<PendingCommand> slab_;
     std::unique_ptr<RedisConnection> conn_;
     boost::asio::io_context& io_ctx_;
     RedisConfig config_;

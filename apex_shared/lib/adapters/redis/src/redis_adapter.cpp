@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cassert>
+#include <stdexcept>
 
 namespace apex::shared::adapters::redis {
 
@@ -14,6 +15,16 @@ RedisAdapter::~RedisAdapter() {
 }
 
 void RedisAdapter::do_init(apex::core::CoreEngine& engine) {
+    // Validate configuration before creating multiplexers
+    if (config_.host.empty()) {
+        spdlog::error("RedisAdapter: host is empty — aborting adapter init");
+        throw std::runtime_error("RedisAdapter: host is empty");
+    }
+    if (config_.port == 0) {
+        spdlog::error("RedisAdapter: port is 0 — aborting adapter init");
+        throw std::runtime_error("RedisAdapter: port must be > 0");
+    }
+
     per_core_.reserve(engine.core_count());
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
         per_core_.push_back(std::make_unique<RedisMultiplexer>(

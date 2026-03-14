@@ -5,6 +5,7 @@
 #include <boost/asio/use_awaitable.hpp>
 
 #include <cassert>
+#include <stdexcept>
 #include <utility>
 
 namespace apex::shared::adapters::pg {
@@ -18,6 +19,16 @@ PgAdapter::~PgAdapter() {
 }
 
 void PgAdapter::do_init(apex::core::CoreEngine& engine) {
+    // Validate configuration before creating pools
+    if (config_.connection_string.empty()) {
+        spdlog::error("PgAdapter: connection_string is empty — aborting adapter init");
+        throw std::runtime_error("PgAdapter: connection_string is empty");
+    }
+    if (config_.pool_size_per_core == 0) {
+        spdlog::error("PgAdapter: pool_size_per_core is 0 — aborting adapter init");
+        throw std::runtime_error("PgAdapter: pool_size_per_core must be > 0");
+    }
+
     engine_ = &engine;
     pools_.reserve(engine.core_count());
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
