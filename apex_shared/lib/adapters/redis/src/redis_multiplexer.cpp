@@ -14,16 +14,11 @@ namespace apex::shared::adapters::redis {
 
 RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx,
                                    const RedisConfig& config)
-    : io_ctx_(io_ctx), config_(config) {}
+    : slab_(64, {.auto_grow = true, .max_total_count = 4096}),
+      io_ctx_(io_ctx), config_(config) {}
 
 RedisMultiplexer::~RedisMultiplexer() {
-    // Move pending_ to local to avoid iterator invalidation if cancel()
-    // triggers posted handlers synchronously.
-    auto local = std::move(pending_);
-    for (auto* cmd : local) {
-        cmd->result = std::unexpected(apex::core::ErrorCode::AdapterError);
-        cmd->resolver.cancel();
-    }
+    cancel_all_pending(apex::core::ErrorCode::AdapterError);
 }
 
 boost::asio::awaitable<apex::core::Result<RedisReply>>
@@ -33,16 +28,19 @@ RedisMultiplexer::command(std::string_view cmd) {
     }
 
     auto seq = next_sequence_++;
-    PendingCommand pending{
-        .resolver = boost::asio::steady_timer(io_ctx_,
+    auto* pending = slab_.construct(
+        boost::asio::steady_timer(io_ctx_,
             std::chrono::steady_clock::time_point::max()),
-        .timeout = boost::asio::steady_timer(io_ctx_, config_.command_timeout),
-        .result = std::unexpected(apex::core::ErrorCode::Timeout),
-        .sequence = seq,
-        .timed_out = false
-    };
+        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+        std::unexpected(apex::core::ErrorCode::Timeout),
+        seq,
+        false
+    );
+    if (!pending) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
 
-    pending_.push_back(&pending);
+    pending_.push_back(pending);
 
     // Submit async command to hiredis
     std::string cmd_str(cmd);
@@ -51,29 +49,34 @@ RedisMultiplexer::command(std::string_view cmd) {
                                 this, cmd_str.c_str());
     if (ret != REDIS_OK) {
         pending_.pop_back();
+        slab_.destroy(pending);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    // Timeout handler — on expiry, mark as timed out and resume coroutine
-    pending.timeout.async_wait([&pending](boost::system::error_code ec) {
+    // Timeout handler — on expiry, mark as timed out and resume coroutine.
+    // Capture raw pointer; the slab owns the object, so it stays valid
+    // until explicitly destroyed.
+    pending->timeout.async_wait([pending](boost::system::error_code ec) {
         if (!ec) {
-            pending.timed_out = true;
-            pending.result = std::unexpected(apex::core::ErrorCode::Timeout);
-            pending.resolver.cancel();
+            pending->timed_out = true;
+            pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
+            pending->resolver.cancel();
         }
     });
 
     // Wait for reply (hiredis callback cancels resolver to resume)
     boost::system::error_code ec;
-    co_await pending.resolver.async_wait(
+    co_await pending->resolver.async_wait(
         boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
-    pending.timeout.cancel();
+    pending->timeout.cancel();
 
-    // TODO: PendingCommand를 heap 할당(unique_ptr)으로 전환하여
-    // 타임아웃 후 코루틴 프레임 소멸 시 dangling 방지 필요 (v0.5)
+    auto result = std::move(pending->result);
 
-    co_return std::move(pending.result);
+    // Remove from pending_ (may already be removed by on_reply/on_disconnect)
+    release_pending(pending);
+
+    co_return std::move(result);
 }
 
 boost::asio::awaitable<apex::core::Result<std::vector<RedisReply>>>
@@ -103,8 +106,12 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
     auto* front = self->pending_.front();
     self->pending_.pop_front();
 
-    // If this command already timed out, skip (result already set)
+    // If this command already timed out, the coroutine has already resumed
+    // and extracted the result. The PendingCommand is still alive in the slab
+    // (release_pending was called but only removes from deque if present).
+    // We must destroy it here since the coroutine won't do it.
     if (front->timed_out) {
+        self->slab_.destroy(front);
         return;
     }
 
@@ -118,12 +125,7 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
 
 void RedisMultiplexer::on_disconnect() {
     reconnecting_ = true;
-    // Return error to all pending commands
-    for (auto* cmd : pending_) {
-        cmd->result = std::unexpected(apex::core::ErrorCode::AdapterError);
-        cmd->resolver.cancel();
-    }
-    pending_.clear();
+    cancel_all_pending(apex::core::ErrorCode::AdapterError);
     // Start reconnect loop
     boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
 }
@@ -152,6 +154,38 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
     }
 }
 
+void RedisMultiplexer::release_pending(PendingCommand* cmd) {
+    if (cmd->timed_out) {
+        // Timed-out command: the hiredis callback has NOT yet fired.
+        // The PendingCommand must stay in the deque for FIFO ordering
+        // and alive in the slab. static_on_reply() will pop it from
+        // the deque and call slab_.destroy() when the reply arrives.
+        return;
+    }
+
+    // Normal path: static_on_reply already popped this from pending_.
+    // Just return the memory to the slab.
+    slab_.destroy(cmd);
+}
+
+void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error) {
+    // Move to local to avoid iterator invalidation if cancel()
+    // triggers posted handlers synchronously.
+    auto local = std::move(pending_);
+    for (auto* cmd : local) {
+        cmd->result = std::unexpected(error);
+        cmd->resolver.cancel();
+    }
+    // Destroy all PendingCommands immediately. This is safe because:
+    // - On disconnect: hiredis won't fire further callbacks
+    // - On close/destructor: we're tearing down the connection
+    // The coroutines will be cancelled but their resume handlers (posted
+    // to io_context) must not access this multiplexer after destruction.
+    for (auto* cmd : local) {
+        slab_.destroy(cmd);
+    }
+}
+
 bool RedisMultiplexer::connected() const noexcept {
     return conn_ && conn_->is_connected() && !reconnecting_;
 }
@@ -166,12 +200,7 @@ uint32_t RedisMultiplexer::reconnect_attempts() const noexcept {
 
 boost::asio::awaitable<void> RedisMultiplexer::close() {
     reconnecting_ = false;
-    // Cancel all pending commands
-    for (auto* cmd : pending_) {
-        cmd->result = std::unexpected(apex::core::ErrorCode::AdapterError);
-        cmd->resolver.cancel();
-    }
-    pending_.clear();
+    cancel_all_pending(apex::core::ErrorCode::AdapterError);
 
     if (conn_) {
         conn_->disconnect();

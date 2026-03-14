@@ -134,4 +134,28 @@ void RingBuffer::reset() noexcept {
     linear_buf_size_ = 0;
 }
 
+void RingBuffer::shrink_to_fit() noexcept {
+    if (linear_buf_ == nullptr) return;
+
+    const size_t usage = readable_size();
+    if (usage == 0) {
+        // 사용량 0 — linear_buf_ 완전 해제
+        std::free(linear_buf_);
+        linear_buf_ = nullptr;
+        linear_buf_size_ = 0;
+        return;
+    }
+
+    // hysteresis: 버퍼가 현재 필요 크기의 4배 이상이면 2배로 축소
+    if (linear_buf_size_ >= usage * 4) {
+        const size_t new_size = usage * 2;
+        auto* new_buf = static_cast<uint8_t*>(std::realloc(linear_buf_, new_size));
+        if (new_buf) {
+            linear_buf_ = new_buf;
+            linear_buf_size_ = new_size;
+        }
+        // realloc 실패 시 기존 버퍼 유지 (안전)
+    }
+}
+
 } // namespace apex::core

@@ -64,6 +64,28 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Full auto-review v0.4.5.1: Round 1 Clean, 문서 수정 2건
   - 프로세스 개선 3건: start 시그널 타이밍 해소, 빌드 역할 분리, 팀 해산 책임 명확화
 
+## 아키텍처
+
+### Per-core 싱글 스레드 모델
+
+각 코어가 독립 `io_context`에서 실행되는 락 프리 설계. 코어 간 통신은 `cross_core_post_msg`(MPSC 큐 기반)로 안전하게 처리.
+
+### 3계층 메모리 아키텍처
+
+| 계층 | 구현 | 역할 |
+|------|------|------|
+| L1 로컬 캐시 | CoreAllocator (BumpAllocator / ArenaAllocator / SlabAllocator) | per-core 메모리 관리, 락 프리 |
+| L2 | Redis (RedisMultiplexer) | 코어 간 공유 캐시 |
+| L3 | PostgreSQL (PgPool) | 영속 저장소 |
+
+- **BumpAllocator**: 요청 수명 — 요청 처리 후 한 번에 해제
+- **ArenaAllocator**: 트랜잭션 수명 — 트랜잭션 단위 할당/해제
+- **SlabAllocator**: 객체 풀 — Session 등 고정 크기 객체 재사용
+
+### SharedPayload
+
+cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체. 코어 간 메시지 전달 시 데이터 복사 없이 소유권만 이전.
+
 ### 다음
 
 - **v0.5 — 서비스 체인** (WebSocket + Gateway + Auth + E2E)

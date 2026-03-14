@@ -4,6 +4,7 @@
 #include <apex/core/result.hpp>
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
 
 #include <cassert>
@@ -11,7 +12,6 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 
 namespace apex::core {
 
@@ -133,7 +133,7 @@ private:
     std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};
-    std::unordered_set<uint16_t> registered_msg_ids_;
+    boost::unordered_flat_set<uint16_t> registered_msg_ids_;
 };
 
 } // namespace apex::core

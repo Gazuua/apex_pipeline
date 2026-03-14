@@ -5,7 +5,9 @@
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/use_awaitable.hpp>
+#include <spdlog/spdlog.h>
 
 #include <span>
 
@@ -54,7 +56,15 @@ boost::asio::awaitable<void> ConnectionHandler::read_loop(SessionPtr session) {
         auto [ec, n] = co_await session->socket().async_read_some(
             boost::asio::buffer(writable.data(), writable.size()),
             boost::asio::as_tuple(boost::asio::use_awaitable));
-        if (ec || n == 0) break;
+        if (ec || n == 0) {
+            if (ec && ec != boost::asio::error::eof) {
+                spdlog::warn("session {} abnormal disconnect: {}",
+                             session->id(), ec.message());
+            } else {
+                spdlog::debug("session {} disconnected (EOF)", session->id());
+            }
+            break;
+        }
 
         rb.commit_write(n);
         co_await process_frames(session);
