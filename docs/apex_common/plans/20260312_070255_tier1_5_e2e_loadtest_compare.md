@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23, Boost.Asio, FlatBuffers, Python 3.10+
 
-**v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 5.4, § 5.5, § 6 Tier 1.5
+**v6 계획서 참조**: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md` § 5.4, § 5.5, § 6 Tier 1.5
 
 **선행 조건**: Tier 1 (핫패스 병목 제거 + Cross-Core 아키텍처 전환) 완료
 

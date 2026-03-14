@@ -8,7 +8,7 @@
 
 **Tech Stack:** CMake 3.25+ (프리셋 v6), vcpkg, Docker (ubuntu:24.04), GitHub Actions, GHCR
 
-**설계서:** `docs/apex_common/plans/20260310_013139_build-improvement-design.md`
+**설계서:** `docs/apex_common/plans/20260310_025750_build-improvement-design.md`
 
 **워크트리:** `.worktrees/build-improvement` (브랜치: `feature/build-improvement`)
 

@@ -3,7 +3,7 @@
 - **PR**: #6 (squash merged)
 - **브랜치**: `feature/build-improvement`
 - **기간**: 2026-03-10
-- **설계서**: `docs/apex_common/plans/20260310_013139_build-improvement-design.md`
+- **설계서**: `docs/apex_common/plans/20260310_025750_build-improvement-design.md`
 
 ## 구현 내용
 

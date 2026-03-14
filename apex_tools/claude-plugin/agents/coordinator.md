@@ -131,6 +131,7 @@ cmd.exe //c "D:\\.workspace\\build.bat debug"
 cd build && ctest --preset debug-test
 ```
 
+- **빌드 실행 규칙**: `run_in_background: true` 필수, `timeout` 파라미터 절대 설정 금지. 워크트리 첫 빌드는 vcpkg 패키지 설치 포함 수 분~수십 분 소요. 빌드 완료 알림이 올 때까지 무한 대기.
 - **통과**: Clean 판정으로 이동
 - **실패**: 빌드 실패 원인 파일의 소유 리뷰어에게 수정 지시 -> 수정 후 재빌드
 

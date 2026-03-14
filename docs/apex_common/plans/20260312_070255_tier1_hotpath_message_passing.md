@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23, Boost.Asio, boost::unordered_flat_map, boost::intrusive_ptr (SharedPayload), Google Benchmark (마이크로벤치)
 
-**v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 1.1~1.6, § 6 Tier 1 작업 목록
+**v6 계획서 참조**: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md` § 1.1~1.6, § 6 Tier 1 작업 목록
 
 **선행 조건**: Tier 0.5 (에러 타입 통일) 완료 — `Result<void>`, `ErrorCode` 기반 API 확정
 

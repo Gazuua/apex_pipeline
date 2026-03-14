@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23, boost::intrusive_ptr, per-core SlabPool (기 구현), boost::unordered_flat_map
 
-**v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 2.1~2.3, § 6 Tier 2
+**v6 계획서 참조**: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md` § 2.1~2.3, § 6 Tier 2
 
 **선행 조건**: Tier 1.5 완료 (E2E 부하 테스터로 baseline 측정 완료)
 

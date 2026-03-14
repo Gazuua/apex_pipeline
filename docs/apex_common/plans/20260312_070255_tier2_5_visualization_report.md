@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.10+, matplotlib, reportlab
 
-**v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 5.5 Phase B, § 6 Tier 2.5
+**v6 계획서 참조**: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md` § 5.5 Phase B, § 6 Tier 2.5
 
 **선행 조건**: Tier 2 (메모리 아키텍처) 완료, Tier 1.5 E2E 부하 테스터 사용 가능
 

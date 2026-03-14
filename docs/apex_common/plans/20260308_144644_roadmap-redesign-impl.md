@@ -2,13 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 로드맵 재설계 설계 문서(`20260308_141604_roadmap-redesign.md`) 기반으로 기존 설계서/README 7개 파일의 Phase 참조와 로드맵 구조를 일괄 갱신한다.
+**Goal:** 로드맵 재설계 설계 문서(`20260308_144644_roadmap-redesign.md`) 기반으로 기존 설계서/README 7개 파일의 Phase 참조와 로드맵 구조를 일괄 갱신한다.
 
 **Architecture:** 각 Task는 독립 파일을 수정하므로 Task 1~5는 병렬 실행 가능. Task 6(검증)만 전체 완료 후 순차 실행. 모든 작업은 `feature/roadmap-redesign` 워크트리(`D:/.workspace/.worktrees/roadmap-redesign/`)에서 수행.
 
 **Tech Stack:** Markdown 문서 편집 전용. 코드 변경 없음.
 
-**참조 문서:** `docs/apex_common/plans/20260308_141604_roadmap-redesign.md` (설계 문서)
+**참조 문서:** `docs/apex_common/plans/20260308_144644_roadmap-redesign.md` (설계 문서)
 
 ---
 
@@ -343,7 +343,7 @@ grep -rn "v0\.3\.0 예정\|v0\.4\.0 예정\|v1\.0\.0 예정" docs/ apex_*/README
 grep -rn "Phase [5-9]\|Phase 10" docs/ apex_*/README.md CLAUDE.md
 ```
 
-각 Phase 번호가 설계 문서(`20260308_141604_roadmap-redesign.md`)의 정의와 일치하는지 대조.
+각 Phase 번호가 설계 문서(`20260308_144644_roadmap-redesign.md`)의 정의와 일치하는지 대조.
 
 ### Step 3: 문제 발견 시 수정 + 커밋
 

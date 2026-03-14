@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23 `std::expected`, Boost.Asio awaitable, GTest
 
-**v6 계획서 참조**: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md` § 3.3 (에러 타입 통일), § 3.2 (async_send), § 6 Tier 0.5 작업 목록
+**v6 계획서 참조**: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md` § 3.3 (에러 타입 통일), § 3.2 (async_send), § 6 Tier 0.5 작업 목록
 
 ---
 

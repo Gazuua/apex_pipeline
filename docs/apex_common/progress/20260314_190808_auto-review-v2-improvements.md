@@ -2,7 +2,7 @@
 
 **작성일**: 2026-03-14
 **브랜치**: feature/auto-review-test
-**리뷰 보고서**: `docs/apex_common/review/20260314_090000_auto-review.md`
+**리뷰 보고서**: `docs/apex_common/review/20260314_190808_auto-review.md`
 
 ---
 

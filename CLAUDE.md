@@ -42,7 +42,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
   - `//c` 사용 (MSYS bash가 `/c`를 경로로 변환하므로)
   - `run_in_background` 사용 시 리다이렉트 없이 직접 출력: `cmd.exe //c "D:\\.workspace\\build.bat debug"`
   - 포그라운드에서 출력 캡처 필요 시: `> build_log.txt 2>&1` 후 `cat build_log.txt`
-  - **빌드는 항상 `run_in_background: true`로 실행** (타임아웃 방지)
+  - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 빌드 완료 알림이 올 때까지 무한 대기. 메인 세션·서브에이전트·coordinator 모두 동일
 - **빌드 변형**: debug / release / asan / tsan
 - 상세 (의존성, MSVC 주의사항) → `apex_core/CLAUDE.md`
 
@@ -70,7 +70,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
 - **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
-- 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 실제 작성 시간
+- 파일명: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 파일 생성 직전 `date +%Y%m%d_%H%M%S` 명령으로 취득한 **정확한 현재 시각**. 추정·반올림·대략적 시간 사용 금지
 
 ### 코드 리뷰
 - **clangd LSP + superpowers:code-reviewer 병행** — LSP 정적 분석(타입/참조/호출 추적)과 AI 코드 리뷰를 함께 사용해야 품질이 높아진다
@@ -84,7 +84,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 - **빌드는 한 번에 하나만** — MSVC+Ninja가 멀티코어를 풀로 사용하므로, 동시 빌드 시 시스템 렉 심함. 파일 작성은 병렬로 하되 빌드/테스트는 순차 실행
-- **빌드는 항상 백그라운드 실행** — `run_in_background: true`로 실행. 타임아웃 시 kill되므로 빌드는 절대 포그라운드로 돌리지 않음
+- **빌드는 항상 백그라운드 + 무한 대기** — `run_in_background: true`로 실행하되 `timeout` 파라미터는 절대 설정하지 않음. 빌드 완료 알림이 올 때까지 무한 대기. 타임아웃으로 kill되면 빌드 output이 유실됨
 - **auto-review 프로세스 대기** — coordinator/리뷰어가 정의된 프로세스대로 동작 중이면 재촉하지 않고 기다림. 프로세스에 report 전송이 명시되어 있으면 요청 없이 자동 전송될 때까지 대기
 
 ## 프로젝트 정보

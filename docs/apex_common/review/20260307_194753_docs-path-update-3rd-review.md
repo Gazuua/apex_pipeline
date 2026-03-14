@@ -21,7 +21,7 @@
 
 ## N-1 수정 검증: auth-svc include 라인 들여쓰기 -- PASS
 
-**파일:** `docs/apex_common/plans/20260307_174528_directory-structure-design.md` (line 55)
+**파일:** `docs/apex_common/plans/20260307_175218_directory-structure-design.md` (line 55)
 
 **수정 전 (2차 리뷰 시점):**
 ```

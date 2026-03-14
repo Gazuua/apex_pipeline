@@ -136,7 +136,7 @@ k8s/
 
 ### S-3: 완료 보고서 커밋 해시 [Suggestion]
 
-**파일:** `docs/apex_common/progress/20260307_192555_docs-path-update-and-scaffolding.md` (line 4)
+**파일:** `docs/apex_common/progress/20260307_192618_docs-path-update-and-scaffolding.md` (line 4)
 
 ```markdown
 **커밋:** `720b27d`, `4e7222c`

@@ -250,7 +250,7 @@
 ### v0.3 — 코어 성능 완성
 
 **v0.3.0.0: 벤치마크 + 핫패스/메모리/구조 최적화 (7 Tier)**
-- 상세: `docs/apex_common/plans/20260311_204613_phase5_5_v6.md`
+- 상세: `docs/apex_common/plans/20260312_070255_phase5_5_v6.md`
 
 ### v0.4 — 외부 어댑터
 

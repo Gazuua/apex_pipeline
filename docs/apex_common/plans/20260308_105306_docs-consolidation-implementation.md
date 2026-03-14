@@ -8,7 +8,7 @@
 
 **Tech Stack:** git mv, bash
 
-**설계 문서:** `docs/plans/20260308_104049_docs-consolidation-design.md`
+**설계 문서:** `docs/plans/20260308_105306_docs-consolidation-design.md`
 
 ---
 
