@@ -35,8 +35,8 @@ apex_tools/auto-review/
 └── templates/                         ← 리뷰어 프롬프트 등 (향후)
 ```
 
-- **전부 커밋**: 에이전트 의사결정 과정 추적 가능
-- **이중 구조**: `log/`에 전체 이력, `docs/{project}/review/`에 최종 보고서만 복사
+- **log/ 는 .gitignore**: 라운드별 중간 결과는 임시 파일 — 최종 보고서로 충분히 추적 가능
+- **최종 보고서만 커밋**: `docs/{project}/review/`에 최종 report.md 복사하여 커밋
 
 ---
 
@@ -63,6 +63,7 @@ apex_tools/auto-review/
 - **스코프 겹침 허용**: memory와 concurrency가 둘 다 코루틴 프레임 수명을 볼 수 있음 → 신뢰성 향상
 - **Critical 판정 기준 강화**: "현재 호출자 존재 여부" 등 실용적 기준 추가
 - **JSON 출력 필수**: 모든 리뷰어가 구조화된 findings.json 포맷으로 결과 출력
+- **크로스 컴파일러 체크**: GCC/MSVC 차이 검증 필수 (예: `<cstdint>` 명시적 include, `SIZE_MAX` 선언 등 — MSVC는 transitively include되어 빌드되지만 GCC에서 실패하는 패턴). reviewer-build의 필수 체크리스트에 포함
 
 ---
 
