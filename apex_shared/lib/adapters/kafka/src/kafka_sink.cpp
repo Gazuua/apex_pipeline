@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 
@@ -41,12 +42,17 @@ std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
     oss << '.' << std::setfill('0') << std::setw(3) << ms.count() << "Z\"";
 
     // level
-    oss << ",\"level\":\"" << spdlog::level::to_string_view(msg.level).data() << "\"";
+    auto level_sv = spdlog::level::to_string_view(msg.level);
+    oss << ",\"level\":\"";
+    oss.write(level_sv.data(), static_cast<std::streamsize>(level_sv.size()));
+    oss << "\"";
 
     // logger name
-    oss << ",\"logger\":\"" << msg.logger_name.data() << "\"";
+    oss << ",\"logger\":\"";
+    oss.write(msg.logger_name.data(), static_cast<std::streamsize>(msg.logger_name.size()));
+    oss << "\"";
 
-    // message (simplified JSON escape -- double quotes, backslash, newlines)
+    // message (JSON escape -- RFC 8259 compliant)
     oss << ",\"msg\":\"";
     std::string_view payload(msg.payload.data(), msg.payload.size());
     for (char c : payload) {
@@ -56,7 +62,19 @@ std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
             case '\n': oss << "\\n"; break;
             case '\r': oss << "\\r"; break;
             case '\t': oss << "\\t"; break;
-            default: oss << c; break;
+            case '\b': oss << "\\b"; break;
+            case '\f': oss << "\\f"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    // Control characters U+0000..U+001F → \u00XX
+                    char buf[7];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x",
+                                  static_cast<unsigned char>(c));
+                    oss << buf;
+                } else {
+                    oss << c;
+                }
+                break;
         }
     }
     oss << "\"";

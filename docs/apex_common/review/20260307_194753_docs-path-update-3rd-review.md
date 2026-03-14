@@ -3,8 +3,8 @@
 **리뷰어:** Claude Opus 4.6 (Senior Code Reviewer)
 **일자:** 2026-03-07
 **이전 리뷰:**
-- 1차: `apex_docs/review/20260307_193245_docs-path-update-and-scaffolding.md`
-- 2차: `apex_docs/review/20260307_194619_docs-path-update-re-review.md`
+- 1차: `docs/apex_common/review/20260307_193245_docs-path-update-and-scaffolding.md`
+- 2차: `docs/apex_common/review/20260307_194619_docs-path-update-re-review.md`
 **수정 커밋:** `c68a996` (N-1 들여쓰기 수정)
 **전체 범위 Base SHA:** `4e0d145`
 **Head SHA:** `927098b`
@@ -21,7 +21,7 @@
 
 ## N-1 수정 검증: auth-svc include 라인 들여쓰기 -- PASS
 
-**파일:** `apex_docs/plans/20260307_174528_directory-structure-design.md` (line 55)
+**파일:** `docs/apex_common/plans/20260307_174528_directory-structure-design.md` (line 55)
 
 **수정 전 (2차 리뷰 시점):**
 ```

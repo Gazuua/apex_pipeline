@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker Compose, apache/kafka (KRaft), redis:7-alpine, postgres:16-alpine, prom/prometheus, grafana/grafana
 
-**설계 문서:** `apex_docs/plans/20260307_204613_docker-compose-design.md`
+**설계 문서:** `docs/apex_infra/plans/20260307_204613_docker-compose-design.md`
 
 **충돌 방지:** apex_core/ 하위 파일 수정 금지 (별도 에이전트 담당)
 

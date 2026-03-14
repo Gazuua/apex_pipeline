@@ -1,8 +1,12 @@
 #include <apex/core/cross_core_dispatcher.hpp>
 
+#include <cassert>
+
 namespace apex::core {
 
 void CrossCoreDispatcher::register_handler(CrossCoreOp op, CrossCoreHandler handler) {
+    assert(handler != nullptr && "register_handler: handler must not be null");
+    assert(!handlers_.contains(op) && "register_handler: duplicate registration for same op");
     handlers_.insert_or_assign(op, handler);
 }
 

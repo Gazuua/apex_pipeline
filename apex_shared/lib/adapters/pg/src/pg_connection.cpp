@@ -8,6 +8,7 @@
 #include <boost/asio/use_awaitable.hpp>
 
 #include <cassert>
+#include <climits>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -62,7 +63,10 @@ int PgResult::affected_rows() const noexcept {
     if (!result_) return 0;
     const char* val = PQcmdTuples(result_.get());
     if (!val || val[0] == '\0') return 0;
-    return std::atoi(val);
+    char* end = nullptr;
+    long result = std::strtol(val, &end, 10);
+    if (end == val || result < INT_MIN || result > INT_MAX) return 0;
+    return static_cast<int>(result);
 }
 
 // =============================================================================

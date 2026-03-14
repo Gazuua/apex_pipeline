@@ -6,7 +6,7 @@ BoostAsioCore 단일 프로젝트 → apex-pipeline 모노레포 전환
 ## 완료 작업
 
 ### 1. 디렉토리 구조 설계
-- 브레인스토밍을 통한 구조 확정 (`apex_docs/plans/20260307_174528_directory-structure-design.md`)
+- 브레인스토밍을 통한 구조 확정 (`docs/apex_common/plans/20260307_174528_directory-structure-design.md`)
 - 모든 루트 디렉토리에 `apex_` 프리픽스 통일
 - 서비스별 독립 vcpkg.json + Docker 빌드 방식 결정
 
@@ -37,7 +37,7 @@ BoostAsioCore 단일 프로젝트 → apex-pipeline 모노레포 전환
 - `.clangd` 파일 루트에 추가 (apex_core 동일 설정)
 
 ### 6. 문서 정비
-- `apex_docs/` 하위 문서 파일명 `YYYYMMDD_HHMMSS_` 형식 통일
+- `docs/` 하위 문서 파일명 `YYYYMMDD_HHMMSS_` 형식 통일
 - `apex_core/docs/progress/` 에 v0.2.2 완료 문서 작성
 - 루트 워크스페이스 MEMORY 파일 생성 (MEMORY.md + 상세 2개)
 
