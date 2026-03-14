@@ -13,7 +13,9 @@ endfunction()
 # 기반 컴포넌트 테스트
 apex_add_unit_test(test_math_utils test_math_utils.cpp)
 apex_add_unit_test(test_mpsc_queue test_mpsc_queue.cpp)
-apex_add_unit_test(test_slab_pool test_slab_pool.cpp)
+apex_add_unit_test(test_slab_allocator test_slab_allocator.cpp)
+apex_add_unit_test(test_bump_allocator test_bump_allocator.cpp)
+apex_add_unit_test(test_arena_allocator test_arena_allocator.cpp)
 apex_add_unit_test(test_ring_buffer test_ring_buffer.cpp)
 apex_add_unit_test(test_timing_wheel test_timing_wheel.cpp)
 
@@ -61,7 +63,7 @@ add_test(NAME test_server_adapter COMMAND test_server_adapter)
 set_tests_properties(
     test_math_utils
     test_mpsc_queue
-    test_slab_pool
+    test_slab_allocator
     test_ring_buffer
     test_timing_wheel
     test_core_engine
@@ -83,5 +85,7 @@ set_tests_properties(
     test_config
     test_logging
     test_server_adapter
+    test_bump_allocator
+    test_arena_allocator
     PROPERTIES TIMEOUT 30
 )

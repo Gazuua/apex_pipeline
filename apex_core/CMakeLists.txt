@@ -51,7 +51,9 @@ add_custom_target(apex_fbs_generate DEPENDS ${APEX_FBS_GENERATED_HEADERS})
 
 # --- 라이브러리 ---
 add_library(apex_core STATIC
-    src/slab_pool.cpp
+    src/slab_allocator.cpp
+    src/bump_allocator.cpp
+    src/arena_allocator.cpp
     src/ring_buffer.cpp
     src/timing_wheel.cpp
     src/core_engine.cpp

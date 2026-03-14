@@ -1,5 +1,5 @@
 #include <apex/core/session.hpp>
-#include <apex/core/slab_pool.hpp>
+#include <apex/core/slab_allocator.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/use_awaitable.hpp>

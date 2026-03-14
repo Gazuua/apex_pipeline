@@ -1,4 +1,4 @@
-#include <apex/core/slab_pool.hpp>
+#include <apex/core/slab_allocator.hpp>
 #include <algorithm>
 #include <cstdlib>
 #include <stdexcept>
@@ -17,12 +17,12 @@ static size_t align_up(size_t size, size_t alignment) {
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
-SlabPool::SlabPool(size_t slot_size, size_t initial_count)
-    : SlabPool(slot_size, initial_count, SlabPoolConfig{})
+SlabAllocator::SlabAllocator(size_t slot_size, size_t initial_count)
+    : SlabAllocator(slot_size, initial_count, SlabAllocatorConfig{})
 {
 }
 
-SlabPool::SlabPool(size_t slot_size, size_t initial_count, SlabPoolConfig config)
+SlabAllocator::SlabAllocator(size_t slot_size, size_t initial_count, SlabAllocatorConfig config)
     : free_list_(nullptr)
     , slot_size_(align_up(std::max(slot_size, sizeof(FreeNode)), alignof(std::max_align_t)))
     , total_count_(0)
@@ -31,12 +31,12 @@ SlabPool::SlabPool(size_t slot_size, size_t initial_count, SlabPoolConfig config
     , initial_count_(initial_count)
 {
     if (initial_count == 0) {
-        throw std::invalid_argument("SlabPool: initial_count must be > 0");
+        throw std::invalid_argument("SlabAllocator: initial_count must be > 0");
     }
     grow(initial_count);
 }
 
-SlabPool::~SlabPool() {
+SlabAllocator::~SlabAllocator() {
     for (auto& chunk : chunks_) {
 #ifdef _MSC_VER
         _aligned_free(chunk.data);
@@ -46,7 +46,7 @@ SlabPool::~SlabPool() {
     }
 }
 
-void SlabPool::grow(size_t count) {
+void SlabAllocator::grow(size_t count) {
     constexpr size_t kAlignment = 64;  // cache-line alignment
 
     // Overflow check for slot_size_ * count
@@ -81,7 +81,7 @@ void SlabPool::grow(size_t count) {
     free_count_ += count;
 }
 
-void* SlabPool::allocate() {
+void* SlabAllocator::allocate() {
     if (!free_list_) {
         if (!config_.auto_grow) return nullptr;
 
@@ -118,22 +118,30 @@ void* SlabPool::allocate() {
     return static_cast<void*>(node);
 }
 
-void SlabPool::deallocate(void* ptr) noexcept {
+void* SlabAllocator::allocate(std::size_t size, std::size_t /*align*/) {
+    // CoreAllocator concept 호환용 overload.
+    // size > slot_size_ 이면 할당 불가.
+    if (size > slot_size_) return nullptr;
+    return allocate();
+}
+
+void SlabAllocator::deallocate(void* ptr) noexcept {
     if (!ptr) return;
 
-    // Debug: verify pointer belongs to this pool
-    assert(owns(ptr) && "deallocate: pointer not owned by this pool");
+    // Debug: verify pointer belongs to this allocator
+    assert(owns(ptr) && "deallocate: pointer not owned by this allocator");
 
     auto* node = static_cast<FreeNode*>(ptr);
 
     // NOTE: Magic-based detection is best-effort. If the user overwrites the
     // entire slot (sizeof(T) >= sizeof(FreeNode)), the magic value is destroyed
-    // and double-free detection becomes ineffective in Release builds.
+    // and double-free detection becomes ineffective.
 
     // Double-free 감지: magic이 FREED이면 이미 반환된 슬롯
     if (node->magic == SLAB_MAGIC_FREED) {
-        assert(false && "deallocate: double-free detected");
-        return;  // Release에서는 silent return으로 corruption 방지
+        // Release에서도 동작: 카운터 증가 + early return
+        ++double_free_count_;
+        return;
     }
 
     node->magic = SLAB_MAGIC_FREED;
@@ -142,7 +150,7 @@ void SlabPool::deallocate(void* ptr) noexcept {
     ++free_count_;
 }
 
-bool SlabPool::owns(void* ptr) const noexcept {
+bool SlabAllocator::owns(void* ptr) const noexcept {
     // Linear scan over chunks. O(1) when pool has a single chunk (typical case).
     // With auto-grow, chunk count grows slowly (e.g., 4→8→12→16 = 4 chunks).
     auto* p = static_cast<uint8_t*>(ptr);
@@ -156,28 +164,36 @@ bool SlabPool::owns(void* ptr) const noexcept {
     return false;
 }
 
-size_t SlabPool::allocated_count() const noexcept {
+size_t SlabAllocator::allocated_count() const noexcept {
     return total_count_ - free_count_;
 }
 
-size_t SlabPool::free_count() const noexcept {
+size_t SlabAllocator::free_count() const noexcept {
     return free_count_;
 }
 
-size_t SlabPool::total_count() const noexcept {
+size_t SlabAllocator::total_count() const noexcept {
     return total_count_;
 }
 
-size_t SlabPool::slot_size() const noexcept {
+size_t SlabAllocator::slot_size() const noexcept {
     return slot_size_;
 }
 
-size_t SlabPool::grow_count() const noexcept {
+size_t SlabAllocator::grow_count() const noexcept {
     return grow_count_;
 }
 
-size_t SlabPool::peak_allocated() const noexcept {
+size_t SlabAllocator::peak_allocated() const noexcept {
     return peak_allocated_;
+}
+
+std::size_t SlabAllocator::used_bytes() const noexcept {
+    return allocated_count() * slot_size_;
+}
+
+std::size_t SlabAllocator::capacity() const noexcept {
+    return total_count() * slot_size_;
 }
 
 } // namespace apex::core

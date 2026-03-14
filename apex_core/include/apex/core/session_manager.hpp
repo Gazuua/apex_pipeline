@@ -1,7 +1,7 @@
 #pragma once
 
 #include <apex/core/session.hpp>
-#include <apex/core/slab_pool.hpp>
+#include <apex/core/slab_allocator.hpp>
 #include <apex/core/timing_wheel.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
@@ -72,7 +72,7 @@ private:
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     SessionId next_id_{1};
 
-    TypedSlabPool<Session> session_pool_;
+    TypedSlabAllocator<Session> session_pool_;
     boost::unordered_flat_map<SessionId, SessionPtr> sessions_;
     TimingWheel timer_wheel_;
 

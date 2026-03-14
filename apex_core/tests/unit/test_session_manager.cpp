@@ -193,7 +193,7 @@ TEST_F(SessionManagerTest, CreateSessionTransitionsToActive) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, SlabPoolAllocation) {
+TEST_F(SessionManagerTest, SlabAllocatorAllocation) {
     // max_sessions_per_core = 2 → 3rd session falls back to heap
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
@@ -217,7 +217,7 @@ TEST_F(SessionManagerTest, SlabPoolAllocation) {
     for (auto& c : clients) c.close();
 }
 
-TEST_F(SessionManagerTest, SlabPoolReclaimAfterRemove) {
+TEST_F(SessionManagerTest, SlabAllocatorReclaimAfterRemove) {
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
 
@@ -245,7 +245,7 @@ TEST_F(SessionManagerTest, SlabPoolReclaimAfterRemove) {
     for (auto& c : clients) c.close();
 }
 
-TEST_F(SessionManagerTest, SlabPoolReturnOnRefcountZero) {
+TEST_F(SessionManagerTest, SlabAllocatorReturnOnRefcountZero) {
     SessionManager mgr(0, 0, 8, 8192, 4);
     auto [server, client] = make_socket_pair(io_ctx_);
 
@@ -268,7 +268,7 @@ TEST_F(SessionManagerTest, SlabPoolReturnOnRefcountZero) {
     c2.close();
 }
 
-TEST_F(SessionManagerTest, SlabPoolMixedAllocationRemoval) {
+TEST_F(SessionManagerTest, SlabAllocatorMixedAllocationRemoval) {
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
     std::vector<SessionPtr> sessions;
