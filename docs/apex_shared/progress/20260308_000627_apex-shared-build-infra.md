@@ -51,5 +51,5 @@ apex_shared/
 
 ## 관련 문서
 
-- 설계: `apex_docs/plans/20260307_234047_apex-shared-build-infra-design.md`
-- 계획서: `apex_docs/plans/20260307_234129_apex-shared-build-infra-implementation.md`
+- 설계: `docs/apex_shared/plans/20260307_234047_apex-shared-build-infra-design.md`
+- 계획서: `docs/apex_shared/plans/20260307_234129_apex-shared-build-infra-implementation.md`

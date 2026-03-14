@@ -8,7 +8,7 @@
 
 **Tech Stack:** CMake, FlatBuffers (vcpkg), C++23
 
-**설계 문서:** `apex_docs/plans/20260307_234047_apex-shared-build-infra-design.md`
+**설계 문서:** `docs/apex_shared/plans/20260307_234047_apex-shared-build-infra-design.md`
 
 **충돌 방지:** apex_core/ 하위 파일 수정 금지
 

@@ -5,7 +5,7 @@
 **Base SHA:** `4e0d145`
 **Head SHA:** `5eb0e36`
 **커밋:** `720b27d` (경로 갱신), `4e7222c` (스캐폴딩), `5eb0e36` (계획서+완료보고서)
-**계획서:** `apex_docs/plans/20260307_192618_docs-path-update-and-scaffolding.md`
+**계획서:** `docs/apex_common/plans/20260307_192618_docs-path-update-and-scaffolding.md`
 
 ---
 
@@ -136,7 +136,7 @@ k8s/
 
 ### S-3: 완료 보고서 커밋 해시 [Suggestion]
 
-**파일:** `apex_docs/progress/20260307_192555_docs-path-update-and-scaffolding.md` (line 4)
+**파일:** `docs/apex_common/progress/20260307_192555_docs-path-update-and-scaffolding.md` (line 4)
 
 ```markdown
 **커밋:** `720b27d`, `4e7222c`
