@@ -50,10 +50,10 @@ make_socket_pair(boost::asio::io_context& ctx) {
 
 /// TSAN/ASAN 환경에서는 타임아웃을 자동 확대
 constexpr int timeout_multiplier() noexcept {
-#if defined(__SANITIZE_THREAD__)
+#if defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
     return 10;
 #elif defined(__has_feature)
-#if __has_feature(thread_sanitizer)
+#if __has_feature(thread_sanitizer) || __has_feature(address_sanitizer)
     return 10;
 #else
     return 1;

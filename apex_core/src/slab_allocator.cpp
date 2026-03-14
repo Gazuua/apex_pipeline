@@ -120,8 +120,8 @@ void* SlabAllocator::allocate() {
 
 void* SlabAllocator::allocate(std::size_t size, std::size_t /*align*/) {
     // CoreAllocator concept 호환용 overload.
-    // size > slot_size_ 이면 할당 불가.
-    if (size > slot_size_) return nullptr;
+    // size==0 또는 size > slot_size_ 이면 할당 불가.
+    if (size == 0 || size > slot_size_) return nullptr;
     return allocate();
 }
 
