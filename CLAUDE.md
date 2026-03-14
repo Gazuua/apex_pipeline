@@ -75,6 +75,7 @@ D:\.workspace/
   - 생성: `git worktree add .worktrees/<name> -b <branch-name>`
   - 삭제: `git worktree remove .worktrees/<name>`
 - **머지**: 리뷰 이슈 0건 → squash merge → 브랜치+워크트리 삭제
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md` 완료 이력+현재 버전, `CLAUDE.md` 로드맵 현재 버전, `README.md` 현재 상태+변경 내역 — 세 문서 모두 최신 반영 후 머지
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
