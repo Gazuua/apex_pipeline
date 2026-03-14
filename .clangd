@@ -1,4 +1,5 @@
 CompileFlags:
+  Compiler: clang++
   Add:
     - --target=x86_64-pc-windows-msvc
     - -std=c++23
@@ -32,8 +33,7 @@ CompileFlags:
     - -MD
     - /Fo*
     - /Fd*
-    - -external:W0
-    - -external:I*
+    - -external:*
 Diagnostics:
   ClangTidy:
     Add:
