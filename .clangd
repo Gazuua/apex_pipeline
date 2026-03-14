@@ -1,6 +1,31 @@
 CompileFlags:
   Add:
     - --target=x86_64-pc-windows-msvc
+    - -std=c++23
+    - -Wno-unknown-attributes
+  Remove:
+    # MSVC C++ standard flag (clangd doesn't understand this)
+    - -std:c++latest
+    - /std:c++latest
+    # MSVC-specific flags incompatible with clangd
+    - /EHsc
+    - /Zi
+    - /Ob0
+    - /Od
+    - /O2
+    - /RTC1
+    - /nologo
+    - /TP
+    - /FS
+    - /utf-8
+    - /DWIN32
+    - /D_WINDOWS
+    - -MDd
+    - -MD
+    - /Fo*
+    - /Fd*
+    - -external:W0
+    - -external:I*
 Diagnostics:
   ClangTidy:
     Add:
