@@ -63,7 +63,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 - **git worktree**: `.worktrees/` 하위에 생성, 에이전트별 독립 작업
   - 생성: `git worktree add .worktrees/<name> -b <branch-name>`
   - 삭제: `git worktree remove .worktrees/<name>`
-- **머지**: 리뷰 이슈 0건 → squash merge → 브랜치+워크트리 삭제
+- **머지**: 리뷰 이슈 0건 → squash merge (`gh pr merge --squash --admin --delete-branch`) → 워크트리 삭제
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md` 완료 이력+현재 버전, `CLAUDE.md` 로드맵 현재 버전, `README.md` 현재 상태+변경 내역 — 세 문서 모두 최신 반영 후 머지
 
 ### 문서
