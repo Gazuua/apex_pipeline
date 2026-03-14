@@ -39,17 +39,3 @@
 - [x] test-quality
 - [x] infra
 
----
-
-## 알려진 이슈 (수정 보류)
-
-| 이슈 | 이유 | 대상 버전 |
-|------|------|----------|
-| RedisMultiplexer PendingCommand UAF | heap 할당 전환 필요, 구조적 리팩토링 | v0.5 |
-| RedisMultiplexer on_disconnect 미구현 | 재연결 로직 설계 필요 | v0.5 |
-| Redis AUTH 미구현 | 인증 프로토콜 추가 필요 | v0.5 |
-| RedisMultiplexer privdata FIFO 가정 | UAF와 동시 수정 권장 | v0.5 |
-| RedisReply ARRAY 타입 미지원 | SMEMBERS/LRANGE 파싱 불가 | v0.5 |
-| PgTransaction begun_ unit test 불가 | mock PgConnection 필요 | v0.5 |
-| RedisMultiplexer pipeline() 순차 실행 | 진짜 파이프라이닝 별도 설계 | v0.5 |
-| Server 라이프사이클 에러 경로 테스트 | 별도 태스크 | v0.5 |

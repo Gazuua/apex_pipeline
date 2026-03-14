@@ -51,8 +51,3 @@ apex_shared/
 | 스키마 | 프레임워크 레벨 | 서비스 레벨 (비즈니스 도메인) |
 | 빌드 | 독립 | flatbuffers만 의존 (apex_core 의존 X) |
 | 코드젠 패턴 | foreach + add_custom_command | 동일 |
-
-## 향후 확장
-
-- `.fbs` 파일 추가 → `APEX_SHARED_SCHEMAS` 리스트에 등록 → 자동 코드젠
-- 공유 유틸 코드 → `lib/src/`에 추가, CMakeLists.txt 소스 리스트에 등록

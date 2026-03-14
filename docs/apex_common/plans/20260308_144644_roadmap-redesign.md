@@ -145,35 +145,7 @@ Phase 5 (기반 정비)
 
 ---
 
-## 4. 백로그
-
-### 서비스 레벨 패턴 (해당 Phase 브레인스토밍에서 흡수)
-
-| 항목 | 적용 시점 |
-|------|----------|
-| Circuit Breaker | Phase 8 Gateway |
-| Dead Letter Queue | Phase 6 Kafka Consumer |
-| Idempotency Key | Phase 8 서비스 핸들러 |
-| Connection Draining | Phase 9 K8s 롤링 업데이트 |
-| Kafka 토픽/파티션 설계 | Phase 6 브레인스토밍 |
-| Redis 키 네이밍 | Phase 7 브레인스토밍 |
-| PG 스키마 설계 | Phase 8 Auth 브레인스토밍 |
-
-### 성능 최적화 (벤치마크 후 판단)
-
-| 항목 | 판단 시점 |
-|------|----------|
-| CPU Affinity + SO_REUSEPORT | Phase 10 부하 테스트 후 |
-| 배치 I/O (writev) | Phase 10 부하 테스트 후 |
-| 코루틴 프레임 풀 할당 | ADR-21 — 벤치마크 병목 확인 시 |
-| L1 로컬 캐시 | Phase 10 부하 테스트 후 |
-| epoll → io_uring 전환 | ADR-15 — Linux 배포 후 필요 시 |
-
-**원칙**: 백로그는 "미정"이 아니라 "적용 시점이 명확하지만 독립 Phase가 아닌 것". 각 Phase 브레인스토밍에서 관련 백로그를 자연스럽게 흡수한다.
-
----
-
-## 5. 문서 정합성 업데이트 범위
+## 4. 문서 정합성 업데이트 범위
 
 ### 설계 문서
 
@@ -199,7 +171,7 @@ Phase 5 (기반 정비)
 
 ---
 
-## 6. 넘버링/버전 규칙
+## 5. 넘버링/버전 규칙
 
 - **완료 Phase (1~4.7)**: 레거시 넘버링 동결. 상세는 `docs/apex_core/progress/` 참조
 - **활성 Phase (5+)**: 순차 정수
