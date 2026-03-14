@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 #include <cassert>
+#include <chrono>
 #include <functional>
 #include <stdexcept>
 #include <thread>
@@ -133,8 +134,19 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
     if (target_core >= cores_.size()) {
         return error(ErrorCode::Unknown);
     }
-    auto result = cores_[target_core]->inbox->enqueue(msg);
+    auto& target = *cores_[target_core];
+    target.metrics.post_total.fetch_add(1, std::memory_order_relaxed);
+
+    auto result = target.inbox->enqueue(msg);
     if (!result) {
+        target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
+        // Rate-limited warning (max once per second per thread)
+        static thread_local auto last_log = std::chrono::steady_clock::time_point{};
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_log > std::chrono::seconds{1}) {
+            spdlog::warn("cross_core_post to core {} failed: queue full", target_core);
+            last_log = now;
+        }
         return error(ErrorCode::CrossCoreQueueFull);
     }
     schedule_drain(target_core);
@@ -175,6 +187,13 @@ boost::asio::io_context& CoreEngine::io_context(uint32_t core_id) {
 
 bool CoreEngine::running() const noexcept {
     return running_.load(std::memory_order_acquire);
+}
+
+const CoreMetrics& CoreEngine::metrics(uint32_t core_id) const {
+    if (core_id >= cores_.size()) {
+        throw std::out_of_range("core_id out of range");
+    }
+    return cores_[core_id]->metrics;
 }
 
 uint32_t CoreEngine::current_core_id() noexcept {

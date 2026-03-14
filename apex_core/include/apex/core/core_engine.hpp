@@ -8,6 +8,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -15,6 +16,13 @@
 #include <vector>
 
 namespace apex::core {
+
+/// Per-core metric counters for inter-core messaging diagnostics.
+/// All counters use relaxed ordering — values are approximate but low-overhead.
+struct CoreMetrics {
+    std::atomic<uint64_t> post_total{0};
+    std::atomic<uint64_t> post_failures{0};
+};
 
 /// Trivially-copyable message for inter-core communication via MpscQueue.
 struct CoreMessage {
@@ -32,6 +40,7 @@ struct CoreContext {
     boost::asio::io_context io_ctx{1};  // concurrency_hint=1 (single thread)
     std::unique_ptr<MpscQueue<CoreMessage>> inbox;
     std::unique_ptr<boost::asio::steady_timer> tick_timer;
+    CoreMetrics metrics;
 
     CoreContext(uint32_t id, size_t queue_capacity);
     ~CoreContext();
@@ -110,6 +119,7 @@ public:
     [[nodiscard]] uint32_t core_count() const noexcept;
     [[nodiscard]] boost::asio::io_context& io_context(uint32_t core_id);
     [[nodiscard]] bool running() const noexcept;
+    [[nodiscard]] const CoreMetrics& metrics(uint32_t core_id) const;
 
     /// Current core ID via thread-local. Must be called from a core thread.
     [[nodiscard]] static uint32_t current_core_id() noexcept;

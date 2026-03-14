@@ -29,6 +29,7 @@ apex_add_unit_test(test_frame_codec test_frame_codec.cpp)
 # 크로스코어 인프라 테스트
 apex_add_unit_test(test_shared_payload test_shared_payload.cpp)
 apex_add_unit_test(test_cross_core_dispatcher test_cross_core_dispatcher.cpp)
+apex_add_unit_test(test_core_metrics test_core_metrics.cpp)
 
 # 세션 / 에러 처리 테스트
 apex_add_unit_test(test_session test_session.cpp)
@@ -87,5 +88,6 @@ set_tests_properties(
     test_server_adapter
     test_bump_allocator
     test_arena_allocator
+    test_core_metrics
     PROPERTIES TIMEOUT 30
 )
