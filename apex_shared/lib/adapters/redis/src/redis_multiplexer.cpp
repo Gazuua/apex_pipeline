@@ -106,6 +106,7 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
     auto* front = self->pending_.front();
     self->pending_.pop_front();
 
+    // Step 2 of 2-step ownership transfer (see release_pending):
     // If this command already timed out, the coroutine has already resumed
     // and extracted the result. The PendingCommand is still alive in the slab
     // (release_pending was called but only removes from deque if present).
@@ -154,6 +155,18 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
     }
 }
 
+// 2-step ownership transfer for timed-out commands:
+//
+//   Step 1 (here, release_pending): coroutine finishes but the hiredis
+//     callback hasn't fired yet.  Do NOT destroy — leave the
+//     PendingCommand in the deque + slab so static_on_reply can find it.
+//
+//   Step 2 (static_on_reply): hiredis eventually delivers the reply,
+//     pops the front of the deque, sees timed_out == true, and calls
+//     slab_.destroy().
+//
+// This keeps FIFO deque ordering intact and prevents use-after-free:
+// neither side destroys the object while the other still references it.
 void RedisMultiplexer::release_pending(PendingCommand* cmd) {
     if (cmd->timed_out) {
         // Timed-out command: the hiredis callback has NOT yet fired.

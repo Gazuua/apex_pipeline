@@ -379,7 +379,7 @@ Tier 상세:
 | v0.4.4.0 | 중 | 공통 추상화 (AdapterBase CRTP, ConnectionPool CRTP, PoolStats), docker-compose PgBouncer, 통합 테스트 CMake 인프라 | +6 단위 테스트, 통합 테스트 4개 (Kafka/Redis/PG/KafkaSink) |
 | v0.4.5.0 | 중 | 코어 메모리 아키텍처 (BumpAllocator, ArenaAllocator, SlabPool→SlabAllocator 리네임, CoreAllocator/Freeable/Resettable concepts), Redis 어댑터 개편 (RedisMultiplexer 코루틴 파이프라이닝, RedisReply RAII, ConnectionPool CRTP 제거), PostgreSQL 어댑터 개편 (PgTransaction RAII 가드, PgConnection prepared stmt + BumpAllocator 주입, PgPool CRTP 제거), 어댑터 공통 (PoolLike concept, ConnectionPool CRTP 전면 제거), CoreMetrics + cross_core_post 실패 rate-limited 로깅, ServerConfig TOML 스키마 확장 (메모리 할당기 + cross_core_call_timeout) | +37건 수정 (auto-review 2회) |
 | v0.4.5.1 | 소 | Full auto-review v0.4.5.0 (11명 리뷰어, 코드 4건 수정), 문서 타임스탬프 전수 보정 (93건), BACKLOG.md 신설 + 원본 문서 TODO/백로그 전수 제거, CLAUDE.md 압축 분할 (116→54줄), auto-review re_review_scope 스마트 재리뷰 판단 도입, 빌드 무한대기 규칙 + 타임스탬프 date 명령 강제 지침, CI Linux vcpkg binary cache 경로 수정. **Full auto-review v0.4.5.1** (Round 1 Clean, 문서 수정 2건) + 프로세스 개선 3건: start 시그널 타이밍 → coordinator 후발 스폰, 빌드 블로킹 → 메인 책임 이관, 팀 해산 → 메인 전담 해산 | 리뷰+문서 정비+프로세스 개선 |
-| v0.4.5.2 | 소 | auto-review 감도 강화 (체크리스트, threshold 50%, cross-domain 관심사) + cross-cutting 리뷰어 신설 → 12명 체제, coordinator 오버랩 정책 + 자동 시작. 코드 리뷰 이슈 6건 수정: PendingCommand UAF (SlabAllocator 전환), silent disconnect 로깅, 어댑터 init 실패 throw, 컨테이너 일관성, RingBuffer shrink, pgbouncer DoS 방어. MIT LICENSE 추가, README 아키텍처 섹션 개편, BACKLOG 갱신. C-2 write queue false positive 드랍 | auto-review 강화+코드 수정 |
+| v0.4.5.2 | 소 | auto-review 감도 강화 (체크리스트, threshold 50%, cross-domain 관심사) + cross-cutting 리뷰어 신설 → 12명 체제, coordinator 오버랩 정책 + 자동 시작. 코드 리뷰 이슈 6건 수정: PendingCommand UAF (SlabAllocator 전환), silent disconnect 로깅, 어댑터 init 실패 throw, 컨테이너 일관성, RingBuffer shrink, pgbouncer DoS 방어. MIT LICENSE 추가, README 아키텍처 섹션 개편, BACKLOG 갱신. C-2 write queue false positive 드랍. 리뷰 피드백 반영: SessionManager::tick() shrink_to_fit 60초 주기 호출, RedisMultiplexer 2-step ownership transfer 주석 보강, 백로그 해결 완료 항목 정리, clangd vcpkg 인클루드 경로 재추가 | auto-review 강화+코드 수정+리뷰 피드백 |
 
 > 단위 테스트 전수 PASS (auto-review로 추가 보강 중). 통합 테스트는 docker-compose 환경에서 실행 (APEX_BUILD_INTEGRATION_TESTS=ON).
 
@@ -392,7 +392,7 @@ Tier 상세:
 > v0.x = 프레임워크 개발, v1.0.0.0 = 프레임워크 완성 (커스텀 서비스 자유 배포 가능)
 
 ```
-v0.4.5.2 (현재) ── auto-review 감도 강화 + 코드 리뷰 이슈 수정 + 12명 체제
+v0.4.5.2 (현재) ── auto-review 감도 강화 + 코드 리뷰 이슈 수정 + 12명 체제 + 리뷰 피드백 반영
     │
     └──→ v0.5.1 (다음, WebSocket) ──┐
                                │

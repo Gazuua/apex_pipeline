@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.4.5.1
+## 현재 상태 — v0.4.5.2
 
 ### 완료
 
@@ -63,6 +63,11 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - CI Linux vcpkg binary cache 경로 수정
   - Full auto-review v0.4.5.1: Round 1 Clean, 문서 수정 2건
   - 프로세스 개선 3건: start 시그널 타이밍 해소, 빌드 역할 분리, 팀 해산 책임 명확화
+
+- **v0.4.5.2 — auto-review 감도 강화 + 코드 리뷰 이슈 수정 + 리뷰 피드백 반영**
+  - auto-review 감도 강화 (체크리스트, threshold 50%, cross-domain 관심사) + cross-cutting 리뷰어 신설 → 12명 체제
+  - 코드 리뷰 이슈 6건 수정: PendingCommand UAF, silent disconnect 로깅, 어댑터 init 실패 throw, RingBuffer shrink 등
+  - 리뷰 피드백 반영: SessionManager::tick() shrink_to_fit 60초 주기, RedisMultiplexer 주석 보강, 백로그 정리, clangd 경로 수정
 
 ## 아키텍처
 

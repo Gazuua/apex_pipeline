@@ -82,6 +82,11 @@ private:
     // unordered_maps, reducing per-session memory overhead and lookup cost.
 
     TimeoutCallback timeout_callback_;
+
+    // shrink_to_fit 주기 관리 (tick 단위)
+    // 기본 tick_interval 100ms 기준: 600 ticks ≈ 60초
+    static constexpr uint32_t kShrinkIntervalTicks = 600;
+    uint32_t shrink_tick_counter_{0};
 };
 
 } // namespace apex::core
