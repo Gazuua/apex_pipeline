@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.4.5.0
+## 현재 상태 — v0.4.5.1
 
 ### 완료
 
@@ -52,6 +52,15 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - full mode 리뷰 이슈 41건 수정 (코드 5건 + docs/README 5건 + docs 경로/체크박스 31건)
   - CLAUDE.md 빌드 명령어 + 에이전트 작업 규칙 추가
   - v0.5 백로그 문서 작성
+
+- **v0.4.5.1 — Full auto-review + 문서 정비 + 프로세스 개선**
+  - Full auto-review v0.4.5.0: 11명 리뷰어, 코드 4건 수정
+  - 문서 타임스탬프 전수 보정 (93건)
+  - BACKLOG.md 신설 + 원본 문서 TODO/백로그 전수 제거
+  - CLAUDE.md 압축 분할 (116줄 → 54줄, 상세는 하위 CLAUDE.md로 분리)
+  - auto-review re_review_scope 기반 스마트 재리뷰 판단 도입
+  - 빌드 무한대기 규칙 + 타임스탬프 date 명령 강제 지침
+  - CI Linux vcpkg binary cache 경로 수정
 
 ### 다음
 
