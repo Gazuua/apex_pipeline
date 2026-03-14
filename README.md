@@ -46,6 +46,13 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - CoreMetrics atomic 카운터 + rate-limited 로깅, TOML 설정 스키마 확장
   - 45 단위 테스트 + 4 통합 테스트, Auto-review 2 rounds Clean
 
+- **auto-review v2.0 — 3계층 팀 구조 개편** (도구/문서 개선, 프레임워크 버전 변경 없음)
+  - 3계층 팀 구조 정립: coordinator.md → auto-review.md → 11 reviewer agents
+  - 리뷰어 자율성 원칙 명시 (12 에이전트 파일 갱신)
+  - full mode 리뷰 이슈 41건 수정 (코드 5건 + docs/README 5건 + docs 경로/체크박스 31건)
+  - CLAUDE.md 빌드 명령어 + 에이전트 작업 규칙 추가
+  - v0.5 백로그 문서 작성
+
 ### 다음
 
 - **v0.5 — 서비스 체인** (WebSocket + Gateway + Auth + E2E)

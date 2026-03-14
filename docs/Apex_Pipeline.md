@@ -381,6 +381,8 @@ Tier 상세:
 
 > 단위 테스트 전수 PASS (auto-review로 추가 보강 중). 통합 테스트는 docker-compose 환경에서 실행 (APEX_BUILD_INTEGRATION_TESTS=ON).
 
+> auto-review v2.0 개편: 3계층 팀 구조(coordinator → auto-review → 11 reviewers) 정립, 리뷰어 자율성 원칙 명시(12 에이전트 파일), full mode 리뷰 이슈 41건 수정(코드 5 + docs 36), CLAUDE.md 빌드 명령어/에이전트 규칙 추가, v0.5 백로그 문서 작성. 프레임워크 버전 변경 없음(도구/문서 개선).
+
 ### 활성 로드맵
 
 > v0.x = 프레임워크 개발, v1.0.0.0 = 프레임워크 완성 (커스텀 서비스 자유 배포 가능)
