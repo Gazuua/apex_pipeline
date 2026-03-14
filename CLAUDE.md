@@ -61,7 +61,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **git worktree**: `.worktrees/` 하위에 생성, 에이전트별 독립 작업
-  - 생성: `git worktree add .worktrees/<name> -b <branch-name>`
+  - 생성: `git worktree add .worktrees/<name> -b <branch-name>` → 직후 `git config --global --add safe.directory D:/.workspace/.worktrees/<name>` (Windows 소유권 오류 방지)
   - 삭제: `git worktree remove .worktrees/<name>`
 - **머지**: 리뷰 이슈 0건 → squash merge (`gh pr merge --squash --admin --delete-branch`) → 워크트리 삭제
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md` 완료 이력+현재 버전, `CLAUDE.md` 로드맵 현재 버전, `README.md` 현재 상태+변경 내역 — 세 문서 모두 최신 반영 후 머지
