@@ -49,6 +49,9 @@ public:
 
     [[nodiscard]] bool is_connected() const noexcept;
 
+    /// Raw hiredis async context access (for RedisMultiplexer direct command submission).
+    [[nodiscard]] redisAsyncContext* async_context() noexcept { return ac_; }
+
     // --- Reply 파싱 유틸리티 (static) ---
 
     /// REDIS_REPLY_STRING -> std::optional<std::string>
