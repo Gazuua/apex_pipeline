@@ -91,6 +91,24 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 
 - GitHub: `Gazuua/apex_pipeline`
 
+## 로컬 플러그인 캐시 트러블슈팅
+
+스킬 invoke 시 실제 파일과 다른 (오래된) 내용이 로드되면 **플러그인 캐시 문제**. 세션 재시작으로는 해결 안 됨.
+
+**진단**: 스킬 invoke 결과와 실제 파일(`apex_tools/claude-plugin/commands/*.md`) diff 비교
+
+**수정 절차:**
+```bash
+# 1. 캐시 삭제
+rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
+
+# 2. ~/.claude/plugins/installed_plugins.json 확인+수정
+#    - installPath가 실제 경로와 일치하는지 (오타 주의)
+#    - version이 plugin.json과 일치하는지
+
+# 3. 세션 재시작 → 최신 스킬 로드 확인
+```
+
 ## 상세 가이드 포인터
 
 - 빌드/MSVC/아키텍처 결정/벤치마크 상세 → `apex_core/CLAUDE.md`
