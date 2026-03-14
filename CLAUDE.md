@@ -14,6 +14,10 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - `cmd.exe //c build.bat debug` / `cmd.exe //c build.bat release` (bash 셸에서, `//c` 필수)
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
 - **빌드는 한 번에 하나만** — 동시 빌드 시 시스템 렉
+- **워크트리 빌드 주의사항**:
+  - 워크트리에서 `build.bat` 실행 시 `vswhere.exe` 경로 탐색 문제로 실패할 수 있음
+  - 첫 빌드 시 vcpkg 패키지 설치로 수 분~수십 분 소요 가능
+  - 빌드 실패가 코드 문제가 아닌 환경 문제로 의심되면, 메인 워크스페이스(`D:\.workspace`)에서 검증 권장
 - 상세 (의존성, MSVC 주의사항, 빌드 변형) → `apex_core/CLAUDE.md`
 
 ## 로드맵
