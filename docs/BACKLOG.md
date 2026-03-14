@@ -7,6 +7,7 @@
 
 ## Critical / High
 
+- [ ] **v0.5 기능 개발 본격 진행** — 개발 기반환경(빌드, clangd LSP, auto-review, CI) 세팅 완료. 환경 작업 최소화하고 기능 구현에 집중 — v0.4.5.2 기준
 - [ ] **Redis AUTH 미구현 + password 필드 미사용** — RedisConfig::password 존재하나 연결 시 AUTH 명령 미전송. 비동기 연결 핸드셰이크 재설계 필요 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
 
 ## Medium
@@ -39,6 +40,9 @@
 - Apex_Pipeline.md §5 안정성 설계
 
 ## Low / Info
+
+- [ ] **clang-tidy 워닝 정리 (apex_core)** — `server.cpp` 2건 (trivially-copyable move, unnecessary-value-param), `session.cpp` 5건 (implicit-bool-conversion, owning-memory, coroutine-ref-param, unused-return-value), `arena_allocator.cpp` 8건 (prefer-member-initializer, no-int-to-ptr, owning-memory, no-malloc, implicit-bool-conversion). 기능 이상 없음, 코어 가이드라인 스타일 수준 — 출처: clangd LSP 진단 (v0.4.5.2)
+- [ ] **main 히스토리 문서 전용 커밋 squash** — docs 전용 커밋이 전체의 30~40% 차지. interactive rebase로 인접 문서 커밋 squash 정리 필요 — 출처: 코드 리뷰 피드백
 
 - [ ] **design-decisions ADR-04 초기 디렉토리 구조 stale** — 모노레포 전환 이후 ADR-04 내용이 현재 구조와 불일치 — 출처: review/20260314_140000_auto-review.md
 - [ ] **Apex_Pipeline.md apex_shared/schemas/ placeholder** — 설계 문서에 schemas/ 디렉토리 언급되나 아직 미생성 — 출처: review/20260314_140000_auto-review.md
