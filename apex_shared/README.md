@@ -4,7 +4,7 @@
 
 ## 구조
 
-- `schemas/` — 공유 FlatBuffers 스키마 (.fbs)
+- `schemas/` — 공유 FlatBuffers 스키마 (.fbs) *(v0.5에서 추가 예정)*
 - `lib/` — 공유 C++ 코드 (STATIC 라이브러리)
   - `include/apex/shared/` — 공유 헤더
   - `src/` — 구현
@@ -22,7 +22,7 @@
 | 프레임워크 | `apex.messages` | apex_core/schemas/ |
 | 서비스 공유 | `apex.shared.<domain>` | apex_shared/schemas/ |
 
-## 스키마 추가 방법
+## 스키마 추가 방법 *(v0.5에서 구현 예정)*
 
 1. `schemas/` 에 `.fbs` 파일 작성 (namespace: `apex.shared.<domain>`)
 2. `CMakeLists.txt`의 `APEX_SHARED_SCHEMAS` 리스트에 경로 추가
