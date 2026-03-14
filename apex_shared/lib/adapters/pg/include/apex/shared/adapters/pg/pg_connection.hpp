@@ -78,6 +78,11 @@ public:
     /// Connection state
     [[nodiscard]] bool is_connected() const noexcept;
 
+    /// Poisoned state — connection should not be returned to pool.
+    /// Set when an unfinished transaction is detected on destruction.
+    void mark_poisoned() noexcept { poisoned_ = true; }
+    [[nodiscard]] bool is_poisoned() const noexcept { return poisoned_; }
+
 private:
     /// PQconnectPoll loop (internal to connect_async)
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
@@ -97,6 +102,7 @@ private:
     /// Linux:   tcp::socket::assign(tcp::v4(), PQsocket(conn)) -> epoll
     std::unique_ptr<boost::asio::ip::tcp::socket> socket_;
     bool connected_ = false;
+    bool poisoned_ = false;
 };
 
 } // namespace apex::shared::adapters::pg

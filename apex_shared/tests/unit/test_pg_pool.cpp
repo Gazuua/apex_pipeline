@@ -1,6 +1,6 @@
 #include <apex/shared/adapters/pg/pg_pool.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
-#include <apex/shared/adapters/connection_pool.hpp>
+#include <apex/shared/adapters/pool_concept.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <gtest/gtest.h>
@@ -142,4 +142,59 @@ TEST(PgPool, MultipleAcquireWithinMax) {
     pool.release(std::move(c2.value()));
     pool.release(std::move(c3.value()));
     pool.release(std::move(c4.value()));
+}
+
+TEST(PgPool, StatsTracking) {
+    boost::asio::io_context io_ctx;
+    PgAdapterConfig config{.pool_size_per_core = 1};  // max = 2
+    PgPool pool(io_ctx, config);
+
+    auto c1 = pool.acquire();
+    ASSERT_TRUE(c1.has_value());
+    EXPECT_EQ(pool.stats().total_acquired, 1u);
+    EXPECT_EQ(pool.stats().total_created, 1u);
+
+    pool.release(std::move(c1.value()));
+    EXPECT_EQ(pool.stats().total_released, 1u);
+
+    // Exhaust pool
+    auto c2 = pool.acquire();
+    auto c3 = pool.acquire();
+    ASSERT_TRUE(c2.has_value());
+    ASSERT_TRUE(c3.has_value());
+    auto c4 = pool.acquire();  // should fail
+    EXPECT_FALSE(c4.has_value());
+    EXPECT_EQ(pool.stats().total_failed, 1u);
+
+    pool.release(std::move(c2.value()));
+    pool.release(std::move(c3.value()));
+}
+
+TEST(PgPool, ReleasePoisonedConnectionDiscards) {
+    boost::asio::io_context io_ctx;
+    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgPool pool(io_ctx, config);
+
+    auto result = pool.acquire();
+    ASSERT_TRUE(result.has_value());
+    auto& conn = result.value();
+
+    // Mark connection as poisoned
+    conn->mark_poisoned();
+    EXPECT_TRUE(conn->is_poisoned());
+
+    EXPECT_EQ(pool.active_count(), 1u);
+    EXPECT_EQ(pool.total_count(), 1u);
+
+    // Release poisoned connection -- should discard instead of returning to idle pool
+    pool.release(std::move(conn));
+    EXPECT_EQ(pool.active_count(), 0u);
+    EXPECT_EQ(pool.idle_count(), 0u);    // not returned to idle
+    EXPECT_EQ(pool.total_count(), 0u);   // destroyed
+    EXPECT_EQ(pool.stats().total_destroyed, 1u);
+}
+
+TEST(PgPool, PoolLikeConceptSatisfied) {
+    // Compile-time verification that PgPool satisfies PoolLike concept
+    static_assert(PoolLike<PgPool>);
 }
