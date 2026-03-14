@@ -61,6 +61,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - auto-review re_review_scope 기반 스마트 재리뷰 판단 도입
   - 빌드 무한대기 규칙 + 타임스탬프 date 명령 강제 지침
   - CI Linux vcpkg binary cache 경로 수정
+  - Full auto-review v0.4.5.1: Round 1 Clean, 문서 수정 2건
+  - 프로세스 개선 3건: start 시그널 타이밍 해소, 빌드 역할 분리, 팀 해산 책임 명확화
 
 ### 다음
 
