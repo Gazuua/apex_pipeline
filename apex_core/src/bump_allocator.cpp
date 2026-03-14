@@ -44,6 +44,7 @@ BumpAllocator& BumpAllocator::operator=(BumpAllocator&& other) noexcept {
 void* BumpAllocator::allocate(std::size_t size, std::size_t align) {
     if (size == 0) return nullptr;
     if (align == 0 || (align & (align - 1)) != 0) return nullptr;
+    if (!base_) return nullptr;  // zero-capacity allocator
 
     // Align cursor up to the requested alignment boundary.
     // Formula: (addr + align - 1) & ~(align - 1)

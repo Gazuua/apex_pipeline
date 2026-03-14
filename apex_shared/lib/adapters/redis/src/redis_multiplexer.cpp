@@ -9,7 +9,6 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
-#include <algorithm>
 
 namespace apex::shared::adapters::redis {
 
@@ -18,8 +17,10 @@ RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx,
     : io_ctx_(io_ctx), config_(config) {}
 
 RedisMultiplexer::~RedisMultiplexer() {
-    // Set error on all pending commands and cancel their resolver timers
-    for (auto* cmd : pending_) {
+    // Move pending_ to local to avoid iterator invalidation if cancel()
+    // triggers posted handlers synchronously.
+    auto local = std::move(pending_);
+    for (auto* cmd : local) {
         cmd->result = std::unexpected(apex::core::ErrorCode::AdapterError);
         cmd->resolver.cancel();
     }
@@ -69,12 +70,8 @@ RedisMultiplexer::command(std::string_view cmd) {
 
     pending.timeout.cancel();
 
-    // Remove from pending_ to prevent dangling pointer access from hiredis callback
-    // after this coroutine frame is destroyed (especially on timeout).
-    auto it = std::find(pending_.begin(), pending_.end(), &pending);
-    if (it != pending_.end()) {
-        pending_.erase(it);
-    }
+    // TODO: PendingCommand를 heap 할당(unique_ptr)으로 전환하여
+    // 타임아웃 후 코루틴 프레임 소멸 시 dangling 방지 필요 (v0.5)
 
     co_return std::move(pending.result);
 }
