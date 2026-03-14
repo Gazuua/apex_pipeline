@@ -1,5 +1,6 @@
 #include <apex/core/arena_allocator.hpp>
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <utility>
 
