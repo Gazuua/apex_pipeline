@@ -64,6 +64,7 @@ apex_tools/auto-review/
 - **Critical 판정 기준 강화**: "현재 호출자 존재 여부" 등 실용적 기준 추가
 - **JSON 출력 필수**: 모든 리뷰어가 구조화된 findings.json 포맷으로 결과 출력
 - **크로스 컴파일러 체크**: GCC/MSVC 차이 검증 필수 (예: `<cstdint>` 명시적 include, `SIZE_MAX` 선언 등 — MSVC는 transitively include되어 빌드되지만 GCC에서 실패하는 패턴). reviewer-build의 필수 체크리스트에 포함
+- **날짜/타임스탬프 정확성 검증**: reviewer-docs가 문서 내 날짜, 파일명 타임스탬프, 버전 번호의 실제 정확성을 검증. 예: 파일명 `YYYYMMDD_HHMMSS_*` 형식의 타임스탬프가 문서 내 작성일과 일치하는지, progress/plan 문서의 날짜가 git 이력과 모순되지 않는지, 버전 번호가 로드맵과 일치하는지
 
 ---
 
