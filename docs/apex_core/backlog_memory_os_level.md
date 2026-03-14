@@ -59,6 +59,20 @@
 
 ---
 
+### 5. BumpAllocator / ArenaAllocator 벤치마크
+
+**내용**: `malloc` vs `BumpAllocator` vs `ArenaAllocator` 할당 성능 비교 벤치마크 추가. 기존 `bench_slab_allocator.cpp` 패턴과 동일하게 micro 벤치마크 작성.
+
+**측정 항목**:
+- 단일 할당 지연 (ns/op)
+- 반복 할당+리셋 사이클
+- 다양한 크기/정렬 조합 (`allocate(size, align)`)
+- ArenaAllocator 블록 체이닝 오버헤드
+
+**적용 시점**: v0.5 서비스 체인 전. 할당기를 실제 서비스 핫패스에 적용하기 전에 기준 수치 확보.
+
+---
+
 ## 참고: 성능 영향 요약 (브레인스토밍 분석 결과)
 
 | 항목 | 현재 설계 대비 손실 | 적용 시점 |
