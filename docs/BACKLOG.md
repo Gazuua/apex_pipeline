@@ -7,15 +7,13 @@
 
 ## Critical / High
 
-- [ ] **RedisMultiplexer PendingCommand use-after-free (UAF)** — 스택 할당 PendingCommand가 timeout 시 dangling 포인터 발생. heap 할당으로 전환 필요, 수명 관리 전체 재설계 수반. 코드 내 TODO 존재 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
-- [ ] **RedisMultiplexer on_disconnect 시 pending command 정리 미구현** — disconnect 경로에서 미완료 커맨드 안전 정리 불가. PendingCommand 소유권 모델 확립 후 해결 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
 - [ ] **Redis AUTH 미구현 + password 필드 미사용** — RedisConfig::password 존재하나 연결 시 AUTH 명령 미전송. 비동기 연결 핸드셰이크 재설계 필요 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
 
 ## Medium
 
 - [ ] **PgPool acquire() immediate-fail 설계** — 풀 고갈 시 재시도/백프레셔 미구현, 즉시 실패 반환. v0.5에서 재시도 정책 고려 — 출처: review/20260314_140000_auto-review.md (v0.5)
 - [ ] **KafkaAdapter draining_ 이중 추적 + per-core 접근 패턴 혼재** — draining_ bool이 api→logic 경계를 넘나들며 사용됨. 접근 패턴 정리 필요 — 출처: review/20260314_140000_auto-review.md (v0.5)
-- [ ] **RedisMultiplexer privdata FIFO 가정** — hiredis privdata가 FIFO 순서를 보장하지 않을 수 있음. UAF 수정 시 함께 해결 권장 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
+- [x] **RedisMultiplexer privdata FIFO 가정** — 확인 완료 — Redis 단일 연결에서 hiredis 콜백 FIFO 보장 (Redis 프로토콜 명세) — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
 - [ ] **RedisReply ARRAY 타입 미지원** — SMEMBERS/LRANGE 등 배열 응답 파싱 불가 — 출처: review/20260314_090000_auto-review.md (v0.5)
 - [ ] **RedisMultiplexer pipeline() 순차 실행** — 현재 cmd 하나씩 전송+대기. 진짜 파이프라이닝(모든 cmd 전송 후 응답 일괄 수집)은 별도 설계 필요 — 출처: progress/20260314_190000_v0.4.5_progress.md (v0.5)
 - [ ] **ConnectionHandler 단위 테스트 부재** — 다수 리뷰에서 반복 지적, E2E 간접 커버 중. 상당한 작업량 — 출처: review/20260314_140000_auto-review.md, review/20260313_005117_auto-review.md (v0.5)
@@ -47,7 +45,6 @@
 - [ ] **테스트 이름 오타 MoveConstruction 2건** — test_bump_allocator.cpp:103, test_arena_allocator.cpp:109에서 `MoveConstruction` (오타 여부 확인 필요) — 출처: review/20260314_140000_auto-review.md
 - [ ] **make_socket_pair 반환 순서 불일치** — 함수는 `{server, client}` 반환하나 일부 호출처에서 순서 혼용 — 출처: review/20260314_140000_auto-review.md
 - [ ] **plans-progress 추적성 갭 2건** — docs-consolidation, roadmap-redesign 계획서에 대응하는 progress 문서 없음 (초기 레거시) — 출처: review/20260314_140000_auto-review.md
-- [ ] **LICENSE 파일 부재** — v1.0 전 결정 필요 — 출처: review/20260314_140000_auto-review.md, review/20260313_005117_auto-review.md
 - [ ] **vcpkg.json 의존성 정리** — 빌드 영향 큼, 별도 태스크 — 출처: review/20260314_140000_auto-review.md
 - [ ] **BumpAllocator / ArenaAllocator 벤치마크** — malloc 대비 성능 기준 수치 확보 필요 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.5)
 - [ ] **NUMA 바인딩 + Core Affinity** — 멀티 소켓 환경 전용, 싱글 소켓에서는 불필요 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.6+)

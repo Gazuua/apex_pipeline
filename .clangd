@@ -3,6 +3,9 @@ CompileFlags:
     - --target=x86_64-pc-windows-msvc
     - -std=c++23
     - -Wno-unknown-attributes
+    # -external:I 플래그가 Remove로 제거되므로, 동일 경로를 -I로 재추가
+    - -ID:/.workspace/vcpkg_installed/x64-windows/include
+    - -ID:/.workspace/vcpkg_installed/x64-windows/include/server
   Remove:
     # MSVC C++ standard flag (clangd doesn't understand this)
     - -std:c++latest

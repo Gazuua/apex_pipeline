@@ -86,6 +86,14 @@ void SessionManager::touch_session(SessionId id) {
 
 void SessionManager::tick() {
     timer_wheel_.tick();
+
+    // 주기적으로 모든 세션의 수신 버퍼 linearization 메모리를 정리
+    if (++shrink_tick_counter_ >= kShrinkIntervalTicks) {
+        shrink_tick_counter_ = 0;
+        for (auto& [id, session] : sessions_) {
+            session->recv_buffer().shrink_to_fit();
+        }
+    }
 }
 
 void SessionManager::set_timeout_callback(TimeoutCallback cb) {
