@@ -68,6 +68,7 @@ D:\.workspace/
 ## 워크플로우 규칙
 
 ### Git / 브랜치
+- **커밋 메시지는 한국어로 작성** — `feat(core): 코루틴 할당기 추가` 형태. 타입 접두사(`feat`, `fix`, `refactor`, `docs` 등)와 스코프는 영어, 설명은 한국어
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **git worktree**: `.worktrees/` 하위에 생성, 에이전트별 독립 작업
@@ -114,6 +115,7 @@ D:\.workspace/
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
+- **빌드는 한 번에 하나만** — MSVC+Ninja가 멀티코어를 풀로 사용하므로, 동시 빌드 시 시스템 렉 심함. 파일 작성은 병렬로 하되 빌드/테스트는 순차 실행
 
 ## 프로젝트 정보
 
