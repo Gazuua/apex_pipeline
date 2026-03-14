@@ -50,14 +50,14 @@
 
 | 리뷰어 | 도메인 | 파일 |
 |--------|--------|------|
-| docs-spec | 원천 문서 정합성 | `agents/reviewer-docs-spec.md` |
-| docs-records | 기록 문서 품질 | `agents/reviewer-docs-records.md` |
-| architecture | 설계 <-> 코드 정합 | `agents/reviewer-architecture.md` |
-| logic | 비즈니스 로직 | `agents/reviewer-logic.md` |
-| memory | 메모리 관리 | `agents/reviewer-memory.md` |
-| concurrency | 동시성 | `agents/reviewer-concurrency.md` |
-| api | API/concept 설계 | `agents/reviewer-api.md` |
-| test-coverage | 테스트 커버리지 | `agents/reviewer-test-coverage.md` |
-| test-quality | 테스트 코드 품질 | `agents/reviewer-test-quality.md` |
-| infra | 빌드/CI/인프라 | `agents/reviewer-infra.md` |
-| security | 보안 | `agents/reviewer-security.md` |
+| docs-spec | 원천 문서 정합성 | `apex_tools/claude-plugin/agents/reviewer-docs-spec.md` |
+| docs-records | 기록 문서 품질 | `apex_tools/claude-plugin/agents/reviewer-docs-records.md` |
+| architecture | 설계 <-> 코드 정합 | `apex_tools/claude-plugin/agents/reviewer-architecture.md` |
+| logic | 비즈니스 로직 | `apex_tools/claude-plugin/agents/reviewer-logic.md` |
+| memory | 메모리 관리 | `apex_tools/claude-plugin/agents/reviewer-memory.md` |
+| concurrency | 동시성 | `apex_tools/claude-plugin/agents/reviewer-concurrency.md` |
+| api | API/concept 설계 | `apex_tools/claude-plugin/agents/reviewer-api.md` |
+| test-coverage | 테스트 커버리지 | `apex_tools/claude-plugin/agents/reviewer-test-coverage.md` |
+| test-quality | 테스트 코드 품질 | `apex_tools/claude-plugin/agents/reviewer-test-quality.md` |
+| infra | 빌드/CI/인프라 | `apex_tools/claude-plugin/agents/reviewer-infra.md` |
+| security | 보안 | `apex_tools/claude-plugin/agents/reviewer-security.md` |
