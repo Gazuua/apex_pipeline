@@ -6,6 +6,7 @@ add_library(apex_shared_adapters_pg STATIC
     src/pg_connection.cpp
     src/pg_pool.cpp
     src/pg_adapter.cpp
+    src/pg_transaction.cpp
 )
 add_library(apex::shared::adapters::pg ALIAS apex_shared_adapters_pg)
 
