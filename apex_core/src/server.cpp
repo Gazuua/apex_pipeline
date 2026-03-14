@@ -17,10 +17,13 @@ namespace apex::core {
 
 PerCoreState::PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
                            size_t timer_wheel_slots, size_t recv_buf_capacity,
-                           ConnectionHandlerConfig handler_config)
+                           ConnectionHandlerConfig handler_config,
+                           size_t bump_capacity, size_t arena_block, size_t arena_max)
     : core_id(id)
     , session_mgr(id, heartbeat_timeout_ticks, timer_wheel_slots, recv_buf_capacity)
     , handler(session_mgr, dispatcher, handler_config)
+    , bump_allocator(bump_capacity)
+    , arena_allocator(arena_block, arena_max)
 {
 }
 
@@ -62,7 +65,9 @@ Server::Server(ServerConfig config)
         per_core_.push_back(std::make_unique<PerCoreState>(
             i, config_.heartbeat_timeout_ticks,
             config_.timer_wheel_slots, config_.recv_buf_capacity,
-            handler_config));
+            handler_config,
+            config_.bump_capacity_bytes, config_.arena_block_bytes,
+            config_.arena_max_bytes));
     }
 
     // TcpAcceptor — bind immediately so port() works.
