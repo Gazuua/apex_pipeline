@@ -3,7 +3,12 @@ CompileFlags:
     - --target=x86_64-pc-windows-msvc
     - -std=c++23
     - -Wno-unknown-attributes
-    # -external:I 플래그가 Remove로 제거되므로, 동일 경로를 -I로 재추가
+    # MSVC STL + Windows SDK (clangd가 자동 탐색 못 하므로 명시)
+    - -IC:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/include
+    - -IC:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/ucrt
+    - -IC:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/shared
+    - -IC:/Program Files (x86)/Windows Kits/10/Include/10.0.26100.0/um
+    # vcpkg (-external:I 플래그가 Remove로 제거되므로 -I로 재추가)
     - -ID:/.workspace/vcpkg_installed/x64-windows/include
     - -ID:/.workspace/vcpkg_installed/x64-windows/include/server
   Remove:
