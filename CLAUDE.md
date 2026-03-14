@@ -32,7 +32,19 @@ D:\.workspace/
 ## 빌드 환경
 
 Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
-상세 (빌드 명령, 변형, 의존성, MSVC 주의사항) → `apex_core/CLAUDE.md`
+
+- **빌드 명령** (bash 셸에서):
+  ```bash
+  cmd.exe //c build.bat debug      # 모노레포 루트 빌드 (configure + build + test)
+  cmd.exe //c build.bat release    # release 빌드
+  ```
+  - Windows에서는 vcvarsall.bat 호출이 필요하므로 cmd.exe 경유 필수 (build.sh는 Linux/CI 전용)
+  - `//c` 사용 (MSYS bash가 `/c`를 경로로 변환하므로)
+  - `run_in_background` 사용 시 리다이렉트 없이 직접 출력: `cmd.exe //c "D:\\.workspace\\build.bat debug"`
+  - 포그라운드에서 출력 캡처 필요 시: `> build_log.txt 2>&1` 후 `cat build_log.txt`
+  - **빌드는 항상 `run_in_background: true`로 실행** (타임아웃 방지)
+- **빌드 변형**: debug / release / asan / tsan
+- 상세 (의존성, MSVC 주의사항) → `apex_core/CLAUDE.md`
 
 ## 로드맵
 
@@ -72,6 +84,8 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 - **빌드는 한 번에 하나만** — MSVC+Ninja가 멀티코어를 풀로 사용하므로, 동시 빌드 시 시스템 렉 심함. 파일 작성은 병렬로 하되 빌드/테스트는 순차 실행
+- **빌드는 항상 백그라운드 실행** — `run_in_background: true`로 실행. 타임아웃 시 kill되므로 빌드는 절대 포그라운드로 돌리지 않음
+- **auto-review 프로세스 대기** — coordinator/리뷰어가 정의된 프로세스대로 동작 중이면 재촉하지 않고 기다림. 프로세스에 report 전송이 명시되어 있으면 요청 없이 자동 전송될 때까지 대기
 
 ## 프로젝트 정보
 
