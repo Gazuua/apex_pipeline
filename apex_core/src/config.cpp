@@ -80,6 +80,38 @@ ServerConfig parse_server(const toml::table& root) {
         cfg.drain_timeout = std::chrono::seconds(drain_s);
     }
 
+    // cross_core_call_timeout
+    {
+        auto timeout_ms = get_or<int64_t>(*tbl, "cross_core_call_timeout_ms",
+                                           cfg.cross_core_call_timeout.count());
+        if (timeout_ms < 0) {
+            throw std::invalid_argument("Config: value out of range for 'cross_core_call_timeout_ms'");
+        }
+        cfg.cross_core_call_timeout = std::chrono::milliseconds(timeout_ms);
+    }
+
+    // [server.memory] subsection
+    if (auto* mem = (*tbl)["memory"].as_table()) {
+        if (auto v = (*mem)["bump_capacity_kb"].value<int64_t>()) {
+            if (*v < 0) {
+                throw std::invalid_argument("Config: value out of range for 'bump_capacity_kb'");
+            }
+            cfg.bump_capacity_bytes = static_cast<size_t>(*v) * 1024;
+        }
+        if (auto v = (*mem)["arena_block_kb"].value<int64_t>()) {
+            if (*v < 0) {
+                throw std::invalid_argument("Config: value out of range for 'arena_block_kb'");
+            }
+            cfg.arena_block_bytes = static_cast<size_t>(*v) * 1024;
+        }
+        if (auto v = (*mem)["arena_max_kb"].value<int64_t>()) {
+            if (*v < 0) {
+                throw std::invalid_argument("Config: value out of range for 'arena_max_kb'");
+            }
+            cfg.arena_max_bytes = static_cast<size_t>(*v) * 1024;
+        }
+    }
+
     return cfg;
 }
 
