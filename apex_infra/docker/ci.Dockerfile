@@ -21,7 +21,15 @@ RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
     && git checkout b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01 \
     && ./bootstrap-vcpkg.sh -disableMetrics
 
+# Fixed binary cache path — GitHub Actions overrides HOME to /github/home,
+# so the default ~/.cache/vcpkg/archives becomes unreachable in CI.
+# By pinning to /opt/vcpkg_cache, CI jobs can restore pre-built binaries
+# instead of rebuilding 61 packages from source.
+ENV VCPKG_DEFAULT_BINARY_CACHE=/opt/vcpkg_cache
+RUN mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
+
 # Pre-install vcpkg dependencies (warms binary cache for CI)
+ENV CC=gcc-14 CXX=g++-14
 COPY vcpkg.json /tmp/vcpkg-manifest/vcpkg.json
 COPY apex_core/vcpkg.json /tmp/vcpkg-core/vcpkg.json
 COPY apex_shared/vcpkg.json /tmp/vcpkg-shared/vcpkg.json
@@ -36,7 +44,6 @@ RUN $VCPKG_ROOT/vcpkg install \
     --x-install-root=/opt/vcpkg_installed \
     && rm -rf /tmp/vcpkg-manifest /tmp/vcpkg-core /tmp/vcpkg-shared
 
-ENV CC=gcc-14 CXX=g++-14 \
-    VCPKG_INSTALLED_DIR=/opt/vcpkg_installed
+ENV VCPKG_INSTALLED_DIR=/opt/vcpkg_installed
 
 WORKDIR /workspace
