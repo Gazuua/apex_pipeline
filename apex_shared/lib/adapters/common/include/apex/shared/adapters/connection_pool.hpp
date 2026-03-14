@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/shared/adapters/pool_concept.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
 #include <apex/core/result.hpp>
 
@@ -11,23 +12,7 @@
 
 namespace apex::shared::adapters {
 
-/// ConnectionPool 통계 카운터.
-/// 풀 가동 후 누적 acquire/release/create/destroy/fail 횟수.
-struct PoolStats {
-    uint64_t total_acquired = 0;
-    uint64_t total_released = 0;
-    uint64_t total_created = 0;
-    uint64_t total_destroyed = 0;
-    uint64_t total_failed = 0;
-};
-
-/// ConnectionPool 설정
-struct PoolConfig {
-    size_t min_size = 1;                                         ///< 최소 유지 커넥션
-    size_t max_size = 8;                                         ///< 최대 확장 한도
-    std::chrono::seconds max_idle_time{60};                      ///< 유휴 커넥션 폐기 시간
-    std::chrono::seconds health_check_interval{30};              ///< 헬스 체크 주기
-};
+// PoolStats, PoolConfig are defined in pool_concept.hpp
 
 /// Redis/PG 커넥션 풀 공통 추상화 (CRTP).
 /// 코어별 독립 인스턴스로 사용 — 락 불필요.
