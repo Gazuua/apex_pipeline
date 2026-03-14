@@ -1,56 +1,75 @@
+// pg_pool.hpp — self-contained (CRTP ConnectionPool inheritance removed)
 #pragma once
 
-#include <apex/shared/adapters/pg/pg_config.hpp>
+#include <apex/shared/adapters/pool_concept.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
-#include <apex/shared/adapters/connection_pool.hpp>
 #include <apex/core/result.hpp>
-
-#include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
-
+#include <boost/asio/awaitable.hpp>
+#include <chrono>
+#include <deque>
 #include <memory>
-#include <string_view>
+#include <string>
 
 namespace apex::shared::adapters::pg {
 
-/// Per-core PostgreSQL connection pool.
-/// Inherits ConnectionPool CRTP for acquire/release/health_check logic reuse.
-///
-/// Pool size is small (default 2/core) because PgBouncer handles server-side pooling.
-///
-/// Design: do_create_connection() returns an unconnected PgConnection.
-/// acquire_connected() performs connect_async() lazily on first use.
-/// This preserves ConnectionPool's synchronous interface while supporting
-/// async connections.
-class PgPool : public ConnectionPool<PgPool, std::unique_ptr<PgConnection>> {
+struct PgAdapterConfig;  // forward
+
+class PgPool {
 public:
+    using Connection = std::unique_ptr<PgConnection>;
+
     PgPool(boost::asio::io_context& io_ctx, const PgAdapterConfig& config);
     ~PgPool();
 
-    // Non-copyable, non-movable
     PgPool(const PgPool&) = delete;
     PgPool& operator=(const PgPool&) = delete;
 
-    // --- ConnectionPool CRTP requirements ---
-    std::unique_ptr<PgConnection> do_create_connection();
-    void do_destroy_connection(std::unique_ptr<PgConnection>& conn);
-    bool do_validate(std::unique_ptr<PgConnection>& conn);
+    // --- PoolLike concept ---
+    [[nodiscard]] apex::core::Result<Connection> acquire();
+    void release(Connection conn);
+    void discard(Connection conn);
+    void close_all();
+    [[nodiscard]] PoolStats stats() const noexcept;
 
-    /// Async connection creation + connect (for pool warm-up)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>>
+    // --- Pool maintenance ---
+    void shrink_idle();
+    void health_check_tick();
+
+    [[nodiscard]] std::size_t active_count() const noexcept;
+    [[nodiscard]] std::size_t idle_count() const noexcept;
+    [[nodiscard]] std::size_t total_count() const noexcept;
+    [[nodiscard]] const PoolConfig& config() const noexcept;
+
+    // --- PG-specific async API (outside PoolLike concept scope) ---
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
     create_connected();
 
-    /// Acquire connection from pool, connecting if needed.
-    /// This is the primary usage path.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>>
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
     acquire_connected();
 
-    /// Connection string access (debug/logging)
-    [[nodiscard]] std::string_view connection_string() const noexcept;
+    [[nodiscard]] const std::string& connection_string() const noexcept;
 
 private:
+    Connection do_create_connection();
+    void do_destroy_connection(Connection& conn);
+    bool do_validate(Connection& conn);
+
+    struct IdleEntry {
+        Connection conn;
+        std::chrono::steady_clock::time_point returned_at;
+    };
+
     boost::asio::io_context& io_ctx_;
-    PgAdapterConfig config_;
+    const PgAdapterConfig& config_;
+    PoolConfig pool_config_;
+    std::deque<IdleEntry> idle_;
+    std::size_t total_count_{0};
+    std::size_t active_count_{0};
+    PoolStats stats_;
 };
+
+// Concept verification
+static_assert(PoolLike<PgPool>);
 
 } // namespace apex::shared::adapters::pg

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <apex/core/adapter_interface.hpp>
+#include <apex/core/arena_allocator.hpp>
+#include <apex/core/bump_allocator.hpp>
 #include <apex/core/connection_handler.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
@@ -55,6 +57,14 @@ struct ServerConfig {
     // Lifecycle
     bool handle_signals = true;
     std::chrono::seconds drain_timeout{25};  // Graceful Shutdown drain timeout
+
+    // Cross-core call
+    std::chrono::milliseconds cross_core_call_timeout{5000};
+
+    // Memory allocators (per-core)
+    std::size_t bump_capacity_bytes = 64 * 1024;    // 64KB
+    std::size_t arena_block_bytes = 4096;            // 4KB
+    std::size_t arena_max_bytes = 1024 * 1024;       // 1MB
 };
 
 /// Per-core isolated state (shared-nothing). Each core owns its own
@@ -70,9 +80,14 @@ struct PerCoreState {
     ConnectionHandler handler;
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
+    // Per-core memory allocators
+    BumpAllocator bump_allocator;
+    ArenaAllocator arena_allocator;
+
     explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
                           size_t timer_wheel_slots, size_t recv_buf_capacity,
-                          ConnectionHandlerConfig handler_config);
+                          ConnectionHandlerConfig handler_config,
+                          size_t bump_capacity, size_t arena_block, size_t arena_max);
 };
 
 /// Multicore server — io_context-per-core architecture.
@@ -171,9 +186,18 @@ public:
     [[nodiscard]] uint32_t total_active_sessions() const noexcept;
 
     /// Execute func on target_core and co_await the result (coroutine).
+    /// Overload without timeout uses config_.cross_core_call_timeout.
+    template <typename F>
+    auto cross_core_call(uint32_t target_core, F&& func) {
+        return apex::core::cross_core_call(
+            *core_engine_, target_core, std::forward<F>(func),
+            config_.cross_core_call_timeout);
+    }
+
+    /// Execute func on target_core with explicit timeout.
     template <typename F>
     auto cross_core_call(uint32_t target_core, F&& func,
-                         std::chrono::milliseconds timeout = std::chrono::milliseconds{5000}) {
+                         std::chrono::milliseconds timeout) {
         return apex::core::cross_core_call(
             *core_engine_, target_core, std::forward<F>(func), timeout);
     }

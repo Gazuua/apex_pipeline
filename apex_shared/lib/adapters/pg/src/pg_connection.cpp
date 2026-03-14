@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <utility>
 
@@ -68,8 +69,9 @@ int PgResult::affected_rows() const noexcept {
 // PgConnection implementation
 // =============================================================================
 
-PgConnection::PgConnection(boost::asio::io_context& io_ctx)
-    : io_ctx_(io_ctx) {}
+PgConnection::PgConnection(boost::asio::io_context& io_ctx,
+                           apex::core::BumpAllocator* request_alloc)
+    : io_ctx_(io_ctx), request_alloc_(request_alloc) {}
 
 PgConnection::~PgConnection() {
     close();
@@ -77,16 +79,21 @@ PgConnection::~PgConnection() {
 
 PgConnection::PgConnection(PgConnection&& other) noexcept
     : io_ctx_(other.io_ctx_)
+    , request_alloc_(std::exchange(other.request_alloc_, nullptr))
     , conn_(std::exchange(other.conn_, nullptr))
     , socket_(std::move(other.socket_))
-    , connected_(std::exchange(other.connected_, false)) {}
+    , connected_(std::exchange(other.connected_, false))
+    , poisoned_(std::exchange(other.poisoned_, false)) {}
 
 PgConnection& PgConnection::operator=(PgConnection&& other) noexcept {
+    assert(&io_ctx_ == &other.io_ctx_ && "PgConnection move requires same io_context");
     if (this != &other) {
         close();
+        request_alloc_ = std::exchange(other.request_alloc_, nullptr);
         conn_ = std::exchange(other.conn_, nullptr);
         socket_ = std::move(other.socket_);
         connected_ = std::exchange(other.connected_, false);
+        poisoned_ = std::exchange(other.poisoned_, false);
     }
     return *this;
 }
@@ -210,23 +217,53 @@ PgConnection::query_params_async(std::string_view sql,
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    std::string sql_str(sql);
+    int ret = 0;
 
-    // Build const char* array for PQsendQueryParams
-    std::vector<const char*> param_values;
-    param_values.reserve(params.size());
-    for (const auto& p : params) {
-        param_values.push_back(p.c_str());
+    if (request_alloc_) {
+        // BumpAllocator path: malloc-free parameter construction
+        char* sql_buf = static_cast<char*>(
+            request_alloc_->allocate(sql.size() + 1, 1));
+        if (!sql_buf) {
+            co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+        }
+        std::memcpy(sql_buf, sql.data(), sql.size());
+        sql_buf[sql.size()] = '\0';
+
+        auto* param_buf = static_cast<const char**>(
+            request_alloc_->allocate(
+                params.size() * sizeof(const char*),
+                alignof(const char*)));
+        if (!param_buf && !params.empty()) {
+            co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+        }
+        for (std::size_t i = 0; i < params.size(); ++i) {
+            param_buf[i] = params[i].c_str();
+        }
+
+        ret = PQsendQueryParams(conn_, sql_buf,
+            static_cast<int>(params.size()),
+            nullptr, param_buf, nullptr, nullptr, 0);
+    } else {
+        // Standard path: std::string + std::vector
+        std::string sql_str(sql);
+
+        std::vector<const char*> param_values;
+        param_values.reserve(params.size());
+        for (const auto& p : params) {
+            param_values.push_back(p.c_str());
+        }
+
+        ret = PQsendQueryParams(conn_, sql_str.c_str(),
+                               static_cast<int>(params.size()),
+                               nullptr,  // paramTypes (auto-detect)
+                               param_values.data(),
+                               nullptr,  // paramLengths (text format)
+                               nullptr,  // paramFormats (text format)
+                               0         // resultFormat (text)
+                               );
     }
 
-    if (PQsendQueryParams(conn_, sql_str.c_str(),
-                           static_cast<int>(params.size()),
-                           nullptr,  // paramTypes (auto-detect)
-                           param_values.data(),
-                           nullptr,  // paramLengths (text format)
-                           nullptr,  // paramFormats (text format)
-                           0         // resultFormat (text)
-                           ) == 0) {
+    if (ret == 0) {
         spdlog::error("PgConnection: PQsendQueryParams failed: {}",
                       PQerrorMessage(conn_));
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -252,6 +289,55 @@ PgConnection::execute_params_async(std::string_view sql,
         co_return std::unexpected(result.error());
     }
     co_return result->affected_rows();
+}
+
+boost::asio::awaitable<apex::core::Result<void>>
+PgConnection::prepare_async(std::string_view name, std::string_view sql) {
+    if (!connected_ || !conn_) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    std::string name_str(name);
+    std::string sql_str(sql);
+    int ret = PQsendPrepare(conn_, name_str.c_str(), sql_str.c_str(), 0, nullptr);
+    if (ret == 0) {
+        spdlog::error("PgConnection: PQsendPrepare failed: {}",
+                      PQerrorMessage(conn_));
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    auto result = co_await collect_result();
+    if (!result.has_value()) {
+        co_return std::unexpected(result.error());
+    }
+    co_return apex::core::Result<void>{};
+}
+
+boost::asio::awaitable<apex::core::Result<PgResult>>
+PgConnection::query_prepared_async(std::string_view name,
+                                    std::span<const std::string> params) {
+    if (!connected_ || !conn_) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    std::string name_str(name);
+
+    std::vector<const char*> param_values;
+    param_values.reserve(params.size());
+    for (const auto& p : params) {
+        param_values.push_back(p.c_str());
+    }
+
+    int ret = PQsendQueryPrepared(conn_, name_str.c_str(),
+        static_cast<int>(params.size()),
+        param_values.data(), nullptr, nullptr, 0);
+    if (ret == 0) {
+        spdlog::error("PgConnection: PQsendQueryPrepared failed: {}",
+                      PQerrorMessage(conn_));
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    co_return co_await collect_result();
 }
 
 boost::asio::awaitable<apex::core::Result<PgResult>>

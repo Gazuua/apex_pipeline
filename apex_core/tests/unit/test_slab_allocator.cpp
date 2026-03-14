@@ -1,4 +1,5 @@
-#include <apex/core/slab_pool.hpp>
+#include <apex/core/slab_allocator.hpp>
+#include <apex/core/core_allocator.hpp>
 #include <gtest/gtest.h>
 #include <stdexcept>
 #include <vector>
@@ -6,16 +7,21 @@
 
 using namespace apex::core;
 
-TEST(SlabPool, Construction) {
-    SlabPool pool(64, 100);
+// Concept 검증
+static_assert(CoreAllocator<SlabAllocator>);
+static_assert(Freeable<SlabAllocator>);
+static_assert(!Resettable<SlabAllocator>);
+
+TEST(SlabAllocator, Construction) {
+    SlabAllocator pool(64, 100);
     EXPECT_EQ(pool.total_count(), 100u);
     EXPECT_EQ(pool.free_count(), 100u);
     EXPECT_EQ(pool.allocated_count(), 0u);
     EXPECT_GE(pool.slot_size(), 64u);
 }
 
-TEST(SlabPool, AllocateAndDeallocate) {
-    SlabPool pool(32, 10);
+TEST(SlabAllocator, AllocateAndDeallocate) {
+    SlabAllocator pool(32, 10);
     void* p = pool.allocate();
     ASSERT_NE(p, nullptr);
     EXPECT_EQ(pool.allocated_count(), 1u);
@@ -26,8 +32,8 @@ TEST(SlabPool, AllocateAndDeallocate) {
     EXPECT_EQ(pool.free_count(), 10u);
 }
 
-TEST(SlabPool, AllocateAll) {
-    SlabPool pool(16, 5);
+TEST(SlabAllocator, AllocateAll) {
+    SlabAllocator pool(16, 5);
     std::vector<void*> ptrs;
     for (int i = 0; i < 5; ++i) {
         void* p = pool.allocate();
@@ -44,8 +50,8 @@ TEST(SlabPool, AllocateAll) {
     EXPECT_EQ(pool.free_count(), 5u);
 }
 
-TEST(SlabPool, NoDuplicatePointers) {
-    SlabPool pool(64, 100);
+TEST(SlabAllocator, NoDuplicatePointers) {
+    SlabAllocator pool(64, 100);
     std::set<void*> ptrs;
     for (int i = 0; i < 100; ++i) {
         void* p = pool.allocate();
@@ -54,15 +60,15 @@ TEST(SlabPool, NoDuplicatePointers) {
     }
 }
 
-TEST(SlabPool, ReuseAfterDeallocate) {
-    SlabPool pool(32, 2);
+TEST(SlabAllocator, ReuseAfterDeallocate) {
+    SlabAllocator pool(32, 2);
     void* p1 = pool.allocate();
     pool.deallocate(p1);
     void* p2 = pool.allocate();
     EXPECT_EQ(p1, p2);  // LIFO free-list reuses same slot
 }
 
-// --- TypedSlabPool ---
+// --- TypedSlabAllocator ---
 
 struct TestObj {
     int x;
@@ -70,12 +76,12 @@ struct TestObj {
     TestObj(int x, float y) : x(x), y(y) {}
 };
 
-TEST(SlabPool, ZeroInitialCountThrows) {
-    EXPECT_THROW(SlabPool(64, 0), std::invalid_argument);
+TEST(SlabAllocator, ZeroInitialCountThrows) {
+    EXPECT_THROW(SlabAllocator(64, 0), std::invalid_argument);
 }
 
-TEST(TypedSlabPool, ConstructAndDestroy) {
-    TypedSlabPool<TestObj> pool(10);
+TEST(TypedSlabAllocator, ConstructAndDestroy) {
+    TypedSlabAllocator<TestObj> pool(10);
     TestObj* obj = pool.construct(42, 3.14f);
     ASSERT_NE(obj, nullptr);
     EXPECT_EQ(obj->x, 42);
@@ -87,11 +93,9 @@ TEST(TypedSlabPool, ConstructAndDestroy) {
 }
 
 // Double-free 감지 테스트
-// Debug 빌드: assert로 즉시 포착 (EXPECT_DEATH)
-// Release 빌드: silent return으로 corruption 방지
-#ifdef NDEBUG
-TEST(SlabPool, DoubleFreeProtection_Release) {
-    SlabPool pool(64, 4);
+// Debug/Release 모두 double_free_count_ 증가 + silent return (corruption 방지)
+TEST(SlabAllocator, DoubleFreeProtection) {
+    SlabAllocator pool(64, 4);
 
     void* p1 = pool.allocate();
     void* p2 = pool.allocate();
@@ -103,11 +107,13 @@ TEST(SlabPool, DoubleFreeProtection_Release) {
     pool.deallocate(p1);
     EXPECT_EQ(pool.allocated_count(), 1u);
     EXPECT_EQ(pool.free_count(), 3u);
+    EXPECT_EQ(pool.double_free_count(), 0u);
 
-    // Double-free — Release에서는 silent return, 카운트 변경 없어야 함
+    // Double-free — double_free_count 증가, 카운트 변경 없어야 함
     pool.deallocate(p1);
     EXPECT_EQ(pool.allocated_count(), 1u);  // 변경 없음
     EXPECT_EQ(pool.free_count(), 3u);       // 변경 없음
+    EXPECT_EQ(pool.double_free_count(), 1u);
 
     // 나머지 정상 deallocate는 여전히 동작해야 함
     pool.deallocate(p2);
@@ -119,28 +125,12 @@ TEST(SlabPool, DoubleFreeProtection_Release) {
     EXPECT_NE(p3, nullptr);
     EXPECT_EQ(pool.allocated_count(), 1u);
 }
-#else
-TEST(SlabPool, DoubleFreeProtection_Debug) {
-    SlabPool pool(64, 4);
-
-    void* p1 = pool.allocate();
-    ASSERT_NE(p1, nullptr);
-
-    pool.deallocate(p1);
-    EXPECT_EQ(pool.free_count(), 4u);
-
-    // Debug 빌드에서 double-free는 assert로 프로세스 종료
-    // NOTE: MSVC assert 메시지 포맷: "Assertion failed: <expr>, file <f>, line <n>"
-    // "double-free detected"는 assert 표현식의 일부이므로 MSVC에서도 매칭됨.
-    EXPECT_DEATH(pool.deallocate(p1), "double-free detected");
-}
-#endif
 
 // --- auto-grow + metrics ---
 
-TEST(SlabPool, AutoGrowOnExhaustion) {
+TEST(SlabAllocator, AutoGrowOnExhaustion) {
     // auto_grow=true, initial=4, grow_chunk=4, max_total=16
-    SlabPool pool(64, 4, SlabPoolConfig{.auto_grow = true, .grow_chunk_size = 4, .max_total_count = 16});
+    SlabAllocator pool(64, 4, SlabAllocatorConfig{.auto_grow = true, .grow_chunk_size = 4, .max_total_count = 16});
     EXPECT_EQ(pool.total_count(), 4u);
 
     // 4개 할당 후 exhaustion
@@ -191,8 +181,8 @@ TEST(SlabPool, AutoGrowOnExhaustion) {
     for (void* p : ptrs) pool.deallocate(p);
 }
 
-TEST(SlabPool, MetricsTracking) {
-    SlabPool pool(64, 10, SlabPoolConfig{.auto_grow = false});
+TEST(SlabAllocator, MetricsTracking) {
+    SlabAllocator pool(64, 10, SlabAllocatorConfig{.auto_grow = false});
 
     void* p1 = pool.allocate();
     void* p2 = pool.allocate();
@@ -207,15 +197,15 @@ TEST(SlabPool, MetricsTracking) {
     EXPECT_EQ(pool.peak_allocated(), 3u);  // 여전히 3
 }
 
-TEST(SlabPool, AutoGrowDisabledByDefault) {
-    SlabPool pool(64, 4);  // 기존 생성자 — auto_grow=false
+TEST(SlabAllocator, AutoGrowDisabledByDefault) {
+    SlabAllocator pool(64, 4);  // 기존 생성자 — auto_grow=false
     for (int i = 0; i < 4; ++i) (void)pool.allocate();
     EXPECT_EQ(pool.allocate(), nullptr);  // 기존 동작 유지
 }
 
-TEST(SlabPool, AutoGrowDefaultChunkSize) {
+TEST(SlabAllocator, AutoGrowDefaultChunkSize) {
     // grow_chunk_size=0 → initial_count 크기로 grow
-    SlabPool pool(64, 8, SlabPoolConfig{.auto_grow = true, .grow_chunk_size = 0});
+    SlabAllocator pool(64, 8, SlabAllocatorConfig{.auto_grow = true, .grow_chunk_size = 0});
     std::vector<void*> ptrs;
     for (int i = 0; i < 8; ++i) ptrs.push_back(pool.allocate());
     EXPECT_EQ(pool.total_count(), 8u);
@@ -229,8 +219,8 @@ TEST(SlabPool, AutoGrowDefaultChunkSize) {
 }
 
 // owns()가 슬롯 정렬을 검증하는지 확인
-TEST(SlabPool, OwnsSlotAlignment) {
-    SlabPool pool(64, 4);
+TEST(SlabAllocator, OwnsSlotAlignment) {
+    SlabAllocator pool(64, 4);
 
     void* p = pool.allocate();
     ASSERT_NE(p, nullptr);
@@ -247,4 +237,42 @@ TEST(SlabPool, OwnsSlotAlignment) {
     EXPECT_FALSE(pool.owns(&outside));
 
     pool.deallocate(p);
+}
+
+// --- CoreAllocator concept API tests ---
+
+TEST(SlabAllocator, ConceptCompliance_AllocateOverload) {
+    SlabAllocator alloc(64, 8);
+    void* p = alloc.allocate(64, 16);  // size <= slot_size → 할당 성공
+    ASSERT_NE(p, nullptr);
+    alloc.deallocate(p);
+}
+
+TEST(SlabAllocator, AllocateOverload_SizeExceedsSlot) {
+    SlabAllocator alloc(32, 4);
+    void* p = alloc.allocate(64, 8);  // size > slot_size → nullptr
+    EXPECT_EQ(p, nullptr);
+}
+
+TEST(SlabAllocator, UsedBytesAndCapacity) {
+    SlabAllocator alloc(32, 4);
+    EXPECT_EQ(alloc.capacity(), 4 * alloc.slot_size());
+    EXPECT_EQ(alloc.used_bytes(), 0u);
+    void* p1 = alloc.allocate();
+    void* p2 = alloc.allocate();
+    EXPECT_EQ(alloc.used_bytes(), 2 * alloc.slot_size());
+    alloc.deallocate(p1);
+    EXPECT_EQ(alloc.used_bytes(), 1 * alloc.slot_size());
+    alloc.deallocate(p2);
+}
+
+TEST(SlabAllocator, DoubleFreeCount) {
+    SlabAllocator alloc(64, 4);
+    void* p = alloc.allocate();
+    alloc.deallocate(p);
+    EXPECT_EQ(alloc.double_free_count(), 0u);
+    alloc.deallocate(p);  // double-free
+    EXPECT_EQ(alloc.double_free_count(), 1u);
+    // free_count는 변하지 않아야 함
+    EXPECT_EQ(alloc.free_count(), 4u);  // 원래 4개 중 1개 할당 후 1개 반환 = 4
 }

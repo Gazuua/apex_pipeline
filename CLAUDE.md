@@ -26,7 +26,7 @@ D:\.workspace/
 │   └── tests/            ← unit/ + integration/ 테스트
 ├── apex_infra/         ← Docker, K8s 인프라 (Kafka/Redis/PG + Prometheus/Grafana)
 │   └── docker/ci.Dockerfile  ← CI + 로컬 Linux 빌드 겸용 Docker 이미지
-└── apex_tools/         ← CLI, 스크립트, git-hooks
+└── apex_tools/         ← CLI, 스크립트, git-hooks, auto-review
 ```
 
 ## 빌드 환경
@@ -37,7 +37,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 대=도메인 전환, 중=마일스톤, 소=수정/리뷰
-- **현재**: v0.4.4.0 (외부 어댑터 완료)
+- **현재**: v0.4.5.0 (코어 메모리 아키텍처 + 어댑터 개선)
 - **다음**: v0.4 (외부 어댑터) → v0.5 (서비스 체인) → v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - **v1.0.0.0 이후**: v1.1+ (게임 레퍼런스 — 게임 서비스 + Android 클라이언트 + AWS)
 - 상세: `docs/Apex_Pipeline.md` §10
@@ -45,12 +45,14 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 ## 워크플로우 규칙
 
 ### Git / 브랜치
+- **커밋 메시지는 한국어로 작성** — `feat(core): 코루틴 할당기 추가` 형태. 타입 접두사(`feat`, `fix`, `refactor`, `docs` 등)와 스코프는 영어, 설명은 한국어
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **git worktree**: `.worktrees/` 하위에 생성, 에이전트별 독립 작업
   - 생성: `git worktree add .worktrees/<name> -b <branch-name>`
   - 삭제: `git worktree remove .worktrees/<name>`
 - **머지**: 리뷰 이슈 0건 → squash merge → 브랜치+워크트리 삭제
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md` 완료 이력+현재 버전, `CLAUDE.md` 로드맵 현재 버전, `README.md` 현재 상태+변경 내역 — 세 문서 모두 최신 반영 후 머지
 
 ### 문서
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
@@ -69,6 +71,7 @@ Windows 10 Pro, VS2022 (MSVC 19.44), C++23, CMake + Ninja + vcpkg.
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
+- **빌드는 한 번에 하나만** — MSVC+Ninja가 멀티코어를 풀로 사용하므로, 동시 빌드 시 시스템 렉 심함. 파일 작성은 병렬로 하되 빌드/테스트는 순차 실행
 
 ## 프로젝트 정보
 

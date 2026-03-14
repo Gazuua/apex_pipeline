@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.4.4.0
+## 현재 상태 — v0.4.5.0
 
 ### 완료
 
@@ -31,13 +31,20 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Tier 3: Server/ConnectionHandler 분리, SO_REUSEPORT per-core acceptor, io_uring CMake 옵션, SlabPool auto-grow
 
 - **v0.4 — 외부 어댑터** (PR #15 merged)
-  - 공통 추상화: AdapterBase CRTP + ConnectionPool CRTP + AdapterInterface 타입 소거
+  - 공통 추상화: AdapterBase CRTP + PoolLike concept + AdapterInterface 타입 소거
   - Kafka 어댑터: librdkafka Producer/Consumer + Asio 통합 + KafkaSink (spdlog → Kafka)
   - Redis 어댑터: hiredis fd → Asio 직접 등록 (HiredisAsioAdapter) + 코루틴 브릿지
   - PostgreSQL 어댑터: libpq async → Asio + PgPool lazy connect + PgBouncer 전제
   - Server 통합: add_adapter API + Graceful Shutdown 순서 보장
   - 통합 테스트 인프라: docker-compose (Kafka/Redis/PG/PgBouncer) + CMake option
-  - 41 단위 테스트 + 4 통합 테스트, Auto-review 3 rounds Clean
+
+- **v0.4.5 — 코어 메모리 아키텍처 + 어댑터 개선**
+  - 코어 메모리 아키텍처: BumpAllocator (요청 수명) + ArenaAllocator (트랜잭션 수명) + SlabPool→SlabAllocator 리네임
+  - C++20 concepts: CoreAllocator/Freeable/Resettable concept, PoolLike concept (CRTP ConnectionPool 제거)
+  - Redis: RedisPool→RedisMultiplexer (코어당 고정 커넥션 + 코루틴 파이프라이닝), RedisReply wrapper
+  - PG: PgTransaction RAII 가드, PgConnection prepared statement + BumpAllocator 주입
+  - CoreMetrics atomic 카운터 + rate-limited 로깅, TOML 설정 스키마 확장
+  - 45 단위 테스트 + 4 통합 테스트, Auto-review 2 rounds Clean
 
 ### 다음
 

@@ -43,7 +43,7 @@ apex_add_benchmark(bench_ring_buffer   micro/bench_ring_buffer.cpp)
 apex_add_benchmark(bench_frame_codec   micro/bench_frame_codec.cpp)
 apex_add_benchmark(bench_dispatcher    micro/bench_dispatcher.cpp)
 apex_add_benchmark(bench_timing_wheel  micro/bench_timing_wheel.cpp)
-apex_add_benchmark(bench_slab_pool     micro/bench_slab_pool.cpp)
+apex_add_benchmark(bench_slab_allocator micro/bench_slab_allocator.cpp)
 apex_add_benchmark(bench_session_lifecycle micro/bench_session_lifecycle.cpp)
 
 # --- Integration benchmarks ---

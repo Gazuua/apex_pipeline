@@ -1,4 +1,4 @@
-#include <apex/core/slab_pool.hpp>
+#include <apex/core/slab_allocator.hpp>
 #include <benchmark/benchmark.h>
 #include <array>
 #include <cstdint>
@@ -7,9 +7,9 @@
 
 using namespace apex::core;
 
-static void BM_SlabPool_AllocDealloc(benchmark::State& state) {
+static void BM_SlabAllocator_AllocDealloc(benchmark::State& state) {
     auto slot_size = static_cast<size_t>(state.range(0));
-    SlabPool pool(slot_size, 1024);
+    SlabAllocator pool(slot_size, 1024);
     for (auto _ : state) {
         void* p = pool.allocate();
         benchmark::DoNotOptimize(p);
@@ -17,7 +17,7 @@ static void BM_SlabPool_AllocDealloc(benchmark::State& state) {
     }
     state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_SlabPool_AllocDealloc)->Arg(64)->Arg(256)->Arg(1024);
+BENCHMARK(BM_SlabAllocator_AllocDealloc)->Arg(64)->Arg(256)->Arg(1024);
 
 static void BM_Malloc_AllocFree(benchmark::State& state) {
     auto slot_size = static_cast<size_t>(state.range(0));

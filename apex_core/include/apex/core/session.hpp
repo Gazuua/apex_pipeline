@@ -18,8 +18,8 @@ namespace apex::core {
 /// 고유 세션 식별자 (코어별 단조 증가)
 using SessionId = uint64_t;
 
-/// Forward declarations for SlabPool integration (Tier 2 Task 2)
-template <typename T> class TypedSlabPool;
+/// Forward declarations for SlabAllocator integration (Tier 2 Task 2)
+template <typename T> class TypedSlabAllocator;
 
 /// 단일 클라이언트 연결을 나타내는 클래스.
 /// SessionManager가 intrusive_ptr로 소유 (코루틴 안전성 보장).
@@ -100,7 +100,7 @@ private:
     friend class SessionManager;
 
     uint32_t refcount_{0};  // non-atomic: per-core only
-    TypedSlabPool<Session>* pool_owner_{nullptr};  // set by SessionManager when pool-allocated
+    TypedSlabAllocator<Session>* pool_owner_{nullptr};  // set by SessionManager when pool-allocated
 
     SessionId id_;
     uint32_t core_id_;

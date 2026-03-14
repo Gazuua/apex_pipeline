@@ -1,7 +1,5 @@
-#include <apex/shared/adapters/redis/redis_pool.hpp>
-#include <apex/shared/adapters/redis/redis_connection.hpp>
+#include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
-#include <apex/shared/adapters/connection_pool.hpp>
 
 #include <gtest/gtest.h>
 
@@ -10,8 +8,9 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
+#include <hiredis/hiredis.h>
+
 using namespace apex::shared::adapters::redis;
-using namespace apex::shared::adapters;
 
 class RedisRoundtripTest : public ::testing::Test {
 protected:
@@ -26,46 +25,44 @@ protected:
 TEST_F(RedisRoundtripTest, SetAndGet) {
     bool test_passed = false;
     boost::asio::co_spawn(io_ctx_, [&]() -> boost::asio::awaitable<void> {
-        RedisPool pool(io_ctx_, config_, PoolConfig{.min_size = 1, .max_size = 4});
+        RedisMultiplexer mux(io_ctx_, config_);
 
-        // acquire connection
-        auto conn_result = pool.acquire();
-        EXPECT_TRUE(conn_result.has_value())
-            << "Redis pool acquire failed - is Redis running on localhost:6379?";
-        if (!conn_result.has_value()) co_return;
-
-        auto& conn = conn_result.value();
+        if (!mux.connected()) {
+            GTEST_SKIP() << "Redis not available on localhost:6379";
+            co_return;
+        }
 
         // SET
-        auto [ec_set, reply_set] = co_await conn->async_command(
-            "SET test:integration:key hello-redis", boost::asio::use_awaitable);
-        EXPECT_FALSE(ec_set);
-        EXPECT_FALSE(RedisConnection::is_error_reply(reply_set));
+        auto set_result = co_await mux.command("SET test:integration:key hello-redis");
+        EXPECT_TRUE(set_result.has_value())
+            << "SET failed - is Redis running on localhost:6379?";
+        if (!set_result.has_value()) co_return;
+        EXPECT_EQ(set_result->type, REDIS_REPLY_STATUS);
 
         // GET
-        auto [ec_get, reply_get] = co_await conn->async_command(
-            "GET test:integration:key", boost::asio::use_awaitable);
-        EXPECT_FALSE(ec_get);
-        auto val = RedisConnection::parse_string_reply(reply_get);
-        EXPECT_TRUE(val.has_value());
-        EXPECT_EQ(val.value(), "hello-redis");
+        auto get_result = co_await mux.command("GET test:integration:key");
+        EXPECT_TRUE(get_result.has_value());
+        if (get_result.has_value()) {
+            EXPECT_EQ(get_result->type, REDIS_REPLY_STRING);
+            EXPECT_EQ(get_result->str, "hello-redis");
+        }
 
         // DEL
-        auto [ec_del, reply_del] = co_await conn->async_command(
-            "DEL test:integration:key", boost::asio::use_awaitable);
-        EXPECT_FALSE(ec_del);
-        auto del_count = RedisConnection::parse_integer_reply(reply_del);
-        EXPECT_TRUE(del_count.has_value());
-        EXPECT_EQ(del_count.value(), 1);
+        auto del_result = co_await mux.command("DEL test:integration:key");
+        EXPECT_TRUE(del_result.has_value());
+        if (del_result.has_value()) {
+            EXPECT_EQ(del_result->type, REDIS_REPLY_INTEGER);
+            EXPECT_EQ(del_result->integer, 1);
+        }
 
         // GET after DEL
-        auto [ec_get2, reply_get2] = co_await conn->async_command(
-            "GET test:integration:key", boost::asio::use_awaitable);
-        EXPECT_FALSE(ec_get2);
-        auto val2 = RedisConnection::parse_string_reply(reply_get2);
-        EXPECT_FALSE(val2.has_value());  // nullopt
+        auto get2_result = co_await mux.command("GET test:integration:key");
+        EXPECT_TRUE(get2_result.has_value());
+        if (get2_result.has_value()) {
+            EXPECT_EQ(get2_result->type, REDIS_REPLY_NIL);
+        }
 
-        pool.release(std::move(conn));
+        co_await mux.close();
         test_passed = true;
         co_return;
     }, boost::asio::detached);
@@ -73,38 +70,34 @@ TEST_F(RedisRoundtripTest, SetAndGet) {
     EXPECT_TRUE(test_passed);
 }
 
-TEST_F(RedisRoundtripTest, PoolStats) {
+TEST_F(RedisRoundtripTest, PipelineCommands) {
     bool test_passed = false;
     boost::asio::co_spawn(io_ctx_, [&]() -> boost::asio::awaitable<void> {
-        RedisPool pool(io_ctx_, config_, PoolConfig{.min_size = 1, .max_size = 4});
+        RedisMultiplexer mux(io_ctx_, config_);
 
-        auto conn_result = pool.acquire();
-        EXPECT_TRUE(conn_result.has_value());
-        if (!conn_result.has_value()) co_return;
-
-        auto& conn = conn_result.value();
-
-        // SET for stats test
-        auto [ec, reply] = co_await conn->async_command(
-            "SET test:integration:stats ok", boost::asio::use_awaitable);
-        EXPECT_FALSE(ec);
-
-        pool.release(std::move(conn));
-
-        // Verify PoolStats
-        const auto& stats = pool.stats();
-        EXPECT_GE(stats.total_acquired, 1u);
-        EXPECT_GE(stats.total_released, 1u);
-        EXPECT_GE(stats.total_created, 1u);
-
-        // Cleanup
-        auto conn2 = pool.acquire();
-        if (conn2.has_value()) {
-            (void)co_await conn2.value()->async_command(
-                "DEL test:integration:stats", boost::asio::use_awaitable);
-            pool.release(std::move(conn2.value()));
+        if (!mux.connected()) {
+            GTEST_SKIP() << "Redis not available on localhost:6379";
+            co_return;
         }
 
+        // Pipeline: SET then GET then DEL
+        std::vector<std::string> cmds = {
+            "SET test:integration:pipeline ok",
+            "GET test:integration:pipeline",
+            "DEL test:integration:pipeline"
+        };
+        auto results = co_await mux.pipeline(cmds);
+        EXPECT_TRUE(results.has_value());
+        if (results.has_value()) {
+            EXPECT_EQ(results->size(), 3u);
+            EXPECT_EQ((*results)[0].type, REDIS_REPLY_STATUS);
+            EXPECT_EQ((*results)[1].type, REDIS_REPLY_STRING);
+            EXPECT_EQ((*results)[1].str, "ok");
+            EXPECT_EQ((*results)[2].type, REDIS_REPLY_INTEGER);
+            EXPECT_EQ((*results)[2].integer, 1);
+        }
+
+        co_await mux.close();
         test_passed = true;
         co_return;
     }, boost::asio::detached);

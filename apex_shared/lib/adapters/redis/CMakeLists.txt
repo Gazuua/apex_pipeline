@@ -15,7 +15,7 @@ add_library(apex_shared_adapters_redis STATIC
     src/redis_config.cpp
     src/hiredis_asio_adapter.cpp
     src/redis_connection.cpp
-    src/redis_pool.cpp
+    src/redis_multiplexer.cpp
     src/redis_adapter.cpp
 )
 add_library(apex::shared::adapters::redis ALIAS apex_shared_adapters_redis)

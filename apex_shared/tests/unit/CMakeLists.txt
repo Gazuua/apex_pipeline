@@ -13,7 +13,7 @@ endfunction()
 
 apex_shared_add_unit_test(test_adapter_error test_adapter_error.cpp)
 apex_shared_add_unit_test(test_adapter_base test_adapter_base.cpp)
-apex_shared_add_unit_test(test_connection_pool test_connection_pool.cpp)
+apex_shared_add_unit_test(test_pool_concept test_pool_concept.cpp)
 
 # --- Kafka adapter tests ---
 # Timeout 60s: librdkafka background threads need time to shut down
@@ -47,7 +47,7 @@ function(apex_shared_add_redis_test TEST_NAME TEST_SOURCE)
 endfunction()
 
 apex_shared_add_redis_test(test_hiredis_asio_adapter test_hiredis_asio_adapter.cpp)
-apex_shared_add_redis_test(test_redis_pool test_redis_pool.cpp)
+apex_shared_add_redis_test(test_redis_multiplexer test_redis_multiplexer.cpp)
 apex_shared_add_redis_test(test_redis_adapter test_redis_adapter.cpp)
 
 # --- PostgreSQL adapter tests ---
@@ -65,3 +65,4 @@ endfunction()
 apex_shared_add_pg_test(test_pg_connection test_pg_connection.cpp)
 apex_shared_add_pg_test(test_pg_pool test_pg_pool.cpp)
 apex_shared_add_pg_test(test_pg_adapter test_pg_adapter.cpp)
+apex_shared_add_pg_test(test_pg_transaction test_pg_transaction.cpp)

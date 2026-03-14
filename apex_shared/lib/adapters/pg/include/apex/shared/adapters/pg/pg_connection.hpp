@@ -3,6 +3,7 @@
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_result.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
+#include <apex/core/bump_allocator.hpp>
 #include <apex/core/result.hpp>
 
 #include <libpq-fe.h>
@@ -33,7 +34,8 @@ namespace apex::shared::adapters::pg {
 /// Thread safety: NOT thread-safe. Per-core PgPool ensures single-thread access.
 class PgConnection {
 public:
-    explicit PgConnection(boost::asio::io_context& io_ctx);
+    explicit PgConnection(boost::asio::io_context& io_ctx,
+                          apex::core::BumpAllocator* request_alloc = nullptr);
     ~PgConnection();
 
     // Non-copyable, movable
@@ -69,6 +71,16 @@ public:
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>>
     execute_params_async(std::string_view sql, std::span<const std::string> params);
 
+    /// Async prepared statement creation.
+    /// PQsendPrepare -> Asio readable -> PQconsumeInput -> PQgetResult.
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
+    prepare_async(std::string_view name, std::string_view sql);
+
+    /// Async prepared statement execution.
+    /// PQsendQueryPrepared -> Asio readable -> PQconsumeInput -> PQgetResult.
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
+    query_prepared_async(std::string_view name, std::span<const std::string> params);
+
     /// Connection validity check (PQstatus).
     [[nodiscard]] bool is_valid() const noexcept;
 
@@ -77,6 +89,11 @@ public:
 
     /// Connection state
     [[nodiscard]] bool is_connected() const noexcept;
+
+    /// Poisoned state — connection should not be returned to pool.
+    /// Set when an unfinished transaction is detected on destruction.
+    void mark_poisoned() noexcept { poisoned_ = true; }
+    [[nodiscard]] bool is_poisoned() const noexcept { return poisoned_; }
 
 private:
     /// PQconnectPoll loop (internal to connect_async)
@@ -91,12 +108,14 @@ private:
     void release_socket() noexcept;
 
     boost::asio::io_context& io_ctx_;
+    apex::core::BumpAllocator* request_alloc_{nullptr};
     PGconn* conn_ = nullptr;
     /// libpq fd registered with Asio for IOCP/epoll integration.
     /// Windows: tcp::socket::assign(tcp::v4(), PQsocket(conn)) -> IOCP
     /// Linux:   tcp::socket::assign(tcp::v4(), PQsocket(conn)) -> epoll
     std::unique_ptr<boost::asio::ip::tcp::socket> socket_;
     bool connected_ = false;
+    bool poisoned_ = false;
 };
 
 } // namespace apex::shared::adapters::pg

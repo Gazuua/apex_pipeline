@@ -30,9 +30,9 @@ SessionPtr SessionManager::create_session(
     if (raw) {
         raw->pool_owner_ = &session_pool_;
     } else {
-        // SlabPool exhausted → heap fallback
+        // SlabAllocator exhausted → heap fallback
         raw = new Session(id, std::move(socket), core_id_, recv_buf_capacity_);
-        spdlog::warn("Session SlabPool exhausted, heap fallback (core {})", core_id_);
+        spdlog::warn("Session SlabAllocator exhausted, heap fallback (core {})", core_id_);
     }
     SessionPtr session(raw);
     session->set_state(Session::State::Active);

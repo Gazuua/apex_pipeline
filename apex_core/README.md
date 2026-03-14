@@ -11,7 +11,7 @@ CRTP 정적 다형성으로 런타임 오버헤드를 최소화한다.
 | 이름 | 설명 |
 |------|------|
 | MpscQueue | 락프리 bounded MPSC 큐 |
-| SlabPool | O(1) 슬랩 메모리 풀 |
+| SlabAllocator | O(1) 슬랩 메모리 풀 |
 | RingBuffer | zero-copy 수신 버퍼 (linearize 지원) |
 | TimingWheel | O(1) 타임아웃 관리 |
 
@@ -50,7 +50,9 @@ build.bat release  # 릴리스 빌드
 
 benchmark, boost-asio, boost-unordered, flatbuffers, gtest, spdlog, tomlplusplus
 
-> 향후 추가 예정: librdkafka + KafkaSink (v0.4.1), redis-plus-plus (v0.4.2), libpq (v0.4.3), prometheus-cpp (v0.6.1), jwt-cpp (v0.5.3), boost-beast (v0.5.1.0)
+> 현재 추가됨: hiredis, libpq, librdkafka, redis-plus-plus
+>
+> 향후 추가 예정: boost-beast (v0.5.1.0), prometheus-cpp (v0.6.1), jwt-cpp (v0.5.3)
 
 ## 문서
 

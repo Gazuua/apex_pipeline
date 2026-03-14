@@ -21,6 +21,9 @@ struct RedisConfig {
 
     std::chrono::milliseconds connect_timeout{3000};        ///< 커넥션 타임아웃
     std::chrono::milliseconds command_timeout{1000};        ///< 커맨드 타임아웃
+
+    uint32_t connections_per_core = 1;                       ///< 코어당 multiplexer 수
+    std::chrono::milliseconds reconnect_max_backoff{30000};  ///< 재연결 최대 백오프
 };
 
 } // namespace apex::shared::adapters::redis

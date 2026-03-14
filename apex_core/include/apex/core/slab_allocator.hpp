@@ -9,8 +9,8 @@
 
 namespace apex::core {
 
-/// Configuration for SlabPool auto-grow and metrics behavior.
-struct SlabPoolConfig {
+/// Configuration for SlabAllocator auto-grow and metrics behavior.
+struct SlabAllocatorConfig {
     bool auto_grow = false;      ///< true: allocate() grows pool on exhaustion
     size_t grow_chunk_size = 0;  ///< 0: use initial_count as grow size
     size_t max_total_count = 0;  ///< 0: unlimited growth
@@ -26,37 +26,38 @@ struct SlabPoolConfig {
 /// by grow_chunk_size slots (up to max_total_count). Default is fixed-size.
 ///
 /// Usage:
-///   SlabPool pool(sizeof(MyObject), 1024);  // fixed 1024 slots
-///   SlabPool pool(sizeof(MyObject), 256, {.auto_grow = true, .max_total_count = 4096});
+///   SlabAllocator pool(sizeof(MyObject), 1024);  // fixed 1024 slots
+///   SlabAllocator pool(sizeof(MyObject), 256, {.auto_grow = true, .max_total_count = 4096});
 ///   void* p = pool.allocate();
 ///   pool.deallocate(p);
-class SlabPool {
+class SlabAllocator {
 public:
     /// Fixed-size constructor (backward compatible, auto_grow=false).
-    SlabPool(size_t slot_size, size_t initial_count);
+    SlabAllocator(size_t slot_size, size_t initial_count);
 
     /// Extended constructor with config for auto-grow and metrics.
-    SlabPool(size_t slot_size, size_t initial_count, SlabPoolConfig config);
+    SlabAllocator(size_t slot_size, size_t initial_count, SlabAllocatorConfig config);
 
-    ~SlabPool();
+    ~SlabAllocator();
 
     // Non-copyable, non-movable
-    SlabPool(const SlabPool&) = delete;
-    SlabPool& operator=(const SlabPool&) = delete;
-    SlabPool(SlabPool&&) = delete;
-    SlabPool& operator=(SlabPool&&) = delete;
+    SlabAllocator(const SlabAllocator&) = delete;
+    SlabAllocator& operator=(const SlabAllocator&) = delete;
+    SlabAllocator(SlabAllocator&&) = delete;
+    SlabAllocator& operator=(SlabAllocator&&) = delete;
 
     /// O(1) allocation from the free-list. NOT thread-safe (per-core use).
     /// @return nullptr if pool is exhausted.
     [[nodiscard]] void* allocate();
 
+    /// CoreAllocator concept 충족용 overload.
+    /// size > slot_size_ 이면 nullptr 반환. align은 생성 시 보장되므로 무시.
+    [[nodiscard]] void* allocate(std::size_t size, std::size_t align);
+
     /// O(1) deallocation. Returns the slot to the free-list. NOT thread-safe.
     /// @pre ptr은 반드시 이 풀에서 allocate()로 할당된 포인터여야 한다.
-    /// @warning Release 빌드에서는 소유권 검증이 비활성화됨 (assert 기반).
-    ///          double-free 시 정의되지 않은 동작.
-    /// In Release builds, double-free is silently ignored (no-op) without modifying
-    /// free_count_. This means allocated_count() + free_count() may not equal total_count()
-    /// if double-free occurred.
+    /// Double-free is detected via magic marker and increments double_free_count_.
+    /// In both Debug and Release builds, double-free is safely handled (no corruption).
     void deallocate(void* ptr) noexcept;
 
     /// Number of currently allocated (in-use) slots.
@@ -80,6 +81,15 @@ public:
     /// Peak number of simultaneously allocated slots (high water mark).
     [[nodiscard]] size_t peak_allocated() const noexcept;
 
+    /// Current allocated bytes = allocated_count() * slot_size_.
+    [[nodiscard]] std::size_t used_bytes() const noexcept;
+
+    /// Total capacity bytes = total_count() * slot_size_.
+    [[nodiscard]] std::size_t capacity() const noexcept;
+
+    /// Number of double-free attempts detected (best-effort lower bound).
+    [[nodiscard]] uint64_t double_free_count() const noexcept { return double_free_count_; }
+
 private:
     struct FreeNode {
         FreeNode* next;
@@ -98,33 +108,34 @@ private:
     size_t slot_size_;       // aligned slot size
     size_t total_count_;     // total slots ever created
     size_t free_count_;      // current free slots
-    SlabPoolConfig config_;
+    SlabAllocatorConfig config_;
     size_t initial_count_;   // grow_chunk_size=0 시 fallback
     size_t grow_count_{0};
     size_t peak_allocated_{0};
+    uint64_t double_free_count_{0};
 };
 
-/// Typed wrapper around SlabPool for type-safe allocation.
+/// Typed wrapper around SlabAllocator for type-safe allocation.
 ///
 /// NOTE: Double-free detection relies on a magic value overlaid on freed slots.
 /// If T's first sizeof(FreeNode) bytes overwrite this region during use,
 /// detection becomes best-effort.
 ///
 /// Usage:
-///   TypedSlabPool<Session> pool(1024);
+///   TypedSlabAllocator<Session> pool(1024);
 ///   Session* s = pool.construct(args...);
 ///   pool.destroy(s);
 template <typename T>
-class TypedSlabPool {
+class TypedSlabAllocator {
     static_assert(alignof(T) <= alignof(std::max_align_t),
-        "TypedSlabPool does not support over-aligned types. "
-        "Use SlabPool directly with custom alignment.");
+        "TypedSlabAllocator does not support over-aligned types. "
+        "Use SlabAllocator directly with custom alignment.");
 
 public:
-    explicit TypedSlabPool(size_t initial_count)
+    explicit TypedSlabAllocator(size_t initial_count)
         : pool_(sizeof(T), initial_count) {}
 
-    TypedSlabPool(size_t initial_count, SlabPoolConfig config)
+    TypedSlabAllocator(size_t initial_count, SlabAllocatorConfig config)
         : pool_(sizeof(T), initial_count, config) {}
 
     template <typename... Args>
@@ -141,7 +152,7 @@ public:
 
     void destroy(T* ptr) noexcept {
         static_assert(std::is_nothrow_destructible_v<T>,
-            "T destructor must be noexcept for TypedSlabPool::destroy");
+            "T destructor must be noexcept for TypedSlabAllocator::destroy");
         if (ptr) {
             ptr->~T();
             pool_.deallocate(ptr);
@@ -154,7 +165,7 @@ public:
     [[nodiscard]] size_t peak_allocated() const noexcept { return pool_.peak_allocated(); }
 
 private:
-    SlabPool pool_;
+    SlabAllocator pool_;
 };
 
 } // namespace apex::core
