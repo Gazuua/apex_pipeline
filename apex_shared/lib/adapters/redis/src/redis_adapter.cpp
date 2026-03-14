@@ -10,21 +10,14 @@ RedisAdapter::RedisAdapter(RedisConfig config)
     : config_(std::move(config)) {}
 
 RedisAdapter::~RedisAdapter() {
-    // 안전 정리: close()가 호출되지 않은 경우에도 풀 소멸자가 커넥션 정리
-    pools_.clear();
+    per_core_.clear();
 }
 
 void RedisAdapter::do_init(apex::core::CoreEngine& engine) {
-    pools_.reserve(engine.core_count());
+    per_core_.reserve(engine.core_count());
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
-        PoolConfig pool_cfg{
-            .min_size = config_.pool_size_per_core,
-            .max_size = config_.pool_max_size_per_core,
-            .max_idle_time = config_.max_idle_time,
-            .health_check_interval = config_.health_check_interval,
-        };
-        pools_.push_back(std::make_unique<RedisPool>(
-            engine.io_context(i), config_, pool_cfg));
+        per_core_.push_back(std::make_unique<RedisMultiplexer>(
+            engine.io_context(i), config_));
     }
 
     spdlog::info("RedisAdapter initialized: {} cores, host={}:{}",
@@ -32,38 +25,25 @@ void RedisAdapter::do_init(apex::core::CoreEngine& engine) {
 }
 
 void RedisAdapter::do_drain() {
-    draining_ = true;
     spdlog::info("RedisAdapter: drain started");
 }
 
 void RedisAdapter::do_close() {
-    // 모든 풀의 커넥션 정리
-    for (auto& pool : pools_) {
-        pool->close_all();
-    }
-    pools_.clear();
+    per_core_.clear();
     spdlog::info("RedisAdapter: closed");
 }
 
-size_t RedisAdapter::active_connections() const noexcept {
-    size_t total = 0;
-    for (const auto& pool : pools_) {
-        total += pool->active_count();
-    }
-    return total;
+RedisMultiplexer& RedisAdapter::multiplexer(uint32_t core_id) {
+    assert(core_id < per_core_.size() && "core_id out of range");
+    return *per_core_[core_id];
 }
 
-size_t RedisAdapter::idle_connections() const noexcept {
-    size_t total = 0;
-    for (const auto& pool : pools_) {
-        total += pool->idle_count();
+std::size_t RedisAdapter::active_connections() const noexcept {
+    std::size_t count = 0;
+    for (const auto& mux : per_core_) {
+        if (mux->connected()) ++count;
     }
-    return total;
-}
-
-RedisPool& RedisAdapter::pool(uint32_t core_id) {
-    assert(core_id < pools_.size() && "core_id out of range");
-    return *pools_[core_id];
+    return count;
 }
 
 } // namespace apex::shared::adapters::redis

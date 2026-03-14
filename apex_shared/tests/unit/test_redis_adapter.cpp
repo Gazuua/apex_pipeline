@@ -21,11 +21,10 @@ TEST(RedisAdapter, NotReadyBeforeInit) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(RedisAdapter, InitCreatesPerCorePools) {
+TEST(RedisAdapter, InitCreatesPerCoreMultiplexers) {
     RedisConfig config{
         .host = "localhost",
         .port = 6379,
-        .pool_size_per_core = 2,
     };
     RedisAdapter adapter(config);
 
@@ -35,12 +34,11 @@ TEST(RedisAdapter, InitCreatesPerCorePools) {
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 
-    // 4개 코어에 대한 풀이 생성되었는지 확인
-    // pool() 접근으로 검증
-    EXPECT_NO_THROW((void)adapter.pool(0));
-    EXPECT_NO_THROW((void)adapter.pool(1));
-    EXPECT_NO_THROW((void)adapter.pool(2));
-    EXPECT_NO_THROW((void)adapter.pool(3));
+    // 4 cores should have multiplexers accessible
+    EXPECT_NO_THROW((void)adapter.multiplexer(0));
+    EXPECT_NO_THROW((void)adapter.multiplexer(1));
+    EXPECT_NO_THROW((void)adapter.multiplexer(2));
+    EXPECT_NO_THROW((void)adapter.multiplexer(3));
 }
 
 TEST(RedisAdapter, DrainSetsNotReady) {
@@ -79,7 +77,7 @@ TEST(RedisAdapter, TypeErasureViaWrapper) {
     EXPECT_EQ(iface->name(), "redis");
     EXPECT_FALSE(iface->is_ready());
 
-    // get() 접근 가능 (타입 복원)
+    // get() access (type restoration)
     RedisAdapter& adapter = wrapper->get();
     EXPECT_EQ(adapter.name(), "redis");
 }
@@ -88,23 +86,21 @@ TEST(RedisAdapter, ConfigAccessible) {
     RedisConfig config{
         .host = "redis.local",
         .port = 6380,
-        .pool_size_per_core = 5,
     };
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.config().host, "redis.local");
     EXPECT_EQ(adapter.config().port, 6380);
-    EXPECT_EQ(adapter.config().pool_size_per_core, 5u);
 }
 
 TEST(RedisAdapter, CloseWithoutInit) {
-    // init() 없이 close() 호출 시 크래시 없음
+    // close() without init() should not crash
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_NO_THROW(adapter.close());
 }
 
 TEST(RedisAdapter, DoubleInit) {
-    // init() 2번 호출 — 풀이 추가됨 (설계상 1회만 호출해야 함, 하지만 크래시 없어야 함)
+    // Double init — should not crash
     RedisConfig config;
     RedisAdapter adapter(config);
 
@@ -114,11 +110,10 @@ TEST(RedisAdapter, DoubleInit) {
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 
-    // 두 번째 init — 크래시 없어야 함
     EXPECT_NO_THROW(adapter.init(engine));
 }
 
-TEST(RedisAdapter, ActiveAndIdleConnectionsInitiallyZero) {
+TEST(RedisAdapter, ActiveConnectionsInitiallyZero) {
     RedisConfig config;
     RedisAdapter adapter(config);
 
@@ -127,20 +122,19 @@ TEST(RedisAdapter, ActiveAndIdleConnectionsInitiallyZero) {
 
     adapter.init(engine);
 
-    // 초기 상태: 커넥션 없음
+    // Initial state: no connections established (not connected to server)
     EXPECT_EQ(adapter.active_connections(), 0u);
-    EXPECT_EQ(adapter.idle_connections(), 0u);
 }
 
 TEST(RedisAdapter, DrainWithoutInit) {
-    // init() 없이 drain() 호출 시 크래시 없음
+    // drain() without init() should not crash
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_NO_THROW(adapter.drain());
 }
 
 TEST(RedisAdapter, FullLifecycle) {
-    // init -> drain -> close 전체 라이프사이클
+    // init -> drain -> close full lifecycle
     RedisConfig config;
     RedisAdapter adapter(config);
 
@@ -158,15 +152,12 @@ TEST(RedisAdapter, FullLifecycle) {
     adapter.close();
     EXPECT_FALSE(adapter.is_ready());
 
-    // close 후 재 init은 지원하지 않지만 크래시 없어야 함
+    // Re-init after close is not officially supported but should not crash
     EXPECT_NO_THROW(adapter.init(engine));
 }
 
-TEST(RedisAdapter, PoolConfigMatchesRedisConfig) {
-    RedisConfig config{
-        .pool_size_per_core = 5,
-        .pool_max_size_per_core = 10,
-    };
+TEST(RedisAdapter, MultiplexerInitialState) {
+    RedisConfig config;
     RedisAdapter adapter(config);
 
     CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
@@ -174,16 +165,16 @@ TEST(RedisAdapter, PoolConfigMatchesRedisConfig) {
 
     adapter.init(engine);
 
-    // 풀 설정이 RedisConfig에서 전파되었는지 확인
-    auto& pool = adapter.pool(0);
-    EXPECT_EQ(pool.config().min_size, 5u);
-    EXPECT_EQ(pool.config().max_size, 10u);
+    // Multiplexer should exist but not be connected (no Redis server)
+    auto& mux = adapter.multiplexer(0);
+    EXPECT_FALSE(mux.connected());
+    EXPECT_EQ(mux.pending_count(), 0u);
+    EXPECT_EQ(mux.reconnect_attempts(), 0u);
 }
 
-TEST(RedisAdapter, ActiveAndIdleWithoutInit) {
-    // init 전에도 active/idle 호출 가능 (0 반환)
+TEST(RedisAdapter, ActiveConnectionsWithoutInit) {
+    // active_connections before init should return 0
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.active_connections(), 0u);
-    EXPECT_EQ(adapter.idle_connections(), 0u);
 }
