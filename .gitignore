@@ -20,6 +20,9 @@ compile_commands.json
 .idea/
 *.user
 
+# Claude Code
+.claude/settings.local.json
+
 # Logs
 *.log
 
