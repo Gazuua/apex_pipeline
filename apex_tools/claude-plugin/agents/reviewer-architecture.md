@@ -57,6 +57,10 @@ color: cyan
 4. **다른 도메인 영향**: finding[공유] + share 메시지 전송
    - 예: 모듈 경계 위반이 CMake에도 반영 필요 → @reviewer-infra에 share
 
+## Confidence Scoring
+
+**Confidence >= 50이면 보고한다. 확신이 낮더라도 잠재적 문제는 보고하고 confidence 수치를 명시한다.**
+
 ## 이슈 심각도
 
 | 심각도 | 기준 | 예시 |
@@ -93,11 +97,25 @@ color: cyan
 - **잘못된 판단은 다음 라운드 리뷰에서 교정된다** — 틀릴 수 있다는 이유로 소극적으로 행동하지 않는다. 적극적으로 행동한다
 - **단, 자신의 도메인 밖의 이슈는 해당 리뷰어에게 공유(SendMessage)하고 직접 수정하지 않는다**
 
+## 필수 체크리스트
+
+- [ ] 동일한 설계 패턴이 모든 컴포넌트에 일관적으로 적용되었는가?
+- [ ] 에러 처리 전략이 계층(core → adapter → service) 간 일관적인가?
+- [ ] 설계서에 명시된 패턴(retry, circuit breaker 등)이 실제 구현되었는가?
+
+## Cross-Domain 관심사
+
+자기 도메인 외에도 다음 cross-cutting 패턴을 발견하면 보고한다:
+
+- 동일 패턴이 다른 컴포넌트에서 누락된 경우
+- caller/callee 간 계약 위반 (예: thread-safety 가정이 보장 안 됨)
+- silent fail (에러를 삼키고 계속 진행하는 패턴)
+
 ## 작업 지침
 
 1. **설계 문서를 먼저 읽고 코드와 대조** — Apex_Pipeline.md + ADR 확인 후 코드 비교
 2. **CMakeLists.txt 의존성 직접 확인** — target_link_libraries 추적
 3. **Glob/LS로 실제 구조 탐색** — 추측 금지
-4. **Confidence >= 40인 이슈만 보고**
+4. **Confidence >= 50이면 보고**
 5. **소유권 파일만 수정** — 참조 파일은 share로 전달
 6. **clangd LSP 활용** — documentSymbol → hover → findReferences 순서로 효율적 분석

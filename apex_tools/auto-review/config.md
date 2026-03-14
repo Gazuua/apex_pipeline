@@ -73,6 +73,8 @@
 
 ## 리뷰어 목록
 
+### Round 1 리뷰어 (11명)
+
 | 리뷰어 | 도메인 | 파일 |
 |--------|--------|------|
 | docs-spec | 원천 문서 정합성 | `apex_tools/claude-plugin/agents/reviewer-docs-spec.md` |
@@ -86,3 +88,36 @@
 | test-quality | 테스트 코드 품질 | `apex_tools/claude-plugin/agents/reviewer-test-quality.md` |
 | infra | 빌드/CI/인프라 | `apex_tools/claude-plugin/agents/reviewer-infra.md` |
 | security | 보안 | `apex_tools/claude-plugin/agents/reviewer-security.md` |
+
+### Round 2 리뷰어 (1명)
+
+| 리뷰어 | 도메인 | 파일 |
+|--------|--------|------|
+| cross-cutting | 도메인 간 경계 검증 | `apex_tools/claude-plugin/agents/reviewer-cross-cutting.md` |
+
+> **디스패치 규칙**: `cross-cutting`은 Round 1에서 디스패치하지 않는다. Round 1 전체 리포트 취합 완료 후, coordinator가 Round 2에서 별도 디스패치한다.
+
+## Cross-Cutting 리뷰 설정
+
+### Round 2 디스패치
+
+| 항목 | 값 | 설명 |
+|------|-----|------|
+| confidence_threshold | 50 | Confidence 50% 이상이면 보고 (기본값) |
+| round | 2 | Round 1 완료 후 Round 2에서 실행 |
+| file_ownership | 전체 프로젝트 | 모든 파일에 접근 가능 (다른 리뷰어와 오버랩 허용) |
+
+### 오버랩 대상 파일 목록
+
+다음 파일/디렉토리는 Round 1에서 복수 리뷰어가 검토한다:
+
+| 파일/패턴 | 배정 리뷰어 |
+|-----------|------------|
+| `apex_core/include/apex/core/session.hpp` | concurrency + logic |
+| `apex_core/src/connection_handler.cpp` | logic + concurrency |
+| `apex_shared/lib/adapters/*/src/*.cpp` | 해당 도메인 리뷰어 + architecture |
+| 모든 설정 파일 (`*.ini`, `*.toml`, `*.yml`) | infra + security |
+
+기본 원칙: cross-domain 우려가 있는 파일은 관련 리뷰어 2명 이상에게 배정한다.
+
+> **참고**: `cross-cutting` 리뷰어는 Round 2에서 전체 프로젝트를 대상으로 리뷰하므로, 위 오버랩 정책과는 별개로 모든 파일에 접근 가능하다.

@@ -66,12 +66,12 @@ color: green
 
 | 점수 | 판정 | 액션 |
 |------|------|------|
-| 0-39 | false positive 가능성 높음 | 제외 |
-| 40-60 | 유효하지만 저영향 | 보고 (Minor 추천) |
+| 0-49 | false positive 가능성 높음 | 제외 |
+| 50-60 | 유효하지만 저영향 | 보고 (Minor 추천) |
 | 61-80 | 주의 필요 | 보고 |
 | 81-100 | 치명적 버그 또는 명시적 규칙 위반 | 보고 |
 
-**Confidence >= 40인 이슈만 보고**
+**Confidence >= 50이면 보고한다. 확신이 낮더라도 잠재적 문제는 보고하고 confidence 수치를 명시한다.**
 
 ## 이슈 심각도
 
@@ -109,11 +109,26 @@ color: green
 - **잘못된 판단은 다음 라운드 리뷰에서 교정된다** — 틀릴 수 있다는 이유로 소극적으로 행동하지 않는다. 적극적으로 행동한다
 - **단, 자신의 도메인 밖의 이슈는 해당 리뷰어에게 공유(SendMessage)하고 직접 수정하지 않는다**
 
+## 필수 체크리스트
+
+- [ ] async write/send 함수의 동시 호출이 직렬화되는가? (per-session write queue)
+- [ ] 코루틴 프레임 소멸 타이밍과 외부 콜백 호출 타이밍이 교차하지 않는가?
+- [ ] per-session/per-connection 동시성 보호 메커니즘이 존재하는가?
+- [ ] timer/timeout 콜백이 이미 소멸된 객체에 접근하지 않는가?
+
+## Cross-Domain 관심사
+
+자기 도메인 외에도 다음 cross-cutting 패턴을 발견하면 보고한다:
+
+- 동일 패턴이 다른 컴포넌트에서 누락된 경우
+- caller/callee 간 계약 위반 (예: thread-safety 가정이 보장 안 됨)
+- silent fail (에러를 삼키고 계속 진행하는 패턴)
+
 ## 작업 지침
 
 1. **비동기 코드는 전체 흐름을 추적** — co_spawn부터 co_return까지 전체 경로 확인
 2. **strand/executor 전파 체인 확인** — 암묵적 전파 끊김 주의
 3. **clangd LSP 활용** — incomingCalls로 호출 체인 추적, findReferences로 shared state 접근점 파악
 4. **TSAN suppressions 파일 참조** — `tsan_suppressions.txt` 확인
-5. **Confidence >= 40인 이슈만 보고** — 동시성 이슈는 재현 어려우므로 보수적 보고
+5. **Confidence >= 50이면 보고** — 동시성 이슈는 재현 어려우므로 보수적 보고
 6. **소유권 파일만 수정** — 참조 파일은 share로 전달

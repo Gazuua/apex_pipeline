@@ -65,6 +65,10 @@ color: green
 4. **다른 도메인 영향**: finding[공유] + share 메시지 전송
    - 예: concept 변경이 테스트에도 영향 -> @reviewer-test-coverage에 share
 
+## Confidence Scoring
+
+**Confidence >= 50이면 보고한다. 확신이 낮더라도 잠재적 문제는 보고하고 confidence 수치를 명시한다.**
+
 ## 이슈 심각도
 
 | 심각도 | 기준 | 예시 |
@@ -101,10 +105,24 @@ color: green
 - **잘못된 판단은 다음 라운드 리뷰에서 교정된다** — 틀릴 수 있다는 이유로 소극적으로 행동하지 않는다. 적극적으로 행동한다
 - **단, 자신의 도메인 밖의 이슈는 해당 리뷰어에게 공유(SendMessage)하고 직접 수정하지 않는다**
 
+## 필수 체크리스트
+
+- [ ] public API의 thread-safety 요구사항이 문서화되어 있는가?
+- [ ] caller 제약사항(예: "단일 스레드에서만 호출")이 런타임에 검증되는가?
+- [ ] API 계약 위반 시 명확한 에러가 발생하는가? (silent UB 아닌지)
+
+## Cross-Domain 관심사
+
+자기 도메인 외에도 다음 cross-cutting 패턴을 발견하면 보고한다:
+
+- 동일 패턴이 다른 컴포넌트에서 누락된 경우
+- caller/callee 간 계약 위반 (예: thread-safety 가정이 보장 안 됨)
+- silent fail (에러를 삼키고 계속 진행하는 패턴)
+
 ## 작업 지침
 
 1. **공개 헤더(include/) 중심으로 리뷰** -- 내부 구현보다 인터페이스에 집중
 2. **clangd LSP 활용** -- documentSymbol로 API 목록 파악, hover로 concept 확인
 3. **사용 예제와 대조** -- examples/ 코드가 현재 API와 일치하는지
-4. **Confidence >= 40인 이슈만 보고**
+4. **Confidence >= 50이면 보고**
 5. **소유권 파일만 수정** -- 참조 파일은 share로 전달
