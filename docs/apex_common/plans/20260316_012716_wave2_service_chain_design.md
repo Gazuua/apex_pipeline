@@ -558,3 +558,51 @@ allocated = [
 - JWT 만료 → Refresh Token 갱신
 - Rate Limit 초과 → 에러 응답
 - 서비스 타임아웃 → Gateway 에러
+
+---
+
+## 10. 구현 운영 규칙
+
+### 10.1 자동화 범위
+
+- 구현 계획(Plan 0~5) 확정 후 **전 과정 에이전트 자율 실행** — 사용자 승인 불필요
+- 포함 범위: 구현, 빌드, 테스트, auto-review, 이슈 자체 수정, PR 생성, 머지, 워크트리 정리
+
+### 10.2 PR / 머지
+
+- E2E 통과 + 문서 갱신 완료 후 자동 진행
+- `gh pr create` → `gh pr merge --squash --admin --delete-branch`
+- 사용자 승인 불필요
+
+### 10.3 워크트리 정리
+
+- 머지 완료 후 `apex_tools/cleanup-branches.sh --execute`로 일괄 정리
+- 수동 3점 정리 불필요 (스크립트가 worktree remove + branch -D + push --delete 처리)
+
+### 10.4 Critical 설계 이슈 대응
+
+- auto-review에서 설계 변경이 필요한 Critical 이슈 발견 시:
+  - 구현은 현재 설계대로 **계속 진행** (블로킹 금지)
+  - `docs/Apex_Pipeline.md` 백로그 최상단에 **Critical 섹션**으로 기록
+  - 다음 세션에서 사용자와 논의 후 대응
+
+### 10.5 E2E 테스트 이슈 대응
+
+- E2E 테스트에서 발견된 이슈는 **즉시 수정** (블로킹 금지와 별개)
+- 원인 분석 → 수정 → 단위 테스트 추가 → E2E 재실행 → 통과 확인
+- Critical 설계 이슈(§10.4)와 다름 — 구현 버그는 에이전트가 자체 해결
+
+### 10.6 Plan별 실행 순서
+
+```
+Plan 0 (기반) → Plan 1 (Gateway) → Plan 2 (Rate Limit)  ← 순차
+                                  → Plan 3 (Auth)        ← Plan 1 이후 병렬 가능
+                                  → Plan 4 (Chat)        ← Plan 3 이후
+                                  → Plan 5 (E2E + 문서)  ← 전부 이후
+```
+
+### 10.7 커밋 규칙
+
+- Task 단위 커밋: `feat(scope): 한국어 설명`
+- Plan 단위 auto-review 보고서: `docs(wave2): Plan N auto-review 보고서`
+- 문서 갱신: `docs: 마스터 문서 Wave 2 반영`
