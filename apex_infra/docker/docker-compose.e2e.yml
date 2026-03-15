@@ -27,6 +27,7 @@ services:
       CLUSTER_ID: e2e-apex-cluster-001
     volumes:
       - kafka-e2e-data:/var/lib/kafka/data
+      - ./init-kafka.sh:/init-kafka.sh:ro
     networks:
       - apex-e2e-net
     healthcheck:
