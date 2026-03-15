@@ -20,7 +20,7 @@ JwtBlacklist::is_blacklisted(std::string_view jti) {
         spdlog::warn("JWT blacklist check failed for jti={}, assuming blacklisted", jti);
         co_return true;
     }
-    co_return result->as_integer() > 0;
+    co_return result->integer > 0;
 }
 
 } // namespace apex::gateway
