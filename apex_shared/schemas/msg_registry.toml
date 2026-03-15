@@ -62,72 +62,121 @@ schema = "apex_services/auth-svc/schemas/logout_response.fbs"
 range = [2000, 2999]
 description = "Chat Service 메시지 범위"
 
-[[chat.allocated]]
-id = 2000
-name = "ChatSendMessage"
-status = "reserved"
-
+# Room management
 [[chat.allocated]]
 id = 2001
-name = "ChatReceiveMessage"
-status = "reserved"
+name = "CreateRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
 
 [[chat.allocated]]
-id = 2010
-name = "JoinRoomRequest"
-status = "reserved"
+id = 2002
+name = "CreateRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
 
+[[chat.allocated]]
+id = 2003
+name = "JoinRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2004
+name = "JoinRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2005
+name = "LeaveRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2006
+name = "LeaveRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2007
+name = "ListRoomsRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2008
+name = "ListRoomsResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+# Message send/broadcast
 [[chat.allocated]]
 id = 2011
-name = "JoinRoomResponse"
-status = "reserved"
+name = "SendMessageRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
 [[chat.allocated]]
-id = 2020
-name = "LeaveRoomRequest"
-status = "reserved"
+id = 2012
+name = "SendMessageResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
+[[chat.allocated]]
+id = 2013
+name = "ChatMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+# Whisper (1:1)
 [[chat.allocated]]
 id = 2021
-name = "LeaveRoomResponse"
-status = "reserved"
+name = "WhisperRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
 [[chat.allocated]]
-id = 2030
-name = "RoomListRequest"
-status = "reserved"
+id = 2022
+name = "WhisperResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
+[[chat.allocated]]
+id = 2023
+name = "WhisperMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+# History
 [[chat.allocated]]
 id = 2031
-name = "RoomListResponse"
-status = "reserved"
+name = "ChatHistoryRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
 [[chat.allocated]]
-id = 2040
-name = "CreateRoomRequest"
-status = "reserved"
+id = 2032
+name = "ChatHistoryResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
+# Global broadcast
 [[chat.allocated]]
 id = 2041
-name = "CreateRoomResponse"
-status = "reserved"
+name = "GlobalBroadcastRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
 [[chat.allocated]]
-id = 2050
-name = "ChatHistoryRequest"
-status = "reserved"
+id = 2042
+name = "GlobalBroadcastResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
 
 [[chat.allocated]]
-id = 2051
-name = "ChatHistoryResponse"
-status = "reserved"
-
-[[chat.allocated]]
-id = 2060
-name = "WhisperRequest"
-status = "reserved"
-
-[[chat.allocated]]
-id = 2061
-name = "WhisperResponse"
-status = "reserved"
+id = 2043
+name = "GlobalChatMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
