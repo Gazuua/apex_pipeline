@@ -165,6 +165,9 @@ apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통�
 │   │   ├── kafka/                    ← KafkaProducer, KafkaConsumer, KafkaAdapter, KafkaSink
 │   │   ├── redis/                    ← RedisConnection, RedisMultiplexer, RedisAdapter, HiredisAsioAdapter, RedisReply
 │   │   └── pg/                       ← PgConnection, PgResult, PgPool, PgAdapter, PgTransaction
+│   ├── lib/protocols/                ← 프로토콜 구현 (apex::shared::protocols)
+│   │   ├── tcp/                      ← TcpBinaryProtocol (기존 와이어 프로토콜)
+│   │   └── websocket/                ← WebSocketProtocol (Boost.Beast MVP 스켈레톤)
 │   ├── tests/                        ← unit/ + integration/ (docker-compose 기반)
 │   └── schemas/                      ← FlatBuffers 메시지 정의 (전 서비스 공유)
 ├── apex_infra/                       ← 인프라 설정
@@ -249,9 +252,11 @@ public:
 int main() {
     // Server::run()이 io_context/스레드를 내부 소유 (프레임워크 모델)
     // 코어별 독립 EchoService 인스턴스 자동 생성 (shared-nothing)
-    Server({.port = 9000, .num_cores = 4})
-        .add_service<EchoService>()
-        .run();  // SIGINT/SIGTERM으로 graceful shutdown
+    Server config{.num_cores = 4};
+    config.add_service<EchoService>();
+    config.listen<TcpBinaryProtocol>(9000);   // TCP 바이너리 프로토콜
+    // config.listen<WebSocketProtocol>(9001); // WebSocket (v0.5.1+ Beast 통합 후)
+    config.run();  // SIGINT/SIGTERM으로 graceful shutdown
 }
 ```
 
