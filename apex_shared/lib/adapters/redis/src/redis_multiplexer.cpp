@@ -136,7 +136,7 @@ void RedisMultiplexer::on_disconnect() {
 
 boost::asio::awaitable<apex::core::Result<void>>
 RedisMultiplexer::authenticate(RedisConnection& conn) {
-    if (config_.password.empty()) co_return {};
+    if (config_.password.empty()) co_return apex::core::Result<void>{};
 
     // Use async_command directly to bypass command()'s reconnecting_ guard.
     // During reconnect_loop, we need to AUTH before marking as connected.
@@ -151,7 +151,7 @@ RedisMultiplexer::authenticate(RedisConnection& conn) {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    co_return {};
+    co_return apex::core::Result<void>{};
 }
 
 boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
