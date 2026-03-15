@@ -1,0 +1,44 @@
+#pragma once
+
+#include <apex/gateway/gateway_config.hpp>
+#include <apex/core/result.hpp>
+
+#include <jwt-cpp/jwt.h>
+
+#include <chrono>
+#include <cstdint>
+#include <string>
+#include <string_view>
+
+namespace apex::gateway {
+
+/// JWT verification result.
+struct JwtClaims {
+    uint64_t user_id{0};
+    std::string username;
+    std::string jti;  // JWT ID (for blacklist check)
+    std::chrono::system_clock::time_point expires_at;
+};
+
+/// JWT signature verifier.
+/// Local signature verification only (hot path, zero network cost).
+/// Sensitive msg_ids require separate Redis blacklist check.
+class JwtVerifier {
+public:
+    explicit JwtVerifier(const JwtConfig& config);
+
+    /// Verify JWT token.
+    /// @param token Pure token string without "Bearer " prefix
+    /// @return Claims or error
+    [[nodiscard]] apex::core::Result<JwtClaims>
+    verify(std::string_view token) const;
+
+    /// Check if msg_id is sensitive (requires Redis blacklist check).
+    [[nodiscard]] bool is_sensitive(uint32_t msg_id) const noexcept;
+
+private:
+    JwtConfig config_;
+    jwt::verifier<jwt::default_clock, jwt::traits::kazuho_picojson> verifier_;
+};
+
+} // namespace apex::gateway
