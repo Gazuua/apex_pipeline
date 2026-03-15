@@ -38,7 +38,7 @@ public:
 
 private:
     JwtConfig config_;
-    jwt::verifier<jwt::default_clock, jwt::traits::kazuho_picojson> verifier_;
+    decltype(jwt::verify()) verifier_;
 };
 
 } // namespace apex::gateway

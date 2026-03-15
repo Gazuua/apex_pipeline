@@ -43,8 +43,9 @@ target_link_libraries(apex_gateway
         apex_protocols_tcp
         apex_protocols_websocket
         apex_protocols_kafka
-        apex_adapters_kafka
-        apex_adapters_redis
+        apex_shared_adapters_common
+        apex_shared_adapters_kafka
+        apex_shared_adapters_redis
         jwt-cpp::jwt-cpp
         OpenSSL::SSL
         OpenSSL::Crypto
