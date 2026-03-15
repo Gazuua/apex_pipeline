@@ -22,11 +22,20 @@ target_include_directories(apex_gateway
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+# toml++
+find_package(tomlplusplus CONFIG REQUIRED)
+
+# spdlog
+find_package(spdlog CONFIG REQUIRED)
+
 # jwt-cpp
 find_package(jwt-cpp CONFIG REQUIRED)
 
 # OpenSSL (for TLS + jwt-cpp)
 find_package(OpenSSL REQUIRED)
+
+# Boost (headers only — for file_watcher tests)
+find_package(Boost REQUIRED)
 
 target_link_libraries(apex_gateway
     PRIVATE
