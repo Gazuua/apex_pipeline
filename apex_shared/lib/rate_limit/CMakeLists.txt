@@ -3,6 +3,7 @@ add_library(apex_shared_rate_limit STATIC
     src/sliding_window_counter.cpp
     src/per_ip_rate_limiter.cpp
     src/redis_rate_limiter.cpp
+    src/rate_limit_facade.cpp
 )
 add_library(apex::shared::rate_limit ALIAS apex_shared_rate_limit)
 
