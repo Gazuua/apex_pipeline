@@ -30,7 +30,7 @@ PerCoreState::PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
 // --- Server ---
 
 Server::Server(ServerConfig config)
-    : config_(std::move(config))
+    : config_(config)
 {
     if (config_.heartbeat_timeout_ticks > 0) {
         size_t actual_slots = detail::next_power_of_2(

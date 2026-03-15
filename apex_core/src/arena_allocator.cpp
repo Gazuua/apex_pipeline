@@ -7,9 +7,10 @@
 namespace apex::core {
 
 ArenaAllocator::ArenaAllocator(std::size_t block_size, std::size_t max_bytes)
-    : block_size_(block_size), max_bytes_(max_bytes) {
+    : block_size_(block_size)
+    , max_bytes_(max_bytes)
+    , total_allocated_(block_size) {
     blocks_.push_back(make_block(block_size_));
-    total_allocated_ = block_size_;
 }
 
 ArenaAllocator::~ArenaAllocator() {
@@ -44,9 +45,11 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
 
     // Try current block first.
     auto& current = blocks_.back();
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     auto addr = reinterpret_cast<std::uintptr_t>(current.cursor);
     auto aligned = (addr + align - 1) & ~(align - 1);
     auto* result = reinterpret_cast<char*>(aligned);
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     auto* new_cursor = result + size;
 
     if (new_cursor <= current.end) {
@@ -66,9 +69,11 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
     total_allocated_ += new_block_size;
 
     auto& fresh = blocks_.back();
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     addr = reinterpret_cast<std::uintptr_t>(fresh.cursor);
     aligned = (addr + align - 1) & ~(align - 1);
     result = reinterpret_cast<char*>(aligned);
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     fresh.cursor = result + size;
     return result;
 }
@@ -106,14 +111,16 @@ std::size_t ArenaAllocator::capacity() const noexcept {
 }
 
 ArenaAllocator::Block ArenaAllocator::make_block(std::size_t size) {
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
     auto* base = static_cast<char*>(std::malloc(size));
-    if (!base) {
+    if (base == nullptr) {
         throw std::bad_alloc();
     }
     return {base, base, base + size, size};
 }
 
 void ArenaAllocator::free_block(Block& block) {
+    // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
     std::free(block.base);
     block.base = nullptr;
 }
