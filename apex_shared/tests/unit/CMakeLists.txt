@@ -78,3 +78,13 @@ apex_shared_add_pg_test(test_pg_pool test_pg_pool.cpp)
 apex_shared_add_pg_test(test_pg_pool_retry test_pg_pool_retry.cpp)
 apex_shared_add_pg_test(test_pg_adapter test_pg_adapter.cpp)
 apex_shared_add_pg_test(test_pg_transaction test_pg_transaction.cpp)
+
+# --- Kafka Envelope protocol tests ---
+add_executable(test_kafka_envelope test_kafka_envelope.cpp)
+target_link_libraries(test_kafka_envelope
+    PRIVATE
+        apex::shared::protocols::kafka
+        GTest::gtest_main
+)
+add_test(NAME test_kafka_envelope COMMAND test_kafka_envelope)
+set_tests_properties(test_kafka_envelope PROPERTIES TIMEOUT 30)
