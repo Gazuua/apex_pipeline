@@ -22,6 +22,11 @@ rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
 
 - 태스크 완료 후 `/auto-review task` 묻지 말고 자동 실행 — 리뷰 → 수정 → 재리뷰 → Clean → PR+CI 전 과정 자동화
 - coordinator/리뷰어가 정의된 프로세스대로 동작 중이면 재촉하지 않고 기다림. 프로세스에 report 전송이 명시되어 있으면 요청 없이 자동 전송될 때까지 대기
+- **스킬 수정 후 캐시 삭제 필수**: 프롬프트, 에이전트 정의 등 auto-review 스킬을 수정하면 플러그인 캐시를 삭제해야 변경사항이 반영됨
+  ```bash
+  rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
+  ```
+  삭제 후 Claude Code 재시작 또는 새 세션에서 적용 확인
 
 ## 빌드 관련
 
