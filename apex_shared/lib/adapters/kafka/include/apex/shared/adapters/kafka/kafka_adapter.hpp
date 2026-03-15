@@ -8,6 +8,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -15,6 +16,13 @@
 #include <vector>
 
 namespace apex::shared::adapters::kafka {
+
+/// Adapter lifecycle state.
+enum class AdapterState : uint8_t {
+    RUNNING,
+    DRAINING,
+    CLOSED
+};
 
 /// Kafka adapter. Inherits AdapterBase CRTP.
 ///
@@ -94,7 +102,11 @@ private:
 
     // Producer poll timer
     std::unique_ptr<boost::asio::steady_timer> producer_poll_timer_;
-    bool draining_ = false;
+    std::atomic<AdapterState> state_{AdapterState::RUNNING};
+
+    [[nodiscard]] bool is_running() const noexcept {
+        return state_.load(std::memory_order_acquire) == AdapterState::RUNNING;
+    }
 };
 
 } // namespace apex::shared::adapters::kafka
