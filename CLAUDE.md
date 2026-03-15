@@ -32,8 +32,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.0.0 (Protocol concept 기반 의존성 역전 + 어댑터 회복력 + per-session write queue + WebSocket MVP)
-- **다음**: v0.5 → v0.6 → v1.0.0.0 (프레임워크 완성)
+- **현재**: v0.5.0.0 — Wave 1 완료 (Protocol concept + 어댑터 회복력 + per-session write queue)
+- **진행 중**: v0.5 Wave 2 설계/계획 완료, 구현 대기 (Gateway + Auth + Chat 서비스 체인)
+- **다음**: v0.5 Wave 2 구현 → v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
 ## 전역 규칙
