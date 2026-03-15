@@ -138,19 +138,58 @@ boost::asio::awaitable<apex::core::Result<void>>
 RedisMultiplexer::authenticate(RedisConnection& conn) {
     if (config_.password.empty()) co_return apex::core::Result<void>{};
 
-    // Use async_command directly to bypass command()'s reconnecting_ guard.
-    // During reconnect_loop, we need to AUTH before marking as connected.
-    auto [ec, reply] = co_await conn.async_command(
-        ("AUTH " + config_.password).c_str(),
-        boost::asio::as_tuple(boost::asio::use_awaitable));
+    // Use redisAsyncCommand directly (same pattern as command()) to bypass
+    // command()'s reconnecting_ guard and avoid async_command's
+    // std::function copy-constructibility requirement.
+    auto seq = next_sequence_++;
+    auto* pending = slab_.construct(
+        boost::asio::steady_timer(io_ctx_,
+            std::chrono::steady_clock::time_point::max()),
+        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+        std::unexpected(apex::core::ErrorCode::Timeout),
+        seq,
+        false
+    );
+    if (!pending) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
 
-    if (ec || !reply || reply->type == REDIS_REPLY_ERROR) {
-        spdlog::warn("Redis AUTH failed{}",
-                     (reply && reply->str) ? std::string(": ") + reply->str : "");
+    pending_.push_back(pending);
+
+    std::string auth_cmd = "AUTH " + config_.password;
+    int ret = redisAsyncCommand(conn.async_context(),
+                                &RedisMultiplexer::static_on_reply,
+                                this, auth_cmd.c_str());
+    if (ret != REDIS_OK) {
+        pending_.pop_back();
+        slab_.destroy(pending);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    pending->timeout.async_wait([pending](boost::system::error_code ec) {
+        if (!ec) {
+            pending->timed_out = true;
+            pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
+            pending->resolver.cancel();
+        }
+    });
+
+    boost::system::error_code ec;
+    co_await pending->resolver.async_wait(
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
+    pending->timeout.cancel();
+
+    auto result = std::move(pending->result);
+    release_pending(pending);
+
+    if (!result.has_value()) {
+        spdlog::warn("Redis AUTH failed");
         conn.disconnect();
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
+    // Check if AUTH reply indicates error (RedisReply wraps the reply)
     co_return apex::core::Result<void>{};
 }
 
