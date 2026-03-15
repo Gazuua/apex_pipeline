@@ -69,12 +69,18 @@ public:
     void start() override {
         uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
 
+        // Build acceptors into a local vector first, then move-assign to the
+        // member in one shot.  This ensures acceptors_ is either empty or
+        // fully populated — no intermediate push_back states visible to
+        // concurrent drain()/stop()/port() calls.
+        std::vector<std::unique_ptr<TcpAcceptor>> local;
+
 #if !defined(_WIN32)
         if (reuseport_) {
             // Linux: per-core acceptor with SO_REUSEPORT
             for (uint32_t i = 0; i < num_cores; ++i) {
                 auto& core_io = engine_.io_context(i);
-                acceptors_.push_back(std::make_unique<TcpAcceptor>(
+                local.push_back(std::make_unique<TcpAcceptor>(
                     core_io, port_,
                     [this, i](boost::asio::ip::tcp::socket socket) {
                         per_core_handlers_[i]->handler.accept_connection(
@@ -88,21 +94,32 @@ public:
         {
             // Single acceptor, round-robin distribution
             // Accept on core 0's io_context (or a control io_context)
-            acceptors_.push_back(std::make_unique<TcpAcceptor>(
+            local.push_back(std::make_unique<TcpAcceptor>(
                 engine_.io_context(0), port_,
                 [this](boost::asio::ip::tcp::socket socket) {
                     on_accept(std::move(socket));
                 }));
         }
 
+        // Publish fully-built vector to the member.
+        acceptors_ = std::move(local);
+
         for (auto& acc : acceptors_) acc->start();
+
+        // Signal that acceptors_ is fully built and started.
+        // drain()/stop()/port() acquire-load this flag to establish
+        // happens-before with the writes above, preventing data-race
+        // on the vector.
+        started_.store(true, std::memory_order_release);
     }
 
     void drain() override {
+        if (!started_.load(std::memory_order_acquire)) return;
         for (auto& acc : acceptors_) acc->stop();
     }
 
     void stop() override {
+        if (!started_.load(std::memory_order_acquire)) return;
         for (auto& acc : acceptors_) acc->stop();
     }
 
@@ -115,6 +132,7 @@ public:
     }
 
     [[nodiscard]] uint16_t port() const noexcept override {
+        if (!started_.load(std::memory_order_acquire)) return port_;
         return acceptors_.empty() ? port_ : acceptors_[0]->port();
     }
 
@@ -143,6 +161,7 @@ private:
     bool reuseport_;
     std::vector<std::unique_ptr<PerCoreHandler>> per_core_handlers_;
     std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;
+    std::atomic<bool> started_{false};       // guards acceptors_ against concurrent access
     std::atomic<uint32_t> next_core_{0};
 };
 
