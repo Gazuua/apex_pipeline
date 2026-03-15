@@ -43,3 +43,22 @@ port = 6380
 [timeouts]
 request_timeout_ms = 5000
 max_pending_per_core = 65536
+
+# --- Rate Limiting ---
+[rate_limit.ip]
+total_limit = 1000
+window_size_seconds = 60
+max_entries = 65536
+
+[rate_limit.user]
+default_limit = 100
+window_size_seconds = 60
+
+[rate_limit.endpoint]
+default_limit = 60
+window_size_seconds = 60
+
+[rate_limit.endpoint.overrides]
+1001 = 10    # LoginRequest
+2001 = 200   # ChatSendMessage
+2010 = 5     # CreateRoom

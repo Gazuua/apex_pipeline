@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace apex::gateway {
@@ -26,6 +27,30 @@ struct RouteEntry {
     uint32_t range_begin;             // msg_id range start (inclusive)
     uint32_t range_end;               // msg_id range end (inclusive)
     std::string kafka_topic;          // Target Kafka topic
+};
+
+struct RateLimitIpConfig {
+    uint32_t total_limit = 1000;          // Total requests per window (divided by num_cores)
+    uint32_t window_size_seconds = 60;
+    uint32_t max_entries = 65536;
+    uint32_t ttl_multiplier = 2;          // TTL = window_size * ttl_multiplier
+};
+
+struct RateLimitUserConfig {
+    uint32_t default_limit = 100;
+    uint32_t window_size_seconds = 60;
+};
+
+struct RateLimitEndpointConfig {
+    uint32_t default_limit = 60;
+    uint32_t window_size_seconds = 60;
+    std::vector<std::pair<uint32_t, uint32_t>> overrides;  // {msg_id, limit}
+};
+
+struct RateLimitConfig {
+    RateLimitIpConfig ip;
+    RateLimitUserConfig user;
+    RateLimitEndpointConfig endpoint;
 };
 
 struct GatewayConfig {
@@ -62,6 +87,9 @@ struct GatewayConfig {
     // Timeouts
     std::chrono::milliseconds request_timeout{5000};  // Pending request timeout
     size_t max_pending_per_core = 65536;               // per-core pending map max size
+
+    // Rate Limiting
+    RateLimitConfig rate_limit;
 };
 
 } // namespace apex::gateway

@@ -4,6 +4,7 @@ add_executable(apex_gateway
     src/main.cpp
     src/gateway_service.cpp
     src/gateway_config_parser.cpp
+    src/gateway_pipeline.cpp
     src/jwt_verifier.cpp
     src/jwt_blacklist.cpp
     src/route_table.cpp
@@ -46,6 +47,7 @@ target_link_libraries(apex_gateway
         apex_shared_adapters_common
         apex_shared_adapters_kafka
         apex_shared_adapters_redis
+        apex_shared_rate_limit
         jwt-cpp::jwt-cpp
         OpenSSL::SSL
         OpenSSL::Crypto

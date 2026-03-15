@@ -102,6 +102,45 @@ parse_gateway_config(std::string_view path) {
                 timeouts->get("max_pending_per_core")->value_or(int64_t{65536}));
         }
 
+        // [rate_limit.ip]
+        if (auto rl_ip = tbl["rate_limit"]["ip"].as_table()) {
+            cfg.rate_limit.ip.total_limit = static_cast<uint32_t>(
+                rl_ip->get("total_limit")->value_or(int64_t{1000}));
+            cfg.rate_limit.ip.window_size_seconds = static_cast<uint32_t>(
+                rl_ip->get("window_size_seconds")->value_or(int64_t{60}));
+            cfg.rate_limit.ip.max_entries = static_cast<uint32_t>(
+                rl_ip->get("max_entries")->value_or(int64_t{65536}));
+            cfg.rate_limit.ip.ttl_multiplier = static_cast<uint32_t>(
+                rl_ip->get("ttl_multiplier")->value_or(int64_t{2}));
+        }
+
+        // [rate_limit.user]
+        if (auto rl_user = tbl["rate_limit"]["user"].as_table()) {
+            cfg.rate_limit.user.default_limit = static_cast<uint32_t>(
+                rl_user->get("default_limit")->value_or(int64_t{100}));
+            cfg.rate_limit.user.window_size_seconds = static_cast<uint32_t>(
+                rl_user->get("window_size_seconds")->value_or(int64_t{60}));
+        }
+
+        // [rate_limit.endpoint]
+        if (auto rl_ep = tbl["rate_limit"]["endpoint"].as_table()) {
+            cfg.rate_limit.endpoint.default_limit = static_cast<uint32_t>(
+                rl_ep->get("default_limit")->value_or(int64_t{60}));
+            cfg.rate_limit.endpoint.window_size_seconds = static_cast<uint32_t>(
+                rl_ep->get("window_size_seconds")->value_or(int64_t{60}));
+
+            // [rate_limit.endpoint.overrides] — msg_id = limit
+            if (auto overrides = rl_ep->get("overrides")) {
+                if (auto* ot = overrides->as_table()) {
+                    for (auto& [key, val] : *ot) {
+                        auto msg_id = static_cast<uint32_t>(std::stoul(std::string(key.str())));
+                        auto limit = static_cast<uint32_t>(val.value_or(int64_t{0}));
+                        cfg.rate_limit.endpoint.overrides.emplace_back(msg_id, limit);
+                    }
+                }
+            }
+        }
+
         return cfg;
 
     } catch (const toml::parse_error& e) {

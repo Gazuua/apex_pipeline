@@ -35,6 +35,9 @@ enum class ErrorCode : uint16_t {
     RouteNotFound = 104,         // msg_id에 대한 라우팅 규칙 없음
     ServiceTimeout = 105,        // 서비스 응답 타임아웃
     PendingMapFull = 106,        // Pending requests map 포화
+    RateLimitedIp = 107,         // Per-IP rate limit 초과
+    RateLimitedUser = 108,       // Per-User rate limit 초과
+    RateLimitedEndpoint = 109,   // Per-Endpoint rate limit 초과
 
     // Application errors (1000-1999)
     AppError = 1000,
@@ -71,6 +74,9 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::RouteNotFound: return "RouteNotFound";
         case ErrorCode::ServiceTimeout: return "ServiceTimeout";
         case ErrorCode::PendingMapFull: return "PendingMapFull";
+        case ErrorCode::RateLimitedIp: return "RateLimitedIp";
+        case ErrorCode::RateLimitedUser: return "RateLimitedUser";
+        case ErrorCode::RateLimitedEndpoint: return "RateLimitedEndpoint";
         case ErrorCode::AppError: return "AppError";
         case ErrorCode::AdapterError: return "AdapterError";
         case ErrorCode::PoolExhausted: return "PoolExhausted";
