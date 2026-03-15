@@ -15,7 +15,10 @@
     "flatbuffers",
     "gtest",
     "hiredis",
-    "jwt-cpp",
+    {
+      "name": "jwt-cpp",
+      "features": ["picojson"]
+    },
     "openssl",
     "libpq",
     "librdkafka",
