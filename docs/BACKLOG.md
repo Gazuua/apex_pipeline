@@ -88,6 +88,24 @@
 
 ## 코드 위생
 
+### [Low] session.cpp clang-tidy 워닝 잔여분
+- **위치**: `apex_core/` — `session.cpp`
+- **상태**: 부분 구현
+- **배치**: Wave 1 — A. 코드 위생
+- **설명**: server.cpp(1건), arena_allocator.cpp(8건) 수정 완료. session.cpp 5건(implicit-bool-conversion, owning-memory, coroutine-ref-param, unused-return-value 등) 중 2건만 수정, 나머지 미완료 — 출처: clangd LSP 진단 (v0.4.5.2)
+
+### [Low] 테스트 이름 오타 MoveConstruction 2건
+- **위치**: `apex_core/` — `test_bump_allocator.cpp:103`, `test_arena_allocator.cpp:109`
+- **상태**: 미구현
+- **배치**: Wave 1 — A. 코드 위생
+- **설명**: `MoveConstruction` (오타 여부 확인 필요) — 출처: review/20260314_140000_auto-review.md
+
+### [Low] make_socket_pair 반환 순서 불일치
+- **위치**: `apex_core/` make_socket_pair 및 호출처
+- **상태**: 미구현
+- **배치**: Wave 1 — A. 코드 위생
+- **설명**: 함수는 `{server, client}` 반환하나 일부 호출처에서 순서 혼용 — 출처: review/20260314_140000_auto-review.md
+
 ### [Low] main 히스토리 문서 전용 커밋 squash
 - **위치**: main 브랜치 git 히스토리
 - **상태**: 미구현

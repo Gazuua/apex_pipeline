@@ -1,6 +1,8 @@
 #include <apex/shared/adapters/pg/pg_pool.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
 
+#include <algorithm>
+
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
@@ -171,12 +173,13 @@ PgPool::acquire_connected() {
 
 boost::asio::awaitable<apex::core::Result<PgPool::Connection>>
 PgPool::acquire_with_retry() {
+    constexpr uint32_t max_shift = 20;  // cap: 2^20 = ~1M multiplier, prevents UB
     for (uint32_t i = 0; i <= config_.max_acquire_retries; ++i) {
         auto conn = acquire();
         if (conn.has_value()) co_return std::move(conn);
 
         if (i < config_.max_acquire_retries) {
-            auto delay = config_.retry_backoff * (1u << i);  // exponential backoff
+            auto delay = config_.retry_backoff * (1u << std::min(i, max_shift));  // exponential backoff
             boost::asio::steady_timer timer(io_ctx_, delay);
             co_await timer.async_wait(boost::asio::use_awaitable);
         }

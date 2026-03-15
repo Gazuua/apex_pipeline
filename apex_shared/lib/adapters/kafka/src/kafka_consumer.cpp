@@ -152,6 +152,11 @@ void KafkaConsumer::poll_messages() {
                                            key_span, payload_span,
                                            msg->offset);
                 // DLQ routing: failed callback + producer available
+                if (!result.has_value() && !producer_) {
+                    spdlog::warn("Message processing failed (topic={}, offset={}) "
+                                 "but no DLQ producer configured — message dropped",
+                                 rd_kafka_topic_name(msg->rkt), msg->offset);
+                }
                 if (!result.has_value() && producer_) {
                     auto dlq_topic = std::string(rd_kafka_topic_name(msg->rkt)) + "-dlq";
                     spdlog::warn("Message processing failed (topic={}, offset={}), "
@@ -166,7 +171,12 @@ void KafkaConsumer::poll_messages() {
                             reinterpret_cast<const char*>(key_span.data()),
                             key_span.size());
                     }
-                    (void)producer_->produce(dlq_topic, key_sv, payload_span);
+                    auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
+                    if (!dlq_result.has_value()) {
+                        spdlog::error("DLQ produce failed (topic={}, offset={}): "
+                                      "message permanently lost",
+                                      dlq_topic, msg->offset);
+                    }
                 }
             }
             ++total_consumed_;

@@ -156,10 +156,9 @@ RedisMultiplexer::authenticate(RedisConnection& conn) {
 
     pending_.push_back(pending);
 
-    std::string auth_cmd = "AUTH " + config_.password;
     int ret = redisAsyncCommand(conn.async_context(),
                                 &RedisMultiplexer::static_on_reply,
-                                this, auth_cmd.c_str());
+                                this, "AUTH %s", config_.password.c_str());
     if (ret != REDIS_OK) {
         pending_.pop_back();
         slab_.destroy(pending);
@@ -189,7 +188,8 @@ RedisMultiplexer::authenticate(RedisConnection& conn) {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    // Check if AUTH reply indicates error (RedisReply wraps the reply)
+    // AUTH succeeded — REDIS_REPLY_ERROR is already handled by static_on_reply
+    // which converts it to AdapterError (caught by !result.has_value() above).
     co_return apex::core::Result<void>{};
 }
 

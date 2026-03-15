@@ -270,6 +270,26 @@ TEST_F(SessionTest, EnqueueWriteAfterClose) {
     client.close();
 }
 
+TEST_F(SessionTest, EnqueueWriteRawAndReceive) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    std::vector<uint8_t> data = {0xCA, 0xFE, 0xBA, 0xBE};
+    std::span<const uint8_t> data_span(data);
+    auto result = session->enqueue_write_raw(data_span);
+    ASSERT_TRUE(result.has_value());
+
+    // Run io_context to let write_pump deliver the data
+    io_ctx_.run();
+    io_ctx_.restart();
+
+    std::vector<uint8_t> received(data.size());
+    boost::asio::read(client, boost::asio::buffer(received));
+    EXPECT_EQ(received, data);
+
+    client.close();
+}
+
 TEST_F(SessionTest, EnqueueWriteFIFOOrder) {
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
