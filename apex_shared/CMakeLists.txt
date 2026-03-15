@@ -64,5 +64,8 @@ add_subdirectory(lib/protocols)
 # --- Adapters ---
 add_subdirectory(lib/adapters)
 
+# --- Rate Limiting ---
+add_subdirectory(lib/rate_limit)
+
 # --- Tests ---
 add_subdirectory(tests)

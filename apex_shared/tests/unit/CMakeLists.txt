@@ -88,3 +88,17 @@ target_link_libraries(test_kafka_envelope
 )
 add_test(NAME test_kafka_envelope COMMAND test_kafka_envelope)
 set_tests_properties(test_kafka_envelope PROPERTIES TIMEOUT 30)
+
+# --- Rate Limiting tests ---
+function(apex_shared_add_rate_limit_test TEST_NAME TEST_SOURCE)
+    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    target_link_libraries(${TEST_NAME}
+        PRIVATE
+            apex::shared::rate_limit
+            GTest::gtest_main
+    )
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
+endfunction()
+
+apex_shared_add_rate_limit_test(test_sliding_window_counter test_sliding_window_counter.cpp)
