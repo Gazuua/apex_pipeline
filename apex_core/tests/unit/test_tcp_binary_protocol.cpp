@@ -1,5 +1,7 @@
 #include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/core/error_code.hpp>
+#include <apex/core/protocol.hpp>
 
 #include <gtest/gtest.h>
 
@@ -59,11 +61,15 @@ TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer) {
 TEST_F(TcpBinaryProtocolTest, EmptyBufferReturnsError) {
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
-TEST_F(TcpBinaryProtocolTest, FrameTypeIsFrame) {
-    static_assert(std::is_same_v<TcpBinaryProtocol::FrameType, Frame>);
+TEST_F(TcpBinaryProtocolTest, SatisfiesProtocolConcept) {
+    static_assert(Protocol<TcpBinaryProtocol>);
+}
+
+TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame) {
+    static_assert(std::is_same_v<TcpBinaryProtocol::Frame, apex::shared::protocols::tcp::Frame>);
 }
 
 TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
@@ -84,7 +90,7 @@ TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
 
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
@@ -99,7 +105,7 @@ TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
 
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::BodyTooLarge);
+    EXPECT_EQ(result.error(), ErrorCode::InvalidMessage);
 }
 
 TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
@@ -129,5 +135,5 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
     // 세 번째 decode → InsufficientData
     auto result3 = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result3.has_value());
-    EXPECT_EQ(result3.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result3.error(), ErrorCode::InsufficientData);
 }

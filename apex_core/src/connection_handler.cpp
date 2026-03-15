@@ -82,11 +82,12 @@ boost::asio::awaitable<void> ConnectionHandler::process_frames(SessionPtr sessio
     for (;;) {
         auto decode_result = TcpBinaryProtocol::try_decode(recv_buf);
         if (!decode_result) {
-            if (decode_result.error() != FrameError::InsufficientData) {
-                session->close();
-                co_return;
+            if (decode_result.error() == ErrorCode::InsufficientData) {
+                break;  // 더 읽기
             }
-            break;
+            // 그 외 에러 (InvalidMessage 등) → 연결 종료
+            session->close();
+            co_return;
         }
         auto& frame = *decode_result;
 

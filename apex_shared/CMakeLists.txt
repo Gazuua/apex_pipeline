@@ -58,6 +58,9 @@ if(WIN32)
     target_compile_options(apex_shared PUBLIC /utf-8)
 endif()
 
+# --- Protocols ---
+add_subdirectory(lib/protocols)
+
 # --- Adapters ---
 add_subdirectory(lib/adapters)
 

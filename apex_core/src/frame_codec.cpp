@@ -1,13 +1,13 @@
-#include <apex/core/frame_codec.hpp>
+#include <apex/shared/protocols/tcp/frame_codec.hpp>
 
 #include <algorithm>
 #include <array>
 #include <cstring>
 
-namespace apex::core {
+namespace apex::shared::protocols::tcp {
 
 std::expected<Frame, FrameError>
-FrameCodec::try_decode(RingBuffer& buf) {
+FrameCodec::try_decode(apex::core::RingBuffer& buf) {
     if (buf.readable_size() < WireHeader::SIZE) {
         return std::unexpected(FrameError::InsufficientData);
     }
@@ -48,11 +48,11 @@ FrameCodec::try_decode(RingBuffer& buf) {
     return Frame{header, payload};
 }
 
-void FrameCodec::consume_frame(RingBuffer& buf, const Frame& frame) {
+void FrameCodec::consume_frame(apex::core::RingBuffer& buf, const Frame& frame) {
     buf.consume(frame.header.frame_size());
 }
 
-bool FrameCodec::encode(RingBuffer& buf, const WireHeader& header,
+bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header,
                          std::span<const uint8_t> payload) {
     if (header.body_size != static_cast<uint32_t>(payload.size())) {
         return false;
@@ -110,4 +110,4 @@ size_t FrameCodec::encode_to(std::span<uint8_t> out, const WireHeader& header,
     return total;
 }
 
-} // namespace apex::core
+} // namespace apex::shared::protocols::tcp
