@@ -37,6 +37,7 @@ add_library(apex_bcrypt STATIC
 target_include_directories(apex_bcrypt PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/bcrypt
 )
+set_target_properties(apex_bcrypt PROPERTIES LINKER_LANGUAGE C)
 target_link_libraries(apex_bcrypt PRIVATE OpenSSL::Crypto)
 if(WIN32)
     target_compile_options(apex_bcrypt PRIVATE /utf-8)
