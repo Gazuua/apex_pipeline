@@ -54,7 +54,7 @@ public:
     /// @param now Current time point.
     /// @return true if the request is within the per-core rate limit.
     [[nodiscard]] bool allow(std::string_view ip,
-                             SlidingWindowCounter::TimePoint now) noexcept;
+                             SlidingWindowCounter::TimePoint now);
 
     /// Number of tracked IP entries.
     [[nodiscard]] uint32_t entry_count() const noexcept;
@@ -64,7 +64,7 @@ public:
 
     /// Update configuration at runtime (TOML hot-reload).
     /// Resets all existing counters.
-    void update_config(PerIpRateLimiterConfig config) noexcept;
+    void update_config(PerIpRateLimiterConfig config);
 
 private:
     struct Entry {

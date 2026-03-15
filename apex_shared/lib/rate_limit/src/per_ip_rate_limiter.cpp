@@ -30,7 +30,7 @@ PerIpRateLimiter::~PerIpRateLimiter() {
 }
 
 bool PerIpRateLimiter::allow(std::string_view ip,
-                             SlidingWindowCounter::TimePoint now) noexcept {
+                             SlidingWindowCounter::TimePoint now) {
     auto it = entries_.find(std::string{ip});
 
     if (it == entries_.end()) {
@@ -67,7 +67,7 @@ uint32_t PerIpRateLimiter::entry_count() const noexcept {
     return static_cast<uint32_t>(entries_.size());
 }
 
-void PerIpRateLimiter::update_config(PerIpRateLimiterConfig config) noexcept {
+void PerIpRateLimiter::update_config(PerIpRateLimiterConfig config) {
     // Cancel all existing timers
     for (auto& [ip, entry] : entries_) {
         if (entry.timer_id != 0) {
