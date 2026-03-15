@@ -187,7 +187,36 @@ TEST_F(CircuitBreakerTest, HalfOpenToOpenOnFailure) {
     });
 }
 
-// TC7: reset() test
+// TC7: CLOSED state — partial failures reset on success (consecutive failure counting)
+TEST_F(CircuitBreakerTest, ClosedPartialFailuresResetOnSuccess) {
+    CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 3});
+
+    run_coro(io_, [&]() -> boost::asio::awaitable<void> {
+        auto fail = [&]() -> boost::asio::awaitable<Result<void>> {
+            co_return std::unexpected(ErrorCode::AdapterError);
+        };
+        auto ok = [&]() -> boost::asio::awaitable<Result<void>> {
+            co_return Result<void>{};
+        };
+
+        // Accumulate threshold-1 failures
+        for (int i = 0; i < 2; ++i) co_await cb.call(fail);
+        EXPECT_EQ(cb.state(), CircuitState::CLOSED);
+        EXPECT_EQ(cb.failure_count(), 2u);
+
+        // One success should reset failure_count to 0
+        co_await cb.call(ok);
+        EXPECT_EQ(cb.state(), CircuitState::CLOSED);
+        EXPECT_EQ(cb.failure_count(), 0u);
+
+        // Need full threshold again to trip
+        for (int i = 0; i < 2; ++i) co_await cb.call(fail);
+        EXPECT_EQ(cb.state(), CircuitState::CLOSED);  // still CLOSED (only 2/3)
+        co_return;
+    });
+}
+
+// TC8: reset() test
 TEST_F(CircuitBreakerTest, ResetClearsState) {
     CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 2});
 
