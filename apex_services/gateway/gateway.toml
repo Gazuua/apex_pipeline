@@ -64,6 +64,6 @@ default_limit = 60
 window_size_seconds = 60
 
 [rate_limit.endpoint.overrides]
-1001 = 10    # LoginRequest
-2001 = 200   # ChatSendMessage
-2010 = 5     # CreateRoom
+1000 = 10    # LoginRequest
+2011 = 200   # SendMessageRequest
+2001 = 5     # CreateRoomRequest

@@ -18,9 +18,9 @@ namespace apex::shared::rate_limit {
 ///
 /// # msg_id별 오버라이드
 /// [rate_limit.endpoint.overrides]
-/// 1001 = 10    # LoginRequest: 분당 10회
-/// 2001 = 200   # ChatSendMessage: 분당 200회
-/// 2010 = 5     # CreateRoom: 분당 5회
+/// 1000 = 10    # LoginRequest: 분당 10회
+/// 2011 = 200   # SendMessageRequest: 분당 200회
+/// 2001 = 5     # CreateRoomRequest: 분당 5회
 /// ```
 struct EndpointRateConfig {
     uint32_t default_limit = 60;             ///< msg_id 오버라이드가 없을 때 적용
