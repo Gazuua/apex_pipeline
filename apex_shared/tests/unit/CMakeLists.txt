@@ -59,6 +59,7 @@ endfunction()
 apex_shared_add_redis_test(test_hiredis_asio_adapter test_hiredis_asio_adapter.cpp)
 apex_shared_add_redis_test(test_redis_multiplexer test_redis_multiplexer.cpp)
 apex_shared_add_redis_test(test_redis_adapter test_redis_adapter.cpp)
+apex_shared_add_redis_test(test_redis_reply test_redis_reply.cpp)
 
 # --- PostgreSQL adapter tests ---
 function(apex_shared_add_pg_test TEST_NAME TEST_SOURCE)
