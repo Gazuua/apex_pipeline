@@ -48,6 +48,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin`
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md` — 세 문서 최신 반영
 
+### 설계 원칙
+- **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
+
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 - **auto-review 프로세스 대기** — coordinator/리뷰어 동작 중이면 재촉하지 않고 완료까지 대기

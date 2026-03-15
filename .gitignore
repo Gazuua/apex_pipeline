@@ -47,3 +47,4 @@ apex_core/benchmark_results/
 
 # Worktrees
 .worktrees/
+.superpowers/
