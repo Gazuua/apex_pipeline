@@ -1,0 +1,10 @@
+// Auth Service -- Logout Request
+// msg_id: 1002
+
+namespace apex.auth_svc.schemas;
+
+table LogoutRequest {
+    access_token: string (required);
+}
+
+root_type LogoutRequest;

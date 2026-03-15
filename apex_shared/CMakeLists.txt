@@ -8,6 +8,8 @@ set(APEX_SHARED_SCHEMAS
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/auth_request.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/auth_response.fbs
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/error_envelope.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/refresh_token_request.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/refresh_token_response.fbs
 )
 
 set(APEX_SHARED_FBS_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)

@@ -1,0 +1,21 @@
+// Auth Service -- Login Response
+// msg_id: 1001
+
+namespace apex.auth_svc.schemas;
+
+enum LoginError : uint16 {
+    NONE = 0,
+    BAD_CREDENTIALS = 1,
+    ACCOUNT_LOCKED = 2,
+    INTERNAL_ERROR = 3
+}
+
+table LoginResponse {
+    error: LoginError = NONE;
+    access_token: string;
+    refresh_token: string;
+    user_id: uint64;
+    expires_in_sec: uint32;        // Access Token remaining lifetime (seconds)
+}
+
+root_type LoginResponse;

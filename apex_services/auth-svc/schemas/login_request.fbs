@@ -1,0 +1,11 @@
+// Auth Service -- Login Request
+// msg_id: 1000
+
+namespace apex.auth_svc.schemas;
+
+table LoginRequest {
+    email: string (required);
+    password: string (required);
+}
+
+root_type LoginRequest;

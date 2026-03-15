@@ -21,12 +21,14 @@ schema = "apex_core/schemas/error_response.fbs"
 [[system.allocated]]
 id = 10
 name = "RefreshTokenRequest"
-status = "reserved"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_request.fbs"
 
 [[system.allocated]]
 id = 11
 name = "RefreshTokenResponse"
-status = "reserved"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_response.fbs"
 
 [auth]
 range = [1000, 1999]
@@ -35,12 +37,26 @@ description = "Auth Service 메시지 범위"
 [[auth.allocated]]
 id = 1000
 name = "LoginRequest"
-status = "reserved"
+status = "active"
+schema = "apex_services/auth-svc/schemas/login_request.fbs"
 
 [[auth.allocated]]
 id = 1001
 name = "LoginResponse"
-status = "reserved"
+status = "active"
+schema = "apex_services/auth-svc/schemas/login_response.fbs"
+
+[[auth.allocated]]
+id = 1002
+name = "LogoutRequest"
+status = "active"
+schema = "apex_services/auth-svc/schemas/logout_request.fbs"
+
+[[auth.allocated]]
+id = 1003
+name = "LogoutResponse"
+status = "active"
+schema = "apex_services/auth-svc/schemas/logout_response.fbs"
 
 [chat]
 range = [2000, 2999]

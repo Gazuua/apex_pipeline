@@ -1,0 +1,16 @@
+// Auth Service -- Logout Response
+// msg_id: 1003
+
+namespace apex.auth_svc.schemas;
+
+enum LogoutError : uint16 {
+    NONE = 0,
+    INVALID_TOKEN = 1,
+    INTERNAL_ERROR = 2
+}
+
+table LogoutResponse {
+    error: LogoutError = NONE;
+}
+
+root_type LogoutResponse;
