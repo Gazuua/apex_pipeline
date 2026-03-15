@@ -79,6 +79,8 @@ private:
             auto& rb = session->recv_buffer();
             auto writable = rb.writable();
             if (writable.empty()) {
+                spdlog::warn("session {} recv_buffer full — closing connection",
+                             session->id());
                 session->close();
                 break;
             }

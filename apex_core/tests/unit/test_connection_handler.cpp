@@ -310,7 +310,73 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
     EXPECT_EQ(dispatched_ids[2], 0x0003);
 }
 
-// TC8: active_sessions 카운트 정확성
+// TC8: recv_buffer 오버플로 -- 세션 종료
+// read_loop에서 writable().empty() 분기를 테스트한다.
+// 매우 작은 recv_buf_capacity(32)로 SessionManager를 생성하고,
+// body_size > capacity인 프레임 헤더를 보내 버퍼를 채운다.
+TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
+    boost::asio::io_context io_ctx;
+    // recv_buf_capacity=32 — 헤더(10) + body 22바이트로 꽉 참
+    SessionManager session_mgr(0, 0, 8, 32);
+    MessageDispatcher dispatcher;
+    ConnectionHandlerConfig config{.tcp_nodelay = true};
+    ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
+    auto [server_sock, client] = make_socket_pair(io_ctx);
+    handler.accept_connection(std::move(server_sock), io_ctx);
+
+    {
+        IoRunner runner(io_ctx);
+
+        ASSERT_TRUE(wait_for([&] { return handler.active_sessions() >= 1u; }, 3000ms));
+
+        // body_size=100으로 헤더를 보낸다. 실제로 100바이트를 다 보내면
+        // try_decode는 InsufficientData를 계속 반환하고, 결국 recv_buffer가 꽉 차서
+        // writable().empty() → session close.
+        WireHeader header{
+            .msg_id = 0x0001,
+            .body_size = 100,  // 32바이트 버퍼에 10+100 = 110바이트 필요
+        };
+        auto hdr_bytes = header.serialize();
+        boost::asio::write(client, boost::asio::buffer(
+            std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+
+        // 나머지 body 데이터를 계속 전송해서 버퍼를 채운다
+        std::vector<uint8_t> filler(100, 0xAA);
+        boost::system::error_code ec;
+        boost::asio::write(client, boost::asio::buffer(filler), ec);
+        // 서버가 close하면 write에서 에러날 수 있지만, 그 전에 버퍼가 차면 OK
+
+        // 세션이 close되어야 함 (writable empty 또는 InvalidMessage)
+        ASSERT_TRUE(wait_for([&] { return handler.active_sessions() == 0u; }, 3000ms));
+
+        client.close();
+    }
+}
+
+// TC9: tcp_nodelay=false 분기 테스트
+TEST(ConnectionHandlerTest, TcpNodelayFalseSkipsOptionSet) {
+    boost::asio::io_context io_ctx;
+    SessionManager session_mgr(0, 0, 8, 8192);
+    MessageDispatcher dispatcher;
+    ConnectionHandlerConfig config{.tcp_nodelay = false};
+    ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
+    auto [server_sock, client] = make_socket_pair(io_ctx);
+    handler.accept_connection(std::move(server_sock), io_ctx);
+
+    {
+        IoRunner runner(io_ctx);
+
+        // 세션 정상 생성 확인
+        ASSERT_TRUE(wait_for([&] { return handler.active_sessions() >= 1u; }, 3000ms));
+
+        // tcp_nodelay 옵션이 설정되지 않았으므로 기본값 유지
+        // (crash 없이 정상 동작하면 분기 커버됨)
+        client.close();
+        ASSERT_TRUE(wait_for([&] { return handler.active_sessions() == 0u; }, 3000ms));
+    }
+}
+
+// TC10: active_sessions 카운트 정확성
 TEST(ConnectionHandlerTest, ActiveSessionsCountAccurate) {
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);

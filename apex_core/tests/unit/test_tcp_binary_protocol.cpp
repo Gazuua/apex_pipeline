@@ -137,3 +137,29 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
     ASSERT_FALSE(result3.has_value());
     EXPECT_EQ(result3.error(), ErrorCode::InsufficientData);
 }
+
+TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully) {
+    // 경계값: body_size=0 프레임 — 헤더만 존재, payload 비어있음
+    write_frame(0x0042, {});
+
+    auto result = TcpBinaryProtocol::try_decode(buf_);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->header.msg_id, 0x0042);
+    EXPECT_EQ(result->header.body_size, 0u);
+    EXPECT_TRUE(result->payload.empty());
+
+    TcpBinaryProtocol::consume_frame(buf_, *result);
+    EXPECT_EQ(buf_.readable_size(), 0u);
+}
+
+TEST_F(TcpBinaryProtocolTest, HeaderOnlyInsufficientData) {
+    // 경계값: 헤더 바이트 수보다 적은 데이터 (예: 5바이트)
+    std::vector<uint8_t> partial(5, 0x00);
+    auto w = buf_.writable();
+    std::memcpy(w.data(), partial.data(), partial.size());
+    buf_.commit_write(partial.size());
+
+    auto result = TcpBinaryProtocol::try_decode(buf_);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
+}

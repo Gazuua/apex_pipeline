@@ -60,6 +60,6 @@ TEST(PgTransaction, MultipleTransactionsOnSameConnection) {
 TEST(PgTransaction, NonCopyableNonMovable) {
     EXPECT_FALSE(std::is_copy_constructible_v<PgTransaction>);
     EXPECT_FALSE(std::is_copy_assignable_v<PgTransaction>);
-    // Note: move is also implicitly deleted when copy is deleted
-    // and no explicit move constructors are defined
+    EXPECT_FALSE(std::is_move_constructible_v<PgTransaction>);
+    EXPECT_FALSE(std::is_move_assignable_v<PgTransaction>);
 }

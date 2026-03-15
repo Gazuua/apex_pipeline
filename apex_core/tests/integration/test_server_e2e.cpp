@@ -245,7 +245,7 @@ TEST_F(ServerE2ETest, GracefulShutdown) {
     auto frame = build_echo_frame({0x42});
     boost::asio::write(client, boost::asio::buffer(frame));
     auto response = read_frame(client);
-    EXPECT_GT(response.size(), 0u);
+    EXPECT_GT(response.size(), WireHeader::SIZE);
 
     stop_and_join(server);
 

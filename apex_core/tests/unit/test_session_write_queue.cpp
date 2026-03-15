@@ -134,3 +134,24 @@ TEST_F(SessionWriteQueueRegressionTest, EnqueueWireHeaderFrame) {
 
     client.close();
 }
+
+// TC5: close된 세션에 enqueue_write -- SessionClosed 에러
+TEST_F(SessionWriteQueueRegressionTest, EnqueueAfterCloseReturnsError) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    session->close();
+    ASSERT_FALSE(session->is_open());
+
+    auto result = session->enqueue_write({0x01, 0x02});
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), apex::core::ErrorCode::SessionClosed);
+
+    // enqueue_write_raw도 동일
+    std::vector<uint8_t> data = {0x03};
+    auto result2 = session->enqueue_write_raw(std::span<const uint8_t>(data));
+    ASSERT_FALSE(result2.has_value());
+    EXPECT_EQ(result2.error(), apex::core::ErrorCode::SessionClosed);
+
+    client.close();
+}
