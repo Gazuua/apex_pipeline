@@ -16,6 +16,7 @@
     "gtest",
     "hiredis",
     "jwt-cpp",
+    "libbcrypt",
     "openssl",
     "libpq",
     "librdkafka",
