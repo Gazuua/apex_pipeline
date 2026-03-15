@@ -12,7 +12,7 @@ using namespace apex::shared::protocols::kafka;
 MessageRouter::MessageRouter(
     apex::shared::adapters::kafka::KafkaAdapter& kafka,
     RouteTablePtr initial_table,
-    uint32_t core_id)
+    uint16_t core_id)
     : kafka_(kafka)
     , route_table_(std::move(initial_table))
     , core_id_(core_id) {}
@@ -34,7 +34,7 @@ MessageRouter::route(apex::core::SessionPtr session,
     // 2. Serialize Kafka Envelope
     auto envelope = build_envelope(
         header, payload, session->id(), corr_id,
-        static_cast<uint16_t>(core_id_));
+        core_id_);
 
     // 3. Kafka produce (session_id as key for partition distribution)
     auto session_key = std::to_string(session->id());
@@ -62,7 +62,7 @@ MessageRouter::build_envelope(
     std::span<const uint8_t> payload,
     uint64_t session_id,
     uint64_t corr_id,
-    uint16_t core_id) {
+    uint16_t core_id) const {
 
     // Routing Header (8B) + Metadata (32B) + Payload
     std::vector<uint8_t> buf(ENVELOPE_HEADER_SIZE + payload.size());

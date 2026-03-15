@@ -29,7 +29,7 @@ public:
 
     /// Called from Kafka consumer callback.
     /// @param payload Full Kafka message (Envelope)
-    apex::core::Result<void>
+    [[nodiscard]] apex::core::Result<void>
     on_response(std::span<const uint8_t> payload);
 
 private:

@@ -24,9 +24,9 @@ public:
     explicit GatewayService(const GatewayConfig& config);
     ~GatewayService();
 
-    /// ServiceBase interface -- handler registration.
-    /// Gateway routes all msg_ids itself, so no individual handler registration.
-    void setup_handlers() {}
+    /// ServiceBase hook -- Gateway routes all msg_ids itself,
+    /// so no individual handler registration via MessageDispatcher.
+    void on_start() override {}
 
 private:
     GatewayConfig config_;

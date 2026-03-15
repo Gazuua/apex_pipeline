@@ -20,7 +20,7 @@ class MessageRouter {
 public:
     MessageRouter(apex::shared::adapters::kafka::KafkaAdapter& kafka,
                   RouteTablePtr initial_table,
-                  uint32_t core_id);
+                  uint16_t core_id);
 
     /// WireHeader -> Kafka Envelope conversion + produce.
     /// @param session Request session (for session_id)
@@ -51,11 +51,11 @@ private:
                    std::span<const uint8_t> payload,
                    uint64_t session_id,
                    uint64_t corr_id,
-                   uint16_t core_id);
+                   uint16_t core_id) const;
 
     apex::shared::adapters::kafka::KafkaAdapter& kafka_;
     std::atomic<std::shared_ptr<const RouteTable>> route_table_;
-    uint32_t core_id_;
+    uint16_t core_id_;
     uint64_t corr_counter_{0};  // per-core, lock-free
 };
 
