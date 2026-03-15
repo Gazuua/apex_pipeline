@@ -15,7 +15,7 @@ FrameCodec::try_decode(apex::core::RingBuffer& buf) {
     // I-08: Defensive copy — even when the header is already contiguous in the ring buffer,
     // we copy to a local array. This ensures safety against subsequent linearize() calls
     // that may invalidate the span. Benchmarking can determine if an optimization for the
-    // contiguous path is worthwhile; 10 bytes is unlikely to be a measurable overhead.
+    // contiguous path is worthwhile; 12 bytes is unlikely to be a measurable overhead.
     std::array<uint8_t, WireHeader::SIZE> hdr_buf;
     auto hdr_span = buf.linearize(WireHeader::SIZE);
     std::memcpy(hdr_buf.data(), hdr_span.data(), WireHeader::SIZE);

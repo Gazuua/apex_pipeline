@@ -13,7 +13,11 @@ target_include_directories(apex_protocols_tcp
         $<INSTALL_INTERFACE:include>
 )
 
+find_package(OpenSSL QUIET)
+
 target_link_libraries(apex_protocols_tcp
     INTERFACE
         apex::core
+        $<$<TARGET_EXISTS:OpenSSL::SSL>:OpenSSL::SSL>
+        $<$<TARGET_EXISTS:OpenSSL::Crypto>:OpenSSL::Crypto>
 )

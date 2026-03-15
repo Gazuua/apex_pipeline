@@ -78,3 +78,30 @@ apex_shared_add_pg_test(test_pg_pool test_pg_pool.cpp)
 apex_shared_add_pg_test(test_pg_pool_retry test_pg_pool_retry.cpp)
 apex_shared_add_pg_test(test_pg_adapter test_pg_adapter.cpp)
 apex_shared_add_pg_test(test_pg_transaction test_pg_transaction.cpp)
+
+# --- Kafka Envelope protocol tests ---
+add_executable(test_kafka_envelope test_kafka_envelope.cpp)
+target_link_libraries(test_kafka_envelope
+    PRIVATE
+        apex::shared::protocols::kafka
+        GTest::gtest_main
+)
+add_test(NAME test_kafka_envelope COMMAND test_kafka_envelope)
+set_tests_properties(test_kafka_envelope PROPERTIES TIMEOUT 30)
+
+# --- Rate Limiting tests ---
+function(apex_shared_add_rate_limit_test TEST_NAME TEST_SOURCE)
+    add_executable(${TEST_NAME} ${TEST_SOURCE})
+    target_link_libraries(${TEST_NAME}
+        PRIVATE
+            apex::shared::rate_limit
+            GTest::gtest_main
+    )
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
+endfunction()
+
+apex_shared_add_rate_limit_test(test_sliding_window_counter test_sliding_window_counter.cpp)
+apex_shared_add_rate_limit_test(test_per_ip_rate_limiter test_per_ip_rate_limiter.cpp)
+apex_shared_add_rate_limit_test(test_redis_rate_limiter test_redis_rate_limiter.cpp)
+apex_shared_add_rate_limit_test(test_endpoint_rate_config test_endpoint_rate_config.cpp)

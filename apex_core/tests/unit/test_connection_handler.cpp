@@ -79,11 +79,11 @@ TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly) {
     ConnectionHandlerConfig config{.tcp_nodelay = true};
 
     std::atomic<int> dispatch_count{0};
-    uint16_t dispatched_msg_id = 0;
+    uint32_t dispatched_msg_id = 0;
     std::vector<uint8_t> dispatched_payload;
 
     dispatcher.register_handler(0x0042,
-        [&](SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload)
+        [&](SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload)
             -> boost::asio::awaitable<Result<void>> {
             dispatch_count.fetch_add(1);
             dispatched_msg_id = msg_id;
@@ -121,7 +121,7 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
 
     std::atomic<int> dispatch_count{0};
     dispatcher.register_handler(0x0010,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>)
+        [&](SessionPtr, uint32_t, std::span<const uint8_t>)
             -> boost::asio::awaitable<Result<void>> {
             dispatch_count.fetch_add(1);
             co_return ok();
@@ -259,11 +259,11 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
     ConnectionHandlerConfig config{.tcp_nodelay = true};
 
     std::atomic<int> dispatch_count{0};
-    std::vector<uint16_t> dispatched_ids;
+    std::vector<uint32_t> dispatched_ids;
     std::mutex ids_mutex;
 
-    auto make_handler = [&](uint16_t msg_id) {
-        return [&, msg_id](SessionPtr, uint16_t id, std::span<const uint8_t>)
+    auto make_handler = [&](uint32_t msg_id) {
+        return [&, msg_id](SessionPtr, uint32_t id, std::span<const uint8_t>)
             -> boost::asio::awaitable<Result<void>> {
             {
                 std::lock_guard lock(ids_mutex);
@@ -316,7 +316,7 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
 // body_size > capacity인 프레임 헤더를 보내 버퍼를 채운다.
 TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
     boost::asio::io_context io_ctx;
-    // recv_buf_capacity=32 — 헤더(10) + body 22바이트로 꽉 참
+    // recv_buf_capacity=32 — 헤더(12) + body 20바이트로 꽉 참
     SessionManager session_mgr(0, 0, 8, 32);
     MessageDispatcher dispatcher;
     ConnectionHandlerConfig config{.tcp_nodelay = true};
@@ -334,7 +334,7 @@ TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
         // writable().empty() → session close.
         WireHeader header{
             .msg_id = 0x0001,
-            .body_size = 100,  // 32바이트 버퍼에 10+100 = 110바이트 필요
+            .body_size = 100,  // 32바이트 버퍼에 12+100 = 112바이트 필요
         };
         auto hdr_bytes = header.serialize();
         boost::asio::write(client, boost::asio::buffer(

@@ -28,7 +28,7 @@ public:
 
     void on_stop() override { stop_called = true; }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         co_return ok();
@@ -36,7 +36,7 @@ public:
 
     bool start_called = false;
     bool stop_called = false;
-    uint16_t last_msg_id = 0;
+    uint32_t last_msg_id = 0;
     std::vector<uint8_t> last_payload;
 };
 
@@ -51,7 +51,7 @@ public:
         handle(0x0002, &DuplicateHandlerService::on_msg);
     }
 
-    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) { co_return ok(); }
+    awaitable<Result<void>> on_msg(SessionPtr, uint32_t, std::span<const uint8_t>) { co_return ok(); }
 };
 
 class MultiHandlerService : public ServiceBase<MultiHandlerService> {
@@ -64,9 +64,9 @@ public:
         handle(0x0003, &MultiHandlerService::on_msg3);
     }
 
-    awaitable<Result<void>> on_msg1(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count1; co_return ok(); }
-    awaitable<Result<void>> on_msg2(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count2; co_return ok(); }
-    awaitable<Result<void>> on_msg3(SessionPtr, uint16_t, std::span<const uint8_t>) { ++count3; co_return ok(); }
+    awaitable<Result<void>> on_msg1(SessionPtr, uint32_t, std::span<const uint8_t>) { ++count1; co_return ok(); }
+    awaitable<Result<void>> on_msg2(SessionPtr, uint32_t, std::span<const uint8_t>) { ++count2; co_return ok(); }
+    awaitable<Result<void>> on_msg3(SessionPtr, uint32_t, std::span<const uint8_t>) { ++count3; co_return ok(); }
 
     int count1 = 0;
     int count2 = 0;

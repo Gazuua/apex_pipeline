@@ -36,7 +36,7 @@ TEST_F(MessageDispatcherTest, InitiallyEmpty) {
 TEST_F(MessageDispatcherTest, RegisterAndDispatch) {
     bool called = false;
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [&](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             called = true;
             co_return apex::core::ok();
         });
@@ -57,7 +57,7 @@ TEST_F(MessageDispatcherTest, DispatchUnknownReturnsError) {
 TEST_F(MessageDispatcherTest, PayloadPassedThrough) {
     std::vector<uint8_t> received;
     d->register_handler(0x0010,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t> payload) -> awaitable<Result<void>> {
+        [&](SessionPtr, uint32_t, std::span<const uint8_t> payload) -> awaitable<Result<void>> {
             received.assign(payload.begin(), payload.end());
             co_return apex::core::ok();
         });
@@ -73,14 +73,14 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
     int call_count_new = 0;
 
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [&](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++call_count_old;
             co_return apex::core::ok();
         });
     EXPECT_EQ(d->handler_count(), 1u);
 
     d->register_handler(0x0001,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [&](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++call_count_new;
             co_return apex::core::ok();
         });
@@ -96,7 +96,7 @@ TEST_F(MessageDispatcherTest, OverwriteHandler) {
 
 TEST_F(MessageDispatcherTest, UnregisterHandler) {
     d->register_handler(0x0042,
-        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             co_return apex::core::ok();
         });
     EXPECT_TRUE(d->has_handler(0x0042));
@@ -110,16 +110,16 @@ TEST_F(MessageDispatcherTest, UnregisterHandler) {
 TEST_F(MessageDispatcherTest, MultipleHandlers) {
     int counts[5] = {};
 
-    for (uint16_t i = 0; i < 5; ++i) {
+    for (uint32_t i = 0; i < 5; ++i) {
         d->register_handler(i,
-            [&counts, i](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            [&counts, i](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
                 ++counts[i];
                 co_return apex::core::ok();
             });
     }
     EXPECT_EQ(d->handler_count(), 5u);
 
-    for (uint16_t i = 0; i < 5; ++i) {
+    for (uint32_t i = 0; i < 5; ++i) {
         auto result = run_coro(io_ctx_, d->dispatch(nullptr, i, {}));
         EXPECT_TRUE(result.has_value());
         EXPECT_EQ(counts[i], 1);
@@ -128,22 +128,22 @@ TEST_F(MessageDispatcherTest, MultipleHandlers) {
 
 TEST_F(MessageDispatcherTest, MaxMsgId) {
     bool called = false;
-    d->register_handler(0xFFFF,
-        [&](SessionPtr, uint16_t msg_id, std::span<const uint8_t>) -> awaitable<Result<void>> {
-            EXPECT_EQ(msg_id, 0xFFFF);
+    d->register_handler(0xFFFFFFFF,
+        [&](SessionPtr, uint32_t msg_id, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            EXPECT_EQ(msg_id, 0xFFFFFFFF);
             called = true;
             co_return apex::core::ok();
         });
-    EXPECT_TRUE(d->has_handler(0xFFFF));
+    EXPECT_TRUE(d->has_handler(0xFFFFFFFF));
 
-    auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0xFFFF, {}));
+    auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0xFFFFFFFF, {}));
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(called);
 }
 
 TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerException) {
     d->register_handler(0x0001,
-        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             throw std::runtime_error("test error");
             co_return apex::core::ok();
         });
@@ -154,7 +154,7 @@ TEST_F(MessageDispatcherTest, HandlerExceptionReturnsHandlerException) {
 
 TEST_F(MessageDispatcherTest, HandlerReturnsErrorCode) {
     d->register_handler(0x0001,
-        [](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             co_return apex::core::error(apex::core::ErrorCode::Timeout);
         });
     auto result = run_coro(io_ctx_, d->dispatch(nullptr, 0x0001, {}));

@@ -1,0 +1,182 @@
+# msg_registry.toml — 중앙 msg_id 레지스트리
+# coordinator가 msg_id 할당 독점. 에이전트는 .fbs 스키마만 작성.
+# 규칙: 퇴역된 msg_id는 영원히 재사용 금지.
+
+[system]
+range = [0, 999]
+description = "시스템/Gateway 예약 범위"
+
+[[system.allocated]]
+id = 1
+name = "Heartbeat"
+status = "active"
+schema = "apex_core/schemas/heartbeat.fbs"
+
+[[system.allocated]]
+id = 2
+name = "SystemErrorResponse"
+status = "active"
+schema = "apex_core/schemas/error_response.fbs"
+
+[[system.allocated]]
+id = 10
+name = "RefreshTokenRequest"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_request.fbs"
+
+[[system.allocated]]
+id = 11
+name = "RefreshTokenResponse"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_response.fbs"
+
+[auth]
+range = [1000, 1999]
+description = "Auth Service 메시지 범위"
+
+[[auth.allocated]]
+id = 1000
+name = "LoginRequest"
+status = "active"
+schema = "apex_services/auth-svc/schemas/login_request.fbs"
+
+[[auth.allocated]]
+id = 1001
+name = "LoginResponse"
+status = "active"
+schema = "apex_services/auth-svc/schemas/login_response.fbs"
+
+[[auth.allocated]]
+id = 1002
+name = "LogoutRequest"
+status = "active"
+schema = "apex_services/auth-svc/schemas/logout_request.fbs"
+
+[[auth.allocated]]
+id = 1003
+name = "LogoutResponse"
+status = "active"
+schema = "apex_services/auth-svc/schemas/logout_response.fbs"
+
+[chat]
+range = [2000, 2999]
+description = "Chat Service 메시지 범위"
+
+# Room management
+[[chat.allocated]]
+id = 2001
+name = "CreateRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2002
+name = "CreateRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2003
+name = "JoinRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2004
+name = "JoinRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2005
+name = "LeaveRoomRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2006
+name = "LeaveRoomResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2007
+name = "ListRoomsRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+[[chat.allocated]]
+id = 2008
+name = "ListRoomsResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_room.fbs"
+
+# Message send/broadcast
+[[chat.allocated]]
+id = 2011
+name = "SendMessageRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2012
+name = "SendMessageResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2013
+name = "ChatMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+# Whisper (1:1)
+[[chat.allocated]]
+id = 2021
+name = "WhisperRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2022
+name = "WhisperResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2023
+name = "WhisperMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+# History
+[[chat.allocated]]
+id = 2031
+name = "ChatHistoryRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2032
+name = "ChatHistoryResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+# Global broadcast
+[[chat.allocated]]
+id = 2041
+name = "GlobalBroadcastRequest"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2042
+name = "GlobalBroadcastResponse"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"
+
+[[chat.allocated]]
+id = 2043
+name = "GlobalChatMessage"
+status = "active"
+schema = "apex_services/chat-svc/schemas/chat_message.fbs"

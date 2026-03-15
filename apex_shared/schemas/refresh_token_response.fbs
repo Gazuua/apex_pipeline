@@ -1,0 +1,20 @@
+// System -- Refresh Token Response
+// msg_id: 11
+
+namespace apex.shared.schemas;
+
+enum RefreshTokenError : uint16 {
+    NONE = 0,
+    TOKEN_EXPIRED = 1,
+    TOKEN_REVOKED = 2,
+    TOKEN_INVALID = 3,
+    INTERNAL_ERROR = 4
+}
+
+table RefreshTokenResponse {
+    error: RefreshTokenError = NONE;
+    access_token: string;
+    expires_in_sec: uint32;
+}
+
+root_type RefreshTokenResponse;

@@ -1,0 +1,70 @@
+// Chat Service -- Room Management
+// msg_id range: 2001~2008
+
+namespace apex.chat_svc.fbs;
+
+// --- Error codes (msg_id scoped) ---
+enum ChatRoomError : uint16 {
+    NONE = 0,
+    ROOM_NOT_FOUND = 1,
+    ROOM_FULL = 2,
+    ALREADY_IN_ROOM = 3,
+    NOT_IN_ROOM = 4,
+    ROOM_NAME_TOO_LONG = 5,
+    ROOM_NAME_EMPTY = 6,
+    PERMISSION_DENIED = 7
+}
+
+// --- Create Room (msg_id: 2001/2002) ---
+table CreateRoomRequest {
+    room_name: string;        // Room name (max 100 chars)
+    max_members: uint32 = 100;
+}
+
+table CreateRoomResponse {
+    error: ChatRoomError = NONE;
+    room_id: uint64;
+    room_name: string;
+}
+
+// --- Join Room (msg_id: 2003/2004) ---
+table JoinRoomRequest {
+    room_id: uint64;
+}
+
+table JoinRoomResponse {
+    error: ChatRoomError = NONE;
+    room_id: uint64;
+    room_name: string;
+    member_count: uint32;
+}
+
+// --- Leave Room (msg_id: 2005/2006) ---
+table LeaveRoomRequest {
+    room_id: uint64;
+}
+
+table LeaveRoomResponse {
+    error: ChatRoomError = NONE;
+    room_id: uint64;
+}
+
+// --- List Rooms (msg_id: 2007/2008) ---
+table ListRoomsRequest {
+    offset: uint32 = 0;       // Paging offset
+    limit: uint32 = 20;       // Page size
+}
+
+table RoomInfo {
+    room_id: uint64;
+    room_name: string;
+    member_count: uint32;
+    max_members: uint32;
+    owner_id: uint64;
+}
+
+table ListRoomsResponse {
+    error: ChatRoomError = NONE;
+    rooms: [RoomInfo];
+    total_count: uint32;
+}

@@ -50,7 +50,7 @@ struct MockProtocol {
 static_assert(apex::core::Protocol<MockProtocol>);
 
 /// 테스트 프레임 빌드 헬퍼 — WireHeader + payload를 직렬화된 바이트로 반환.
-inline std::vector<uint8_t> build_test_frame(uint16_t msg_id,
+inline std::vector<uint8_t> build_test_frame(uint32_t msg_id,
                                               std::span<const uint8_t> payload) {
     apex::core::WireHeader header{
         .msg_id = msg_id,
@@ -63,7 +63,7 @@ inline std::vector<uint8_t> build_test_frame(uint16_t msg_id,
 }
 
 /// 빈 payload 프레임 빌드 헬퍼.
-inline std::vector<uint8_t> build_test_frame(uint16_t msg_id) {
+inline std::vector<uint8_t> build_test_frame(uint32_t msg_id) {
     return build_test_frame(msg_id, {});
 }
 

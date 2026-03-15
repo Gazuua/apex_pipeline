@@ -6,6 +6,7 @@
 #include <apex/core/protocol.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/tcp_acceptor.hpp>
+#include <apex/core/transport.hpp>
 
 #include <boost/asio/post.hpp>
 
@@ -21,7 +22,7 @@ struct ConnectionHandlerConfig;
 
 /// 의도적 virtual: CRTP 일관성 예외.
 /// start/drain/stop은 서버 시작·종료 시 1회 호출로 비용 ≈ 0.
-/// Hot path는 ConnectionHandler<P> 템플릿으로 zero-overhead.
+/// Hot path는 ConnectionHandler<P, T> 템플릿으로 zero-overhead.
 class ListenerBase {
 public:
     virtual ~ListenerBase() = default;
@@ -38,12 +39,12 @@ public:
 };
 
 /// 프로토콜별 리스너. 포트 바인딩 + accept loop + per-core ConnectionHandler 관리.
-template<Protocol P>
+template<Protocol P, Transport T = DefaultTransport>
 class Listener : public ListenerBase {
 public:
     struct PerCoreHandler {
         MessageDispatcher dispatcher;       // handler보다 먼저 선언 (소멸 순서 보장)
-        ConnectionHandler<P> handler;
+        ConnectionHandler<P, T> handler;
 
         PerCoreHandler(SessionManager& session_mgr, ConnectionHandlerConfig config)
             : handler(session_mgr, dispatcher, config) {}

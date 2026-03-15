@@ -37,7 +37,7 @@ public:
 ///       void on_start() override {
 ///           route<EchoRequest>(0x0001, &EchoService::on_echo);
 ///       }
-///       awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
+///       awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
 ///                               const EchoRequest* req) {
 ///           co_return apex::core::ok();
 ///       }
@@ -87,13 +87,13 @@ protected:
     /// Server 사용 시 자동 보장됨 (서비스와 디스패처를 동시 소유).
 
     /// 로우 핸들러 등록 (코루틴, Result<void> 반환).
-    void handle(uint16_t msg_id,
+    void handle(uint32_t msg_id,
                 boost::asio::awaitable<Result<void>> (Derived::*method)(
-                    SessionPtr, uint16_t, std::span<const uint8_t>))
+                    SessionPtr, uint32_t, std::span<const uint8_t>))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
-            [self, method](SessionPtr session, uint16_t id,
+            [self, method](SessionPtr session, uint32_t id,
                            std::span<const uint8_t> payload)
                 -> boost::asio::awaitable<Result<void>> {
                 co_return co_await (self->*method)(session, id, payload);
@@ -106,13 +106,13 @@ protected:
     ///       핸들러 내에서 async_send 등 co_await 이후에 메시지 필드에 접근하면
     ///       댕글링 참조가 발생합니다. 필요한 데이터는 co_await 전에 로컬 변수에 복사하세요.
     template <typename FbsType>
-    void route(uint16_t msg_id,
+    void route(uint32_t msg_id,
                boost::asio::awaitable<Result<void>> (Derived::*method)(
-                   SessionPtr, uint16_t, const FbsType*))
+                   SessionPtr, uint32_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->register_handler(msg_id,
-            [self, method](SessionPtr session, uint16_t id,
+            [self, method](SessionPtr session, uint32_t id,
                            std::span<const uint8_t> payload)
                 -> boost::asio::awaitable<Result<void>> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
@@ -133,7 +133,7 @@ private:
     std::unique_ptr<MessageDispatcher> owned_dispatcher_{std::make_unique<MessageDispatcher>()};
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};
-    boost::unordered_flat_set<uint16_t> registered_msg_ids_;
+    boost::unordered_flat_set<uint32_t> registered_msg_ids_;
 };
 
 } // namespace apex::core

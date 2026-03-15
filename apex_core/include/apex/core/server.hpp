@@ -9,6 +9,7 @@
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/service_base.hpp>
+#include <apex/core/transport.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -109,14 +110,14 @@ public:
 
     /// 프로토콜별 리스너 등록. 포트 분리.
     /// listen<P>()는 run() 전에 호출해야 한다.
-    template<Protocol P>
+    template<Protocol P, Transport T = DefaultTransport>
     Server& listen(uint16_t port, typename P::Config config = {}) {
         std::vector<SessionManager*> mgrs;
         for (auto& state : per_core_) {
             mgrs.push_back(&state->session_mgr);
         }
         ConnectionHandlerConfig handler_config{.tcp_nodelay = config_.tcp_nodelay};
-        auto listener = std::make_unique<Listener<P>>(
+        auto listener = std::make_unique<Listener<P, T>>(
             port, std::move(config), *core_engine_, std::move(mgrs),
             handler_config, config_.reuseport);
 

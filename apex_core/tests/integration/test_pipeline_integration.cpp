@@ -31,19 +31,19 @@ public:
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload) {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
         co_return ok();
     }
 
-    awaitable<Result<void>> on_ping(SessionPtr, uint16_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_ping(SessionPtr, uint32_t, std::span<const uint8_t>) {
         ++ping_count;
         co_return ok();
     }
 
-    uint16_t last_msg_id = 0;
+    uint32_t last_msg_id = 0;
     std::vector<uint8_t> last_payload;
     int call_count = 0;
     int ping_count = 0;
@@ -170,9 +170,9 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
 
 TEST(PipelineIntegration, WireHeaderFlagsPreserved) {
     WireHeader h{
+        .flags = static_cast<uint8_t>(wire_flags::COMPRESSED | wire_flags::REQUIRE_AUTH_CHECK),
         .msg_id = 0x0042,
         .body_size = 0,
-        .flags = wire_flags::COMPRESSED | wire_flags::REQUIRE_AUTH_CHECK
     };
 
     auto bytes = h.serialize();

@@ -1,0 +1,10 @@
+// System -- Refresh Token Request
+// msg_id: 10
+
+namespace apex.shared.schemas;
+
+table RefreshTokenRequest {
+    refresh_token: string (required);
+}
+
+root_type RefreshTokenRequest;

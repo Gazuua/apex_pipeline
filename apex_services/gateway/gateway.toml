@@ -1,0 +1,69 @@
+# Apex Gateway Configuration
+
+[server]
+ws_port = 8443
+num_cores = 2
+
+[tls]
+cert_file = "certs/server.crt"
+key_file = "certs/server.key"
+# ca_file = "certs/ca.crt"
+
+[jwt]
+secret = "dev-secret-change-in-production"
+algorithm = "HS256"
+clock_skew_seconds = 30
+sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
+
+[[routes]]
+range_begin = 1000
+range_end = 1999
+kafka_topic = "auth.requests"
+
+[[routes]]
+range_begin = 2000
+range_end = 2999
+kafka_topic = "chat.requests"
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "gateway"
+response_topic = "gateway.responses"
+
+[redis.pubsub]
+host = "localhost"
+port = 6383
+# password = ""
+
+[redis.auth]
+host = "localhost"
+port = 6380
+# password = ""
+
+[redis.ratelimit]
+host = "localhost"
+port = 6381
+# password = ""
+
+[timeouts]
+request_timeout_ms = 5000
+max_pending_per_core = 65536
+
+# --- Rate Limiting ---
+[rate_limit.ip]
+total_limit = 1000
+window_size_seconds = 60
+max_entries = 65536
+
+[rate_limit.user]
+default_limit = 100
+window_size_seconds = 60
+
+[rate_limit.endpoint]
+default_limit = 60
+window_size_seconds = 60
+
+[rate_limit.endpoint.overrides]
+1000 = 10    # LoginRequest
+2011 = 200   # SendMessageRequest
+2001 = 5     # CreateRoomRequest

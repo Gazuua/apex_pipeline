@@ -6,6 +6,7 @@
 #include <apex/core/protocol.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
+#include <apex/core/transport.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/awaitable.hpp>
@@ -20,6 +21,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstring>
 #include <span>
 
 namespace apex::core {
@@ -34,7 +36,7 @@ struct ConnectionHandlerConfig {
 ///
 /// Templated on Protocol concept for zero-overhead dispatch.
 /// Each ConnectionHandler<P> is bound to a single core's PerCoreState.
-template<Protocol P>
+template<Protocol P, Transport T = DefaultTransport>
 class ConnectionHandler {
 public:
     ConnectionHandler(SessionManager& session_mgr,
@@ -123,17 +125,39 @@ private:
             }
             auto& frame = *decode_result;
 
-            auto header = frame.header;
-            auto payload_span = frame.payload;
+            // Protocol Frame 구조에 따라 msg_id와 payload를 추출.
+            // TCP Frame: header.msg_id + span payload
+            // WebSocket Frame: payload 첫 4바이트 = msg_id, 나머지 = payload
+            uint32_t msg_id{};
+            std::span<const uint8_t> payload_span;
+
+            if constexpr (requires { frame.header.msg_id; }) {
+                // TCP-style frame (header + payload)
+                msg_id = frame.header.msg_id;
+                payload_span = frame.payload;
+            } else {
+                // WebSocket-style frame (payload only, msg_id in first 4 bytes)
+                const auto& raw = frame.payload;
+                if (raw.size() < sizeof(uint32_t)) {
+                    spdlog::warn("session {} frame too small for msg_id — closing",
+                                 session->id());
+                    session->close();
+                    co_return;
+                }
+                std::memcpy(&msg_id, raw.data(), sizeof(uint32_t));
+                payload_span = std::span<const uint8_t>(
+                    raw.data() + sizeof(uint32_t),
+                    raw.size() - sizeof(uint32_t));
+            }
 
             auto result = co_await dispatcher_.dispatch(
-                session, header.msg_id, payload_span);
+                session, msg_id, payload_span);
 
             P::consume_frame(recv_buf, frame);
 
             if (!result.has_value()) {
                 auto error_frame = ErrorSender::build_error_frame(
-                    header.msg_id, result.error());
+                    msg_id, result.error());
                 (void)co_await session->async_send_raw(error_frame);
             }
 

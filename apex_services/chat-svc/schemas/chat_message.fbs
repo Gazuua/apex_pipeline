@@ -1,0 +1,101 @@
+// Chat Service -- Messages, Whisper, History, Global Broadcast
+// msg_id range: 2011~2043
+
+namespace apex.chat_svc.fbs;
+
+// --- Error codes ---
+enum ChatMessageError : uint16 {
+    NONE = 0,
+    NOT_IN_ROOM = 1,
+    MESSAGE_TOO_LONG = 2,
+    EMPTY_MESSAGE = 3,
+    TARGET_NOT_FOUND = 4,
+    TARGET_OFFLINE = 5,
+    RATE_LIMITED = 6,
+    PERMISSION_DENIED = 7
+}
+
+// --- Send Message (msg_id: 2011/2012) ---
+table SendMessageRequest {
+    room_id: uint64;
+    content: string;
+}
+
+table SendMessageResponse {
+    error: ChatMessageError = NONE;
+    message_id: uint64;      // DB-assigned after persist (0 = async pending)
+    timestamp: uint64;       // Server timestamp (Unix ms)
+}
+
+// --- Chat Message Broadcast (msg_id: 2013) ---
+// Gateway receives via Redis SUBSCRIBE -> fan-out to sessions
+// RoutingHeader flags: direction=response, delivery=channel(01)
+table ChatMessage {
+    room_id: uint64;
+    sender_id: uint64;
+    sender_name: string;
+    content: string;
+    message_id: uint64;
+    timestamp: uint64;
+    channel: string;          // "pub:chat:room:{id}" -- Gateway subscription control
+}
+
+// --- Whisper (msg_id: 2021/2022/2023) ---
+table WhisperRequest {
+    target_user_id: uint64;   // Target user ID
+    content: string;
+}
+
+table WhisperResponse {
+    error: ChatMessageError = NONE;
+    timestamp: uint64;
+}
+
+// RoutingHeader flags: direction=response, delivery=unicast(00)
+// Kafka response with target session_id for direct delivery
+table WhisperMessage {
+    sender_id: uint64;
+    sender_name: string;
+    content: string;
+    timestamp: uint64;
+}
+
+// --- Chat History (msg_id: 2031/2032) ---
+table ChatHistoryRequest {
+    room_id: uint64;
+    before_message_id: uint64 = 0;  // Cursor-based paging (0 = latest)
+    limit: uint32 = 50;
+}
+
+table HistoryMessage {
+    message_id: uint64;
+    sender_id: uint64;
+    sender_name: string;
+    content: string;
+    timestamp: uint64;
+}
+
+table ChatHistoryResponse {
+    error: ChatMessageError = NONE;
+    messages: [HistoryMessage];
+    has_more: bool = false;
+}
+
+// --- Global Broadcast (msg_id: 2041/2042/2043) ---
+table GlobalBroadcastRequest {
+    content: string;
+}
+
+table GlobalBroadcastResponse {
+    error: ChatMessageError = NONE;
+    timestamp: uint64;
+}
+
+// RoutingHeader flags: direction=response, delivery=broadcast(10)
+table GlobalChatMessage {
+    sender_id: uint64;
+    sender_name: string;
+    content: string;
+    timestamp: uint64;
+    channel: string;          // "pub:global:chat"
+}
