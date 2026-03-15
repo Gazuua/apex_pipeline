@@ -50,6 +50,11 @@ apex_add_unit_test(test_drain_tick test_drain_tick.cpp)
 apex_add_unit_test(test_config test_config.cpp)
 apex_add_unit_test(test_logging test_logging.cpp)
 
+# v0.5: 단위 테스트 (E-1)
+apex_add_unit_test(test_connection_handler test_connection_handler.cpp)
+apex_add_unit_test(test_session_write_queue test_session_write_queue.cpp)
+apex_add_unit_test(test_server_error_paths test_server_error_paths.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -89,5 +94,8 @@ set_tests_properties(
     test_bump_allocator
     test_arena_allocator
     test_core_metrics
+    test_connection_handler
+    test_session_write_queue
+    test_server_error_paths
     PROPERTIES TIMEOUT 30
 )
