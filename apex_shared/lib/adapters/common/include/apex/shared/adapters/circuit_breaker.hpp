@@ -26,7 +26,7 @@ public:
     template<std::invocable F>
         requires std::same_as<std::invoke_result_t<F>,
                               boost::asio::awaitable<apex::core::Result<void>>>
-    boost::asio::awaitable<apex::core::Result<void>> call(F&& fn);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> call(F&& fn);
 
     [[nodiscard]] CircuitState state() const noexcept;
     [[nodiscard]] uint32_t failure_count() const noexcept;
@@ -48,7 +48,7 @@ private:
 template<std::invocable F>
     requires std::same_as<std::invoke_result_t<F>,
                           boost::asio::awaitable<apex::core::Result<void>>>
-boost::asio::awaitable<apex::core::Result<void>> CircuitBreaker::call(F&& fn) {
+[[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> CircuitBreaker::call(F&& fn) {
     if (!should_allow()) {
         co_return std::unexpected(apex::core::ErrorCode::CircuitOpen);
     }
