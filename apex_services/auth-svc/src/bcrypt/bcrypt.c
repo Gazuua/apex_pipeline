@@ -6,7 +6,7 @@
  * Public domain / ISC license.
  */
 
-#include "bcrypt.h"
+#include "apex_bcrypt.h"
 
 #include <openssl/rand.h>
 #include <openssl/des.h>  /* for BF: included via evp or directly */

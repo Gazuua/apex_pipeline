@@ -31,7 +31,7 @@ PerIpRateLimiter::~PerIpRateLimiter() {
 
 bool PerIpRateLimiter::allow(std::string_view ip,
                              SlidingWindowCounter::TimePoint now) noexcept {
-    auto it = entries_.find(ip);
+    auto it = entries_.find(std::string{ip});
 
     if (it == entries_.end()) {
         // New IP -- check capacity
@@ -113,7 +113,7 @@ void PerIpRateLimiter::evict_lru() noexcept {
 }
 
 void PerIpRateLimiter::remove_entry(std::string_view ip) noexcept {
-    auto it = entries_.find(ip);
+    auto it = entries_.find(std::string{ip});
     if (it == entries_.end()) return;
 
     auto lru_idx = it->second.lru_index;

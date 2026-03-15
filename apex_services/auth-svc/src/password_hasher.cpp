@@ -4,7 +4,7 @@
 
 // Bundled bcrypt implementation (OpenSSL-based, no external dependency)
 extern "C" {
-#include "bcrypt/bcrypt.h"
+#include "bcrypt/apex_bcrypt.h"
 }
 
 namespace apex::auth_svc {
