@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 
 namespace apex::shared::adapters::pg {
@@ -13,6 +14,10 @@ struct PgAdapterConfig {
     size_t pool_size_per_core = 2;
     std::chrono::seconds max_idle_time{120};
     std::chrono::seconds health_check_interval{30};
+
+    // acquire_with_retry settings
+    uint32_t max_acquire_retries = 3;
+    std::chrono::milliseconds retry_backoff{100};  ///< initial backoff (exponential)
 };
 
 } // namespace apex::shared::adapters::pg

@@ -48,6 +48,11 @@ public:
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
     acquire_connected();
 
+    /// Retry-aware acquire: wraps acquire() with exponential backoff.
+    /// Returns PoolExhausted on retry limit exceeded.
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
+    acquire_with_retry();
+
     [[nodiscard]] const std::string& connection_string() const noexcept;
 
 private:

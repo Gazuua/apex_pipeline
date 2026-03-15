@@ -75,5 +75,6 @@ endfunction()
 
 apex_shared_add_pg_test(test_pg_connection test_pg_connection.cpp)
 apex_shared_add_pg_test(test_pg_pool test_pg_pool.cpp)
+apex_shared_add_pg_test(test_pg_pool_retry test_pg_pool_retry.cpp)
 apex_shared_add_pg_test(test_pg_adapter test_pg_adapter.cpp)
 apex_shared_add_pg_test(test_pg_transaction test_pg_transaction.cpp)
