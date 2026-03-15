@@ -21,21 +21,21 @@ public:
     ///       핸들러 내에서 co_await 이후에 payload 데이터에 접근하면
     ///       댕글링 참조가 발생합니다. 데이터를 보존하려면 co_await 전에 복사하세요.
     using Handler = std::function<
-        boost::asio::awaitable<Result<void>>(SessionPtr, uint16_t, std::span<const uint8_t>)>;
+        boost::asio::awaitable<Result<void>>(SessionPtr, uint32_t, std::span<const uint8_t>)>;
 
     MessageDispatcher() = default;
 
-    void register_handler(uint16_t msg_id, Handler handler);
-    void unregister_handler(uint16_t msg_id);
+    void register_handler(uint32_t msg_id, Handler handler);
+    void unregister_handler(uint32_t msg_id);
 
     [[nodiscard]] boost::asio::awaitable<Result<void>>
-    dispatch(SessionPtr session, uint16_t msg_id, std::span<const uint8_t> payload) const;
+    dispatch(SessionPtr session, uint32_t msg_id, std::span<const uint8_t> payload) const;
 
-    [[nodiscard]] bool has_handler(uint16_t msg_id) const noexcept;
+    [[nodiscard]] bool has_handler(uint32_t msg_id) const noexcept;
     [[nodiscard]] size_t handler_count() const noexcept;
 
 private:
-    boost::unordered_flat_map<uint16_t, Handler> handlers_;
+    boost::unordered_flat_map<uint32_t, Handler> handlers_;
 };
 
 } // namespace apex::core

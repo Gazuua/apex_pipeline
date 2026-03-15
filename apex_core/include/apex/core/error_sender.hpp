@@ -19,7 +19,7 @@ public:
     ///                수신측에서 nullptr 체크 필요)
     /// @return 직렬화된 프레임 바이트 벡터
     [[nodiscard]] static std::vector<uint8_t> build_error_frame(
-        uint16_t original_msg_id,
+        uint32_t original_msg_id,
         ErrorCode code,
         std::string_view message = "");
 };

@@ -8,7 +8,7 @@
 namespace apex::core {
 
 std::vector<uint8_t> ErrorSender::build_error_frame(
-    uint16_t original_msg_id,
+    uint32_t original_msg_id,
     ErrorCode code,
     std::string_view message)
 {
@@ -29,9 +29,9 @@ std::vector<uint8_t> ErrorSender::build_error_frame(
 
     WireHeader header{
         .version = WireHeader::CURRENT_VERSION,
+        .flags = wire_flags::ERROR_RESPONSE,
         .msg_id = original_msg_id,
         .body_size = static_cast<uint32_t>(payload_size),
-        .flags = wire_flags::ERROR_RESPONSE,
     };
 
     std::vector<uint8_t> frame(header.frame_size());
