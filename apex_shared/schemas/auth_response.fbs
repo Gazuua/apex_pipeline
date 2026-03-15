@@ -1,0 +1,11 @@
+// v0.5 최소 메시지 셋. 후속 설계 종속 금지.
+
+namespace apex.shared.schemas;
+
+table AuthResponse {
+    success: bool;
+    user_id: uint64;
+    error_message: string;
+}
+
+root_type AuthResponse;

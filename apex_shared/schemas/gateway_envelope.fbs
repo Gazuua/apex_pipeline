@@ -1,0 +1,13 @@
+// v0.5 최소 메시지 셋. 후속 설계 종속 금지.
+
+namespace apex.shared.schemas;
+
+table GatewayEnvelope {
+    session_id: uint64;
+    origin_core: uint8;
+    msg_id: uint16;
+    payload: [ubyte];
+    timestamp_ms: uint64;
+}
+
+root_type GatewayEnvelope;

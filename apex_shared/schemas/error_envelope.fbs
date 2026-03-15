@@ -1,0 +1,12 @@
+// v0.5 최소 메시지 셋. 후속 설계 종속 금지.
+
+namespace apex.shared.schemas;
+
+table ErrorEnvelope {
+    source_service: string;
+    error_code: uint16;
+    message: string;
+    timestamp_ms: uint64;
+}
+
+root_type ErrorEnvelope;
