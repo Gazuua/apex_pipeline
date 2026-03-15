@@ -5,18 +5,6 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(jwt-cpp CONFIG REQUIRED)
 
-# jwt-cpp: header-only, vcpkg provides jwt-cpp::jwt-cpp target
-# libbcrypt: vcpkg provides bcrypt target
-find_package(bcrypt CONFIG QUIET)
-
-# bcrypt fallback: find_path for libbcrypt header
-if(NOT bcrypt_FOUND)
-    find_path(BCRYPT_INCLUDE_DIR "bcrypt/BCrypt.hpp")
-    if(NOT BCRYPT_INCLUDE_DIR)
-        message(FATAL_ERROR "libbcrypt not found. Install via vcpkg.")
-    endif()
-endif()
-
 # --- FlatBuffers schema compilation ---
 set(AUTH_SVC_SCHEMAS
     ${CMAKE_CURRENT_SOURCE_DIR}/schemas/login_request.fbs
@@ -41,6 +29,18 @@ foreach(SCHEMA ${AUTH_SVC_SCHEMAS})
 endforeach()
 
 add_custom_target(auth_svc_fbs_generate DEPENDS ${AUTH_SVC_FBS_GENERATED_HEADERS})
+
+# --- Bundled bcrypt (C source, uses OpenSSL for RNG) ---
+add_library(apex_bcrypt STATIC
+    src/bcrypt/bcrypt.c
+)
+target_include_directories(apex_bcrypt PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/bcrypt
+)
+target_link_libraries(apex_bcrypt PRIVATE OpenSSL::Crypto)
+if(WIN32)
+    target_compile_options(apex_bcrypt PRIVATE /utf-8)
+endif()
 
 # --- Library ---
 add_library(apex_auth_svc STATIC
@@ -71,18 +71,12 @@ target_link_libraries(apex_auth_svc
         apex_protocols_kafka
         spdlog::spdlog
     PRIVATE
+        apex_bcrypt
         jwt-cpp::jwt-cpp
         OpenSSL::SSL
         OpenSSL::Crypto
         flatbuffers::flatbuffers
 )
-
-# libbcrypt linking
-if(bcrypt_FOUND AND TARGET bcrypt::bcrypt)
-    target_link_libraries(apex_auth_svc PRIVATE bcrypt::bcrypt)
-elseif(BCRYPT_INCLUDE_DIR)
-    target_include_directories(apex_auth_svc PRIVATE ${BCRYPT_INCLUDE_DIR})
-endif()
 
 target_compile_features(apex_auth_svc PUBLIC cxx_std_23)
 
