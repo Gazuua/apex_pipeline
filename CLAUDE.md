@@ -43,7 +43,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **worktree**: `.worktrees/` 하위에 생성 → 직후 `git config --global --add safe.directory D:/.workspace/.worktrees/<name>`
+  - **생성 직후 빈 커밋 필수**: `git commit --allow-empty -m "chore: 작업 브랜치 생성"` — cleanup 스크립트의 미머지 브랜치 필터에 걸리도록
   - 삭제: `git worktree remove` → `git branch -D` → `git push origin --delete` (3점 정리)
+  - **일괄 정리**: `apex_tools/cleanup-branches.sh` (dry-run 기본, `--execute`로 실행)
 - **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin --delete-branch` → 워크트리 삭제
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md` — 세 문서 최신 반영
 
