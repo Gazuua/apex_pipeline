@@ -38,7 +38,7 @@ public:
         route<apex::messages::EchoRequest>(0x0001, &EchoService::on_echo);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
                             const apex::messages::EchoRequest* req) {
         if (!req || !req->data()) co_return ok();
 

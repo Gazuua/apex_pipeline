@@ -83,7 +83,7 @@ public:
         route<apex::messages::EchoRequest>(0x0001, &TestEchoService::on_echo);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
                             const apex::messages::EchoRequest* req) {
         if (!req || !req->data()) co_return ok();
 
@@ -108,7 +108,7 @@ public:
     void on_start() override {
         handle(0x0010, &ThrowingService::on_msg);
     }
-    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_msg(SessionPtr, uint32_t, std::span<const uint8_t>) {
         throw std::runtime_error("test exception");
         co_return ok();
     }
@@ -120,7 +120,7 @@ public:
     void on_start() override {
         handle(0x0020, &ErrorReturningService::on_msg);
     }
-    awaitable<Result<void>> on_msg(SessionPtr, uint16_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_msg(SessionPtr, uint32_t, std::span<const uint8_t>) {
         co_return apex::core::error(ErrorCode::Timeout);
     }
 };

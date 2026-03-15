@@ -38,7 +38,7 @@ public:
             0x0010, &TypedEchoService::on_echo);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id,
                             const apex::messages::EchoRequest* req) {
         ++call_count;
         if (req && req->data()) {
@@ -85,7 +85,7 @@ TEST(FlatBuffersDispatch, RouteAndRawHandlerCoexist) {
 
     int raw_count = 0;
     svc->dispatcher().register_handler(0x0020,
-        [&](SessionPtr, uint16_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        [&](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
             ++raw_count;
             co_return ok();
         });

@@ -19,7 +19,7 @@ void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data) {
 }
 
 // Uses WireHeader::CURRENT_VERSION by default (set in WireHeader's designated initializer)
-std::vector<uint8_t> build_frame(uint16_t msg_id, std::span<const uint8_t> payload) {
+std::vector<uint8_t> build_frame(uint32_t msg_id, std::span<const uint8_t> payload) {
     WireHeader h{.msg_id = msg_id, .body_size = static_cast<uint32_t>(payload.size())};
     auto header_bytes = h.serialize();
     std::vector<uint8_t> frame(header_bytes.begin(), header_bytes.end());
@@ -204,7 +204,7 @@ TEST(FrameCodec, EncodeWrapAround) {
     std::array<uint8_t, 8> payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     WireHeader h{.msg_id = 42, .body_size = 8};
 
-    // Total frame size = WireHeader::SIZE(10) + 8 = 18 bytes, which exceeds
+    // Total frame size = WireHeader::SIZE(12) + 8 = 20 bytes, which exceeds
     // the 14 bytes of contiguous space, requiring wrap-around
     ASSERT_TRUE(FrameCodec::encode(buf, h, payload));
 
@@ -230,7 +230,7 @@ TEST(FrameCodec, EncodeInsufficientSpace) {
     // Try to encode a frame that won't fit
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     WireHeader h{.msg_id = 1, .body_size = 4};
-    // Total needed: WireHeader::SIZE(10) + 4 = 14, but only 2 bytes free
+    // Total needed: WireHeader::SIZE(12) + 4 = 16, but only 2 bytes free
     EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
 }
 

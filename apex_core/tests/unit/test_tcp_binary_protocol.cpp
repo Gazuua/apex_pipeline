@@ -13,7 +13,7 @@ class TcpBinaryProtocolTest : public ::testing::Test {
 protected:
     RingBuffer buf_{4096};
 
-    void write_frame(uint16_t msg_id, const std::vector<uint8_t>& body) {
+    void write_frame(uint32_t msg_id, const std::vector<uint8_t>& body) {
         WireHeader hdr{.msg_id = msg_id,
                        .body_size = static_cast<uint32_t>(body.size())};
         std::array<uint8_t, WireHeader::SIZE> raw{};

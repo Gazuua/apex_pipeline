@@ -24,8 +24,8 @@ make_socket_pair(boost::asio::io_context& io) {
     return {std::move(client), std::move(server)};
 }
 
-/// Build a complete wire frame (10B header + payload).
-inline std::vector<uint8_t> build_frame(uint16_t msg_id, size_t payload_size) {
+/// Build a complete wire frame (12B header + payload).
+inline std::vector<uint8_t> build_frame(uint32_t msg_id, size_t payload_size) {
     std::vector<uint8_t> frame(apex::core::WireHeader::SIZE + payload_size);
 
     apex::core::WireHeader header;

@@ -37,7 +37,7 @@ public:
         route<apex::messages::ChatMessage>(0x0100, &ChatService::on_chat);
     }
 
-    awaitable<Result<void>> on_chat(SessionPtr sender, uint16_t msg_id,
+    awaitable<Result<void>> on_chat(SessionPtr sender, uint32_t msg_id,
                             const apex::messages::ChatMessage* msg) {
         if (!msg || !msg->content()) co_return ok();
 

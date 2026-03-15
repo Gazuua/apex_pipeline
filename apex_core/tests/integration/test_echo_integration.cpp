@@ -19,13 +19,13 @@ using boost::asio::ip::tcp;
 
 // --- Helper: build a raw frame (header + payload) ---
 
-static std::vector<uint8_t> build_raw_frame(uint16_t msg_id,
+static std::vector<uint8_t> build_raw_frame(uint32_t msg_id,
                                              std::span<const uint8_t> payload,
-                                             uint16_t flags = 0) {
+                                             uint8_t flags = 0) {
     WireHeader h{
+        .flags = flags,
         .msg_id = msg_id,
         .body_size = static_cast<uint32_t>(payload.size()),
-        .flags = flags
     };
     auto hdr = h.serialize();
     std::vector<uint8_t> frame(hdr.begin(), hdr.end());
@@ -135,7 +135,7 @@ TEST_F(EchoIntegrationTest, MultipleFrameRoundtrip) {
     auto client = connect_client();
 
     struct TestCase {
-        uint16_t msg_id;
+        uint32_t msg_id;
         std::vector<uint8_t> payload;
     };
 
@@ -241,7 +241,7 @@ TEST_F(EchoIntegrationTest, FlagsPreserved) {
     auto client = connect_client();
 
     std::vector<uint8_t> payload = {0x42};
-    uint16_t flags = wire_flags::COMPRESSED | wire_flags::HEARTBEAT;
+    uint8_t flags = wire_flags::COMPRESSED | wire_flags::HEARTBEAT;
     auto frame = build_raw_frame(0x0001, payload, flags);
     boost::asio::write(client, boost::asio::buffer(frame));
 
