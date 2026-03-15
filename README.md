@@ -101,13 +101,13 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체. 코어 간 메시지 전달 시 데이터 복사 없이 소유권만 이전.
 
-### 진행 중 — v0.5 Wave 2 (설계/계획 완료, 구현 대기)
+### 진행 중 — v0.5 Wave 2 (구현 완료, 리뷰 중)
 
-- **v0.5.2.0** — Gateway MVP (TLS 종단, JWT 검증, Kafka 라우팅)
-- **v0.5.2.1** — Rate Limiting (Token Bucket)
-- **v0.5.3.0** — Auth Service (JWT 발급/검증/블랙리스트, Redis 세션)
-- **v0.5.3.1** — Chat Service (스캐폴딩)
-- **v0.5.4.0** — E2E 통합 테스트 (Client → Gateway → Auth → Chat → Redis/PG)
+- **v0.5.2.0** — Gateway MVP (TLS 종단, JWT 검증, msg_id 기반 Kafka 라우팅, TOML hot-reload)
+- **v0.5.2.1** — Rate Limiting (3계층: Per-IP / Per-User Redis / Per-Endpoint)
+- **v0.5.3.0** — Auth Service (JWT 발급/검증/블랙리스트, bcrypt, Redis 세션, PostgreSQL)
+- **v0.5.3.1** — Chat Service (방 관리, 메시지, 귓속말, 히스토리, 전역 브로드캐스트)
+- **v0.5.4.0** — E2E 통합 테스트 (6개 시나리오)
 
 ### 다음
 
