@@ -307,6 +307,12 @@ report를 team-lead(메인)에게 전송한 후, **팀 해산을 자체적으로
 3. **응답 대기**: 각 리뷰어의 shutdown 승인 응답을 대기
 4. **전원 종료 확인 후 자신도 shutdown 승인**: 리뷰어 전원 종료를 확인한 뒤 자신의 shutdown을 승인하고 종료
 
+### Shutdown Fallback
+- 각 리뷰어에게 shutdown_request 전송 후 30초 대기
+- 30초 내 shutdown_approved 미수신 시 해당 리뷰어를 "좀비"로 분류
+- 좀비 리뷰어 목록을 메인(team-lead)에게 report에 포함하여 보고
+- coordinator 자신은 좀비 리뷰어 존재 여부와 관계없이 shutdown_approved 응답
+
 ---
 
 ## CI 실패 재디스패치
