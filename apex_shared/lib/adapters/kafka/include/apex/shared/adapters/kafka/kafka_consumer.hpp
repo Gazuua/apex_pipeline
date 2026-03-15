@@ -21,13 +21,16 @@
 
 namespace apex::shared::adapters::kafka {
 
+class KafkaProducer;  // forward declaration for DLQ injection
+
 /// Received message callback signature.
+/// Returns Result<void> — failure triggers DLQ routing if producer is available.
 /// @param topic Topic name
 /// @param partition Partition number
 /// @param key Message key
 /// @param payload Message body
 /// @param offset Kafka offset
-using MessageCallback = std::function<void(
+using MessageCallback = std::function<apex::core::Result<void>(
     std::string_view topic,
     int32_t partition,
     std::span<const uint8_t> key,
@@ -48,9 +51,11 @@ public:
     /// @param config Kafka configuration
     /// @param core_id Core ID this Consumer is bound to
     /// @param io_ctx The core's io_context
+    /// @param producer DLQ produce target (non-owning, nullptr = no DLQ)
     explicit KafkaConsumer(const KafkaConfig& config,
                            uint32_t core_id,
-                           boost::asio::io_context& io_ctx);
+                           boost::asio::io_context& io_ctx,
+                           KafkaProducer* producer = nullptr);
     ~KafkaConsumer();
 
     KafkaConsumer(const KafkaConsumer&) = delete;
@@ -98,6 +103,7 @@ private:
     rd_kafka_queue_t* rkqu_ = nullptr;          ///< consumer queue handle
 
     MessageCallback message_cb_;
+    KafkaProducer* producer_ = nullptr;  ///< DLQ produce target (non-owning)
     bool consuming_ = false;
     uint64_t total_consumed_ = 0;
 
