@@ -19,4 +19,4 @@ enable_testing()
 add_subdirectory(apex_core)
 # 실제 코드 추가 시 활성화 (현재 placeholder만 존재)
 add_subdirectory(apex_shared)
-# add_subdirectory(apex_services/gateway)   # 향후 추가
+add_subdirectory(apex_services)
