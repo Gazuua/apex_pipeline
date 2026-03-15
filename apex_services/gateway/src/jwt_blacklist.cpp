@@ -2,9 +2,26 @@
 
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <format>
 
 namespace apex::gateway {
+
+namespace {
+
+/// Validate JTI contains only safe characters (alphanumeric + hyphens).
+/// Prevents Redis command injection via crafted JTI values.
+bool is_valid_jti(std::string_view jti) noexcept {
+    if (jti.empty() || jti.size() > 128) return false;
+    return std::ranges::all_of(jti, [](char c) {
+        return (c >= '0' && c <= '9') ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F') ||
+               c == '-';
+    });
+}
+
+} // anonymous namespace
 
 JwtBlacklist::JwtBlacklist(
     apex::shared::adapters::redis::RedisMultiplexer& redis)
@@ -12,6 +29,11 @@ JwtBlacklist::JwtBlacklist(
 
 boost::asio::awaitable<apex::core::Result<bool>>
 JwtBlacklist::is_blacklisted(std::string_view jti) {
+    if (!is_valid_jti(jti)) {
+        spdlog::warn("JWT blacklist: invalid jti format, rejecting");
+        co_return true;  // Reject invalid JTI
+    }
+
     auto cmd = std::format("EXISTS jwt:blacklist:{}", jti);
     auto result = co_await redis_.command(cmd);
     if (!result) {

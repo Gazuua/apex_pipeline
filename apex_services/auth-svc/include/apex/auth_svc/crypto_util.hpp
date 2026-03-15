@@ -30,7 +30,9 @@ namespace apex::auth_svc {
 /// Cryptographically secure random token generation (hex, 64 chars default)
 [[nodiscard]] inline std::string generate_secure_token(size_t bytes = 32) {
     std::vector<uint8_t> buf(bytes);
-    RAND_bytes(buf.data(), static_cast<int>(bytes));
+    if (RAND_bytes(buf.data(), static_cast<int>(bytes)) != 1) {
+        return {};  // CSPRNG failure — return empty (caller must check)
+    }
 
     std::string result;
     result.reserve(bytes * 2);
