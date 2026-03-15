@@ -103,3 +103,4 @@ endfunction()
 
 apex_shared_add_rate_limit_test(test_sliding_window_counter test_sliding_window_counter.cpp)
 apex_shared_add_rate_limit_test(test_per_ip_rate_limiter test_per_ip_rate_limiter.cpp)
+apex_shared_add_rate_limit_test(test_redis_rate_limiter test_redis_rate_limiter.cpp)
