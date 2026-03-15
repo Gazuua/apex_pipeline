@@ -90,13 +90,16 @@ void PubSubListener::run_thread() {
                 reinterpret_cast<void**>(&reply));
 
             if (status != REDIS_OK || !reply) {
-                // Check for timeout (EAGAIN) vs actual error
-                if (sync_ctx->err == REDIS_ERR_IO &&
-                    errno == EAGAIN) {
+                // Timeout detection: hiredis sets REDIS_ERR_IO on read timeout.
+                // errno == EAGAIN works on Linux but not Windows (WSAETIMEDOUT).
+                // Since we configured a 1s read timeout via redisSetTimeout,
+                // any REDIS_ERR_IO without a reply is treated as timeout.
+                if (sync_ctx->err == REDIS_ERR_IO && !reply) {
                     // Read timeout -- check running_ and loop
                     continue;
                 }
-                spdlog::warn("PubSub read error, reconnecting...");
+                spdlog::warn("PubSub read error (err={}), reconnecting...",
+                    sync_ctx->err);
                 break;
             }
 
