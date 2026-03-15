@@ -19,8 +19,6 @@
 namespace apex::chat_svc {
 
 namespace envelope = apex::shared::protocols::kafka;
-namespace fbs = apex::chat_svc::fbs;
-
 // ============================================================
 // Construction / Lifecycle
 // ============================================================

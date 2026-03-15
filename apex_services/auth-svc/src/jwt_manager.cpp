@@ -11,7 +11,7 @@ namespace apex::auth_svc {
 namespace {
 
 std::string read_file(std::string_view path) {
-    std::ifstream file(std::string(path));
+    std::ifstream file{std::string{path}};
     if (!file.is_open()) {
         spdlog::error("[JwtManager] Failed to open key file: {}", path);
         return {};

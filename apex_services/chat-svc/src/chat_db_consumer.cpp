@@ -9,8 +9,6 @@
 
 namespace apex::chat_svc {
 
-namespace fbs = apex::chat_svc::fbs;
-
 ChatDbConsumer::ChatDbConsumer(apex::shared::adapters::pg::PgAdapter& pg)
     : pg_(pg) {}
 
