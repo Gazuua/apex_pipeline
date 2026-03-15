@@ -128,6 +128,11 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
 }
 
 void RedisMultiplexer::on_disconnect() {
+    // 재진입 방어: authenticate() co_await 중 disconnect 발생 시
+    // on_disconnect()가 다시 호출될 수 있다. 이미 reconnect_loop가
+    // 실행 중이면 이중 spawn을 방지한다.
+    if (reconnecting_) return;
+
     reconnecting_ = true;
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
     // Start reconnect loop

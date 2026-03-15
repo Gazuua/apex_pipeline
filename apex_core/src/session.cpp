@@ -103,8 +103,13 @@ Result<void> Session::enqueue_write(std::vector<uint8_t> data) {
     write_queue_.push_back(WriteRequest{std::move(data)});
     if (!pump_running_) {
         pump_running_ = true;
-        boost::asio::co_spawn(socket_.get_executor(), write_pump(),
-                              boost::asio::detached);
+        // UAF 방어: co_spawn된 write_pump 코루틴이 실행되는 동안
+        // Session이 소멸되지 않도록 intrusive_ptr로 refcount 증가.
+        // 람다가 self를 캡처하여 코루틴 완료까지 생존 보장.
+        SessionPtr self(this);
+        boost::asio::co_spawn(socket_.get_executor(),
+            [self]() { return self->write_pump(); },
+            boost::asio::detached);
     }
     return ok();
 }
