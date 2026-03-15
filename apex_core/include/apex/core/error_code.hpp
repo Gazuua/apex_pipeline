@@ -22,12 +22,15 @@ enum class ErrorCode : uint16_t {
     UnsupportedProtocolVersion = 10,
     HandlerException = 11,      // dispatch handler threw exception
     SendFailed = 12,            // async_send network write failure
+    InsufficientData = 13,      // buffer has no complete frame (read more signal)
 
     // Application errors (1000-1999)
     AppError = 1000,
 
     // Adapter errors (2000+)
     AdapterError = 2000,
+    PoolExhausted = 2001,       // PgPool retry limit exceeded
+    CircuitOpen = 2002,         // CircuitBreaker OPEN state — call rejected
 };
 
 constexpr std::string_view error_code_name(ErrorCode code) noexcept {
@@ -45,8 +48,11 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::UnsupportedProtocolVersion: return "UnsupportedProtocolVersion";
         case ErrorCode::HandlerException: return "HandlerException";
         case ErrorCode::SendFailed: return "SendFailed";
+        case ErrorCode::InsufficientData: return "InsufficientData";
         case ErrorCode::AppError: return "AppError";
         case ErrorCode::AdapterError: return "AdapterError";
+        case ErrorCode::PoolExhausted: return "PoolExhausted";
+        case ErrorCode::CircuitOpen: return "CircuitOpen";
         default: return "Unknown";
     }
 }
