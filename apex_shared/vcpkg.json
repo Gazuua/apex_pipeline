@@ -5,12 +5,16 @@
   "description": "Apex Shared — Adapters and shared utilities",
   "builtin-baseline": "b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01",
   "dependencies": [
-    "librdkafka",
+    {
+      "name": "boost-asio",
+      "version>=": "1.84.0"
+    },
     "hiredis",
+    "libpq",
+    "librdkafka",
     {
       "name": "redis-plus-plus",
       "features": ["cxx17"]
-    },
-    "libpq"
+    }
   ]
 }
