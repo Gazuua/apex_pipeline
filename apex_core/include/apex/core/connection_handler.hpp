@@ -6,6 +6,7 @@
 #include <apex/core/protocol.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
+#include <apex/core/transport.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/awaitable.hpp>
@@ -34,7 +35,7 @@ struct ConnectionHandlerConfig {
 ///
 /// Templated on Protocol concept for zero-overhead dispatch.
 /// Each ConnectionHandler<P> is bound to a single core's PerCoreState.
-template<Protocol P>
+template<Protocol P, Transport T = DefaultTransport>
 class ConnectionHandler {
 public:
     ConnectionHandler(SessionManager& session_mgr,

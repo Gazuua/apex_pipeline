@@ -23,6 +23,7 @@ enum class ErrorCode : uint16_t {
     HandlerException = 11,      // dispatch handler threw exception
     SendFailed = 12,            // async_send network write failure
     InsufficientData = 13,      // buffer has no complete frame (read more signal)
+    AcceptFailed = 14,           // Transport::async_accept 실패
 
     // Application errors (1000-1999)
     AppError = 1000,
@@ -49,6 +50,7 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::HandlerException: return "HandlerException";
         case ErrorCode::SendFailed: return "SendFailed";
         case ErrorCode::InsufficientData: return "InsufficientData";
+        case ErrorCode::AcceptFailed: return "AcceptFailed";
         case ErrorCode::AppError: return "AppError";
         case ErrorCode::AdapterError: return "AdapterError";
         case ErrorCode::PoolExhausted: return "PoolExhausted";
