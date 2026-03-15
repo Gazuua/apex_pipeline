@@ -1,0 +1,23 @@
+namespace apex.shared.schemas.common;
+
+enum GatewayError : uint16 {
+    NONE = 0,
+    RATE_LIMITED_IP = 1,
+    RATE_LIMITED_USER = 2,
+    RATE_LIMITED_ENDPOINT = 3,
+    JWT_EXPIRED = 11,
+    JWT_INVALID = 12,
+    JWT_BLACKLISTED = 13,
+    SERVICE_TIMEOUT = 21,
+    SERVICE_UNAVAILABLE = 22,
+    INVALID_MSG_ID = 31,
+}
+
+table SystemResponse {
+    error: GatewayError = NONE;
+    message: string;
+    retry_after_ms: uint32;
+    limited_msg_id: uint32;
+}
+
+root_type SystemResponse;

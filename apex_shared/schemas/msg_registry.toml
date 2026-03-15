@@ -1,0 +1,117 @@
+# msg_registry.toml — 중앙 msg_id 레지스트리
+# coordinator가 msg_id 할당 독점. 에이전트는 .fbs 스키마만 작성.
+# 규칙: 퇴역된 msg_id는 영원히 재사용 금지.
+
+[system]
+range = [0, 999]
+description = "시스템/Gateway 예약 범위"
+
+[[system.allocated]]
+id = 1
+name = "Heartbeat"
+status = "active"
+schema = "apex_core/schemas/heartbeat.fbs"
+
+[[system.allocated]]
+id = 2
+name = "SystemErrorResponse"
+status = "active"
+schema = "apex_core/schemas/error_response.fbs"
+
+[[system.allocated]]
+id = 10
+name = "RefreshTokenRequest"
+status = "reserved"
+
+[[system.allocated]]
+id = 11
+name = "RefreshTokenResponse"
+status = "reserved"
+
+[auth]
+range = [1000, 1999]
+description = "Auth Service 메시지 범위"
+
+[[auth.allocated]]
+id = 1000
+name = "LoginRequest"
+status = "reserved"
+
+[[auth.allocated]]
+id = 1001
+name = "LoginResponse"
+status = "reserved"
+
+[chat]
+range = [2000, 2999]
+description = "Chat Service 메시지 범위"
+
+[[chat.allocated]]
+id = 2000
+name = "ChatSendMessage"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2001
+name = "ChatReceiveMessage"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2010
+name = "JoinRoomRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2011
+name = "JoinRoomResponse"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2020
+name = "LeaveRoomRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2021
+name = "LeaveRoomResponse"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2030
+name = "RoomListRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2031
+name = "RoomListResponse"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2040
+name = "CreateRoomRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2041
+name = "CreateRoomResponse"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2050
+name = "ChatHistoryRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2051
+name = "ChatHistoryResponse"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2060
+name = "WhisperRequest"
+status = "reserved"
+
+[[chat.allocated]]
+id = 2061
+name = "WhisperResponse"
+status = "reserved"
