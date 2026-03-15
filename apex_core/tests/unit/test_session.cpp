@@ -212,3 +212,90 @@ TEST_F(SessionTest, IntrusiveMoveSemantics) {
 
     client.close();
 }
+
+// --- Write Queue Tests (v0.5 C-prep) ---
+
+TEST_F(SessionTest, EnqueueWriteAndReceive) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    std::vector<uint8_t> data = {0xDE, 0xAD, 0xBE, 0xEF};
+    auto result = session->enqueue_write(data);
+    ASSERT_TRUE(result.has_value());
+
+    // Run io_context to let write_pump deliver the data
+    io_ctx_.run();
+    io_ctx_.restart();
+
+    std::vector<uint8_t> received(data.size());
+    boost::asio::read(client, boost::asio::buffer(received));
+    EXPECT_EQ(received, data);
+
+    client.close();
+}
+
+TEST_F(SessionTest, EnqueueWriteBufferFull) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    // Fill the queue to max_queue_depth_ (256).
+    // Don't run io_context so write_pump doesn't drain the queue.
+    for (size_t i = 0; i < 256; ++i) {
+        auto result = session->enqueue_write({0x01});
+        ASSERT_TRUE(result.has_value()) << "enqueue failed at i=" << i;
+    }
+
+    // 257th enqueue should fail with BufferFull
+    auto overflow = session->enqueue_write({0x02});
+    ASSERT_FALSE(overflow.has_value());
+    EXPECT_EQ(overflow.error(), ErrorCode::BufferFull);
+
+    // Clean up: drain the queue so session destruction is clean
+    io_ctx_.run();
+    io_ctx_.restart();
+    client.close();
+}
+
+TEST_F(SessionTest, EnqueueWriteAfterClose) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    session->close();
+    EXPECT_EQ(session->state(), Session::State::Closed);
+
+    auto result = session->enqueue_write({0x01, 0x02});
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
+
+    client.close();
+}
+
+TEST_F(SessionTest, EnqueueWriteFIFOOrder) {
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(1, std::move(server), 0));
+
+    // Enqueue 3 messages with distinct patterns
+    std::vector<uint8_t> msg1 = {0x01, 0x01, 0x01, 0x01};
+    std::vector<uint8_t> msg2 = {0x02, 0x02, 0x02, 0x02};
+    std::vector<uint8_t> msg3 = {0x03, 0x03, 0x03, 0x03};
+
+    ASSERT_TRUE(session->enqueue_write(msg1).has_value());
+    ASSERT_TRUE(session->enqueue_write(msg2).has_value());
+    ASSERT_TRUE(session->enqueue_write(msg3).has_value());
+
+    // Run io_context to let write_pump deliver all messages
+    io_ctx_.run();
+    io_ctx_.restart();
+
+    // Read all 12 bytes and verify FIFO order
+    std::vector<uint8_t> received(12);
+    boost::asio::read(client, boost::asio::buffer(received));
+
+    std::vector<uint8_t> expected;
+    expected.insert(expected.end(), msg1.begin(), msg1.end());
+    expected.insert(expected.end(), msg2.begin(), msg2.end());
+    expected.insert(expected.end(), msg3.begin(), msg3.end());
+    EXPECT_EQ(received, expected);
+
+    client.close();
+}
