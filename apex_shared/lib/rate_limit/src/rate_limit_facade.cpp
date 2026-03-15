@@ -12,7 +12,7 @@ RateLimitFacade::RateLimitFacade(
 
 bool RateLimitFacade::check_ip(
     std::string_view ip,
-    SlidingWindowCounter::TimePoint now) noexcept {
+    SlidingWindowCounter::TimePoint now) {
     return ip_limiter_.allow(ip, now);
 }
 

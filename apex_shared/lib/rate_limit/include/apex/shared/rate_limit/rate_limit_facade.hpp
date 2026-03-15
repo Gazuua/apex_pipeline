@@ -35,7 +35,7 @@ public:
     /// @return true if allowed.
     [[nodiscard]] bool check_ip(
         std::string_view ip,
-        SlidingWindowCounter::TimePoint now) noexcept;
+        SlidingWindowCounter::TimePoint now);
 
     /// Layer 2: Per-User check (Redis Lua).
     /// @param user_id Authenticated user ID.
