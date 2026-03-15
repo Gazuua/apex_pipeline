@@ -68,6 +68,11 @@ public:
     boost::asio::awaitable<void> close();
 
 private:
+    /// Authenticate connection via AUTH command.
+    /// Uses raw_async_command to bypass reconnecting_ guard.
+    boost::asio::awaitable<apex::core::Result<void>>
+    authenticate(RedisConnection& conn);
+
     struct PendingCommand {
         boost::asio::steady_timer resolver;
         boost::asio::steady_timer timeout;

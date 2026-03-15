@@ -3,11 +3,14 @@
 
 #include <spdlog/spdlog.h>
 
+#include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/redirect_error.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
+
+#include <string>
 
 
 namespace apex::shared::adapters::redis {
@@ -131,6 +134,26 @@ void RedisMultiplexer::on_disconnect() {
     boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
 }
 
+boost::asio::awaitable<apex::core::Result<void>>
+RedisMultiplexer::authenticate(RedisConnection& conn) {
+    if (config_.password.empty()) co_return {};
+
+    // Use async_command directly to bypass command()'s reconnecting_ guard.
+    // During reconnect_loop, we need to AUTH before marking as connected.
+    auto [ec, reply] = co_await conn.async_command(
+        ("AUTH " + config_.password).c_str(),
+        boost::asio::as_tuple(boost::asio::use_awaitable));
+
+    if (ec || !reply || reply->type == REDIS_REPLY_ERROR) {
+        spdlog::warn("Redis AUTH failed{}",
+                     (reply && reply->str) ? std::string(": ") + reply->str : "");
+        conn.disconnect();
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    co_return {};
+}
+
 boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
     auto backoff = std::chrono::milliseconds{100};
     const auto max_backoff = config_.reconnect_max_backoff;
@@ -142,9 +165,20 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
 
         conn_ = RedisConnection::create(io_ctx_, config_);
         if (conn_ && conn_->is_connected()) {
+            // AUTH (password set => authenticate)
+            auto auth = co_await authenticate(*conn_);
+            if (!auth.has_value()) {
+                conn_.reset();
+                // backoff then retry
+                boost::asio::steady_timer timer(io_ctx_, backoff);
+                co_await timer.async_wait(boost::asio::use_awaitable);
+                backoff = std::min(backoff * 2, max_backoff);
+                continue;
+            }
             reconnecting_ = false;
             reconnect_attempts_ = 0;
-            spdlog::info("Redis reconnected successfully");
+            spdlog::info("Redis reconnected successfully{}",
+                         config_.password.empty() ? "" : " (authenticated)");
             co_return;
         }
 
