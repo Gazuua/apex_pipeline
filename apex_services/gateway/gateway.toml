@@ -32,12 +32,17 @@ response_topic = "gateway.responses"
 
 [redis.pubsub]
 host = "localhost"
-port = 6379
+port = 6383
 # password = ""
 
 [redis.auth]
 host = "localhost"
 port = 6380
+# password = ""
+
+[redis.ratelimit]
+host = "localhost"
+port = 6381
 # password = ""
 
 [timeouts]

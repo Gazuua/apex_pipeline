@@ -33,16 +33,79 @@ services:
       timeout: 10s
       retries: 5
 
-  redis:
+  # --- Redis x4 (물리 분리 — 장애 격리 + 트래픽 특성별 최적화) ---
+
+  # Redis #0: Auth 전용 (세션, JWT 블랙리스트) — 읽기 위주, TTL 기반 자동 만료
+  redis-auth:
     image: redis:7-alpine
-    container_name: apex-redis
+    container_name: apex-redis-auth
     restart: unless-stopped
     ports:
-      - "6379:6379"
-    # 세션/토큰 저장 겸용이므로 RDB 스냅샷(save) 기본값 유지
+      - "6380:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-auth-data:/data
+    networks:
+      - apex-net
+    healthcheck:
+      test: redis-cli ping | grep -q PONG
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Redis #1: Gateway 전용 (Rate Limit 카운터) — 쓰기 집중, 높은 TPS, 짧은 TTL
+  redis-ratelimit:
+    image: redis:7-alpine
+    container_name: apex-redis-ratelimit
+    restart: unless-stopped
+    ports:
+      - "6381:6379"
+    command: >
+      redis-server
+        --maxmemory 128mb
+        --maxmemory-policy allkeys-lru
+        --save ""
+        --appendonly no
+    volumes:
+      - redis-ratelimit-data:/data
+    networks:
+      - apex-net
+    healthcheck:
+      test: redis-cli ping | grep -q PONG
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Redis #2: Chat 데이터 (방 멤버십, 접속 상태) — 읽기/쓰기 혼합
+  redis-chat:
+    image: redis:7-alpine
+    container_name: apex-redis-chat
+    restart: unless-stopped
+    ports:
+      - "6382:6379"
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - redis-data:/data
+      - redis-chat-data:/data
+    networks:
+      - apex-net
+    healthcheck:
+      test: redis-cli ping | grep -q PONG
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Redis #3: Pub/Sub 전용 (브로드캐스트) — 메시지 버스, persistence 불필요
+  redis-pubsub:
+    image: redis:7-alpine
+    container_name: apex-redis-pubsub
+    restart: unless-stopped
+    ports:
+      - "6383:6379"
+    command: >
+      redis-server
+        --maxmemory 64mb
+        --save ""
+        --appendonly no
     networks:
       - apex-net
     healthcheck:
@@ -139,7 +202,9 @@ services:
 
 volumes:
   kafka-data:
-  redis-data:
+  redis-auth-data:
+  redis-ratelimit-data:
+  redis-chat-data:
   postgres-data:
   prometheus-data:
   grafana-data:
