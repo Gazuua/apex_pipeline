@@ -1,25 +1,9 @@
 #pragma once
 
-#include <apex/core/protocol_base.hpp>
-#include <apex/core/frame_codec.hpp>
+/// Forwarding header — 실제 구현은 apex_shared/lib/protocols/tcp/로 이동됨.
+/// 기존 코드 호환성을 위해 apex::core 네임스페이스에 using 선언을 유지한다.
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 namespace apex::core {
-
-/// TCP 바이너리 프로토콜. 기존 FrameCodec를 래핑한다.
-/// Current implementation delegates to FrameCodec. This abstraction layer
-/// exists for future protocol extensibility (e.g., WebSocket, HTTP/2)
-/// via ProtocolBase CRTP.
-struct TcpBinaryProtocol : ProtocolBase<TcpBinaryProtocol> {
-    using FrameType = Frame;
-
-    [[nodiscard]] static std::expected<Frame, FrameError>
-    try_decode_impl(RingBuffer& buf) {
-        return FrameCodec::try_decode(buf);
-    }
-
-    static void consume_frame_impl(RingBuffer& buf, const Frame& frame) {
-        FrameCodec::consume_frame(buf, frame);
-    }
-};
-
+    using apex::shared::protocols::tcp::TcpBinaryProtocol;
 } // namespace apex::core

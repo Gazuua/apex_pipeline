@@ -1,4 +1,4 @@
-/// Apex Pipeline - Echo Server Example (v0.2.4)
+/// Apex Pipeline - Echo Server Example (v0.5)
 ///
 /// Minimal echo server using Server::run() blocking model.
 /// Supports multicore via the [cores] CLI argument.
@@ -15,6 +15,7 @@
 #include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <generated/echo_generated.h>
@@ -70,18 +71,18 @@ int main(int argc, char* argv[]) {
     }
 
     auto config = AppConfig::defaults();
-    config.server.port = port;
     config.server.num_cores = cores;
     config.server.heartbeat_timeout_ticks = 0;
 
     init_logging(config.logging);
 
     if (auto app = spdlog::get("app")) {
-        app->info("=== Apex Pipeline Echo Server v0.2.4 ===");
+        app->info("=== Apex Pipeline Echo Server v0.5 ===");
         app->info("Port: {}, Cores: {}", port, cores);
     }
 
     Server(config.server)
+        .listen<TcpBinaryProtocol>(port)
         .add_service<EchoService>()
         .run();
 

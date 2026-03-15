@@ -41,7 +41,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine) {
     consumers_.reserve(num_cores);
     for (uint32_t i = 0; i < num_cores; ++i) {
         auto consumer = std::make_unique<KafkaConsumer>(
-            config_, i, engine.io_context(i));
+            config_, i, engine.io_context(i), producer_.get());
         if (message_cb_) {
             consumer->set_message_callback(message_cb_);
         }
@@ -69,7 +69,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine) {
 }
 
 void KafkaAdapter::do_drain() {
-    draining_ = true;
+    state_.store(AdapterState::DRAINING, std::memory_order_release);
     // Stop Consumer consumption
     for (auto& consumer : consumers_) {
         consumer->stop_consuming();
@@ -78,6 +78,7 @@ void KafkaAdapter::do_drain() {
 }
 
 void KafkaAdapter::do_close() {
+    state_.store(AdapterState::CLOSED, std::memory_order_release);
     // Stop Producer poll timer
     if (producer_poll_timer_) {
         producer_poll_timer_->cancel();
@@ -104,7 +105,7 @@ apex::core::Result<void> KafkaAdapter::produce(
     std::string_view key,
     std::span<const uint8_t> payload)
 {
-    if (draining_) {
+    if (!is_running()) {
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     return producer_->produce(topic, key, payload);
@@ -115,7 +116,7 @@ apex::core::Result<void> KafkaAdapter::produce(
     std::string_view key,
     std::string_view payload)
 {
-    if (draining_) {
+    if (!is_running()) {
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     return producer_->produce(topic, key, payload);
@@ -136,7 +137,7 @@ void KafkaAdapter::start_producer_poll_timer(boost::asio::io_context& io_ctx) {
 }
 
 void KafkaAdapter::on_producer_poll_tick() {
-    if (!producer_poll_timer_ || draining_) return;
+    if (!producer_poll_timer_ || !is_running()) return;
 
     // Process delivery callbacks
     producer_->poll(0);

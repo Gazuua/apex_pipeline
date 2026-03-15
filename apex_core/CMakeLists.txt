@@ -65,7 +65,6 @@ add_library(apex_core STATIC
     src/session_manager.cpp
     src/error_sender.cpp
     src/tcp_acceptor.cpp
-    src/connection_handler.cpp
     src/config.cpp
     src/logging.cpp
     src/server.cpp
@@ -78,6 +77,8 @@ target_include_directories(apex_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        # Forwarding headers → shared/protocols include paths
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../apex_shared/lib/protocols/tcp/include>
         $<INSTALL_INTERFACE:include>
 )
 

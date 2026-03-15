@@ -12,6 +12,9 @@
 
 #include <cassert>
 #include <cstdint>
+#include <deque>
+#include <span>
+#include <vector>
 
 namespace apex::core {
 
@@ -77,6 +80,20 @@ public:
     [[nodiscard]] boost::asio::awaitable<Result<void>>
     async_send_raw(std::span<const uint8_t> data);
 
+    // --- Write Queue API (v0.5) ---
+
+    struct WriteRequest {
+        std::vector<uint8_t> data;
+    };
+
+    /// 비동기 전송 큐에 적재 (동기, 즉시 반환).
+    /// write pump가 미실행이면 기동한다.
+    /// @return BufferFull if queue exceeds max_queue_depth_
+    [[nodiscard]] Result<void> enqueue_write(std::vector<uint8_t> data);
+
+    /// raw 데이터를 write queue에 적재.
+    [[nodiscard]] Result<void> enqueue_write_raw(std::span<const uint8_t> data);
+
     /// 세션 그레이스풀 종료.
     void close() noexcept;
 
@@ -111,6 +128,13 @@ private:
     // I-07: Timer entry ID embedded in Session to eliminate session_to_timer_ map
     // in SessionManager. 0 = no timer (sentinel value, never issued by TimingWheel).
     TimingWheel::EntryId timer_entry_id_{0};
+
+    // v0.5: Per-session write queue
+    std::deque<WriteRequest> write_queue_;
+    bool pump_running_{false};
+    size_t max_queue_depth_{256};
+
+    boost::asio::awaitable<void> write_pump();
 };
 
 using SessionPtr = boost::intrusive_ptr<Session>;

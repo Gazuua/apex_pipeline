@@ -1,6 +1,9 @@
 #include <apex/shared/adapters/kafka/kafka_consumer.hpp>
+#include <apex/shared/adapters/kafka/kafka_producer.hpp>
 
 #include <spdlog/spdlog.h>
+
+#include <string>
 
 #ifndef _WIN32
 #include <unistd.h>  // pipe(), read()
@@ -10,8 +13,9 @@ namespace apex::shared::adapters::kafka {
 
 KafkaConsumer::KafkaConsumer(const KafkaConfig& config,
                              uint32_t core_id,
-                             boost::asio::io_context& io_ctx)
-    : config_(config), core_id_(core_id), io_ctx_(io_ctx) {}
+                             boost::asio::io_context& io_ctx,
+                             KafkaProducer* producer)
+    : config_(config), core_id_(core_id), io_ctx_(io_ctx), producer_(producer) {}
 
 KafkaConsumer::~KafkaConsumer() {
     stop_consuming();
@@ -143,10 +147,37 @@ void KafkaConsumer::poll_messages() {
                     payload_span = {static_cast<const uint8_t*>(msg->payload),
                                     msg->len};
                 }
-                message_cb_(rd_kafka_topic_name(msg->rkt),
-                             msg->partition,
-                             key_span, payload_span,
-                             msg->offset);
+                auto result = message_cb_(rd_kafka_topic_name(msg->rkt),
+                                           msg->partition,
+                                           key_span, payload_span,
+                                           msg->offset);
+                // DLQ routing: failed callback + producer available
+                if (!result.has_value() && !producer_) {
+                    spdlog::warn("Message processing failed (topic={}, offset={}) "
+                                 "but no DLQ producer configured — message dropped",
+                                 rd_kafka_topic_name(msg->rkt), msg->offset);
+                }
+                if (!result.has_value() && producer_) {
+                    auto dlq_topic = std::string(rd_kafka_topic_name(msg->rkt)) + "-dlq";
+                    spdlog::warn("Message processing failed (topic={}, offset={}), "
+                                 "routing to DLQ: {}",
+                                 rd_kafka_topic_name(msg->rkt),
+                                 msg->offset,
+                                 apex::core::error_code_name(result.error()));
+                    // Convert key_span to string_view for producer API
+                    std::string_view key_sv;
+                    if (!key_span.empty()) {
+                        key_sv = std::string_view(
+                            reinterpret_cast<const char*>(key_span.data()),
+                            key_span.size());
+                    }
+                    auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
+                    if (!dlq_result.has_value()) {
+                        spdlog::error("DLQ produce failed (topic={}, offset={}): "
+                                      "message permanently lost",
+                                      dlq_topic, msg->offset);
+                    }
+                }
             }
             ++total_consumed_;
         } else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF) {

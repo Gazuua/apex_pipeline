@@ -123,6 +123,11 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "SendMessage", 
 
 > **참고**: 리뷰어들은 메인이 coordinator와 함께 같은 팀에 스폰한 teammate이다. coordinator는 스폰 권한이 없으며, 이미 등록된 리뷰어에게 SendMessage로 관리만 수행한다.
 
+### 이슈 분류 기준: 프로젝트 규칙 위반 = Critical
+
+> **필수 규칙**: 프로젝트 규칙(`CLAUDE.md`, `docs/CLAUDE.md`, `apex_core/CLAUDE.md` 등에 명시된 네이밍 규칙, 경로 규칙, 커밋 규칙 등)에 위배되는 이슈는 severity와 무관하게 **무조건 Critical**로 판단하고 **즉시 수정**을 지시한다. 백로그로 넘기지 않는다.
+> coordinator는 finding 취합 시 이 기준을 적용하여, 리뷰어가 낮은 severity로 보고한 규칙 위반 이슈도 Critical로 재분류하고 즉시 수정을 배정한다.
+
 ### Step 5: finding 취합
 
 리뷰어들의 finding 메시지를 수집. 각 finding에는 아래 필드가 포함된다:
@@ -306,6 +311,12 @@ report를 team-lead(메인)에게 전송한 후, **팀 해산을 자체적으로
 2. **리뷰어 종료 요청**: 모든 리뷰어 teammate에게 SendMessage로 `shutdown_request` 전송
 3. **응답 대기**: 각 리뷰어의 shutdown 승인 응답을 대기
 4. **전원 종료 확인 후 자신도 shutdown 승인**: 리뷰어 전원 종료를 확인한 뒤 자신의 shutdown을 승인하고 종료
+
+### Shutdown Fallback
+- 각 리뷰어에게 shutdown_request 전송 후 30초 대기
+- 30초 내 shutdown_approved 미수신 시 해당 리뷰어를 "좀비"로 분류
+- 좀비 리뷰어 목록을 메인(team-lead)에게 report에 포함하여 보고
+- coordinator 자신은 좀비 리뷰어 존재 여부와 관계없이 shutdown_approved 응답
 
 ---
 

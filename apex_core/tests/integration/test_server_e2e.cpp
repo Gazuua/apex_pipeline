@@ -1,5 +1,6 @@
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/error_code.hpp>
@@ -145,7 +146,8 @@ protected:
 // --- Test Cases ---
 
 TEST_F(ServerE2ETest, ServerAcceptAndEcho) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -174,7 +176,8 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho) {
 }
 
 TEST_F(ServerE2ETest, MultipleClients) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -203,7 +206,8 @@ TEST_F(ServerE2ETest, MultipleClients) {
 }
 
 TEST_F(ServerE2ETest, InvalidMessageErrorResponse) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -230,7 +234,8 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse) {
 }
 
 TEST_F(ServerE2ETest, GracefulShutdown) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -240,7 +245,7 @@ TEST_F(ServerE2ETest, GracefulShutdown) {
     auto frame = build_echo_frame({0x42});
     boost::asio::write(client, boost::asio::buffer(frame));
     auto response = read_frame(client);
-    EXPECT_GT(response.size(), 0u);
+    EXPECT_GT(response.size(), WireHeader::SIZE);
 
     stop_and_join(server);
 
@@ -252,11 +257,11 @@ TEST_F(ServerE2ETest, GracefulShutdown) {
 
 TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect) {
     Server server({
-        .port = 0,
         .heartbeat_timeout_ticks = 3,
         .timer_wheel_slots = 8,
         .handle_signals = false,
     });
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -280,7 +285,8 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect) {
 }
 
 TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<ThrowingService>();
     run_server(server);
 
@@ -307,7 +313,8 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse) {
 }
 
 TEST_F(ServerE2ETest, HandlerErrorCodeResponse) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<ErrorReturningService>();
     run_server(server);
 
@@ -337,11 +344,11 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients) {
     constexpr int NUM_CLIENTS = 8;
 
     Server server({
-        .port = 0,
         .num_cores = 2,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
     });
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -408,7 +415,8 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients) {
 }
 
 TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession) {
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 
@@ -445,7 +453,8 @@ TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession) {
 TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions) {
     constexpr int NUM_CLIENTS = 4;
 
-    Server server({.port = 0, .heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
 

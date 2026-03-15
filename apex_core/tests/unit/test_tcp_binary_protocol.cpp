@@ -1,5 +1,7 @@
 #include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/core/error_code.hpp>
+#include <apex/core/protocol.hpp>
 
 #include <gtest/gtest.h>
 
@@ -59,11 +61,15 @@ TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer) {
 TEST_F(TcpBinaryProtocolTest, EmptyBufferReturnsError) {
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
-TEST_F(TcpBinaryProtocolTest, FrameTypeIsFrame) {
-    static_assert(std::is_same_v<TcpBinaryProtocol::FrameType, Frame>);
+TEST_F(TcpBinaryProtocolTest, SatisfiesProtocolConcept) {
+    static_assert(Protocol<TcpBinaryProtocol>);
+}
+
+TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame) {
+    static_assert(std::is_same_v<TcpBinaryProtocol::Frame, apex::shared::protocols::tcp::Frame>);
 }
 
 TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
@@ -84,7 +90,7 @@ TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
 
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
@@ -99,7 +105,7 @@ TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
 
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::BodyTooLarge);
+    EXPECT_EQ(result.error(), ErrorCode::InvalidMessage);
 }
 
 TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
@@ -129,5 +135,31 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
     // 세 번째 decode → InsufficientData
     auto result3 = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result3.has_value());
-    EXPECT_EQ(result3.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result3.error(), ErrorCode::InsufficientData);
+}
+
+TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully) {
+    // 경계값: body_size=0 프레임 — 헤더만 존재, payload 비어있음
+    write_frame(0x0042, {});
+
+    auto result = TcpBinaryProtocol::try_decode(buf_);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->header.msg_id, 0x0042);
+    EXPECT_EQ(result->header.body_size, 0u);
+    EXPECT_TRUE(result->payload.empty());
+
+    TcpBinaryProtocol::consume_frame(buf_, *result);
+    EXPECT_EQ(buf_.readable_size(), 0u);
+}
+
+TEST_F(TcpBinaryProtocolTest, HeaderOnlyInsufficientData) {
+    // 경계값: 헤더 바이트 수보다 적은 데이터 (예: 5바이트)
+    std::vector<uint8_t> partial(5, 0x00);
+    auto w = buf_.writable();
+    std::memcpy(w.data(), partial.data(), partial.size());
+    buf_.commit_write(partial.size());
+
+    auto result = TcpBinaryProtocol::try_decode(buf_);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }

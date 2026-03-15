@@ -109,34 +109,59 @@
 
 ## ADR-04: 디렉토리 구조
 
-> **※ 현행 주석**: 아래는 초기 브레인스토밍 당시 결정 기록이다. 현재 구조는 `apex_` prefix 기반으로 재편되었으며, 최신 구조는 `docs/Apex_Pipeline.md` §7 프로젝트 구조를 참조할 것.
-
 ### 맥락
 - Apex Pipeline 전체는 모노레포
-- apex_core는 `core/`로 위치, 서비스들이 CMake 의존성으로 사용
-- 네임스페이스 통일 필요
+- `apex_` prefix로 최상위 디렉토리를 통일하여 역할 구분
+- 네임스페이스 통일 필요 (`apex::core`, `apex::shared::adapters` 등)
 
-### 결정 (초기안)
+### 결정 (초기안 → 현행 구조)
+
+초기에는 `core/`, `gateway/`, `shared/` 등 prefix 없이 구성했으나,
+프로젝트 규모 확장에 따라 `apex_` prefix 기반으로 재편하였다.
 
 ```
-apex-pipeline/
-├── core/                         ← apex_core (프레임워크)
-│   ├── include/apex/core/        ← 공개 헤더
-│   ├── src/                      ← 구현
-│   ├── tests/                    ← unit/integration/bench
-│   ├── examples/                 ← 프레임워크 사용 예제 (에코 서버, 채팅 등)
+apex_pipeline/                        ← 모노레포 루트 (apex_ prefix 통일)
+├── apex_core/                        ← 코어 프레임워크 (namespace apex::core)
+│   ├── include/apex/core/            ← 공개 헤더
+│   ├── src/                          ← 구현
+│   ├── config/                       ← 기본 설정 파일 (default.toml)
+│   ├── schemas/                      ← FlatBuffers 스키마 (프레임워크 내장)
+│   ├── tests/                        ← unit/integration
+│   ├── benchmarks/                   ← Google Benchmark (micro/integration)
+│   ├── examples/                     ← 프레임워크 사용 예제
 │   └── CMakeLists.txt
-├── gateway/                      ← Gateway 서비스
-├── services/{auth,chat,log}-svc/ ← 비즈니스 서비스들
-├── shared/schemas/               ← FlatBuffers 스키마
-├── infra/                        ← Docker, K8s
-└── docs/
+├── apex_shared/                      ← 공유 코드 + FlatBuffers 메시지 정의
+│   ├── lib/adapters/                 ← 외부 어댑터 라이브러리 (apex::shared::adapters)
+│   │   ├── common/                   ← AdapterBase CRTP, PoolLike concept, PoolStats/PoolConfig
+│   │   ├── kafka/                    ← KafkaProducer, KafkaConsumer, KafkaAdapter, KafkaSink
+│   │   ├── redis/                    ← RedisConnection, RedisMultiplexer, RedisAdapter
+│   │   └── pg/                       ← PgConnection, PgResult, PgPool, PgAdapter, PgTransaction
+│   ├── lib/protocols/                ← 프로토콜 구현 (v0.5+ 예정)
+│   ├── schemas/                      ← FlatBuffers 메시지 정의 (전 서비스 공유)
+│   ├── tests/                        ← unit/ + integration/
+│   └── CMakeLists.txt
+├── apex_services/                    ← MSA 서비스 (각 서비스 독립 Docker 이미지)
+│   ├── gateway/                      ← Gateway 서비스
+│   ├── auth-svc/                     ← 인증 서비스
+│   ├── chat-svc/                     ← 채팅 서비스
+│   └── log-svc/                      ← 로그 서비스
+├── apex_infra/                       ← 인프라 설정 (Docker, K8s, PgBouncer)
+├── apex_tools/                       ← CLI, 스크립트, git-hooks, auto-review
+└── docs/                             ← 전체 프로젝트 문서 (중앙 집중)
+    ├── Apex_Pipeline.md              ← 마스터 설계서
+    ├── apex_common/                  ← 프로젝트 공통 (plans/progress/review)
+    ├── apex_core/                    ← 코어 프레임워크 문서
+    ├── apex_shared/                  ← 공유 라이브러리 문서
+    ├── apex_infra/                   ← 인프라 문서
+    └── apex_tools/                   ← 도구/플러그인 문서
 ```
 
 ### 근거
-1. `apex` 네임스페이스로 통일하면 `apex::core`, `apex::gateway` 등 자연스러운 확장
+1. `apex` 네임스페이스로 통일하면 `apex::core`, `apex::shared::adapters` 등 자연스러운 확장
 2. 모노레포로 공유 스키마/빌드 설정 관리 용이
 3. 각 서비스가 `find_package(ApexCore)` + `target_link_libraries`로 깔끔하게 의존
+4. `apex_` prefix로 최상위 디렉토리가 알파벳순 정렬 시 그룹핑됨
+5. `apex_shared/lib/protocols/`는 v0.5에서 프로토콜 추상화 계층으로 추가 예정
 
 ---
 

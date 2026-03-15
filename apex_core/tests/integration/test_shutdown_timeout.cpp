@@ -1,5 +1,6 @@
 #include <apex/core/server.hpp>
 #include <apex/core/logging.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 
@@ -24,11 +25,11 @@ protected:
 TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout) {
     // 세션 없이 바로 종료 — 타임아웃 전에 완료되어야 함
     Server server({
-        .port = 0,
         .num_cores = 1,
         .handle_signals = false,
         .drain_timeout = 2s,
     });
+    server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
     ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));
@@ -45,11 +46,11 @@ TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout) {
 TEST_F(ShutdownTimeoutTest, DrainTimeoutForcesShutdown) {
     // drain_timeout이 짧으면 강제 종료까지의 시간이 제한됨
     Server server({
-        .port = 0,
         .num_cores = 1,
         .handle_signals = false,
         .drain_timeout = 1s,  // 1초 타임아웃
     });
+    server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
     ASSERT_TRUE(apex::test::wait_for([&] { return server.running(); }));

@@ -1,4 +1,4 @@
-/// Apex Pipeline - Chat Server Example (v0.2.4)
+/// Apex Pipeline - Chat Server Example (v0.5)
 ///
 /// 단일 코어 브로드캐스트 시연.
 /// 멀티코어 크로스코어 브로드캐스트는 Redis Pub/Sub 경유 (v0.3.0+).
@@ -11,6 +11,7 @@
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <generated/chat_message_generated.h>
@@ -79,18 +80,18 @@ int main(int argc, char* argv[]) {
     }
 
     auto config = AppConfig::defaults();
-    config.server.port = port;
     config.server.num_cores = 1;
     config.server.heartbeat_timeout_ticks = 0;
 
     init_logging(config.logging);
 
     if (auto app = spdlog::get("app")) {
-        app->info("=== Apex Pipeline Chat Server v0.2.4 ===");
+        app->info("=== Apex Pipeline Chat Server v0.5 ===");
         app->info("Port: {} (single-core broadcast)", port);
     }
 
     Server(config.server)
+        .listen<TcpBinaryProtocol>(port)
         .add_service_factory([](PerCoreState& state) {
             return std::make_unique<ChatService>(state.session_mgr);
         })

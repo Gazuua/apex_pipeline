@@ -52,8 +52,9 @@ TEST(KafkaConsumer, SetMessageCallback) {
     consumer.set_message_callback(
         [&](std::string_view, int32_t,
             std::span<const uint8_t>, std::span<const uint8_t>,
-            int64_t) {
+            int64_t) -> apex::core::Result<void> {
             called = true;
+            return {};
         });
 
     // Only verify callback was set -- actual invocation in integration tests

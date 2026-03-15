@@ -1,0 +1,10 @@
+// v0.5 최소 메시지 셋. 후속 설계 종속 금지.
+
+namespace apex.shared.schemas;
+
+table AuthRequest {
+    token: string;
+    request_type: uint8;  // 0=발급, 1=검증, 2=블랙리스트
+}
+
+root_type AuthRequest;

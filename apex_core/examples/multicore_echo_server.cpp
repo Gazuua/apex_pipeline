@@ -1,4 +1,4 @@
-/// Apex Pipeline - Multicore Echo Server Example (v0.2.4)
+/// Apex Pipeline - Multicore Echo Server Example (v0.5)
 ///
 /// Demonstrates the io_context-per-core (shared-nothing) architecture.
 /// Each core owns an independent EchoService instance.
@@ -14,6 +14,7 @@
 #include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <generated/echo_generated.h>
@@ -70,7 +71,6 @@ int main(int argc, char* argv[]) {
     }
 
     auto config = AppConfig::defaults();
-    config.server.port = port;
     config.server.num_cores = cores;
     config.server.heartbeat_timeout_ticks = 0;
 
@@ -78,12 +78,13 @@ int main(int argc, char* argv[]) {
 
     auto hw = std::thread::hardware_concurrency();
     if (auto app = spdlog::get("app")) {
-        app->info("=== Apex Pipeline Multicore Echo Server v0.2.4 ===");
+        app->info("=== Apex Pipeline Multicore Echo Server v0.5 ===");
         app->info("Port: {}, Cores: {} (hardware: {})", port, cores, hw);
         app->info("Architecture: io_context-per-core (shared-nothing)");
     }
 
     Server(config.server)
+        .listen<TcpBinaryProtocol>(port)
         .add_service<EchoService>()
         .run();
 

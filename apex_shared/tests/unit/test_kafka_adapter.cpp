@@ -2,6 +2,7 @@
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/error_code.hpp>
+#include <apex/core/result.hpp>
 
 #include <gtest/gtest.h>
 
@@ -102,8 +103,9 @@ TEST(KafkaAdapter, SetMessageCallback) {
     adapter.set_message_callback(
         [&](std::string_view, int32_t,
             std::span<const uint8_t>, std::span<const uint8_t>,
-            int64_t) {
+            int64_t) -> apex::core::Result<void> {
             cb_set = true;
+            return {};
         });
 
     // Callback is passed to Consumers during init -- only verify setup here

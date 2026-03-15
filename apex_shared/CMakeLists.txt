@@ -4,9 +4,10 @@ find_package(flatbuffers CONFIG REQUIRED)
 
 # --- FlatBuffers 스키마 컴파일 ---
 set(APEX_SHARED_SCHEMAS
-    # 스키마 추가 시 여기에 등록:
-    # ${CMAKE_CURRENT_SOURCE_DIR}/schemas/common.fbs
-    # ${CMAKE_CURRENT_SOURCE_DIR}/schemas/auth.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/gateway_envelope.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/auth_request.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/auth_response.fbs
+    ${CMAKE_CURRENT_SOURCE_DIR}/schemas/error_envelope.fbs
 )
 
 set(APEX_SHARED_FBS_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
@@ -56,6 +57,9 @@ target_compile_features(apex_shared PUBLIC cxx_std_23)
 if(WIN32)
     target_compile_options(apex_shared PUBLIC /utf-8)
 endif()
+
+# --- Protocols ---
+add_subdirectory(lib/protocols)
 
 # --- Adapters ---
 add_subdirectory(lib/adapters)
