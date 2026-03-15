@@ -29,10 +29,28 @@ is_protected() {
     return 1
 }
 
-# main에 머지되었는지 확인 (파이프 없이 직접 조상 관계 확인 — SIGPIPE 방지)
+# main에 머지되었는지 확인
+#   1차: git merge-base --is-ancestor (일반 merge 커버)
+#   2차: gh pr list로 해당 브랜치의 머지된 PR 존재 여부 (squash merge 커버)
+#   gh CLI가 없는 환경에서는 1차 결과만 사용
 is_merged_to_main() {
     local branch="$1"
-    git merge-base --is-ancestor "$branch" main 2>/dev/null
+
+    # 1차: 조상 관계 확인 (일반 merge)
+    if git merge-base --is-ancestor "$branch" main 2>/dev/null; then
+        return 0
+    fi
+
+    # 2차: squash merge fallback — gh CLI로 머지된 PR 확인
+    if command -v gh &>/dev/null; then
+        local merged_count
+        merged_count="$(gh pr list --head "$branch" --state merged --json number --jq 'length' 2>/dev/null || echo "0")"
+        if [[ "$merged_count" -gt 0 ]]; then
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 # ── 모드 결정 ──
