@@ -17,11 +17,9 @@ namespace apex::core {
 
 PerCoreState::PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
                            size_t timer_wheel_slots, size_t recv_buf_capacity,
-                           ConnectionHandlerConfig handler_config,
                            size_t bump_capacity, size_t arena_block, size_t arena_max)
     : core_id(id)
     , session_mgr(id, heartbeat_timeout_ticks, timer_wheel_slots, recv_buf_capacity)
-    , handler(session_mgr, dispatcher, handler_config)
     , bump_allocator(bump_capacity)
     , arena_allocator(arena_block, arena_max)
 {
@@ -54,50 +52,19 @@ Server::Server(ServerConfig config)
 
     // Sync num_cores with CoreEngine's resolved value.
     // CoreEngine normalizes 0 → hardware_concurrency, so we must use
-    // the actual core count to avoid division-by-zero UB in on_accept().
+    // the actual core count to avoid division-by-zero UB.
     config_.num_cores = core_engine_->core_count();
 
-    // PerCoreState
-    ConnectionHandlerConfig handler_config{
-        .tcp_nodelay = config_.tcp_nodelay,
-    };
+    // PerCoreState (no longer contains ConnectionHandler/MessageDispatcher)
     for (uint32_t i = 0; i < config_.num_cores; ++i) {
         per_core_.push_back(std::make_unique<PerCoreState>(
             i, config_.heartbeat_timeout_ticks,
             config_.timer_wheel_slots, config_.recv_buf_capacity,
-            handler_config,
             config_.bump_capacity_bytes, config_.arena_block_bytes,
             config_.arena_max_bytes));
     }
 
-    // TcpAcceptor — bind immediately so port() works.
-#if !defined(_WIN32)
-    if (config_.reuseport) {
-        // Linux: per-core acceptor with SO_REUSEPORT — kernel distributes
-        // incoming connections directly to the correct core's io_context,
-        // eliminating the cross-thread post() overhead of round-robin.
-        for (uint32_t i = 0; i < config_.num_cores; ++i) {
-            auto& core_io = core_engine_->io_context(i);
-            acceptors_.push_back(std::make_unique<TcpAcceptor>(
-                core_io, config_.port,
-                [this, i](boost::asio::ip::tcp::socket socket) {
-                    per_core_[i]->handler.accept_connection(
-                        std::move(socket), core_engine_->io_context(i));
-                },
-                boost::asio::ip::tcp::v4(),
-                /*reuseport=*/true));
-        }
-    } else
-#endif
-    {
-        // Windows or reuseport=false: single acceptor on control_io_,
-        // round-robin via on_accept().
-        acceptors_.push_back(std::make_unique<TcpAcceptor>(
-            control_io_, config_.port,
-            [this](boost::asio::ip::tcp::socket socket) {
-                on_accept(std::move(socket));
-            }));
-    }
+    // Acceptor binding moved to Listener<P>::start()
 }
 
 Server::~Server() {
@@ -135,13 +102,18 @@ void Server::run() {
         adapter->init(*core_engine_);
     }
 
-    // Per-core service instances
-    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
-        auto& state = *per_core_[core_id];
-        for (auto& factory : service_factories_) {
-            auto svc = factory(state);
-            svc->start();
-            state.services.push_back(std::move(svc));
+    // Per-core service instances — bind to first listener's per-core dispatcher
+    // (multi-protocol dispatcher routing is deferred to v0.6)
+    if (!listeners_.empty()) {
+        for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+            auto& state = *per_core_[core_id];
+            auto& dispatcher = listeners_[0]->dispatcher(core_id);
+
+            for (auto& factory : service_factories_) {
+                auto svc = factory(state, dispatcher);
+                svc->start();
+                state.services.push_back(std::move(svc));
+            }
         }
     }
 
@@ -155,20 +127,15 @@ void Server::run() {
     // Start CoreEngine (non-blocking)
     core_engine_->start();
 
-    // Start accept loop(s)
-    for (auto& acc : acceptors_) acc->start();
+    // Start listeners (accept loops)
+    for (auto& listener : listeners_) listener->start();
 
     // I-18: Set running_ after all initialization (services, CoreEngine,
-    // acceptor) completes. External observers see running()==true only when
+    // listeners) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
     running_.store(true, std::memory_order_release);
 
     // Work guard keeps control_io_ alive until shutdown completes.
-    // In reuseport mode, accept happens on per-core io_contexts; otherwise
-    // on control_io_ with round-robin. control_io_ always runs for:
-    // - signal handling
-    // - shutdown coordination (begin_shutdown/poll_shutdown)
-    // - accept loop coroutine (non-reuseport mode)
     auto work = boost::asio::make_work_guard(control_io_);
 
     // Block on control_io_ (with optional signal handling)
@@ -187,7 +154,8 @@ void Server::run() {
 void Server::stop() {
     if (stopping_.exchange(true)) return;
 
-    for (auto& acc : acceptors_) acc->stop();
+    // Stop accepting new connections
+    for (auto& listener : listeners_) listener->drain();
 
     // Post shutdown to control_io_ so it keeps processing IOCP completions
     // for session sockets while we drain active coroutines.
@@ -248,19 +216,22 @@ void Server::poll_shutdown() {
 void Server::finalize_shutdown() {
     shutdown_timer_.reset();
 
-    // 1. Adapter drain (새 요청 거부)
+    // 1. Stop listeners completely
+    for (auto& listener : listeners_) listener->stop();
+
+    // 2. Adapter drain (새 요청 거부)
     for (auto& adapter : adapters_) {
         adapter->drain();
     }
 
-    // 2. Stop services
+    // 3. Stop services
     for (auto& state : per_core_) {
         for (auto& svc : state->services) {
             svc->stop();
         }
     }
 
-    // 3. CoreEngine stop + join + drain
+    // 4. CoreEngine stop + join + drain
     // Order matters: stop() signals threads, join() waits for exit,
     // drain_remaining() cleans up leftover MPSC messages.
     // CoreEngine must stop before adapter close -- pending completion handlers
@@ -269,7 +240,7 @@ void Server::finalize_shutdown() {
     core_engine_->join();
     core_engine_->drain_remaining();
 
-    // 4. Adapter close (flush + 커넥션 정리)
+    // 5. Adapter close (flush + 커넥션 정리)
     // Safe now: all core threads have exited, no pending handlers.
     for (auto& adapter : adapters_) {
         adapter->close();
@@ -280,7 +251,7 @@ void Server::finalize_shutdown() {
 }
 
 uint16_t Server::port() const noexcept {
-    return acceptors_.empty() ? 0 : acceptors_[0]->port();
+    return listeners_.empty() ? 0 : listeners_[0]->port();
 }
 
 uint32_t Server::core_count() const noexcept {
@@ -297,22 +268,10 @@ boost::asio::io_context& Server::core_io_context(uint32_t core_id) {
 
 uint32_t Server::total_active_sessions() const noexcept {
     uint32_t total = 0;
-    for (const auto& state : per_core_) {
-        total += state->handler.active_sessions();
+    for (const auto& listener : listeners_) {
+        total += listener->active_sessions();
     }
     return total;
-}
-
-void Server::on_accept(boost::asio::ip::tcp::socket socket) {
-    uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed)
-                       % config_.num_cores;
-
-    auto& core_io = core_engine_->io_context(core_id);
-    boost::asio::post(core_io, [this, core_id,
-                                s = std::move(socket)]() mutable {
-        per_core_[core_id]->handler.accept_connection(
-            std::move(s), core_engine_->io_context(core_id));
-    });
 }
 
 } // namespace apex::core

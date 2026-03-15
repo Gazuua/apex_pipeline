@@ -33,7 +33,6 @@ protected:
 
 TEST_F(ConfigTest, DefaultsReturnsValidConfig) {
     auto config = AppConfig::defaults();
-    EXPECT_EQ(config.server.port, 9000);
     EXPECT_EQ(config.server.num_cores, 1);
     EXPECT_EQ(config.server.drain_timeout.count(), 25);
     EXPECT_EQ(config.logging.level, "info");
@@ -44,12 +43,10 @@ TEST_F(ConfigTest, DefaultsReturnsValidConfig) {
 TEST_F(ConfigTest, FromFileLoadsServerSection) {
     auto path = write_toml("server.toml", R"(
 [server]
-port = 8080
 num_cores = 4
 drain_timeout_s = 10
 )");
     auto config = AppConfig::from_file(path);
-    EXPECT_EQ(config.server.port, 8080);
     EXPECT_EQ(config.server.num_cores, 4);
     EXPECT_EQ(config.server.drain_timeout.count(), 10);
 }
@@ -79,12 +76,11 @@ max_size_mb = 50
 TEST_F(ConfigTest, MissingFieldsUseDefaults) {
     auto path = write_toml("minimal.toml", R"(
 [server]
-port = 7777
+num_cores = 2
 )");
     auto config = AppConfig::from_file(path);
-    EXPECT_EQ(config.server.port, 7777);
+    EXPECT_EQ(config.server.num_cores, 2);
     // 나머지는 기본값
-    EXPECT_EQ(config.server.num_cores, 1);
     EXPECT_EQ(config.server.drain_timeout.count(), 25);
     EXPECT_EQ(config.logging.level, "info");
 }
@@ -101,7 +97,7 @@ TEST_F(ConfigTest, InvalidTomlSyntaxThrows) {
 TEST_F(ConfigTest, WrongFieldTypeThrows) {
     auto path = write_toml("badtype.toml", R"(
 [server]
-port = "not_a_number"
+num_cores = "not_a_number"
 )");
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }
@@ -109,7 +105,7 @@ port = "not_a_number"
 TEST_F(ConfigTest, UnknownSectionsIgnored) {
     auto path = write_toml("extra.toml", R"(
 [server]
-port = 9000
+num_cores = 1
 
 [kafka]
 brokers = "localhost:9092"
@@ -118,33 +114,18 @@ brokers = "localhost:9092"
 host = "localhost"
 )");
     auto config = AppConfig::from_file(path);
-    EXPECT_EQ(config.server.port, 9000);
+    EXPECT_EQ(config.server.num_cores, 1);
     // kafka, redis 섹션은 무시 — 에러 없음
 }
 
 TEST_F(ConfigTest, EmptyFileUsesDefaults) {
     auto path = write_toml("empty.toml", "");
     auto config = AppConfig::from_file(path);
-    EXPECT_EQ(config.server.port, 9000);
     EXPECT_EQ(config.server.num_cores, 1);
     EXPECT_EQ(config.logging.level, "info");
 }
 
-TEST_F(ConfigTest, PortOutOfRangeThrows) {
-    auto path = write_toml("bigport.toml", R"(
-[server]
-port = 99999
-)");
-    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
-}
-
-TEST_F(ConfigTest, NegativePortThrows) {
-    auto path = write_toml("negport.toml", R"(
-[server]
-port = -1
-)");
-    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
-}
+// port 관련 테스트 제거 — ServerConfig::port가 삭제됨 (v0.5, listen<P>(port) API로 대체)
 
 TEST_F(ConfigTest, TickIntervalNegativeThrows) {
     auto path = write_toml("neg_tick.toml", R"(

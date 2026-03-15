@@ -46,8 +46,8 @@ ServerConfig parse_server(const toml::table& root) {
     auto* tbl = root["server"].as_table();
     if (!tbl) return cfg;
 
-    cfg.port = checked_narrow<uint16_t>(
-        get_or<int64_t>(*tbl, "port", cfg.port), "port");
+    // port 제거 — listen<P>(port, config) API로 대체 (v0.5)
+    // TOML의 port 필드는 무시 (하위 호환)
     cfg.num_cores = checked_narrow<uint32_t>(
         get_or<int64_t>(*tbl, "num_cores", cfg.num_cores), "num_cores");
     // I-20: Use int64_t default to avoid narrowing conversion warning

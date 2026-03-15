@@ -3,13 +3,12 @@
 #include <apex/core/adapter_interface.hpp>
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/bump_allocator.hpp>
-#include <apex/core/connection_handler.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
+#include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/service_base.hpp>
-#include <apex/core/tcp_acceptor.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -38,7 +37,7 @@ namespace apex::core {
 /// Server configuration. Fields are ordered for designated-initializer convenience.
 struct ServerConfig {
     // Network (bind_address deferred — TcpAcceptor defaults to 0.0.0.0)
-    uint16_t port = 9000;
+    // port 제거 — listen<P>(port, config)으로 대체
     bool tcp_nodelay = true;  // Disable Nagle's algorithm for low-latency
 
     // Multicore
@@ -68,16 +67,16 @@ struct ServerConfig {
 };
 
 /// Per-core isolated state (shared-nothing). Each core owns its own
-/// SessionManager, MessageDispatcher, and service instances.
+/// SessionManager and allocators. MessageDispatcher and ConnectionHandler
+/// are owned by Listener<P> (per-protocol).
 ///
 /// Members are destroyed in reverse declaration order. 'services' is declared
-/// after 'dispatcher', so services are destroyed first — ensuring dispatcher_
-/// pointers remain valid during ServiceBase::stop() calls in ~Server().
+/// after session_mgr, so services are destroyed first.
 struct PerCoreState {
     uint32_t core_id;
     SessionManager session_mgr;
-    MessageDispatcher dispatcher;
-    ConnectionHandler handler;
+    // MessageDispatcher 제거 — Listener<P>가 소유
+    // ConnectionHandler 제거 — Listener<P>가 소유
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
     // Per-core memory allocators
@@ -86,14 +85,16 @@ struct PerCoreState {
 
     explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
                           size_t timer_wheel_slots, size_t recv_buf_capacity,
-                          ConnectionHandlerConfig handler_config,
                           size_t bump_capacity, size_t arena_block, size_t arena_max);
 };
 
 /// Multicore server — io_context-per-core architecture.
 ///
 /// Usage:
-///   Server({.port = 9000, .num_cores = 4})
+///   Server({.num_cores = 4})
+///       .listen<TcpBinaryProtocol>(9000, TcpBinaryProtocol::Config{
+///           .max_frame_size = 64 * 1024
+///       })
 ///       .add_service<EchoService>()
 ///       .run();   // blocks until stop() or signal
 class Server {
@@ -106,6 +107,26 @@ public:
     Server(const Server&) = delete;
     Server& operator=(const Server&) = delete;
 
+    /// 프로토콜별 리스너 등록. 포트 분리.
+    /// listen<P>()는 run() 전에 호출해야 한다.
+    template<Protocol P>
+    Server& listen(uint16_t port, typename P::Config config = {}) {
+        std::vector<SessionManager*> mgrs;
+        for (auto& state : per_core_) {
+            mgrs.push_back(&state->session_mgr);
+        }
+        ConnectionHandlerConfig handler_config{.tcp_nodelay = config_.tcp_nodelay};
+        auto listener = std::make_unique<Listener<P>>(
+            port, std::move(config), *core_engine_, std::move(mgrs),
+            handler_config, config_.reuseport);
+
+        // 서비스 바인딩: 기존에 등록된 서비스 팩토리는 첫 번째 listener의
+        // dispatcher에 바인딩된다. 다중 프로토콜 시 서비스별 dispatcher 분리는
+        // v0.6에서 처리.
+        listeners_.push_back(std::move(listener));
+        return *this;
+    }
+
     /// Register a service type to be instantiated once per core.
     /// Args are copy-captured for per-core construction. Supports chaining.
     /// Note: Args are copied for each core. For move-only arguments,
@@ -113,10 +134,10 @@ public:
     template <typename T, typename... Args>
     Server& add_service(Args&&... args) {
         service_factories_.push_back(
-            [args...](PerCoreState& state)
+            [args...](PerCoreState& state, MessageDispatcher& dispatcher)
                 -> std::unique_ptr<ServiceBaseInterface> {
                 auto svc = std::make_unique<T>(args...);
-                svc->bind_dispatcher(state.dispatcher);
+                svc->bind_dispatcher(dispatcher);
                 return svc;
             }
         );
@@ -125,13 +146,14 @@ public:
 
     /// Register a factory that receives PerCoreState for per-core injection.
     /// Use when services need SessionManager or other per-core state.
+    /// Factory signature: (PerCoreState&) -> unique_ptr<ServiceBaseInterface>
     template <typename Factory>
     Server& add_service_factory(Factory&& factory) {
         service_factories_.push_back(
-            [f = std::forward<Factory>(factory)](PerCoreState& state)
+            [f = std::forward<Factory>(factory)](PerCoreState& state, MessageDispatcher& dispatcher)
                 -> std::unique_ptr<ServiceBaseInterface> {
                 auto svc = f(state);
-                svc->bind_dispatcher(state.dispatcher);
+                svc->bind_dispatcher(dispatcher);
                 return svc;
             }
         );
@@ -173,7 +195,8 @@ public:
     /// Use stopping_ internally to prevent re-entry.
     void stop();
 
-    /// Actual bound port (after constructor binds).
+    /// Actual bound port of the first listener (0 if no listeners).
+    /// Useful for tests that bind to port 0.
     [[nodiscard]] uint16_t port() const noexcept;
 
     [[nodiscard]] uint32_t core_count() const noexcept;
@@ -182,7 +205,7 @@ public:
     /// Access core's io_context (for cross_core_call / tests).
     [[nodiscard]] boost::asio::io_context& core_io_context(uint32_t core_id);
 
-    /// Total active sessions across all cores.
+    /// Total active sessions across all listeners.
     [[nodiscard]] uint32_t total_active_sessions() const noexcept;
 
     /// Execute func on target_core and co_await the result (coroutine).
@@ -211,9 +234,8 @@ public:
 
 private:
     using ServiceFactory = std::function<
-        std::unique_ptr<ServiceBaseInterface>(PerCoreState&)>;
+        std::unique_ptr<ServiceBaseInterface>(PerCoreState&, MessageDispatcher&)>;
 
-    void on_accept(boost::asio::ip::tcp::socket socket);
     void begin_shutdown();
     void poll_shutdown();
     void finalize_shutdown();
@@ -222,12 +244,11 @@ private:
     boost::asio::io_context control_io_;
     std::unique_ptr<CoreEngine> core_engine_;
     std::vector<std::unique_ptr<PerCoreState>> per_core_;
-    std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;
+    std::vector<std::unique_ptr<ListenerBase>> listeners_;
     std::vector<ServiceFactory> service_factories_;
     std::vector<std::unique_ptr<AdapterInterface>> adapters_;
     std::unordered_map<std::type_index, AdapterInterface*> adapter_map_;
 
-    std::atomic<uint32_t> next_core_{0};
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
     std::atomic<uint32_t> run_count_{0};  // I-21: prevent re-entry

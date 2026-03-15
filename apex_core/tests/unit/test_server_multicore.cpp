@@ -1,4 +1,5 @@
 #include <apex/core/server.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 
@@ -12,16 +13,16 @@ using namespace apex::core;
 using namespace std::chrono_literals;
 
 TEST(ServerMulticoreTest, CreateAndDestroy) {
-    Server server({.port = 0, .num_cores = 2});
+    Server server({.num_cores = 2});
     // Create/destroy without crash
 }
 
 TEST(ServerMulticoreTest, RunAndStop) {
     Server server({
-        .port = 0,
         .num_cores = 2,
         .handle_signals = false,
     });
+    server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
 
@@ -32,7 +33,7 @@ TEST(ServerMulticoreTest, RunAndStop) {
 }
 
 TEST(ServerMulticoreTest, CoreCount) {
-    Server server({.port = 0, .num_cores = 4, .handle_signals = false});
+    Server server({.num_cores = 4, .handle_signals = false});
     EXPECT_EQ(server.core_count(), 4u);
 }
 
@@ -64,14 +65,13 @@ protected:
 };
 
 TEST_F(CountingServiceFixture, ServicePerCoreInstance) {
-    Server server({.port = 0, .num_cores = 4, .handle_signals = false});
+    Server server({.num_cores = 4, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
     std::thread t([&] { server.run(); });
 
     // Wait for all 4 per-core service instances to be created.
-    // running() becomes true at the start of run(), but factory calls
-    // happen synchronously right after, so poll instance_count directly.
     ASSERT_TRUE(apex::test::wait_for([&] { return CountingService::instance_count.load() >= 4u; }));
     EXPECT_EQ(CountingService::instance_count.load(), 4u);
 
@@ -87,10 +87,11 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance) {
 }
 
 TEST_F(CountingServiceFixture, AddServiceChaining) {
-    Server server({.port = 0, .num_cores = 2, .handle_signals = false});
+    Server server({.num_cores = 2, .handle_signals = false});
 
     // Chaining compiles and works
     server
+        .listen<TcpBinaryProtocol>(0)
         .add_service<CountingService>()
         .add_service<CountingService>();
 
@@ -139,7 +140,8 @@ TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances) {
     // Track core_ids assigned by the factory (bitfield for 2 cores: bits 0,1)
     std::atomic<uint32_t> core_id_bits{0};
 
-    Server server({.port = 0, .num_cores = 2, .handle_signals = false});
+    Server server({.num_cores = 2, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
 
     server.add_service_factory(
         [&core_id_bits](PerCoreState& state)
@@ -177,7 +179,7 @@ TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows) {
     // heartbeat_timeout_ticks must be < effective timer_wheel_slots
     // timer_wheel_slots=8 (power of 2), so heartbeat_timeout_ticks >= 8 throws
     EXPECT_THROW(
-        Server({.port = 0, .heartbeat_timeout_ticks = 100,
+        Server({.heartbeat_timeout_ticks = 100,
                 .timer_wheel_slots = 8, .handle_signals = false}),
         std::invalid_argument);
 }
@@ -190,7 +192,8 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
     EXPECT_EQ(CountingService::start_count.load(), 0u);
     EXPECT_EQ(CountingService::stop_count.load(), 0u);
 
-    Server server({.port = 0, .num_cores = 2, .handle_signals = false});
+    Server server({.num_cores = 2, .handle_signals = false});
+    server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
     std::thread t([&] { server.run(); });
@@ -205,10 +208,10 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests) {
 
 TEST(ServerMulticoreTest, DoubleRunThrows) {
     Server server({
-        .port = 0,
         .num_cores = 1,
         .handle_signals = false,
     });
+    server.listen<TcpBinaryProtocol>(0);
 
     std::thread t1([&] { server.run(); });
 

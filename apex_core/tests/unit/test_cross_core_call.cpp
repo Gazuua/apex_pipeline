@@ -1,4 +1,5 @@
 #include <apex/core/server.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 
@@ -19,11 +20,11 @@ class CrossCoreCallTest : public ::testing::Test {
 protected:
     void SetUp() override {
         server_ = std::make_unique<Server>(ServerConfig{
-            .port = 0,
             .num_cores = 2,
             .heartbeat_timeout_ticks = 0,
             .handle_signals = false,
         });
+        server_->listen<TcpBinaryProtocol>(0);
         server_thread_ = std::thread([this] { server_->run(); });
 
         // Wait for server to be running (condition-based instead of sleep)
@@ -141,12 +142,12 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull) {
     // Use a tiny MPSC queue (capacity=2). With event-driven drain, we need
     // a blocking lambda on core 1 to prevent it from draining the queue.
     auto server = std::make_unique<Server>(ServerConfig{
-        .port = 0,
         .num_cores = 2,
         .mpsc_queue_capacity = 2,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
     });
+    server->listen<TcpBinaryProtocol>(0);
     std::thread server_thread([&] { server->run(); });
 
     ASSERT_TRUE(apex::test::wait_for([&] { return server->running(); }, std::chrono::milliseconds(5000)));

@@ -37,14 +37,14 @@ private:
 };
 
 TEST(ServerAdapter, AddAdapterChaining) {
-    ServerConfig config{.port = 0, .num_cores = 1};
+    ServerConfig config{.num_cores = 1};
     Server server(config);
     auto& ref = server.add_adapter<TestAdapter>();
     EXPECT_EQ(&ref, &server);  // 체이닝 반환
 }
 
 TEST(ServerAdapter, AdapterAccessible) {
-    ServerConfig config{.port = 0, .num_cores = 1};
+    ServerConfig config{.num_cores = 1};
     Server server(config);
     server.add_adapter<TestAdapter>();
     auto& adapter = server.adapter<TestAdapter>();
@@ -52,7 +52,7 @@ TEST(ServerAdapter, AdapterAccessible) {
 }
 
 TEST(ServerAdapter, MultipleAdapters) {
-    ServerConfig config{.port = 0, .num_cores = 1};
+    ServerConfig config{.num_cores = 1};
     Server server(config);
     server.add_adapter<TestAdapter>();
     server.add_adapter<AnotherTestAdapter>();
@@ -65,7 +65,7 @@ TEST(ServerAdapter, MultipleAdapters) {
 }
 
 TEST(ServerAdapter, AddAdapterWithArgs) {
-    ServerConfig config{.port = 0, .num_cores = 1};
+    ServerConfig config{.num_cores = 1};
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(42);
 
