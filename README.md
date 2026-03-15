@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.4.5.2
+## 현재 상태 — v0.5.0.0
 
 ### 완료
 
@@ -69,6 +69,16 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 코드 리뷰 이슈 6건 수정: PendingCommand UAF, silent disconnect 로깅, 어댑터 init 실패 throw, RingBuffer shrink 등
   - 리뷰 피드백 반영: SessionManager::tick() shrink_to_fit 60초 주기, RedisMultiplexer 주석 보강, 백로그 정리, clangd 경로 수정
 
+- **v0.5.0.0 — Protocol concept 기반 의존성 역전 + 어댑터 회복력 + WebSocket MVP**
+  - Protocol concept 기반 의존성 역전: core=concept 정의, shared=구현 (TcpBinaryProtocol, WebSocketProtocol)
+  - Server 비템플릿 리팩터링 + `listen<P>(port)` 멀티 프로토콜 지원
+  - ListenerBase virtual (lifecycle) + ConnectionHandler\<P\> (zero-overhead I/O)
+  - per-session write queue (std::deque + write_pump 코루틴)
+  - CircuitBreaker (plain class, composition) + AdapterState 상태 머신
+  - Redis AUTH/ARRAY 응답 파싱, 어댑터 retry/reconnect, DLQ (Dead Letter Queue)
+  - 공유 프로토콜 스키마 4종 (apex_shared/lib/protocols/)
+  - 단위 테스트 48 → 51 (신규 28 TC), auto-review 4라운드 Clean
+
 ## 아키텍처
 
 ### Per-core 싱글 스레드 모델
@@ -93,7 +103,7 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 ### 다음
 
-- **v0.5 — 서비스 체인** (WebSocket + Gateway + Auth + E2E)
+- **v0.5 Wave 2~3** — 서비스 체인 완성 (Gateway + Auth + E2E)
 - **v0.6 — 운영 인프라** (Prometheus + Docker + K8s + CI/CD)
 - **v1.0.0.0 — 프레임워크 완성**
 
