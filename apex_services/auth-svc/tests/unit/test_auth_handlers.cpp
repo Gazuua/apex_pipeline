@@ -114,7 +114,7 @@ TEST(AuthHandlersTest, EnvelopeParseLogoutRequest) {
 
 TEST(AuthHandlersTest, EnvelopeTooSmallRejected) {
     std::vector<uint8_t> small(10, 0);
-    // Envelope must be at least ENVELOPE_HEADER_SIZE (40) bytes.
+    // Envelope must be at least ENVELOPE_HEADER_SIZE (48) bytes.
     EXPECT_LT(small.size(), envelope::ENVELOPE_HEADER_SIZE);
 }
 

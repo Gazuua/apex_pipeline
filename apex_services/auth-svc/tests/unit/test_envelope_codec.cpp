@@ -61,7 +61,7 @@ TEST(EnvelopeCodecTest, FullEnvelopeRoundTrip) {
     metadata.session_id = 987654321;
     metadata.timestamp = 1710000000000ULL;
 
-    // Build full envelope: routing(8B) + metadata(32B) + payload
+    // Build full envelope: routing(8B) + metadata(40B) + payload
     std::vector<uint8_t> payload_data = {0xDE, 0xAD, 0xBE, 0xEF};
 
     auto routing_bytes = routing.serialize();

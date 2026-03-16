@@ -84,12 +84,12 @@ TEST(RoutingHeader, DeliveryFlags) {
 
 // === MetadataPrefix Tests ===
 
-TEST(MetadataPrefix, SizeIs32Bytes) {
-    EXPECT_EQ(MetadataPrefix::SIZE, 32u);
+TEST(MetadataPrefix, SizeIs40Bytes) {
+    EXPECT_EQ(MetadataPrefix::SIZE, 40u);
 }
 
-TEST(MetadataPrefix, EnvelopeHeaderSizeIs40) {
-    EXPECT_EQ(ENVELOPE_HEADER_SIZE, 40u);
+TEST(MetadataPrefix, EnvelopeHeaderSizeIs48) {
+    EXPECT_EQ(ENVELOPE_HEADER_SIZE, 48u);
 }
 
 TEST(MetadataPrefix, DefaultValues) {
@@ -99,6 +99,7 @@ TEST(MetadataPrefix, DefaultValues) {
     EXPECT_EQ(m.corr_id, 0u);
     EXPECT_EQ(m.source_id, 0u);
     EXPECT_EQ(m.session_id, 0u);
+    EXPECT_EQ(m.user_id, 0u);
     EXPECT_EQ(m.timestamp, 0u);
 }
 
@@ -108,6 +109,7 @@ TEST(MetadataPrefix, SerializeAndParse) {
     m.corr_id = 0x0123456789ABCDEFull;
     m.source_id = source_ids::AUTH;
     m.session_id = 0xFEDCBA9876543210ull;
+    m.user_id = 42;
     m.timestamp = 1710547200000ull;
 
     auto bytes = m.serialize();
@@ -119,6 +121,7 @@ TEST(MetadataPrefix, SerializeAndParse) {
     EXPECT_EQ(result->corr_id, 0x0123456789ABCDEFull);
     EXPECT_EQ(result->source_id, source_ids::AUTH);
     EXPECT_EQ(result->session_id, 0xFEDCBA9876543210ull);
+    EXPECT_EQ(result->user_id, 42u);
     EXPECT_EQ(result->timestamp, 1710547200000ull);
 }
 

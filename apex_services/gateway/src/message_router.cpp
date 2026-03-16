@@ -33,7 +33,7 @@ MessageRouter::route(apex::core::SessionPtr session,
 
     // 2. Serialize Kafka Envelope
     auto envelope = build_envelope(
-        header, payload, session->id(), corr_id,
+        header, payload, session->id(), user_id, corr_id,
         core_id_);
 
     // 3. Kafka produce (session_id as key for partition distribution)
@@ -61,10 +61,11 @@ MessageRouter::build_envelope(
     const apex::core::WireHeader& header,
     std::span<const uint8_t> payload,
     uint64_t session_id,
+    uint64_t user_id,
     uint64_t corr_id,
     uint16_t core_id) const {
 
-    // Routing Header (8B) + Metadata (32B) + Payload
+    // Routing Header (8B) + Metadata (40B) + Payload
     std::vector<uint8_t> buf(ENVELOPE_HEADER_SIZE + payload.size());
 
     // Routing Header
@@ -80,6 +81,7 @@ MessageRouter::build_envelope(
     meta.corr_id = corr_id;
     meta.source_id = source_ids::GATEWAY;
     meta.session_id = session_id;
+    meta.user_id = user_id;
     meta.timestamp = static_cast<uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch())
