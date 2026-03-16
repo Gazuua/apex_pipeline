@@ -112,18 +112,32 @@ TEST_F(JwtVerifierTest, ExpiredToken) {
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, InvalidSignature) {
-    // Create a different RSA key pair and sign with it -> verification should fail
-    // We simulate this by using the wrong issuer (easier than generating another keypair)
+TEST_F(JwtVerifierTest, InvalidIssuer) {
+    // Token signed with correct key but wrong issuer -- issuer validation should reject
     JwtVerifier verifier(config_);
     auto now = std::chrono::system_clock::now();
     auto token = jwt::create()
         .set_issuer("wrong-issuer")
+        .set_type("JWT")
         .set_subject("test@example.com")
         .set_payload_claim("uid",
             jwt::claim(picojson::value(static_cast<double>(1))))
+        .set_issued_at(now)
         .set_expires_at(now + std::chrono::hours{1})
         .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+    auto result = verifier.verify(token);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(JwtVerifierTest, InvalidSignature) {
+    // Tamper with a valid token to break the signature
+    JwtVerifier verifier(config_);
+    auto token = make_token(12345);
+    // Flip a character in the signature portion (after last '.')
+    auto last_dot = token.rfind('.');
+    ASSERT_NE(last_dot, std::string::npos);
+    ASSERT_GT(token.size(), last_dot + 1);
+    token[last_dot + 1] ^= 0x01;  // flip one bit
     auto result = verifier.verify(token);
     EXPECT_FALSE(result.has_value());
 }
