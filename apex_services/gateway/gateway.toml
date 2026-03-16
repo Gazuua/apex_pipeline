@@ -10,7 +10,7 @@ key_file = "certs/server.key"
 # ca_file = "certs/ca.crt"
 
 [jwt]
-secret = "dev-secret-change-in-production"
+secret = "${JWT_SECRET:-dev-secret-change-in-production}"
 algorithm = "HS256"
 clock_skew_seconds = 30
 sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
