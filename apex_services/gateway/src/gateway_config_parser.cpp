@@ -92,6 +92,16 @@ parse_gateway_config(std::string_view path) {
                 .value_or(std::string{});
         }
 
+        // [redis.ratelimit]
+        if (auto rrl = tbl["redis"]["ratelimit"]; rrl) {
+            cfg.redis_ratelimit_host = rrl["host"]
+                .value_or(std::string{"localhost"});
+            cfg.redis_ratelimit_port = static_cast<uint16_t>(
+                rrl["port"].value_or(int64_t{6379}));
+            cfg.redis_ratelimit_password = rrl["password"]
+                .value_or(std::string{});
+        }
+
         // [timeouts]
         if (auto timeouts = tbl["timeouts"]; timeouts) {
             cfg.request_timeout = std::chrono::milliseconds{
