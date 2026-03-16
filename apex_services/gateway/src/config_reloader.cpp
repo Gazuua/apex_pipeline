@@ -4,6 +4,17 @@
 
 namespace apex::gateway {
 
+apex::shared::rate_limit::EndpointRateConfig
+to_endpoint_rate_config(const RateLimitEndpointConfig& src) {
+    apex::shared::rate_limit::EndpointRateConfig dst;
+    dst.default_limit = src.default_limit;
+    dst.window_size = std::chrono::seconds{src.window_size_seconds};
+    for (const auto& [msg_id, limit] : src.overrides) {
+        dst.overrides.emplace(msg_id, limit);
+    }
+    return dst;
+}
+
 ConfigReloader::ConfigReloader(
     boost::asio::io_context& io_ctx,
     std::string config_path,

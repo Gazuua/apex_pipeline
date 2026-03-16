@@ -4,6 +4,7 @@
 #include <apex/gateway/route_table.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_config_parser.hpp>
+#include <apex/shared/rate_limit/endpoint_rate_config.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
@@ -14,6 +15,11 @@
 #include <vector>
 
 namespace apex::gateway {
+
+/// Convert TOML RateLimitEndpointConfig -> shared EndpointRateConfig.
+/// Used during hot-reload to feed RateLimitFacade::update_endpoint_config().
+[[nodiscard]] apex::shared::rate_limit::EndpointRateConfig
+to_endpoint_rate_config(const RateLimitEndpointConfig& src);
 
 /// TOML file change detection -> RouteTable + RateLimit config atomic replacement.
 /// When FileWatcher detects change:
