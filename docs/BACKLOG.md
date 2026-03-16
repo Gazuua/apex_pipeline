@@ -43,6 +43,12 @@
 - **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
 - **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
 
+### [Important] I-15. Linux CI Sanitizer 파이프라인 추가 (ASAN+UBSAN+TSAN+Valgrind)
+- **위치**: `.github/workflows/` CI 파이프라인
+- **상태**: 미구현
+- **배치**: 빠를수록 좋음 (우선순위 높음)
+- **설명**: Linux/Clang cross-compile CI job 추가. ASAN+UBSAN: 하나의 job에 합쳐서 PR CI에 포함. TSAN: 별도 job으로 PR CI에 포함 (ASAN과 동시 사용 불가). Valgrind memcheck: PR CI에 포함 (현 규모에서는 실행 가능, 느려지면 야간 빌드로 분리 검토)
+
 ---
 
 ## Minor
