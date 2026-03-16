@@ -1,6 +1,7 @@
 #include <apex/gateway/response_dispatcher.hpp>
 
 #include <apex/core/cross_core_call.hpp>
+#include <boost/asio/post.hpp>
 #include <spdlog/spdlog.h>
 
 #include <cstring>
@@ -19,7 +20,7 @@ ResponseDispatcher::ResponseDispatcher(
 
 apex::core::Result<void>
 ResponseDispatcher::on_response(std::span<const uint8_t> payload) {
-    // 1. Parse Routing Header
+    // 1. Parse Routing Header (stateless — safe on any thread)
     if (payload.size() < ENVELOPE_HEADER_SIZE) {
         spdlog::warn("Response too short: {} bytes", payload.size());
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
@@ -31,7 +32,7 @@ ResponseDispatcher::on_response(std::span<const uint8_t> payload) {
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
-    // 2. Parse Metadata
+    // 2. Parse Metadata (stateless — safe on any thread)
     auto meta_result = MetadataPrefix::parse(
         payload.subspan(RoutingHeader::SIZE, MetadataPrefix::SIZE));
     if (!meta_result) {
@@ -42,41 +43,49 @@ ResponseDispatcher::on_response(std::span<const uint8_t> payload) {
     auto& routing = *rh_result;
     auto& meta = *meta_result;
 
-    // 3. Extract pending from target core's PendingMap
+    // 3. Validate core_id range
     uint16_t target_core = meta.core_id;
     if (target_core >= pending_maps_.size()) {
         spdlog::warn("Invalid core_id {} in response", target_core);
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
-    auto pending = pending_maps_[target_core]->extract(meta.corr_id);
-    if (!pending) {
-        // Already timed out or duplicate response
-        spdlog::debug("No pending request for corr_id: {}", meta.corr_id);
-        return apex::core::ok();  // Silently ignore
-    }
+    // 4. Copy payload for capture (Kafka buffer lifetime is callback-scoped)
+    auto payload_copy = std::make_shared<std::vector<uint8_t>>(
+        payload.begin(), payload.end());
 
-    // 4. Extract FlatBuffers payload
-    auto fbs_payload = payload.subspan(ENVELOPE_HEADER_SIZE);
+    // 5. Post to target core's io_context so PendingRequestsMap access
+    //    and session write happen on the core thread — no data race.
+    auto corr_id = meta.corr_id;
+    auto routing_copy = routing;
 
-    // 5. Build WireHeader response
-    auto wire_response = build_wire_response(
-        routing, fbs_payload, pending->original_msg_id);
+    boost::asio::post(
+        engine_.io_context(target_core),
+        [this, target_core, corr_id, routing_copy,
+         payload_copy = std::move(payload_copy)]() {
+            // Now on target core's thread — safe to access PendingRequestsMap
+            auto pending = pending_maps_[target_core]->extract(corr_id);
+            if (!pending) {
+                spdlog::debug("No pending request for corr_id: {}", corr_id);
+                return;
+            }
 
-    // 6. Deliver response to target core's session
-    auto session_id = pending->session_id;
-    auto* session_mgr = session_mgrs_[target_core];
+            // Build WireHeader response
+            auto fbs_payload = std::span<const uint8_t>(
+                payload_copy->data() + ENVELOPE_HEADER_SIZE,
+                payload_copy->size() - ENVELOPE_HEADER_SIZE);
 
-    // cross_core_post: fire-and-forget delivery on target core
-    return apex::core::cross_core_post(
-        engine_, target_core,
-        [session_mgr, session_id,
-         response = std::move(wire_response)]() {
-            auto session = session_mgr->find_session(session_id);
+            auto wire_response = build_wire_response(
+                routing_copy, fbs_payload, pending->original_msg_id);
+
+            // Deliver to session (already on the correct core thread)
+            auto* session_mgr = session_mgrs_[target_core];
+            auto session = session_mgr->find_session(pending->session_id);
             if (!session || !session->is_open()) return;
-            (void)session->enqueue_write(
-                std::vector<uint8_t>(response.begin(), response.end()));
+            (void)session->enqueue_write(std::move(wire_response));
         });
+
+    return apex::core::ok();
 }
 
 std::vector<uint8_t>
