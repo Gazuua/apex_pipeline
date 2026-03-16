@@ -58,6 +58,12 @@ public:
         return pending_requests_;
     }
 
+    /// Wire rate limiter after construction (post_init_callback).
+    void set_rate_limiter(
+        apex::shared::rate_limit::RateLimitFacade* limiter) noexcept {
+        pipeline_.set_rate_limiter(limiter);
+    }
+
 private:
     /// Default handler: pipeline check -> Kafka produce via MessageRouter.
     boost::asio::awaitable<apex::core::Result<void>>

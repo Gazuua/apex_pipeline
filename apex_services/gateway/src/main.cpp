@@ -20,6 +20,10 @@
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
+#include <apex/shared/rate_limit/rate_limit_facade.hpp>
+#include <apex/shared/rate_limit/per_ip_rate_limiter.hpp>
+#include <apex/shared/rate_limit/redis_rate_limiter.hpp>
+#include <apex/shared/rate_limit/endpoint_rate_config.hpp>
 
 #include <boost/asio/steady_timer.hpp>
 #include <spdlog/spdlog.h>
@@ -86,6 +90,22 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<apex::gateway::PubSubListener> pubsub_listener;
     std::unique_ptr<apex::gateway::ResponseDispatcher> response_dispatcher;
 
+    // Rate limiting — standalone RedisAdapter (separate from Server's adapter registry)
+    apex::shared::adapters::redis::RedisConfig redis_rl_cfg;
+    redis_rl_cfg.host = gw_config.redis_ratelimit_host;
+    redis_rl_cfg.port = gw_config.redis_ratelimit_port;
+    redis_rl_cfg.password = gw_config.redis_ratelimit_password;
+    auto rl_redis_adapter = std::make_unique<
+        apex::shared::adapters::redis::RedisAdapter>(redis_rl_cfg);
+
+    // Per-core rate limit components (created in post_init, kept alive here)
+    struct PerCoreRateLimit {
+        std::unique_ptr<apex::shared::rate_limit::PerIpRateLimiter> ip;
+        std::unique_ptr<apex::shared::rate_limit::RedisRateLimiter> redis;
+        std::unique_ptr<apex::shared::rate_limit::RateLimitFacade> facade;
+    };
+    std::vector<PerCoreRateLimit> per_core_rl;
+
     auto* channel_map_ptr = channel_map.get();
 
     // Server setup
@@ -134,7 +154,8 @@ int main(int argc, char* argv[]) {
     // Post-init callback: wire ResponseDispatcher + BroadcastFanout + PubSubListener + Sweep
     server.set_post_init_callback(
         [&response_dispatcher, &broadcast_fanout, &pubsub_listener,
-         &pubsub_cfg, channel_map_ptr](apex::core::Server& srv) {
+         &pubsub_cfg, channel_map_ptr,
+         &rl_redis_adapter, &per_core_rl, gw_config_copy](apex::core::Server& srv) {
             auto num_cores = srv.core_count();
 
             // Collect per-core pointers
@@ -243,6 +264,65 @@ int main(int argc, char* argv[]) {
 
             ss->timer->expires_after(std::chrono::seconds{1});
             ss->timer->async_wait(on_sweep);
+
+            // --- Rate Limiting ---
+            // Initialize standalone Redis adapter for rate limiting
+            rl_redis_adapter->do_init(srv.core_engine());
+
+            // Build EndpointRateConfig from GatewayConfig
+            apex::shared::rate_limit::EndpointRateConfig ep_config;
+            ep_config.default_limit = gw_config_copy.rate_limit.endpoint.default_limit;
+            ep_config.window_size = std::chrono::seconds{
+                gw_config_copy.rate_limit.endpoint.window_size_seconds};
+            for (auto& [msg_id, limit] : gw_config_copy.rate_limit.endpoint.overrides) {
+                ep_config.overrides[msg_id] = limit;
+            }
+
+            // Create per-core rate limit components
+            per_core_rl.resize(num_cores);
+            for (uint32_t core = 0; core < num_cores; ++core) {
+                // PerIpRateLimiter (no-op timer callbacks — TTL cleanup not needed for short-lived E2E)
+                apex::shared::rate_limit::PerIpRateLimiterConfig ip_cfg{
+                    .total_limit = gw_config_copy.rate_limit.ip.total_limit,
+                    .window_size = std::chrono::seconds{
+                        gw_config_copy.rate_limit.ip.window_size_seconds},
+                    .num_cores = num_cores,
+                    .max_entries = gw_config_copy.rate_limit.ip.max_entries,
+                    .ttl_multiplier = gw_config_copy.rate_limit.ip.ttl_multiplier,
+                };
+                per_core_rl[core].ip = std::make_unique<
+                    apex::shared::rate_limit::PerIpRateLimiter>(
+                    ip_cfg,
+                    [](auto, auto) -> uint64_t { return 0; },  // no-op schedule
+                    [](auto) {},                                 // no-op cancel
+                    [](auto, auto) {}                           // no-op reschedule
+                );
+
+                // RedisRateLimiter (needs multiplexer from standalone adapter)
+                apex::shared::rate_limit::RedisRateLimiterConfig redis_rl_config{
+                    .default_limit = gw_config_copy.rate_limit.user.default_limit,
+                    .window_size = std::chrono::seconds{
+                        gw_config_copy.rate_limit.user.window_size_seconds},
+                };
+                per_core_rl[core].redis = std::make_unique<
+                    apex::shared::rate_limit::RedisRateLimiter>(
+                    redis_rl_config,
+                    rl_redis_adapter->multiplexer(core));
+
+                // RateLimitFacade
+                per_core_rl[core].facade = std::make_unique<
+                    apex::shared::rate_limit::RateLimitFacade>(
+                    *per_core_rl[core].ip,
+                    *per_core_rl[core].redis,
+                    ep_config);
+
+                // Wire to GatewayService
+                auto* gw_svc = dynamic_cast<apex::gateway::GatewayService*>(
+                    srv.per_core_state(core).services[0].get());
+                gw_svc->set_rate_limiter(per_core_rl[core].facade.get());
+            }
+
+            spdlog::info("Rate limiting enabled ({} cores)", num_cores);
         });
 
     server.run();
