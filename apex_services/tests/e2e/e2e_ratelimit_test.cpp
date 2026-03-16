@@ -33,9 +33,8 @@ TEST_F(RateLimitE2ETest, PerUserRateLimit) {
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv(std::chrono::seconds{3});
-        if (resp.msg_id < 1000) {
-            // System error -> Rate Limit response
-            // SystemResponse should contain GatewayError::RATE_LIMITED_USER
+        if (resp.flags & ERROR_RESPONSE) {
+            // Error response -> Rate Limit or auth pipeline rejection
             rate_limited_count++;
         }
     }
@@ -67,7 +66,7 @@ TEST_F(RateLimitE2ETest, PerIpRateLimit) {
             client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
             auto resp = client.recv(std::chrono::seconds{2});
-            if (resp.msg_id < 1000) {
+            if (resp.flags & ERROR_RESPONSE) {
                 rejected_count++;
             }
             client.close();
@@ -105,7 +104,7 @@ TEST_F(RateLimitE2ETest, PerEndpointRateLimit) {
         client.send(2001, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv(std::chrono::seconds{3});
-        if (resp.msg_id < 1000) {
+        if (resp.flags & ERROR_RESPONSE) {
             rate_limited++;
         }
     }

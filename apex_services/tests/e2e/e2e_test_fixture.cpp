@@ -434,4 +434,36 @@ void E2ETestFixture::authenticate(TcpClient& client,
     }
 }
 
+// ---------------------------------------------------------------------------
+// Channel subscription helpers
+// ---------------------------------------------------------------------------
+
+void E2ETestFixture::subscribe_channel(TcpClient& client,
+                                        const std::string& channel) {
+    // System msg_id=4: SubscribeChannel
+    // Payload: FlatBuffers table with field 0 = channel string
+    flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(64) + channel.size());
+    auto ch_off = fbb.CreateString(channel);
+    auto start = fbb.StartTable();
+    fbb.AddOffset(4, ch_off);  // field 0: channel string
+    auto loc = fbb.EndTable(start);
+    fbb.Finish(flatbuffers::Offset<void>(loc));
+
+    client.send(4 /* SubscribeChannel */, fbb.GetBufferPointer(), fbb.GetSize());
+    // No response expected — fire and forget system message
+}
+
+void E2ETestFixture::unsubscribe_channel(TcpClient& client,
+                                          const std::string& channel) {
+    // System msg_id=5: UnsubscribeChannel
+    flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(64) + channel.size());
+    auto ch_off = fbb.CreateString(channel);
+    auto start = fbb.StartTable();
+    fbb.AddOffset(4, ch_off);
+    auto loc = fbb.EndTable(start);
+    fbb.Finish(flatbuffers::Offset<void>(loc));
+
+    client.send(5 /* UnsubscribeChannel */, fbb.GetBufferPointer(), fbb.GetSize());
+}
+
 } // namespace apex::e2e

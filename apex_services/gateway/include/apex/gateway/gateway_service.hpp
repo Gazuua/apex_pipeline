@@ -14,12 +14,15 @@
 
 // Forward declarations to avoid pulling in heavy headers
 namespace apex::shared::adapters::kafka { class KafkaAdapter; }
+namespace apex::shared::rate_limit { class RateLimitFacade; }
 
 namespace apex::gateway {
 
 // Forward declarations
 class JwtVerifier;
 class JwtBlacklist;
+class ChannelSessionMap;
+class PubSubListener;
 
 /// Gateway service — generic proxy that routes all client messages
 /// through GatewayPipeline (auth + rate limit) then MessageRouter (Kafka produce).
@@ -37,6 +40,9 @@ public:
         JwtBlacklist* jwt_blacklist = nullptr;  // nullable
         RouteTablePtr route_table;
         uint32_t core_id = 0;
+        ChannelSessionMap* channel_map = nullptr;  // for Pub/Sub subscription
+        PubSubListener* pubsub_listener = nullptr; // for dynamic channel subscribe
+        apex::shared::rate_limit::RateLimitFacade* rate_limiter = nullptr;
     };
 
     GatewayService(const GatewayConfig& config, Dependencies deps);
@@ -69,6 +75,11 @@ private:
 
     // Per-session auth state (session_id -> AuthState)
     std::unordered_map<apex::core::SessionId, AuthState> auth_states_;
+
+    // Shared (not per-core) — nullable, set via Dependencies
+    ChannelSessionMap* channel_map_ = nullptr;
+    PubSubListener* pubsub_listener_ = nullptr;
+    uint32_t core_id_ = 0;
 };
 
 } // namespace apex::gateway

@@ -7,6 +7,8 @@
 #include <apex/gateway/gateway_service.hpp>
 #include <apex/gateway/jwt_verifier.hpp>
 #include <apex/gateway/jwt_blacklist.hpp>
+#include <apex/gateway/channel_session_map.hpp>
+#include <apex/gateway/pubsub_listener.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 
 #include <apex/core/wire_header.hpp>
@@ -18,10 +20,13 @@ GatewayService::GatewayService(const GatewayConfig& config, Dependencies deps)
     : ServiceBase("gateway")
     , config_(config)
     , logger_(spdlog::default_logger()->clone("gateway"))
-    , pipeline_(config_, deps.jwt_verifier, deps.jwt_blacklist)
+    , pipeline_(config_, deps.jwt_verifier, deps.jwt_blacklist, deps.rate_limiter)
     , router_(deps.kafka, deps.route_table, static_cast<uint16_t>(deps.core_id),
               config_.kafka_response_topic)
     , pending_requests_(config_.max_pending_per_core, config_.request_timeout)
+    , channel_map_(deps.channel_map)
+    , pubsub_listener_(deps.pubsub_listener)
+    , core_id_(deps.core_id)
 {
     logger_->info("GatewayService created (core_id={}, routes={})",
                   deps.core_id, config_.routes.size());
@@ -49,6 +54,46 @@ void GatewayService::on_start() {
                             auto& state = auth_states_[session->id()];
                             state.token = token->str();
                             logger_->info("JWT bound to session {}", session->id());
+                        }
+                    }
+                }
+                co_return apex::core::ok();
+            }
+
+            // System message: SubscribeChannel (msg_id=4)
+            // Client subscribes to a Redis Pub/Sub channel for broadcast delivery.
+            // Gateway is channel-name-agnostic (no domain knowledge).
+            if (msg_id == 4) {
+                if (channel_map_ && !payload.empty()) {
+                    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+                    if (root) {
+                        auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+                        if (ch && ch->size() > 0) {
+                            auto result = channel_map_->subscribe(
+                                ch->str(), session->id(), core_id_);
+                            if (result) {
+                                if (pubsub_listener_) {
+                                    pubsub_listener_->subscribe(ch->str());
+                                }
+                                logger_->info("Session {} subscribed to '{}'",
+                                              session->id(), ch->str());
+                            }
+                        }
+                    }
+                }
+                co_return apex::core::ok();
+            }
+
+            // System message: UnsubscribeChannel (msg_id=5)
+            if (msg_id == 5) {
+                if (channel_map_ && !payload.empty()) {
+                    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+                    if (root) {
+                        auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+                        if (ch && ch->size() > 0) {
+                            channel_map_->unsubscribe(ch->str(), session->id());
+                            logger_->info("Session {} unsubscribed from '{}'",
+                                          session->id(), ch->str());
                         }
                     }
                 }

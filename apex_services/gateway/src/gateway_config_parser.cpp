@@ -161,6 +161,16 @@ parse_gateway_config(std::string_view path) {
         if (auto pubsub = tbl["pubsub"]; pubsub) {
             cfg.max_subscriptions_per_session = static_cast<uint32_t>(
                 pubsub["max_subscriptions_per_session"].value_or(int64_t{50}));
+
+            // global_channels = ["pub:global:chat", ...]
+            if (auto* channels = pubsub["global_channels"].as_array()) {
+                cfg.global_channels.clear();
+                for (auto& elem : *channels) {
+                    if (auto* str = elem.as_string()) {
+                        cfg.global_channels.push_back(str->get());
+                    }
+                }
+            }
         }
 
         // [timeouts]

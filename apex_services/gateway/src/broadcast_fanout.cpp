@@ -17,9 +17,6 @@ BroadcastFanout::BroadcastFanout(
 
 void BroadcastFanout::fanout(std::string_view channel,
                              std::span<const uint8_t> message) {
-    auto groups = channel_map_.get_subscribers(std::string(channel));
-    if (groups.empty()) return;
-
     // Build WireHeader v2 framed data from Redis Pub/Sub message
     auto frame = build_wire_frame(message);
     if (frame.empty()) {
@@ -29,6 +26,30 @@ void BroadcastFanout::fanout(std::string_view channel,
     }
 
     auto data = std::make_shared<std::vector<uint8_t>>(std::move(frame));
+
+    // Global channels (pub:global:*) — broadcast to ALL sessions on ALL cores.
+    // Gateway is channel-name-agnostic except for this prefix convention.
+    static constexpr std::string_view GLOBAL_PREFIX = "pub:global:";
+    if (channel.substr(0, GLOBAL_PREFIX.size()) == GLOBAL_PREFIX) {
+        for (uint32_t core_id = 0; core_id < session_mgrs_.size(); ++core_id) {
+            auto* mgr = session_mgrs_[core_id];
+            (void)apex::core::cross_core_post(
+                engine_, core_id,
+                [mgr, shared_data = data]() {
+                    mgr->for_each(
+                        [&shared_data](apex::core::SessionPtr session) {
+                            if (session && session->is_open()) {
+                                (void)session->enqueue_write_raw(*shared_data);
+                            }
+                        });
+                });
+        }
+        return;
+    }
+
+    // Room-specific channels — use ChannelSessionMap for targeted delivery.
+    auto groups = channel_map_.get_subscribers(std::string(channel));
+    if (groups.empty()) return;
 
     for (const auto& group : groups) {
         if (group.core_id >= session_mgrs_.size()) {

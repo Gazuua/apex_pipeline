@@ -65,6 +65,11 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
         EXPECT_EQ(join_resp->member_count(), 2u);  // Alice + Bob
     }
 
+    // 2b. Subscribe Bob to the room's Pub/Sub channel for broadcast delivery
+    subscribe_channel(bob, "pub:chat:room:" + std::to_string(room_id));
+    // Brief wait for PubSubListener to register the subscription
+    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+
     // 3. Alice sends a message
     {
         flatbuffers::FlatBufferBuilder fbb(256);

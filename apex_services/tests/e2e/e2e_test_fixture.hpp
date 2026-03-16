@@ -12,6 +12,11 @@
 #include <apex/shared/protocols/tcp/wire_header.hpp>
 
 #include <boost/asio/io_context.hpp>
+
+// Re-export wire_flags for test assertions
+namespace apex::e2e {
+    using namespace apex::shared::protocols::tcp::wire_flags;
+} // namespace apex::e2e
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 
@@ -180,6 +185,12 @@ protected:
 
     /// Bind JWT to session (sends AuthenticateSession message)
     void authenticate(TcpClient& client, const std::string& token);
+
+    /// Subscribe session to a Redis Pub/Sub channel (system msg_id=4)
+    void subscribe_channel(TcpClient& client, const std::string& channel);
+
+    /// Unsubscribe session from a Redis Pub/Sub channel (system msg_id=5)
+    void unsubscribe_channel(TcpClient& client, const std::string& channel);
 
     static E2EConfig config_;
     static ChildProcess gateway_proc_;

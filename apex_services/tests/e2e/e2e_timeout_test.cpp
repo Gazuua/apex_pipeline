@@ -39,12 +39,10 @@ TEST_F(TimeoutE2ETest, ServiceTimeout) {
     // Wait for Gateway timeout (gateway.toml request_timeout_ms = 5000 + margin)
     auto resp = client.recv(std::chrono::seconds{15});
 
-    // Gateway should return system error
-    EXPECT_LT(resp.msg_id, 1000u)
-        << "Expected system error msg_id for service timeout, got "
-        << resp.msg_id;
-    // SystemResponse should contain GatewayError::SERVICE_TIMEOUT
-    // or GatewayError::INVALID_MSG_ID
+    // Gateway should return error response (timeout)
+    EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
+        << "Expected error flag for service timeout, msg_id="
+        << resp.msg_id << " flags=" << static_cast<int>(resp.flags);
 
     client.close();
 }
