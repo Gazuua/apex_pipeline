@@ -71,11 +71,7 @@ MessageRouter::build_envelope(
     RoutingHeader rh;
     rh.msg_id = header.msg_id;
     rh.flags = 0;  // Request, unicast, uncompressed
-
-    // Reply-To: response_topic이 있으면 HAS_REPLY_TOPIC 플래그 세팅
-    if (!response_topic_.empty()) {
-        rh.flags |= routing_flags::HAS_REPLY_TOPIC;
-    }
+    // HAS_REPLY_TOPIC은 build_full_envelope이 reply_topic 유무에 따라 자동 설정
 
     // Metadata Prefix
     MetadataPrefix meta;
