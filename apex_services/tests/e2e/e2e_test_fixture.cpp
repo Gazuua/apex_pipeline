@@ -202,9 +202,11 @@ void E2ETestFixture::SetUpTestSuite() {
                   << " within timeout. Tests may fail.\n";
     }
 
-    // Wait for services to fully initialize (Kafka consumers, handler registration)
+    // Wait for services to fully initialize (Kafka consumers, handler registration,
+    // Redis PubSub connection, rate limit adapter).
     // TCP accept starts before service on_start() completes on some platforms.
-    std::this_thread::sleep_for(std::chrono::seconds{3});
+    // Kafka consumer group rebalancing can take several seconds.
+    std::this_thread::sleep_for(std::chrono::seconds{8});
 
     std::cout << "[E2E] Infrastructure ready.\n";
 }

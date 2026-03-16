@@ -90,11 +90,12 @@ void PubSubListener::run_thread() {
                 reinterpret_cast<void**>(&reply));
 
             if (status != REDIS_OK || !reply) {
-                // Timeout detection: hiredis sets REDIS_ERR_IO on read timeout.
-                // errno == EAGAIN works on Linux but not Windows (WSAETIMEDOUT).
-                // Since we configured a 1s read timeout via redisSetTimeout,
-                // any REDIS_ERR_IO without a reply is treated as timeout.
-                if (sync_ctx->err == REDIS_ERR_IO && !reply) {
+                // Timeout detection: hiredis sets REDIS_ERR_IO on read timeout
+                // on Linux (errno == EAGAIN). On Windows, hiredis may return
+                // different error codes (REDIS_ERR_IO with WSAETIMEDOUT, or
+                // REDIS_ERR_EOF). Treat any error with null reply as timeout
+                // since we configured a 1s read timeout via redisSetTimeout.
+                if (!reply) {
                     // Read timeout -- check running_ and loop
                     continue;
                 }
