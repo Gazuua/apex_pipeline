@@ -16,14 +16,11 @@ TEST(RedisConfig, DefaultValues) {
     RedisConfig config;
     EXPECT_EQ(config.host, "localhost");
     EXPECT_EQ(config.port, 6379);
-    EXPECT_EQ(config.pool_size_per_core, 3u);
-    EXPECT_EQ(config.pool_max_size_per_core, 8u);
     EXPECT_TRUE(config.password.empty());
     EXPECT_EQ(config.db, 0u);
     EXPECT_EQ(config.connect_timeout, std::chrono::milliseconds{3000});
     EXPECT_EQ(config.command_timeout, std::chrono::milliseconds{1000});
-    EXPECT_EQ(config.max_idle_time, std::chrono::seconds{60});
-    EXPECT_EQ(config.health_check_interval, std::chrono::seconds{30});
+    EXPECT_EQ(config.reconnect_max_backoff, std::chrono::milliseconds{30000});
 }
 
 TEST(RedisConfig, CustomValues) {
@@ -32,15 +29,17 @@ TEST(RedisConfig, CustomValues) {
         .port = 6380,
         .password = "secret",
         .db = 2,
-        .pool_size_per_core = 5,
-        .pool_max_size_per_core = 16,
+        .connect_timeout = std::chrono::milliseconds{5000},
+        .command_timeout = std::chrono::milliseconds{2000},
+        .reconnect_max_backoff = std::chrono::milliseconds{60000},
     };
     EXPECT_EQ(config.host, "redis.local");
     EXPECT_EQ(config.port, 6380);
     EXPECT_EQ(config.password, "secret");
     EXPECT_EQ(config.db, 2u);
-    EXPECT_EQ(config.pool_size_per_core, 5u);
-    EXPECT_EQ(config.pool_max_size_per_core, 16u);
+    EXPECT_EQ(config.connect_timeout, std::chrono::milliseconds{5000});
+    EXPECT_EQ(config.command_timeout, std::chrono::milliseconds{2000});
+    EXPECT_EQ(config.reconnect_max_backoff, std::chrono::milliseconds{60000});
 }
 
 // --- HiredisAsioAdapter 구조 테스트 (Redis 서버 없이 컴파일/링크 검증) ---

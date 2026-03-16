@@ -325,15 +325,20 @@ void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error) {
     auto local = std::move(pending_);
     for (auto* cmd : local) {
         cmd->result = std::unexpected(error);
-        cmd->resolver.cancel();
-    }
-    // Destroy all PendingCommands immediately. This is safe because:
-    // - On disconnect: hiredis won't fire further callbacks
-    // - On close/destructor: we're tearing down the connection
-    // The coroutines will be cancelled but their resume handlers (posted
-    // to io_context) must not access this multiplexer after destruction.
-    for (auto* cmd : local) {
-        slab_.destroy(cmd);
+        if (cmd->timed_out) {
+            // Already timed out: the coroutine has resumed and called
+            // release_pending (which returned early). hiredis won't fire
+            // further callbacks after disconnect, so we must destroy here
+            // to avoid a leak.
+            slab_.destroy(cmd);
+        } else {
+            // Not timed out: the coroutine is still suspended on
+            // resolver.async_wait. cancel() posts a completion handler
+            // that resumes the coroutine, which then calls release_pending
+            // → slab_.destroy. Destroying here would cause UAF when the
+            // coroutine resumes and accesses the PendingCommand.
+            cmd->resolver.cancel();
+        }
     }
 }
 

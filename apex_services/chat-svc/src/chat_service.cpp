@@ -138,16 +138,16 @@ std::vector<uint8_t> ChatService::build_pubsub_payload(
     uint32_t msg_id,
     std::span<const uint8_t> fbs_payload) const
 {
-    // Format: [msg_id(u32 LE)] + [fbs payload]
-    // Gateway reads msg_id to build WireHeader, then forwards fbs payload.
+    // Format: [msg_id(u32 BE)] + [fbs payload]
+    // Gateway BroadcastFanout reads msg_id as big-endian to build WireHeader.
     std::vector<uint8_t> buf;
     buf.reserve(sizeof(uint32_t) + fbs_payload.size());
 
-    // Little-endian msg_id
-    buf.push_back(static_cast<uint8_t>(msg_id & 0xFF));
-    buf.push_back(static_cast<uint8_t>((msg_id >> 8) & 0xFF));
-    buf.push_back(static_cast<uint8_t>((msg_id >> 16) & 0xFF));
+    // Big-endian msg_id (matches BroadcastFanout::build_wire_frame parsing)
     buf.push_back(static_cast<uint8_t>((msg_id >> 24) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((msg_id >> 16) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((msg_id >> 8) & 0xFF));
+    buf.push_back(static_cast<uint8_t>(msg_id & 0xFF));
 
     buf.insert(buf.end(), fbs_payload.begin(), fbs_payload.end());
     return buf;

@@ -22,8 +22,8 @@ namespace apex::shared::adapters::redis {
 ///
 ///   // Inside a service handler:
 ///   auto& redis = server.adapter<RedisAdapter>();
-///   auto& mux = redis.multiplexer();
-///   auto val = co_await mux.command("GET key");
+///   auto& mux = redis.multiplexer(core_id);
+///   auto val = co_await mux.command("GET %s", "key");
 class RedisAdapter : public AdapterBase<RedisAdapter> {
 public:
     explicit RedisAdapter(RedisConfig config);

@@ -32,19 +32,23 @@ TEST(CryptoUtilTest, Sha256HexDifferentInputs) {
 }
 
 TEST(CryptoUtilTest, GenerateSecureTokenLength) {
-    auto token = generate_secure_token(32);
-    EXPECT_EQ(token.size(), 64u);  // 32 bytes -> 64 hex chars
+    auto result = generate_secure_token(32);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->size(), 64u);  // 32 bytes -> 64 hex chars
 }
 
 TEST(CryptoUtilTest, GenerateSecureTokenUnique) {
-    auto token1 = generate_secure_token();
-    auto token2 = generate_secure_token();
-    EXPECT_NE(token1, token2);
+    auto result1 = generate_secure_token();
+    auto result2 = generate_secure_token();
+    ASSERT_TRUE(result1.has_value());
+    ASSERT_TRUE(result2.has_value());
+    EXPECT_NE(*result1, *result2);
 }
 
 TEST(CryptoUtilTest, GenerateSecureTokenHexChars) {
-    auto token = generate_secure_token();
-    for (char c : token) {
+    auto result = generate_secure_token();
+    ASSERT_TRUE(result.has_value());
+    for (char c : *result) {
         EXPECT_TRUE((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))
             << "Non-hex character found: " << c;
     }

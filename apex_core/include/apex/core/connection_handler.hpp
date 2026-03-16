@@ -22,6 +22,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
 
 namespace apex::core {
@@ -45,6 +46,7 @@ public:
         : session_mgr_(session_mgr)
         , dispatcher_(dispatcher)
         , config_(config)
+        , logger_(spdlog::default_logger())
     {}
 
     /// Accept a new connection -- create session + spawn read_loop.
@@ -81,8 +83,9 @@ private:
             auto& rb = session->recv_buffer();
             auto writable = rb.writable();
             if (writable.empty()) {
-                spdlog::warn("session {} recv_buffer full — closing connection",
-                             session->id());
+                if (logger_)
+                    logger_->warn("session {} recv_buffer full — closing connection",
+                                  session->id());
                 session->close();
                 break;
             }
@@ -92,10 +95,12 @@ private:
                 boost::asio::as_tuple(boost::asio::use_awaitable));
             if (ec || n == 0) {
                 if (ec && ec != boost::asio::error::eof) {
-                    spdlog::warn("session {} abnormal disconnect: {}",
-                                 session->id(), ec.message());
+                    if (logger_)
+                        logger_->warn("session {} abnormal disconnect: {}",
+                                      session->id(), ec.message());
                 } else {
-                    spdlog::debug("session {} disconnected (EOF)", session->id());
+                    if (logger_)
+                        logger_->debug("session {} disconnected (EOF)", session->id());
                 }
                 break;
             }
@@ -139,8 +144,9 @@ private:
                 // WebSocket-style frame (payload only, msg_id in first 4 bytes)
                 const auto& raw = frame.payload;
                 if (raw.size() < sizeof(uint32_t)) {
-                    spdlog::warn("session {} frame too small for msg_id — closing",
-                                 session->id());
+                    if (logger_)
+                        logger_->warn("session {} frame too small for msg_id — closing",
+                                      session->id());
                     session->close();
                     co_return;
                 }
@@ -168,6 +174,7 @@ private:
     SessionManager& session_mgr_;
     MessageDispatcher& dispatcher_;
     ConnectionHandlerConfig config_;
+    std::shared_ptr<spdlog::logger> logger_;  // Cached to survive spdlog::shutdown()
     std::atomic<uint32_t> active_sessions_{0};
 };
 

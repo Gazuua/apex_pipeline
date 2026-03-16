@@ -179,8 +179,8 @@ void AuthService::handle_login(
     // Current implementation is synchronous placeholder -- async integration
     // will be completed in E2E phase (Plan 5).
 
-    spdlog::info("[AuthService] handle_login (email: {}, corr_id: {}, session: {})",
-                 email, corr_id, session_id);
+    spdlog::info("[AuthService] handle_login (corr_id: {}, session: {})",
+                 corr_id, session_id);
 
     // Placeholder: send success response with empty tokens
     // Real implementation will:

@@ -307,16 +307,31 @@ Round 1 리뷰 + 수정이 완료된 후 (Step 5~8 완료), `reviewer-cross-cutt
 report를 team-lead(메인)에게 전송한 후, **팀 해산을 자체적으로 수행하지 않는다.**
 메인(team-lead)으로부터 `shutdown_request`를 수신한 경우에만 팀 해산을 진행한다.
 
+> **절대 규칙**: coordinator는 리뷰어 전원의 종료를 확인하기 전까지 자신의 shutdown_approved를 절대 전송하지 않는다.
+> coordinator가 리뷰어보다 먼저 종료되면 리뷰어가 좀비화되어 시스템 리소스를 점유한다.
+
+### Shutdown 절차
+
 1. **team-lead로부터 `shutdown_request` 수신**
 2. **리뷰어 종료 요청**: 모든 리뷰어 teammate에게 SendMessage로 `shutdown_request` 전송
-3. **응답 대기**: 각 리뷰어의 shutdown 승인 응답을 대기
-4. **전원 종료 확인 후 자신도 shutdown 승인**: 리뷰어 전원 종료를 확인한 뒤 자신의 shutdown을 승인하고 종료
+3. **응답 대기 + 추적**: 리뷰어 목록을 체크리스트로 관리하며, 각 리뷰어의 shutdown_approved 수신을 추적
+4. **전원 종료 확인 후 자신도 shutdown 승인**: 리뷰어 전원의 shutdown_approved를 확인한 뒤에만 자신의 shutdown_approved를 전송하고 종료
 
-### Shutdown Fallback
-- 각 리뷰어에게 shutdown_request 전송 후 30초 대기
-- 30초 내 shutdown_approved 미수신 시 해당 리뷰어를 "좀비"로 분류
-- 좀비 리뷰어 목록을 메인(team-lead)에게 report에 포함하여 보고
-- coordinator 자신은 좀비 리뷰어 존재 여부와 관계없이 shutdown_approved 응답
+### Shutdown Fallback (타임아웃)
+
+리뷰어가 응답하지 않는 경우를 대비한 안전장치:
+
+1. 각 리뷰어에게 shutdown_request 전송 후 **30초 타임아웃** 시작
+2. 30초 내 shutdown_approved 미수신 리뷰어는 **"좀비"로 분류**
+3. 좀비 리뷰어 목록을 포함한 shutdown report를 메인(team-lead)에게 전송:
+   ```
+   [shutdown-report]
+   terminated: [정상 종료된 리뷰어 목록]
+   zombie: [좀비 리뷰어 목록]
+   ```
+4. 좀비 리뷰어가 있더라도 **30초 타임아웃이 만료된 후에만** 자신의 shutdown_approved를 전송
+   - 타임아웃 전에 자신을 먼저 종료하는 것은 금지 — 응답이 늦게 오는 리뷰어와 좀비를 구분하기 위해 반드시 30초를 대기
+5. 메인(team-lead)이 좀비 리뷰어를 config.json에서 직접 정리
 
 ---
 

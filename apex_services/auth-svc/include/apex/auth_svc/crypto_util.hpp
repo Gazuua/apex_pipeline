@@ -1,5 +1,7 @@
 #pragma once
 
+#include <apex/core/result.hpp>
+
 #include <openssl/sha.h>
 #include <openssl/rand.h>
 
@@ -27,11 +29,13 @@ namespace apex::auth_svc {
     return result;
 }
 
-/// Cryptographically secure random token generation (hex, 64 chars default)
-[[nodiscard]] inline std::string generate_secure_token(size_t bytes = 32) {
+/// Cryptographically secure random token generation (hex, 64 chars default).
+/// Returns Result to force callers to handle CSPRNG failure explicitly.
+[[nodiscard]] inline apex::core::Result<std::string>
+generate_secure_token(size_t bytes = 32) {
     std::vector<uint8_t> buf(bytes);
     if (RAND_bytes(buf.data(), static_cast<int>(bytes)) != 1) {
-        return {};  // CSPRNG failure — return empty (caller must check)
+        return apex::core::error(apex::core::ErrorCode::AdapterError);
     }
 
     std::string result;

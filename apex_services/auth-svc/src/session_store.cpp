@@ -3,9 +3,25 @@
 #include <apex/core/core_engine.hpp>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <format>
 
 namespace apex::auth_svc {
+
+namespace {
+
+/// Validate token hash: must be hex string (SHA-256 = 64 chars).
+/// Prevents Redis key injection via crafted token_hash values.
+bool is_valid_token_hash(std::string_view hash) noexcept {
+    if (hash.empty() || hash.size() > 128) return false;
+    return std::ranges::all_of(hash, [](char c) {
+        return (c >= '0' && c <= '9') ||
+               (c >= 'a' && c <= 'f') ||
+               (c >= 'A' && c <= 'F');
+    });
+}
+
+} // anonymous namespace
 
 SessionStore::SessionStore(
     apex::shared::adapters::redis::RedisAdapter& redis,
@@ -75,6 +91,11 @@ SessionStore::remove(uint64_t user_id) {
 boost::asio::awaitable<apex::core::Result<void>>
 SessionStore::blacklist_token(std::string_view token_hash,
                               std::chrono::seconds ttl) {
+    if (!is_valid_token_hash(token_hash)) {
+        spdlog::warn("[SessionStore] Invalid token_hash format, rejecting blacklist");
+        co_return apex::core::error(apex::core::ErrorCode::InvalidMessage);
+    }
+
     auto key = blacklist_key(token_hash);
     auto ttl_sec = static_cast<int>(ttl.count());
 
@@ -93,6 +114,11 @@ SessionStore::blacklist_token(std::string_view token_hash,
 
 boost::asio::awaitable<apex::core::Result<bool>>
 SessionStore::is_blacklisted(std::string_view token_hash) {
+    if (!is_valid_token_hash(token_hash)) {
+        spdlog::warn("[SessionStore] Invalid token_hash format, rejecting as blacklisted");
+        co_return true;  // Reject invalid hash (conservative)
+    }
+
     auto key = blacklist_key(token_hash);
 
     auto core_id = apex::core::CoreEngine::current_core_id();

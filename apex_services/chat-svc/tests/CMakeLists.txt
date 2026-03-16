@@ -32,6 +32,7 @@ if(WIN32)
 endif()
 
 add_test(NAME chat_svc_unit_tests COMMAND chat_svc_unit_tests)
+set_tests_properties(chat_svc_unit_tests PROPERTIES TIMEOUT 30)
 
 # --- Chat Handler Tests (Mock adapter + Envelope dispatch) ---
 add_executable(chat_svc_handler_tests
@@ -58,3 +59,4 @@ if(WIN32)
 endif()
 
 add_test(NAME chat_svc_handler_tests COMMAND chat_svc_handler_tests)
+set_tests_properties(chat_svc_handler_tests PROPERTIES TIMEOUT 30)

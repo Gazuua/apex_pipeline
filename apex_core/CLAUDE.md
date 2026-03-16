@@ -16,7 +16,7 @@
   - `build.bat`은 `%~dp0` 기반이라 워크트리에서도 스크립트 경로 자체는 정상 동작
   - `vswhere.exe` 실행이 워크트리 환경에서 실패할 수 있음 → 스크립트 내 fallback 경로(`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"`) 사용
   - fallback 경로에도 `vswhere.exe`가 없으면 빌드 불가 — 메인 워크스페이스에서 빌드 검증 필요
-- **의존성 (vcpkg)**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, hiredis, libpq, librdkafka, redis-plus-plus, spdlog, tomlplusplus — 향후: boost-beast (v0.5.1.0)
+- **의존성 (vcpkg)**: benchmark, boost-asio, boost-beast, boost-unordered, flatbuffers, gtest, hiredis, jwt-cpp, libpq, librdkafka, openssl, redis-plus-plus, spdlog, tomlplusplus
 
 ## MSVC 주의사항
 
