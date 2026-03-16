@@ -211,7 +211,7 @@ size_t envelope_payload_offset(
     size_t offset = ENVELOPE_HEADER_SIZE;
 
     if (flags & routing_flags::HAS_REPLY_TOPIC) {
-        if (data.size() > offset + sizeof(uint16_t)) {
+        if (data.size() >= offset + sizeof(uint16_t)) {
             auto result = ReplyTopicHeader::parse(data.subspan(offset));
             if (result.has_value()) {
                 offset += result->second;
@@ -230,7 +230,7 @@ std::string extract_reply_topic(
         return {};
     }
 
-    if (data.size() <= ENVELOPE_HEADER_SIZE + sizeof(uint16_t)) {
+    if (data.size() < ENVELOPE_HEADER_SIZE + sizeof(uint16_t)) {
         return {};
     }
 
