@@ -7,6 +7,7 @@ add_executable(auth_svc_unit_tests
     unit/test_jwt_manager.cpp
     unit/test_session_store.cpp
     unit/test_envelope_codec.cpp
+    unit/test_auth_handlers.cpp
 )
 
 target_link_libraries(auth_svc_unit_tests
@@ -21,6 +22,7 @@ target_link_libraries(auth_svc_unit_tests
 target_include_directories(auth_svc_unit_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/apex_services
 )
 
 if(WIN32)

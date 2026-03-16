@@ -32,3 +32,29 @@ if(WIN32)
 endif()
 
 add_test(NAME chat_svc_unit_tests COMMAND chat_svc_unit_tests)
+
+# --- Chat Handler Tests (Mock adapter + Envelope dispatch) ---
+add_executable(chat_svc_handler_tests
+    unit/test_chat_handlers.cpp
+)
+
+target_link_libraries(chat_svc_handler_tests
+    PRIVATE
+        apex_core
+        apex_protocols_kafka
+        GTest::gtest
+        GTest::gtest_main
+)
+
+target_include_directories(chat_svc_handler_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+        ${CMAKE_SOURCE_DIR}/apex_services
+)
+
+if(WIN32)
+    target_compile_options(chat_svc_handler_tests PRIVATE /utf-8)
+    target_compile_definitions(chat_svc_handler_tests PRIVATE _WIN32_WINNT=0x0A00)
+endif()
+
+add_test(NAME chat_svc_handler_tests COMMAND chat_svc_handler_tests)
