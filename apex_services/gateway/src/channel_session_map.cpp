@@ -1,13 +1,28 @@
 #include <apex/gateway/channel_session_map.hpp>
 
+#include <apex/core/error_code.hpp>
+
 #include <algorithm>
 
 namespace apex::gateway {
 
-void ChannelSessionMap::subscribe(const std::string& channel,
-                                   apex::core::SessionId session_id,
-                                   uint32_t core_id) {
+ChannelSessionMap::ChannelSessionMap(uint32_t max_subscriptions_per_session)
+    : max_subscriptions_per_session_(max_subscriptions_per_session) {}
+
+apex::core::Result<void>
+ChannelSessionMap::subscribe(const std::string& channel,
+                               apex::core::SessionId session_id,
+                               uint32_t core_id) {
     std::unique_lock lock(mutex_);
+
+    // Check per-session subscription limit
+    auto& channels = session_to_channels_[session_id];
+    if (max_subscriptions_per_session_ > 0 &&
+        channels.size() >= max_subscriptions_per_session_ &&
+        !channels.contains(channel)) {
+        return apex::core::error(
+            apex::core::ErrorCode::SubscriptionLimitExceeded);
+    }
 
     auto& sessions = channel_to_sessions_[channel];
     // Check for duplicate
@@ -18,7 +33,8 @@ void ChannelSessionMap::subscribe(const std::string& channel,
         sessions.push_back(SessionInfo{session_id, core_id});
     }
 
-    session_to_channels_[session_id].insert(channel);
+    channels.insert(channel);
+    return apex::core::ok();
 }
 
 void ChannelSessionMap::unsubscribe(const std::string& channel,

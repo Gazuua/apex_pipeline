@@ -3,6 +3,8 @@
 #include <apex/core/cross_core_call.hpp>
 #include <spdlog/spdlog.h>
 
+#include <cstring>
+
 namespace apex::gateway {
 
 BroadcastFanout::BroadcastFanout(
@@ -18,10 +20,15 @@ void BroadcastFanout::fanout(std::string_view channel,
     auto groups = channel_map_.get_subscribers(std::string(channel));
     if (groups.empty()) return;
 
-    // Service publishes complete WireHeader + payload frame to Redis.
-    // Gateway forwards it to sessions as-is (opaque).
-    auto data = std::make_shared<std::vector<uint8_t>>(
-        message.begin(), message.end());
+    // Build WireHeader v2 framed data from Redis Pub/Sub message
+    auto frame = build_wire_frame(message);
+    if (frame.empty()) {
+        spdlog::warn("BroadcastFanout: failed to build wire frame for channel '{}'",
+                     channel);
+        return;
+    }
+
+    auto data = std::make_shared<std::vector<uint8_t>>(std::move(frame));
 
     for (const auto& group : groups) {
         if (group.core_id >= session_mgrs_.size()) {
@@ -44,6 +51,47 @@ void BroadcastFanout::fanout(std::string_view channel,
                 }
             });
     }
+}
+
+std::vector<uint8_t>
+BroadcastFanout::build_wire_frame(std::span<const uint8_t> message) {
+    // Redis Pub/Sub message format: [4B msg_id BE] + [payload]
+    // If message is shorter than 4 bytes, treat as system broadcast (msg_id=0, no payload).
+    uint32_t msg_id = 0;
+    std::span<const uint8_t> payload;
+
+    if (message.size() >= PUBSUB_MSG_ID_SIZE) {
+        // Extract big-endian msg_id
+        msg_id = (static_cast<uint32_t>(message[0]) << 24) |
+                 (static_cast<uint32_t>(message[1]) << 16) |
+                 (static_cast<uint32_t>(message[2]) << 8)  |
+                 (static_cast<uint32_t>(message[3]));
+        payload = message.subspan(PUBSUB_MSG_ID_SIZE);
+    } else if (!message.empty()) {
+        // Malformed — too short for msg_id prefix
+        spdlog::warn("BroadcastFanout: message too short ({} bytes) for msg_id prefix",
+                     message.size());
+        return {};
+    }
+    // else: empty message -> msg_id=0, empty payload (e.g., heartbeat/signal)
+
+    // Build WireHeader v2
+    apex::core::WireHeader wh;
+    wh.msg_id = msg_id;
+    wh.body_size = static_cast<uint32_t>(payload.size());
+    wh.flags = 0;
+
+    // Assemble [12B WireHeader] + [payload]
+    std::vector<uint8_t> frame(apex::core::WireHeader::SIZE + payload.size());
+    auto hdr_buf = wh.serialize();
+    std::memcpy(frame.data(), hdr_buf.data(), hdr_buf.size());
+
+    if (!payload.empty()) {
+        std::memcpy(frame.data() + apex::core::WireHeader::SIZE,
+                    payload.data(), payload.size());
+    }
+
+    return frame;
 }
 
 } // namespace apex::gateway

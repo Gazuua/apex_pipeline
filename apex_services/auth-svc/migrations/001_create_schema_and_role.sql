@@ -8,6 +8,8 @@ CREATE SCHEMA IF NOT EXISTS auth_svc;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'auth_role') THEN
+        -- WARNING: Default dev password. MUST be changed in production.
+        -- Will migrate to Docker/K8s secrets-based injection in v0.6.
         CREATE ROLE auth_role WITH LOGIN PASSWORD 'auth_secret_change_me';
     END IF;
 END

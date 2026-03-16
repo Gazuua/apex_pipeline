@@ -5,84 +5,105 @@
 
 ---
 
-## Critical / High
+## Critical
 
-### [Critical] v0.5 기능 개발 본격 진행
-- **위치**: 프로젝트 전체
+### [Critical] C-1. PerIpRateLimiter TTL 콜백 미연결
+- **위치**: `apex_shared/lib/rate_limit/src/per_ip_rate_limiter.cpp`
 - **상태**: 미구현
-- **배치**: Wave 1 전체 선행
-- **설명**: 개발 기반환경(빌드, clangd LSP, auto-review, CI) 세팅 완료. 환경 작업 최소화하고 기능 구현에 집중 — v0.4.5.2 기준
+- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
+- **설명**: TimingWheel on_expire → remove_entry 연결 부재. 만료 엔트리 메모리 잔존. core/shared 경계 설계 결정 필요 (TimingWheel은 core, PerIpRateLimiter는 shared) — 출처: auto-review (reviewer-memory)
 
-### [High] Redis AUTH 미구현 + password 필드 미사용
-- **위치**: `apex_shared/` RedisConfig / 비동기 연결 핸드셰이크
+### [Critical] C-2. ResponseDispatcher::on_response() 데이터 레이스
+- **위치**: `apex_services/gateway/src/response_dispatcher.cpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: RedisConfig::password 존재하나 연결 시 AUTH 명령 미전송. 비동기 연결 핸드셰이크 재설계 필요 — 출처: review/20260314_085000_backlog.md, review/20260314_090000_auto-review.md (v0.5)
+- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
+- **설명**: Kafka 스레드에서 per-core PendingRequestsMap 직접 접근. cross_core_post 위임 설계 필요. 보안+정합성 영향 (다른 세션에 응답 전달 가능) — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
+
+### [Critical] C-3. RefreshTokenRequest(msg_id=10) 라우팅 불가
+- **위치**: `apex_services/gateway/gateway.toml`
+- **상태**: 미구현
+- **배치**: v0.5 Wave 2 패치
+- **설명**: gateway.toml routes에 시스템 범위([0,999]) 누락. 시스템 메시지별 라우팅 분기 설계 필요 — 출처: auto-review (reviewer-cross-cutting)
 
 ---
 
-## 어댑터 회복력
+## Important
 
-### [Medium] PgPool acquire() immediate-fail 설계
-- **위치**: `apex_shared/` PgPool
+### [Important] I-1. ChannelSessionMap 무제한 메모리 증가
+- **위치**: `apex_services/gateway/include/apex/gateway/channel_session_map.hpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: 풀 고갈 시 재시도/백프레셔 미구현, 즉시 실패 반환. v0.5에서 재시도 정책 고려 — 출처: review/20260314_140000_auto-review.md (v0.5)
+- **배치**: v0.5 패치
+- **설명**: per-session 구독 제한 정책 미설정. 비즈니스 결정 필요 — 출처: auto-review (reviewer-memory)
 
-### [Medium] KafkaAdapter draining_ 이중 추적 + per-core 접근 패턴 혼재
-- **위치**: `apex_shared/` KafkaAdapter
+### [Important] I-2. GatewayPipeline::set_rate_limiter() 동시성 보호 없음
+- **위치**: `apex_services/gateway/include/apex/gateway/gateway_pipeline.hpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: draining_ bool이 api→logic 경계를 넘나들며 사용됨. 접근 패턴 정리 필요 — 출처: review/20260314_140000_auto-review.md (v0.5)
+- **배치**: v0.5 패치
+- **설명**: atomic 또는 strand 보장 필요. ConfigReloader 활성화 시 실제 레이스 — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
 
-### [Medium] RedisReply ARRAY 타입 미지원
-- **위치**: `apex_shared/` RedisReply
+### [Important] I-3. review 문서 2개 상세 내용 부재
+- **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: SMEMBERS/LRANGE 등 배열 응답 파싱 불가 — 출처: review/20260314_090000_auto-review.md (v0.5)
+- **배치**: 별도 판단 (원본 데이터 없이 복원 불가)
+- **설명**: 원본 데이터 없이 복원 불가 — 출처: auto-review (reviewer-docs-records)
 
-### [Medium] RedisMultiplexer pipeline() 순차 실행
-- **위치**: `apex_shared/` RedisMultiplexer
-- **상태**: 부분 구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: 현재 cmd 하나씩 전송+대기. 진짜 파이프라이닝(모든 cmd 전송 후 응답 일괄 수집)은 별도 설계 필요 — 출처: progress/20260314_190000_v0.4.5_progress.md (v0.5)
-
-### [Medium] 공통 retry with exponential backoff 레이어
-- **위치**: `apex_shared/` 어댑터 공통
+### [Important] I-4. FileWatcher 테스트 flaky 위험
+- **위치**: `apex_services/gateway/tests/test_file_watcher.cpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: 어댑터 전반에 공통 재시도 레이어 필요 — 출처: 어댑터 회복력 (E-2) v0.5.2 Gateway 마일스톤
+- **배치**: v0.5 패치
+- **설명**: sleep 기반, CI 환경 의존. clock injection 향후 개선 — 출처: auto-review (reviewer-test-quality)
 
-### [Medium] Circuit Breaker 패턴
-- **위치**: `apex_shared/` 어댑터 공통
+### [Important] I-5. PendingRequests 테스트 flaky 위험
+- **위치**: `apex_services/gateway/tests/test_pending_requests.cpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: 연속 실패 시 빠른 실패 반환 — 출처: 어댑터 회복력 (E-2) v0.5.2 Gateway 마일스톤
+- **배치**: v0.5 패치
+- **설명**: sleep 기반, 시간 injection 미지원 — 출처: auto-review (reviewer-test-quality)
 
-### [Medium] Dead Letter Queue (Kafka Consumer)
-- **위치**: `apex_shared/` KafkaAdapter
+### [Important] I-6. gateway.toml JWT secret 하드코딩
+- **위치**: `apex_services/gateway/gateway.toml`
 - **상태**: 미구현
-- **배치**: Wave 1 — B. 어댑터 회복력
-- **설명**: Kafka Consumer 처리 실패 메시지를 별도 큐로 격리 — 출처: 어댑터 회복력 (E-2) v0.5.2 Gateway 마일스톤
+- **배치**: v0.6 (운영 인프라)
+- **설명**: 환경변수 치환 메커니즘 필요 — 출처: auto-review (reviewer-security)
 
-### 관련 설계서
-- Apex_Pipeline.md §5 안정성 설계
+### [Important] I-7. SQL 마이그레이션 기본 비밀번호
+- **위치**: `apex_services/auth-svc/migrations/`
+- **상태**: 미구현
+- **배치**: v0.6 (운영 인프라)
+- **설명**: 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-security)
+
+### [Important] I-8. session_store Redis 명령 인젝션
+- **위치**: `apex_services/auth-svc/src/session_store.cpp`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: RedisMultiplexer printf-style API 변경 필요 — 출처: auto-review (reviewer-security)
+
+### [Important] I-9. PubSub→클라이언트 프레임 포맷 불일치
+- **위치**: `apex_services/gateway/src/broadcast_fanout.cpp`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: build_pubsub_payload vs WireHeader 계약 위반. placeholder이지만 구현 시 수정 필요 — 출처: auto-review (reviewer-cross-cutting)
+
+### [Important] I-10. redis.ratelimit TOML 섹션 파싱 누락
+- **위치**: `apex_services/gateway/src/gateway_config_parser.cpp`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: GatewayConfig + parser 변경 필요 — 출처: auto-review (reviewer-cross-cutting)
+
+### [Important] I-11. RateLimitEndpointConfig → EndpointRateConfig 변환 경로 부재
+- **위치**: `apex_services/gateway/src/config_reloader.cpp`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: hot-reload 경로 단절 — 출처: auto-review (reviewer-cross-cutting)
 
 ---
 
-## 프로토콜 + 스키마
+## Minor
 
-### [Medium] per-session write queue (concurrent write 방지)
-- **위치**: `apex_core/` ConnectionHandler / Session
+### [Minor] m-1. user_id 파라미터 미사용
+- **위치**: `apex_services/gateway/src/message_router.cpp`
 - **상태**: 미구현
-- **배치**: Wave 1 — C. 프로토콜 + 스키마
-- **설명**: 채팅 브로드캐스트/push 알림 시 같은 세션에 동시 async_send 발생 가능. per-session write queue로 직렬화 필요. ConnectionHandler 분리(3.1) 시 send_message() 추상화 계층 고려 — 출처: plans/phase5_5_v6.md B-4 (v0.5)
-
-### [Low] Apex_Pipeline.md apex_shared/schemas/ placeholder
-- **위치**: `docs/Apex_Pipeline.md`, `apex_shared/schemas/`
-- **상태**: 미구현
-- **배치**: Wave 1 — C. 프로토콜 + 스키마
-- **설명**: 설계 문서에 schemas/ 디렉토리 언급되나 아직 미생성 — 출처: review/20260314_140000_auto-review.md
+- **배치**: v0.5 패치
+- **설명**: MessageRouter + MetadataPrefix에 user_id 전달 경로 없음. 설계-구현 갭 — 출처: auto-review (reviewer-cross-cutting)
 
 ---
 
@@ -91,31 +112,31 @@
 ### [Low] session.cpp clang-tidy 워닝 잔여분
 - **위치**: `apex_core/` — `session.cpp`
 - **상태**: 부분 구현
-- **배치**: Wave 1 — A. 코드 위생
+- **배치**: v0.5 패치
 - **설명**: server.cpp(1건), arena_allocator.cpp(8건) 수정 완료. session.cpp 5건(implicit-bool-conversion, owning-memory, coroutine-ref-param, unused-return-value 등) 중 2건만 수정, 나머지 미완료 — 출처: clangd LSP 진단 (v0.4.5.2)
 
 ### [Low] 테스트 이름 오타 MoveConstruction 2건
 - **위치**: `apex_core/` — `test_bump_allocator.cpp:103`, `test_arena_allocator.cpp:109`
 - **상태**: 미구현
-- **배치**: Wave 1 — A. 코드 위생
+- **배치**: v0.5 패치
 - **설명**: `MoveConstruction` (오타 여부 확인 필요) — 출처: review/20260314_140000_auto-review.md
 
 ### [Low] make_socket_pair 반환 순서 불일치
 - **위치**: `apex_core/` make_socket_pair 및 호출처
 - **상태**: 미구현
-- **배치**: Wave 1 — A. 코드 위생
+- **배치**: v0.5 패치
 - **설명**: 함수는 `{server, client}` 반환하나 일부 호출처에서 순서 혼용 — 출처: review/20260314_140000_auto-review.md
 
 ### [Low] main 히스토리 문서 전용 커밋 squash
 - **위치**: main 브랜치 git 히스토리
 - **상태**: 미구현
-- **배치**: Wave 1 — A. 코드 위생
+- **배치**: Wave 배정 보류
 - **설명**: docs 전용 커밋이 전체의 30~40% 차지. interactive rebase로 인접 문서 커밋 squash 정리 필요 — 출처: 코드 리뷰 피드백
 
 ### [Low] plans-progress 추적성 갭 2건
 - **위치**: `docs/` plans, progress
 - **상태**: 미구현
-- **배치**: Wave 1 — A. 코드 위생
+- **배치**: Wave 배정 보류
 - **설명**: docs-consolidation, roadmap-redesign 계획서에 대응하는 progress 문서 없음 (초기 레거시) — 출처: review/20260314_140000_auto-review.md
 
 ---
@@ -125,32 +146,38 @@
 ### [Medium] ConnectionHandler 단위 테스트 부재
 - **위치**: `apex_core/` ConnectionHandler
 - **상태**: 미구현
-- **배치**: Wave 1 — E-1. 기존 코드 단위 테스트
+- **배치**: v0.5 패치
 - **설명**: 다수 리뷰에서 반복 지적, E2E 간접 커버 중. 상당한 작업량 — 출처: review/20260314_140000_auto-review.md, review/20260313_005117_auto-review.md (v0.5)
 
 ### [Medium] PgTransaction begun_ 경로 unit test 불가
 - **위치**: `apex_shared/` PgTransaction
 - **상태**: 미구현
-- **배치**: Wave 1 — E-1. 기존 코드 단위 테스트
+- **배치**: v0.5 패치
 - **설명**: begin()이 async이므로 mock PgConnection 또는 integration test 필요 — 출처: review/20260314_090000_auto-review.md (v0.5)
 
 ### [Medium] Server 라이프사이클 에러 경로 테스트
 - **위치**: `apex_core/` Server
 - **상태**: 미구현
-- **배치**: Wave 1 — E-1. 기존 코드 단위 테스트
+- **배치**: v0.5 패치
 - **설명**: 별도 태스크로 분리 — 출처: review/20260314_090000_auto-review.md (v0.5)
 
 ### [Medium] RedisMultiplexer 코루틴 명령 테스트
 - **위치**: `apex_shared/` RedisMultiplexer
 - **상태**: 미구현
-- **배치**: Wave 1 — E-1. 기존 코드 단위 테스트
+- **배치**: v0.5 패치
 - **설명**: async 테스트 인프라 필요 — 출처: review/20260314_140000_auto-review.md (v0.5)
 
 ### [Medium] Session async_recv 테스트
 - **위치**: `apex_core/` Session
 - **상태**: 미구현
-- **배치**: Wave 1 — E-1. 기존 코드 단위 테스트
+- **배치**: v0.5 패치
 - **설명**: 별도 태스크 — 출처: review/20260314_140000_auto-review.md (v0.5)
+
+### [Medium] TC-1. Gateway/Auth/Chat 핵심 모듈 9개 테스트 부재
+- **위치**: `apex_services/` (gateway, auth-svc, chat-svc)
+- **상태**: 미구현
+- **배치**: v0.5 이후 별도 테스트 인프라 구축
+- **설명**: Mock 인프라(MockKafkaAdapter, MockRedisAdapter, MockPgAdapter, MockCoreEngine) 미구축이 근본 원인. 대상: message_router, response_dispatcher, gateway_pipeline, gateway_config_parser, broadcast_fanout, config_reloader, jwt_blacklist, auth_service, chat_service + rate_limit_facade, pubsub_listener — 출처: auto-review (reviewer-test-coverage)
 
 ---
 
@@ -159,7 +186,7 @@
 ### [Medium] pgbouncer md5 auth
 - **위치**: `apex_infra/` pgbouncer 설정
 - **상태**: 미구현
-- **배치**: Wave 2 — D. 서비스 체인
+- **배치**: v0.6 (운영 인프라)
 - **설명**: 로컬 개발 환경 인증 방식 개선 필요 — 출처: review/20260314_140000_auto-review.md (v0.5+)
 
 ---

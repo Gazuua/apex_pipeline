@@ -103,6 +103,9 @@ MetadataPrefix::parse(std::span<const uint8_t> data) {
     std::memcpy(&raw64, data.data() + OFF_SESSION_ID, sizeof(uint64_t));
     m.session_id = ntoh64(raw64);
 
+    std::memcpy(&raw64, data.data() + OFF_USER_ID, sizeof(uint64_t));
+    m.user_id = ntoh64(raw64);
+
     std::memcpy(&raw64, data.data() + OFF_TIMESTAMP, sizeof(uint64_t));
     m.timestamp = ntoh64(raw64);
 
@@ -124,6 +127,9 @@ void MetadataPrefix::serialize(std::span<uint8_t, SIZE> out) const {
 
     net64 = hton64(session_id);
     std::memcpy(out.data() + OFF_SESSION_ID, &net64, sizeof(uint64_t));
+
+    net64 = hton64(user_id);
+    std::memcpy(out.data() + OFF_USER_ID, &net64, sizeof(uint64_t));
 
     net64 = hton64(timestamp);
     std::memcpy(out.data() + OFF_TIMESTAMP, &net64, sizeof(uint64_t));

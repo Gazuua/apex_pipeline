@@ -393,18 +393,31 @@ Tier 상세:
 
 > auto-review v2.1 강화: 리뷰어 감도 체크리스트 + threshold 50% 도입, cross-domain 관심사 확장, cross-cutting 리뷰어 신설(12명 체제), coordinator 오버랩 정책 + 자동 시작 메커니즘.
 
+#### v0.5 — 서비스 체인
+
+| 버전 | 규모 | 내용 | 비고 |
+|------|------|------|------|
+| v0.5.0.0 | 대 | Wave 1: Protocol concept 기반 의존성 역전 (core=concept, shared=구현), Server 비템플릿 리팩터링 + `listen<P>(port)` 멀티 프로토콜, ListenerBase virtual + ConnectionHandler\<P\> zero-overhead I/O, per-session write queue (std::deque + write_pump), CircuitBreaker + AdapterState 상태 머신, Redis AUTH/ARRAY, 어댑터 retry/reconnect, DLQ, 공유 프로토콜 스키마 4종, WebSocket MVP | PR #25, 단위 테스트 51개 |
+| v0.5.2.0 | 중 | Wave 2: Gateway MVP — TLS 종단 (OpenSSL), JWT 검증 (jwt-cpp), msg_id 기반 Kafka 라우팅, TOML hot-reload (FileWatcher), PendingRequests 요청-응답 매칭 | PR #27 |
+| v0.5.2.1 | 소 | Wave 2: Rate Limiting 3계층 — Per-IP Sliding Window (TimingWheel), Per-User Redis, Per-Endpoint Config | PR #27 |
+| v0.5.3.0 | 중 | Wave 2: Auth Service — JWT 발급/검증/블랙리스트, bcrypt 해싱, Redis 세션 관리, PostgreSQL 사용자 저장소 | PR #27 |
+| v0.5.3.1 | 소 | Wave 2: Chat Service — 방 관리, 메시지/귓속말, 히스토리, PubSub 기반 전역 브로드캐스트 | PR #27 |
+| v0.5.4.0 | 중 | Wave 2: E2E 통합 테스트 6개 시나리오 (인증 → 채팅 → 브로드캐스트 전체 경로) | PR #27 |
+| v0.5.4.1 | 소 | Wave 2 패치: Mock 어댑터 인프라 (Kafka/Redis/PG) + Gateway/Auth/Chat 단위 테스트 신설, Redis 파라미터 바인딩 API + 인젝션 방어, Gateway 동시성 수정 (ResponseDispatcher core post, Rate Limiter per-core), PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한, sleep 제거 → 시간 주입/poll_now 패턴. 56/56 테스트 통과 | PR #28 |
+
 ### 활성 로드맵
 
 > v0.x = 프레임워크 개발, v1.0.0.0 = 프레임워크 완성 (커스텀 서비스 자유 배포 가능)
 
 ```
 v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
-    └──→ v0.5.2~4 (Wave 2 구현 완료, 리뷰 중) ── Wave 2: 서비스 체인
+    └──→ v0.5.4.0 (완료) ── Wave 2: 서비스 체인
          v0.5.2.0 Gateway MVP (TLS + JWT + Kafka 라우팅)
          v0.5.2.1 Rate Limiting (3계층: Per-IP / Per-User / Per-Endpoint)
          v0.5.3.0 Auth Service (JWT 발급/검증/블랙리스트, bcrypt, Redis 세션)
          v0.5.3.1 Chat Service (방 관리, 메시지, 브로드캐스트, 히스토리)
          v0.5.4.0 E2E 통합 테스트 (6개 시나리오)
+         v0.5.4.1 Wave 2 패치 (auto-review + 백로그 17건 수정, 56 테스트)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

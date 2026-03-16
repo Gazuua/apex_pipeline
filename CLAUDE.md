@@ -32,9 +32,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.0.0 — Wave 1 완료 (Protocol concept + 어댑터 회복력 + per-session write queue)
-- **진행 중**: v0.5 Wave 2 구현 완료, 리뷰 중 (Gateway + Rate Limiting + Auth + Chat + E2E)
-- **다음**: v0.5 Wave 2 머지 → v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
+- **현재**: v0.5.4.1 — Wave 2 패치 완료 (백로그 17건 수정 + Mock 테스트 인프라 + Redis 파라미터 바인딩 + 56 테스트)
+- **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
 ## 전역 규칙
@@ -47,15 +46,26 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - **생성 직후 빈 커밋 필수**: `git commit --allow-empty -m "chore: 작업 브랜치 생성"` — cleanup 스크립트의 미머지 브랜치 필터에 걸리도록
   - **일괄 정리**: `apex_tools/cleanup-branches.sh` (dry-run 기본, `--execute`로 실행)
 - **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin`
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md` — 세 문서 최신 반영
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md` — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 
 ### 설계 원칙
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
+
+### 문서/프로세스 규칙
+- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 완료 항목은 즉시 삭제 (git이 이력 보존)
+- **문서 경로**: `docs/{project}/plans/`, `progress/`, `review/` — 공통은 `docs/apex_common/`
+- **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
+- **review 문서**: 리뷰 항목 상세 포함 필수 — 헤더/통계만 있는 빈 껍데기 금지
+- **progress 문서**: 작업 결과 요약 필수
+- **TODO/백로그 분리**: review·progress 문서에 TODO·백로그·향후 과제 잔류 금지 — 발견 즉시 `docs/BACKLOG.md`로 이전
+- 상세 규칙: `docs/CLAUDE.md` 참조
 
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 - **auto-review 프로세스 대기** — coordinator/리뷰어 동작 중이면 재촉하지 않고 완료까지 대기
 - **태스크 완료 후 `/auto-review task` 묻지 말고 자동 실행**
+- **에이전트 디스패치 시 관련 지침 포함 필수** — 루트 CLAUDE.md + 가이드 포인터(docs/CLAUDE.md, apex_core/CLAUDE.md 등)에서 해당 작업 관련 규칙을 프롬프트에 발췌 포함. 에이전트는 프롬프트에 없는 지침을 자발적으로 읽지 않음
+- **리뷰 이슈 판단 기준**: "지금 안 고치면 나중에 더 복잡해지는가?" YES면 지금 수정. 스코프 밖이라는 이유로 미루지 않음. 리뷰어는 구현 비용보다 미래 비용을 우선 고려
 
 ## 프로젝트 정보
 

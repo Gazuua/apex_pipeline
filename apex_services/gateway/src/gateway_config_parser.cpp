@@ -3,7 +3,58 @@
 #include <toml++/toml.hpp>
 #include <spdlog/spdlog.h>
 
+#include <cstdlib>
+#include <regex>
+
 namespace apex::gateway {
+
+namespace {
+
+/// Expand ${VAR_NAME} and ${VAR_NAME:-default} patterns in a string value.
+/// If the environment variable is not set:
+///   - ${VAR}           -> keeps "${VAR}" as-is (no substitution)
+///   - ${VAR:-fallback} -> substitutes with "fallback"
+std::string expand_env(std::string_view value) {
+    // Quick check -- avoid regex overhead for strings without '$'
+    if (value.find('$') == std::string_view::npos) {
+        return std::string(value);
+    }
+
+    static const std::regex env_re(R"(\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*?))?\})");
+
+    std::string input(value);
+    std::string result;
+    result.reserve(input.size());
+
+    std::sregex_iterator it(input.begin(), input.end(), env_re);
+    std::sregex_iterator end;
+    size_t last_pos = 0;
+
+    for (; it != end; ++it) {
+        const auto& match = *it;
+        result.append(input, last_pos, static_cast<size_t>(match.position()) - last_pos);
+
+        const std::string var_name = match[1].str();
+        const char* env_val = std::getenv(var_name.c_str());
+
+        if (env_val) {
+            result.append(env_val);
+        } else if (match[2].matched) {
+            // Default value provided via :- syntax
+            result.append(match[2].str());
+        } else {
+            // No env var, no default -- keep original
+            result.append(match[0].str());
+        }
+
+        last_pos = static_cast<size_t>(match.position() + match.length());
+    }
+
+    result.append(input, last_pos, input.size() - last_pos);
+    return result;
+}
+
+} // anonymous namespace
 
 apex::core::Result<GatewayConfig>
 parse_gateway_config(std::string_view path) {
@@ -31,8 +82,8 @@ parse_gateway_config(std::string_view path) {
 
         // [jwt]
         if (auto jwt = tbl["jwt"]; jwt) {
-            cfg.jwt.secret = jwt["secret"]
-                .value_or(std::string{});
+            cfg.jwt.secret = expand_env(jwt["secret"]
+                .value_or(std::string{}));
             cfg.jwt.algorithm = jwt["algorithm"]
                 .value_or(std::string{"HS256"});
             cfg.jwt.clock_skew = std::chrono::seconds{
@@ -78,8 +129,8 @@ parse_gateway_config(std::string_view path) {
                 .value_or(std::string{"localhost"});
             cfg.redis_pubsub_port = static_cast<uint16_t>(
                 rpub["port"].value_or(int64_t{6379}));
-            cfg.redis_pubsub_password = rpub["password"]
-                .value_or(std::string{});
+            cfg.redis_pubsub_password = expand_env(rpub["password"]
+                .value_or(std::string{}));
         }
 
         // [redis.auth]
@@ -88,8 +139,24 @@ parse_gateway_config(std::string_view path) {
                 .value_or(std::string{"localhost"});
             cfg.redis_auth_port = static_cast<uint16_t>(
                 rauth["port"].value_or(int64_t{6379}));
-            cfg.redis_auth_password = rauth["password"]
-                .value_or(std::string{});
+            cfg.redis_auth_password = expand_env(rauth["password"]
+                .value_or(std::string{}));
+        }
+
+        // [redis.ratelimit]
+        if (auto rrl = tbl["redis"]["ratelimit"]; rrl) {
+            cfg.redis_ratelimit_host = rrl["host"]
+                .value_or(std::string{"localhost"});
+            cfg.redis_ratelimit_port = static_cast<uint16_t>(
+                rrl["port"].value_or(int64_t{6379}));
+            cfg.redis_ratelimit_password = expand_env(rrl["password"]
+                .value_or(std::string{}));
+        }
+
+        // [pubsub]
+        if (auto pubsub = tbl["pubsub"]; pubsub) {
+            cfg.max_subscriptions_per_session = static_cast<uint32_t>(
+                pubsub["max_subscriptions_per_session"].value_or(int64_t{50}));
         }
 
         // [timeouts]

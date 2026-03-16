@@ -50,6 +50,7 @@ private:
     build_envelope(const apex::core::WireHeader& header,
                    std::span<const uint8_t> payload,
                    uint64_t session_id,
+                   uint64_t user_id,
                    uint64_t corr_id,
                    uint16_t core_id) const;
 

@@ -6,25 +6,25 @@
 namespace apex::shared::rate_limit {
 
 PerIpRateLimiter::PerIpRateLimiter(PerIpRateLimiterConfig config,
-                                   apex::core::TimingWheel& timing_wheel)
+                                   ScheduleCallback schedule_fn,
+                                   CancelCallback cancel_fn,
+                                   RescheduleCallback reschedule_fn)
     : config_(config),
       per_core_limit_(std::max(1u, config.total_limit / std::max(1u, config.num_cores))),
-      timing_wheel_(timing_wheel) {
+      ttl_(std::chrono::duration_cast<std::chrono::milliseconds>(
+          config.window_size * config.ttl_multiplier)),
+      schedule_fn_(std::move(schedule_fn)),
+      cancel_fn_(std::move(cancel_fn)),
+      reschedule_fn_(std::move(reschedule_fn)) {
     entries_.reserve(config.max_entries);
     lru_order_.reserve(config.max_entries);
-
-    // TTL in ticks: window_size * ttl_multiplier
-    // Assumes TimingWheel tick interval = 1 second (standard configuration)
-    auto ttl_seconds = std::chrono::duration_cast<std::chrono::seconds>(
-        config.window_size * config.ttl_multiplier);
-    ttl_ticks_ = static_cast<uint32_t>(ttl_seconds.count());
 }
 
 PerIpRateLimiter::~PerIpRateLimiter() {
     // Cancel all timers
     for (auto& [ip, entry] : entries_) {
-        if (entry.timer_id != 0) {
-            timing_wheel_.cancel(entry.timer_id);
+        if (entry.timer_handle != 0) {
+            cancel_fn_(entry.timer_handle);
         }
     }
 }
@@ -39,12 +39,18 @@ bool PerIpRateLimiter::allow(std::string_view ip,
             evict_lru();
         }
 
+        // Schedule TTL expiration callback
+        std::string ip_copy(ip);
+        auto handle = schedule_fn_(ttl_, [this, ip_copy]() {
+            remove_entry(ip_copy);
+        });
+
         // Create new entry
         auto [new_it, inserted] = entries_.emplace(
             std::string(ip),
             Entry{
                 .counter = SlidingWindowCounter(per_core_limit_, config_.window_size),
-                .timer_id = timing_wheel_.schedule(ttl_ticks_),
+                .timer_handle = handle,
                 .lru_index = static_cast<uint32_t>(lru_order_.size()),
             });
         lru_order_.emplace_back(std::string(ip));
@@ -55,7 +61,7 @@ bool PerIpRateLimiter::allow(std::string_view ip,
     auto& entry = it->second;
 
     // Reschedule TTL timer
-    timing_wheel_.reschedule(entry.timer_id, ttl_ticks_);
+    reschedule_fn_(entry.timer_handle, ttl_);
 
     // Update LRU
     touch_lru(entry, entry.lru_index);
@@ -70,8 +76,8 @@ uint32_t PerIpRateLimiter::entry_count() const noexcept {
 void PerIpRateLimiter::update_config(PerIpRateLimiterConfig config) {
     // Cancel all existing timers
     for (auto& [ip, entry] : entries_) {
-        if (entry.timer_id != 0) {
-            timing_wheel_.cancel(entry.timer_id);
+        if (entry.timer_handle != 0) {
+            cancel_fn_(entry.timer_handle);
         }
     }
     entries_.clear();
@@ -82,9 +88,8 @@ void PerIpRateLimiter::update_config(PerIpRateLimiterConfig config) {
     entries_.reserve(config.max_entries);
     lru_order_.reserve(config.max_entries);
 
-    auto ttl_seconds = std::chrono::duration_cast<std::chrono::seconds>(
+    ttl_ = std::chrono::duration_cast<std::chrono::milliseconds>(
         config.window_size * config.ttl_multiplier);
-    ttl_ticks_ = static_cast<uint32_t>(ttl_seconds.count());
 }
 
 void PerIpRateLimiter::evict_lru() noexcept {
@@ -94,8 +99,8 @@ void PerIpRateLimiter::evict_lru() noexcept {
     auto& oldest_ip = lru_order_.front();
     auto it = entries_.find(oldest_ip);
     if (it != entries_.end()) {
-        if (it->second.timer_id != 0) {
-            timing_wheel_.cancel(it->second.timer_id);
+        if (it->second.timer_handle != 0) {
+            cancel_fn_(it->second.timer_handle);
         }
         entries_.erase(it);
     }
@@ -118,9 +123,7 @@ void PerIpRateLimiter::remove_entry(std::string_view ip) noexcept {
 
     auto lru_idx = it->second.lru_index;
 
-    if (it->second.timer_id != 0) {
-        timing_wheel_.cancel(it->second.timer_id);
-    }
+    // Timer already fired — no need to cancel, just clear handle
     entries_.erase(it);
 
     // Remove from LRU order

@@ -2,6 +2,8 @@
 
 ## 문서 규칙
 
+> 핵심 규칙은 루트 `CLAUDE.md` § 문서/프로세스 규칙에도 기재됨. 아래는 상세 설명.
+
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
 - **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
@@ -18,6 +20,7 @@
 
 ## 코드 리뷰
 
+- review 문서 생성 시 반드시 리뷰 항목 상세 포함 — 헤더/통계만 있는 빈 껍데기 금지. 상세 내용 없이 생성된 review 파일은 auto-review에서 Critical로 플래그
 - **clangd LSP + superpowers:code-reviewer 병행** — LSP 정적 분석(타입/참조/호출 추적)과 AI 코드 리뷰를 함께 사용해야 품질이 높아진다
 - **clangd LSP 효율 전략**: `documentSymbol` 병렬 → 핵심 API `hover` → 의심 패턴 `findReferences`/`incomingCalls`. 전수 분석 금지, 10분 타임아웃.
 - **설계 문서 정합성**: 아키텍처 영향 변경 시 `Apex_Pipeline.md` 일치 확인 필수

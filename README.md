@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.0.0
+## 현재 상태 — v0.5.4.1
 
 ### 완료
 
@@ -79,6 +79,20 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 공유 프로토콜 스키마 4종 (apex_shared/lib/protocols/)
   - 단위 테스트 48 → 51 (신규 28 TC), auto-review 4라운드 Clean
 
+- **v0.5.4.0 — 서비스 체인 Wave 2 (Gateway + Auth + Chat + E2E)**
+  - Gateway MVP: TLS 종단 (OpenSSL), JWT 검증 (jwt-cpp), msg_id 기반 Kafka 라우팅, TOML hot-reload
+  - Rate Limiting 3계층: Per-IP Sliding Window (TimingWheel) / Per-User Redis / Per-Endpoint Config
+  - Auth Service: JWT 발급/검증/블랙리스트, bcrypt 해싱, Redis 세션 관리, PostgreSQL 사용자 저장소
+  - Chat Service: 방 관리, 메시지/귓속말, 히스토리, PubSub 기반 전역 브로드캐스트
+  - E2E 통합 테스트 6개 시나리오 (인증 → 채팅 → 브로드캐스트 전체 경로)
+
+- **v0.5.4.1 — Wave 2 패치 (auto-review + 백로그 수정)**
+  - Mock 어댑터 인프라 (Kafka, Redis, PG) + Gateway/Auth/Chat 단위 테스트 신설
+  - Redis 파라미터 바인딩 API (RedisMultiplexer) + Auth/Gateway 인젝션 방어 마이그레이션
+  - Gateway 동시성 수정: ResponseDispatcher Kafka→core post, Rate Limiter per-core 설정 교체
+  - Gateway 기능 보강: PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한
+  - 테스트 품질: sleep 제거 → 시간 주입/poll_now 패턴, 56/56 테스트 통과
+
 ## 아키텍처
 
 ### Per-core 싱글 스레드 모델
@@ -100,14 +114,6 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### SharedPayload
 
 cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체. 코어 간 메시지 전달 시 데이터 복사 없이 소유권만 이전.
-
-### 진행 중 — v0.5 Wave 2 (구현 완료, 리뷰 중)
-
-- **v0.5.2.0** — Gateway MVP (TLS 종단, JWT 검증, msg_id 기반 Kafka 라우팅, TOML hot-reload)
-- **v0.5.2.1** — Rate Limiting (3계층: Per-IP / Per-User Redis / Per-Endpoint)
-- **v0.5.3.0** — Auth Service (JWT 발급/검증/블랙리스트, bcrypt, Redis 세션, PostgreSQL)
-- **v0.5.3.1** — Chat Service (방 관리, 메시지, 귓속말, 히스토리, 전역 브로드캐스트)
-- **v0.5.4.0** — E2E 통합 테스트 (6개 시나리오)
 
 ### 다음
 

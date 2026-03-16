@@ -72,27 +72,29 @@ namespace routing_flags {
 } // namespace routing_flags
 
 // ============================================================
-// Metadata Prefix (32바이트, 고정)
+// Metadata Prefix (40바이트, 고정)
 // ============================================================
 // meta_version(u32) | core_id(u16) | corr_id(u64)
-// | source_id(u16) | session_id(u64) | timestamp(u64)
+// | source_id(u16) | session_id(u64) | user_id(u64) | timestamp(u64)
 
 struct MetadataPrefix {
-    static constexpr size_t SIZE = 32;
-    static constexpr uint32_t CURRENT_VERSION = 1;
+    static constexpr size_t SIZE = 40;
+    static constexpr uint32_t CURRENT_VERSION = 2;
 
     static constexpr size_t OFF_META_VERSION = 0;
     static constexpr size_t OFF_CORE_ID      = 4;
     static constexpr size_t OFF_CORR_ID      = 6;
     static constexpr size_t OFF_SOURCE_ID    = 14;
     static constexpr size_t OFF_SESSION_ID   = 16;
-    static constexpr size_t OFF_TIMESTAMP    = 24;
+    static constexpr size_t OFF_USER_ID      = 24;
+    static constexpr size_t OFF_TIMESTAMP    = 32;
 
     uint32_t meta_version{CURRENT_VERSION};
     uint16_t core_id{0};
     uint64_t corr_id{0};
     uint16_t source_id{0};     // 0=시스템/Gateway, 1=Auth, 2=Chat, ...
     uint64_t session_id{0};
+    uint64_t user_id{0};       // JWT에서 추출한 사용자 ID
     uint64_t timestamp{0};     // epoch milliseconds
 
     [[nodiscard]] static std::expected<MetadataPrefix, EnvelopeError>
@@ -105,9 +107,9 @@ struct MetadataPrefix {
 // ============================================================
 // Full Envelope 상수
 // ============================================================
-/// Payload 시작 오프셋 = RoutingHeader(8) + MetadataPrefix(32) = 40바이트
+/// Payload 시작 오프셋 = RoutingHeader(8) + MetadataPrefix(40) = 48바이트
 static constexpr size_t ENVELOPE_HEADER_SIZE =
-    RoutingHeader::SIZE + MetadataPrefix::SIZE;  // 40
+    RoutingHeader::SIZE + MetadataPrefix::SIZE;  // 48
 
 /// Source ID 상수
 namespace source_ids {
