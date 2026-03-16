@@ -7,39 +7,17 @@
 
 ## Critical
 
-### [Critical] C-1. JWT 알고리즘 불일치 (Auth RS256 vs Gateway HS256)
-- **위치**: `apex_services/auth-svc/` (JWT 서명), `apex_services/gateway/` (JWT 검증)
-- **상태**: 미구현
-- **배치**: v0.5 패치 (보안 + cross-cutting)
-- **설명**: Auth 서비스는 RS256으로 서명, Gateway는 HS256으로 검증 — 알고리즘 불일치로 토큰 검증 실패. JwtVerifier에 알고리즘 분기 + 공개키 파일 로딩 필요 — 출처: auto-review 에스컬레이션
-
-### [Critical] C-2. Kafka response topic 미스라우팅
-- **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`, `apex_services/gateway/`
-- **상태**: 설계 결정 필요
-- **배치**: v0.5 패치 (cross-cutting)
-- **설명**: Auth→`auth.responses`, Chat→`chat.responses`로 응답하나 Gateway는 `gateway.responses`만 consume. 전체 요청-응답 체인 단절. 설계 결정 필요: (A) 서비스가 `gateway.responses`로 통일 vs (B) Gateway가 다중 토픽 consume — 출처: auto-review 에스컬레이션
+(현재 Critical 항목 없음)
 
 ---
 
 ## Important
-
-### [Important] I-1. JWT claim 불일치 (sub/jti)
-- **위치**: `apex_services/auth-svc/` (JWT 생성), `apex_services/gateway/` (JWT 파싱)
-- **상태**: 미구현
-- **배치**: v0.5 패치 (cross-cutting)
-- **설명**: Auth는 sub=email, jti 미포함. Gateway는 sub→username으로 사용, jti 기반 블랙리스트. jti 미생성으로 로그아웃 토큰 무효화 불가 — 출처: auto-review 에스컬레이션
 
 ### [Important] I-2. ChannelSessionMap 무제한 메모리 증가
 - **위치**: `apex_services/gateway/include/apex/gateway/channel_session_map.hpp`
 - **상태**: 미구현
 - **배치**: v0.5 패치
 - **설명**: per-session 구독 제한 정책 미설정. 비즈니스 결정 필요 — 출처: auto-review (reviewer-memory)
-
-### [Important] I-3. GatewayPipeline::set_rate_limiter() 동시성 보호 없음
-- **위치**: `apex_services/gateway/include/apex/gateway/gateway_pipeline.hpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: atomic 또는 strand 보장 필요. ConfigReloader 활성화 시 실제 레이스 — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
 
 ### [Important] I-4. review 문서 2개 상세 내용 부재
 - **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`
@@ -82,12 +60,6 @@
 - **상태**: 미구현
 - **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
 - **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
-
-### [Important] I-15. docs/Apex_Pipeline.md WireHeader v1(10B) vs 코드 v2(12B) 설계 문서 미갱신
-- **위치**: `docs/Apex_Pipeline.md`, `apex_core/` WireHeader
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 설계 문서에 WireHeader v1(10B)로 기재, 코드는 v2(12B)로 진화. 문서 갱신 필요 — 출처: auto-review (reviewer-architecture)
 
 ---
 
