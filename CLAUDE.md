@@ -51,6 +51,15 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 설계 원칙
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
 
+### 문서/프로세스 규칙
+- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 완료 항목은 즉시 삭제 (git이 이력 보존)
+- **문서 경로**: `docs/{project}/plans/`, `progress/`, `review/` — 공통은 `docs/apex_common/`
+- **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
+- **review 문서**: 리뷰 항목 상세 포함 필수 — 헤더/통계만 있는 빈 껍데기 금지
+- **progress 문서**: 작업 결과 요약 필수
+- **TODO/백로그 분리**: review·progress 문서에 TODO·백로그·향후 과제 잔류 금지 — 발견 즉시 `docs/BACKLOG.md`로 이전
+- 상세 규칙: `docs/CLAUDE.md` 참조
+
 ### 에이전트 작업
 - **모든 작업은 에이전트 팀 병렬 실행** — 수정 가능 파일 목록 명시해서 충돌 방지
 - **auto-review 프로세스 대기** — coordinator/리뷰어 동작 중이면 재촉하지 않고 완료까지 대기

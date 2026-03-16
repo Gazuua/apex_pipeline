@@ -2,6 +2,8 @@
 
 ## 문서 규칙
 
+> 핵심 규칙은 루트 `CLAUDE.md` § 문서/프로세스 규칙에도 기재됨. 아래는 상세 설명.
+
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
 - **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
