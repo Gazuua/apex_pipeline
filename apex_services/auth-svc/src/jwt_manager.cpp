@@ -1,11 +1,10 @@
 #include <apex/auth_svc/jwt_manager.hpp>
+#include <apex/auth_svc/crypto_util.hpp>
 
 #include <jwt-cpp/jwt.h>
 #include <spdlog/spdlog.h>
 
-#include <array>
 #include <fstream>
-#include <random>
 #include <sstream>
 
 namespace apex::auth_svc {
@@ -23,25 +22,15 @@ std::string read_file(std::string_view path) {
     return ss.str();
 }
 
-/// Generate a random hex string suitable for JWT ID (jti).
-/// 16 bytes = 32 hex chars, providing sufficient uniqueness.
+/// Generate a cryptographically secure random hex string for JWT ID (jti).
+/// 16 bytes = 32 hex chars via RAND_bytes (CSPRNG).
 std::string generate_jti() {
-    static thread_local std::mt19937_64 rng{std::random_device{}()};
-
-    std::array<uint8_t, 16> bytes{};
-    std::uniform_int_distribution<unsigned> dist(0, 255);
-    for (auto& b : bytes) {
-        b = static_cast<uint8_t>(dist(rng));
+    auto result = generate_secure_token(16);
+    if (!result.has_value()) {
+        spdlog::error("[JwtManager] CSPRNG failure in generate_jti");
+        return {};
     }
-
-    static constexpr char hex_chars[] = "0123456789abcdef";
-    std::string result;
-    result.reserve(32);
-    for (auto b : bytes) {
-        result.push_back(hex_chars[b >> 4]);
-        result.push_back(hex_chars[b & 0x0F]);
-    }
-    return result;
+    return std::move(*result);
 }
 
 } // anonymous namespace
