@@ -43,10 +43,37 @@ is_merged_to_main() {
 
     # 2차: squash merge fallback — gh CLI로 머지된 PR 확인
     if command -v gh &>/dev/null; then
+        local gh_branch="${branch#origin/}"
         local merged_count
-        merged_count="$(gh pr list --head "$branch" --state merged --json number --jq 'length' 2>/dev/null || echo "0")"
+        merged_count="$(gh pr list --head "$gh_branch" --state merged --json number --jq 'length' 2>/dev/null || echo "0")"
         if [[ "$merged_count" -gt 0 ]]; then
             return 0
+        fi
+    fi
+
+    # 3차: blob hash 비교 — PR 없이 squash merge된 경우
+    #   브랜치가 변경한 모든 파일의 blob hash가 main과 동일하면
+    #   내용이 이미 main에 반영된 것으로 판단
+    local merge_base
+    merge_base="$(git merge-base "$branch" origin/main 2>/dev/null || true)"
+    if [[ -n "$merge_base" ]]; then
+        local changed_files
+        changed_files="$(git diff --name-only "$merge_base" "$branch" 2>/dev/null || true)"
+        if [[ -n "$changed_files" ]]; then
+            local all_match=true
+            while IFS= read -r file; do
+                [[ -z "$file" ]] && continue
+                local branch_blob main_blob
+                branch_blob="$(git rev-parse "$branch:$file" 2>/dev/null || echo "MISSING_BRANCH")"
+                main_blob="$(git rev-parse "origin/main:$file" 2>/dev/null || echo "MISSING_MAIN")"
+                if [[ "$branch_blob" != "$main_blob" ]]; then
+                    all_match=false
+                    break
+                fi
+            done <<< "$changed_files"
+            if $all_match; then
+                return 0
+            fi
         fi
     fi
 
@@ -224,8 +251,9 @@ if $EXECUTE; then
     echo ""
 fi
 
-# 머지 완료된 리모트 브랜치 수집
+# 머지 완료된 리모트 브랜치 수집 (squash merge 포함)
 remote_targets=()
+remote_warnings=()
 while IFS= read -r ref; do
     ref="$(echo "$ref" | xargs)"
     [[ -z "$ref" ]] && continue
@@ -239,19 +267,29 @@ while IFS= read -r ref; do
     # 보호 브랜치 건너뜀
     is_protected "$branch" && continue
 
-    remote_targets+=("$branch")
-done < <(git branch -r --merged origin/main 2>/dev/null)
+    # is_merged_to_main으로 squash merge까지 커버
+    if is_merged_to_main "origin/$branch"; then
+        remote_targets+=("$branch")
+    else
+        remote_warnings+=("⚠ 미머지: origin/$branch")
+    fi
+done < <(git branch -r 2>/dev/null)
 
-if [[ ${#remote_targets[@]} -eq 0 ]]; then
+if [[ ${#remote_targets[@]} -eq 0 ]] && [[ ${#remote_warnings[@]} -eq 0 ]]; then
     echo "  (정리할 리모트 브랜치 없음)"
 else
-    for branch in "${remote_targets[@]}"; do
+    for branch in "${remote_targets[@]+"${remote_targets[@]}"}"; do
+        [[ -z "$branch" ]] && continue
         if $EXECUTE; then
             echo "  삭제: origin/$branch"
             git push origin --delete "$branch" 2>&1 | sed 's/^/    /' || echo "    (이미 삭제되었거나 실패)"
         else
             echo "  대상: origin/$branch (머지 완료)"
         fi
+    done
+    for warning in "${remote_warnings[@]+"${remote_warnings[@]}"}"; do
+        [[ -z "$warning" ]] && continue
+        echo "  $warning"
     done
 fi
 echo ""
@@ -267,7 +305,7 @@ echo "  리모트 브랜치: ${#remote_targets[@]}개 (머지 완료)"
 echo "  합계: ${total}개"
 
 # 경고 합계
-warning_total=$(( ${#worktree_warnings[@]} + ${#local_warnings[@]} ))
+warning_total=$(( ${#worktree_warnings[@]} + ${#local_warnings[@]} + ${#remote_warnings[@]} ))
 if [[ $warning_total -gt 0 ]]; then
     echo "  ──────────────────────────────"
     echo "  제외 (미머지/변경사항): ${warning_total}개"

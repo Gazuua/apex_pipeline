@@ -47,6 +47,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - **일괄 정리**: `apex_tools/cleanup-branches.sh` (dry-run 기본, `--execute`로 실행)
 - **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin`
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md` — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 
 ### 설계 원칙
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
