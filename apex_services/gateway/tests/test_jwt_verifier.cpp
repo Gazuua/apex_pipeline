@@ -177,3 +177,45 @@ TEST_F(JwtVerifierTest, MissingJti) {
     EXPECT_EQ(result->email, "nojti@example.com");
     EXPECT_TRUE(result->jti.empty());
 }
+
+TEST_F(JwtVerifierTest, MissingKeyFile_VerifyFails) {
+    // read_file() fails -> empty public key -> verify should fail
+    JwtConfig bad_config = config_;
+    bad_config.public_key_file = "/nonexistent/path/pub.pem";
+    JwtVerifier verifier(bad_config);
+
+    auto token = make_token(12345);
+    auto result = verifier.verify(token);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(JwtVerifierTest, MissingUidClaim) {
+    // Token without uid claim -> claim_not_present_exception path
+    JwtVerifier verifier(config_);
+    auto now = std::chrono::system_clock::now();
+    auto token = jwt::create()
+        .set_issuer("apex-auth")
+        .set_type("JWT")
+        .set_subject("nouid@example.com")
+        .set_payload_claim("jti",
+            jwt::claim(std::string("jti-no-uid")))
+        .set_issued_at(now)
+        .set_expires_at(now + std::chrono::hours{1})
+        .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+    auto result = verifier.verify(token);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(JwtVerifierTest, GarbageToken) {
+    // Completely invalid token string -> std::exception catch path
+    JwtVerifier verifier(config_);
+    auto result = verifier.verify("not-a-jwt-token-at-all");
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(JwtVerifierTest, EmptyToken) {
+    // Empty string token
+    JwtVerifier verifier(config_);
+    auto result = verifier.verify("");
+    EXPECT_FALSE(result.has_value());
+}
