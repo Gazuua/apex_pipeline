@@ -8,6 +8,8 @@ CREATE SCHEMA IF NOT EXISTS chat_svc;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'chat_role') THEN
+        -- WARNING: Default dev password. MUST be changed in production.
+        -- Will migrate to Docker/K8s secrets-based injection in v0.6.
         CREATE ROLE chat_role WITH LOGIN PASSWORD 'chat_secret_change_me';
     END IF;
 END
