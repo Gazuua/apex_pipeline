@@ -255,16 +255,6 @@
 
 ## 도구 / 자동화
 
-### [Medium] auto-review 팀 셧다운 시 좀비 에이전트 잔존 문제
-- **위치**: `apex_tools/auto-review/` coordinator.md, Claude Code 에이전트 런타임
-- **상태**: 미해결 (workaround 사용 중)
-- **배치**: Wave 배정 보류
-- **설명**: coordinator가 리뷰어 12명에게 shutdown_request를 보내도 일부 리뷰어(특히 test-quality)와 coordinator 자신이 응답하지 않고 좀비로 남음. 30초+ 대기해도 반응 없음. TeamDelete 실패 (active member 존재). 매 리뷰마다 config.json 수동 정리 필요.
-- **발생 빈도**: 2회 연속 발생 (v0.5.4.2, v0.5.5 auto-review 모두)
-- **근본 원인 후보**: (1) coordinator가 리뷰어 전원 종료 확인 전 자신이 idle 상태로 빠짐 (2) shutdown_request가 idle 상태 에이전트에게 전달되지 않는 Claude Code 버그 가능성 (3) in-process 백엔드 에이전트의 메시지 수신 타이밍 이슈
-- **현재 workaround**: config.json의 members 배열에서 좀비 멤버를 수동 제거 후 TeamDelete 재시도
-- **필요한 조치**: coordinator.md의 셧다운 절차 강화 또는 메인 오케스트레이터가 개별 에이전트에 직접 shutdown 보내는 방식으로 전환 검토
-
 ### [Low] auto-review 리뷰어 확장 (v0.5+)
 - **위치**: `apex_tools/auto-review/`
 - **상태**: 미구현
