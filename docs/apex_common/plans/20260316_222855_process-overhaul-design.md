@@ -1,0 +1,238 @@
+# 프로세스 오버홀 설계서
+
+> 에이전트 드리븐 작업 방식, 지침 전달, auto-review 프로세스, 에이전트 팀 구조를 전면 재설계한다.
+
+## 1. 배경
+
+### 1.1 환경 변화
+
+| 항목 | 기존 (v0.5.5) | 현재 |
+|------|---------------|------|
+| 컨텍스트 윈도우 | 200K | 1M (5배) |
+| 메인 에이전트 역할 | 의사결정만, 코드 안 읽음 | 코드까지 읽을 여유 있음 |
+| 토큰 비용 우선순위 | 절약 우선 | 품질 > 토큰 |
+| 서브에이전트 용도 | 모든 실무 위임 | 필요한 곳에만 |
+
+### 1.2 기존 시스템의 문제
+
+**구조적 문제:**
+- SendMessage 기반 팀 구조는 모든 구성원이 동시에 살아있고 메시지를 수신할 준비가 되어 있어야 동작함
+- 리뷰어가 작업 완료 후 idle 상태로 빠지면 shutdown_request를 수신하지 못함 → 좀비 에이전트
+- Coordinator 자체도 좀비화 가능 → 데드락
+- v0.5.4.2, v0.5.5 auto-review에서 연속 발생. 매 리뷰마다 config.json 수동 정리 필요
+
+**품질 문제:**
+- 메인이 코드를 안 읽으므로 서브에이전트 결과를 검증할 수 없음
+- 지침을 메인이 수동 발췌하여 프롬프트에 포함 → 누락 불가피
+- 3-layer 구조 (Main→Coordinator→12 Reviewers)의 전달 과정에서 맥락 손실
+
+### 1.3 목적 (우선순위별)
+
+1. **높은 품질** — 지시한 작업 120% 반영 + 미발견 버그·개선·예방 조치까지 포괄
+2. **정확한 작업** — 최소한 지침에 명시된 내용을 놓치지 않음
+3. **작업의 연속성** — 데드락·좀비로 인한 작업 중단 절대 방지
+
+## 2. 시스템 아키텍처
+
+### 2.1 구조 전환
+
+**기존 (3-layer, 13 에이전트):**
+```
+Main (의사결정만)
+  └─ Coordinator (SendMessage 팀 관리)
+       ├─ Round 1: 11 Reviewers (SendMessage 통신)
+       └─ Round 2: 1 Cross-cutting Reviewer
+```
+
+**변경 후 (2-layer, 최대 7 에이전트 + 메인):**
+```
+Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutting)
+  ├─ Reviewer A (Agent tool, 자율 리뷰+수정, 결과 반환)
+  ├─ Reviewer B
+  ├─ ...
+  └─ Reviewer G
+```
+
+### 2.2 핵심 변경
+
+- **SendMessage 팀 → Agent tool 서브에이전트**: Agent tool은 반환 시 자동 정리. 좀비 구조적 불가.
+- **Coordinator 레이어 제거**: 메인이 직접 라운드 관리.
+- **Cross-cutting은 메인이 직접 수행**: 모든 리뷰어 보고를 가지고 있으므로 메인이 가장 적합.
+- **메인의 역할 확대**: 코드 읽기, 맥락 파악, 결과 검증까지. Informed oversight.
+
+### 2.3 설계 원칙
+
+- **목적만 전달, 방법은 에이전트 자율**: 보고 형식, 리뷰 순서, 수정 전략, severity 분류 등 강제하지 않음
+- **모든 판단은 메인의 상황 판단**: 리뷰어 구성, 라운드 재실행, 직접 수정 vs 재디스패치 등
+- **강제 규칙은 안전 제약만**: 동시 빌드 금지, main 직접 커밋 금지 등 물리적/안전 제약
+
+## 3. Auto-review 프로세스
+
+### 3.1 흐름
+
+```
+1. 메인: 변경 분석
+   - git diff로 변경 파일/범위 파악
+   - 변경 파일 직접 읽기
+   - 변경 규모/성격에 따라 리뷰어 구성 판단
+
+2. 메인: 리뷰어 디스패치
+   - 메인이 판단하여 필요한 리뷰어를 필요한 방식으로 스폰
+   - 각 리뷰어에게: 담당 파일 목록 + 변경 맥락 + 목적 전달
+   - 리뷰어는 자율적으로 CLAUDE.md 읽기 → 리뷰 → 수정 → 결과 반환
+
+3. 메인: 결과 종합
+   - 전원 반환 대기 (Agent tool이므로 자동)
+   - 보고 내용 검토 + cross-cutting 분석
+   - 필요 시: 재디스패치 / 직접 수정 / 추가 조치 — 메인 판단
+
+4. 메인: 마무리
+   - 빌드 실행
+   - 빌드 실패 시 수정 (직접 또는 서브에이전트)
+   - 리뷰 문서 작성, PR 생성, CI 모니터링
+```
+
+### 3.2 기존 대비 제거 항목
+
+- Phase 0 (팀 생성, config.json, 멤버 등록) → Agent tool은 팀 불필요
+- Phase 2.5 (메인↔Coordinator 빌드 메시지 교환) → 메인이 직접 빌드
+- Phase 5 (30초 타임아웃, 좀비 정리) → Agent tool 반환 = 종료
+- 5-type SendMessage 프로토콜 (dispatch, assign, finding, share, reassign) → 전부 불필요
+
+> **참고:** 기존 Phase 5의 후처리 작업 (문서 갱신, 머지, progress 기록 등)은 제거 대상이 아니다. 이들은 프로젝트 CLAUDE.md의 "머지 전 필수 갱신" 규칙에 의해 유지되며, 3.1 Step 4 "마무리"에서 수행한다.
+
+### 3.3 안전 제약
+
+무한 루프 방지 개념은 유지하되, 구체적 숫자/방식은 메인 판단에 위임.
+
+### 3.4 트리거
+
+기존: "태스크 완료 후 묻지 말고 자동 실행"
+변경: "태스크 완료 후 메인이 auto-review 필요 여부를 자체 판단하여 실행한다 (유저에게 묻지 않음)"
+
+## 4. 리뷰어 도메인 (7명)
+
+| 리뷰어 | 도메인 | 범위 |
+|--------|--------|------|
+| **docs-spec** | 원천 문서 정합성 | 설계서↔코드 일치, 버전 번호, 용어 통일, 로드맵 정합 |
+| **docs-records** | 기록 문서 품질 | plans/progress/review 파일명·타임스탬프, 포맷 완결성, 계획→진행→리뷰 추적성, TODO/백로그 분리 |
+| **logic** | 비즈니스 로직 | 알고리즘 정확성, 상태 전이, 에러 처리 경로, 엣지 케이스 |
+| **systems** | 메모리 + 동시성 | RAII, lifetime, ownership, custom allocator, 코루틴 안전성, strand, Boost.Asio 패턴 |
+| **test** | 테스트 | 미테스트 코드 경로, assertion 적절성, 테스트 격리성, 네이밍 |
+| **design** | API + 아키텍처 | 공개 인터페이스 일관성, concept/CRTP, 모듈 경계, 의존성 방향, 설계서↔코드 정합 |
+| **infra-security** | 인프라 + 보안 | CMake, vcpkg, CI, Docker, 입력 검증, 크레덴셜 노출, 인젝션 |
+
+이것은 최대 구성이다. 메인이 변경 내용을 분석하여 필요한 리뷰어만 선택적으로 스폰한다. 변경이 사소하면 메인 혼자 처리할 수도 있다.
+
+### 4.1 도메인 통합 근거
+
+| 기존 (12명) | 변경 (7명) | 통합 근거 |
+|-------------|-----------|-----------|
+| docs-spec + docs-records | 분리 유지 | 문서량이 코드에 필적. 내용 정확성과 프로세스 준수는 다른 전문성 |
+| logic | 분리 유지 | 비즈니스 로직은 시스템 레벨 분석과 시각이 다름 |
+| memory + concurrency → systems | 통합 | C++23 코루틴에서 lifetime과 concurrency는 항상 얽혀있음 |
+| test-coverage + test-quality → test | 통합 | 같은 파일, 보완적 분석. 한 명이 충분히 가능 |
+| api + architecture → design | 통합 | 인터페이스 일관성과 설계 정합성은 밀접하게 연관 |
+| security + infra → infra-security | 통합 | 이 프로젝트에서 보안 findings는 상대적으로 적음 |
+| cross-cutting | 메인이 직접 수행 | 모든 보고를 가진 메인이 가장 적합 |
+
+## 5. 서브에이전트 운영
+
+### 5.1 디스패치 시 메인이 전달하는 것
+
+- 목적 — 왜 이 리뷰를 하는지
+- 담당 파일 목록 — 수정 가능 범위
+- 변경 맥락 — 이번 변경이 뭘 하려는 건지
+- 읽어야 할 CLAUDE.md 목록
+
+### 5.2 서브에이전트가 스스로 하는 것
+
+- 지정된 CLAUDE.md 파일 읽기
+- 리뷰 방식, 깊이, 보고 형식 자율 결정
+- 담당 파일 내 이슈 발견 시 직접 수정
+- 담당 밖 파일 이슈는 보고만
+
+### 5.3 메인이 전달하지 않는 것
+
+보고 포맷, 리뷰 순서, 수정 전략, severity 분류 기준 — 전부 서브에이전트 자율 판단.
+
+### 5.4 지침 전달 방식
+
+기존: 메인이 CLAUDE.md에서 관련 규칙을 수동 발췌하여 프롬프트에 포함 (누락 위험)
+변경: 서브에이전트가 작업 전 관련 CLAUDE.md를 직접 읽는다 (항상 최신 버전을 읽으며, 발췌 수준의 누락을 방지한다)
+
+### 5.5 파일 Ownership
+
+- 메인이 diff 분석 후 파일-리뷰어 매핑을 결정하여 충돌 방지
+- 한 파일이 여러 도메인에 걸치면 메인이 primary 지정, 나머지는 읽기만 가능
+- 매핑 방식 자체도 메인 판단 — 상황에 따라 유연하게
+
+## 6. CLAUDE.md 변경 사항
+
+### 6.1 전역 CLAUDE.md (C:\Users\JHG\.claude\CLAUDE.md)
+
+**제거 (브레인스토밍 중 적용됨):**
+- "메인 컨텍스트 절약" 섹션 전체 (하위 항목 포함)
+
+### 6.2 프로젝트 CLAUDE.md (D:\.workspace\CLAUDE.md)
+
+**제거:**
+- "모든 작업은 에이전트 팀 병렬 실행 — 수정 가능 파일 목록 명시해서 충돌 방지"
+- "auto-review 프로세스 대기 — coordinator/리뷰어 동작 중이면 재촉하지 않고 완료까지 대기"
+- "병렬 에이전트 빌드 조율" 중 에이전트 역할 강제 부분
+
+**수정:**
+- "태스크 완료 후 /auto-review task 묻지 말고 자동 실행"
+  → "태스크 완료 후 묻지 말고 메인이 종합적으로 판단해서 auto-review 실행 여부 결정"
+- "에이전트 디스패치 시 관련 지침 포함 필수"
+  → "서브에이전트는 작업 전 관련 CLAUDE.md를 직접 읽는다"
+
+**유지:**
+- "리뷰 이슈 판단 기준" (지금 안 고치면 나중에 더 복잡해지는가?)
+- "빌드는 한 번에 하나만" (물리적 제약)
+
+### 6.3 추가 정리 대상
+
+프로젝트 전체에서 제거된 규칙을 전제로 한 내용을 스캔하여 정리:
+
+- `docs/CLAUDE.md`, `apex_core/CLAUDE.md`, `apex_tools/CLAUDE.md`, `.github/CLAUDE.md`
+- `apex_tools/claude-plugin/commands/auto-review.md` — 전면 재작성
+- `apex_tools/claude-plugin/agents/coordinator.md` — 제거
+- `apex_tools/claude-plugin/agents/reviewer-*.md` — 12개 → 7개 재편, 과도한 행동 제약 제거
+
+**리뷰어 파일 매핑:**
+
+| 기존 파일 | 조치 | 비고 |
+|-----------|------|------|
+| reviewer-docs-spec.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-docs-records.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-logic.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-memory.md | 삭제 | systems로 통합 |
+| reviewer-concurrency.md | 삭제 | systems로 통합 |
+| reviewer-api.md | 삭제 | design으로 통합 |
+| reviewer-architecture.md | 삭제 | design으로 통합 |
+| reviewer-test-coverage.md | 삭제 | test로 통합 |
+| reviewer-test-quality.md | 삭제 | test로 통합 |
+| reviewer-security.md | 삭제 | infra-security로 통합 |
+| reviewer-infra.md | 삭제 | infra-security로 통합 |
+| reviewer-cross-cutting.md | 삭제 | 메인이 직접 수행 |
+| coordinator.md | 삭제 | 역할 소멸 |
+| reviewer-systems.md | 신규 생성 | memory + concurrency 통합 |
+| reviewer-design.md | 신규 생성 | api + architecture 통합 |
+| reviewer-test.md | 신규 생성 | test-coverage + test-quality 통합 |
+| reviewer-infra-security.md | 신규 생성 | security + infra 통합 |
+
+- `apex_tools/auto-review/config.md` — 메인 판단 참고용으로 전환
+
+## 7. 일반 태스크 작업 방식
+
+별도 규칙을 두지 않는다.
+
+feature 구현, bugfix, 리팩토링 등 일상 작업에서 메인이 직접 할지, 서브에이전트를 쓸지, 몇 명을 쓸지는 전부 메인의 상황 판단이다. 이를 규칙으로 명문화하지 않는다.
+
+CLAUDE.md에는 프로젝트 고유의 안전·컨벤션 규칙만 남긴다:
+- main 직접 커밋 금지
+- 빌드 동시 실행 금지
+- 커밋 메시지 한국어
+- 문서 경로/파일명 컨벤션
+- 기타 안전 규칙들

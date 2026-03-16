@@ -27,7 +27,7 @@ Claude가 매 세션마다 별도 질문 없이 프로젝트 현황을 파악한
 
 ## Auto-Review 플러그인
 
-멀티에이전트 자동 리뷰 플러그인. 11개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
+자동 리뷰 플러그인. 7개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
 
 ### 셋업
 
@@ -52,15 +52,11 @@ bash apex_tools/setup-claude-plugin.sh
 |---------|------|
 | `reviewer-docs-spec` | 원천 문서 정합성 (설계서/README/CLAUDE.md 간 버전/용어/로드맵 일치) |
 | `reviewer-docs-records` | 기록 문서 형식/완결성 (plans/progress/review) |
-| `reviewer-architecture` | 설계서 ↔ 코드 정합 (아키텍처 패턴, 모듈 경계) |
+| `reviewer-design` | 설계/API/아키텍처 정합 (아키텍처 패턴, 모듈 경계, 인터페이스 일관성) |
 | `reviewer-logic` | 비즈니스 로직/알고리즘 정확성 |
-| `reviewer-memory` | 메모리 관리 (할당기, 수명, 해제) |
-| `reviewer-concurrency` | 동시성/스레드 안전성 (락프리, 코루틴, MPSC) |
-| `reviewer-api` | API 설계/일관성 (인터페이스, CRTP, concept) |
-| `reviewer-test-coverage` | 테스트 커버리지 (누락 경로, 경계 조건) |
-| `reviewer-test-quality` | 테스트 품질 (격리, assertion, 안정성) |
-| `reviewer-infra` | 인프라/빌드 (CMake, Docker, CI/CD, vcpkg) |
-| `reviewer-security` | 보안 (입력 검증, 인증, 주입, 정보 노출) |
+| `reviewer-systems` | 메모리/동시성/저수준 (할당기, 락프리, 코루틴, MPSC) |
+| `reviewer-test` | 테스트 커버리지+품질 (누락 경로, 격리, assertion) |
+| `reviewer-infra-security` | 빌드/CI/인프라/보안 (CMake, Docker, CI/CD, 입력 검증, 인증) |
 
 ### 플러그인 구조
 
@@ -73,8 +69,7 @@ apex_tools/
 └── claude-plugin/
     ├── commands/auto-review.md           ← 오케스트레이터
     └── agents/
-        ├── coordinator.md                ← 리뷰 코디네이터
-        └── reviewer-{docs-spec,docs-records,architecture,...}.md
+        └── reviewer-{docs-spec,docs-records,design,logic,systems,test,infra-security}.md
 ```
 
 ## 기타
