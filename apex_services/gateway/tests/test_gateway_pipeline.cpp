@@ -148,6 +148,15 @@ TEST(GatewayConfigTest, RateLimitDefaults) {
 
 // --- AuthConfig 기본값 ---
 
+TEST(GatewayConfigTest, JwtConfigDefaults) {
+    apex::gateway::JwtConfig jwt;
+    EXPECT_EQ(jwt.algorithm, "RS256");
+    EXPECT_EQ(jwt.issuer, "apex-auth");
+    EXPECT_EQ(jwt.clock_skew, std::chrono::seconds{30});
+    EXPECT_TRUE(jwt.public_key_file.empty());
+    EXPECT_TRUE(jwt.sensitive_msg_ids.empty());
+}
+
 TEST(GatewayConfigTest, AuthExemptDefaults) {
     apex::gateway::GatewayConfig cfg;
     EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.empty());

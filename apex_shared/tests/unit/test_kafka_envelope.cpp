@@ -277,3 +277,38 @@ TEST(BuildFullEnvelope, WithReplyTopic) {
     size_t expected_offset = ENVELOPE_HEADER_SIZE + sizeof(uint16_t) + reply_topic.size();
     EXPECT_EQ(offset, expected_offset);
 }
+
+// === envelope_payload_offset 엣지케이스 Tests ===
+
+TEST(EnvelopePayloadOffset, NoReplyTopicFlag) {
+    // HAS_REPLY_TOPIC 플래그 없으면 ENVELOPE_HEADER_SIZE 반환
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + 10, 0);
+    auto offset = envelope_payload_offset(0, data);
+    EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
+}
+
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagButParseFails) {
+    // HAS_REPLY_TOPIC 플래그 있지만 reply_topic 데이터가 부족하여 parse 실패 시
+    // offset은 ENVELOPE_HEADER_SIZE 그대로 반환 (fallback)
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + 1, 0);  // uint16_t 파싱 불가 (1바이트만)
+    auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
+    EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
+}
+
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagButDataTooShort) {
+    // HAS_REPLY_TOPIC 플래그 있지만 data가 ENVELOPE_HEADER_SIZE + sizeof(uint16_t) 미만
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE, 0);  // 딱 헤더 크기만
+    auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
+    EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
+}
+
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagTruncatedTopic) {
+    // HAS_REPLY_TOPIC 플래그, uint16_t 파싱 가능하지만 topic 데이터 부족
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + sizeof(uint16_t) + 2, 0);
+    // big-endian 길이 = 10 기록 (실제 데이터는 2바이트만)
+    data[ENVELOPE_HEADER_SIZE] = 0x00;
+    data[ENVELOPE_HEADER_SIZE + 1] = 0x0A;  // length = 10
+    auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
+    // parse 실패하므로 ENVELOPE_HEADER_SIZE 반환
+    EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
+}
