@@ -18,6 +18,7 @@
 
 ## 코드 리뷰
 
+- review 문서 생성 시 반드시 리뷰 항목 상세 포함 — 헤더/통계만 있는 빈 껍데기 금지. 상세 내용 없이 생성된 review 파일은 auto-review에서 Critical로 플래그
 - **clangd LSP + superpowers:code-reviewer 병행** — LSP 정적 분석(타입/참조/호출 추적)과 AI 코드 리뷰를 함께 사용해야 품질이 높아진다
 - **clangd LSP 효율 전략**: `documentSymbol` 병렬 → 핵심 API `hover` → 의심 패턴 `findReferences`/`incomingCalls`. 전수 분석 금지, 10분 타임아웃.
 - **설계 문서 정합성**: 아키텍처 영향 변경 시 `Apex_Pipeline.md` 일치 확인 필수
