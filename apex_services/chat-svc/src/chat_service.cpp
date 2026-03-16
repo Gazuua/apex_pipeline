@@ -275,13 +275,15 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto payload_offset = envelope::envelope_payload_offset(routing.flags, payload);
     auto fbs_payload = payload.subspan(payload_offset);
 
-    // Cache metadata for handler access (side-channel via member variable).
-    // Kafka consumer is single-threaded sequential — no race condition.
-    current_meta_.corr_id = metadata.corr_id;
-    current_meta_.core_id = metadata.core_id;
-    current_meta_.session_id = metadata.session_id;
-    current_meta_.user_id = metadata.user_id;
-    current_meta_.reply_topic = std::move(reply_topic);
+    // Build metadata locally for value capture into co_spawn lambda.
+    // current_meta_ is NOT set here — each coroutine owns its own copy
+    // to prevent data races when multiple coroutines are in flight.
+    EnvelopeMetadata meta;
+    meta.corr_id = metadata.corr_id;
+    meta.core_id = metadata.core_id;
+    meta.session_id = metadata.session_id;
+    meta.user_id = metadata.user_id;
+    meta.reply_topic = std::move(reply_topic);
 
     // Copy payload for coroutine lifetime safety.
     // Kafka callback's payload span is only valid during this synchronous call.
@@ -290,11 +292,13 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto msg_id = routing.msg_id;
 
     // Kafka callback is synchronous — bridge to coroutine via co_spawn.
-    // Metadata is passed via current_meta_ (cached above).
-    // dispatcher_.dispatch() routes to the registered handler by msg_id.
+    // Metadata is value-captured (moved) into the lambda to avoid data races.
+    // Each coroutine sets current_meta_ at its start for handler access.
     boost::asio::co_spawn(executor_,
-        [this, msg_id, fbs_data = std::move(fbs_data)]() mutable
+        [this, msg_id, fbs_data = std::move(fbs_data),
+         meta = std::move(meta)]() mutable
             -> boost::asio::awaitable<void> {
+            current_meta_ = std::move(meta);
             auto payload_span = std::span<const uint8_t>(fbs_data);
             co_await dispatcher_.dispatch(nullptr, msg_id, payload_span);
         },
@@ -310,7 +314,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     // 1. FlatBuffers verify + parse
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
@@ -416,7 +420,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::JoinRoomRequest>()) {
@@ -527,7 +531,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_leave_room(
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::LeaveRoomRequest>()) {
@@ -591,7 +595,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::ListRoomsRequest>()) {
@@ -699,7 +703,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::SendMessageRequest>()) {
@@ -823,7 +827,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::WhisperRequest>()) {
@@ -934,7 +938,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::ChatHistoryRequest>()) {
@@ -1067,7 +1071,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
     uint32_t /*msg_id*/,
     std::span<const uint8_t> fbs_payload)
 {
-    auto& meta = current_meta_;
+    auto meta = current_meta_;
 
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::GlobalBroadcastRequest>()) {
