@@ -99,6 +99,8 @@ Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutti
 - Phase 5 (30초 타임아웃, 좀비 정리) → Agent tool 반환 = 종료
 - 5-type SendMessage 프로토콜 (dispatch, assign, finding, share, reassign) → 전부 불필요
 
+> **참고:** 기존 Phase 5의 후처리 작업 (문서 갱신, 머지, progress 기록 등)은 제거 대상이 아니다. 이들은 프로젝트 CLAUDE.md의 "머지 전 필수 갱신" 규칙에 의해 유지되며, 3.1 Step 4 "마무리"에서 수행한다.
+
 ### 3.3 안전 제약
 
 무한 루프 방지 개념은 유지하되, 구체적 숫자/방식은 메인 판단에 위임.
@@ -106,7 +108,7 @@ Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutti
 ### 3.4 트리거
 
 기존: "태스크 완료 후 묻지 말고 자동 실행"
-변경: "태스크 완료 후 묻지 말고 메인이 종합적으로 판단해서 실행 여부 결정"
+변경: "태스크 완료 후 메인이 auto-review 필요 여부를 자체 판단하여 실행한다 (유저에게 묻지 않음)"
 
 ## 4. 리뷰어 도메인 (7명)
 
@@ -157,7 +159,7 @@ Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutti
 ### 5.4 지침 전달 방식
 
 기존: 메인이 CLAUDE.md에서 관련 규칙을 수동 발췌하여 프롬프트에 포함 (누락 위험)
-변경: 서브에이전트가 작업 전 관련 CLAUDE.md를 직접 읽는다 (항상 최신, 누락 불가)
+변경: 서브에이전트가 작업 전 관련 CLAUDE.md를 직접 읽는다 (항상 최신 버전을 읽으며, 발췌 수준의 누락을 방지한다)
 
 ### 5.5 파일 Ownership
 
@@ -169,7 +171,7 @@ Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutti
 
 ### 6.1 전역 CLAUDE.md (C:\Users\JHG\.claude\CLAUDE.md)
 
-**제거 완료:**
+**제거 (브레인스토밍 중 적용됨):**
 - "메인 컨텍스트 절약" 섹션 전체 (하위 항목 포함)
 
 ### 6.2 프로젝트 CLAUDE.md (D:\.workspace\CLAUDE.md)
@@ -197,6 +199,29 @@ Main (코드 읽기 + 맥락 파악 + 디스패치 + 결과 검증 + cross-cutti
 - `apex_tools/claude-plugin/commands/auto-review.md` — 전면 재작성
 - `apex_tools/claude-plugin/agents/coordinator.md` — 제거
 - `apex_tools/claude-plugin/agents/reviewer-*.md` — 12개 → 7개 재편, 과도한 행동 제약 제거
+
+**리뷰어 파일 매핑:**
+
+| 기존 파일 | 조치 | 비고 |
+|-----------|------|------|
+| reviewer-docs-spec.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-docs-records.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-logic.md | 유지 (내용 수정) | 과도한 행동 제약 제거 |
+| reviewer-memory.md | 삭제 | systems로 통합 |
+| reviewer-concurrency.md | 삭제 | systems로 통합 |
+| reviewer-api.md | 삭제 | design으로 통합 |
+| reviewer-architecture.md | 삭제 | design으로 통합 |
+| reviewer-test-coverage.md | 삭제 | test로 통합 |
+| reviewer-test-quality.md | 삭제 | test로 통합 |
+| reviewer-security.md | 삭제 | infra-security로 통합 |
+| reviewer-infra.md | 삭제 | infra-security로 통합 |
+| reviewer-cross-cutting.md | 삭제 | 메인이 직접 수행 |
+| coordinator.md | 삭제 | 역할 소멸 |
+| reviewer-systems.md | 신규 생성 | memory + concurrency 통합 |
+| reviewer-design.md | 신규 생성 | api + architecture 통합 |
+| reviewer-test.md | 신규 생성 | test-coverage + test-quality 통합 |
+| reviewer-infra-security.md | 신규 생성 | security + infra 통합 |
+
 - `apex_tools/auto-review/config.md` — 메인 판단 참고용으로 전환
 
 ## 7. 일반 태스크 작업 방식
