@@ -16,17 +16,23 @@ namespace apex::gateway {
 /// Timeout is sweep-based.
 class PendingRequestsMap {
 public:
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
+    using NowFn = std::function<TimePoint()>;
+
     struct PendingEntry {
         apex::core::SessionId session_id;
         uint32_t original_msg_id;     // msg_id to restore in response WireHeader
-        std::chrono::steady_clock::time_point deadline;
+        TimePoint deadline;
     };
 
     /// @param max_entries per-core max pending count
     /// @param timeout Default request timeout
+    /// @param now_fn Time source (default: steady_clock::now). Inject for testing.
     explicit PendingRequestsMap(
         size_t max_entries = 65536,
-        std::chrono::milliseconds timeout = std::chrono::milliseconds{5000});
+        std::chrono::milliseconds timeout = std::chrono::milliseconds{5000},
+        NowFn now_fn = Clock::now);
 
     /// Register new pending request.
     /// @return Success or PendingMapFull
@@ -51,6 +57,7 @@ private:
     std::unordered_map<uint64_t, PendingEntry> map_;
     size_t max_entries_;
     std::chrono::milliseconds timeout_;
+    NowFn now_fn_;
 };
 
 } // namespace apex::gateway

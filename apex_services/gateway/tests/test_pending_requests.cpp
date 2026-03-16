@@ -3,7 +3,6 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-#include <thread>
 
 using namespace apex::gateway;
 
@@ -34,11 +33,16 @@ TEST(PendingRequestsMap, CapacityLimit) {
 }
 
 TEST(PendingRequestsMap, SweepExpired) {
-    PendingRequestsMap map(100, std::chrono::milliseconds{50});
+    // Inject fake time source — no sleep needed
+    auto fake_now = std::chrono::steady_clock::now();
+    auto now_fn = [&]() { return fake_now; };
+
+    PendingRequestsMap map(100, std::chrono::milliseconds{50}, now_fn);
     ASSERT_TRUE(map.insert(1, 100, 1).has_value());
     ASSERT_TRUE(map.insert(2, 200, 2).has_value());
 
-    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    // Advance fake clock past timeout
+    fake_now += std::chrono::milliseconds{100};
 
     size_t expired_count = 0;
     map.sweep_expired([&](uint64_t, const auto&) { ++expired_count; });
@@ -48,9 +52,13 @@ TEST(PendingRequestsMap, SweepExpired) {
 }
 
 TEST(PendingRequestsMap, SweepKeepsUnexpired) {
-    PendingRequestsMap map(100, std::chrono::milliseconds{5000});
+    auto fake_now = std::chrono::steady_clock::now();
+    auto now_fn = [&]() { return fake_now; };
+
+    PendingRequestsMap map(100, std::chrono::milliseconds{5000}, now_fn);
     ASSERT_TRUE(map.insert(1, 100, 1).has_value());
 
+    // Don't advance clock — entries should remain unexpired
     size_t expired_count = 0;
     map.sweep_expired([&](uint64_t, const auto&) { ++expired_count; });
 
