@@ -152,6 +152,8 @@ struct ReplyTopicHeader {
 
 /// Envelope 전체를 빌드하는 헬퍼.
 /// [RoutingHeader] [MetadataPrefix] [ReplyTopic?] [Payload]
+/// HAS_REPLY_TOPIC 플래그는 reply_topic 유무에 따라 내부에서 자동 설정/해제됨.
+/// 호출자가 routing.flags에 직접 설정할 필요 없음.
 [[nodiscard]] std::vector<uint8_t> build_full_envelope(
     const RoutingHeader& routing,
     const MetadataPrefix& metadata,

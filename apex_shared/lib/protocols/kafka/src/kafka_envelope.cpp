@@ -186,7 +186,16 @@ std::vector<uint8_t> build_full_envelope(
     std::string_view reply_topic,
     std::span<const uint8_t> payload)
 {
-    auto routing_bytes = routing.serialize();
+    // reply_topic 존재 여부와 HAS_REPLY_TOPIC 플래그를 자동 동기화.
+    // 호출자가 플래그를 깜빡해도 직렬화/역직렬화 불일치가 발생하지 않도록 보장.
+    RoutingHeader rh = routing;
+    if (!reply_topic.empty()) {
+        rh.flags |= routing_flags::HAS_REPLY_TOPIC;
+    } else {
+        rh.flags &= ~routing_flags::HAS_REPLY_TOPIC;
+    }
+
+    auto routing_bytes = rh.serialize();
     auto metadata_bytes = metadata.serialize();
     auto reply_bytes = ReplyTopicHeader::serialize(reply_topic);
 
