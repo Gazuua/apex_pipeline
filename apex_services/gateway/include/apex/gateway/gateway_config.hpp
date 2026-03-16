@@ -93,6 +93,9 @@ struct GatewayConfig {
     std::chrono::milliseconds request_timeout{5000};  // Pending request timeout
     size_t max_pending_per_core = 65536;               // per-core pending map max size
 
+    // Pub/Sub
+    uint32_t max_subscriptions_per_session = 50;  // 0 = unlimited
+
     // Rate Limiting
     RateLimitConfig rate_limit;
 };

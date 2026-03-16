@@ -38,6 +38,7 @@ enum class ErrorCode : uint16_t {
     RateLimitedIp = 107,         // Per-IP rate limit 초과
     RateLimitedUser = 108,       // Per-User rate limit 초과
     RateLimitedEndpoint = 109,   // Per-Endpoint rate limit 초과
+    SubscriptionLimitExceeded = 110,  // Per-session 구독 상한 초과
 
     // Application errors (1000-1999)
     AppError = 1000,
@@ -77,6 +78,7 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept {
         case ErrorCode::RateLimitedIp: return "RateLimitedIp";
         case ErrorCode::RateLimitedUser: return "RateLimitedUser";
         case ErrorCode::RateLimitedEndpoint: return "RateLimitedEndpoint";
+        case ErrorCode::SubscriptionLimitExceeded: return "SubscriptionLimitExceeded";
         case ErrorCode::AppError: return "AppError";
         case ErrorCode::AdapterError: return "AdapterError";
         case ErrorCode::PoolExhausted: return "PoolExhausted";

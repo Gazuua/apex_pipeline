@@ -50,6 +50,9 @@ host = "localhost"
 port = 6381
 # password = ""
 
+[pubsub]
+max_subscriptions_per_session = 50
+
 [timeouts]
 request_timeout_ms = 5000
 max_pending_per_core = 65536

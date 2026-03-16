@@ -1,5 +1,6 @@
 #pragma once
 
+#include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 
 #include <cstdint>
@@ -20,10 +21,15 @@ namespace apex::gateway {
 /// - shared_mutex for reader-favoring (broadcasts far more frequent than sub/unsub)
 class ChannelSessionMap {
 public:
+    /// @param max_subscriptions_per_session 0 = unlimited
+    explicit ChannelSessionMap(uint32_t max_subscriptions_per_session = 0);
+
     /// Subscribe session to channel.
-    void subscribe(const std::string& channel,
-                   apex::core::SessionId session_id,
-                   uint32_t core_id);
+    /// @return SubscriptionLimitExceeded if per-session limit reached
+    [[nodiscard]] apex::core::Result<void>
+    subscribe(const std::string& channel,
+              apex::core::SessionId session_id,
+              uint32_t core_id);
 
     /// Unsubscribe session from channel.
     void unsubscribe(const std::string& channel,
@@ -47,6 +53,7 @@ private:
         uint32_t core_id;
     };
 
+    uint32_t max_subscriptions_per_session_;
     mutable std::shared_mutex mutex_;
     std::unordered_map<std::string,
                        std::vector<SessionInfo>> channel_to_sessions_;

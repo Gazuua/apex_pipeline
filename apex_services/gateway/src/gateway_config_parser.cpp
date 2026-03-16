@@ -153,6 +153,12 @@ parse_gateway_config(std::string_view path) {
                 .value_or(std::string{}));
         }
 
+        // [pubsub]
+        if (auto pubsub = tbl["pubsub"]; pubsub) {
+            cfg.max_subscriptions_per_session = static_cast<uint32_t>(
+                pubsub["max_subscriptions_per_session"].value_or(int64_t{50}));
+        }
+
         // [timeouts]
         if (auto timeouts = tbl["timeouts"]; timeouts) {
             cfg.request_timeout = std::chrono::milliseconds{
