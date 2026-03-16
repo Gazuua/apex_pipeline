@@ -39,6 +39,10 @@ public:
     /// Stop watching.
     void stop();
 
+    /// Immediately check the file for changes (no timer wait).
+    /// Useful for deterministic testing without sleep.
+    void poll_now();
+
 private:
     void schedule_check();
     void check_file();

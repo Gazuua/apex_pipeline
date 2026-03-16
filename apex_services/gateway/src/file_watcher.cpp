@@ -38,6 +38,10 @@ void FileWatcher::stop() {
     }
 }
 
+void FileWatcher::poll_now() {
+    check_file();
+}
+
 void FileWatcher::schedule_check() {
     if (!running_) return;
     timer_->expires_after(interval_);

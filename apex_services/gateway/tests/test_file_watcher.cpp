@@ -7,7 +7,6 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <thread>
 
 using namespace apex::gateway;
 
@@ -28,22 +27,17 @@ TEST(FileWatcher, DetectsChange) {
     watcher.start();
 
     // Modify file
-    std::this_thread::sleep_for(std::chrono::milliseconds{200});
     {
         std::ofstream f(tmp);
         f << "updated = true\n";
     }
 
-    // Poll io_context briefly
-    auto deadline = std::chrono::steady_clock::now()
-        + std::chrono::seconds{3};
-    while (!changed && std::chrono::steady_clock::now() < deadline) {
-        io.run_for(std::chrono::milliseconds{100});
-    }
+    // Deterministic check — no sleep needed
+    watcher.poll_now();
 
-    watcher.stop();
     EXPECT_TRUE(changed);
 
+    watcher.stop();
     std::filesystem::remove(tmp);
 }
 
@@ -62,8 +56,10 @@ TEST(FileWatcher, NoChangeNoCallback) {
         std::chrono::milliseconds{50});
     watcher.start();
 
-    // Run without modifying file
-    io.run_for(std::chrono::milliseconds{300});
+    // Poll multiple times without modifying file
+    for (int i = 0; i < 5; ++i) {
+        watcher.poll_now();
+    }
 
     watcher.stop();
     EXPECT_EQ(change_count, 0);
