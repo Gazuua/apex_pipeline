@@ -26,5 +26,5 @@ copy /Y "build\Windows\%PRESET%\compile_commands.json" compile_commands.json >nu
 cmake --build "build/Windows/%PRESET%"
 if errorlevel 1 exit /b 1
 
-:: Test
-ctest --preset %PRESET% --output-on-failure
+:: Test (exclude E2E tests — they require docker infrastructure)
+ctest --preset %PRESET% --output-on-failure -LE e2e

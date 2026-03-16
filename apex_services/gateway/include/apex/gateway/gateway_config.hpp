@@ -61,6 +61,7 @@ struct AuthConfig {
 struct GatewayConfig {
     // Network
     uint16_t ws_port = 8443;          // WebSocket + TLS port
+    uint16_t tcp_port = 0;            // TCP Binary port (0 = disabled)
     uint32_t num_cores = 1;
 
     // TLS

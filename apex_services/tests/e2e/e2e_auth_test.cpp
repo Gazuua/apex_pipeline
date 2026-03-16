@@ -41,6 +41,8 @@ TEST_F(AuthE2ETest, LoginAndAuthenticatedRequest) {
 
     // 4. Receive response (msg_id 2008 = ListRoomsResponse)
     auto resp = client.recv();
+    std::cerr << "[E2E-DEBUG] ListRooms recv: msg_id=" << resp.msg_id
+              << " payload_size=" << resp.payload.size() << "\n";
     EXPECT_EQ(resp.msg_id, 2008u);
 
     auto* list_resp = flatbuffers::GetRoot<chat_fbs::ListRoomsResponse>(

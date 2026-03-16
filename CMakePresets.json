@@ -26,6 +26,7 @@
       "inherits": "release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TESTING": "ON",
         "APEX_BUILD_VARIANT": "debug"
       }
     },

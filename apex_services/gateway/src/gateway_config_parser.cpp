@@ -66,6 +66,8 @@ parse_gateway_config(std::string_view path) {
         if (auto server = tbl["server"]; server) {
             cfg.ws_port = static_cast<uint16_t>(
                 server["ws_port"].value_or(int64_t{8443}));
+            cfg.tcp_port = static_cast<uint16_t>(
+                server["tcp_port"].value_or(int64_t{0}));
             cfg.num_cores = static_cast<uint32_t>(
                 server["num_cores"].value_or(int64_t{1}));
         }

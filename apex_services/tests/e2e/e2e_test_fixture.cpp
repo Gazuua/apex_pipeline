@@ -18,6 +18,7 @@
 #else
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 namespace apex::e2e {
@@ -38,12 +39,22 @@ ChildProcess E2ETestFixture::launch_service(const std::string& name,
     proc.name = name;
 
 #ifdef _WIN32
-    std::string cmd_line = exe_path + " " + config_path;
+    // Redirect stdout/stderr to log file for debugging
+    std::string log_file = name + "_e2e.log";
+    std::string cmd_line = "cmd.exe /c " + exe_path + " " + config_path
+        + " > " + log_file + " 2>&1";
 
     STARTUPINFOA si{};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
+
+    // Set working directory to project root so that relative paths in TOML
+    // configs (e.g. "apex_services/tests/keys/test_rs256_pub.pem") resolve
+    // correctly regardless of where ctest invokes the test binary from.
+    const char* work_dir = config_.project_root.empty()
+        ? nullptr
+        : config_.project_root.c_str();
 
     BOOL ok = ::CreateProcessA(
         nullptr,                        // lpApplicationName
@@ -53,7 +64,7 @@ ChildProcess E2ETestFixture::launch_service(const std::string& name,
         FALSE,                          // bInheritHandles
         CREATE_NO_WINDOW,               // dwCreationFlags
         nullptr,                        // lpEnvironment
-        nullptr,                        // lpCurrentDirectory
+        work_dir,                       // lpCurrentDirectory (project root)
         &si,                            // lpStartupInfo
         &proc.proc_info);               // lpProcessInformation
 
@@ -71,7 +82,13 @@ ChildProcess E2ETestFixture::launch_service(const std::string& name,
 #else
     pid_t pid = ::fork();
     if (pid == 0) {
-        // Child process
+        // Child process — set working directory to project root
+        if (!config_.project_root.empty()) {
+            if (::chdir(config_.project_root.c_str()) != 0) {
+                std::cerr << "[E2E] chdir failed for " << name << "\n";
+                ::_exit(1);
+            }
+        }
         ::execl(exe_path.c_str(), exe_path.c_str(), config_path.c_str(), nullptr);
         // execl only returns on error
         std::cerr << "[E2E] execl failed for " << name << "\n";
@@ -184,6 +201,10 @@ void E2ETestFixture::SetUpTestSuite() {
                   << config_.gateway_host << ":" << config_.gateway_ws_port
                   << " within timeout. Tests may fail.\n";
     }
+
+    // Wait for services to fully initialize (Kafka consumers, handler registration)
+    // TCP accept starts before service on_start() completes on some platforms.
+    std::this_thread::sleep_for(std::chrono::seconds{3});
 
     std::cout << "[E2E] Infrastructure ready.\n";
 }
@@ -349,6 +370,19 @@ E2ETestFixture::login(TcpClient& client,
     // Receive LoginResponse (msg_id = 1001)
     auto resp = client.recv(std::chrono::seconds{
         static_cast<long>(config_.request_timeout.count())});
+
+    std::cerr << "[E2E-DEBUG] login() recv: msg_id=" << resp.msg_id
+              << " payload_size=" << resp.payload.size();
+    if (resp.msg_id != 1001 && !resp.payload.empty()) {
+        // Dump first bytes for error diagnosis
+        std::cerr << " payload_hex=";
+        for (size_t i = 0; i < std::min(resp.payload.size(), size_t{16}); ++i) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%02x", resp.payload[i]);
+            std::cerr << buf;
+        }
+    }
+    std::cerr << "\n";
 
     AuthResult result{};
     if (resp.msg_id == 1001 && !resp.payload.empty()) {

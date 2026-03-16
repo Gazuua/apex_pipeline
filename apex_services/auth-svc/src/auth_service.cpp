@@ -238,7 +238,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
     // --- Step 1: PG query — lookup user by email ---
     std::array<std::string, 1> login_params = {email};
     auto user_result = co_await pg_.query(
-        "SELECT id, password_hash, locked FROM users WHERE email = $1",
+        "SELECT id, password_hash, locked_until FROM users WHERE email = $1",
         login_params);
 
     if (!user_result.has_value()) {
@@ -273,7 +273,6 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
     // Columns: id(0), password_hash(1), locked(2)
     auto user_id_str = pg_res.value(0, 0);
     auto password_hash = pg_res.value(0, 1);
-    auto locked_str = pg_res.value(0, 2);
 
     uint64_t user_id = 0;
     {
@@ -292,7 +291,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
             co_return apex::core::ok();
         }
     }
-    bool is_locked = (locked_str == "t" || locked_str == "true" || locked_str == "1");
+    bool is_locked = !pg_res.is_null(0, 2);  // locked_until IS NOT NULL → account locked
 
     // --- Step 3: Account lock check ---
     if (is_locked) {

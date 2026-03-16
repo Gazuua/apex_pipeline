@@ -36,6 +36,11 @@ public:
     /// Per-core dispatcher 접근 (서비스 바인딩용).
     /// Listener<P>가 소유하는 per-core MessageDispatcher를 반환한다.
     [[nodiscard]] virtual MessageDispatcher& dispatcher(uint32_t core_id) = 0;
+
+    /// Copy default handler from a shared dispatcher to this listener's per-core dispatcher.
+    /// Used for multi-protocol: services register on the primary listener,
+    /// and their default handler is propagated to secondary listeners.
+    virtual void sync_default_handler(uint32_t core_id, const MessageDispatcher& source) = 0;
 };
 
 /// 프로토콜별 리스너. 포트 바인딩 + accept loop + per-core ConnectionHandler 관리.
@@ -140,6 +145,14 @@ public:
     /// Listener의 per-core dispatcher에 접근 (서비스 바인딩용)
     [[nodiscard]] MessageDispatcher& dispatcher(uint32_t core_id) override {
         return per_core_handlers_[core_id]->dispatcher;
+    }
+
+    /// Copy default handler from source dispatcher to this listener's dispatcher.
+    void sync_default_handler(uint32_t core_id, const MessageDispatcher& source) override {
+        if (source.has_default_handler()) {
+            per_core_handlers_[core_id]->dispatcher.set_default_handler(
+                source.default_handler());
+        }
     }
 
 private:

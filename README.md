@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.5
+## 현재 상태 — v0.5.5.1
 
 ### 완료
 
@@ -106,6 +106,15 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Chat Service 완성: 8개 핸들러 FBS+PG+Redis (create_room, join, leave, list, send_message, whisper, global_broadcast, chat_history), TOML 기반 부트스트랩 main.cpp
   - E2E 테스트 인프라: RS256 테스트 키, HS256→RS256 테스트 전환, E2E fixture launch/teardown, E2E TOML 설정 3개
   - 56/56 테스트 통과
+
+- **v0.5.5.1 — E2E 인프라 수정 + 서비스 체인 검증**
+  - 빌드 인프라: BUILD_TESTING=ON (CMakePresets), include(GoogleTest), CTest E2E 제외(-LE e2e)
+  - 코어 프레임워크: MessageDispatcher default handler, Server post_init_callback, multi-listener sync_default_handler
+  - Gateway: TcpBinaryProtocol listen, TOML 구조 수정, GatewayService 배선(pipeline+router), ResponseDispatcher 정식 배선, 시스템 메시지 처리(AuthenticateSession)
+  - Auth/Chat Service: CoreEngine 기반 전환(standalone→정식), 어댑터 init(engine), bcrypt 시드, PG search_path
+  - DB 스키마: locked→locked_until, token_family 추가, SQL 컬럼명 수정(id→room_id/message_id)
+  - E2E Fixture: 바이너리 경로 주입, working directory, JWT 키 수정, 디버그 로그
+  - 67/67 유닛 테스트 통과 + E2E LoginAndAuthenticatedRequest 통과
 
 ## 아키텍처
 

@@ -59,15 +59,35 @@ struct E2EConfig {
     std::string pg_user          = "apex_admin";
     std::string pg_password      = "apex_e2e_password";
 
-    // Service executable paths (relative to working directory or absolute)
-    std::string gateway_exe      = "gateway_main";
+    // Service executable paths (injected by CMake via target_compile_definitions)
+#ifdef E2E_GATEWAY_EXE
+    std::string gateway_exe      = E2E_GATEWAY_EXE;
+#else
+    std::string gateway_exe      = "apex_gateway";
+#endif
+#ifdef E2E_AUTH_SVC_EXE
+    std::string auth_svc_exe     = E2E_AUTH_SVC_EXE;
+#else
     std::string auth_svc_exe     = "auth_svc_main";
+#endif
+#ifdef E2E_CHAT_SVC_EXE
+    std::string chat_svc_exe     = E2E_CHAT_SVC_EXE;
+#else
     std::string chat_svc_exe     = "chat_svc_main";
+#endif
 
-    // Service config files (TOML)
+    // Service config files (TOML) — relative to project root
     std::string gateway_config   = "apex_services/tests/e2e/gateway_e2e.toml";
     std::string auth_svc_config  = "apex_services/tests/e2e/auth_svc_e2e.toml";
     std::string chat_svc_config  = "apex_services/tests/e2e/chat_svc_e2e.toml";
+
+    // Project root directory — used as working directory for spawned service
+    // processes so that relative paths in TOML configs resolve correctly.
+#ifdef E2E_PROJECT_ROOT
+    std::string project_root     = E2E_PROJECT_ROOT;
+#else
+    std::string project_root;    // empty = inherit parent CWD
+#endif
 
     // Timeouts
     std::chrono::seconds startup_timeout{30};

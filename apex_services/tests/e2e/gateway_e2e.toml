@@ -1,17 +1,26 @@
 # Gateway E2E Test Configuration
 
-[gateway]
-ws_port = 8443
-num_cores = 2
+[server]
+ws_port = 8444
+tcp_port = 8443
+num_cores = 1
 
 [kafka]
 brokers = "localhost:9092"
 consumer_group = "gateway-e2e"
 response_topic = "gateway.responses"
 
-[redis_auth]
+[redis.auth]
 host = "localhost"
 port = 6380
+
+[redis.pubsub]
+host = "localhost"
+port = 6383
+
+[redis.ratelimit]
+host = "localhost"
+port = 6381
 
 [jwt]
 public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
@@ -22,3 +31,18 @@ issuer = "apex-auth"
 LoginRequest = 1000
 LogoutRequest = 1002
 RefreshTokenRequest = 1004
+
+# Auth Service routes: msg_id 1000-1099
+[[routes]]
+range_begin = 1000
+range_end = 1099
+kafka_topic = "auth.requests"
+
+# Chat Service routes: msg_id 2000-2999
+[[routes]]
+range_begin = 2000
+range_end = 2999
+kafka_topic = "chat.requests"
+
+[timeouts]
+request_timeout_ms = 5000

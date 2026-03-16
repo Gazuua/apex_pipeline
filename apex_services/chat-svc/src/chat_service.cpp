@@ -454,7 +454,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
     std::array<std::string, 1> room_params = {std::to_string(room_id)};
     auto room_result = co_await pg_.query(
         "SELECT room_name, max_members FROM chat_svc.chat_rooms "
-        "WHERE id = $1::bigint AND is_active = true",
+        "WHERE room_id = $1::bigint AND is_active = true",
         room_params);
 
     if (!room_result.has_value() || room_result->row_count() == 0) {
@@ -637,9 +637,9 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
         std::to_string(offset)
     };
     auto rooms_result = co_await pg_.query(
-        "SELECT id, room_name, max_members, owner_id "
+        "SELECT room_id, room_name, max_members, owner_id "
         "FROM chat_svc.chat_rooms WHERE is_active = true "
-        "ORDER BY id ASC LIMIT $1::int OFFSET $2::int",
+        "ORDER BY room_id ASC LIMIT $1::int OFFSET $2::int",
         page_params);
 
     if (!rooms_result.has_value()) {
@@ -993,10 +993,10 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
             std::to_string(fetch_limit)
         };
         msg_result = co_await pg_.query(
-            "SELECT id, sender_id, sender_name, content, "
+            "SELECT message_id, sender_id, sender_name, content, "
             "EXTRACT(EPOCH FROM created_at)::bigint * 1000 AS ts "
             "FROM chat_svc.chat_messages WHERE room_id = $1::bigint "
-            "ORDER BY id DESC LIMIT $2::int",
+            "ORDER BY message_id DESC LIMIT $2::int",
             params);
     } else {
         // Before cursor
@@ -1006,10 +1006,10 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
             std::to_string(fetch_limit)
         };
         msg_result = co_await pg_.query(
-            "SELECT id, sender_id, sender_name, content, "
+            "SELECT message_id, sender_id, sender_name, content, "
             "EXTRACT(EPOCH FROM created_at)::bigint * 1000 AS ts "
-            "FROM chat_svc.chat_messages WHERE room_id = $1::bigint AND id < $2::bigint "
-            "ORDER BY id DESC LIMIT $3::int",
+            "FROM chat_svc.chat_messages WHERE room_id = $1::bigint AND message_id < $2::bigint "
+            "ORDER BY message_id DESC LIMIT $3::int",
             params);
     }
 

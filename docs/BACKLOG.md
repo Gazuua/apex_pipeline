@@ -7,11 +7,33 @@
 
 ## Critical
 
-(현재 Critical 항목 없음)
+### [Critical] C-1. apex_core 프레임워크 내부 아키텍처 문서 + 구조도
+- **상태**: 미작성
+- **목적**: 서비스 개발자가 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 것. 현재는 Gateway/Auth/Chat 구현 시 코어 내부를 직접 파악해야 하며, standalone 서비스의 CoreEngine 활용 패턴, 어댑터 초기화 순서, 시스템 메시지 처리 등이 문서화되지 않아 반복적인 시행착오 발생
+- **포함 내용**:
+  - Server/CoreEngine/Listener/ConnectionHandler/MessageDispatcher/ServiceBase/AdapterBase 내부 구조 + 시각적 구조도
+  - per-core 아키텍처 (shared-nothing 원칙, 메시지 흐름, 세션 라이프사이클)
+  - 서비스 라이프사이클: factory 생성 → bind_dispatcher → on_start/on_stop
+  - 어댑터 초기화 순서: adapter.init(CoreEngine&) → consumer start → producer poll
+  - standalone 서비스 패턴: CoreEngine 직접 사용 시 어댑터 배선 방법
+  - Gateway 전용: ResponseDispatcher 배선, post_init_callback 활용, 시스템 메시지 처리
+  - 서비스 구현 시 필수 체크리스트 (서비스 스캐폴딩 기반)
+- **후속**: 이 문서를 기반으로 서비스 스캐폴딩 스크립트(v1.0 로드맵) 자동 생성 가능
+- **배치**: v0.6 착수 전 최우선
 
 ---
 
 ## Important
+
+### [Important] I-17. E2E 테스트 실행 가이드 문서
+- **상태**: 미작성
+- **설명**: Docker 인프라 구성, 서비스 빌드/실행, E2E 테스트 실행 흐름, 디버깅 방법(서비스 로그 확인, 수동 실행), 알려진 이슈(Kafka cold start, PG warm-up) 등을 포함한 실행 가이드. `BUILD_TESTING=ON` 설정, `ctest -LE e2e`로 유닛만 실행, `apex_e2e_tests.exe` 직접 실행 등 실무 워크플로우
+- **배치**: E2E 안정화 완료 직후
+
+### [Important] I-18. Server multi-listener dispatcher sync_all_handlers
+- **상태**: 미구현
+- **설명**: 현재 `sync_default_handler`가 default handler만 다른 listener의 dispatcher에 복사. 개별 msg_id 핸들러(`register_handler`)는 복사 안 됨. 서비스가 시스템 메시지 등 개별 핸들러를 등록하면 primary listener 외 다른 프로토콜 listener에서 동작 안 함. `sync_all_handlers`로 확장 필요
+- **배치**: 다음 멀티 프로토콜 작업 시 (v0.6 운영 인프라 또는 WebSocket 정식 지원 시)
 
 ### [Important] I-4. review 문서 2개 상세 내용 부재
 - **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`

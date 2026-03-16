@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS auth_svc.refresh_tokens (
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
     revoked_at      TIMESTAMPTZ,
     replaced_by     BIGINT          REFERENCES auth_svc.refresh_tokens(id),
+    token_family    VARCHAR(64)     NOT NULL DEFAULT gen_random_uuid()::text,
 
     CONSTRAINT refresh_tokens_expiry_check CHECK (expires_at > created_at)
 );
@@ -51,10 +52,11 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at
     ON auth_svc.refresh_tokens(expires_at) WHERE revoked_at IS NULL;
 
--- Test seed data (bcrypt hash of "password123", work factor 12)
+-- Test seed data: users only (password_hash set by Auth Service on first login attempt)
+-- Auth Service's bundled bcrypt generates hashes at startup via seed_test_users().
 INSERT INTO auth_svc.users (email, password_hash)
 VALUES
-    ('alice@apex.dev', '$2a$12$LJ3m4ys3Lg7EvKmMxOlKCeEJvGMVXyFBQLlKP2cSsYMxR0CKFBkBy'),
-    ('bob@apex.dev', '$2a$12$LJ3m4ys3Lg7EvKmMxOlKCeEJvGMVXyFBQLlKP2cSsYMxR0CKFBkBy'),
-    ('charlie@apex.dev', '$2a$12$LJ3m4ys3Lg7EvKmMxOlKCeEJvGMVXyFBQLlKP2cSsYMxR0CKFBkBy')
+    ('alice@apex.dev', 'PENDING'),
+    ('bob@apex.dev', 'PENDING'),
+    ('charlie@apex.dev', 'PENDING')
 ON CONFLICT (email) DO NOTHING;

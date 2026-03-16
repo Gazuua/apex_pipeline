@@ -410,6 +410,7 @@ Tier 상세:
 | v0.5.4.1 | 소 | Wave 2 패치: Mock 어댑터 인프라 (Kafka/Redis/PG) + Gateway/Auth/Chat 단위 테스트 신설, Redis 파라미터 바인딩 API + 인젝션 방어, Gateway 동시성 수정 (ResponseDispatcher core post, Rate Limiter per-core), PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한, sleep 제거 → 시간 주입/poll_now 패턴. 56/56 테스트 통과 | PR #28 |
 | v0.5.4.2 | 소 | auto-review 21건 수정 | Critical UAF·바이트오더·JWT 5건 + Important 14건 + Minor 2건 | 완료 |
 | v0.5.5 | 소 | 서비스 체인 완성: PR #30 리뷰 8건 수정 (kafka_envelope overflow, spdlog 제거, JWT uid string, JwtVerifier copy/move 삭제, config DI, auth exempt TOML 등) + Auth/Chat full impl (MessageDispatcher 기반 핸들러, login/logout/refresh_token, 8개 채팅 핸들러) + E2E 인프라 (RS256 키, fixture launch/teardown, TOML 설정) + 56 테스트 | 완료 |
+| v0.5.5.1 | 소 | E2E 인프라 수정 + 서비스 체인 검증: BUILD_TESTING=ON (CMakePresets), include(GoogleTest), CTest E2E 제외(-LE e2e). 코어: MessageDispatcher default handler, Server post_init_callback, multi-listener sync_default_handler. Gateway: TcpBinaryProtocol listen, TOML 구조 수정, GatewayService 배선(pipeline+router), ResponseDispatcher 정식 배선, 시스템 메시지 처리(AuthenticateSession). Auth/Chat: CoreEngine 기반 전환(standalone→정식), 어댑터 init(engine), bcrypt 시드, PG search_path. DB 스키마: locked→locked_until, token_family 추가, SQL 컬럼명 수정. E2E Fixture: 바이너리 경로 주입, working directory, JWT 키 수정, 디버그 로그. 67/67 유닛 + E2E LoginAndAuthenticatedRequest 통과 | 완료 |
 
 ### 활성 로드맵
 
@@ -426,6 +427,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.4.1 Wave 2 패치 (auto-review + 백로그 17건 수정, 56 테스트)
          v0.5.4.2 auto-review 21건 수정 (Critical 5 + Important 14 + Minor 2)
          v0.5.5   서비스 체인 완성 (PR #30 리뷰 8건 + Auth/Chat full impl + E2E 인프라)
+         v0.5.5.1 E2E 인프라 수정 + 서비스 체인 검증 (BUILD_TESTING, 20+ 이슈 수정, 67 유닛 + E2E 1/11 통과)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
