@@ -5,6 +5,9 @@
 #include <cstring>
 #include <expected>
 #include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace apex::shared::protocols::kafka {
 
@@ -68,7 +71,8 @@ namespace routing_flags {
     constexpr uint16_t TTL_PERMANENT      = 0x0300;
     // Bit 10: 프래그먼트
     constexpr uint16_t FRAGMENT           = 0x0400;
-    // Bit 11-15: 예약
+    // Bit 11: Reply-To (아래 확장 블록에서 정의)
+    // Bit 12-15: 예약
 } // namespace routing_flags
 
 // ============================================================
@@ -107,7 +111,10 @@ struct MetadataPrefix {
 // ============================================================
 // Full Envelope 상수
 // ============================================================
-/// Payload 시작 오프셋 = RoutingHeader(8) + MetadataPrefix(40) = 48바이트
+/// 고정 헤더 크기 = RoutingHeader(8) + MetadataPrefix(40) = 48바이트
+/// 실제 Payload 시작 오프셋은 reply_topic 존재 여부에 따라 달라짐.
+/// reply_topic이 있으면: 48 + 2 + reply_topic.size()
+/// reply_topic이 없으면: 48 (하위 호환)
 static constexpr size_t ENVELOPE_HEADER_SIZE =
     RoutingHeader::SIZE + MetadataPrefix::SIZE;  // 48
 
@@ -117,5 +124,49 @@ namespace source_ids {
     constexpr uint16_t AUTH    = 1;
     constexpr uint16_t CHAT    = 2;
 } // namespace source_ids
+
+// ============================================================
+// Reply-To Header (가변 길이, Routing Flags HAS_REPLY_TOPIC으로 존재 표시)
+// ============================================================
+// reply_topic_len(u16) | reply_topic(UTF-8, reply_topic_len바이트)
+//
+// 레이아웃: [RoutingHeader 8B] [MetadataPrefix 40B] [ReplyTopic 2+NB] [Payload]
+// HAS_REPLY_TOPIC 플래그가 없으면 ReplyTopic 섹션 없음 (하위 호환).
+
+namespace routing_flags {
+    /// Bit 11: Reply-To 토픽 존재 여부
+    constexpr uint16_t HAS_REPLY_TOPIC  = 0x0800;
+} // namespace routing_flags (extension)
+
+/// Reply-To 헤더 직렬화/역직렬화 유틸
+struct ReplyTopicHeader {
+    /// reply_topic이 비어있으면 빈 vector 반환 (직렬화하지 않음).
+    [[nodiscard]] static std::vector<uint8_t>
+    serialize(std::string_view reply_topic);
+
+    /// data에서 reply_topic을 파싱. reply_topic_len(u16 BE) + topic bytes.
+    /// @return {reply_topic, 소비한 바이트 수} 또는 에러
+    [[nodiscard]] static std::expected<std::pair<std::string, size_t>, EnvelopeError>
+    parse(std::span<const uint8_t> data);
+};
+
+/// Envelope 전체를 빌드하는 헬퍼.
+/// [RoutingHeader] [MetadataPrefix] [ReplyTopic?] [Payload]
+[[nodiscard]] std::vector<uint8_t> build_full_envelope(
+    const RoutingHeader& routing,
+    const MetadataPrefix& metadata,
+    std::string_view reply_topic,
+    std::span<const uint8_t> payload);
+
+/// Envelope에서 Payload 시작 오프셋을 계산.
+/// HAS_REPLY_TOPIC 플래그가 있으면 reply_topic 섹션을 건너뜀.
+[[nodiscard]] size_t envelope_payload_offset(
+    uint16_t routing_flags,
+    std::span<const uint8_t> data);
+
+/// Envelope에서 reply_topic을 추출. 없으면 빈 문자열.
+[[nodiscard]] std::string extract_reply_topic(
+    uint16_t routing_flags,
+    std::span<const uint8_t> data);
 
 } // namespace apex::shared::protocols::kafka

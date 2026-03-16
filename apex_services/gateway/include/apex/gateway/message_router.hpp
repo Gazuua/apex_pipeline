@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 
 namespace apex::gateway {
 
@@ -20,7 +21,8 @@ class MessageRouter {
 public:
     MessageRouter(apex::shared::adapters::kafka::KafkaAdapter& kafka,
                   RouteTablePtr initial_table,
-                  uint16_t core_id);
+                  uint16_t core_id,
+                  std::string response_topic = "gateway.responses");
 
     /// WireHeader -> Kafka Envelope conversion + produce.
     /// @param session Request session (for session_id)
@@ -45,7 +47,7 @@ public:
     [[nodiscard]] uint64_t generate_corr_id() noexcept;
 
 private:
-    /// Kafka Envelope serialization.
+    /// Kafka Envelope serialization (Reply-To 헤더 포함).
     [[nodiscard]] std::vector<uint8_t>
     build_envelope(const apex::core::WireHeader& header,
                    std::span<const uint8_t> payload,
@@ -58,6 +60,7 @@ private:
     std::atomic<std::shared_ptr<const RouteTable>> route_table_;
     uint16_t core_id_;
     uint64_t corr_counter_{0};  // per-core, lock-free
+    std::string response_topic_;  // Reply-To: 서비스가 응답할 토픽
 };
 
 } // namespace apex::gateway

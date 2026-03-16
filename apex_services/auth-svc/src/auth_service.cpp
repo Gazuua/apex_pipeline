@@ -103,7 +103,7 @@ void AuthService::dispatch_envelope(std::span<const uint8_t> payload) {
         return;
     }
 
-    // Parse MetadataPrefix (32B) starting at offset 8
+    // Parse MetadataPrefix (40B) starting at offset 8
     auto meta_result = envelope::MetadataPrefix::parse(
         payload.subspan(envelope::RoutingHeader::SIZE));
     if (!meta_result.has_value()) {
@@ -114,21 +114,25 @@ void AuthService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto& routing = *routing_result;
     auto& metadata = *meta_result;
 
-    // FlatBuffers payload starts at offset 40
-    auto fbs_payload = payload.subspan(envelope::ENVELOPE_HEADER_SIZE);
+    // Extract reply_topic (Reply-To 헤더 패턴)
+    auto reply_topic = envelope::extract_reply_topic(routing.flags, payload);
+
+    // FlatBuffers payload — reply_topic 존재 시 오프셋이 달라짐
+    auto payload_offset = envelope::envelope_payload_offset(routing.flags, payload);
+    auto fbs_payload = payload.subspan(payload_offset);
 
     switch (routing.msg_id) {
     case msg_ids::LOGIN_REQUEST:
         handle_login(fbs_payload, metadata.corr_id,
-                     metadata.core_id, metadata.session_id);
+                     metadata.core_id, metadata.session_id, reply_topic);
         break;
     case msg_ids::LOGOUT_REQUEST:
         handle_logout(fbs_payload, metadata.corr_id,
-                      metadata.core_id, metadata.session_id);
+                      metadata.core_id, metadata.session_id, reply_topic);
         break;
     case msg_ids::REFRESH_TOKEN_REQUEST:
         handle_refresh_token(fbs_payload, metadata.corr_id,
-                             metadata.core_id, metadata.session_id);
+                             metadata.core_id, metadata.session_id, reply_topic);
         break;
     default:
         spdlog::warn("[AuthService] Unknown msg_id: {}", routing.msg_id);
@@ -140,7 +144,8 @@ void AuthService::handle_login(
     std::span<const uint8_t> fbs_payload,
     uint64_t corr_id,
     uint16_t core_id,
-    uint64_t session_id)
+    uint64_t session_id,
+    const std::string& reply_topic)
 {
     // 1. FlatBuffers verify + parse
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
@@ -153,7 +158,7 @@ void AuthService::handle_login(
             apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
         builder.Finish(resp);
         send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()});
+                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
         return;
     }
 
@@ -167,7 +172,7 @@ void AuthService::handle_login(
             apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
         builder.Finish(resp);
         send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()});
+                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
         return;
     }
 
@@ -202,14 +207,15 @@ void AuthService::handle_login(
         static_cast<uint32_t>(config_.access_token_ttl.count()));
     builder.Finish(resp);
     send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                  {builder.GetBufferPointer(), builder.GetSize()});
+                  {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
 }
 
 void AuthService::handle_logout(
     std::span<const uint8_t> fbs_payload,
     uint64_t corr_id,
     uint16_t core_id,
-    uint64_t session_id)
+    uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<apex::auth_svc::schemas::LogoutRequest>()) {
@@ -220,7 +226,7 @@ void AuthService::handle_logout(
             apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
         builder.Finish(resp);
         send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()});
+                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
         return;
     }
 
@@ -234,7 +240,7 @@ void AuthService::handle_logout(
             apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
         builder.Finish(resp);
         send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()});
+                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
         return;
     }
 
@@ -255,14 +261,15 @@ void AuthService::handle_logout(
         apex::auth_svc::schemas::LogoutError_NONE);
     builder.Finish(resp);
     send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                  {builder.GetBufferPointer(), builder.GetSize()});
+                  {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
 }
 
 void AuthService::handle_refresh_token(
     std::span<const uint8_t> fbs_payload,
     uint64_t corr_id,
     uint16_t core_id,
-    uint64_t session_id)
+    uint64_t session_id,
+    const std::string& reply_topic)
 {
     spdlog::info("[AuthService] handle_refresh_token (corr_id: {}, session: {})",
                  corr_id, session_id);
@@ -283,6 +290,7 @@ void AuthService::handle_refresh_token(
     (void)corr_id;
     (void)core_id;
     (void)session_id;
+    (void)reply_topic;
 }
 
 void AuthService::send_response(
@@ -290,7 +298,8 @@ void AuthService::send_response(
     uint64_t corr_id,
     uint16_t core_id,
     uint64_t session_id,
-    std::span<const uint8_t> fbs_payload)
+    std::span<const uint8_t> fbs_payload,
+    const std::string& reply_topic)
 {
     // Build RoutingHeader
     envelope::RoutingHeader routing;
@@ -309,7 +318,7 @@ void AuthService::send_response(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
 
-    // Serialize envelope
+    // Serialize envelope (응답에는 reply_topic 불포함 — 요청 전용 필드)
     auto routing_bytes = routing.serialize();
     auto metadata_bytes = metadata.serialize();
 
@@ -322,16 +331,20 @@ void AuthService::send_response(
     envelope_buf.insert(envelope_buf.end(),
                         fbs_payload.begin(), fbs_payload.end());
 
+    // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
+    const auto& target_topic = reply_topic.empty()
+        ? config_.response_topic : reply_topic;
+
     // Use session_id as Kafka key (design doc section 7.1)
     auto key = std::to_string(session_id);
     auto result = kafka_.produce(
-        config_.response_topic,
+        target_topic,
         key,
         std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value()) {
-        spdlog::error("[AuthService] Failed to produce response (msg_id: {}, corr_id: {})",
-                      msg_id, corr_id);
+        spdlog::error("[AuthService] Failed to produce response to '{}' (msg_id: {}, corr_id: {})",
+                      target_topic, msg_id, corr_id);
     }
 }
 

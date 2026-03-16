@@ -16,9 +16,9 @@ struct TlsConfig {
 };
 
 struct JwtConfig {
-    std::string secret;               // HMAC secret key (HS256)
-    std::string public_key_file;      // RSA/EC public key file (RS256/ES256, future)
-    std::string algorithm = "HS256";
+    std::string secret;               // HMAC secret key (HS256, legacy -- unused when algorithm=RS256)
+    std::string public_key_file;      // RSA public key PEM file path (RS256)
+    std::string algorithm = "RS256";  // JWT algorithm (RS256 = asymmetric, Auth signs / Gateway verifies)
     std::string issuer = "apex-auth"; // JWT issuer (must match Auth service)
     std::chrono::seconds clock_skew{30};     // Time tolerance
     std::vector<uint32_t> sensitive_msg_ids; // Redis blacklist check targets

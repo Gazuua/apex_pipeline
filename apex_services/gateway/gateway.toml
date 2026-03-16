@@ -10,11 +10,12 @@ key_file = "certs/server.key"
 # ca_file = "certs/ca.crt"
 
 [jwt]
-secret = "${JWT_SECRET:-dev-secret-change-in-production}"
-algorithm = "HS256"
+algorithm = "RS256"
+public_key_file = "keys/auth_rs256_pub.pem"
 issuer = "apex-auth"
 clock_skew_seconds = 30
 sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
+# secret = "${JWT_SECRET:-dev-secret-change-in-production}"  # Legacy HS256 (unused)
 
 [[routes]]
 range_begin = 0

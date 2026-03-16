@@ -84,8 +84,10 @@ parse_gateway_config(std::string_view path) {
         if (auto jwt = tbl["jwt"]; jwt) {
             cfg.jwt.secret = expand_env(jwt["secret"]
                 .value_or(std::string{}));
+            cfg.jwt.public_key_file = jwt["public_key_file"]
+                .value_or(std::string{});
             cfg.jwt.algorithm = jwt["algorithm"]
-                .value_or(std::string{"HS256"});
+                .value_or(std::string{"RS256"});
             cfg.jwt.issuer = jwt["issuer"]
                 .value_or(std::string{"apex-auth"});
             cfg.jwt.clock_skew = std::chrono::seconds{

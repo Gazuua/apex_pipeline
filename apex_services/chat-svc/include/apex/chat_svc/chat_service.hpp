@@ -103,50 +103,60 @@ private:
     /// Parse Kafka Envelope (RoutingHeader + Metadata) and dispatch by msg_id
     void dispatch_envelope(std::span<const uint8_t> payload);
 
-    // --- Handlers (receive fbs_payload + envelope metadata) ---
+    // --- Handlers (receive fbs_payload + envelope metadata + reply_topic) ---
 
     // Room management (Task 3)
     void handle_create_room(std::span<const uint8_t> fbs_payload,
-                            uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                            uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                            const std::string& reply_topic);
     void handle_join_room(std::span<const uint8_t> fbs_payload,
-                          uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                          uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                          const std::string& reply_topic);
     void handle_leave_room(std::span<const uint8_t> fbs_payload,
-                           uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                           uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                           const std::string& reply_topic);
     void handle_list_rooms(std::span<const uint8_t> fbs_payload,
-                           uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                           uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                           const std::string& reply_topic);
 
     // Message send (Task 4)
     void handle_send_message(std::span<const uint8_t> fbs_payload,
-                             uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                             uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                             const std::string& reply_topic);
 
     // Whisper (Task 5)
     void handle_whisper(std::span<const uint8_t> fbs_payload,
-                        uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                        uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                        const std::string& reply_topic);
 
     // History (Task 6)
     void handle_chat_history(std::span<const uint8_t> fbs_payload,
-                             uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                             uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                             const std::string& reply_topic);
 
     // Global broadcast (Task 7)
     void handle_global_broadcast(std::span<const uint8_t> fbs_payload,
-                                 uint64_t corr_id, uint16_t core_id, uint64_t session_id);
+                                 uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                                 const std::string& reply_topic);
 
     // --- Helpers ---
 
-    /// Build Kafka Envelope and produce to response topic.
+    /// Build Kafka Envelope and produce to reply_topic (or fallback to config).
     void send_response(uint32_t msg_id,
                        uint64_t corr_id,
                        uint16_t core_id,
                        uint64_t session_id,
-                       std::span<const uint8_t> fbs_payload);
+                       std::span<const uint8_t> fbs_payload,
+                       const std::string& reply_topic);
 
-    /// Build Kafka Envelope with custom flags and produce to response topic.
+    /// Build Kafka Envelope with custom flags and produce to reply_topic (or fallback).
     void send_response_with_flags(uint32_t msg_id,
                                   uint16_t flags,
                                   uint64_t corr_id,
                                   uint16_t core_id,
                                   uint64_t session_id,
-                                  std::span<const uint8_t> fbs_payload);
+                                  std::span<const uint8_t> fbs_payload,
+                                  const std::string& reply_topic);
 
     /// Build Redis Pub/Sub payload: [msg_id(u32 BE)] + [fbs payload]
     [[nodiscard]] std::vector<uint8_t> build_pubsub_payload(

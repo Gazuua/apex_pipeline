@@ -12,10 +12,12 @@ using namespace apex::shared::protocols::kafka;
 MessageRouter::MessageRouter(
     apex::shared::adapters::kafka::KafkaAdapter& kafka,
     RouteTablePtr initial_table,
-    uint16_t core_id)
+    uint16_t core_id,
+    std::string response_topic)
     : kafka_(kafka)
     , route_table_(std::move(initial_table))
-    , core_id_(core_id) {}
+    , core_id_(core_id)
+    , response_topic_(std::move(response_topic)) {}
 
 apex::core::Result<void>
 MessageRouter::route(apex::core::SessionPtr session,
@@ -65,15 +67,15 @@ MessageRouter::build_envelope(
     uint64_t corr_id,
     uint16_t core_id) const {
 
-    // Routing Header (8B) + Metadata (40B) + Payload
-    std::vector<uint8_t> buf(ENVELOPE_HEADER_SIZE + payload.size());
-
     // Routing Header
     RoutingHeader rh;
     rh.msg_id = header.msg_id;
     rh.flags = 0;  // Request, unicast, uncompressed
-    rh.serialize(std::span<uint8_t, RoutingHeader::SIZE>(
-        buf.data(), RoutingHeader::SIZE));
+
+    // Reply-To: response_topic이 있으면 HAS_REPLY_TOPIC 플래그 세팅
+    if (!response_topic_.empty()) {
+        rh.flags |= routing_flags::HAS_REPLY_TOPIC;
+    }
 
     // Metadata Prefix
     MetadataPrefix meta;
@@ -86,16 +88,9 @@ MessageRouter::build_envelope(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch())
         .count());
-    meta.serialize(std::span<uint8_t, MetadataPrefix::SIZE>(
-        buf.data() + RoutingHeader::SIZE, MetadataPrefix::SIZE));
 
-    // Payload copy
-    if (!payload.empty()) {
-        std::memcpy(buf.data() + ENVELOPE_HEADER_SIZE,
-                    payload.data(), payload.size());
-    }
-
-    return buf;
+    // [RoutingHeader 8B] [MetadataPrefix 40B] [ReplyTopic 2+NB] [Payload]
+    return build_full_envelope(rh, meta, response_topic_, payload);
 }
 
 } // namespace apex::gateway

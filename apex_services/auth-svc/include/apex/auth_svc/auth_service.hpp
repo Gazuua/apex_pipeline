@@ -57,26 +57,30 @@ private:
     void handle_login(std::span<const uint8_t> fbs_payload,
                       uint64_t corr_id,
                       uint16_t core_id,
-                      uint64_t session_id);
+                      uint64_t session_id,
+                      const std::string& reply_topic);
 
     /// Logout request handler
     void handle_logout(std::span<const uint8_t> fbs_payload,
                        uint64_t corr_id,
                        uint16_t core_id,
-                       uint64_t session_id);
+                       uint64_t session_id,
+                       const std::string& reply_topic);
 
     /// Refresh Token request handler
     void handle_refresh_token(std::span<const uint8_t> fbs_payload,
                               uint64_t corr_id,
                               uint16_t core_id,
-                              uint64_t session_id);
+                              uint64_t session_id,
+                              const std::string& reply_topic);
 
-    /// Build response Kafka Envelope and produce
+    /// Build response Kafka Envelope and produce to reply_topic (or fallback).
     void send_response(uint32_t msg_id,
                        uint64_t corr_id,
                        uint16_t core_id,
                        uint64_t session_id,
-                       std::span<const uint8_t> fbs_payload);
+                       std::span<const uint8_t> fbs_payload,
+                       const std::string& reply_topic);
 
     AuthConfig config_;
     apex::shared::adapters::kafka::KafkaAdapter& kafka_;

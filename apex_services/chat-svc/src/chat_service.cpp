@@ -78,11 +78,12 @@ void ChatService::send_response(
     uint64_t corr_id,
     uint16_t core_id,
     uint64_t session_id,
-    std::span<const uint8_t> fbs_payload)
+    std::span<const uint8_t> fbs_payload,
+    const std::string& reply_topic)
 {
     send_response_with_flags(msg_id,
         envelope::routing_flags::DIRECTION_RESPONSE,
-        corr_id, core_id, session_id, fbs_payload);
+        corr_id, core_id, session_id, fbs_payload, reply_topic);
 }
 
 void ChatService::send_response_with_flags(
@@ -91,7 +92,8 @@ void ChatService::send_response_with_flags(
     uint64_t corr_id,
     uint16_t core_id,
     uint64_t session_id,
-    std::span<const uint8_t> fbs_payload)
+    std::span<const uint8_t> fbs_payload,
+    const std::string& reply_topic)
 {
     // Build RoutingHeader
     envelope::RoutingHeader routing;
@@ -108,7 +110,8 @@ void ChatService::send_response_with_flags(
     metadata.session_id = session_id;
     metadata.timestamp  = current_timestamp_ms();
 
-    // Serialize: [Routing 8B] + [Metadata 32B] + [Payload NB]
+    // Serialize: [Routing 8B] + [Metadata 40B] + [Payload NB]
+    // 응답에는 reply_topic 불포함 — 요청 전용 필드
     auto routing_bytes  = routing.serialize();
     auto metadata_bytes = metadata.serialize();
 
@@ -121,16 +124,20 @@ void ChatService::send_response_with_flags(
     envelope_buf.insert(envelope_buf.end(),
                         fbs_payload.begin(), fbs_payload.end());
 
+    // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
+    const auto& target_topic = reply_topic.empty()
+        ? config_.response_topic : reply_topic;
+
     // Use session_id as Kafka key (design doc section 7.1)
     auto key = std::to_string(session_id);
     auto result = kafka_.produce(
-        config_.response_topic,
+        target_topic,
         key,
         std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value()) {
-        spdlog::error("[ChatService] Failed to produce response (msg_id: {}, corr_id: {})",
-                      msg_id, corr_id);
+        spdlog::error("[ChatService] Failed to produce response to '{}' (msg_id: {}, corr_id: {})",
+                      target_topic, msg_id, corr_id);
     }
 }
 
@@ -185,7 +192,7 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
         return;
     }
 
-    // Parse MetadataPrefix (32B) starting at offset 8
+    // Parse MetadataPrefix (40B) starting at offset 8
     auto meta_result = envelope::MetadataPrefix::parse(
         payload.subspan(envelope::RoutingHeader::SIZE));
     if (!meta_result.has_value()) {
@@ -196,50 +203,54 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto& routing = *routing_result;
     auto& metadata = *meta_result;
 
-    // FlatBuffers payload starts at offset 40
-    auto fbs_payload = payload.subspan(envelope::ENVELOPE_HEADER_SIZE);
+    // Extract reply_topic (Reply-To 헤더 패턴)
+    auto reply_topic = envelope::extract_reply_topic(routing.flags, payload);
+
+    // FlatBuffers payload — reply_topic 존재 시 오프셋이 달라짐
+    auto payload_offset = envelope::envelope_payload_offset(routing.flags, payload);
+    auto fbs_payload = payload.subspan(payload_offset);
 
     switch (routing.msg_id) {
     // Room management
     case msg_ids::CREATE_ROOM_REQUEST:
         handle_create_room(fbs_payload, metadata.corr_id,
-                           metadata.core_id, metadata.session_id);
+                           metadata.core_id, metadata.session_id, reply_topic);
         break;
     case msg_ids::JOIN_ROOM_REQUEST:
         handle_join_room(fbs_payload, metadata.corr_id,
-                         metadata.core_id, metadata.session_id);
+                         metadata.core_id, metadata.session_id, reply_topic);
         break;
     case msg_ids::LEAVE_ROOM_REQUEST:
         handle_leave_room(fbs_payload, metadata.corr_id,
-                          metadata.core_id, metadata.session_id);
+                          metadata.core_id, metadata.session_id, reply_topic);
         break;
     case msg_ids::LIST_ROOMS_REQUEST:
         handle_list_rooms(fbs_payload, metadata.corr_id,
-                          metadata.core_id, metadata.session_id);
+                          metadata.core_id, metadata.session_id, reply_topic);
         break;
 
     // Message send
     case msg_ids::SEND_MESSAGE_REQUEST:
         handle_send_message(fbs_payload, metadata.corr_id,
-                            metadata.core_id, metadata.session_id);
+                            metadata.core_id, metadata.session_id, reply_topic);
         break;
 
     // Whisper
     case msg_ids::WHISPER_REQUEST:
         handle_whisper(fbs_payload, metadata.corr_id,
-                       metadata.core_id, metadata.session_id);
+                       metadata.core_id, metadata.session_id, reply_topic);
         break;
 
     // History
     case msg_ids::CHAT_HISTORY_REQUEST:
         handle_chat_history(fbs_payload, metadata.corr_id,
-                            metadata.core_id, metadata.session_id);
+                            metadata.core_id, metadata.session_id, reply_topic);
         break;
 
     // Global broadcast
     case msg_ids::GLOBAL_BROADCAST_REQUEST:
         handle_global_broadcast(fbs_payload, metadata.corr_id,
-                                metadata.core_id, metadata.session_id);
+                                metadata.core_id, metadata.session_id, reply_topic);
         break;
 
     default:
@@ -254,7 +265,8 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
 
 void ChatService::handle_create_room(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     // 1. FlatBuffers verify + parse
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
@@ -265,7 +277,7 @@ void ChatService::handle_create_room(
             fbs::ChatRoomError_ROOM_NAME_EMPTY);
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
 
@@ -279,7 +291,7 @@ void ChatService::handle_create_room(
             fbs::ChatRoomError_ROOM_NAME_EMPTY);
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
     if (room_name->size() > 100) {
@@ -288,7 +300,7 @@ void ChatService::handle_create_room(
             fbs::ChatRoomError_ROOM_NAME_TOO_LONG);
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
 
@@ -317,12 +329,13 @@ void ChatService::handle_create_room(
         name_off);
     fbb.Finish(resp);
     send_response(msg_ids::CREATE_ROOM_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 void ChatService::handle_join_room(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::JoinRoomRequest>()) {
@@ -352,12 +365,13 @@ void ChatService::handle_join_room(
         0);  // member_count placeholder
     fbb.Finish(resp);
     send_response(msg_ids::JOIN_ROOM_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 void ChatService::handle_leave_room(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::LeaveRoomRequest>()) {
@@ -383,12 +397,13 @@ void ChatService::handle_leave_room(
         room_id);
     fbb.Finish(resp);
     send_response(msg_ids::LEAVE_ROOM_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 void ChatService::handle_list_rooms(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::ListRoomsRequest>()) {
@@ -415,7 +430,7 @@ void ChatService::handle_list_rooms(
         0);   // total_count placeholder
     fbb.Finish(resp);
     send_response(msg_ids::LIST_ROOMS_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 // ============================================================
@@ -424,7 +439,8 @@ void ChatService::handle_list_rooms(
 
 void ChatService::handle_send_message(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::SendMessageRequest>()) {
@@ -443,7 +459,7 @@ void ChatService::handle_send_message(
             fbs::ChatMessageError_EMPTY_MESSAGE);
         fbb.Finish(resp);
         send_response(msg_ids::SEND_MESSAGE_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
     if (content->size() > config_.max_message_length) {
@@ -452,7 +468,7 @@ void ChatService::handle_send_message(
             fbs::ChatMessageError_MESSAGE_TOO_LONG);
         fbb.Finish(resp);
         send_response(msg_ids::SEND_MESSAGE_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
 
@@ -509,7 +525,7 @@ void ChatService::handle_send_message(
         fbs::ChatMessageError_NONE, 0, timestamp);
     fbb.Finish(resp);
     send_response(msg_ids::SEND_MESSAGE_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 // ============================================================
@@ -518,7 +534,8 @@ void ChatService::handle_send_message(
 
 void ChatService::handle_whisper(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::WhisperRequest>()) {
@@ -537,7 +554,7 @@ void ChatService::handle_whisper(
             fbs::ChatMessageError_EMPTY_MESSAGE);
         fbb.Finish(resp);
         send_response(msg_ids::WHISPER_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
     if (content->size() > config_.max_message_length) {
@@ -546,7 +563,7 @@ void ChatService::handle_whisper(
             fbs::ChatMessageError_MESSAGE_TOO_LONG);
         fbb.Finish(resp);
         send_response(msg_ids::WHISPER_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
 
@@ -571,7 +588,7 @@ void ChatService::handle_whisper(
         fbs::ChatMessageError_NONE, timestamp);
     fbb.Finish(resp);
     send_response(msg_ids::WHISPER_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 // ============================================================
@@ -580,7 +597,8 @@ void ChatService::handle_whisper(
 
 void ChatService::handle_chat_history(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::ChatHistoryRequest>()) {
@@ -611,7 +629,7 @@ void ChatService::handle_chat_history(
         false);
     fbb.Finish(resp);
     send_response(msg_ids::CHAT_HISTORY_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 // ============================================================
@@ -620,7 +638,8 @@ void ChatService::handle_chat_history(
 
 void ChatService::handle_global_broadcast(
     std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id, uint16_t core_id, uint64_t session_id)
+    uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    const std::string& reply_topic)
 {
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<fbs::GlobalBroadcastRequest>()) {
@@ -638,7 +657,7 @@ void ChatService::handle_global_broadcast(
             fbs::ChatMessageError_EMPTY_MESSAGE);
         fbb.Finish(resp);
         send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, corr_id, core_id, session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()});
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
         return;
     }
 
@@ -662,7 +681,7 @@ void ChatService::handle_global_broadcast(
         fbs::ChatMessageError_NONE, timestamp);
     fbb.Finish(resp);
     send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, corr_id, core_id, session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()});
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, reply_topic);
 }
 
 } // namespace apex::chat_svc

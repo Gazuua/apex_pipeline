@@ -11,7 +11,7 @@ GatewayPipeline::GatewayPipeline(const JwtVerifier& jwt_verifier,
                                  apex::shared::rate_limit::RateLimitFacade* rate_limiter)
     : jwt_verifier_(jwt_verifier),
       blacklist_(blacklist),
-      rate_limiter_(rate_limiter) {}
+      rate_limiter_(rate_limiter) {}  // atomic<T*> supports direct init
 
 boost::asio::awaitable<apex::core::Result<void>>
 GatewayPipeline::process(apex::core::SessionPtr session,
@@ -58,12 +58,13 @@ GatewayPipeline::authenticate(apex::core::SessionPtr /*session*/,
 
 apex::core::Result<void>
 GatewayPipeline::check_ip_rate_limit(std::string_view remote_ip) {
-    if (!rate_limiter_) {
+    auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+    if (!limiter) {
         return apex::core::ok();  // Rate limiting disabled
     }
 
     auto now = apex::shared::rate_limit::SlidingWindowCounter::Clock::now();
-    if (!rate_limiter_->check_ip(remote_ip, now)) {
+    if (!limiter->check_ip(remote_ip, now)) {
         spdlog::debug("Per-IP rate limit exceeded: {}", remote_ip);
         return apex::core::error(apex::core::ErrorCode::RateLimitedIp);
     }
@@ -73,11 +74,12 @@ GatewayPipeline::check_ip_rate_limit(std::string_view remote_ip) {
 
 boost::asio::awaitable<apex::core::Result<void>>
 GatewayPipeline::check_user_rate_limit(uint64_t user_id) {
-    if (!rate_limiter_) {
+    auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+    if (!limiter) {
         co_return apex::core::ok();
     }
 
-    auto result = co_await rate_limiter_->check_user(user_id, now_ms());
+    auto result = co_await limiter->check_user(user_id, now_ms());
     if (!result) {
         // Redis error -- log but don't block (fail-open for resilience)
         spdlog::warn("Per-User rate limit check failed (Redis error), allowing: user_id={}",
@@ -96,11 +98,12 @@ GatewayPipeline::check_user_rate_limit(uint64_t user_id) {
 
 boost::asio::awaitable<apex::core::Result<void>>
 GatewayPipeline::check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id) {
-    if (!rate_limiter_) {
+    auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+    if (!limiter) {
         co_return apex::core::ok();
     }
 
-    auto result = co_await rate_limiter_->check_endpoint(user_id, msg_id, now_ms());
+    auto result = co_await limiter->check_endpoint(user_id, msg_id, now_ms());
     if (!result) {
         // Redis error -- fail-open
         spdlog::warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
@@ -119,7 +122,7 @@ GatewayPipeline::check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id) {
 
 void GatewayPipeline::set_rate_limiter(
     apex::shared::rate_limit::RateLimitFacade* limiter) noexcept {
-    rate_limiter_ = limiter;
+    rate_limiter_.store(limiter, std::memory_order_release);
 }
 
 uint64_t GatewayPipeline::now_ms() noexcept {

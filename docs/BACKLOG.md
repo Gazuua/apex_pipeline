@@ -19,24 +19,6 @@
 - **배치**: v0.5 패치 (cross-cutting)
 - **설명**: Auth→`auth.responses`, Chat→`chat.responses`로 응답하나 Gateway는 `gateway.responses`만 consume. 전체 요청-응답 체인 단절. 설계 결정 필요: (A) 서비스가 `gateway.responses`로 통일 vs (B) Gateway가 다중 토픽 consume — 출처: auto-review 에스컬레이션
 
-### [Critical] C-3. PerIpRateLimiter TTL 콜백 미연결
-- **위치**: `apex_shared/lib/rate_limit/src/per_ip_rate_limiter.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
-- **설명**: TimingWheel on_expire → remove_entry 연결 부재. 만료 엔트리 메모리 잔존. core/shared 경계 설계 결정 필요 (TimingWheel은 core, PerIpRateLimiter는 shared) — 출처: auto-review (reviewer-memory)
-
-### [Critical] C-4. ResponseDispatcher::on_response() 데이터 레이스
-- **위치**: `apex_services/gateway/src/response_dispatcher.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
-- **설명**: Kafka 스레드에서 per-core PendingRequestsMap 직접 접근. cross_core_post 위임 설계 필요. 보안+정합성 영향 (다른 세션에 응답 전달 가능) — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
-
-### [Critical] C-5. RefreshTokenRequest(msg_id=10) 라우팅 불가
-- **위치**: `apex_services/gateway/gateway.toml`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치
-- **설명**: gateway.toml routes에 시스템 범위([0,999]) 누락. 시스템 메시지별 라우팅 분기 설계 필요 — 출처: auto-review (reviewer-cross-cutting)
-
 ---
 
 ## Important
@@ -89,41 +71,17 @@
 - **배치**: v0.6 (운영 인프라, 시크릿 매니저 도입 시 해결)
 - **설명**: migration SQL에 평문 비밀번호. 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-security) + 에스컬레이션
 
-### [Important] I-9. session_store Redis 명령 인젝션
-- **위치**: `apex_services/auth-svc/src/session_store.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: RedisMultiplexer printf-style API 변경 필요 — 출처: auto-review (reviewer-security)
-
-### [Important] I-10. PubSub→클라이언트 프레임 포맷 불일치
-- **위치**: `apex_services/gateway/src/broadcast_fanout.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: build_pubsub_payload vs WireHeader 계약 위반. placeholder이지만 구현 시 수정 필요 — 출처: auto-review (reviewer-cross-cutting)
-
-### [Important] I-11. redis.ratelimit TOML 섹션 파싱 누락
-- **위치**: `apex_services/gateway/src/gateway_config_parser.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: GatewayConfig + parser 변경 필요 — 출처: auto-review (reviewer-cross-cutting)
-
-### [Important] I-12. RateLimitEndpointConfig → EndpointRateConfig 변환 경로 부재
-- **위치**: `apex_services/gateway/src/config_reloader.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: hot-reload 경로 단절 — 출처: auto-review (reviewer-cross-cutting)
-
 ### [Important] I-13. async_send_raw + write_pump 동시 write 위험
 - **위치**: `apex_core/` Session (async_send_raw, write_pump)
-- **상태**: 미구현 (현재 코드 경로에서 미트리거)
-- **배치**: v0.5 패치
+- **상태**: 미트리거 (async_send_raw 호출처 없음)
+- **배치**: Wave 배정 보류 (현재 미트리거, 향후 API 사용 시 검토)
 - **설명**: async_send_raw와 write_pump가 동시에 소켓 write를 시도할 수 있는 구조. 현재 코드 경로에서는 트리거되지 않지만, 향후 확장 시 위험 — 출처: auto-review (reviewer-concurrency)
 
 ### [Important] I-14. GatewayEnvelope FBS msg_id uint16 불일치 (코드 uint32)
 - **위치**: `apex_services/gateway/` FlatBuffers 스키마 + 코드
 - **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치 — 출처: auto-review (reviewer-architecture)
+- **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
+- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
 
 ### [Important] I-15. docs/Apex_Pipeline.md WireHeader v1(10B) vs 코드 v2(12B) 설계 문서 미갱신
 - **위치**: `docs/Apex_Pipeline.md`, `apex_core/` WireHeader

@@ -9,6 +9,7 @@
 
 #include <boost/asio/awaitable.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 
@@ -86,7 +87,7 @@ private:
 
     const JwtVerifier& jwt_verifier_;
     JwtBlacklist* blacklist_;
-    apex::shared::rate_limit::RateLimitFacade* rate_limiter_;
+    std::atomic<apex::shared::rate_limit::RateLimitFacade*> rate_limiter_;
 };
 
 } // namespace apex::gateway

@@ -4,7 +4,9 @@
 #include <picojson/picojson.h>
 #include <spdlog/spdlog.h>
 
+#include <array>
 #include <fstream>
+#include <random>
 #include <sstream>
 
 namespace apex::auth_svc {
@@ -20,6 +22,27 @@ std::string read_file(std::string_view path) {
     std::ostringstream ss;
     ss << file.rdbuf();
     return ss.str();
+}
+
+/// Generate a random hex string suitable for JWT ID (jti).
+/// 16 bytes = 32 hex chars, providing sufficient uniqueness.
+std::string generate_jti() {
+    static thread_local std::mt19937_64 rng{std::random_device{}()};
+
+    std::array<uint8_t, 16> bytes{};
+    std::uniform_int_distribution<unsigned> dist(0, 255);
+    for (auto& b : bytes) {
+        b = static_cast<uint8_t>(dist(rng));
+    }
+
+    static constexpr char hex_chars[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(32);
+    for (auto b : bytes) {
+        result.push_back(hex_chars[b >> 4]);
+        result.push_back(hex_chars[b & 0x0F]);
+    }
+    return result;
 }
 
 } // anonymous namespace
@@ -52,6 +75,8 @@ std::string JwtManager::create_access_token(uint64_t user_id,
         auto now = std::chrono::system_clock::now();
         auto exp = now + access_token_ttl_;
 
+        auto jti = generate_jti();
+
         auto token = jwt::create()
             .set_issuer(issuer_)
             .set_type("JWT")
@@ -59,6 +84,7 @@ std::string JwtManager::create_access_token(uint64_t user_id,
             .set_expires_at(exp)
             .set_payload_claim("uid", jwt::claim(picojson::value(static_cast<double>(user_id))))
             .set_subject(std::string(email))
+            .set_payload_claim("jti", jwt::claim(std::string(jti)))
             .sign(jwt::algorithm::rs256(public_key_, private_key_));
 
         return token;

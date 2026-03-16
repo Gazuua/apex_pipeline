@@ -268,8 +268,8 @@ int main() {
 ### 와이어 프로토콜
 
 ```
-[고정 헤더 10바이트]
-ver(u8) | msg_id(u16) | body_size(u32) | flags(u16) | reserved(u8)
+[고정 헤더 12바이트 (v2)]
+ver(u8) | flags(u8) | msg_id(u32) | body_size(u32) | reserved(u16)
 [페이로드]
 FlatBuffers 바이너리 (zero-copy 접근)
 ```
