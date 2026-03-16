@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <format>
+#include <string>
 
 namespace apex::gateway {
 
@@ -34,8 +35,9 @@ JwtBlacklist::is_blacklisted(std::string_view jti) {
         co_return true;  // Reject invalid JTI
     }
 
-    auto cmd = std::format("EXISTS jwt:blacklist:{}", jti);
-    auto result = co_await redis_.command(cmd);
+    // Build key with safe prefix + parameterized JTI via hiredis escaping
+    auto key = std::format("jwt:blacklist:{}", jti);
+    auto result = co_await redis_.command("EXISTS %s", key.c_str());
     if (!result) {
         // Redis failure: fail-open (availability priority).
         // Conservative: treat as blacklisted for sensitive path.

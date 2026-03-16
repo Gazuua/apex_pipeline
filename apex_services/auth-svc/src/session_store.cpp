@@ -21,14 +21,13 @@ SessionStore::SessionStore(
 boost::asio::awaitable<apex::core::Result<void>>
 SessionStore::set(uint64_t user_id, std::string_view session_data) {
     auto key = session_key(user_id);
-    auto ttl_sec = ttl_.count();
-
-    // SETEX key ttl value
-    auto cmd = std::format("SETEX {} {} {}", key, ttl_sec, session_data);
+    auto ttl_sec = static_cast<int>(ttl_.count());
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto& mux = redis_.multiplexer(core_id);
-    auto result = co_await mux.command(cmd);
+    auto result = co_await mux.command("SETEX %s %d %s",
+                                        key.c_str(), ttl_sec,
+                                        std::string(session_data).c_str());
 
     if (!result.has_value()) {
         spdlog::error("[SessionStore] Failed to set session for user {}", user_id);
@@ -41,11 +40,10 @@ SessionStore::set(uint64_t user_id, std::string_view session_data) {
 boost::asio::awaitable<apex::core::Result<std::string>>
 SessionStore::get(uint64_t user_id) {
     auto key = session_key(user_id);
-    auto cmd = std::format("GET {}", key);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto& mux = redis_.multiplexer(core_id);
-    auto result = co_await mux.command(cmd);
+    auto result = co_await mux.command("GET %s", key.c_str());
 
     if (!result.has_value()) {
         co_return apex::core::error(result.error());
@@ -61,11 +59,10 @@ SessionStore::get(uint64_t user_id) {
 boost::asio::awaitable<apex::core::Result<void>>
 SessionStore::remove(uint64_t user_id) {
     auto key = session_key(user_id);
-    auto cmd = std::format("DEL {}", key);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto& mux = redis_.multiplexer(core_id);
-    auto result = co_await mux.command(cmd);
+    auto result = co_await mux.command("DEL %s", key.c_str());
 
     if (!result.has_value()) {
         spdlog::error("[SessionStore] Failed to remove session for user {}", user_id);
@@ -79,11 +76,12 @@ boost::asio::awaitable<apex::core::Result<void>>
 SessionStore::blacklist_token(std::string_view token_hash,
                               std::chrono::seconds ttl) {
     auto key = blacklist_key(token_hash);
-    auto cmd = std::format("SETEX {} {} 1", key, ttl.count());
+    auto ttl_sec = static_cast<int>(ttl.count());
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto& mux = redis_.multiplexer(core_id);
-    auto result = co_await mux.command(cmd);
+    auto result = co_await mux.command("SETEX %s %d %s",
+                                        key.c_str(), ttl_sec, "1");
 
     if (!result.has_value()) {
         spdlog::error("[SessionStore] Failed to blacklist token");
@@ -96,11 +94,10 @@ SessionStore::blacklist_token(std::string_view token_hash,
 boost::asio::awaitable<apex::core::Result<bool>>
 SessionStore::is_blacklisted(std::string_view token_hash) {
     auto key = blacklist_key(token_hash);
-    auto cmd = std::format("EXISTS {}", key);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto& mux = redis_.multiplexer(core_id);
-    auto result = co_await mux.command(cmd);
+    auto result = co_await mux.command("EXISTS %s", key.c_str());
 
     if (!result.has_value()) {
         // Conservative: treat Redis error as blacklisted
