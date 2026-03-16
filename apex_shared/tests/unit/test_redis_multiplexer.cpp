@@ -1,6 +1,9 @@
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 #include <gtest/gtest.h>
 #include <boost/asio/io_context.hpp>
+#include <hiredis/hiredis.h>
+
+#include <cstring>
 
 using namespace apex::shared::adapters::redis;
 
@@ -67,4 +70,65 @@ TEST(RedisMultiplexer, ConstructWithCustomConfig) {
     EXPECT_FALSE(mux.connected());
     EXPECT_EQ(mux.pending_count(), 0u);
     EXPECT_EQ(mux.reconnect_attempts(), 0u);
+}
+
+// ==========================================================================
+// Parameter binding (redisFormatCommand) tests
+// These verify hiredis format layer directly — no live Redis needed.
+// ==========================================================================
+
+// --- TC7: redisFormatCommand 기본 %s 파라미터 바인딩 ---
+TEST(RedisMultiplexer, FormatCommandBasicString) {
+    char* buf = nullptr;
+    int len = redisFormatCommand(&buf, "GET %s", "mykey");
+    ASSERT_GT(len, 0);
+    ASSERT_NE(buf, nullptr);
+
+    // hiredis RESP protocol: "*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n"
+    std::string result(buf, len);
+    EXPECT_NE(result.find("GET"), std::string::npos);
+    EXPECT_NE(result.find("mykey"), std::string::npos);
+    redisFreeCommand(buf);
+}
+
+// --- TC8: redisFormatCommand %d 정수 파라미터 바인딩 ---
+TEST(RedisMultiplexer, FormatCommandIntegerParam) {
+    char* buf = nullptr;
+    int len = redisFormatCommand(&buf, "SETEX %s %d %s", "sess:123", 3600, "data");
+    ASSERT_GT(len, 0);
+    ASSERT_NE(buf, nullptr);
+
+    std::string result(buf, len);
+    EXPECT_NE(result.find("SETEX"), std::string::npos);
+    EXPECT_NE(result.find("sess:123"), std::string::npos);
+    EXPECT_NE(result.find("3600"), std::string::npos);
+    EXPECT_NE(result.find("data"), std::string::npos);
+    redisFreeCommand(buf);
+}
+
+// --- TC9: 특수문자 이스케이핑 — 공백/개행 포함 값이 안전하게 전달됨 ---
+TEST(RedisMultiplexer, FormatCommandSpecialCharsEscaped) {
+    const char* value = "hello world\r\ninjection";
+    char* buf = nullptr;
+    int len = redisFormatCommand(&buf, "SET %s %s", "key", value);
+    ASSERT_GT(len, 0);
+    ASSERT_NE(buf, nullptr);
+
+    // RESP bulk string은 길이 접두사로 구분하므로 \r\n이 프로토콜을
+    // 깨뜨리지 않음. value가 bulk string 내에 포함되어야 함.
+    std::string result(buf, len);
+    EXPECT_NE(result.find(value), std::string::npos);
+    redisFreeCommand(buf);
+}
+
+// --- TC10: 빈 포맷 문자열 처리 ---
+TEST(RedisMultiplexer, FormatCommandEmptyArgs) {
+    char* buf = nullptr;
+    int len = redisFormatCommand(&buf, "PING");
+    ASSERT_GT(len, 0);
+    ASSERT_NE(buf, nullptr);
+
+    std::string result(buf, len);
+    EXPECT_NE(result.find("PING"), std::string::npos);
+    redisFreeCommand(buf);
 }

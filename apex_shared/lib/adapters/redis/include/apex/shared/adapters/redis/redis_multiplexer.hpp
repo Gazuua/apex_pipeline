@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <deque>
 #include <memory>
 #include <span>
@@ -44,10 +45,34 @@ public:
     RedisMultiplexer(RedisMultiplexer&&) = delete;
     RedisMultiplexer& operator=(RedisMultiplexer&&) = delete;
 
-    /// Execute a single Redis command. Suspends the coroutine until reply arrives
-    /// or timeout expires.
+    /// Execute a single Redis command (raw string, no parameter escaping).
+    /// @deprecated Use the parameterized overload to prevent Redis command injection.
+    [[deprecated("Use command(const char* fmt, Args&&... args) for safe parameter binding")]]
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
     command(std::string_view cmd);
+
+    /// Execute a Redis command with printf-style parameter binding.
+    /// Parameters are escaped by hiredis (via redisFormatCommand), preventing
+    /// command injection. Use %s for strings, %d for integers, %b for binary
+    /// (requires pointer + length pair).
+    ///
+    /// Example:
+    ///   co_await mux.command("SETEX %s %d %s", key, ttl, value);
+    template<typename... Args>
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
+    command(const char* fmt, Args&&... args) {
+        char* buf = nullptr;
+        int len = redisFormatCommand(&buf, fmt, std::forward<Args>(args)...);
+        if (len < 0 || !buf) {
+            co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+        }
+        // RAII guard for hiredis-allocated buffer
+        struct FreeGuard {
+            char* p;
+            ~FreeGuard() { if (p) redisFreeCommand(p); }
+        } guard{buf};
+        co_return co_await submit_formatted_command(buf, len);
+    }
 
     /// Execute multiple commands as a pipeline. Returns results in order.
     /// hiredis internally queues writes, so consecutive redisAsyncCommand calls
@@ -92,6 +117,12 @@ private:
 
     /// Cancel all pending commands with the given error and release them.
     void cancel_all_pending(apex::core::ErrorCode error);
+
+    /// Submit an already-formatted Redis protocol command and await reply.
+    /// Used by both the deprecated command(string_view) and the new
+    /// parameterized command(fmt, args...) overload.
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
+    submit_formatted_command(const char* cmd, int len);
 
     /// Exponential backoff reconnect loop
     boost::asio::awaitable<void> reconnect_loop();

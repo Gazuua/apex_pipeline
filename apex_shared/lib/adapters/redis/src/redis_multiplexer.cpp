@@ -82,13 +82,73 @@ RedisMultiplexer::command(std::string_view cmd) {
     co_return std::move(result);
 }
 
+boost::asio::awaitable<apex::core::Result<RedisReply>>
+RedisMultiplexer::submit_formatted_command(const char* cmd, int len) {
+    if (!conn_ || !conn_->is_connected()) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    auto seq = next_sequence_++;
+    auto* pending = slab_.construct(
+        boost::asio::steady_timer(io_ctx_,
+            std::chrono::steady_clock::time_point::max()),
+        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+        std::unexpected(apex::core::ErrorCode::Timeout),
+        seq,
+        false
+    );
+    if (!pending) {
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    pending_.push_back(pending);
+
+    int ret = redisAsyncFormattedCommand(conn_->async_context(),
+                                         &RedisMultiplexer::static_on_reply,
+                                         this, cmd, static_cast<size_t>(len));
+    if (ret != REDIS_OK) {
+        pending_.pop_back();
+        slab_.destroy(pending);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    pending->timeout.async_wait([pending](boost::system::error_code ec) {
+        if (!ec) {
+            pending->timed_out = true;
+            pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
+            pending->resolver.cancel();
+        }
+    });
+
+    boost::system::error_code ec;
+    co_await pending->resolver.async_wait(
+        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+
+    pending->timeout.cancel();
+
+    auto result = std::move(pending->result);
+    release_pending(pending);
+
+    co_return std::move(result);
+}
+
 boost::asio::awaitable<apex::core::Result<std::vector<RedisReply>>>
 RedisMultiplexer::pipeline(std::span<const std::string> commands) {
     std::vector<RedisReply> results;
     results.reserve(commands.size());
 
     for (const auto& cmd : commands) {
-        auto result = co_await command(cmd);
+        // Format each command via hiredis for safe transmission.
+        // pipeline() will be updated to accept parameterized commands in a
+        // future revision; for now, treat each string as a pre-formatted
+        // command (same as the deprecated command(string_view)).
+        char* buf = nullptr;
+        int len = redisFormatCommand(&buf, cmd.c_str());
+        if (len < 0 || !buf) {
+            co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+        }
+        auto result = co_await submit_formatted_command(buf, len);
+        redisFreeCommand(buf);
         if (!result.has_value()) {
             co_return std::unexpected(result.error());
         }

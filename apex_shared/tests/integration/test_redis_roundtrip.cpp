@@ -32,31 +32,35 @@ TEST_F(RedisRoundtripTest, SetAndGet) {
             co_return;
         }
 
-        // SET
-        auto set_result = co_await mux.command("SET test:integration:key hello-redis");
+        // SET (parameterized binding)
+        auto set_result = co_await mux.command("SET %s %s",
+                                                "test:integration:key", "hello-redis");
         EXPECT_TRUE(set_result.has_value())
             << "SET failed - is Redis running on localhost:6379?";
         if (!set_result.has_value()) co_return;
         EXPECT_EQ(set_result->type, REDIS_REPLY_STATUS);
 
-        // GET
-        auto get_result = co_await mux.command("GET test:integration:key");
+        // GET (parameterized binding)
+        auto get_result = co_await mux.command("GET %s",
+                                                "test:integration:key");
         EXPECT_TRUE(get_result.has_value());
         if (get_result.has_value()) {
             EXPECT_EQ(get_result->type, REDIS_REPLY_STRING);
             EXPECT_EQ(get_result->str, "hello-redis");
         }
 
-        // DEL
-        auto del_result = co_await mux.command("DEL test:integration:key");
+        // DEL (parameterized binding)
+        auto del_result = co_await mux.command("DEL %s",
+                                                "test:integration:key");
         EXPECT_TRUE(del_result.has_value());
         if (del_result.has_value()) {
             EXPECT_EQ(del_result->type, REDIS_REPLY_INTEGER);
             EXPECT_EQ(del_result->integer, 1);
         }
 
-        // GET after DEL
-        auto get2_result = co_await mux.command("GET test:integration:key");
+        // GET after DEL (parameterized binding)
+        auto get2_result = co_await mux.command("GET %s",
+                                                 "test:integration:key");
         EXPECT_TRUE(get2_result.has_value());
         if (get2_result.has_value()) {
             EXPECT_EQ(get2_result->type, REDIS_REPLY_NIL);
