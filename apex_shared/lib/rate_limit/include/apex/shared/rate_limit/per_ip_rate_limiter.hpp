@@ -1,10 +1,10 @@
 #pragma once
 
 #include <apex/shared/rate_limit/sliding_window_counter.hpp>
-#include <apex/core/timing_wheel.hpp>
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,11 +22,26 @@ struct PerIpRateLimiterConfig {
     uint32_t ttl_multiplier = 2;           ///< TTL = window_size * ttl_multiplier
 };
 
+/// Callback type for scheduling delayed tasks.
+/// The caller provides a duration and a task; the implementation arranges
+/// for the task to execute after the duration elapses.
+/// Returns a handle (uint64_t) that can be passed to CancelCallback.
+using ScheduleCallback = std::function<uint64_t(std::chrono::milliseconds delay,
+                                                std::function<void()> task)>;
+
+/// Callback type for cancelling a previously scheduled task.
+using CancelCallback = std::function<void(uint64_t handle)>;
+
+/// Callback type for rescheduling an existing task with a new delay.
+using RescheduleCallback = std::function<void(uint64_t handle,
+                                              std::chrono::milliseconds delay)>;
+
 /// Per-IP rate limiter with per-core isolation (lock-free).
 ///
 /// Each core owns one instance. The per-core limit = total_limit / num_cores.
 /// Uses boost::unordered_flat_map<string, Entry> for O(1) IP lookup.
-/// TTL expiration via TimingWheel, LRU eviction when max_entries exceeded.
+/// TTL expiration via injected schedule/cancel callbacks (dependency inversion).
+/// LRU eviction when max_entries exceeded.
 ///
 /// Prerequisite: SO_REUSEPORT ensures connections are distributed across cores.
 /// If a core receives disproportionate traffic, its per-core limit triggers
@@ -36,10 +51,13 @@ struct PerIpRateLimiterConfig {
 class PerIpRateLimiter {
 public:
     /// @param config Rate limiter configuration.
-    /// @param timing_wheel Reference to the per-core TimingWheel
-    ///        (tick interval must match the limiter's TTL granularity).
+    /// @param schedule_fn Callback to schedule a delayed task. Returns a handle.
+    /// @param cancel_fn Callback to cancel a scheduled task by handle.
+    /// @param reschedule_fn Callback to reschedule an existing task with new delay.
     PerIpRateLimiter(PerIpRateLimiterConfig config,
-                     apex::core::TimingWheel& timing_wheel);
+                     ScheduleCallback schedule_fn,
+                     CancelCallback cancel_fn,
+                     RescheduleCallback reschedule_fn);
 
     ~PerIpRateLimiter();
 
@@ -69,7 +87,7 @@ public:
 private:
     struct Entry {
         SlidingWindowCounter counter;
-        apex::core::TimingWheel::EntryId timer_id{0};
+        uint64_t timer_handle{0};
         /// Index in lru_order_ for O(1) LRU removal.
         uint32_t lru_index{0};
     };
@@ -85,8 +103,11 @@ private:
 
     PerIpRateLimiterConfig config_;
     uint32_t per_core_limit_;
-    apex::core::TimingWheel& timing_wheel_;
-    uint32_t ttl_ticks_;  ///< TTL in TimingWheel ticks
+    std::chrono::milliseconds ttl_;
+
+    ScheduleCallback schedule_fn_;
+    CancelCallback cancel_fn_;
+    RescheduleCallback reschedule_fn_;
 
     boost::unordered_flat_map<std::string, Entry> entries_;
 
