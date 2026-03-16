@@ -56,8 +56,8 @@ std::string JwtManager::create_access_token(uint64_t user_id,
             .set_type("JWT")
             .set_issued_at(now)
             .set_expires_at(exp)
-            .set_payload_claim("uid", jwt::claim(std::to_string(user_id)))
-            .set_payload_claim("email", jwt::claim(std::string(email)))
+            .set_payload_claim("uid", jwt::claim(static_cast<int64_t>(user_id)))
+            .set_subject(std::string(email))
             .sign(jwt::algorithm::rs256(public_key_, private_key_));
 
         return token;
@@ -83,8 +83,8 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(
         verifier.verify(decoded);
 
         Claims claims;
-        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
-        claims.email = decoded.get_payload_claim("email").as_string();
+        claims.user_id = static_cast<uint64_t>(decoded.get_payload_claim("uid").as_integer());
+        claims.email = decoded.get_subject();
         claims.issued_at = decoded.get_issued_at();
         claims.expires_at = decoded.get_expires_at();
 
