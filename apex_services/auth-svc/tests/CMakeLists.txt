@@ -31,6 +31,7 @@ if(WIN32)
 endif()
 
 add_test(NAME auth_svc_unit_tests COMMAND auth_svc_unit_tests)
+set_tests_properties(auth_svc_unit_tests PROPERTIES TIMEOUT 30)
 
 # --- Integration Tests (requires external infrastructure) ---
 # add_executable(auth_svc_integration_tests

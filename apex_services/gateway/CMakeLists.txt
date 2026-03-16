@@ -189,4 +189,17 @@ if(BUILD_TESTING)
         target_compile_definitions(test_gateway_config_reloader PRIVATE _WIN32_WINNT=0x0A00)
     endif()
     add_test(NAME test_gateway_config_reloader COMMAND test_gateway_config_reloader)
+
+    # Gateway 단위 테스트 타임아웃 (30초)
+    set_tests_properties(
+        test_gateway_route_table
+        test_gateway_jwt_verifier
+        test_gateway_file_watcher
+        test_gateway_pending_requests
+        test_gateway_channel_session_map
+        test_gateway_message_router
+        test_gateway_pipeline
+        test_gateway_config_reloader
+        PROPERTIES TIMEOUT 30
+    )
 endif()

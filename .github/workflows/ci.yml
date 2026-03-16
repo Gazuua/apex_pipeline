@@ -56,6 +56,8 @@ jobs:
               - 'build.sh'
               - 'apex_core/build.bat'
               - 'apex_core/build.sh'
+              - 'apex_tools/build-preflight.bat'
+              - 'apex_tools/build-preflight.sh'
 
   build-image:
     needs: changes
