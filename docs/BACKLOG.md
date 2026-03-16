@@ -77,6 +77,12 @@
 - **배치**: Wave 배정 보류 (Kafka 토픽 249자 제한으로 현실적 위험 극히 낮음)
 - **설명**: uint16_t truncation 가능성. Kafka 토픽명 249자 제한으로 실제 위험은 극히 낮음 — 출처: auto-review 에스컬레이션
 
+### [Minor] m-5. CI docs-only 커밋에도 전체 빌드 실행
+- **위치**: `.github/workflows/ci.yml`
+- **상태**: 미구현
+- **배치**: v0.6 (운영 인프라)
+- **설명**: `pull_request` 이벤트가 마지막 커밋이 아닌 PR 전체 diff를 기준으로 `paths-ignore`를 평가하기 때문에, docs-only 커밋에도 전체 빌드가 실행됨. 불필요한 빌드 시간 소모 (~11분/회). workaround: `[skip ci]` 커밋 메시지
+
 ---
 
 ## 코드 위생
