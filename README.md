@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.4.1
+## 현재 상태 — v0.5.4.2
 
 ### 완료
 
@@ -92,6 +92,13 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Gateway 동시성 수정: ResponseDispatcher Kafka→core post, Rate Limiter per-core 설정 교체
   - Gateway 기능 보강: PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한
   - 테스트 품질: sleep 제거 → 시간 주입/poll_now 패턴, 56/56 테스트 통과
+
+- **v0.5.4.2 — auto-review 21건 수정 완료**
+  - Critical: UAF·바이트오더·JWT 5건 수정
+  - Important: 14건 수정
+  - Minor: 2건 수정
+  - 6건 에스컬레이션 → 백로그 이전
+  - 56/56 테스트 통과, CI 통과
 
 ## 아키텍처
 

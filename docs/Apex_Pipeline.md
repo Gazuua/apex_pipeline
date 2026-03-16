@@ -408,6 +408,7 @@ Tier 상세:
 | v0.5.3.1 | 소 | Wave 2: Chat Service — 방 관리, 메시지/귓속말, 히스토리, PubSub 기반 전역 브로드캐스트 | PR #27 |
 | v0.5.4.0 | 중 | Wave 2: E2E 통합 테스트 6개 시나리오 (인증 → 채팅 → 브로드캐스트 전체 경로) | PR #27 |
 | v0.5.4.1 | 소 | Wave 2 패치: Mock 어댑터 인프라 (Kafka/Redis/PG) + Gateway/Auth/Chat 단위 테스트 신설, Redis 파라미터 바인딩 API + 인젝션 방어, Gateway 동시성 수정 (ResponseDispatcher core post, Rate Limiter per-core), PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한, sleep 제거 → 시간 주입/poll_now 패턴. 56/56 테스트 통과 | PR #28 |
+| v0.5.4.2 | 소 | auto-review 21건 수정 | Critical UAF·바이트오더·JWT 5건 + Important 14건 + Minor 2건 | 완료 |
 
 ### 활성 로드맵
 
@@ -422,6 +423,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.3.1 Chat Service (방 관리, 메시지, 브로드캐스트, 히스토리)
          v0.5.4.0 E2E 통합 테스트 (6개 시나리오)
          v0.5.4.1 Wave 2 패치 (auto-review + 백로그 17건 수정, 56 테스트)
+         v0.5.4.2 auto-review 21건 수정 (Critical 5 + Important 14 + Minor 2)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
