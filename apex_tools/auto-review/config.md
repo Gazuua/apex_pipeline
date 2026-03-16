@@ -1,11 +1,14 @@
 # Auto-Review 설정
 
-## 전역 설정
+메인 에이전트의 리뷰어 디스패치 판단을 위한 참고 가이드.
+강제 절차가 아닌 참고값 — 메인이 diff 분석 후 최종 결정.
 
-| 항목 | 값 | 설명 |
-|------|-----|------|
+## 전역 참고값
+
+| 항목 | 참고값 | 설명 |
+|------|--------|------|
 | round_limit | 10 | 전체 라운드 상한 |
-| same_issue_limit | 5 | 동일 이슈 반복 상한 (초과 시 에스컬레이션) |
+| same_issue_limit | 5 | 동일 이슈 반복 상한 (초과 시 백로그 이관 검토) |
 | ci_retry_limit | 5 | 동일 CI 실패 재시도 상한 |
 
 ## 공통 지침: 프로젝트 규칙 위반 = Critical
@@ -14,114 +17,40 @@
 
 ## 스마트 스킵 매핑 테이블
 
-### 1단계: 데이터 매칭 (파일 패턴 -> 리뷰어 자동 선정)
+파일 패턴 → 리뷰어 자동 선정 참고. 메인이 diff 내용을 분석하여 추가/스킵 가능.
 
 | 파일 패턴 | 영향 리뷰어 |
 |-----------|------------|
-| `.cpp`, `.hpp` (src/) | logic, memory, concurrency, api, test-coverage |
-| `test_*.cpp` | test-coverage, test-quality, logic |
-| `*allocator*`, `*pool*` | memory |
-| `*coroutine*`, `*async*` | concurrency |
-| `concept*`, `PoolLike*` | api |
-| `CMakeLists.txt`, `vcpkg.*` | infra |
-| `*.yml` (CI), `Dockerfile` | infra |
-| `*.md` (docs/) | docs-spec, docs-records, architecture |
-| `Apex_Pipeline.md` | docs-spec, architecture |
+| `.cpp`, `.hpp` (src/) | logic, systems, design, test |
+| `test_*.cpp` | test, logic |
+| `*allocator*`, `*pool*` | systems |
+| `*coroutine*`, `*async*` | systems |
+| `concept*`, `PoolLike*` | design |
+| `CMakeLists.txt`, `vcpkg.*` | infra-security |
+| `*.yml` (CI), `Dockerfile` | infra-security |
+| `*.md` (docs/) | docs-spec, docs-records, design |
+| `Apex_Pipeline.md` | docs-spec, design |
 | `README.md`, `CLAUDE.md` | docs-spec |
 | `plans/`, `progress/`, `review/` | docs-records |
-| `*.sh`, `*.bat` (scripts) | infra |
-| `.gitignore`, `.gitattributes` | infra |
-| `*suppressions.txt` | infra, test-quality |
-| `.toml`, `.sql` | infra |
-| `.fbs` (FlatBuffers) | logic, architecture |
+| `*.sh`, `*.bat` (scripts) | infra-security |
+| `.gitignore`, `.gitattributes` | infra-security |
+| `*suppressions.txt` | infra-security, test |
+| `.toml`, `.sql` | infra-security |
+| `.fbs` (FlatBuffers) | logic, design |
 
 ### 폴백 규칙
 
-- 위 매핑에 해당하지 않는 파일 -> `infra` 자동 포함
-- 판단이 애매하면 -> 해당 리뷰어를 포함 (보수적)
+- 위 매핑에 해당하지 않는 파일 → `infra-security` 자동 포함
+- 판단이 애매하면 → 해당 리뷰어를 포함 (보수적)
 
-### 2단계: 팀장 재량 판단
+## 리뷰어 목록 (7명)
 
-데이터 매핑은 팀장 판단의 **출발점**. 팀장이 diff 내용을 분석하여 **추가도 스킵도** 할 수 있다.
-
-- **추가**: 매핑에 안 걸렸지만 리뷰가 필요한 리뷰어 추가 디스패치
-  - 예: `.hpp` 변경이지만 보안 관련 입력 검증 코드 -> security 추가
-- **스킵**: 매핑에 걸렸지만 변경 내용상 리뷰가 불필요한 리뷰어 스킵
-  - 예: 테스트 코드 오타 수정 -> test-quality만 남기고 나머지 스킵
-- **full 모드**: 전원 디스패치 (팀장 재량 스킵 없음)
-
-## 재리뷰 스마트 스킵
-
-수정이 발생한 라운드 이후, 재리뷰 대상을 결정하는 규칙.
-
-### 리뷰어 보고 필드: `re_review_scope`
-
-리뷰어가 수정 보고 시 반드시 포함하는 영향도 판단:
-
-| 값 | 의미 | coordinator 행동 |
-|----|------|-----------------|
-| `self_contained` | 수정이 로컬에 한정, 외부 영향 없음 | 파일 매핑 보수적 검증만 |
-| `same_domain` | 같은 도메인 내 재리뷰 필요 | 같은 리뷰어가 재검증 |
-| `cross_domain` | 다른 도메인에도 영향 | `affected_domains` 리뷰어 재리뷰 |
-
-### 재리뷰 대상 결정 로직
-
-1. 모든 리뷰어의 `re_review_scope` 취합
-2. 수정된 파일을 §1단계 매핑 테이블에 대입 → 영향 리뷰어 후보
-3. `re_review_scope` 기반 필터링:
-   - 전부 `self_contained` → 매핑 후보 중 직전 라운드 Clean 리뷰어 스킵 가능
-   - `same_domain` → 해당 리뷰어 재리뷰
-   - `cross_domain` → `affected_domains` + 매핑 후보 합집합
-4. 수정 0건 → Clean 판정
-5. 수정 발생 → 위 과정 반복 (round_limit까지)
-
-## 리뷰어 목록
-
-### Round 1 리뷰어 (11명)
-
-| 리뷰어 | 도메인 | 파일 |
-|--------|--------|------|
-| docs-spec | 원천 문서 정합성 | `apex_tools/claude-plugin/agents/reviewer-docs-spec.md` |
-| docs-records | 기록 문서 품질 | `apex_tools/claude-plugin/agents/reviewer-docs-records.md` |
-| architecture | 설계 <-> 코드 정합 | `apex_tools/claude-plugin/agents/reviewer-architecture.md` |
-| logic | 비즈니스 로직 | `apex_tools/claude-plugin/agents/reviewer-logic.md` |
-| memory | 메모리 관리 | `apex_tools/claude-plugin/agents/reviewer-memory.md` |
-| concurrency | 동시성 | `apex_tools/claude-plugin/agents/reviewer-concurrency.md` |
-| api | API/concept 설계 | `apex_tools/claude-plugin/agents/reviewer-api.md` |
-| test-coverage | 테스트 커버리지 | `apex_tools/claude-plugin/agents/reviewer-test-coverage.md` |
-| test-quality | 테스트 코드 품질 | `apex_tools/claude-plugin/agents/reviewer-test-quality.md` |
-| infra | 빌드/CI/인프라 | `apex_tools/claude-plugin/agents/reviewer-infra.md` |
-| security | 보안 | `apex_tools/claude-plugin/agents/reviewer-security.md` |
-
-### Round 2 리뷰어 (1명)
-
-| 리뷰어 | 도메인 | 파일 |
-|--------|--------|------|
-| cross-cutting | 도메인 간 경계 검증 | `apex_tools/claude-plugin/agents/reviewer-cross-cutting.md` |
-
-> **디스패치 규칙**: `cross-cutting`은 Round 1에서 디스패치하지 않는다. Round 1 전체 리포트 취합 완료 후, coordinator가 Round 2에서 별도 디스패치한다.
-
-## Cross-Cutting 리뷰 설정
-
-### Round 2 디스패치
-
-| 항목 | 값 | 설명 |
-|------|-----|------|
-| confidence_threshold | 50 | Confidence 50% 이상이면 보고 (기본값) |
-| round | 2 | Round 1 완료 후 Round 2에서 실행 |
-| file_ownership | 전체 프로젝트 | 모든 파일에 접근 가능 (다른 리뷰어와 오버랩 허용) |
-
-### 오버랩 대상 파일 목록
-
-다음 파일/디렉토리는 Round 1에서 복수 리뷰어가 검토한다:
-
-| 파일/패턴 | 배정 리뷰어 |
-|-----------|------------|
-| `apex_core/include/apex/core/session.hpp` | concurrency + logic |
-| `apex_core/src/connection_handler.cpp` | logic + concurrency |
-| `apex_shared/lib/adapters/*/src/*.cpp` | 해당 도메인 리뷰어 + architecture |
-| 모든 설정 파일 (`*.ini`, `*.toml`, `*.yml`) | infra + security |
-
-기본 원칙: cross-domain 우려가 있는 파일은 관련 리뷰어 2명 이상에게 배정한다.
-
-> **참고**: `cross-cutting` 리뷰어는 Round 2에서 전체 프로젝트를 대상으로 리뷰하므로, 위 오버랩 정책과는 별개로 모든 파일에 접근 가능하다.
+| 리뷰어 | 도메인 | 프롬프트 |
+|--------|--------|----------|
+| docs-spec | 원천 문서 정합성 | `apex_tools/auto-review/agents/reviewer-docs-spec.md` |
+| docs-records | 기록 문서 품질 | `apex_tools/auto-review/agents/reviewer-docs-records.md` |
+| design | 설계/API/아키텍처 정합 | `apex_tools/auto-review/agents/reviewer-design.md` |
+| logic | 비즈니스 로직 | `apex_tools/auto-review/agents/reviewer-logic.md` |
+| systems | 메모리/동시성/저수준 | `apex_tools/auto-review/agents/reviewer-systems.md` |
+| test | 테스트 커버리지+품질 | `apex_tools/auto-review/agents/reviewer-test.md` |
+| infra-security | 빌드/CI/인프라/보안 | `apex_tools/auto-review/agents/reviewer-infra-security.md` |
