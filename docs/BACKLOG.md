@@ -43,6 +43,18 @@
 - **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
 - **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
 
+### [Important] I-16. uid double 정밀도 손실 (2^53 초과)
+- **위치**: `apex_services/auth-svc/src/jwt_manager.cpp`, `apex_services/gateway/src/jwt_verifier.cpp`
+- **상태**: 설계 결정 필요
+- **배치**: v0.6 (uid 인코딩 방식 설계)
+- **설명**: Auth가 picojson으로 uid를 double 저장, Gateway가 as_number()로 파싱. 2^53 초과 user_id 시 정밀도 손실. uid를 string claim으로 전환하거나 integer claim 지원 추가 필요 — 출처: auto-review 에스컬레이션
+
+### [Important] I-17. HS256 레거시 테스트 RS256 미전환
+- **위치**: `apex_services/gateway/tests/test_gateway_pipeline.cpp`, `test_config_reloader.cpp`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: RS256 전환 후에도 HS256 기반 테스트 코드 잔존. pass하지만 경고 로그 출력 — 출처: auto-review 에스컬레이션
+
 ---
 
 ## Minor
@@ -52,6 +64,18 @@
 - **상태**: 미구현
 - **배치**: 즉시 (문서 정리)
 - **설명**: `backlog_memory_os_level.md` → BACKLOG.md 리네이밍/통합 필요, `20260315_094300_backlog.md` → BACKLOG.md로 이전. 규칙: 별도 백로그 파일 생성 금지 — 출처: auto-review (reviewer-docs-records)
+
+### [Minor] m-3. ResponseDispatcher 하드코딩 오프셋
+- **위치**: `apex_services/gateway/src/response_dispatcher.cpp:74-76`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: ENVELOPE_HEADER_SIZE 고정 오프셋 사용. envelope_payload_offset() 사용으로 방어적 수정 추천 — 출처: auto-review 에스컬레이션
+
+### [Minor] m-4. ReplyTopicHeader serialize 길이 미검증
+- **위치**: `apex_shared/lib/protocols/kafka/include/apex/shared/protocols/kafka/kafka_envelope.hpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류 (Kafka 토픽 249자 제한으로 현실적 위험 극히 낮음)
+- **설명**: uint16_t truncation 가능성. Kafka 토픽명 249자 제한으로 실제 위험은 극히 낮음 — 출처: auto-review 에스컬레이션
 
 ---
 
