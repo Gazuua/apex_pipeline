@@ -228,8 +228,29 @@ else
         if $EXECUTE; then
             echo "  삭제: $branch"
             git branch -D "$branch" 2>&1 | sed 's/^/    /'
+            # 워크트리 잔여 디렉토리 삭제 — 브랜치명 전체 및 접두사 제거(feature/ 등) 양쪽 매칭
+            wt_dir_full="$REPO_ROOT/.worktrees/$branch"
+            wt_dir_short="$REPO_ROOT/.worktrees/${branch##*/}"
+            for wt_dir in "$wt_dir_full" "$wt_dir_short"; do
+                if [[ -d "$wt_dir" ]]; then
+                    echo "    워크트리 디렉토리 삭제: $wt_dir"
+                    rm -rf "$wt_dir"
+                fi
+            done
         else
             echo "  대상: $branch"
+            # dry-run: 매칭되는 워크트리 디렉토리가 있으면 표시
+            wt_dir_full="$REPO_ROOT/.worktrees/$branch"
+            wt_dir_short="$REPO_ROOT/.worktrees/${branch##*/}"
+            shown_dirs=()
+            for wt_dir in "$wt_dir_full" "$wt_dir_short"; do
+                # 중복 방지 (브랜치명에 /가 없으면 full과 short가 동일)
+                [[ " ${shown_dirs[*]+"${shown_dirs[*]}"} " == *" $wt_dir "* ]] && continue
+                shown_dirs+=("$wt_dir")
+                if [[ -d "$wt_dir" ]]; then
+                    echo "    → 워크트리 디렉토리도 삭제됩니다: $wt_dir"
+                fi
+            done
         fi
     done
     for warning in "${local_warnings[@]+"${local_warnings[@]}"}"; do
@@ -238,6 +259,36 @@ else
     done
 fi
 echo ""
+
+# ============================================================================
+# [2.5] .worktrees/ 하위 빈 디렉토리 일괄 정리
+# ============================================================================
+WORKTREES_DIR="$REPO_ROOT/.worktrees"
+empty_dirs=()
+if [[ -d "$WORKTREES_DIR" ]]; then
+    echo "[Empty Worktree Dirs] ======================================"
+    for dir in "$WORKTREES_DIR"/*/; do
+        [[ ! -d "$dir" ]] && continue
+        # 파일이 하나도 없는 디렉토리 (빈 디렉토리)
+        if [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            empty_dirs+=("$dir")
+        fi
+    done
+
+    if [[ ${#empty_dirs[@]} -eq 0 ]]; then
+        echo "  (빈 워크트리 디렉토리 없음)"
+    else
+        for dir in "${empty_dirs[@]}"; do
+            if $EXECUTE; then
+                echo "  빈 디렉토리 삭제: $dir"
+                rm -rf "$dir"
+            else
+                echo "  대상 (빈 디렉토리): $dir"
+            fi
+        done
+    fi
+    echo ""
+fi
 
 # ============================================================================
 # [3] 리모트 브랜치 정리 (머지 완료된 것만)
@@ -298,9 +349,11 @@ echo ""
 # 요약
 # ============================================================================
 echo "=========================================="
-total=$(( ${#worktree_targets[@]} + ${#local_targets[@]} + ${#remote_targets[@]} ))
+empty_dir_count=${#empty_dirs[@]}
+total=$(( ${#worktree_targets[@]} + ${#local_targets[@]} + ${#remote_targets[@]} + empty_dir_count ))
 echo "  워크트리: ${#worktree_targets[@]}개"
 echo "  로컬 브랜치: ${#local_targets[@]}개"
+echo "  빈 워크트리 디렉토리: ${empty_dir_count}개"
 echo "  리모트 브랜치: ${#remote_targets[@]}개 (머지 완료)"
 echo "  합계: ${total}개"
 
