@@ -1,7 +1,7 @@
 #include <apex/auth_svc/jwt_manager.hpp>
+#include <apex/auth_svc/crypto_util.hpp>
 
 #include <jwt-cpp/jwt.h>
-#include <picojson/picojson.h>
 #include <spdlog/spdlog.h>
 
 #include <fstream>
@@ -20,6 +20,17 @@ std::string read_file(std::string_view path) {
     std::ostringstream ss;
     ss << file.rdbuf();
     return ss.str();
+}
+
+/// Generate a cryptographically secure random hex string for JWT ID (jti).
+/// 16 bytes = 32 hex chars via RAND_bytes (CSPRNG).
+std::string generate_jti() {
+    auto result = generate_secure_token(16);
+    if (!result.has_value()) {
+        spdlog::error("[JwtManager] CSPRNG failure in generate_jti");
+        return {};
+    }
+    return std::move(*result);
 }
 
 } // anonymous namespace
@@ -52,13 +63,16 @@ std::string JwtManager::create_access_token(uint64_t user_id,
         auto now = std::chrono::system_clock::now();
         auto exp = now + access_token_ttl_;
 
+        auto jti = generate_jti();
+
         auto token = jwt::create()
             .set_issuer(issuer_)
             .set_type("JWT")
             .set_issued_at(now)
             .set_expires_at(exp)
-            .set_payload_claim("uid", jwt::claim(picojson::value(static_cast<double>(user_id))))
+            .set_payload_claim("uid", jwt::claim(std::to_string(user_id)))
             .set_subject(std::string(email))
+            .set_payload_claim("jti", jwt::claim(std::string(jti)))
             .sign(jwt::algorithm::rs256(public_key_, private_key_));
 
         return token;
@@ -77,15 +91,18 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(
 
     try {
         auto verifier = jwt::verify()
-            .allow_algorithm(jwt::algorithm::rs256(public_key_, private_key_))
+            .allow_algorithm(jwt::algorithm::rs256(public_key_))
             .with_issuer(issuer_);
 
         auto decoded = jwt::decode(std::string(token));
         verifier.verify(decoded);
 
         Claims claims;
-        claims.user_id = static_cast<uint64_t>(decoded.get_payload_claim("uid").as_number());
+        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
         claims.email = decoded.get_subject();
+        if (decoded.has_payload_claim("jti")) {
+            claims.jti = decoded.get_payload_claim("jti").as_string();
+        }
         claims.issued_at = decoded.get_issued_at();
         claims.expires_at = decoded.get_expires_at();
 

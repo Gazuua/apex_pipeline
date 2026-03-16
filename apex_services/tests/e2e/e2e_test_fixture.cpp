@@ -17,11 +17,112 @@
 #include <WinSock2.h>
 #else
 #include <sys/socket.h>
+#include <sys/wait.h>
 #endif
 
 namespace apex::e2e {
 
 E2EConfig E2ETestFixture::config_{};
+ChildProcess E2ETestFixture::gateway_proc_{};
+ChildProcess E2ETestFixture::auth_proc_{};
+ChildProcess E2ETestFixture::chat_proc_{};
+
+// ---------------------------------------------------------------------------
+// Process management
+// ---------------------------------------------------------------------------
+
+ChildProcess E2ETestFixture::launch_service(const std::string& name,
+                                              const std::string& exe_path,
+                                              const std::string& config_path) {
+    ChildProcess proc;
+    proc.name = name;
+
+#ifdef _WIN32
+    std::string cmd_line = exe_path + " " + config_path;
+
+    STARTUPINFOA si{};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    BOOL ok = ::CreateProcessA(
+        nullptr,                        // lpApplicationName
+        cmd_line.data(),                // lpCommandLine (non-const required)
+        nullptr,                        // lpProcessAttributes
+        nullptr,                        // lpThreadAttributes
+        FALSE,                          // bInheritHandles
+        CREATE_NO_WINDOW,               // dwCreationFlags
+        nullptr,                        // lpEnvironment
+        nullptr,                        // lpCurrentDirectory
+        &si,                            // lpStartupInfo
+        &proc.proc_info);               // lpProcessInformation
+
+    if (ok) {
+        proc.launched = true;
+        // Close thread handle immediately — we only need the process handle
+        ::CloseHandle(proc.proc_info.hThread);
+        proc.proc_info.hThread = nullptr;
+        std::cout << "[E2E] Launched " << name << " (PID "
+                  << proc.proc_info.dwProcessId << ")\n";
+    } else {
+        std::cerr << "[E2E] Failed to launch " << name
+                  << " (error " << ::GetLastError() << ")\n";
+    }
+#else
+    pid_t pid = ::fork();
+    if (pid == 0) {
+        // Child process
+        ::execl(exe_path.c_str(), exe_path.c_str(), config_path.c_str(), nullptr);
+        // execl only returns on error
+        std::cerr << "[E2E] execl failed for " << name << "\n";
+        ::_exit(1);
+    } else if (pid > 0) {
+        proc.pid = pid;
+        proc.launched = true;
+        std::cout << "[E2E] Launched " << name << " (PID " << pid << ")\n";
+    } else {
+        std::cerr << "[E2E] fork failed for " << name << "\n";
+    }
+#endif
+
+    return proc;
+}
+
+void E2ETestFixture::terminate_service(ChildProcess& proc) {
+    if (!proc.launched) {
+        return;
+    }
+
+#ifdef _WIN32
+    // Send Ctrl+Break first for graceful shutdown, then force-terminate
+    if (proc.proc_info.hProcess) {
+        // Try graceful shutdown (wait up to 3 seconds)
+        ::TerminateProcess(proc.proc_info.hProcess, 0);
+        ::WaitForSingleObject(proc.proc_info.hProcess, 3000);
+        ::CloseHandle(proc.proc_info.hProcess);
+        proc.proc_info.hProcess = nullptr;
+        std::cout << "[E2E] Terminated " << proc.name << "\n";
+    }
+#else
+    if (proc.pid > 0) {
+        // Graceful shutdown via SIGTERM
+        ::kill(proc.pid, SIGTERM);
+        // Wait up to 3 seconds
+        int status = 0;
+        for (int i = 0; i < 30; ++i) {
+            pid_t result = ::waitpid(proc.pid, &status, WNOHANG);
+            if (result != 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        }
+        // Force kill if still running
+        ::kill(proc.pid, SIGKILL);
+        ::waitpid(proc.pid, &status, 0);
+        std::cout << "[E2E] Terminated " << proc.name << "\n";
+    }
+#endif
+
+    proc.launched = false;
+}
 
 // ---------------------------------------------------------------------------
 // Suite lifecycle
@@ -46,11 +147,16 @@ void E2ETestFixture::SetUpTestSuite() {
     }
 
     // 3. Start Gateway, Auth Service, Chat Service processes
-    //    In a real E2E environment these would be started as background processes.
-    //    For now, we assume they are launched externally or via a helper script.
     std::cout << "[E2E] Starting Gateway and services...\n";
-    // TODO(e2e): Launch gateway.exe, auth_svc.exe, chat_svc.exe as child processes
-    //   Options: std::system("start /B ...") on Windows, or boost::process
+    gateway_proc_ = launch_service("Gateway",
+                                    config_.gateway_exe,
+                                    config_.gateway_config);
+    auth_proc_ = launch_service("AuthService",
+                                 config_.auth_svc_exe,
+                                 config_.auth_svc_config);
+    chat_proc_ = launch_service("ChatService",
+                                 config_.chat_svc_exe,
+                                 config_.chat_svc_config);
 
     // 4. Wait for Gateway to accept connections
     std::cout << "[E2E] Waiting for services to be ready...\n";
@@ -85,7 +191,9 @@ void E2ETestFixture::SetUpTestSuite() {
 void E2ETestFixture::TearDownTestSuite() {
     // 1. Terminate service processes
     std::cout << "[E2E] Stopping services...\n";
-    // TODO(e2e): Send SIGTERM / TerminateProcess to child processes
+    terminate_service(chat_proc_);
+    terminate_service(auth_proc_);
+    terminate_service(gateway_proc_);
 
     // 2. Tear down docker-compose
     std::cout << "[E2E] Stopping infrastructure...\n";

@@ -18,6 +18,7 @@ public:
     struct Claims {
         uint64_t user_id{0};
         std::string email;
+        std::string jti;
         std::chrono::system_clock::time_point issued_at;
         std::chrono::system_clock::time_point expires_at;
     };

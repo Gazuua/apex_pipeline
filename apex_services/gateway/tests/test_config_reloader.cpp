@@ -17,14 +17,16 @@
 
 namespace {
 
-// Minimal valid TOML for gateway config
+// Minimal valid TOML for gateway config (RS256 — no HS256 secret)
 static const std::string kMinimalToml = R"(
 [server]
 ws_port = 8443
 num_cores = 2
 
 [jwt]
-secret = "test-secret"
+public_key_file = "keys/gateway_rs256_pub.pem"
+algorithm = "RS256"
+issuer = "apex-auth"
 
 [[routes]]
 range_begin = 1000
@@ -43,7 +45,14 @@ ws_port = 9443
 num_cores = 4
 
 [jwt]
-secret = "updated-secret"
+public_key_file = "keys/gateway_rs256_pub_v2.pem"
+algorithm = "RS256"
+issuer = "apex-auth"
+
+[auth.exempt]
+LoginRequest = 1000
+LogoutRequest = 1002
+RefreshTokenRequest = 1004
 
 [[routes]]
 range_begin = 1000
@@ -95,9 +104,14 @@ TEST_F(ConfigReloaderTest, ParseMinimalConfig) {
 
     EXPECT_EQ(cfg->ws_port, 8443);
     EXPECT_EQ(cfg->num_cores, 2u);
+    EXPECT_EQ(cfg->jwt.public_key_file, "keys/gateway_rs256_pub.pem");
+    EXPECT_EQ(cfg->jwt.algorithm, "RS256");
+    EXPECT_EQ(cfg->jwt.issuer, "apex-auth");
     EXPECT_EQ(cfg->routes.size(), 2u);
     EXPECT_EQ(cfg->routes[0].kafka_topic, "auth.requests");
     EXPECT_EQ(cfg->routes[1].kafka_topic, "chat.requests");
+    // Minimal config has no [auth.exempt] — empty set (deny-by-default)
+    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.empty());
 }
 
 TEST_F(ConfigReloaderTest, ParseUpdatedConfig) {
@@ -108,9 +122,17 @@ TEST_F(ConfigReloaderTest, ParseUpdatedConfig) {
 
     EXPECT_EQ(cfg->ws_port, 9443);
     EXPECT_EQ(cfg->num_cores, 4u);
+    EXPECT_EQ(cfg->jwt.public_key_file, "keys/gateway_rs256_pub_v2.pem");
     EXPECT_EQ(cfg->routes.size(), 3u);
     EXPECT_EQ(cfg->routes[0].kafka_topic, "auth.v2.requests");
     EXPECT_EQ(cfg->routes[2].kafka_topic, "game.requests");
+
+    // [auth.exempt] whitelist
+    EXPECT_EQ(cfg->auth.auth_exempt_msg_ids.size(), 3u);
+    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1000));
+    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1002));
+    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1004));
+    EXPECT_FALSE(cfg->auth.auth_exempt_msg_ids.contains(2000));
 }
 
 TEST_F(ConfigReloaderTest, ParseInvalidConfigFails) {

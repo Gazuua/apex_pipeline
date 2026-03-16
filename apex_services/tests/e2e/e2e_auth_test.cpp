@@ -75,7 +75,7 @@ TEST_F(AuthE2ETest, UnauthenticatedRequestRejected) {
 
 /// Scenario 4: JWT expired -> Refresh Token renewal
 ///
-/// Access Token expires -> client sends RefreshTokenRequest (msg_id 10)
+/// Access Token expires -> client sends RefreshTokenRequest (msg_id 1004)
 /// -> Auth Service validates Refresh Token -> new Access Token issued
 TEST_F(AuthE2ETest, RefreshTokenRenewal) {
     TcpClient client(io_ctx_, config_);
@@ -104,7 +104,7 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
             << "Expected system error for expired JWT";
     }
 
-    // 4. Refresh Token renewal (msg_id 10 = RefreshTokenRequest)
+    // 4. Refresh Token renewal (msg_id 1004 = RefreshTokenRequest)
     {
         flatbuffers::FlatBufferBuilder fbb(256);
         auto token_off = fbb.CreateString(auth.refresh_token);
@@ -112,10 +112,10 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
         fbb.AddOffset(4, token_off);  // refresh_token field
         auto loc = fbb.EndTable(start);
         fbb.Finish(flatbuffers::Offset<void>(loc));
-        client.send(10, fbb.GetBufferPointer(), fbb.GetSize());
+        client.send(1004, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv();
-        EXPECT_EQ(resp.msg_id, 11u) << "Expected RefreshTokenResponse";
+        EXPECT_EQ(resp.msg_id, 1005u) << "Expected RefreshTokenResponse";
 
         // Parse new Access Token from RefreshTokenResponse
         if (!resp.payload.empty()) {

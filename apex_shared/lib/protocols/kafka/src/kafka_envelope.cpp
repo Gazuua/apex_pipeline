@@ -1,6 +1,7 @@
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <bit>
+#include <limits>
 
 #ifdef _MSC_VER
 #include <cstdlib>
@@ -139,6 +140,120 @@ std::array<uint8_t, MetadataPrefix::SIZE> MetadataPrefix::serialize() const {
     std::array<uint8_t, SIZE> buf{};
     serialize(std::span<uint8_t, SIZE>{buf});
     return buf;
+}
+
+// --- ReplyTopicHeader ---
+
+std::vector<uint8_t>
+ReplyTopicHeader::serialize(std::string_view reply_topic) {
+    if (reply_topic.empty()) {
+        return {};
+    }
+
+    if (reply_topic.size() > std::numeric_limits<uint16_t>::max()) {
+        return {};  // Topic too long for uint16_t length field
+    }
+
+    auto len = static_cast<uint16_t>(reply_topic.size());
+    std::vector<uint8_t> buf(sizeof(uint16_t) + len);
+
+    uint16_t net_len = hton16(len);
+    std::memcpy(buf.data(), &net_len, sizeof(uint16_t));
+    std::memcpy(buf.data() + sizeof(uint16_t), reply_topic.data(), len);
+
+    return buf;
+}
+
+std::expected<std::pair<std::string, size_t>, EnvelopeError>
+ReplyTopicHeader::parse(std::span<const uint8_t> data) {
+    if (data.size() < sizeof(uint16_t)) {
+        return std::unexpected(EnvelopeError::InsufficientData);
+    }
+
+    uint16_t raw_len;
+    std::memcpy(&raw_len, data.data(), sizeof(uint16_t));
+    uint16_t len = ntoh16(raw_len);
+
+    size_t total = sizeof(uint16_t) + len;
+    if (data.size() < total) {
+        return std::unexpected(EnvelopeError::InsufficientData);
+    }
+
+    std::string topic(reinterpret_cast<const char*>(data.data() + sizeof(uint16_t)), len);
+    return std::pair{std::move(topic), total};
+}
+
+// --- Envelope helpers ---
+
+std::vector<uint8_t> build_full_envelope(
+    const RoutingHeader& routing,
+    const MetadataPrefix& metadata,
+    std::string_view reply_topic,
+    std::span<const uint8_t> payload)
+{
+    // reply_topic 존재 여부와 HAS_REPLY_TOPIC 플래그를 자동 동기화.
+    // 호출자가 플래그를 깜빡해도 직렬화/역직렬화 불일치가 발생하지 않도록 보장.
+    RoutingHeader rh = routing;
+    if (!reply_topic.empty()) {
+        rh.flags |= routing_flags::HAS_REPLY_TOPIC;
+    } else {
+        rh.flags &= ~routing_flags::HAS_REPLY_TOPIC;
+    }
+
+    auto routing_bytes = rh.serialize();
+    auto metadata_bytes = metadata.serialize();
+    auto reply_bytes = ReplyTopicHeader::serialize(reply_topic);
+
+    std::vector<uint8_t> buf;
+    buf.reserve(routing_bytes.size() + metadata_bytes.size()
+                + reply_bytes.size() + payload.size());
+
+    buf.insert(buf.end(), routing_bytes.begin(), routing_bytes.end());
+    buf.insert(buf.end(), metadata_bytes.begin(), metadata_bytes.end());
+    if (!reply_bytes.empty()) {
+        buf.insert(buf.end(), reply_bytes.begin(), reply_bytes.end());
+    }
+    buf.insert(buf.end(), payload.begin(), payload.end());
+
+    return buf;
+}
+
+size_t envelope_payload_offset(
+    uint16_t flags,
+    std::span<const uint8_t> data)
+{
+    size_t offset = ENVELOPE_HEADER_SIZE;
+
+    if (flags & routing_flags::HAS_REPLY_TOPIC) {
+        if (data.size() >= offset + sizeof(uint16_t)) {
+            auto result = ReplyTopicHeader::parse(data.subspan(offset));
+            if (result.has_value()) {
+                offset += result->second;
+            }
+        }
+    }
+
+    return offset;
+}
+
+std::string extract_reply_topic(
+    uint16_t flags,
+    std::span<const uint8_t> data)
+{
+    if (!(flags & routing_flags::HAS_REPLY_TOPIC)) {
+        return {};
+    }
+
+    if (data.size() < ENVELOPE_HEADER_SIZE + sizeof(uint16_t)) {
+        return {};
+    }
+
+    auto result = ReplyTopicHeader::parse(data.subspan(ENVELOPE_HEADER_SIZE));
+    if (!result.has_value()) {
+        return {};
+    }
+
+    return std::move(result->first);
 }
 
 } // namespace apex::shared::protocols::kafka

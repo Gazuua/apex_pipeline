@@ -3,17 +3,40 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 namespace apex::gateway {
 
+namespace {
+
+std::string read_file(std::string_view path) {
+    std::ifstream file{std::string{path}};
+    if (!file.is_open()) {
+        spdlog::error("[JwtVerifier] Failed to open key file: {}", path);
+        return {};
+    }
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+}
+
+} // anonymous namespace
+
 JwtVerifier::JwtVerifier(const JwtConfig& config)
     : config_(config)
+    , public_key_(read_file(config.public_key_file))
     , verifier_(jwt::verify()
-        .allow_algorithm(jwt::algorithm::hs256{config.secret})
+        .allow_algorithm(jwt::algorithm::rs256(public_key_))
         .with_issuer(config.issuer)
         .leeway(static_cast<uint64_t>(config.clock_skew.count()))) {
+    if (public_key_.empty()) {
+        spdlog::error("[JwtVerifier] RS256 public key not loaded from '{}' "
+                      "-- token verification will fail", config.public_key_file);
+    }
     if (config.issuer.empty()) {
-        spdlog::error("JWT issuer is empty -- token issuer validation is effectively disabled");
+        spdlog::error("[JwtVerifier] JWT issuer is empty "
+                      "-- token issuer validation is effectively disabled");
     }
 }
 
@@ -24,10 +47,10 @@ JwtVerifier::verify(std::string_view token) const {
         verifier_.verify(decoded);
 
         JwtClaims claims;
-        claims.user_id = static_cast<uint64_t>(
-            decoded.get_payload_claim("uid").as_integer());
-        claims.username = decoded.get_payload_claim("sub")
-            .as_string();
+        // Auth service stores uid as string (avoids double precision loss for large IDs)
+        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
+        // Auth service sets sub = email
+        claims.email = decoded.get_subject();
         if (decoded.has_payload_claim("jti")) {
             claims.jti = decoded.get_payload_claim("jti").as_string();
         }

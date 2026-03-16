@@ -21,14 +21,16 @@ schema = "apex_core/schemas/error_response.fbs"
 [[system.allocated]]
 id = 10
 name = "RefreshTokenRequest"
-status = "active"
+status = "retired"
 schema = "apex_shared/schemas/refresh_token_request.fbs"
+note = "Moved to auth range (1004). msg_id 10 permanently retired."
 
 [[system.allocated]]
 id = 11
 name = "RefreshTokenResponse"
-status = "active"
+status = "retired"
 schema = "apex_shared/schemas/refresh_token_response.fbs"
+note = "Moved to auth range (1005). msg_id 11 permanently retired."
 
 [auth]
 range = [1000, 1999]
@@ -57,6 +59,18 @@ id = 1003
 name = "LogoutResponse"
 status = "active"
 schema = "apex_services/auth-svc/schemas/logout_response.fbs"
+
+[[auth.allocated]]
+id = 1004
+name = "RefreshTokenRequest"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_request.fbs"
+
+[[auth.allocated]]
+id = 1005
+name = "RefreshTokenResponse"
+status = "active"
+schema = "apex_shared/schemas/refresh_token_response.fbs"
 
 [chat]
 range = [2000, 2999]

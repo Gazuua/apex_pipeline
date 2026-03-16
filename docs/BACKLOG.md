@@ -7,57 +7,11 @@
 
 ## Critical
 
-### [Critical] C-1. JWT 알고리즘 불일치 (Auth RS256 vs Gateway HS256)
-- **위치**: `apex_services/auth-svc/` (JWT 서명), `apex_services/gateway/` (JWT 검증)
-- **상태**: 미구현
-- **배치**: v0.5 패치 (보안 + cross-cutting)
-- **설명**: Auth 서비스는 RS256으로 서명, Gateway는 HS256으로 검증 — 알고리즘 불일치로 토큰 검증 실패. JwtVerifier에 알고리즘 분기 + 공개키 파일 로딩 필요 — 출처: auto-review 에스컬레이션
-
-### [Critical] C-2. Kafka response topic 미스라우팅
-- **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`, `apex_services/gateway/`
-- **상태**: 설계 결정 필요
-- **배치**: v0.5 패치 (cross-cutting)
-- **설명**: Auth→`auth.responses`, Chat→`chat.responses`로 응답하나 Gateway는 `gateway.responses`만 consume. 전체 요청-응답 체인 단절. 설계 결정 필요: (A) 서비스가 `gateway.responses`로 통일 vs (B) Gateway가 다중 토픽 consume — 출처: auto-review 에스컬레이션
-
-### [Critical] C-3. PerIpRateLimiter TTL 콜백 미연결
-- **위치**: `apex_shared/lib/rate_limit/src/per_ip_rate_limiter.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
-- **설명**: TimingWheel on_expire → remove_entry 연결 부재. 만료 엔트리 메모리 잔존. core/shared 경계 설계 결정 필요 (TimingWheel은 core, PerIpRateLimiter는 shared) — 출처: auto-review (reviewer-memory)
-
-### [Critical] C-4. ResponseDispatcher::on_response() 데이터 레이스
-- **위치**: `apex_services/gateway/src/response_dispatcher.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치 (머지 후 즉시)
-- **설명**: Kafka 스레드에서 per-core PendingRequestsMap 직접 접근. cross_core_post 위임 설계 필요. 보안+정합성 영향 (다른 세션에 응답 전달 가능) — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
-
-### [Critical] C-5. RefreshTokenRequest(msg_id=10) 라우팅 불가
-- **위치**: `apex_services/gateway/gateway.toml`
-- **상태**: 미구현
-- **배치**: v0.5 Wave 2 패치
-- **설명**: gateway.toml routes에 시스템 범위([0,999]) 누락. 시스템 메시지별 라우팅 분기 설계 필요 — 출처: auto-review (reviewer-cross-cutting)
+(현재 Critical 항목 없음)
 
 ---
 
 ## Important
-
-### [Important] I-1. JWT claim 불일치 (sub/jti)
-- **위치**: `apex_services/auth-svc/` (JWT 생성), `apex_services/gateway/` (JWT 파싱)
-- **상태**: 미구현
-- **배치**: v0.5 패치 (cross-cutting)
-- **설명**: Auth는 sub=email, jti 미포함. Gateway는 sub→username으로 사용, jti 기반 블랙리스트. jti 미생성으로 로그아웃 토큰 무효화 불가 — 출처: auto-review 에스컬레이션
-
-### [Important] I-2. ChannelSessionMap 무제한 메모리 증가
-- **위치**: `apex_services/gateway/include/apex/gateway/channel_session_map.hpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: per-session 구독 제한 정책 미설정. 비즈니스 결정 필요 — 출처: auto-review (reviewer-memory)
-
-### [Important] I-3. GatewayPipeline::set_rate_limiter() 동시성 보호 없음
-- **위치**: `apex_services/gateway/include/apex/gateway/gateway_pipeline.hpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: atomic 또는 strand 보장 필요. ConfigReloader 활성화 시 실제 레이스 — 출처: auto-review (reviewer-concurrency + reviewer-cross-cutting)
 
 ### [Important] I-4. review 문서 2개 상세 내용 부재
 - **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`
@@ -65,23 +19,11 @@
 - **배치**: 별도 판단 (원본 데이터 없이 복원 불가)
 - **설명**: 원본 데이터 없이 복원 불가 — 출처: auto-review (reviewer-docs-records)
 
-### [Important] I-5. FileWatcher 테스트 flaky 위험
-- **위치**: `apex_services/gateway/tests/test_file_watcher.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: sleep 기반, CI 환경 의존. clock injection 향후 개선 — 출처: auto-review (reviewer-test-quality)
-
-### [Important] I-6. PendingRequests 테스트 flaky 위험
-- **위치**: `apex_services/gateway/tests/test_pending_requests.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: sleep 기반, 시간 injection 미지원 — 출처: auto-review (reviewer-test-quality)
-
-### [Important] I-7. gateway.toml JWT secret 하드코딩 + TOML 셸 환경변수 치환 미작동
+### [Important] I-7. gateway.toml 시크릿 운영 환경 관리
 - **위치**: `apex_services/gateway/gateway.toml`, TOML 파서 전반
-- **상태**: 미구현
+- **상태**: 부분 해결 (expand_env 구현 완료, JWT RS256 전환으로 secret 불필요)
 - **배치**: v0.6 (운영 인프라)
-- **설명**: 환경변수 치환 메커니즘 필요. 추가 발견: `${JWT_SECRET:-...}` 구문을 TOML 파서가 처리하지 않아 셸 환경변수 치환이 실제로는 미작동 — 출처: auto-review (reviewer-security) + 에스컬레이션
+- **설명**: expand_env()로 ${VAR:-default} 치환 구현 완료. JWT가 RS256 공개키로 전환되어 secret 하드코딩 이슈 해소. 남은 과제: Redis 비밀번호 등 운영 환경 시크릿 주입 전략 — 출처: auto-review (reviewer-security) + 에스컬레이션
 
 ### [Important] I-8. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
 - **위치**: `apex_services/auth-svc/migrations/`
@@ -89,63 +31,57 @@
 - **배치**: v0.6 (운영 인프라, 시크릿 매니저 도입 시 해결)
 - **설명**: migration SQL에 평문 비밀번호. 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-security) + 에스컬레이션
 
-### [Important] I-9. session_store Redis 명령 인젝션
-- **위치**: `apex_services/auth-svc/src/session_store.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: RedisMultiplexer printf-style API 변경 필요 — 출처: auto-review (reviewer-security)
-
-### [Important] I-10. PubSub→클라이언트 프레임 포맷 불일치
-- **위치**: `apex_services/gateway/src/broadcast_fanout.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: build_pubsub_payload vs WireHeader 계약 위반. placeholder이지만 구현 시 수정 필요 — 출처: auto-review (reviewer-cross-cutting)
-
-### [Important] I-11. redis.ratelimit TOML 섹션 파싱 누락
-- **위치**: `apex_services/gateway/src/gateway_config_parser.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: GatewayConfig + parser 변경 필요 — 출처: auto-review (reviewer-cross-cutting)
-
-### [Important] I-12. RateLimitEndpointConfig → EndpointRateConfig 변환 경로 부재
-- **위치**: `apex_services/gateway/src/config_reloader.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: hot-reload 경로 단절 — 출처: auto-review (reviewer-cross-cutting)
-
 ### [Important] I-13. async_send_raw + write_pump 동시 write 위험
 - **위치**: `apex_core/` Session (async_send_raw, write_pump)
-- **상태**: 미구현 (현재 코드 경로에서 미트리거)
-- **배치**: v0.5 패치
+- **상태**: 미트리거 (async_send_raw 호출처 없음)
+- **배치**: Wave 배정 보류 (현재 미트리거, 향후 API 사용 시 검토)
 - **설명**: async_send_raw와 write_pump가 동시에 소켓 write를 시도할 수 있는 구조. 현재 코드 경로에서는 트리거되지 않지만, 향후 확장 시 위험 — 출처: auto-review (reviewer-concurrency)
 
 ### [Important] I-14. GatewayEnvelope FBS msg_id uint16 불일치 (코드 uint32)
 - **위치**: `apex_services/gateway/` FlatBuffers 스키마 + 코드
 - **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치 — 출처: auto-review (reviewer-architecture)
+- **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
+- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
 
-### [Important] I-15. docs/Apex_Pipeline.md WireHeader v1(10B) vs 코드 v2(12B) 설계 문서 미갱신
-- **위치**: `docs/Apex_Pipeline.md`, `apex_core/` WireHeader
+### [Important] I-15. Linux CI Sanitizer 파이프라인 추가 (ASAN+UBSAN+TSAN+Valgrind)
+- **위치**: `.github/workflows/` CI 파이프라인
 - **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 설계 문서에 WireHeader v1(10B)로 기재, 코드는 v2(12B)로 진화. 문서 갱신 필요 — 출처: auto-review (reviewer-architecture)
+- **배치**: 빠를수록 좋음 (우선순위 높음)
+- **설명**: Linux/Clang cross-compile CI job 추가. ASAN+UBSAN: 하나의 job에 합쳐서 PR CI에 포함. TSAN: 별도 job으로 PR CI에 포함 (ASAN과 동시 사용 불가). Valgrind memcheck: PR CI에 포함 (현 규모에서는 실행 가능, 느려지면 야간 빌드로 분리 검토)
+
+### [Important] I-16. ReplyTopicHeader::serialize() silent failure
+- **위치**: `apex_shared/lib/protocols/kafka/src/kafka_envelope.cpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류
+- **설명**: overflow 시 빈 vector 반환하여 정상 케이스(빈 데이터)와 구분 불가. `std::expected` 반환으로 전환 검토 — 출처: auto-review 에스컬레이션
 
 ---
 
 ## Minor
-
-### [Minor] m-1. user_id 파라미터 미사용
-- **위치**: `apex_services/gateway/src/message_router.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: MessageRouter + MetadataPrefix에 user_id 전달 경로 없음. 설계-구현 갭 — 출처: auto-review (reviewer-cross-cutting)
 
 ### [Minor] m-2. 별도 백로그 파일 2건 미이전
 - **위치**: `docs/apex_core/backlog_memory_os_level.md`, `docs/` 내 `20260315_094300_backlog.md`
 - **상태**: 미구현
 - **배치**: 즉시 (문서 정리)
 - **설명**: `backlog_memory_os_level.md` → BACKLOG.md 리네이밍/통합 필요, `20260315_094300_backlog.md` → BACKLOG.md로 이전. 규칙: 별도 백로그 파일 생성 금지 — 출처: auto-review (reviewer-docs-records)
+
+### [Minor] m-3. ResponseDispatcher 하드코딩 오프셋
+- **위치**: `apex_services/gateway/src/response_dispatcher.cpp:74-76`
+- **상태**: 미구현
+- **배치**: v0.5 패치
+- **설명**: ENVELOPE_HEADER_SIZE 고정 오프셋 사용. envelope_payload_offset() 사용으로 방어적 수정 추천 — 출처: auto-review 에스컬레이션
+
+### [Minor] m-4. ReplyTopicHeader serialize 길이 미검증
+- **위치**: `apex_shared/lib/protocols/kafka/include/apex/shared/protocols/kafka/kafka_envelope.hpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류 (Kafka 토픽 249자 제한으로 현실적 위험 극히 낮음)
+- **설명**: uint16_t truncation 가능성. Kafka 토픽명 249자 제한으로 실제 위험은 극히 낮음 — 출처: auto-review 에스컬레이션
+
+### [Minor] m-5. CI docs-only 커밋에도 전체 빌드 실행
+- **위치**: `.github/workflows/ci.yml`
+- **상태**: 미구현
+- **배치**: v0.6 (운영 인프라)
+- **설명**: `pull_request` 이벤트가 마지막 커밋이 아닌 PR 전체 diff를 기준으로 `paths-ignore`를 평가하기 때문에, docs-only 커밋에도 전체 빌드가 실행됨. 불필요한 빌드 시간 소모 (~11분/회). workaround: `[skip ci]` 커밋 메시지
 
 ---
 
@@ -227,9 +163,27 @@
 - **배치**: v0.5 이후
 - **설명**: Mock 객체의 thread-safety가 실제 구현체와 불일치, E2E fixture 미구현, 테스트 suppression 파일 중복 — 출처: auto-review (reviewer-test-quality)
 
+### [Medium] TC-3. Auth/Chat 비즈니스 로직 단위 테스트 0건
+- **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`
+- **상태**: 미구현
+- **배치**: v0.6 이후
+- **설명**: 1500+줄 핸들러 코드에 단위 테스트 없음. Mock 인프라 구축 필요 — 출처: auto-review 에스컬레이션
+
+### [Medium] TC-4. new_refresh_token E2E 테스트 미검증
+- **위치**: `apex_services/auth-svc/` Token Rotation
+- **상태**: 미구현
+- **배치**: E2E 환경 구축 후
+- **설명**: Token Rotation 핵심 필드 new_refresh_token에 대한 E2E 테스트 0건. E2E 환경 구축 후 추가 필요 — 출처: auto-review 에스컬레이션
+
 ---
 
 ## 서비스 체인
+
+### [Medium] TOCTOU: join_room SCARD→SADD 경합
+- **위치**: `apex_services/chat-svc/src/chat_service.cpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류 (현실적 발생 빈도 낮음)
+- **설명**: join_room에서 SCARD→SADD 사이 TOCTOU 경합 가능. Redis Lua script로 원자적 처리 필요하나 어댑터 인터페이스 변경 수반. 현실적 발생 빈도 극히 낮음 — 출처: auto-review 에스컬레이션
 
 ### [Medium] Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
 - **위치**: `apex_infra/` Redis 설정, pgbouncer 설정
@@ -300,6 +254,16 @@
 ---
 
 ## 도구 / 자동화
+
+### [Medium] auto-review 팀 셧다운 시 좀비 에이전트 잔존 문제
+- **위치**: `apex_tools/auto-review/` coordinator.md, Claude Code 에이전트 런타임
+- **상태**: 미해결 (workaround 사용 중)
+- **배치**: Wave 배정 보류
+- **설명**: coordinator가 리뷰어 12명에게 shutdown_request를 보내도 일부 리뷰어(특히 test-quality)와 coordinator 자신이 응답하지 않고 좀비로 남음. 30초+ 대기해도 반응 없음. TeamDelete 실패 (active member 존재). 매 리뷰마다 config.json 수동 정리 필요.
+- **발생 빈도**: 2회 연속 발생 (v0.5.4.2, v0.5.5 auto-review 모두)
+- **근본 원인 후보**: (1) coordinator가 리뷰어 전원 종료 확인 전 자신이 idle 상태로 빠짐 (2) shutdown_request가 idle 상태 에이전트에게 전달되지 않는 Claude Code 버그 가능성 (3) in-process 백엔드 에이전트의 메시지 수신 타이밍 이슈
+- **현재 workaround**: config.json의 members 배열에서 좀비 멤버를 수동 제거 후 TeamDelete 재시도
+- **필요한 조치**: coordinator.md의 셧다운 절차 강화 또는 메인 오케스트레이터가 개별 에이전트에 직접 shutdown 보내는 방식으로 전환 검토
 
 ### [Low] auto-review 리뷰어 확장 (v0.5+)
 - **위치**: `apex_tools/auto-review/`

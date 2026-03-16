@@ -89,6 +89,37 @@ SessionStore::remove(uint64_t user_id) {
 }
 
 boost::asio::awaitable<apex::core::Result<void>>
+SessionStore::set_user_session_id(uint64_t user_id, uint64_t session_id) {
+    auto key = std::format("session:user:{}", user_id);
+    auto value = std::to_string(session_id);
+    auto ttl_sec = static_cast<int>(ttl_.count());
+
+    auto core_id = apex::core::CoreEngine::current_core_id();
+    auto& mux = redis_.multiplexer(core_id);
+    auto result = co_await mux.command("SETEX %s %d %s",
+                                        key.c_str(), ttl_sec, value.c_str());
+    if (!result.has_value()) {
+        spdlog::error("[SessionStore] Failed to set user session_id for user {}", user_id);
+        co_return apex::core::error(result.error());
+    }
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>>
+SessionStore::remove_user_session_id(uint64_t user_id) {
+    auto key = std::format("session:user:{}", user_id);
+
+    auto core_id = apex::core::CoreEngine::current_core_id();
+    auto& mux = redis_.multiplexer(core_id);
+    auto result = co_await mux.command("DEL %s", key.c_str());
+    if (!result.has_value()) {
+        spdlog::error("[SessionStore] Failed to remove user session_id for user {}", user_id);
+        co_return apex::core::error(result.error());
+    }
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>>
 SessionStore::blacklist_token(std::string_view token_hash,
                               std::chrono::seconds ttl) {
     if (!is_valid_token_hash(token_hash)) {

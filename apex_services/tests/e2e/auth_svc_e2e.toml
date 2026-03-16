@@ -1,0 +1,26 @@
+# Auth Service E2E Test Configuration
+
+[jwt]
+private_key_file = "apex_services/tests/keys/test_rs256.pem"
+public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
+issuer = "apex-auth"
+access_token_ttl_sec = 900
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "auth-svc-e2e"
+request_topic = "auth.requests"
+response_topic = "auth.responses"
+
+[redis]
+host = "localhost"
+port = 6380
+
+[pg]
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password"
+
+[bcrypt]
+work_factor = 12
+
+[session]
+ttl_sec = 86400

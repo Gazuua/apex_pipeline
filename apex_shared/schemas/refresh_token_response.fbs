@@ -15,6 +15,7 @@ table RefreshTokenResponse {
     error: RefreshTokenError = NONE;
     access_token: string;
     expires_in_sec: uint32;
+    new_refresh_token: string;
 }
 
 root_type RefreshTokenResponse;

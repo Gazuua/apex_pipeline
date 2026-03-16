@@ -82,10 +82,10 @@ parse_gateway_config(std::string_view path) {
 
         // [jwt]
         if (auto jwt = tbl["jwt"]; jwt) {
-            cfg.jwt.secret = expand_env(jwt["secret"]
-                .value_or(std::string{}));
+            cfg.jwt.public_key_file = jwt["public_key_file"]
+                .value_or(std::string{});
             cfg.jwt.algorithm = jwt["algorithm"]
-                .value_or(std::string{"HS256"});
+                .value_or(std::string{"RS256"});
             cfg.jwt.issuer = jwt["issuer"]
                 .value_or(std::string{"apex-auth"});
             cfg.jwt.clock_skew = std::chrono::seconds{
@@ -167,6 +167,16 @@ parse_gateway_config(std::string_view path) {
                 timeouts["request_timeout_ms"].value_or(int64_t{5000})};
             cfg.max_pending_per_core = static_cast<size_t>(
                 timeouts["max_pending_per_core"].value_or(int64_t{65536}));
+        }
+
+        // [auth.exempt] — 인증 면제 msg_id 화이트리스트 (deny-by-default)
+        if (auto auth_exempt = tbl["auth"]["exempt"]; auth_exempt) {
+            if (auto* exempt_tbl = auth_exempt.as_table()) {
+                for (auto& [name, val] : *exempt_tbl) {
+                    cfg.auth.auth_exempt_msg_ids.insert(
+                        static_cast<uint32_t>(val.value_or(int64_t{0})));
+                }
+            }
         }
 
         // [rate_limit.ip]

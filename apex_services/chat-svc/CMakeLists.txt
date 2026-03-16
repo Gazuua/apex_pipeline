@@ -2,6 +2,7 @@
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
+find_package(tomlplusplus CONFIG REQUIRED)
 
 # --- FlatBuffers schema compilation ---
 set(CHAT_SVC_SCHEMAS
@@ -65,7 +66,7 @@ endif()
 
 # --- Executable ---
 add_executable(chat_svc_main src/main.cpp)
-target_link_libraries(chat_svc_main PRIVATE apex_chat_svc)
+target_link_libraries(chat_svc_main PRIVATE apex_chat_svc tomlplusplus::tomlplusplus)
 if(WIN32)
     target_compile_options(chat_svc_main PRIVATE /utf-8)
     target_compile_definitions(chat_svc_main PRIVATE _WIN32_WINNT=0x0A00)
