@@ -23,6 +23,16 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
+#else
+#include <sys/types.h>
+#include <signal.h>
+#endif
+
 namespace apex::e2e {
 
 using WireHeader = apex::shared::protocols::tcp::WireHeader;
@@ -49,9 +59,31 @@ struct E2EConfig {
     std::string pg_user          = "apex_admin";
     std::string pg_password      = "apex_e2e_password";
 
+    // Service executable paths (relative to working directory or absolute)
+    std::string gateway_exe      = "gateway_main";
+    std::string auth_svc_exe     = "auth_svc_main";
+    std::string chat_svc_exe     = "chat_svc_main";
+
+    // Service config files (TOML)
+    std::string gateway_config   = "apex_services/tests/e2e/gateway_e2e.toml";
+    std::string auth_svc_config  = "apex_services/tests/e2e/auth_svc_e2e.toml";
+    std::string chat_svc_config  = "apex_services/tests/e2e/chat_svc_e2e.toml";
+
     // Timeouts
     std::chrono::seconds startup_timeout{30};
     std::chrono::seconds request_timeout{10};
+};
+
+/// Cross-platform child process handle.
+struct ChildProcess {
+    std::string name;
+    bool launched{false};
+
+#ifdef _WIN32
+    PROCESS_INFORMATION proc_info{};
+#else
+    pid_t pid{0};
+#endif
 };
 
 /// E2E test base fixture.
@@ -66,6 +98,18 @@ public:
 protected:
     void SetUp() override;
     void TearDown() override;
+
+    /// Launch a service process in the background.
+    /// @param name Display name for logging.
+    /// @param exe_path Executable path.
+    /// @param config_path TOML config file path.
+    /// @return ChildProcess handle for later termination.
+    static ChildProcess launch_service(const std::string& name,
+                                        const std::string& exe_path,
+                                        const std::string& config_path);
+
+    /// Terminate a child process gracefully (SIGTERM / TerminateProcess).
+    static void terminate_service(ChildProcess& proc);
 
     /// TCP client that speaks WireHeader v2 protocol.
     /// Sends and receives framed messages through Gateway.
@@ -118,6 +162,9 @@ protected:
     void authenticate(TcpClient& client, const std::string& token);
 
     static E2EConfig config_;
+    static ChildProcess gateway_proc_;
+    static ChildProcess auth_proc_;
+    static ChildProcess chat_proc_;
     boost::asio::io_context io_ctx_;
 };
 

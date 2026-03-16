@@ -1,6 +1,11 @@
 #pragma once
 
+#include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/session.hpp>
+
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/awaitable.hpp>
 
 #include <cstdint>
 #include <span>
@@ -15,6 +20,16 @@ namespace apex::shared::adapters::pg    { class PgAdapter; }
 
 namespace apex::chat_svc {
 
+/// Cached Kafka envelope metadata for the currently dispatching message.
+/// Set in dispatch_envelope() before dispatcher_.dispatch(), read by handlers.
+/// Thread-safe: Kafka consumer callback is single-threaded sequential.
+struct EnvelopeMetadata {
+    uint64_t corr_id = 0;
+    uint16_t core_id = 0;
+    uint64_t session_id = 0;
+    std::string reply_topic;
+};
+
 /// Chat Service -- Kafka-based room management, message broadcast, chat history.
 ///
 /// Consumes from `chat.requests` topic, processes room/message/whisper/history,
@@ -24,6 +39,8 @@ namespace apex::chat_svc {
 ///
 /// Does NOT inherit ServiceBase -- Kafka message-driven, not HTTP session-driven.
 /// (Same pattern as AuthService)
+/// Uses MessageDispatcher (O(1) hash map) for msg_id-based dispatch.
+/// Handlers are awaitable coroutines; Kafka callback bridges via co_spawn.
 ///
 /// Adapter dependencies:
 ///   - KafkaAdapter: consumer(chat.requests), producer(chat.responses, chat.messages.persist)
@@ -43,6 +60,7 @@ public:
 
     explicit ChatService(
         Config config,
+        boost::asio::any_io_executor executor,
         apex::shared::adapters::kafka::KafkaAdapter& kafka,
         apex::shared::adapters::redis::RedisAdapter& redis_data,
         apex::shared::adapters::redis::RedisAdapter& redis_pubsub,
@@ -50,7 +68,7 @@ public:
 
     ~ChatService();
 
-    /// Start service: register Kafka consumer callback
+    /// Start service: register handlers to MessageDispatcher, set Kafka callback
     void start();
 
     /// Stop service
@@ -100,44 +118,49 @@ private:
         std::span<const uint8_t> payload,
         int64_t offset);
 
-    /// Parse Kafka Envelope (RoutingHeader + Metadata) and dispatch by msg_id
+    /// Parse Kafka Envelope (RoutingHeader + Metadata) and dispatch by msg_id.
+    /// Synchronous — called from Kafka consumer thread.
+    /// Internally co_spawns a coroutine on executor_ for async handler execution.
     void dispatch_envelope(std::span<const uint8_t> payload);
 
-    // --- Handlers (receive fbs_payload + envelope metadata + reply_topic) ---
+    // --- Handlers (awaitable coroutines, metadata accessed via current_meta_) ---
+    // Handler signature matches MessageDispatcher::Handler.
+    // Kafka envelope metadata (corr_id, core_id, session_id, reply_topic)
+    // is available via this->current_meta_ (set before dispatch).
 
-    // Room management (Task 3)
-    void handle_create_room(std::span<const uint8_t> fbs_payload,
-                            uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                            const std::string& reply_topic);
-    void handle_join_room(std::span<const uint8_t> fbs_payload,
-                          uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                          const std::string& reply_topic);
-    void handle_leave_room(std::span<const uint8_t> fbs_payload,
-                           uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                           const std::string& reply_topic);
-    void handle_list_rooms(std::span<const uint8_t> fbs_payload,
-                           uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                           const std::string& reply_topic);
+    // Room management
+    boost::asio::awaitable<apex::core::Result<void>> handle_create_room(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> handle_join_room(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> handle_leave_room(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> handle_list_rooms(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
 
-    // Message send (Task 4)
-    void handle_send_message(std::span<const uint8_t> fbs_payload,
-                             uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                             const std::string& reply_topic);
+    // Message send
+    boost::asio::awaitable<apex::core::Result<void>> handle_send_message(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
 
-    // Whisper (Task 5)
-    void handle_whisper(std::span<const uint8_t> fbs_payload,
-                        uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                        const std::string& reply_topic);
+    // Whisper (1:1)
+    boost::asio::awaitable<apex::core::Result<void>> handle_whisper(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
 
-    // History (Task 6)
-    void handle_chat_history(std::span<const uint8_t> fbs_payload,
-                             uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                             const std::string& reply_topic);
+    // History
+    boost::asio::awaitable<apex::core::Result<void>> handle_chat_history(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
 
-    // Global broadcast (Task 7)
-    void handle_global_broadcast(std::span<const uint8_t> fbs_payload,
-                                 uint64_t corr_id, uint16_t core_id, uint64_t session_id,
-                                 const std::string& reply_topic);
+    // Global broadcast
+    boost::asio::awaitable<apex::core::Result<void>> handle_global_broadcast(
+        apex::core::SessionPtr session, uint32_t msg_id,
+        std::span<const uint8_t> fbs_payload);
 
     // --- Helpers ---
 
@@ -167,6 +190,9 @@ private:
     [[nodiscard]] static uint64_t current_timestamp_ms() noexcept;
 
     Config config_;
+    apex::core::MessageDispatcher dispatcher_;     ///< O(1) hash map dispatch
+    boost::asio::any_io_executor executor_;        ///< Kafka→coroutine bridge (injected from main)
+    EnvelopeMetadata current_meta_;                ///< Cached metadata for current dispatch (side-channel)
     apex::shared::adapters::kafka::KafkaAdapter& kafka_;
     apex::shared::adapters::redis::RedisAdapter& redis_data_;
     apex::shared::adapters::redis::RedisAdapter& redis_pubsub_;

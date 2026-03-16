@@ -1,0 +1,24 @@
+# Gateway E2E Test Configuration
+
+[gateway]
+ws_port = 8443
+num_cores = 2
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "gateway-e2e"
+response_topic = "gateway.responses"
+
+[redis_auth]
+host = "localhost"
+port = 6380
+
+[jwt]
+public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
+algorithm = "RS256"
+issuer = "apex-auth"
+
+[auth.exempt]
+LoginRequest = 1000
+LogoutRequest = 1002
+RefreshTokenRequest = 10

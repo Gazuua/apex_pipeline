@@ -2,6 +2,7 @@
 
 #include <apex/gateway/jwt_verifier.hpp>
 #include <apex/gateway/jwt_blacklist.hpp>
+#include <apex/gateway/gateway_config.hpp>
 #include <apex/shared/rate_limit/rate_limit_facade.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/result.hpp>
@@ -20,7 +21,8 @@ namespace apex::gateway {
 struct AuthState {
     bool authenticated = false;
     uint64_t user_id = 0;
-    std::string jti;  // JWT ID (for blacklist check)
+    std::string jti;    // JWT ID (for blacklist check)
+    std::string token;  // JWT token (set by handshake/login response handler)
 };
 
 /// Gateway request pipeline.
@@ -29,10 +31,12 @@ struct AuthState {
 ///   -> [Per-User rate limit] -> [Per-Endpoint rate limit] -> routing
 class GatewayPipeline {
 public:
+    /// @param config Gateway configuration (auth exempt list, etc.).
     /// @param jwt_verifier JWT signature verifier.
     /// @param blacklist JWT blacklist checker (nullable -- no Redis connection).
     /// @param rate_limiter 3-layer rate limit facade (nullable -- rate limiting disabled).
-    GatewayPipeline(const JwtVerifier& jwt_verifier,
+    GatewayPipeline(const GatewayConfig& config,
+                    const JwtVerifier& jwt_verifier,
                     JwtBlacklist* blacklist,
                     apex::shared::rate_limit::RateLimitFacade* rate_limiter = nullptr);
 
@@ -85,6 +89,7 @@ private:
     /// Get current epoch milliseconds.
     [[nodiscard]] static uint64_t now_ms() noexcept;
 
+    const GatewayConfig& config_;
     const JwtVerifier& jwt_verifier_;
     JwtBlacklist* blacklist_;
     std::atomic<apex::shared::rate_limit::RateLimitFacade*> rate_limiter_;

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -16,7 +17,6 @@ struct TlsConfig {
 };
 
 struct JwtConfig {
-    std::string secret;               // HMAC secret key (HS256, legacy -- unused when algorithm=RS256)
     std::string public_key_file;      // RSA public key PEM file path (RS256)
     std::string algorithm = "RS256";  // JWT algorithm (RS256 = asymmetric, Auth signs / Gateway verifies)
     std::string issuer = "apex-auth"; // JWT issuer (must match Auth service)
@@ -54,6 +54,10 @@ struct RateLimitConfig {
     RateLimitEndpointConfig endpoint;
 };
 
+struct AuthConfig {
+    std::unordered_set<uint32_t> auth_exempt_msg_ids;  // 인증 면제 msg_id 화이트리스트 (deny-by-default)
+};
+
 struct GatewayConfig {
     // Network
     uint16_t ws_port = 8443;          // WebSocket + TLS port
@@ -64,6 +68,9 @@ struct GatewayConfig {
 
     // JWT
     JwtConfig jwt;
+
+    // Auth
+    AuthConfig auth;
 
     // Routing
     std::vector<RouteEntry> routes;   // msg_id range -> Kafka topic mapping

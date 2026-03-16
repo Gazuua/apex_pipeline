@@ -1,0 +1,30 @@
+# Auth Service Configuration
+
+[jwt]
+private_key_file = "keys/auth_rs256.pem"
+public_key_file = "keys/auth_rs256_pub.pem"
+issuer = "apex-auth"
+access_token_ttl_sec = 900        # 15 min
+refresh_token_ttl_sec = 604800    # 7 days
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "auth-svc"
+request_topic = "auth.requests"
+response_topic = "auth.responses"
+
+[redis]
+host = "localhost"
+port = 6380
+# password = ""
+db = 0
+
+[pg]
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=apex_pass"
+pool_size_per_core = 2
+
+[bcrypt]
+work_factor = 12
+
+[session]
+ttl_sec = 86400                   # 24 hours

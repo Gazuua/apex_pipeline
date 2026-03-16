@@ -1,7 +1,6 @@
 #include <apex/gateway/jwt_verifier.hpp>
 
 #include <jwt-cpp/jwt.h>
-#include <picojson/picojson.h>
 #include <gtest/gtest.h>
 
 #include <fstream>
@@ -83,7 +82,7 @@ protected:
             .set_type("JWT")
             .set_subject(std::string(email))
             .set_payload_claim("uid",
-                jwt::claim(picojson::value(static_cast<double>(uid))))
+                jwt::claim(std::to_string(uid)))
             .set_payload_claim("jti",
                 jwt::claim(std::string("test-jti-001")))
             .set_issued_at(now)
@@ -121,7 +120,7 @@ TEST_F(JwtVerifierTest, InvalidIssuer) {
         .set_type("JWT")
         .set_subject("test@example.com")
         .set_payload_claim("uid",
-            jwt::claim(picojson::value(static_cast<double>(1))))
+            jwt::claim(std::to_string(1)))
         .set_issued_at(now)
         .set_expires_at(now + std::chrono::hours{1})
         .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
@@ -149,8 +148,8 @@ TEST_F(JwtVerifierTest, SensitiveMsgId) {
     EXPECT_FALSE(verifier.is_sensitive(1000));
 }
 
-TEST_F(JwtVerifierTest, ClaimParsing_UidAsNumber) {
-    // Verify uid is parsed correctly as number (Auth stores as double via picojson)
+TEST_F(JwtVerifierTest, ClaimParsing_UidAsString) {
+    // Verify uid is parsed correctly as string (avoids double precision loss)
     JwtVerifier verifier(config_);
     auto token = make_token(9999999);
     auto result = verifier.verify(token);
@@ -167,7 +166,7 @@ TEST_F(JwtVerifierTest, MissingJti) {
         .set_type("JWT")
         .set_subject("nojti@example.com")
         .set_payload_claim("uid",
-            jwt::claim(picojson::value(static_cast<double>(42))))
+            jwt::claim(std::to_string(42)))
         .set_issued_at(now)
         .set_expires_at(now + std::chrono::hours{1})
         .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));

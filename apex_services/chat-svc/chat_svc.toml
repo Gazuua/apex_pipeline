@@ -1,0 +1,30 @@
+# Chat Service Configuration
+
+[chat]
+request_topic = "chat.requests"
+response_topic = "chat.responses"
+persist_topic = "chat.messages.persist"
+max_room_members = 100
+max_message_length = 2000
+history_page_size = 50
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "chat-svc"
+consume_topics = ["chat.requests"]
+
+[redis_data]
+# Redis #2: Room membership, online status (chat:room:{id}:members Set)
+host = "localhost"
+port = 6381
+db = 0
+
+[redis_pubsub]
+# Redis #3: Pub/Sub broadcast (pub:chat:room:{id}, pub:global:chat)
+host = "localhost"
+port = 6382
+db = 0
+
+[pg]
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=apex_pass"
+pool_size_per_core = 2

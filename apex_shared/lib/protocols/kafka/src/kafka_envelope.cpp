@@ -1,6 +1,7 @@
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <bit>
+#include <limits>
 
 #ifdef _MSC_VER
 #include <cstdlib>
@@ -147,6 +148,10 @@ std::vector<uint8_t>
 ReplyTopicHeader::serialize(std::string_view reply_topic) {
     if (reply_topic.empty()) {
         return {};
+    }
+
+    if (reply_topic.size() > std::numeric_limits<uint16_t>::max()) {
+        return {};  // Topic too long for uint16_t length field
     }
 
     auto len = static_cast<uint16_t>(reply_topic.size());

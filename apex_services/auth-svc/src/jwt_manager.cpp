@@ -1,7 +1,6 @@
 #include <apex/auth_svc/jwt_manager.hpp>
 
 #include <jwt-cpp/jwt.h>
-#include <picojson/picojson.h>
 #include <spdlog/spdlog.h>
 
 #include <array>
@@ -82,7 +81,7 @@ std::string JwtManager::create_access_token(uint64_t user_id,
             .set_type("JWT")
             .set_issued_at(now)
             .set_expires_at(exp)
-            .set_payload_claim("uid", jwt::claim(picojson::value(static_cast<double>(user_id))))
+            .set_payload_claim("uid", jwt::claim(std::to_string(user_id)))
             .set_subject(std::string(email))
             .set_payload_claim("jti", jwt::claim(std::string(jti)))
             .sign(jwt::algorithm::rs256(public_key_, private_key_));
@@ -103,14 +102,14 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(
 
     try {
         auto verifier = jwt::verify()
-            .allow_algorithm(jwt::algorithm::rs256(public_key_, private_key_))
+            .allow_algorithm(jwt::algorithm::rs256(public_key_))
             .with_issuer(issuer_);
 
         auto decoded = jwt::decode(std::string(token));
         verifier.verify(decoded);
 
         Claims claims;
-        claims.user_id = static_cast<uint64_t>(decoded.get_payload_claim("uid").as_number());
+        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
         claims.email = decoded.get_subject();
         claims.issued_at = decoded.get_issued_at();
         claims.expires_at = decoded.get_expires_at();

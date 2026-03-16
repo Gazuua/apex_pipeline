@@ -47,9 +47,8 @@ JwtVerifier::verify(std::string_view token) const {
         verifier_.verify(decoded);
 
         JwtClaims claims;
-        // Auth service stores uid as number (double in picojson)
-        claims.user_id = static_cast<uint64_t>(
-            decoded.get_payload_claim("uid").as_number());
+        // Auth service stores uid as string (avoids double precision loss for large IDs)
+        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
         // Auth service sets sub = email
         claims.email = decoded.get_subject();
         if (decoded.has_payload_claim("jti")) {

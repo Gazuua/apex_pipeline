@@ -4,6 +4,7 @@ find_package(OpenSSL REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(jwt-cpp CONFIG REQUIRED)
+find_package(tomlplusplus CONFIG REQUIRED)
 
 # --- FlatBuffers schema compilation ---
 set(AUTH_SVC_SCHEMAS
@@ -88,7 +89,7 @@ endif()
 
 # --- Executable ---
 add_executable(auth_svc_main src/main.cpp)
-target_link_libraries(auth_svc_main PRIVATE apex_auth_svc)
+target_link_libraries(auth_svc_main PRIVATE apex_auth_svc tomlplusplus::tomlplusplus)
 if(WIN32)
     target_compile_options(auth_svc_main PRIVATE /utf-8)
     target_compile_definitions(auth_svc_main PRIVATE _WIN32_WINNT=0x0A00)

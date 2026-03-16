@@ -27,6 +27,11 @@ class JwtVerifier {
 public:
     explicit JwtVerifier(const JwtConfig& config);
 
+    JwtVerifier(const JwtVerifier&) = delete;
+    JwtVerifier& operator=(const JwtVerifier&) = delete;
+    JwtVerifier(JwtVerifier&&) = delete;
+    JwtVerifier& operator=(JwtVerifier&&) = delete;
+
     /// Verify JWT token.
     /// @param token Pure token string without "Bearer " prefix
     /// @return Claims or error

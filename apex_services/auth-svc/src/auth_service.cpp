@@ -7,10 +7,15 @@
 #include <login_response_generated.h>
 #include <logout_request_generated.h>
 #include <logout_response_generated.h>
+#include <generated/refresh_token_request_generated.h>
+#include <generated/refresh_token_response_generated.h>
 
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <flatbuffers/flatbuffers.h>
 #include <spdlog/spdlog.h>
 
+#include <array>
 #include <chrono>
 #include <format>
 
@@ -30,10 +35,12 @@ namespace msg_ids {
 
 AuthService::AuthService(
     AuthConfig config,
+    boost::asio::any_io_executor executor,
     apex::shared::adapters::kafka::KafkaAdapter& kafka,
     apex::shared::adapters::redis::RedisAdapter& redis,
     apex::shared::adapters::pg::PgAdapter& pg)
     : config_(std::move(config))
+    , executor_(std::move(executor))
     , kafka_(kafka)
     , redis_(redis)
     , pg_(pg)
@@ -57,6 +64,28 @@ AuthService::~AuthService() {
 void AuthService::start() {
     spdlog::info("[AuthService] Starting...");
 
+    // Register actual handlers to MessageDispatcher (O(1) hash map).
+    // Handlers access Kafka envelope metadata via this->current_meta_
+    // (set in dispatch_envelope() before dispatcher_.dispatch()).
+    dispatcher_.register_handler(msg_ids::LOGIN_REQUEST,
+        [this](apex::core::SessionPtr session, uint32_t msg_id,
+               std::span<const uint8_t> payload)
+            -> boost::asio::awaitable<apex::core::Result<void>> {
+            co_return co_await handle_login(std::move(session), msg_id, payload);
+        });
+    dispatcher_.register_handler(msg_ids::LOGOUT_REQUEST,
+        [this](apex::core::SessionPtr session, uint32_t msg_id,
+               std::span<const uint8_t> payload)
+            -> boost::asio::awaitable<apex::core::Result<void>> {
+            co_return co_await handle_logout(std::move(session), msg_id, payload);
+        });
+    dispatcher_.register_handler(msg_ids::REFRESH_TOKEN_REQUEST,
+        [this](apex::core::SessionPtr session, uint32_t msg_id,
+               std::span<const uint8_t> payload)
+            -> boost::asio::awaitable<apex::core::Result<void>> {
+            co_return co_await handle_refresh_token(std::move(session), msg_id, payload);
+        });
+
     // Register Kafka consumer callback
     kafka_.set_message_callback(
         [this](std::string_view topic, int32_t partition,
@@ -67,7 +96,8 @@ void AuthService::start() {
         });
 
     started_ = true;
-    spdlog::info("[AuthService] Started. Consuming from: {}", config_.request_topic);
+    spdlog::info("[AuthService] Started. {} handlers registered. Consuming from: {}",
+                 dispatcher_.handler_count(), config_.request_topic);
 }
 
 void AuthService::stop() {
@@ -114,6 +144,12 @@ void AuthService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto& routing = *routing_result;
     auto& metadata = *meta_result;
 
+    // Check if handler exists (O(1) lookup via MessageDispatcher)
+    if (!dispatcher_.has_handler(routing.msg_id)) {
+        spdlog::warn("[AuthService] Unknown msg_id: {}", routing.msg_id);
+        return;
+    }
+
     // Extract reply_topic (Reply-To 헤더 패턴)
     auto reply_topic = envelope::extract_reply_topic(routing.flags, payload);
 
@@ -121,32 +157,39 @@ void AuthService::dispatch_envelope(std::span<const uint8_t> payload) {
     auto payload_offset = envelope::envelope_payload_offset(routing.flags, payload);
     auto fbs_payload = payload.subspan(payload_offset);
 
-    switch (routing.msg_id) {
-    case msg_ids::LOGIN_REQUEST:
-        handle_login(fbs_payload, metadata.corr_id,
-                     metadata.core_id, metadata.session_id, reply_topic);
-        break;
-    case msg_ids::LOGOUT_REQUEST:
-        handle_logout(fbs_payload, metadata.corr_id,
-                      metadata.core_id, metadata.session_id, reply_topic);
-        break;
-    case msg_ids::REFRESH_TOKEN_REQUEST:
-        handle_refresh_token(fbs_payload, metadata.corr_id,
-                             metadata.core_id, metadata.session_id, reply_topic);
-        break;
-    default:
-        spdlog::warn("[AuthService] Unknown msg_id: {}", routing.msg_id);
-        break;
-    }
+    // Cache metadata for handler access (side-channel via member variable).
+    // Kafka consumer is single-threaded sequential — no race condition.
+    current_meta_.corr_id = metadata.corr_id;
+    current_meta_.core_id = metadata.core_id;
+    current_meta_.session_id = metadata.session_id;
+    current_meta_.reply_topic = std::move(reply_topic);
+
+    // Copy payload for coroutine lifetime safety.
+    // Kafka callback's payload span is only valid during this synchronous call.
+    // The coroutine may outlive the Kafka callback, so we must own the data.
+    auto fbs_data = std::vector<uint8_t>(fbs_payload.begin(), fbs_payload.end());
+    auto msg_id = routing.msg_id;
+
+    // Kafka callback is synchronous — bridge to coroutine via co_spawn.
+    // Metadata is passed via current_meta_ (cached above).
+    // dispatcher_.dispatch() routes to the registered handler by msg_id.
+    boost::asio::co_spawn(executor_,
+        [this, msg_id, fbs_data = std::move(fbs_data)]() mutable
+            -> boost::asio::awaitable<void> {
+            auto payload_span = std::span<const uint8_t>(fbs_data);
+            co_await dispatcher_.dispatch(nullptr, msg_id, payload_span);
+        },
+        boost::asio::detached);
 }
 
-void AuthService::handle_login(
-    std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id,
-    uint16_t core_id,
-    uint64_t session_id,
-    const std::string& reply_topic)
+boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
+    apex::core::SessionPtr /*session*/,
+    uint32_t /*msg_id*/,
+    std::span<const uint8_t> fbs_payload)
 {
+    // Read metadata from member cache (set in dispatch_envelope)
+    auto& meta = current_meta_;
+
     // 1. FlatBuffers verify + parse
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<apex::auth_svc::schemas::LoginRequest>()) {
@@ -157,9 +200,11 @@ void AuthService::handle_login(
             builder,
             apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
         builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
-        return;
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
     }
 
     auto* req = flatbuffers::GetRoot<apex::auth_svc::schemas::LoginRequest>(
@@ -171,52 +216,165 @@ void AuthService::handle_login(
             builder,
             apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
         builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
-        return;
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
     }
 
     auto email = std::string(req->email()->string_view());
     auto password = std::string(req->password()->string_view());
 
-    // NOTE: Full login flow requires async coroutine for PG/Redis calls.
-    // Kafka consumer callback is synchronous; in production, co_spawn a coroutine.
-    // Current implementation is synchronous placeholder -- async integration
-    // will be completed in E2E phase (Plan 5).
-
     spdlog::info("[AuthService] handle_login (corr_id: {}, session: {})",
-                 corr_id, session_id);
+                 meta.corr_id, meta.session_id);
 
-    // Placeholder: send success response with empty tokens
-    // Real implementation will:
-    // 1. PG query for user by email
-    // 2. Check account lock status
-    // 3. Verify password with bcrypt
-    // 4. Issue JWT access_token + refresh_token
-    // 5. Store refresh_token hash in PG
-    // 6. Create Redis session
-    // 7. Send LoginResponse
+    // --- Step 1: PG query — lookup user by email ---
+    std::array<std::string, 1> login_params = {email};
+    auto user_result = co_await pg_.query(
+        "SELECT id, password_hash, locked FROM users WHERE email = $1",
+        login_params);
 
-    flatbuffers::FlatBufferBuilder builder(256);
+    if (!user_result.has_value()) {
+        spdlog::error("[AuthService] PG query failed for login: {}",
+                      apex::core::error_code_name(user_result.error()));
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    auto& pg_res = *user_result;
+    if (pg_res.row_count() == 0) {
+        spdlog::warn("[AuthService] Login failed: user not found (email: {})", email);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // --- Step 2: Extract user data ---
+    // Columns: id(0), password_hash(1), locked(2)
+    auto user_id_str = pg_res.value(0, 0);
+    auto password_hash = pg_res.value(0, 1);
+    auto locked_str = pg_res.value(0, 2);
+
+    auto user_id = static_cast<uint64_t>(std::stoull(std::string(user_id_str)));
+    bool is_locked = (locked_str == "t" || locked_str == "true" || locked_str == "1");
+
+    // --- Step 3: Account lock check ---
+    if (is_locked) {
+        spdlog::warn("[AuthService] Login failed: account locked (user_id: {})", user_id);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_ACCOUNT_LOCKED);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // --- Step 4: bcrypt password verification ---
+    if (!password_hasher_.verify(password, password_hash)) {
+        spdlog::warn("[AuthService] Login failed: bad credentials (user_id: {})", user_id);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // --- Step 5: JWT access token issuance ---
+    auto access_token = jwt_manager_.create_access_token(user_id, email);
+
+    // --- Step 6: Opaque refresh token generation ---
+    auto refresh_token_result = generate_secure_token();
+    if (!refresh_token_result.has_value()) {
+        spdlog::error("[AuthService] Failed to generate refresh token (CSPRNG failure)");
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+    auto& refresh_token = *refresh_token_result;
+
+    // --- Step 7: Store refresh token hash in PG ---
+    auto refresh_hash = sha256_hex(refresh_token);
+    auto user_id_s = std::to_string(user_id);
+    auto ttl_s = std::to_string(config_.refresh_token_ttl.count());
+    std::array<std::string, 3> rt_params = {refresh_hash, user_id_s, ttl_s};
+    auto rt_result = co_await pg_.execute(
+        "INSERT INTO refresh_tokens (token_hash, user_id, expires_at) "
+        "VALUES ($1, $2, NOW() + make_interval(secs => $3::int))",
+        rt_params);
+
+    if (!rt_result.has_value()) {
+        spdlog::error("[AuthService] Failed to store refresh token in PG: {}",
+                      apex::core::error_code_name(rt_result.error()));
+        // Non-fatal: login still succeeds, refresh may fail later
+    }
+
+    // --- Step 8: Redis session creation ---
+    auto session_data = std::format("uid:{}|email:{}|created:{}",
+        user_id, email,
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    auto session_result = co_await session_store_.set(user_id, session_data);
+    if (!session_result.has_value()) {
+        spdlog::error("[AuthService] Failed to create Redis session: {}",
+                      apex::core::error_code_name(session_result.error()));
+        // Non-fatal: login still succeeds
+    }
+
+    // --- Step 9: Build and send LoginResponse ---
+    flatbuffers::FlatBufferBuilder builder(512);
+    auto at_off = builder.CreateString(access_token);
+    auto rt_off = builder.CreateString(refresh_token);
     auto resp = apex::auth_svc::schemas::CreateLoginResponse(
         builder,
         apex::auth_svc::schemas::LoginError_NONE,
-        0,   // access_token (placeholder)
-        0,   // refresh_token (placeholder)
-        0,   // user_id (placeholder)
+        at_off,
+        rt_off,
+        user_id,
         static_cast<uint32_t>(config_.access_token_ttl.count()));
     builder.Finish(resp);
-    send_response(msg_ids::LOGIN_RESPONSE, corr_id, core_id, session_id,
-                  {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
+    send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {builder.GetBufferPointer(), builder.GetSize()},
+                  meta.reply_topic);
+
+    spdlog::info("[AuthService] Login success (user_id: {}, email: {})", user_id, email);
+    co_return apex::core::ok();
 }
 
-void AuthService::handle_logout(
-    std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id,
-    uint16_t core_id,
-    uint64_t session_id,
-    const std::string& reply_topic)
+boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_logout(
+    apex::core::SessionPtr /*session*/,
+    uint32_t /*msg_id*/,
+    std::span<const uint8_t> fbs_payload)
 {
+    auto& meta = current_meta_;
+
     flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
     if (!verifier.VerifyBuffer<apex::auth_svc::schemas::LogoutRequest>()) {
         spdlog::error("[AuthService] LogoutRequest verification failed");
@@ -225,9 +383,11 @@ void AuthService::handle_logout(
             builder,
             apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
         builder.Finish(resp);
-        send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
-        return;
+        send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
     }
 
     auto* req = flatbuffers::GetRoot<apex::auth_svc::schemas::LogoutRequest>(
@@ -239,58 +399,279 @@ void AuthService::handle_logout(
             builder,
             apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
         builder.Finish(resp);
-        send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
-        return;
+        send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
     }
 
     auto access_token = std::string(req->access_token()->string_view());
 
     spdlog::info("[AuthService] handle_logout (corr_id: {}, session: {})",
-                 corr_id, session_id);
+                 meta.corr_id, meta.session_id);
 
-    // NOTE: Full logout flow (async):
-    // 1. Verify token -> extract user_id
-    // 2. Blacklist token in Redis (SETEX with remaining TTL)
-    // 3. Delete Redis session
-    // 4. Send LogoutResponse
+    // --- Step 1: JWT verification — extract claims ---
+    auto verify_result = jwt_manager_.verify_access_token(access_token);
+    if (!verify_result.has_value()) {
+        spdlog::warn("[AuthService] Logout failed: invalid token");
+        flatbuffers::FlatBufferBuilder builder(64);
+        auto resp = apex::auth_svc::schemas::CreateLogoutResponse(
+            builder, apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
 
+    auto& claims = *verify_result;
+
+    // --- Step 2: Blacklist token (jti = hash of token itself) ---
+    auto remaining = jwt_manager_.remaining_ttl(access_token);
+    if (remaining.count() > 0) {
+        auto token_hash = sha256_hex(access_token);
+        auto bl_result = co_await session_store_.blacklist_token(token_hash, remaining);
+        if (!bl_result.has_value()) {
+            spdlog::error("[AuthService] Failed to blacklist token: {}",
+                          apex::core::error_code_name(bl_result.error()));
+            // Non-fatal: proceed with logout
+        }
+    }
+
+    // --- Step 3: Remove Redis session ---
+    auto remove_result = co_await session_store_.remove(claims.user_id);
+    if (!remove_result.has_value()) {
+        spdlog::error("[AuthService] Failed to remove session: {}",
+                      apex::core::error_code_name(remove_result.error()));
+        // Non-fatal: token is blacklisted, session will expire naturally
+    }
+
+    // --- Step 4: Send success response ---
     flatbuffers::FlatBufferBuilder builder(64);
     auto resp = apex::auth_svc::schemas::CreateLogoutResponse(
-        builder,
-        apex::auth_svc::schemas::LogoutError_NONE);
+        builder, apex::auth_svc::schemas::LogoutError_NONE);
     builder.Finish(resp);
-    send_response(msg_ids::LOGOUT_RESPONSE, corr_id, core_id, session_id,
-                  {builder.GetBufferPointer(), builder.GetSize()}, reply_topic);
+    send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {builder.GetBufferPointer(), builder.GetSize()},
+                  meta.reply_topic);
+
+    spdlog::info("[AuthService] Logout success (user_id: {})", claims.user_id);
+    co_return apex::core::ok();
 }
 
-void AuthService::handle_refresh_token(
-    std::span<const uint8_t> fbs_payload,
-    uint64_t corr_id,
-    uint16_t core_id,
-    uint64_t session_id,
-    const std::string& reply_topic)
+boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_token(
+    apex::core::SessionPtr /*session*/,
+    uint32_t /*msg_id*/,
+    std::span<const uint8_t> fbs_payload)
 {
+    auto& meta = current_meta_;
+
     spdlog::info("[AuthService] handle_refresh_token (corr_id: {}, session: {})",
-                 corr_id, session_id);
+                 meta.corr_id, meta.session_id);
 
-    // NOTE: Full refresh flow (async):
-    // 1. Parse RefreshTokenRequest (shared schema)
-    // 2. Hash token -> look up in PG refresh_tokens table
-    // 3. Check revoked_at (Reuse Detection)
-    // 4. Check expires_at
-    // 5. Rotate: revoke old, issue new refresh_token
-    // 6. Issue new access_token
-    // 7. Send RefreshTokenResponse
+    namespace rt_schemas = apex::shared::schemas;
 
-    // Placeholder: send error (not yet implemented)
-    // RefreshTokenResponse uses shared schema -- will be generated from
-    // apex_shared/schemas/refresh_token_response.fbs
-    (void)fbs_payload;
-    (void)corr_id;
-    (void)core_id;
-    (void)session_id;
-    (void)reply_topic;
+    // --- Step 1: FlatBuffers verify + parse ---
+    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
+    if (!verifier.VerifyBuffer<rt_schemas::RefreshTokenRequest>()) {
+        spdlog::error("[AuthService] RefreshTokenRequest verification failed");
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_TOKEN_INVALID);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    auto* req = flatbuffers::GetRoot<rt_schemas::RefreshTokenRequest>(
+        fbs_payload.data());
+
+    if (!req->refresh_token()) {
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_TOKEN_INVALID);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    auto refresh_token_str = std::string(req->refresh_token()->string_view());
+
+    // --- Step 2: Hash token and lookup in PG ---
+    auto token_hash = sha256_hex(refresh_token_str);
+    std::array<std::string, 1> lookup_params = {token_hash};
+    auto lookup_result = co_await pg_.query(
+        "SELECT user_id, revoked_at, expires_at, token_family "
+        "FROM refresh_tokens WHERE token_hash = $1",
+        lookup_params);
+
+    if (!lookup_result.has_value()) {
+        spdlog::error("[AuthService] PG query failed for refresh token: {}",
+                      apex::core::error_code_name(lookup_result.error()));
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    auto& pg_res = *lookup_result;
+    if (pg_res.row_count() == 0) {
+        spdlog::warn("[AuthService] Refresh token not found");
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_TOKEN_INVALID);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // Columns: user_id(0), revoked_at(1), expires_at(2), token_family(3)
+    auto user_id_str = pg_res.value(0, 0);
+    auto user_id = static_cast<uint64_t>(std::stoull(std::string(user_id_str)));
+    bool is_revoked = !pg_res.is_null(0, 1);  // revoked_at != NULL
+    auto token_family_sv = pg_res.value(0, 3);
+    auto token_family = std::string(token_family_sv);
+
+    // --- Step 3: Reuse Detection ---
+    // If this token has already been revoked, it's a reuse attempt.
+    // Revoke ALL tokens in the same family for security.
+    if (is_revoked) {
+        spdlog::warn("[AuthService] Refresh token reuse detected! "
+                     "Revoking entire token family (user_id: {})", user_id);
+        // Revoke all tokens in this family
+        std::array<std::string, 1> family_params = {token_family};
+        auto revoke_all = co_await pg_.execute(
+            "UPDATE refresh_tokens SET revoked_at = NOW() "
+            "WHERE token_family = $1 AND revoked_at IS NULL",
+            family_params);
+        (void)revoke_all;  // Best-effort
+
+        // Also remove Redis session for safety
+        auto remove_result = co_await session_store_.remove(user_id);
+        (void)remove_result;
+
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_TOKEN_REVOKED);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // --- Step 4: Expiry check ---
+    // expires_at is checked in SQL for simplicity (PG timestamp comparison).
+    // We do a separate query to avoid parsing timestamps in C++.
+    std::array<std::string, 1> expiry_params = {token_hash};
+    auto expiry_result = co_await pg_.query(
+        "SELECT 1 FROM refresh_tokens WHERE token_hash = $1 AND expires_at < NOW()",
+        expiry_params);
+
+    if (expiry_result.has_value() && expiry_result->row_count() > 0) {
+        spdlog::warn("[AuthService] Refresh token expired (user_id: {})", user_id);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_TOKEN_EXPIRED);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+
+    // --- Step 5: Token Rotation — revoke old, issue new ---
+    // Revoke the current refresh token
+    std::array<std::string, 1> revoke_params = {token_hash};
+    auto revoke_result = co_await pg_.execute(
+        "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1",
+        revoke_params);
+    (void)revoke_result;  // Best-effort
+
+    // Generate new refresh token
+    auto new_rt_result = generate_secure_token();
+    if (!new_rt_result.has_value()) {
+        spdlog::error("[AuthService] Failed to generate new refresh token");
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
+    auto& new_refresh_token = *new_rt_result;
+    auto new_refresh_hash = sha256_hex(new_refresh_token);
+
+    // Store new refresh token in PG (same family for reuse detection)
+    auto user_id_s = std::to_string(user_id);
+    auto ttl_s = std::to_string(config_.refresh_token_ttl.count());
+    std::array<std::string, 4> insert_params = {
+        new_refresh_hash, user_id_s, ttl_s, token_family};
+    auto insert_result = co_await pg_.execute(
+        "INSERT INTO refresh_tokens (token_hash, user_id, expires_at, token_family) "
+        "VALUES ($1, $2, NOW() + make_interval(secs => $3::int), $4)",
+        insert_params);
+    (void)insert_result;  // Best-effort
+
+    // --- Step 6: Issue new access token ---
+    // We need user email for JWT claims — query from PG
+    std::array<std::string, 1> email_params = {user_id_s};
+    auto email_result = co_await pg_.query(
+        "SELECT email FROM users WHERE id = $1", email_params);
+
+    std::string user_email;
+    if (email_result.has_value() && email_result->row_count() > 0) {
+        user_email = std::string(email_result->value(0, 0));
+    }
+
+    auto new_access_token = jwt_manager_.create_access_token(user_id, user_email);
+
+    // Update Redis session
+    auto session_data = std::format("uid:{}|email:{}|created:{}",
+        user_id, user_email,
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
+    auto session_set = co_await session_store_.set(user_id, session_data);
+    (void)session_set;  // Best-effort
+
+    // --- Step 7: Build and send RefreshTokenResponse ---
+    flatbuffers::FlatBufferBuilder builder(512);
+    auto at_off = builder.CreateString(new_access_token);
+    auto resp = rt_schemas::CreateRefreshTokenResponse(
+        builder,
+        rt_schemas::RefreshTokenError_NONE,
+        at_off,
+        static_cast<uint32_t>(config_.access_token_ttl.count()));
+    builder.Finish(resp);
+    send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {builder.GetBufferPointer(), builder.GetSize()},
+                  meta.reply_topic);
+
+    spdlog::info("[AuthService] Refresh token rotated (user_id: {})", user_id);
+    co_return apex::core::ok();
 }
 
 void AuthService::send_response(

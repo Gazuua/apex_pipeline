@@ -6,10 +6,12 @@
 
 namespace apex::gateway {
 
-GatewayPipeline::GatewayPipeline(const JwtVerifier& jwt_verifier,
+GatewayPipeline::GatewayPipeline(const GatewayConfig& config,
+                                 const JwtVerifier& jwt_verifier,
                                  JwtBlacklist* blacklist,
                                  apex::shared::rate_limit::RateLimitFacade* rate_limiter)
-    : jwt_verifier_(jwt_verifier),
+    : config_(config),
+      jwt_verifier_(jwt_verifier),
       blacklist_(blacklist),
       rate_limiter_(rate_limiter) {}  // atomic<T*> supports direct init
 
@@ -49,10 +51,47 @@ GatewayPipeline::process(apex::core::SessionPtr session,
 
 boost::asio::awaitable<apex::core::Result<void>>
 GatewayPipeline::authenticate(apex::core::SessionPtr /*session*/,
-                               const apex::core::WireHeader& /*header*/,
-                               AuthState& /*state*/) {
-    // TODO: JWT verification logic (existing from Plan 1)
-    // Login requests (system msg_id range) skip authentication.
+                               const apex::core::WireHeader& header,
+                               AuthState& state) {
+    // 1. Config-based whitelist: skip auth for exempt msg_ids (deny-by-default)
+    if (config_.auth.auth_exempt_msg_ids.contains(header.msg_id)) {
+        co_return apex::core::ok();
+    }
+
+    // 2. Token must be present (set by handshake/login response handler)
+    if (state.token.empty()) {
+        spdlog::debug("authenticate: no JWT token for msg_id={}", header.msg_id);
+        co_return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+    }
+
+    // 3. JWT signature + expiry verification (local, zero network cost)
+    auto claims_result = jwt_verifier_.verify(state.token);
+    if (!claims_result) {
+        spdlog::debug("authenticate: JWT verify failed for msg_id={}, error={}",
+                      header.msg_id, static_cast<uint16_t>(claims_result.error()));
+        co_return std::unexpected(claims_result.error());
+    }
+
+    // 4. Blacklist check for sensitive msg_ids (Redis, cold path)
+    if (blacklist_ && jwt_verifier_.is_sensitive(header.msg_id)) {
+        auto bl_result = co_await blacklist_->is_blacklisted(claims_result->jti);
+        if (bl_result && *bl_result) {
+            spdlog::info("authenticate: blacklisted JWT jti={} for msg_id={}",
+                         claims_result->jti, header.msg_id);
+            co_return apex::core::error(apex::core::ErrorCode::JwtBlacklisted);
+        }
+        // Redis error on blacklist check — fail-open for resilience
+        if (!bl_result) {
+            spdlog::warn("authenticate: blacklist check failed (Redis error), "
+                         "allowing jti={}", claims_result->jti);
+        }
+    }
+
+    // 5. Authentication successful — update per-session state
+    state.authenticated = true;
+    state.user_id = claims_result->user_id;
+    state.jti = claims_result->jti;
+
     co_return apex::core::ok();
 }
 
