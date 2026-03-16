@@ -148,7 +148,7 @@ private:
                                   uint64_t session_id,
                                   std::span<const uint8_t> fbs_payload);
 
-    /// Build Redis Pub/Sub payload: [msg_id(u32 LE)] + [fbs payload]
+    /// Build Redis Pub/Sub payload: [msg_id(u32 BE)] + [fbs payload]
     [[nodiscard]] std::vector<uint8_t> build_pubsub_payload(
         uint32_t msg_id,
         std::span<const uint8_t> fbs_payload) const;

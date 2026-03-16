@@ -12,6 +12,7 @@ key_file = "certs/server.key"
 [jwt]
 secret = "${JWT_SECRET:-dev-secret-change-in-production}"
 algorithm = "HS256"
+issuer = "apex-auth"
 clock_skew_seconds = 30
 sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
 

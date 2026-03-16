@@ -19,6 +19,7 @@ struct JwtConfig {
     std::string secret;               // HMAC secret key (HS256)
     std::string public_key_file;      // RSA/EC public key file (RS256/ES256, future)
     std::string algorithm = "HS256";
+    std::string issuer = "apex-auth"; // JWT issuer (must match Auth service)
     std::chrono::seconds clock_skew{30};     // Time tolerance
     std::vector<uint32_t> sensitive_msg_ids; // Redis blacklist check targets
 };

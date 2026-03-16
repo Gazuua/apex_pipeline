@@ -86,6 +86,8 @@ parse_gateway_config(std::string_view path) {
                 .value_or(std::string{}));
             cfg.jwt.algorithm = jwt["algorithm"]
                 .value_or(std::string{"HS256"});
+            cfg.jwt.issuer = jwt["issuer"]
+                .value_or(std::string{"apex-auth"});
             cfg.jwt.clock_skew = std::chrono::seconds{
                 jwt["clock_skew_seconds"].value_or(int64_t{30})};
 

@@ -10,7 +10,7 @@ JwtVerifier::JwtVerifier(const JwtConfig& config)
     : config_(config)
     , verifier_(jwt::verify()
         .allow_algorithm(jwt::algorithm::hs256{config.secret})
-        .with_issuer("apex")
+        .with_issuer(config.issuer)
         .leeway(static_cast<uint64_t>(config.clock_skew.count()))) {
 }
 

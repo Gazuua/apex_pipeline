@@ -291,25 +291,27 @@ TEST(ChatHandlersTest, MockKafkaProduceResponse) {
 // --- PubSub payload 형식 검증 ---
 
 TEST(ChatHandlersTest, PubSubPayloadFormat) {
-    // ChatService::build_pubsub_payload 형식: [msg_id(u32 LE)] + [fbs payload]
+    // ChatService::build_pubsub_payload 형식: [msg_id(u32 BE)] + [fbs payload]
+    // Gateway BroadcastFanout reads msg_id as big-endian to build WireHeader.
     uint32_t msg_id = msg_ids::CHAT_MESSAGE;
     std::vector<uint8_t> fbs = {0xAA, 0xBB, 0xCC};
 
-    // Build
+    // Build (big-endian, matching build_pubsub_payload implementation)
     std::vector<uint8_t> buf;
-    buf.push_back(static_cast<uint8_t>(msg_id & 0xFF));
-    buf.push_back(static_cast<uint8_t>((msg_id >> 8) & 0xFF));
-    buf.push_back(static_cast<uint8_t>((msg_id >> 16) & 0xFF));
     buf.push_back(static_cast<uint8_t>((msg_id >> 24) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((msg_id >> 16) & 0xFF));
+    buf.push_back(static_cast<uint8_t>((msg_id >> 8) & 0xFF));
+    buf.push_back(static_cast<uint8_t>(msg_id & 0xFF));
     buf.insert(buf.end(), fbs.begin(), fbs.end());
 
     EXPECT_EQ(buf.size(), sizeof(uint32_t) + fbs.size());
 
-    // Parse back msg_id (little-endian)
-    uint32_t parsed_msg_id = buf[0]
-        | (static_cast<uint32_t>(buf[1]) << 8)
-        | (static_cast<uint32_t>(buf[2]) << 16)
-        | (static_cast<uint32_t>(buf[3]) << 24);
+    // Parse back msg_id (big-endian, matching BroadcastFanout::build_wire_frame)
+    uint32_t parsed_msg_id =
+        (static_cast<uint32_t>(buf[0]) << 24) |
+        (static_cast<uint32_t>(buf[1]) << 16) |
+        (static_cast<uint32_t>(buf[2]) << 8)  |
+        (static_cast<uint32_t>(buf[3]));
     EXPECT_EQ(parsed_msg_id, msg_ids::CHAT_MESSAGE);
 
     // Payload
