@@ -4,7 +4,7 @@
 
 ## 구조
 
-- `schemas/` — 공유 FlatBuffers 스키마 (.fbs) *(v0.5에서 추가 예정)*
+- `schemas/` — 공유 FlatBuffers 스키마 (.fbs)
 - `lib/` — 공유 C++ 코드 (STATIC 라이브러리)
   - `include/apex/shared/` — 공유 헤더
   - `src/` — 구현
@@ -13,6 +13,10 @@
     - `kafka/` — KafkaProducer, KafkaConsumer, KafkaAdapter, KafkaSink
     - `redis/` — RedisConnection, RedisMultiplexer, RedisAdapter, HiredisAsioAdapter, RedisReply
     - `pg/` — PgConnection, PgResult, PgPool, PgAdapter, PgTransaction
+  - `protocols/` — 프로토콜 구현 (apex::shared::protocols)
+    - `tcp/` — TcpBinaryProtocol (바이너리 와이어 프로토콜)
+    - `websocket/` — WebSocketProtocol (Boost.Beast)
+    - `kafka/` — KafkaProtocol (Kafka 메시지 프로토콜)
 - `tests/` — unit/ + integration/ (docker-compose 기반)
 
 ## FlatBuffers 네임스페이스 규칙
@@ -22,7 +26,7 @@
 | 프레임워크 | `apex.messages` | apex_core/schemas/ |
 | 서비스 공유 | `apex.shared.<domain>` | apex_shared/schemas/ |
 
-## 스키마 추가 방법 *(v0.5에서 구현 예정)*
+## 스키마 추가 방법
 
 1. `schemas/` 에 `.fbs` 파일 작성 (namespace: `apex.shared.<domain>`)
 2. `CMakeLists.txt`의 `APEX_SHARED_SCHEMAS` 리스트에 경로 추가
