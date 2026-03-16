@@ -23,25 +23,25 @@
 - **위치**: `apex_services/gateway/gateway.toml`, TOML 파서 전반
 - **상태**: 부분 해결 (expand_env 구현 완료, JWT RS256 전환으로 secret 불필요)
 - **배치**: v0.6 (운영 인프라)
-- **설명**: expand_env()로 ${VAR:-default} 치환 구현 완료. JWT가 RS256 공개키로 전환되어 secret 하드코딩 이슈 해소. 남은 과제: Redis 비밀번호 등 운영 환경 시크릿 주입 전략 — 출처: auto-review (reviewer-security) + 에스컬레이션
+- **설명**: expand_env()로 ${VAR:-default} 치환 구현 완료. JWT가 RS256 공개키로 전환되어 secret 하드코딩 이슈 해소. 남은 과제: Redis 비밀번호 등 운영 환경 시크릿 주입 전략 — 출처: auto-review (reviewer-infra-security) + 에스컬레이션
 
 ### [Important] I-8. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
 - **위치**: `apex_services/auth-svc/migrations/`
 - **상태**: 미구현
 - **배치**: v0.6 (운영 인프라, 시크릿 매니저 도입 시 해결)
-- **설명**: migration SQL에 평문 비밀번호. 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-security) + 에스컬레이션
+- **설명**: migration SQL에 평문 비밀번호. 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-infra-security) + 에스컬레이션
 
 ### [Important] I-13. async_send_raw + write_pump 동시 write 위험
 - **위치**: `apex_core/` Session (async_send_raw, write_pump)
 - **상태**: 미트리거 (async_send_raw 호출처 없음)
 - **배치**: Wave 배정 보류 (현재 미트리거, 향후 API 사용 시 검토)
-- **설명**: async_send_raw와 write_pump가 동시에 소켓 write를 시도할 수 있는 구조. 현재 코드 경로에서는 트리거되지 않지만, 향후 확장 시 위험 — 출처: auto-review (reviewer-concurrency)
+- **설명**: async_send_raw와 write_pump가 동시에 소켓 write를 시도할 수 있는 구조. 현재 코드 경로에서는 트리거되지 않지만, 향후 확장 시 위험 — 출처: auto-review (reviewer-systems)
 
 ### [Important] I-14. GatewayEnvelope FBS msg_id uint16 불일치 (코드 uint32)
 - **위치**: `apex_services/gateway/` FlatBuffers 스키마 + 코드
 - **상태**: 미구현
 - **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
-- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-architecture)
+- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-design)
 
 ### [Important] I-15. Linux CI Sanitizer 파이프라인 추가 (ASAN+UBSAN+TSAN+Valgrind)
 - **위치**: `.github/workflows/` CI 파이프라인
@@ -155,13 +155,13 @@
 - **위치**: `apex_services/` (gateway, auth-svc, chat-svc)
 - **상태**: 미구현
 - **배치**: v0.5 이후 별도 테스트 인프라 구축
-- **설명**: Mock 인프라(MockKafkaAdapter, MockRedisAdapter, MockPgAdapter, MockCoreEngine) 미구축이 근본 원인. 대상: websocket_protocol, rate_limit_facade, redis_connection, broadcast_fanout, jwt_blacklist, pubsub_listener, auth_service, chat_db_consumer, gateway_pipeline 코루틴 경로 + message_router, response_dispatcher, gateway_config_parser, config_reloader — 출처: auto-review (reviewer-test-coverage) + 에스컬레이션
+- **설명**: Mock 인프라(MockKafkaAdapter, MockRedisAdapter, MockPgAdapter, MockCoreEngine) 미구축이 근본 원인. 대상: websocket_protocol, rate_limit_facade, redis_connection, broadcast_fanout, jwt_blacklist, pubsub_listener, auth_service, chat_db_consumer, gateway_pipeline 코루틴 경로 + message_router, response_dispatcher, gateway_config_parser, config_reloader — 출처: auto-review (reviewer-test) + 에스컬레이션
 
 ### [Medium] TC-2. Mock thread-safety 불일치 + E2E fixture 미구현 + suppression 파일 중복
 - **위치**: `apex_services/` 테스트 인프라
 - **상태**: 미구현
 - **배치**: v0.5 이후
-- **설명**: Mock 객체의 thread-safety가 실제 구현체와 불일치, E2E fixture 미구현, 테스트 suppression 파일 중복 — 출처: auto-review (reviewer-test-quality)
+- **설명**: Mock 객체의 thread-safety가 실제 구현체와 불일치, E2E fixture 미구현, 테스트 suppression 파일 중복 — 출처: auto-review (reviewer-test)
 
 ### [Medium] TC-3. Auth/Chat 비즈니스 로직 단위 테스트 0건
 - **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`
@@ -209,7 +209,7 @@
 - **위치**: `vcpkg.json`, `apex_shared/vcpkg.json`
 - **상태**: 미구현
 - **배치**: Wave 배정 보류 (빌드 영향 큼, 별도 판단)
-- **설명**: 빌드 영향 큼, 별도 태스크. 추가: vcpkg.json 버전이 0.4.0으로 실제 v0.5.4.1과 불일치, apex_shared/vcpkg.json에 독립 빌드 의존성 누락 — 출처: review/20260314_140000_auto-review.md + auto-review (reviewer-infra)
+- **설명**: 빌드 영향 큼, 별도 태스크. 추가: vcpkg.json 버전이 0.4.0으로 실제 v0.5.4.1과 불일치, apex_shared/vcpkg.json에 독립 빌드 의존성 누락 — 출처: review/20260314_140000_auto-review.md + auto-review (reviewer-infra-security)
 
 ---
 

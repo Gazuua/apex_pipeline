@@ -47,7 +47,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 45 단위 테스트 + 4 통합 테스트, Auto-review 2 rounds Clean
 
 - **auto-review v2.0 — 3계층 팀 구조 개편** (도구/문서 개선, 프레임워크 버전 변경 없음)
-  - 3계층 팀 구조 정립: coordinator.md → auto-review.md → 11 reviewer agents
+  - auto-review 플러그인 구조 정립: auto-review.md 오케스트레이터 → 7 reviewer agents
   - 리뷰어 자율성 원칙 명시 (12 에이전트 파일 갱신)
   - full mode 리뷰 이슈 41건 수정 (코드 5건 + docs/README 5건 + docs 경로/체크박스 31건)
   - CLAUDE.md 빌드 명령어 + 에이전트 작업 규칙 추가
