@@ -13,35 +13,17 @@
 
 ## Important
 
-### [Important] I-2. ChannelSessionMap 무제한 메모리 증가
-- **위치**: `apex_services/gateway/include/apex/gateway/channel_session_map.hpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: per-session 구독 제한 정책 미설정. 비즈니스 결정 필요 — 출처: auto-review (reviewer-memory)
-
 ### [Important] I-4. review 문서 2개 상세 내용 부재
 - **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`
 - **상태**: 미구현
 - **배치**: 별도 판단 (원본 데이터 없이 복원 불가)
 - **설명**: 원본 데이터 없이 복원 불가 — 출처: auto-review (reviewer-docs-records)
 
-### [Important] I-5. FileWatcher 테스트 flaky 위험
-- **위치**: `apex_services/gateway/tests/test_file_watcher.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: sleep 기반, CI 환경 의존. clock injection 향후 개선 — 출처: auto-review (reviewer-test-quality)
-
-### [Important] I-6. PendingRequests 테스트 flaky 위험
-- **위치**: `apex_services/gateway/tests/test_pending_requests.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: sleep 기반, 시간 injection 미지원 — 출처: auto-review (reviewer-test-quality)
-
-### [Important] I-7. gateway.toml JWT secret 하드코딩 + TOML 셸 환경변수 치환 미작동
+### [Important] I-7. gateway.toml 시크릿 운영 환경 관리
 - **위치**: `apex_services/gateway/gateway.toml`, TOML 파서 전반
-- **상태**: 미구현
+- **상태**: 부분 해결 (expand_env 구현 완료, JWT RS256 전환으로 secret 불필요)
 - **배치**: v0.6 (운영 인프라)
-- **설명**: 환경변수 치환 메커니즘 필요. 추가 발견: `${JWT_SECRET:-...}` 구문을 TOML 파서가 처리하지 않아 셸 환경변수 치환이 실제로는 미작동 — 출처: auto-review (reviewer-security) + 에스컬레이션
+- **설명**: expand_env()로 ${VAR:-default} 치환 구현 완료. JWT가 RS256 공개키로 전환되어 secret 하드코딩 이슈 해소. 남은 과제: Redis 비밀번호 등 운영 환경 시크릿 주입 전략 — 출처: auto-review (reviewer-security) + 에스컬레이션
 
 ### [Important] I-8. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
 - **위치**: `apex_services/auth-svc/migrations/`
@@ -64,12 +46,6 @@
 ---
 
 ## Minor
-
-### [Minor] m-1. user_id 파라미터 미사용
-- **위치**: `apex_services/gateway/src/message_router.cpp`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: MessageRouter + MetadataPrefix에 user_id 전달 경로 없음. 설계-구현 갭 — 출처: auto-review (reviewer-cross-cutting)
 
 ### [Minor] m-2. 별도 백로그 파일 2건 미이전
 - **위치**: `docs/apex_core/backlog_memory_os_level.md`, `docs/` 내 `20260315_094300_backlog.md`
