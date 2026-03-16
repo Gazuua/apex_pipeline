@@ -16,6 +16,11 @@ clock_skew_seconds = 30
 sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
 
 [[routes]]
+range_begin = 0
+range_end = 999
+kafka_topic = "system.requests"
+
+[[routes]]
 range_begin = 1000
 range_end = 1999
 kafka_topic = "auth.requests"
