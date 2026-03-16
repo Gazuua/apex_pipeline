@@ -169,19 +169,8 @@ void ChatService::send_response_with_flags(
     metadata.session_id = session_id;
     metadata.timestamp  = current_timestamp_ms();
 
-    // Serialize: [Routing 8B] + [Metadata 40B] + [Payload NB]
-    // 응답에는 reply_topic 불포함 — 요청 전용 필드
-    auto routing_bytes  = routing.serialize();
-    auto metadata_bytes = metadata.serialize();
-
-    std::vector<uint8_t> envelope_buf;
-    envelope_buf.reserve(envelope::ENVELOPE_HEADER_SIZE + fbs_payload.size());
-    envelope_buf.insert(envelope_buf.end(),
-                        routing_bytes.begin(), routing_bytes.end());
-    envelope_buf.insert(envelope_buf.end(),
-                        metadata_bytes.begin(), metadata_bytes.end());
-    envelope_buf.insert(envelope_buf.end(),
-                        fbs_payload.begin(), fbs_payload.end());
+    // 응답에는 reply_topic 불포함 — 빈 문자열로 build_full_envelope 호출
+    auto envelope_buf = envelope::build_full_envelope(routing, metadata, "", fbs_payload);
 
     // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
     const auto& target_topic = reply_topic.empty()
