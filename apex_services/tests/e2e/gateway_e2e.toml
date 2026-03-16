@@ -21,4 +21,4 @@ issuer = "apex-auth"
 [auth.exempt]
 LoginRequest = 1000
 LogoutRequest = 1002
-RefreshTokenRequest = 10
+RefreshTokenRequest = 1004

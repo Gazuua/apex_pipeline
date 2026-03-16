@@ -14,7 +14,7 @@ algorithm = "RS256"
 public_key_file = "keys/auth_rs256_pub.pem"
 issuer = "apex-auth"
 clock_skew_seconds = 30
-sensitive_msg_ids = [10, 11]  # RefreshTokenRequest/Response
+sensitive_msg_ids = []  # Reserved for future use (msg_ids requiring Redis blacklist check)
 
 [[routes]]
 range_begin = 0
@@ -82,4 +82,4 @@ window_size_seconds = 60
 # 인증 없이 허용하는 msg_id 화이트리스트 (운영 판단, deny-by-default)
 LoginRequest = 1000
 LogoutRequest = 1002
-RefreshTokenRequest = 10
+RefreshTokenRequest = 1004

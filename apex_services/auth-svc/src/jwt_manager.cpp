@@ -100,6 +100,9 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(
         Claims claims;
         claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
         claims.email = decoded.get_subject();
+        if (decoded.has_payload_claim("jti")) {
+            claims.jti = decoded.get_payload_claim("jti").as_string();
+        }
         claims.issued_at = decoded.get_issued_at();
         claims.expires_at = decoded.get_expires_at();
 

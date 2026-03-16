@@ -66,7 +66,7 @@ protected:
         config_.algorithm = "RS256";
         config_.issuer = "apex-auth";
         config_.clock_skew = std::chrono::seconds{5};
-        config_.sensitive_msg_ids = {10, 11};
+        config_.sensitive_msg_ids = {1004, 1005};
     }
 
     void TearDown() override {
@@ -143,8 +143,8 @@ TEST_F(JwtVerifierTest, InvalidSignature) {
 
 TEST_F(JwtVerifierTest, SensitiveMsgId) {
     JwtVerifier verifier(config_);
-    EXPECT_TRUE(verifier.is_sensitive(10));
-    EXPECT_TRUE(verifier.is_sensitive(11));
+    EXPECT_TRUE(verifier.is_sensitive(1004));
+    EXPECT_TRUE(verifier.is_sensitive(1005));
     EXPECT_FALSE(verifier.is_sensitive(1000));
 }
 

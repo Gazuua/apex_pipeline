@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <format>
 #include <string>
@@ -23,6 +24,21 @@
 namespace apex::chat_svc {
 
 namespace envelope = apex::shared::protocols::kafka;
+
+namespace {
+
+/// Safe uint64 parsing from string_view. Returns 0 on failure (logs warning).
+uint64_t safe_parse_u64(std::string_view sv, std::string_view context = "") noexcept {
+    uint64_t value = 0;
+    auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+    if (ec != std::errc{}) {
+        spdlog::warn("[ChatService] Failed to parse uint64 '{}' (context: {})", sv, context);
+        return 0;
+    }
+    return value;
+}
+
+} // anonymous namespace
 // ============================================================
 // Construction / Lifecycle
 // ============================================================
@@ -376,8 +392,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
         co_return apex::core::ok();
     }
 
-    auto room_id = static_cast<uint64_t>(
-        std::stoull(std::string(pg_result->value(0, 0))));
+    auto room_id = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
 
     // 2. Redis SADD — add owner as first member
     auto core_id = apex::core::CoreEngine::current_core_id();
@@ -456,7 +471,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
 
     auto room_name_sv = room_result->value(0, 0);
     auto max_members = static_cast<uint32_t>(
-        std::stoul(std::string(room_result->value(0, 1))));
+        safe_parse_u64(room_result->value(0, 1), "join_room.max_members"));
 
     // 2. SISMEMBER — already in room?
     auto is_member = co_await redis_data_.multiplexer(core_id).command(
@@ -613,7 +628,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
     uint32_t total_count = 0;
     if (count_result.has_value() && count_result->row_count() > 0) {
         total_count = static_cast<uint32_t>(
-            std::stoul(std::string(count_result->value(0, 0))));
+            safe_parse_u64(count_result->value(0, 0), "list_rooms.total_count"));
     }
 
     // 2. PG: Get rooms page
@@ -649,13 +664,11 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
     room_offsets.reserve(static_cast<size_t>(pg_res.row_count()));
 
     for (int i = 0; i < pg_res.row_count(); ++i) {
-        auto rid = static_cast<uint64_t>(
-            std::stoull(std::string(pg_res.value(i, 0))));
+        auto rid = safe_parse_u64(pg_res.value(i, 0), "list_rooms.room_id");
         auto rname = pg_res.value(i, 1);
         auto rmax = static_cast<uint32_t>(
-            std::stoul(std::string(pg_res.value(i, 2))));
-        auto rowner = static_cast<uint64_t>(
-            std::stoull(std::string(pg_res.value(i, 3))));
+            safe_parse_u64(pg_res.value(i, 2), "list_rooms.max_members"));
+        auto rowner = safe_parse_u64(pg_res.value(i, 3), "list_rooms.owner_id");
 
         // Redis SCARD for real-time member count
         auto members_key = std::format("chat:room:{}:members", rid);
@@ -884,8 +897,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
     }
 
     // Parse target session_id from Redis value
-    auto target_session_id = static_cast<uint64_t>(
-        std::stoull(session_result->str));
+    auto target_session_id = safe_parse_u64(session_result->str, "whisper.target_session_id");
 
     // 2. Build WhisperMessage FBS and send to target via Kafka unicast
     {
@@ -1024,14 +1036,11 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
     msg_offsets.reserve(static_cast<size_t>(actual_count));
 
     for (int i = 0; i < actual_count; ++i) {
-        auto mid = static_cast<uint64_t>(
-            std::stoull(std::string(pg_res.value(i, 0))));
-        auto sid = static_cast<uint64_t>(
-            std::stoull(std::string(pg_res.value(i, 1))));
+        auto mid = safe_parse_u64(pg_res.value(i, 0), "history.message_id");
+        auto sid = safe_parse_u64(pg_res.value(i, 1), "history.sender_id");
         auto sname = pg_res.value(i, 2);
         auto mcontent = pg_res.value(i, 3);
-        auto mts = static_cast<uint64_t>(
-            std::stoull(std::string(pg_res.value(i, 4))));
+        auto mts = safe_parse_u64(pg_res.value(i, 4), "history.timestamp");
 
         auto sname_off = fbb.CreateString(sname.data(), sname.size());
         auto content_off = fbb.CreateString(mcontent.data(), mcontent.size());

@@ -20,7 +20,7 @@ struct AuthConfig {
 
     // Redis (auth dedicated -- Redis #0)
     std::string redis_session_prefix = "auth:session:";
-    std::string redis_blacklist_prefix = "auth:blacklist:";
+    std::string redis_blacklist_prefix = "jwt:blacklist:";
 
     // bcrypt
     uint32_t bcrypt_work_factor = 12;

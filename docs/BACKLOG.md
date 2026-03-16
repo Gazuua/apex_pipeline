@@ -49,6 +49,12 @@
 - **배치**: 빠를수록 좋음 (우선순위 높음)
 - **설명**: Linux/Clang cross-compile CI job 추가. ASAN+UBSAN: 하나의 job에 합쳐서 PR CI에 포함. TSAN: 별도 job으로 PR CI에 포함 (ASAN과 동시 사용 불가). Valgrind memcheck: PR CI에 포함 (현 규모에서는 실행 가능, 느려지면 야간 빌드로 분리 검토)
 
+### [Important] I-16. ReplyTopicHeader::serialize() silent failure
+- **위치**: `apex_shared/lib/protocols/kafka/src/kafka_envelope.cpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류
+- **설명**: overflow 시 빈 vector 반환하여 정상 케이스(빈 데이터)와 구분 불가. `std::expected` 반환으로 전환 검토 — 출처: auto-review 에스컬레이션
+
 ---
 
 ## Minor
@@ -157,9 +163,27 @@
 - **배치**: v0.5 이후
 - **설명**: Mock 객체의 thread-safety가 실제 구현체와 불일치, E2E fixture 미구현, 테스트 suppression 파일 중복 — 출처: auto-review (reviewer-test-quality)
 
+### [Medium] TC-3. Auth/Chat 비즈니스 로직 단위 테스트 0건
+- **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`
+- **상태**: 미구현
+- **배치**: v0.6 이후
+- **설명**: 1500+줄 핸들러 코드에 단위 테스트 없음. Mock 인프라 구축 필요 — 출처: auto-review 에스컬레이션
+
+### [Medium] TC-4. new_refresh_token E2E 테스트 미검증
+- **위치**: `apex_services/auth-svc/` Token Rotation
+- **상태**: 미구현
+- **배치**: E2E 환경 구축 후
+- **설명**: Token Rotation 핵심 필드 new_refresh_token에 대한 E2E 테스트 0건. E2E 환경 구축 후 추가 필요 — 출처: auto-review 에스컬레이션
+
 ---
 
 ## 서비스 체인
+
+### [Medium] TOCTOU: join_room SCARD→SADD 경합
+- **위치**: `apex_services/chat-svc/src/chat_service.cpp`
+- **상태**: 미구현
+- **배치**: Wave 배정 보류 (현실적 발생 빈도 낮음)
+- **설명**: join_room에서 SCARD→SADD 사이 TOCTOU 경합 가능. Redis Lua script로 원자적 처리 필요하나 어댑터 인터페이스 변경 수반. 현실적 발생 빈도 극히 낮음 — 출처: auto-review 에스컬레이션
 
 ### [Medium] Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
 - **위치**: `apex_infra/` Redis 설정, pgbouncer 설정
@@ -230,6 +254,16 @@
 ---
 
 ## 도구 / 자동화
+
+### [Medium] auto-review 팀 셧다운 시 좀비 에이전트 잔존 문제
+- **위치**: `apex_tools/auto-review/` coordinator.md, Claude Code 에이전트 런타임
+- **상태**: 미해결 (workaround 사용 중)
+- **배치**: Wave 배정 보류
+- **설명**: coordinator가 리뷰어 12명에게 shutdown_request를 보내도 일부 리뷰어(특히 test-quality)와 coordinator 자신이 응답하지 않고 좀비로 남음. 30초+ 대기해도 반응 없음. TeamDelete 실패 (active member 존재). 매 리뷰마다 config.json 수동 정리 필요.
+- **발생 빈도**: 2회 연속 발생 (v0.5.4.2, v0.5.5 auto-review 모두)
+- **근본 원인 후보**: (1) coordinator가 리뷰어 전원 종료 확인 전 자신이 idle 상태로 빠짐 (2) shutdown_request가 idle 상태 에이전트에게 전달되지 않는 Claude Code 버그 가능성 (3) in-process 백엔드 에이전트의 메시지 수신 타이밍 이슈
+- **현재 workaround**: config.json의 members 배열에서 좀비 멤버를 수동 제거 후 TeamDelete 재시도
+- **필요한 조치**: coordinator.md의 셧다운 절차 강화 또는 메인 오케스트레이터가 개별 에이전트에 직접 shutdown 보내는 방식으로 전환 검토
 
 ### [Low] auto-review 리뷰어 확장 (v0.5+)
 - **위치**: `apex_tools/auto-review/`

@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <format>
 
@@ -29,8 +30,8 @@ namespace msg_ids {
     constexpr uint32_t LOGIN_RESPONSE = 1001;
     constexpr uint32_t LOGOUT_REQUEST = 1002;
     constexpr uint32_t LOGOUT_RESPONSE = 1003;
-    constexpr uint32_t REFRESH_TOKEN_REQUEST = 10;
-    constexpr uint32_t REFRESH_TOKEN_RESPONSE = 11;
+    constexpr uint32_t REFRESH_TOKEN_REQUEST = 1004;
+    constexpr uint32_t REFRESH_TOKEN_RESPONSE = 1005;
 } // namespace msg_ids
 
 AuthService::AuthService(
@@ -274,7 +275,23 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
     auto password_hash = pg_res.value(0, 1);
     auto locked_str = pg_res.value(0, 2);
 
-    auto user_id = static_cast<uint64_t>(std::stoull(std::string(user_id_str)));
+    uint64_t user_id = 0;
+    {
+        auto [ptr, ec] = std::from_chars(
+            user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
+        if (ec != std::errc{}) {
+            spdlog::error("[AuthService] Failed to parse user_id: '{}'", user_id_str);
+            flatbuffers::FlatBufferBuilder builder(128);
+            auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+                builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
+            builder.Finish(resp);
+            send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                          meta.session_id,
+                          {builder.GetBufferPointer(), builder.GetSize()},
+                          meta.reply_topic);
+            co_return apex::core::ok();
+        }
+    }
     bool is_locked = (locked_str == "t" || locked_str == "true" || locked_str == "1");
 
     // --- Step 3: Account lock check ---
@@ -353,6 +370,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
     }
 
     // --- Step 8: Redis session creation ---
+    // Store detailed session under auth:session:{uid}
     auto session_data = std::format("uid:{}|email:{}|created:{}",
         user_id, email,
         std::chrono::duration_cast<std::chrono::seconds>(
@@ -363,6 +381,10 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
                       apex::core::error_code_name(session_result.error()));
         // Non-fatal: login still succeeds
     }
+
+    // Store session:user:{uid} -> session_id (integer string)
+    // Used by other services (e.g., Chat whisper) for online check + unicast routing
+    co_await session_store_.set_user_session_id(user_id, meta.session_id);
 
     // --- Step 9: Build and send LoginResponse ---
     flatbuffers::FlatBufferBuilder builder(512);
@@ -445,11 +467,10 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_logout(
 
     auto& claims = *verify_result;
 
-    // --- Step 2: Blacklist token (jti = hash of token itself) ---
+    // --- Step 2: Blacklist token by jti (matches Gateway's jwt:blacklist:{jti} lookup) ---
     auto remaining = jwt_manager_.remaining_ttl(access_token);
-    if (remaining.count() > 0) {
-        auto token_hash = sha256_hex(access_token);
-        auto bl_result = co_await session_store_.blacklist_token(token_hash, remaining);
+    if (remaining.count() > 0 && !claims.jti.empty()) {
+        auto bl_result = co_await session_store_.blacklist_token(claims.jti, remaining);
         if (!bl_result.has_value()) {
             spdlog::error("[AuthService] Failed to blacklist token: {}",
                           apex::core::error_code_name(bl_result.error()));
@@ -457,13 +478,15 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_logout(
         }
     }
 
-    // --- Step 3: Remove Redis session ---
+    // --- Step 3: Remove Redis sessions ---
     auto remove_result = co_await session_store_.remove(claims.user_id);
     if (!remove_result.has_value()) {
         spdlog::error("[AuthService] Failed to remove session: {}",
                       apex::core::error_code_name(remove_result.error()));
         // Non-fatal: token is blacklisted, session will expire naturally
     }
+    // Also remove session:user:{uid} mapping
+    co_await session_store_.remove_user_session_id(claims.user_id);
 
     // --- Step 4: Send success response ---
     flatbuffers::FlatBufferBuilder builder(64);
@@ -561,7 +584,23 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_tok
 
     // Columns: user_id(0), revoked_at(1), expires_at(2), token_family(3)
     auto user_id_str = pg_res.value(0, 0);
-    auto user_id = static_cast<uint64_t>(std::stoull(std::string(user_id_str)));
+    uint64_t user_id = 0;
+    {
+        auto [ptr, ec] = std::from_chars(
+            user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
+        if (ec != std::errc{}) {
+            spdlog::error("[AuthService] Failed to parse user_id in refresh: '{}'", user_id_str);
+            flatbuffers::FlatBufferBuilder builder(128);
+            auto resp = rt_schemas::CreateRefreshTokenResponse(
+                builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+            builder.Finish(resp);
+            send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                          meta.session_id,
+                          {builder.GetBufferPointer(), builder.GetSize()},
+                          meta.reply_topic);
+            co_return apex::core::ok();
+        }
+    }
     bool is_revoked = !pg_res.is_null(0, 1);  // revoked_at != NULL
     auto token_family_sv = pg_res.value(0, 3);
     auto token_family = std::string(token_family_sv);
@@ -580,9 +619,10 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_tok
             family_params);
         (void)revoke_all;  // Best-effort
 
-        // Also remove Redis session for safety
+        // Also remove Redis sessions for safety
         auto remove_result = co_await session_store_.remove(user_id);
         (void)remove_result;
+        co_await session_store_.remove_user_session_id(user_id);
 
         flatbuffers::FlatBufferBuilder builder(128);
         auto resp = rt_schemas::CreateRefreshTokenResponse(
@@ -684,6 +724,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_tok
             std::chrono::system_clock::now().time_since_epoch()).count());
     auto session_set = co_await session_store_.set(user_id, session_data);
     (void)session_set;  // Best-effort
+    // Also refresh session:user:{uid} -> session_id mapping
+    co_await session_store_.set_user_session_id(user_id, meta.session_id);
 
     // --- Step 7: Build and send RefreshTokenResponse ---
     flatbuffers::FlatBufferBuilder builder(512);

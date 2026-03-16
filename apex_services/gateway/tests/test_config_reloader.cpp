@@ -52,7 +52,7 @@ issuer = "apex-auth"
 [auth.exempt]
 LoginRequest = 1000
 LogoutRequest = 1002
-RefreshTokenRequest = 10
+RefreshTokenRequest = 1004
 
 [[routes]]
 range_begin = 1000
@@ -131,7 +131,7 @@ TEST_F(ConfigReloaderTest, ParseUpdatedConfig) {
     EXPECT_EQ(cfg->auth.auth_exempt_msg_ids.size(), 3u);
     EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1000));
     EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1002));
-    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(10));
+    EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1004));
     EXPECT_FALSE(cfg->auth.auth_exempt_msg_ids.contains(2000));
 }
 

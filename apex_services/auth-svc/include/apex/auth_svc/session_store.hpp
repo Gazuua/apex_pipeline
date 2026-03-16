@@ -37,6 +37,14 @@ public:
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
     remove(uint64_t user_id);
 
+    /// Store session:user:{uid} -> session_id mapping (for cross-service session lookup)
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
+    set_user_session_id(uint64_t user_id, uint64_t session_id);
+
+    /// Remove session:user:{uid} mapping
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
+    remove_user_session_id(uint64_t user_id);
+
     /// Add JWT to blacklist (token hash based)
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
     blacklist_token(std::string_view token_hash, std::chrono::seconds ttl);

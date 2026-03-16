@@ -166,11 +166,11 @@ TEST(GatewayConfigTest, AuthExemptMsgIds) {
     apex::gateway::GatewayConfig cfg;
     cfg.auth.auth_exempt_msg_ids.insert(1000);
     cfg.auth.auth_exempt_msg_ids.insert(1002);
-    cfg.auth.auth_exempt_msg_ids.insert(10);
+    cfg.auth.auth_exempt_msg_ids.insert(1004);
 
     EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.contains(1000));
     EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.contains(1002));
-    EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.contains(10));
+    EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.contains(1004));
     EXPECT_FALSE(cfg.auth.auth_exempt_msg_ids.contains(2000));
 }
 
