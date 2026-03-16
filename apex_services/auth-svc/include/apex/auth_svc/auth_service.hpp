@@ -28,6 +28,7 @@ struct EnvelopeMetadata {
     uint64_t corr_id = 0;
     uint16_t core_id = 0;
     uint64_t session_id = 0;
+    uint64_t user_id = 0;
     std::string reply_topic;
 };
 

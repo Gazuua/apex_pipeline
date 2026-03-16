@@ -280,6 +280,7 @@ void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
     current_meta_.corr_id = metadata.corr_id;
     current_meta_.core_id = metadata.core_id;
     current_meta_.session_id = metadata.session_id;
+    current_meta_.user_id = metadata.user_id;
     current_meta_.reply_topic = std::move(reply_topic);
 
     // Copy payload for coroutine lifetime safety.
@@ -352,7 +353,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
 
     auto room_name_str = std::string(room_name->string_view());
     auto max_members = req->max_members() > 0 ? req->max_members() : config_.max_room_members;
-    auto user_id = meta.session_id;  // session_id maps to user in Kafka envelope
+    auto user_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_create_room (name: {}, max: {}, corr_id: {}, session: {})",
                  room_name_str, max_members, meta.corr_id, meta.session_id);
@@ -432,7 +433,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
 
     auto* req = flatbuffers::GetRoot<fbs::JoinRoomRequest>(fbs_payload.data());
     auto room_id = req->room_id();
-    auto user_id = meta.session_id;
+    auto user_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_join_room (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
@@ -543,7 +544,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_leave_room(
 
     auto* req = flatbuffers::GetRoot<fbs::LeaveRoomRequest>(fbs_payload.data());
     auto room_id = req->room_id();
-    auto user_id = meta.session_id;
+    auto user_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_leave_room (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
@@ -741,7 +742,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
 
     auto content_str = std::string(content->string_view());
     auto timestamp = current_timestamp_ms();
-    auto user_id = meta.session_id;
+    auto user_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_send_message (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
@@ -865,7 +866,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
 
     auto content_str = std::string(content->string_view());
     auto timestamp = current_timestamp_ms();
-    auto sender_id = meta.session_id;
+    auto sender_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_whisper (target: {}, corr_id: {}, session: {})",
                  target_user_id, meta.corr_id, meta.session_id);
@@ -952,7 +953,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
     auto room_id = req->room_id();
     auto before_message_id = req->before_message_id();
     auto limit = std::min(req->limit(), static_cast<uint32_t>(config_.history_page_size));
-    auto user_id = meta.session_id;
+    auto user_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_chat_history (room: {}, before: {}, limit: {}, corr_id: {})",
                  room_id, before_message_id, limit, meta.corr_id);
@@ -1098,7 +1099,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
 
     auto content_str = std::string(content->string_view());
     auto timestamp = current_timestamp_ms();
-    auto sender_id = meta.session_id;
+    auto sender_id = meta.user_id;
 
     spdlog::info("[ChatService] handle_global_broadcast (corr_id: {}, session: {})",
                  meta.corr_id, meta.session_id);

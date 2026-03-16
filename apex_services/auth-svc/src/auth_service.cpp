@@ -162,6 +162,7 @@ void AuthService::dispatch_envelope(std::span<const uint8_t> payload) {
     current_meta_.corr_id = metadata.corr_id;
     current_meta_.core_id = metadata.core_id;
     current_meta_.session_id = metadata.session_id;
+    current_meta_.user_id = metadata.user_id;
     current_meta_.reply_topic = std::move(reply_topic);
 
     // Copy payload for coroutine lifetime safety.
@@ -302,6 +303,18 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_login(
 
     // --- Step 5: JWT access token issuance ---
     auto access_token = jwt_manager_.create_access_token(user_id, email);
+    if (access_token.empty()) {
+        spdlog::error("[AuthService] Failed to create access token (user_id: {})", user_id);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
 
     // --- Step 6: Opaque refresh token generation ---
     auto refresh_token_result = generate_secure_token();
@@ -647,6 +660,18 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_tok
     }
 
     auto new_access_token = jwt_manager_.create_access_token(user_id, user_email);
+    if (new_access_token.empty()) {
+        spdlog::error("[AuthService] Failed to create access token for refresh (user_id: {})", user_id);
+        flatbuffers::FlatBufferBuilder builder(128);
+        auto resp = rt_schemas::CreateRefreshTokenResponse(
+            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        builder.Finish(resp);
+        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                      meta.session_id,
+                      {builder.GetBufferPointer(), builder.GetSize()},
+                      meta.reply_topic);
+        co_return apex::core::ok();
+    }
 
     // Update Redis session
     auto session_data = std::format("uid:{}|email:{}|created:{}",
@@ -659,11 +684,13 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::handle_refresh_tok
     // --- Step 7: Build and send RefreshTokenResponse ---
     flatbuffers::FlatBufferBuilder builder(512);
     auto at_off = builder.CreateString(new_access_token);
+    auto nrt_off = builder.CreateString(new_refresh_token);
     auto resp = rt_schemas::CreateRefreshTokenResponse(
         builder,
         rt_schemas::RefreshTokenError_NONE,
         at_off,
-        static_cast<uint32_t>(config_.access_token_ttl.count()));
+        static_cast<uint32_t>(config_.access_token_ttl.count()),
+        nrt_off);
     builder.Finish(resp);
     send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
