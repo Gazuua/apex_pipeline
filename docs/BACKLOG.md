@@ -5,16 +5,6 @@
 
 ---
 
-## In Progress
-
-### [In Progress] E2E 테스트 나머지 5/11건 수정
-- **PR**: #35 (`feature/e2e-infra-fix`), CI 통과, 머지 대기
-- **현재**: 6/11 통과 (Auth Login/Unauth, RateLimit 3종, Timeout)
-- **남은 5건**: PubSubListener 즉시 구독(Chat 2건), JWT TTL 조정(RefreshToken), Chat ListRooms DB 디버깅, 스트림 잔여 응답 flush(TimeoutRecovery)
-- **상세**: `docs/apex_common/progress/20260317_092715_e2e-infra-progress.md` §실패 5건 참조
-
----
-
 ## Critical
 
 ### [Critical] C-1. apex_core 프레임워크 내부 아키텍처 문서 + 구조도
