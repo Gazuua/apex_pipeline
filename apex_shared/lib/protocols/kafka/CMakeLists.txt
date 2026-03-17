@@ -2,6 +2,7 @@
 
 add_library(apex_protocols_kafka STATIC
     src/kafka_envelope.cpp
+    src/envelope_builder.cpp
 )
 add_library(apex::shared::protocols::kafka ALIAS apex_protocols_kafka)
 
@@ -11,8 +12,18 @@ target_include_directories(apex_protocols_kafka
         $<INSTALL_INTERFACE:include>
 )
 
-# Byte-order 유틸은 자체 포함, 외부 의존 없음
+# EnvelopeBuilder가 BumpAllocator에 의존
+target_link_libraries(apex_protocols_kafka
+    PUBLIC
+        apex::core
+)
+
 if(WIN32)
     target_compile_options(apex_protocols_kafka PUBLIC /utf-8)
     target_compile_definitions(apex_protocols_kafka PUBLIC _WIN32_WINNT=0x0A00)
+endif()
+
+# --- Tests ---
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()

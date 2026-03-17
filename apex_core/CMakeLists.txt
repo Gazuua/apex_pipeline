@@ -68,6 +68,7 @@ add_library(apex_core STATIC
     src/config.cpp
     src/logging.cpp
     src/server.cpp
+    src/periodic_task_scheduler.cpp
 )
 add_library(apex::core ALIAS apex_core)
 
