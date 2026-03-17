@@ -13,8 +13,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - `cmd.exe //c build.bat debug` / `cmd.exe //c build.bat release` (bash 셸에서, `//c` 필수)
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
-- **빌드는 한 번에 하나만** — 동시 빌드 시 시스템 렉
-- **병렬 에이전트 빌드 조율**: 여러 에이전트 동시 작업 시 빌드는 한 번에 하나만 수행 (동시 빌드 시 시스템 렉)
+- **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
 - **빌드 오류 책임**: 빌드 실패는 작업 프로세스 내에서 해결. auto-review와 별개 — 작업 완료+빌드 성공 확인 후 리뷰 진입
 - 상세 (의존성, MSVC 주의사항, 빌드 변형) → `apex_core/CLAUDE.md`
 
@@ -38,7 +37,6 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **커밋 메시지는 한국어로 작성** — `feat(core): 코루틴 할당기 추가` 형태 (타입+스코프 영어, 설명 한국어)
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
-- **워크트리 생성 금지** — 모든 작업은 프로젝트 루트 디렉토리에서 브랜치 전환으로 수행
 - **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin`
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
