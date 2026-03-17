@@ -26,14 +26,15 @@ std::string read_file(std::string_view path) {
 JwtVerifier::JwtVerifier(const JwtConfig& config)
     : config_(config)
     , public_key_(read_file(config.public_key_file))
-    , verifier_(jwt::verify()
-        .allow_algorithm(jwt::algorithm::rs256(public_key_))
-        .with_issuer(config.issuer)
-        .leeway(static_cast<uint64_t>(config.clock_skew.count()))) {
+    , verifier_(jwt::verify()) {
     if (public_key_.empty()) {
         spdlog::error("[JwtVerifier] RS256 public key not loaded from '{}' "
                       "-- token verification will fail", config.public_key_file);
+    } else {
+        verifier_.allow_algorithm(jwt::algorithm::rs256(public_key_));
     }
+    verifier_.with_issuer(config.issuer);
+    verifier_.leeway(static_cast<uint64_t>(config.clock_skew.count()));
     if (config.issuer.empty()) {
         spdlog::error("[JwtVerifier] JWT issuer is empty "
                       "-- token issuer validation is effectively disabled");

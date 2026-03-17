@@ -28,14 +28,22 @@ public:
     void register_handler(uint32_t msg_id, Handler handler);
     void unregister_handler(uint32_t msg_id);
 
+    /// Default handler for unmatched msg_ids.
+    /// Used by proxy services (e.g., Gateway) that route all messages generically.
+    void set_default_handler(Handler handler);
+    void clear_default_handler();
+
     [[nodiscard]] boost::asio::awaitable<Result<void>>
     dispatch(SessionPtr session, uint32_t msg_id, std::span<const uint8_t> payload) const;
 
     [[nodiscard]] bool has_handler(uint32_t msg_id) const noexcept;
+    [[nodiscard]] bool has_default_handler() const noexcept;
+    [[nodiscard]] const Handler& default_handler() const noexcept { return default_handler_; }
     [[nodiscard]] size_t handler_count() const noexcept;
 
 private:
     boost::unordered_flat_map<uint32_t, Handler> handlers_;
+    Handler default_handler_;  // fallback for unmatched msg_ids
 };
 
 } // namespace apex::core

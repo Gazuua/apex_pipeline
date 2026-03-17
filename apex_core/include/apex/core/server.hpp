@@ -186,6 +186,21 @@ public:
         return static_cast<apex::shared::adapters::AdapterWrapper<T>*>(it->second)->get();
     }
 
+    /// Register a callback invoked after adapters + services are initialized
+    /// but before CoreEngine starts. Use for wiring cross-cutting concerns
+    /// (e.g., ResponseDispatcher) that need both service and adapter refs.
+    using PostInitCallback = std::function<void(Server&)>;
+    Server& set_post_init_callback(PostInitCallback cb) {
+        post_init_cb_ = std::move(cb);
+        return *this;
+    }
+
+    /// Access CoreEngine (available after run() enters init phase).
+    [[nodiscard]] CoreEngine& core_engine() noexcept { return *core_engine_; }
+
+    /// Access per-core state (for ResponseDispatcher wiring etc.)
+    [[nodiscard]] PerCoreState& per_core_state(uint32_t core_id) { return *per_core_[core_id]; }
+
     /// Blocking run. Owns all io_contexts and threads internally.
     void run();
 
@@ -249,6 +264,8 @@ private:
     std::vector<ServiceFactory> service_factories_;
     std::vector<std::unique_ptr<AdapterInterface>> adapters_;
     std::unordered_map<std::type_index, AdapterInterface*> adapter_map_;
+
+    PostInitCallback post_init_cb_;
 
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};

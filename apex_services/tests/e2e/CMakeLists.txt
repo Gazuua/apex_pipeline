@@ -3,6 +3,7 @@
 # Run with: ctest -L e2e
 
 find_package(GTest CONFIG REQUIRED)
+include(GoogleTest)
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(Boost REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -34,7 +35,6 @@ target_link_libraries(apex_e2e_tests
         OpenSSL::SSL
         OpenSSL::Crypto
         GTest::gtest
-        GTest::gtest_main
 )
 
 if(WIN32)
@@ -43,10 +43,22 @@ if(WIN32)
     target_link_libraries(apex_e2e_tests PRIVATE ws2_32 mswsock)
 endif()
 
+# Inject service executable paths so E2E fixture can locate binaries at runtime.
+# E2E_PROJECT_ROOT is used to set the working directory for spawned service
+# processes, so that relative paths in TOML configs (e.g. key files) resolve
+# correctly regardless of where ctest runs from.
+target_compile_definitions(apex_e2e_tests PRIVATE
+    E2E_GATEWAY_EXE="$<TARGET_FILE:apex_gateway>"
+    E2E_AUTH_SVC_EXE="$<TARGET_FILE:auth_svc_main>"
+    E2E_CHAT_SVC_EXE="$<TARGET_FILE:chat_svc_main>"
+    E2E_PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
+)
+
 # E2E tests are labeled separately from unit tests
 # Run only E2E: ctest -L e2e
 # Exclude E2E: ctest -LE e2e
 gtest_discover_tests(apex_e2e_tests
     PROPERTIES LABELS "e2e"
     DISCOVERY_TIMEOUT 60
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )

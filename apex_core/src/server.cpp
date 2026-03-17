@@ -102,8 +102,8 @@ void Server::run() {
         adapter->init(*core_engine_);
     }
 
-    // Per-core service instances — bind to first listener's per-core dispatcher
-    // (multi-protocol dispatcher routing is deferred to v0.6)
+    // Per-core service instances — bind to first listener's dispatcher,
+    // then share the same dispatcher with all other listeners.
     if (!listeners_.empty()) {
         for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
             auto& state = *per_core_[core_id];
@@ -114,7 +114,17 @@ void Server::run() {
                 svc->start();
                 state.services.push_back(std::move(svc));
             }
+
+            // Propagate default handler to all other listeners (multi-protocol)
+            for (size_t li = 1; li < listeners_.size(); ++li) {
+                listeners_[li]->sync_default_handler(core_id, dispatcher);
+            }
         }
+    }
+
+    // Post-init callback — wire cross-cutting concerns (e.g., ResponseDispatcher)
+    if (post_init_cb_) {
+        post_init_cb_(*this);
     }
 
     // Tick callback — SessionManager tick on each tick cycle (heartbeat, timing wheel)

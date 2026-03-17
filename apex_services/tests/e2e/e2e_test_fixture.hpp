@@ -3,8 +3,7 @@
 /// @file e2e_test_fixture.hpp
 /// @brief E2E integration test infrastructure.
 ///
-/// Manages docker-compose lifecycle, Gateway/Service processes, and
-/// provides TCP/WebSocket client helpers for full pipeline testing:
+/// Global lifecycle: Docker + services start once, all 11 tests run, then teardown.
 /// Client -> Gateway -> Kafka -> Service -> DB -> Response/Broadcast
 
 #include <gtest/gtest.h>
@@ -12,6 +11,11 @@
 #include <apex/shared/protocols/tcp/wire_header.hpp>
 
 #include <boost/asio/io_context.hpp>
+
+// Re-export wire_flags for test assertions
+namespace apex::e2e {
+    using namespace apex::shared::protocols::tcp::wire_flags;
+} // namespace apex::e2e
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 
@@ -59,15 +63,35 @@ struct E2EConfig {
     std::string pg_user          = "apex_admin";
     std::string pg_password      = "apex_e2e_password";
 
-    // Service executable paths (relative to working directory or absolute)
-    std::string gateway_exe      = "gateway_main";
+    // Service executable paths (injected by CMake via target_compile_definitions)
+#ifdef E2E_GATEWAY_EXE
+    std::string gateway_exe      = E2E_GATEWAY_EXE;
+#else
+    std::string gateway_exe      = "apex_gateway";
+#endif
+#ifdef E2E_AUTH_SVC_EXE
+    std::string auth_svc_exe     = E2E_AUTH_SVC_EXE;
+#else
     std::string auth_svc_exe     = "auth_svc_main";
+#endif
+#ifdef E2E_CHAT_SVC_EXE
+    std::string chat_svc_exe     = E2E_CHAT_SVC_EXE;
+#else
     std::string chat_svc_exe     = "chat_svc_main";
+#endif
 
-    // Service config files (TOML)
+    // Service config files (TOML) — relative to project root
     std::string gateway_config   = "apex_services/tests/e2e/gateway_e2e.toml";
     std::string auth_svc_config  = "apex_services/tests/e2e/auth_svc_e2e.toml";
     std::string chat_svc_config  = "apex_services/tests/e2e/chat_svc_e2e.toml";
+
+    // Project root directory — used as working directory for spawned service
+    // processes so that relative paths in TOML configs resolve correctly.
+#ifdef E2E_PROJECT_ROOT
+    std::string project_root     = E2E_PROJECT_ROOT;
+#else
+    std::string project_root;    // empty = inherit parent CWD
+#endif
 
     // Timeouts
     std::chrono::seconds startup_timeout{30};
@@ -86,30 +110,37 @@ struct ChildProcess {
 #endif
 };
 
-/// E2E test base fixture.
-///
-/// SetUpTestSuite(): docker-compose up + Gateway/Service process launch
-/// TearDownTestSuite(): process termination + docker-compose down
-class E2ETestFixture : public ::testing::Test {
+/// Global E2E test environment.
+/// Docker + services start once before all tests, teardown once after all tests.
+/// Registered via ::testing::AddGlobalTestEnvironment() in main().
+class E2EEnvironment : public ::testing::Environment {
 public:
-    static void SetUpTestSuite();
-    static void TearDownTestSuite();
-
-protected:
     void SetUp() override;
     void TearDown() override;
 
-    /// Launch a service process in the background.
-    /// @param name Display name for logging.
-    /// @param exe_path Executable path.
-    /// @param config_path TOML config file path.
-    /// @return ChildProcess handle for later termination.
+    static E2EConfig& config() { return config_; }
+    static bool is_ready() { return ready_; }
+
+private:
     static ChildProcess launch_service(const std::string& name,
                                         const std::string& exe_path,
                                         const std::string& config_path);
-
-    /// Terminate a child process gracefully (SIGTERM / TerminateProcess).
     static void terminate_service(ChildProcess& proc);
+
+    static E2EConfig config_;
+    static ChildProcess gateway_proc_;
+    static ChildProcess auth_proc_;
+    static ChildProcess chat_proc_;
+    static bool ready_;
+};
+
+/// E2E test base fixture.
+/// Per-test: fresh io_context + helper methods.
+/// Infrastructure lifecycle is managed by E2EEnvironment (global).
+class E2ETestFixture : public ::testing::Test {
+protected:
+    void SetUp() override;
+    void TearDown() override;
 
     /// TCP client that speaks WireHeader v2 protocol.
     /// Sends and receives framed messages through Gateway.
@@ -161,10 +192,13 @@ protected:
     /// Bind JWT to session (sends AuthenticateSession message)
     void authenticate(TcpClient& client, const std::string& token);
 
-    static E2EConfig config_;
-    static ChildProcess gateway_proc_;
-    static ChildProcess auth_proc_;
-    static ChildProcess chat_proc_;
+    /// Subscribe session to a Redis Pub/Sub channel (system msg_id=4)
+    void subscribe_channel(TcpClient& client, const std::string& channel);
+
+    /// Unsubscribe session from a Redis Pub/Sub channel (system msg_id=5)
+    void unsubscribe_channel(TcpClient& client, const std::string& channel);
+
+    E2EConfig& config_ = E2EEnvironment::config();
     boost::asio::io_context io_ctx_;
 };
 

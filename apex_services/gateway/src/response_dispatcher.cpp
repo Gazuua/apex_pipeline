@@ -70,13 +70,18 @@ ResponseDispatcher::on_response(std::span<const uint8_t> payload) {
                 return;
             }
 
-            // Build WireHeader response
+            // Build WireHeader response (skip envelope headers + reply topic)
+            auto payload_offset = envelope_payload_offset(
+                routing_copy.flags,
+                std::span<const uint8_t>(*payload_copy));
             auto fbs_payload = std::span<const uint8_t>(
-                payload_copy->data() + ENVELOPE_HEADER_SIZE,
-                payload_copy->size() - ENVELOPE_HEADER_SIZE);
+                payload_copy->data() + payload_offset,
+                payload_copy->size() - payload_offset);
 
+            // Use response msg_id from RoutingHeader (set by service),
+            // not the original request msg_id from PendingRequest.
             auto wire_response = build_wire_response(
-                routing_copy, fbs_payload, pending->original_msg_id);
+                routing_copy, fbs_payload, routing_copy.msg_id);
 
             // Deliver to session (already on the correct core thread)
             auto* session_mgr = session_mgrs_[target_core];

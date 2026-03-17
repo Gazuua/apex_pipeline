@@ -1,5 +1,6 @@
 #include <apex/auth_svc/auth_config.hpp>
 #include <apex/auth_svc/auth_service.hpp>
+#include <apex/auth_svc/password_hasher.hpp>
 
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
@@ -8,6 +9,10 @@
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 
+#include <apex/core/core_engine.hpp>
+
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <toml++/toml.hpp>
@@ -16,7 +21,6 @@
 #include <chrono>
 #include <cstdlib>
 #include <string>
-#include <thread>
 
 namespace {
 
@@ -120,53 +124,68 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("Config loaded from '{}'", config_path);
 
-    // --- 3. io_context (for co_spawn coroutine execution) ---
-    boost::asio::io_context io_ctx;
+    // --- 3. CoreEngine (per-core io_context, single core for service) ---
+    apex::core::CoreEngine engine({.num_cores = 1});
+    auto& io_ctx = engine.io_context(0);
 
     // --- 4. Adapters ---
     apex::shared::adapters::kafka::KafkaAdapter kafka(parsed.kafka);
     apex::shared::adapters::redis::RedisAdapter redis(parsed.redis);
     apex::shared::adapters::pg::PgAdapter pg(parsed.pg);
 
-    // --- 5. AuthService (executor only -- no io_context ownership) ---
+    // --- 5. AuthService ---
     apex::auth_svc::AuthService auth(
         std::move(parsed.auth),
         io_ctx.get_executor(),
         kafka, redis, pg);
 
-    // Register handlers to MessageDispatcher + set Kafka consumer callback
+    // Register handlers + set Kafka consumer callback
     auth.start();
 
-    // --- 6. Signal handling (graceful shutdown) ---
+    // --- 6. Initialize adapters via CoreEngine ---
+    kafka.init(engine);
+    redis.init(engine);
+    pg.init(engine);
+
+    // --- 7. Signal handling (graceful shutdown) ---
     boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
     signals.async_wait([&](const boost::system::error_code& /*ec*/, int sig) {
         spdlog::info("Signal {} received, shutting down...", sig);
         auth.stop();
-        io_ctx.stop();
+        engine.stop();
     });
 
-    // --- 7. io_context thread (runs co_spawned coroutines) ---
-    std::jthread io_thread([&io_ctx] {
-        spdlog::info("[AuthService] io_context thread started");
-        io_ctx.run();
-        spdlog::info("[AuthService] io_context thread stopped");
-    });
+    // --- 8. Seed test users (E2E) ---
+    // Update PENDING password hashes with bcrypt-compatible values.
+    // This ensures the bundled bcrypt implementation can verify passwords
+    // regardless of differences with other bcrypt implementations (e.g., pgcrypto).
+    {
+        apex::auth_svc::PasswordHasher hasher(parsed.auth.bcrypt_work_factor);
+        auto hash = hasher.hash("password123");
+        if (!hash.empty()) {
+            std::array<std::string, 1> params = {hash};
+            // Synchronous bootstrap: start engine, run seed, then enter main loop
+            engine.start();
+            boost::asio::co_spawn(io_ctx,
+                [&pg, &params]() -> boost::asio::awaitable<void> {
+                    auto result = co_await pg.execute(
+                        "UPDATE users SET password_hash = $1 WHERE password_hash = 'PENDING'",
+                        params);
+                    if (result.has_value()) {
+                        spdlog::info("[AuthService] Seeded test user passwords");
+                    } else {
+                        spdlog::warn("[AuthService] Password seed failed (may already be set)");
+                    }
+                },
+                boost::asio::detached);
+            // Brief wait for seed to complete before accepting Kafka messages
+            std::this_thread::sleep_for(std::chrono::seconds{1});
+        }
+    }
 
-    // --- 8. Main thread: Kafka consumer poll loop ---
-    // KafkaAdapter's consumer runs via Asio event loop (start_consuming).
-    // In standalone mode (no CoreEngine), the main thread blocks on
-    // io_context.run() after the io_thread joins on shutdown.
-    //
-    // NOTE: Standalone adapter initialization (without CoreEngine) will be
-    // addressed when the standalone service bootstrap infrastructure is
-    // finalized. Currently, adapters require CoreEngine::init() which is
-    // provided by Server::run(). For standalone services, a lightweight
-    // CoreEngine stub or direct Consumer/Producer management is needed.
+    // --- 9. Run CoreEngine main loop (blocks until stop()) ---
     spdlog::info("[AuthService] Running. Press Ctrl+C to stop.");
-
-    // Block main thread until io_context stops (signal-triggered).
-    // The io_thread runs the event loop; main thread waits for it to finish.
-    io_thread.join();
+    engine.join();
 
     // --- 9. Cleanup ---
     spdlog::info("Auth Service stopped.");

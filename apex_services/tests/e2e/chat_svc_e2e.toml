@@ -21,4 +21,4 @@ host = "localhost"
 port = 6383
 
 [pg]
-connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password"
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password options='-c search_path=chat_svc,public'"

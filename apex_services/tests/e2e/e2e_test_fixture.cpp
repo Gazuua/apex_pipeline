@@ -18,48 +18,52 @@
 #else
 #include <sys/socket.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 
 namespace apex::e2e {
 
-E2EConfig E2ETestFixture::config_{};
-ChildProcess E2ETestFixture::gateway_proc_{};
-ChildProcess E2ETestFixture::auth_proc_{};
-ChildProcess E2ETestFixture::chat_proc_{};
+// ---------------------------------------------------------------------------
+// E2EEnvironment static members
+// ---------------------------------------------------------------------------
+
+E2EConfig E2EEnvironment::config_{};
+ChildProcess E2EEnvironment::gateway_proc_{};
+ChildProcess E2EEnvironment::auth_proc_{};
+ChildProcess E2EEnvironment::chat_proc_{};
+bool E2EEnvironment::ready_{false};
 
 // ---------------------------------------------------------------------------
 // Process management
 // ---------------------------------------------------------------------------
 
-ChildProcess E2ETestFixture::launch_service(const std::string& name,
-                                              const std::string& exe_path,
-                                              const std::string& config_path) {
+ChildProcess E2EEnvironment::launch_service(const std::string& name,
+                                             const std::string& exe_path,
+                                             const std::string& config_path) {
     ChildProcess proc;
     proc.name = name;
 
 #ifdef _WIN32
-    std::string cmd_line = exe_path + " " + config_path;
+    std::string log_file = name + "_e2e.log";
+    std::string cmd_line = "cmd.exe /c " + exe_path + " " + config_path
+        + " > " + log_file + " 2>&1";
 
     STARTUPINFOA si{};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
 
+    const char* work_dir = config_.project_root.empty()
+        ? nullptr
+        : config_.project_root.c_str();
+
     BOOL ok = ::CreateProcessA(
-        nullptr,                        // lpApplicationName
-        cmd_line.data(),                // lpCommandLine (non-const required)
-        nullptr,                        // lpProcessAttributes
-        nullptr,                        // lpThreadAttributes
-        FALSE,                          // bInheritHandles
-        CREATE_NO_WINDOW,               // dwCreationFlags
-        nullptr,                        // lpEnvironment
-        nullptr,                        // lpCurrentDirectory
-        &si,                            // lpStartupInfo
-        &proc.proc_info);               // lpProcessInformation
+        nullptr, cmd_line.data(), nullptr, nullptr,
+        FALSE, CREATE_NO_WINDOW, nullptr, work_dir,
+        &si, &proc.proc_info);
 
     if (ok) {
         proc.launched = true;
-        // Close thread handle immediately — we only need the process handle
         ::CloseHandle(proc.proc_info.hThread);
         proc.proc_info.hThread = nullptr;
         std::cout << "[E2E] Launched " << name << " (PID "
@@ -71,9 +75,13 @@ ChildProcess E2ETestFixture::launch_service(const std::string& name,
 #else
     pid_t pid = ::fork();
     if (pid == 0) {
-        // Child process
+        if (!config_.project_root.empty()) {
+            if (::chdir(config_.project_root.c_str()) != 0) {
+                std::cerr << "[E2E] chdir failed for " << name << "\n";
+                ::_exit(1);
+            }
+        }
         ::execl(exe_path.c_str(), exe_path.c_str(), config_path.c_str(), nullptr);
-        // execl only returns on error
         std::cerr << "[E2E] execl failed for " << name << "\n";
         ::_exit(1);
     } else if (pid > 0) {
@@ -88,15 +96,13 @@ ChildProcess E2ETestFixture::launch_service(const std::string& name,
     return proc;
 }
 
-void E2ETestFixture::terminate_service(ChildProcess& proc) {
+void E2EEnvironment::terminate_service(ChildProcess& proc) {
     if (!proc.launched) {
         return;
     }
 
 #ifdef _WIN32
-    // Send Ctrl+Break first for graceful shutdown, then force-terminate
     if (proc.proc_info.hProcess) {
-        // Try graceful shutdown (wait up to 3 seconds)
         ::TerminateProcess(proc.proc_info.hProcess, 0);
         ::WaitForSingleObject(proc.proc_info.hProcess, 3000);
         ::CloseHandle(proc.proc_info.hProcess);
@@ -105,16 +111,13 @@ void E2ETestFixture::terminate_service(ChildProcess& proc) {
     }
 #else
     if (proc.pid > 0) {
-        // Graceful shutdown via SIGTERM
         ::kill(proc.pid, SIGTERM);
-        // Wait up to 3 seconds
         int status = 0;
         for (int i = 0; i < 30; ++i) {
             pid_t result = ::waitpid(proc.pid, &status, WNOHANG);
             if (result != 0) break;
             std::this_thread::sleep_for(std::chrono::milliseconds{100});
         }
-        // Force kill if still running
         ::kill(proc.pid, SIGKILL);
         ::waitpid(proc.pid, &status, 0);
         std::cout << "[E2E] Terminated " << proc.name << "\n";
@@ -125,22 +128,22 @@ void E2ETestFixture::terminate_service(ChildProcess& proc) {
 }
 
 // ---------------------------------------------------------------------------
-// Suite lifecycle
+// Global environment lifecycle (once for all tests)
 // ---------------------------------------------------------------------------
 
-void E2ETestFixture::SetUpTestSuite() {
+void E2EEnvironment::SetUp() {
     // 1. Start infrastructure via docker-compose
-    std::cout << "[E2E] Starting infrastructure...\n";
+    std::cout << "[E2E] Starting infrastructure (global)...\n";
     int rc = std::system(
         "docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d "
         "--wait --timeout 60");
     ASSERT_EQ(rc, 0) << "docker-compose failed to start";
 
-    // 2. Create Kafka topics (auto-create is enabled, but explicit is safer)
+    // 2. Create Kafka topics
     std::cout << "[E2E] Creating Kafka topics...\n";
     rc = std::system(
         "docker compose -f apex_infra/docker/docker-compose.e2e.yml "
-        "exec -T kafka bash /init-kafka.sh");
+        "exec -T kafka //init-kafka.sh");
     if (rc != 0) {
         std::cerr << "[E2E] Warning: Kafka topic creation returned non-zero "
                   << "(auto-create may handle it)\n";
@@ -161,7 +164,7 @@ void E2ETestFixture::SetUpTestSuite() {
     // 4. Wait for Gateway to accept connections
     std::cout << "[E2E] Waiting for services to be ready...\n";
     auto deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
-    bool ready = false;
+    bool gateway_ready = false;
 
     while (std::chrono::steady_clock::now() < deadline) {
         try {
@@ -172,41 +175,53 @@ void E2ETestFixture::SetUpTestSuite() {
                 config_.gateway_ws_port);
             probe_sock.connect(ep);
             probe_sock.close();
-            ready = true;
+            gateway_ready = true;
             break;
         } catch (...) {
             std::this_thread::sleep_for(std::chrono::seconds{1});
         }
     }
 
-    if (!ready) {
+    if (!gateway_ready) {
         std::cerr << "[E2E] Warning: Could not connect to Gateway at "
                   << config_.gateway_host << ":" << config_.gateway_ws_port
                   << " within timeout. Tests may fail.\n";
     }
 
-    std::cout << "[E2E] Infrastructure ready.\n";
+    // 5. Wait for Kafka consumers + service handlers to fully initialize.
+    //    Single wait (not per-suite) — Docker stays up for all tests.
+    std::this_thread::sleep_for(std::chrono::seconds{8});
+
+    ready_ = true;
+    std::cout << "[E2E] Infrastructure ready (global).\n";
 }
 
-void E2ETestFixture::TearDownTestSuite() {
+void E2EEnvironment::TearDown() {
     // 1. Terminate service processes
-    std::cout << "[E2E] Stopping services...\n";
+    std::cout << "[E2E] Stopping services (global)...\n";
     terminate_service(chat_proc_);
     terminate_service(auth_proc_);
     terminate_service(gateway_proc_);
 
     // 2. Tear down docker-compose
-    std::cout << "[E2E] Stopping infrastructure...\n";
+    std::cout << "[E2E] Stopping infrastructure (global)...\n";
     std::system(
         "docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v");
+
+    ready_ = false;
 }
 
+// ---------------------------------------------------------------------------
+// E2ETestFixture per-test lifecycle
+// ---------------------------------------------------------------------------
+
 void E2ETestFixture::SetUp() {
-    // Per-test initialization (e.g., flush Redis test data)
+    ASSERT_TRUE(E2EEnvironment::is_ready())
+        << "E2E infrastructure not ready — global SetUp failed";
 }
 
 void E2ETestFixture::TearDown() {
-    // Per-test cleanup
+    // Per-test cleanup (connections auto-closed by TcpClient destructor)
 }
 
 // ---------------------------------------------------------------------------
@@ -244,7 +259,6 @@ void E2ETestFixture::TcpClient::send(uint32_t msg_id,
         throw std::runtime_error("TcpClient::send() called on disconnected socket");
     }
 
-    // Build WireHeader v2
     WireHeader hdr{};
     hdr.version = WireHeader::CURRENT_VERSION;
     hdr.flags = 0;
@@ -254,7 +268,6 @@ void E2ETestFixture::TcpClient::send(uint32_t msg_id,
     std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
     hdr.serialize(std::span<uint8_t, WireHeader::SIZE>(hdr_buf));
 
-    // Send header + payload
     boost::asio::write(socket_, boost::asio::buffer(hdr_buf));
     if (size > 0 && payload != nullptr) {
         boost::asio::write(socket_, boost::asio::buffer(payload, size));
@@ -268,7 +281,6 @@ E2ETestFixture::TcpClient::recv(std::chrono::seconds timeout)
         throw std::runtime_error("TcpClient::recv() called on disconnected socket");
     }
 
-    // Set socket receive timeout
 #ifdef _WIN32
     DWORD timeout_ms = static_cast<DWORD>(
         std::chrono::duration_cast<std::chrono::milliseconds>(timeout).count());
@@ -282,7 +294,6 @@ E2ETestFixture::TcpClient::recv(std::chrono::seconds timeout)
                  &tv, sizeof(tv));
 #endif
 
-    // Read header (12 bytes)
     std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
     boost::asio::read(socket_, boost::asio::buffer(hdr_buf));
 
@@ -293,7 +304,6 @@ E2ETestFixture::TcpClient::recv(std::chrono::seconds timeout)
     }
     auto& hdr = hdr_result.value();
 
-    // Read body
     Response resp;
     resp.msg_id = hdr.msg_id;
     resp.flags = hdr.flags;
@@ -325,19 +335,11 @@ E2ETestFixture::login(TcpClient& client,
                        const std::string& email,
                        const std::string& password)
 {
-    // Build LoginRequest FlatBuffers payload
-    // Schema (apex_services/auth-svc/schemas/login_request.fbs):
-    //   table LoginRequest { email: string (required); password: string (required); }
-    // msg_id = 1000 (LoginRequest from msg_registry)
-    //
-    // We use raw FlatBuffers Table API to avoid cross-service generated header dependency.
     flatbuffers::FlatBufferBuilder fbb(256);
 
     auto email_off = fbb.CreateString(email);
     auto pw_off = fbb.CreateString(password);
 
-    // Manually construct LoginRequest table
-    // vtable layout: field 0 = email (offset 4), field 1 = password (offset 6)
     auto start = fbb.StartTable();
     fbb.AddOffset(4, email_off);
     fbb.AddOffset(6, pw_off);
@@ -346,18 +348,23 @@ E2ETestFixture::login(TcpClient& client,
 
     client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
 
-    // Receive LoginResponse (msg_id = 1001)
     auto resp = client.recv(std::chrono::seconds{
         static_cast<long>(config_.request_timeout.count())});
 
+    std::cerr << "[E2E-DEBUG] login() recv: msg_id=" << resp.msg_id
+              << " payload_size=" << resp.payload.size();
+    if (resp.msg_id != 1001 && !resp.payload.empty()) {
+        std::cerr << " payload_hex=";
+        for (size_t i = 0; i < std::min(resp.payload.size(), size_t{16}); ++i) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%02x", resp.payload[i]);
+            std::cerr << buf;
+        }
+    }
+    std::cerr << "\n";
+
     AuthResult result{};
     if (resp.msg_id == 1001 && !resp.payload.empty()) {
-        // Parse LoginResponse using raw Table API:
-        //   error: LoginError (uint16, field 0, vtable offset 4)
-        //   access_token: string (field 1, vtable offset 6)
-        //   refresh_token: string (field 2, vtable offset 8)
-        //   user_id: uint64 (field 3, vtable offset 10)
-        //   expires_in_sec: uint32 (field 4, vtable offset 12)
         auto* root = flatbuffers::GetRoot<flatbuffers::Table>(resp.payload.data());
         if (root) {
             auto* at = root->GetPointer<const flatbuffers::String*>(6);
@@ -377,27 +384,59 @@ E2ETestFixture::login(TcpClient& client,
 void E2ETestFixture::authenticate(TcpClient& client,
                                     const std::string& token)
 {
-    // Send JWT token binding to Gateway.
-    // Gateway binds the JWT to the current session for subsequent request authorization.
-    // System msg_id 3 is reserved for AuthenticateSession (convention).
-    //
-    // Payload: simple table with token string field.
     flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(256) + token.size());
     auto token_off = fbb.CreateString(token);
     auto start = fbb.StartTable();
-    fbb.AddOffset(4, token_off);  // field 0: token string
+    fbb.AddOffset(4, token_off);
     auto loc = fbb.EndTable(start);
     fbb.Finish(flatbuffers::Offset<void>(loc));
 
     client.send(3 /* AuthenticateSession */, fbb.GetBufferPointer(), fbb.GetSize());
 
-    // Wait for acknowledgment (Gateway may or may not send explicit ack)
     try {
         auto resp = client.recv(std::chrono::seconds{3});
-        (void)resp;  // Ignore -- binding is best-effort in E2E
+        (void)resp;
     } catch (...) {
         // Timeout is acceptable if Gateway doesn't send explicit ack
     }
 }
 
+// ---------------------------------------------------------------------------
+// Channel subscription helpers
+// ---------------------------------------------------------------------------
+
+void E2ETestFixture::subscribe_channel(TcpClient& client,
+                                        const std::string& channel) {
+    flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(64) + channel.size());
+    auto ch_off = fbb.CreateString(channel);
+    auto start = fbb.StartTable();
+    fbb.AddOffset(4, ch_off);
+    auto loc = fbb.EndTable(start);
+    fbb.Finish(flatbuffers::Offset<void>(loc));
+
+    client.send(4 /* SubscribeChannel */, fbb.GetBufferPointer(), fbb.GetSize());
+}
+
+void E2ETestFixture::unsubscribe_channel(TcpClient& client,
+                                          const std::string& channel) {
+    flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(64) + channel.size());
+    auto ch_off = fbb.CreateString(channel);
+    auto start = fbb.StartTable();
+    fbb.AddOffset(4, ch_off);
+    auto loc = fbb.EndTable(start);
+    fbb.Finish(flatbuffers::Offset<void>(loc));
+
+    client.send(5 /* UnsubscribeChannel */, fbb.GetBufferPointer(), fbb.GetSize());
+}
+
 } // namespace apex::e2e
+
+// ---------------------------------------------------------------------------
+// Custom main — register global E2E environment
+// ---------------------------------------------------------------------------
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    ::testing::AddGlobalTestEnvironment(new apex::e2e::E2EEnvironment);
+    return RUN_ALL_TESTS();
+}

@@ -147,8 +147,8 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/apex_services)
     target_link_libraries(test_gateway_message_router PRIVATE
-        apex_core apex_protocols_kafka spdlog::spdlog
-        GTest::gtest GTest::gtest_main)
+        apex_core apex_protocols_kafka apex_shared_adapters_kafka
+        spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_message_router PRIVATE /utf-8)
         target_compile_definitions(test_gateway_message_router PRIVATE _WIN32_WINNT=0x0A00)
@@ -160,13 +160,14 @@ if(BUILD_TESTING)
         tests/test_gateway_pipeline.cpp
         src/gateway_pipeline.cpp
         src/jwt_verifier.cpp
+        src/jwt_blacklist.cpp
     )
     target_include_directories(test_gateway_pipeline PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_pipeline PRIVATE
-        apex_core apex_shared_rate_limit
+        apex_core apex_shared_rate_limit apex_shared_adapters_redis
         jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto
-        spdlog::spdlog GTest::gtest GTest::gtest_main)
+        spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_pipeline PRIVATE /utf-8)
         target_compile_definitions(test_gateway_pipeline PRIVATE _WIN32_WINNT=0x0A00)
@@ -182,8 +183,8 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_config_reloader PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_config_reloader PRIVATE
-        apex_core tomlplusplus::tomlplusplus spdlog::spdlog
-        GTest::gtest GTest::gtest_main)
+        apex_core apex_shared_rate_limit tomlplusplus::tomlplusplus
+        spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_config_reloader PRIVATE /utf-8)
         target_compile_definitions(test_gateway_config_reloader PRIVATE _WIN32_WINNT=0x0A00)

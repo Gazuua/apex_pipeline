@@ -5,22 +5,20 @@
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 
+#include <apex/core/core_engine.hpp>
+
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
-#include <atomic>
-#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
-#include <thread>
 
 namespace {
-
-/// Global stop flag for graceful shutdown.
-std::atomic<bool> g_stop_requested{false};
 
 /// Resolve config file path: CLI arg or default "chat_svc.toml" next to executable.
 std::string resolve_config_path(int argc, char* argv[]) {
@@ -122,9 +120,10 @@ int main(int argc, char* argv[]) {
     }
 
     // ----------------------------------------------------------------
-    // 2. io_context creation (for Kafka co_spawn bridge)
+    // 2. CoreEngine (per-core io_context, single core for service)
     // ----------------------------------------------------------------
-    boost::asio::io_context io_ctx;
+    apex::core::CoreEngine engine({.num_cores = 1});
+    auto& io_ctx = engine.io_context(0);
 
     // ----------------------------------------------------------------
     // 3. Adapter creation
@@ -135,7 +134,7 @@ int main(int argc, char* argv[]) {
     apex::shared::adapters::pg::PgAdapter pg(pg_cfg);
 
     // ----------------------------------------------------------------
-    // 4. ChatService creation -- executor only, no io_context
+    // 4. ChatService creation
     // ----------------------------------------------------------------
     apex::chat_svc::ChatService service(
         std::move(chat_config),
@@ -146,9 +145,13 @@ int main(int argc, char* argv[]) {
         pg);
 
     // ----------------------------------------------------------------
-    // 5. service.start() -- register handlers to MessageDispatcher
+    // 5. service.start() + adapter init via CoreEngine
     // ----------------------------------------------------------------
     service.start();
+    kafka.init(engine);
+    redis_data.init(engine);
+    redis_pubsub.init(engine);
+    pg.init(engine);
 
     // ----------------------------------------------------------------
     // 6. Signal handling for graceful shutdown
@@ -156,42 +159,31 @@ int main(int argc, char* argv[]) {
     boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
     signals.async_wait([&](const boost::system::error_code& /*ec*/, int sig) {
         spdlog::info("[ChatService] Received signal {} -- shutting down", sig);
-        g_stop_requested.store(true, std::memory_order_release);
         service.stop();
-        io_ctx.stop();
+        engine.stop();
     });
 
     // ----------------------------------------------------------------
-    // 7. io_context run on separate thread (coroutine execution)
+    // 7. Warm up PG connection pool before accepting Kafka messages
     // ----------------------------------------------------------------
-    std::jthread io_thread([&io_ctx] {
-        spdlog::info("[ChatService] io_context thread started");
-        io_ctx.run();
-        spdlog::info("[ChatService] io_context thread finished");
-    });
+    engine.start();
+    boost::asio::co_spawn(io_ctx,
+        [&pg]() -> boost::asio::awaitable<void> {
+            auto r = co_await pg.query("SELECT 1");
+            if (r.has_value()) {
+                spdlog::info("[ChatService] PG connection warm-up OK");
+            } else {
+                spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
+            }
+        },
+        boost::asio::detached);
+    std::this_thread::sleep_for(std::chrono::seconds{1});
 
     // ----------------------------------------------------------------
-    // 8. Kafka consumer loop (main thread, blocking)
-    //    KafkaConsumer polls via io_context async timer,
-    //    so we keep main thread alive until shutdown is requested.
+    // 8. Run CoreEngine main loop (blocks until stop())
     // ----------------------------------------------------------------
     spdlog::info("[ChatService] Running. Press Ctrl+C to stop.");
-
-    while (!g_stop_requested.load(std::memory_order_acquire)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-
-    // ----------------------------------------------------------------
-    // 9. Graceful shutdown
-    // ----------------------------------------------------------------
-    spdlog::info("[ChatService] Shutting down...");
-
-    // Ensure io_context is stopped so io_thread can join
-    if (!io_ctx.stopped()) {
-        io_ctx.stop();
-    }
-
-    // jthread auto-joins on destruction
+    engine.join();
 
     spdlog::info("Chat Service stopped.");
     return EXIT_SUCCESS;

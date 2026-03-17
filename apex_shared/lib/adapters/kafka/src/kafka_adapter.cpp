@@ -123,7 +123,11 @@ apex::core::Result<void> KafkaAdapter::produce(
 }
 
 void KafkaAdapter::set_message_callback(MessageCallback cb) {
-    message_cb_ = std::move(cb);
+    message_cb_ = cb;
+    // Propagate to already-initialized consumers (for late callback registration)
+    for (auto& consumer : consumers_) {
+        consumer->set_message_callback(cb);
+    }
 }
 
 KafkaConsumer& KafkaAdapter::consumer(uint32_t core_id) {

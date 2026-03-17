@@ -4,7 +4,7 @@
 private_key_file = "apex_services/tests/keys/test_rs256.pem"
 public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
 issuer = "apex-auth"
-access_token_ttl_sec = 900
+access_token_ttl_sec = 2       # E2E RefreshToken 테스트용 (짧은 TTL)
 
 [kafka]
 brokers = "localhost:9092"
@@ -17,7 +17,7 @@ host = "localhost"
 port = 6380
 
 [pg]
-connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password"
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password options='-c search_path=auth_svc,public'"
 
 [bcrypt]
 work_factor = 12

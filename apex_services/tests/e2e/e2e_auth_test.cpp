@@ -41,6 +41,8 @@ TEST_F(AuthE2ETest, LoginAndAuthenticatedRequest) {
 
     // 4. Receive response (msg_id 2008 = ListRoomsResponse)
     auto resp = client.recv();
+    std::cerr << "[E2E-DEBUG] ListRooms recv: msg_id=" << resp.msg_id
+              << " payload_size=" << resp.payload.size() << "\n";
     EXPECT_EQ(resp.msg_id, 2008u);
 
     auto* list_resp = flatbuffers::GetRoot<chat_fbs::ListRoomsResponse>(
@@ -63,12 +65,11 @@ TEST_F(AuthE2ETest, UnauthenticatedRequestRejected) {
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
     }
 
-    // Gateway should return system error (msg_id < 1000)
+    // Gateway should return error response (ERROR_RESPONSE flag set)
     auto resp = client.recv();
-    EXPECT_LT(resp.msg_id, 1000u)
-        << "Expected system error msg_id, got " << resp.msg_id;
-    // SystemResponse should contain GatewayError::JWT_INVALID
-    // Exact parsing depends on SystemResponse FlatBuffers schema
+    EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
+        << "Expected error flag in response for unauthenticated request, "
+           "msg_id=" << resp.msg_id << " flags=" << static_cast<int>(resp.flags);
 
     client.close();
 }
@@ -99,9 +100,9 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv();
-        // Gateway system error: JWT_EXPIRED
-        EXPECT_LT(resp.msg_id, 1000u)
-            << "Expected system error for expired JWT";
+        // Gateway error: JWT_EXPIRED (error flag set, msg_id echoes original)
+        EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
+            << "Expected error flag for expired JWT, msg_id=" << resp.msg_id;
     }
 
     // 4. Refresh Token renewal (msg_id 1004 = RefreshTokenRequest)
