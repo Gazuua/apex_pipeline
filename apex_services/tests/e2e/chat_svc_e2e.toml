@@ -5,12 +5,13 @@ max_message_length = 2000
 max_room_name_length = 100
 max_rooms_per_user = 50
 history_page_size = 50
+response_topic = "gateway.responses"
 
 [kafka]
 brokers = "localhost:9092"
 consumer_group = "chat-svc-e2e"
 request_topic = "chat.requests"
-response_topic = "chat.responses"
+response_topic = "gateway.responses"
 
 [redis_data]
 host = "localhost"

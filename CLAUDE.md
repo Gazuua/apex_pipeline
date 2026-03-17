@@ -11,7 +11,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ## 빌드
 
-- `cmd.exe //c build.bat debug` / `cmd.exe //c build.bat release` (bash 셸에서, `//c` 필수)
+- `cmd.exe //c "<프로젝트루트절대경로>\\build.bat" debug` (bash 셸에서, `//c` 필수). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합. 상대 경로(`build.bat`)는 백그라운드 실행 시 작업 디렉토리 불일치로 실패함
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
 - **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
 - **빌드 오류 책임**: 빌드 실패는 작업 프로세스 내에서 해결. auto-review와 별개 — 작업 완료+빌드 성공 확인 후 리뷰 진입

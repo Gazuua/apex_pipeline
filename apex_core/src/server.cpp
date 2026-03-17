@@ -122,13 +122,6 @@ void Server::run() {
             auto svc = factory(state, dispatcher);
             state.services.push_back(std::move(svc));
         }
-
-        // Propagate default handler to all other listeners (multi-protocol)
-        if (!listeners_.empty()) {
-            for (size_t li = 1; li < listeners_.size(); ++li) {
-                listeners_[li]->sync_default_handler(core_id, dispatcher);
-            }
-        }
     }
 
     // ── Phase 1: on_configure — 어댑터/설정 접근 단계 ──────────────────
@@ -171,6 +164,18 @@ void Server::run() {
     for (auto& state : per_core_) {
         for (auto& svc : state->services) {
             svc->start();
+        }
+    }
+
+    // ── Phase 3.5: multi-listener handler 동기화 ─────────────────────
+    // on_start()에서 등록된 default_handler를 보조 리스너에 전파.
+    // Phase 0(서비스 생성 직후)에서는 핸들러 미등록 → 반드시 on_start 이후 수행.
+    if (listeners_.size() > 1) {
+        for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+            auto& dispatcher = listeners_[0]->dispatcher(core_id);
+            for (size_t li = 1; li < listeners_.size(); ++li) {
+                listeners_[li]->sync_default_handler(core_id, dispatcher);
+            }
         }
     }
 

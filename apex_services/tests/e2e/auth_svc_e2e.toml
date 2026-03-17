@@ -10,7 +10,7 @@ access_token_ttl_sec = 30      # E2E용 — TSAN/ASAN 빌드에서도 Kafka 왕�
 brokers = "localhost:9092"
 consumer_group = "auth-svc-e2e"
 request_topic = "auth.requests"
-response_topic = "auth.responses"
+response_topic = "gateway.responses"
 
 [redis]
 host = "localhost"
