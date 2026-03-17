@@ -17,7 +17,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d
 sleep 5
 
 # 3. E2E 테스트 실행 (테스트 fixture가 Gateway/Auth/Chat 서비스를 자동 기동·종료)
-D:/.workspace/.worktrees/e2e-fix/build/Windows/debug/apex_services/tests/e2e/apex_e2e_tests.exe
+D:/.workspace/apex_pipeline_branch_01/build/Windows/debug/apex_services/tests/e2e/apex_e2e_tests.exe
 
 # 4. Docker 인프라 정리 (테스트 fixture가 compose down도 수행하지만, 수동 정리가 필요할 때)
 docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v
