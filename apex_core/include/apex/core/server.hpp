@@ -7,6 +7,8 @@
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
+#include <apex/core/periodic_task_scheduler.hpp>
+#include <apex/core/service_registry.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/core/transport.hpp>
@@ -23,6 +25,9 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string>
+#include <string_view>
+#include <type_traits>
 #include <typeindex>
 #include <unordered_map>
 #include <vector>
@@ -34,6 +39,23 @@ template <typename Derived> class AdapterWrapper;
 } // namespace apex::shared::adapters
 
 namespace apex::core {
+
+/// 어댑터 다중 등록을 위한 복합 키 (type + role).
+/// 동일 타입의 어댑터를 역할(role)로 구분하여 다중 등록할 수 있다.
+struct AdapterKey {
+    std::type_index type;
+    std::string role;
+
+    bool operator==(const AdapterKey&) const = default;
+};
+
+/// AdapterKey용 해시 함수.
+struct AdapterKeyHash {
+    size_t operator()(const AdapterKey& k) const {
+        return std::hash<std::type_index>{}(k.type)
+             ^ (std::hash<std::string>{}(k.role) << 1);
+    }
+};
 
 /// Server configuration. Fields are ordered for designated-initializer convenience.
 struct ServerConfig {
@@ -71,13 +93,22 @@ struct ServerConfig {
 /// SessionManager and allocators. MessageDispatcher and ConnectionHandler
 /// are owned by Listener<P> (per-protocol).
 ///
-/// Members are destroyed in reverse declaration order. 'services' is declared
-/// after session_mgr, so services are destroyed first.
+/// Members are destroyed in reverse declaration order:
+///   allocators → services → scheduler → registry → session_mgr
+/// services가 scheduler/registry보다 먼저 소멸되어 안전한 정리 보장.
 struct PerCoreState {
     uint32_t core_id;
     SessionManager session_mgr;
     // MessageDispatcher 제거 — Listener<P>가 소유
     // ConnectionHandler 제거 — Listener<P>가 소유
+
+    // 서비스 레지스트리 — 타입 기반 서비스 조회 (services 벡터와 공존, 점진적 마이그레이션)
+    ServiceRegistry registry;
+
+    // 주기적 작업 스케줄러 — per-core io_context 기반
+    // services보다 먼저 선언 → services 소멸 후 스케줄러 소멸 (안전한 역순 파괴)
+    std::unique_ptr<PeriodicTaskScheduler> scheduler;
+
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
     // Per-core memory allocators
@@ -161,26 +192,46 @@ public:
         return *this;
     }
 
-    /// 어댑터(인프라 컴포넌트) 등록. 체이닝 지원.
-    /// 등록 순서는 무관 — run()에서 서비스보다 먼저 초기화됨.
+    /// 역할(role)을 지정하여 어댑터 등록. 동일 타입을 역할별로 다중 등록 가능.
+    /// 체이닝 지원. 등록 순서는 무관 — run()에서 서비스보다 먼저 초기화됨.
     /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
     ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
     template <typename T, typename... Args>
-    Server& add_adapter(Args&&... args) {
+    Server& add_adapter(std::string role, Args&&... args) {
         auto wrapper = std::make_unique<apex::shared::adapters::AdapterWrapper<T>>(
             std::forward<Args>(args)...);
         auto* raw = wrapper.get();
-        auto key = std::type_index(typeid(T));
+        AdapterKey key{std::type_index(typeid(T)), std::move(role)};
         adapter_map_[key] = raw;
         adapters_.push_back(std::move(wrapper));
         return *this;
     }
 
-    /// 등록된 어댑터 접근 (타입 기반).
+    /// 어댑터 등록 (role = "default"). 기존 API 호환.
+    /// 체이닝 지원. 등록 순서는 무관 — run()에서 서비스보다 먼저 초기화됨.
+    /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
+    ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
+    /// @note role 오버로드와의 모호성 방지: 첫 번째 인자가 std::string 변환 가능하면 비활성화.
+    template <typename T, typename First, typename... Rest,
+              std::enable_if_t<
+                  !std::is_convertible_v<std::decay_t<First>, std::string>, int> = 0>
+    Server& add_adapter(First&& first, Rest&&... rest) {
+        return add_adapter<T>(std::string("default"),
+                              std::forward<First>(first),
+                              std::forward<Rest>(rest)...);
+    }
+
+    /// 어댑터 등록 (인자 없음, role = "default"). 기존 API 호환.
+    template <typename T>
+    Server& add_adapter() {
+        return add_adapter<T>(std::string("default"));
+    }
+
+    /// 등록된 어댑터 접근 (타입 + 역할 기반). 미등록 시 assert 실패.
     /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
     template <typename T>
-    T& adapter() const {
-        auto key = std::type_index(typeid(T));
+    T& adapter(std::string_view role = "default") const {
+        AdapterKey key{std::type_index(typeid(T)), std::string(role)};
         auto it = adapter_map_.find(key);
         assert(it != adapter_map_.end() && "Adapter not registered");
         return static_cast<apex::shared::adapters::AdapterWrapper<T>*>(it->second)->get();
@@ -263,7 +314,7 @@ private:
     std::vector<std::unique_ptr<ListenerBase>> listeners_;
     std::vector<ServiceFactory> service_factories_;
     std::vector<std::unique_ptr<AdapterInterface>> adapters_;
-    std::unordered_map<std::type_index, AdapterInterface*> adapter_map_;
+    std::unordered_map<AdapterKey, AdapterInterface*, AdapterKeyHash> adapter_map_;
 
     PostInitCallback post_init_cb_;
 

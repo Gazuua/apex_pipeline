@@ -32,8 +32,16 @@ public:
     /// Server가 공유 디스패처를 바인딩할 때 호출.
     virtual void bind_dispatcher(MessageDispatcher& external) = 0;
 
-    // ── 라이프사이클 훅 (기본 구현은 no-op) ─────────────────────────────
-    // Server가 오케스트레이션 단계별로 호출한다.
+    // ── 라이프사이클 훅 ─────────────────────────────────────────────────
+    // Server::run()이 오케스트레이션 단계별로 internal_* 를 호출한다.
+    // internal_* 는 프레임워크 전처리 후 on_* 를 호출한다.
+
+    /// Server가 호출하는 진입점. 프레임워크 전처리 + on_configure 호출.
+    /// ServiceBase<Derived>가 오버라이드하여 per_core_ 바인딩 등 수행.
+    virtual void internal_configure(ConfigureContext& ctx) { on_configure(ctx); }
+
+    /// Server가 호출하는 진입점. 프레임워크 전처리 + on_wire 호출.
+    virtual void internal_wire(WireContext& ctx) { on_wire(ctx); }
 
     /// Phase 1: 어댑터/설정 접근 단계. 다른 서비스에 접근 불가.
     virtual void on_configure(ConfigureContext&) {}
@@ -102,14 +110,14 @@ public:
 
     /// Phase 1: per_core_ 바인딩 + on_configure 호출.
     /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
-    void internal_configure(ConfigureContext& ctx) {
+    void internal_configure(ConfigureContext& ctx) override {
         per_core_ = &ctx.per_core_state;
         static_cast<Derived*>(this)->on_configure(ctx);
     }
 
     /// Phase 2: on_wire 호출.
     /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
-    void internal_wire(WireContext& ctx) {
+    void internal_wire(WireContext& ctx) override {
         static_cast<Derived*>(this)->on_wire(ctx);
     }
 
