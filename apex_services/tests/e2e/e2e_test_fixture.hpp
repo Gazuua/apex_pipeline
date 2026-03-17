@@ -3,8 +3,7 @@
 /// @file e2e_test_fixture.hpp
 /// @brief E2E integration test infrastructure.
 ///
-/// Manages docker-compose lifecycle, Gateway/Service processes, and
-/// provides TCP/WebSocket client helpers for full pipeline testing:
+/// Global lifecycle: Docker + services start once, all 11 tests run, then teardown.
 /// Client -> Gateway -> Kafka -> Service -> DB -> Response/Broadcast
 
 #include <gtest/gtest.h>
@@ -111,30 +110,37 @@ struct ChildProcess {
 #endif
 };
 
-/// E2E test base fixture.
-///
-/// SetUpTestSuite(): docker-compose up + Gateway/Service process launch
-/// TearDownTestSuite(): process termination + docker-compose down
-class E2ETestFixture : public ::testing::Test {
+/// Global E2E test environment.
+/// Docker + services start once before all tests, teardown once after all tests.
+/// Registered via ::testing::AddGlobalTestEnvironment() in main().
+class E2EEnvironment : public ::testing::Environment {
 public:
-    static void SetUpTestSuite();
-    static void TearDownTestSuite();
-
-protected:
     void SetUp() override;
     void TearDown() override;
 
-    /// Launch a service process in the background.
-    /// @param name Display name for logging.
-    /// @param exe_path Executable path.
-    /// @param config_path TOML config file path.
-    /// @return ChildProcess handle for later termination.
+    static E2EConfig& config() { return config_; }
+    static bool is_ready() { return ready_; }
+
+private:
     static ChildProcess launch_service(const std::string& name,
                                         const std::string& exe_path,
                                         const std::string& config_path);
-
-    /// Terminate a child process gracefully (SIGTERM / TerminateProcess).
     static void terminate_service(ChildProcess& proc);
+
+    static E2EConfig config_;
+    static ChildProcess gateway_proc_;
+    static ChildProcess auth_proc_;
+    static ChildProcess chat_proc_;
+    static bool ready_;
+};
+
+/// E2E test base fixture.
+/// Per-test: fresh io_context + helper methods.
+/// Infrastructure lifecycle is managed by E2EEnvironment (global).
+class E2ETestFixture : public ::testing::Test {
+protected:
+    void SetUp() override;
+    void TearDown() override;
 
     /// TCP client that speaks WireHeader v2 protocol.
     /// Sends and receives framed messages through Gateway.
@@ -192,10 +198,7 @@ protected:
     /// Unsubscribe session from a Redis Pub/Sub channel (system msg_id=5)
     void unsubscribe_channel(TcpClient& client, const std::string& channel);
 
-    static E2EConfig config_;
-    static ChildProcess gateway_proc_;
-    static ChildProcess auth_proc_;
-    static ChildProcess chat_proc_;
+    E2EConfig& config_ = E2EEnvironment::config();
     boost::asio::io_context io_ctx_;
 };
 

@@ -35,7 +35,6 @@ target_link_libraries(apex_e2e_tests
         OpenSSL::SSL
         OpenSSL::Crypto
         GTest::gtest
-        GTest::gtest_main
 )
 
 if(WIN32)

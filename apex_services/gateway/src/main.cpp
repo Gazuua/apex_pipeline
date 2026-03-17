@@ -217,11 +217,43 @@ int main(int argc, char* argv[]) {
                 sweep_mgrs.push_back(&state.session_mgr);
             }
 
-            struct SweepState {
+            struct SweepState : std::enable_shared_from_this<SweepState> {
                 std::vector<apex::gateway::PendingRequestsMap*> pending;
                 std::vector<apex::core::SessionManager*> sessions;
-                apex::core::CoreEngine* engine;
+                apex::core::CoreEngine* engine = nullptr;
                 std::shared_ptr<boost::asio::steady_timer> timer;
+
+                void schedule() {
+                    timer->expires_after(std::chrono::seconds{1});
+                    timer->async_wait([self = shared_from_this()](
+                        boost::system::error_code ec) {
+                        if (ec) return;
+                        self->sweep();
+                        self->schedule();
+                    });
+                }
+
+                void sweep() {
+                    for (size_t core = 0; core < pending.size(); ++core) {
+                        auto* p = pending[core];
+                        auto* m = sessions[core];
+                        boost::asio::post(
+                            engine->io_context(static_cast<uint32_t>(core)),
+                            [p, m]() {
+                                p->sweep_expired(
+                                    [m](uint64_t,
+                                        const apex::gateway::PendingRequestsMap::PendingEntry& entry) {
+                                        auto session = m->find_session(entry.session_id);
+                                        if (session && session->is_open()) {
+                                            auto frame = apex::core::ErrorSender::build_error_frame(
+                                                entry.original_msg_id,
+                                                apex::core::ErrorCode::ServiceTimeout);
+                                            (void)session->enqueue_write(std::move(frame));
+                                        }
+                                    });
+                            });
+                    }
+                }
             };
             auto ss = std::make_shared<SweepState>();
             ss->pending = std::move(sweep_maps);
@@ -229,41 +261,7 @@ int main(int argc, char* argv[]) {
             ss->engine = &srv.core_engine();
             ss->timer = std::make_shared<boost::asio::steady_timer>(
                 srv.core_engine().io_context(0));
-
-            std::function<void(boost::system::error_code)> on_sweep;
-            on_sweep = [ss, on_sweep](boost::system::error_code ec) {
-                if (ec) return;
-
-                // Sweep each core's pending map on its own io_context
-                for (size_t core = 0; core < ss->pending.size(); ++core) {
-                    auto* pending = ss->pending[core];
-                    auto* mgr = ss->sessions[core];
-                    auto core_id = static_cast<uint32_t>(core);
-
-                    boost::asio::post(
-                        ss->engine->io_context(core_id),
-                        [pending, mgr]() {
-                            pending->sweep_expired(
-                                [mgr](uint64_t,
-                                      const apex::gateway::PendingRequestsMap::PendingEntry& entry) {
-                                    auto session = mgr->find_session(entry.session_id);
-                                    if (session && session->is_open()) {
-                                        auto frame = apex::core::ErrorSender::build_error_frame(
-                                            entry.original_msg_id,
-                                            apex::core::ErrorCode::ServiceTimeout);
-                                        (void)session->enqueue_write(std::move(frame));
-                                    }
-                                });
-                        });
-                }
-
-                // Re-arm timer (1 second interval)
-                ss->timer->expires_after(std::chrono::seconds{1});
-                ss->timer->async_wait(on_sweep);
-            };
-
-            ss->timer->expires_after(std::chrono::seconds{1});
-            ss->timer->async_wait(on_sweep);
+            ss->schedule();
 
             // --- Rate Limiting ---
             // Initialize standalone Redis adapter for rate limiting
