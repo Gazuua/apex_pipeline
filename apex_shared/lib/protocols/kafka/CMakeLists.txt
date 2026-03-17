@@ -3,6 +3,7 @@
 add_library(apex_protocols_kafka STATIC
     src/kafka_envelope.cpp
     src/envelope_builder.cpp
+    src/kafka_dispatch_bridge.cpp
 )
 add_library(apex::shared::protocols::kafka ALIAS apex_protocols_kafka)
 

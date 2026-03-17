@@ -3,18 +3,23 @@
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/configure_context.hpp>
+#include <apex/core/error_sender.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_context.hpp>
+#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
 
 #include <cassert>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -145,6 +150,8 @@ protected:
     /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
     ///       핸들러 내에서 async_send 등 co_await 이후에 메시지 필드에 접근하면
     ///       댕글링 참조가 발생합니다. 필요한 데이터는 co_await 전에 로컬 변수에 복사하세요.
+    /// @note FlatBuffers 검증 실패 시 클라이언트에 error frame을 자동 전송하고
+    ///       ok()를 반환합니다 (세션이 유효한 경우).
     template <typename FbsType>
     void route(uint32_t msg_id,
                boost::asio::awaitable<Result<void>> (Derived::*method)(
@@ -157,7 +164,13 @@ protected:
                 -> boost::asio::awaitable<Result<void>> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
                 if (!verifier.VerifyBuffer<FbsType>()) {
-                    co_return apex::core::error(ErrorCode::FlatBuffersVerifyFailed);
+                    // 자동 error frame 전송 후 ok() 반환
+                    if (session) {
+                        auto frame = ErrorSender::build_error_frame(
+                            id, ErrorCode::FlatBuffersVerifyFailed);
+                        session->enqueue_write(std::move(frame));
+                    }
+                    co_return apex::core::ok();
                 }
                 auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
                 co_return co_await (self->*method)(session, id, msg);
@@ -180,6 +193,32 @@ protected:
             });
     }
 
+    // ── Kafka 핸들러 등록 ──────────────────────────────────────────────────
+
+    /// Kafka 메시지용 FlatBuffers 타입 핸들러 등록.
+    /// KafkaDispatchBridge가 수신한 Kafka 메시지를 msg_id 기반으로 라우팅할 때 사용.
+    /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
+    template <typename FbsType>
+    void kafka_route(uint32_t msg_id,
+                     boost::asio::awaitable<Result<void>> (Derived::*method)(
+                         const shared::protocols::kafka::MetadataPrefix&,
+                         uint32_t, const FbsType*))
+    {
+        auto* self = static_cast<Derived*>(this);
+        kafka_handlers_[msg_id] = [self, method](
+            shared::protocols::kafka::MetadataPrefix meta, uint32_t id,
+            std::span<const uint8_t> payload)
+                -> boost::asio::awaitable<Result<void>> {
+            flatbuffers::Verifier verifier(payload.data(), payload.size());
+            if (!verifier.VerifyBuffer<FbsType>()) {
+                co_return apex::core::error(ErrorCode::FlatBuffersVerifyFailed);
+            }
+            auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
+            co_return co_await (self->*method)(meta, id, msg);
+        };
+        has_kafka_handlers_ = true;
+    }
+
     // ── Per-core 상태 접근자 ─────────────────────────────────────────────
     // internal_configure() 이후에만 유효. 그 전에 호출하면 UB.
 
@@ -192,6 +231,23 @@ protected:
     /// 이 서비스가 실행 중인 코어 ID.
     uint32_t core_id() const { return per_core_->core_id; }
 
+public:
+    // ── Kafka 핸들러 접근자 (KafkaDispatchBridge용) ──────────────────────
+
+    /// Kafka 핸들러 타입.
+    using KafkaHandler = std::function<
+        boost::asio::awaitable<Result<void>>(
+            shared::protocols::kafka::MetadataPrefix,
+            uint32_t,
+            std::span<const uint8_t>)>;
+
+    /// KafkaDispatchBridge가 핸들러 맵에 접근하기 위한 getter.
+    [[nodiscard]] const boost::unordered_flat_map<uint32_t, KafkaHandler>&
+    kafka_handler_map() const noexcept { return kafka_handlers_; }
+
+    /// Kafka 핸들러 등록 여부.
+    [[nodiscard]] bool has_kafka_handlers() const noexcept { return has_kafka_handlers_; }
+
 private:
     std::string name_;
     // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
@@ -202,6 +258,10 @@ private:
     bool started_{false};
     boost::unordered_flat_set<uint32_t> registered_msg_ids_;
     PerCoreState* per_core_{nullptr};
+
+    // ── Kafka 디스패치 ──────────────────────────────────────────────────
+    boost::unordered_flat_map<uint32_t, KafkaHandler> kafka_handlers_;
+    bool has_kafka_handlers_{false};
 };
 
 } // namespace apex::core
