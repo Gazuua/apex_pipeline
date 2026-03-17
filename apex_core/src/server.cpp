@@ -182,8 +182,9 @@ void Server::run() {
             });
     }
 
-    // Post-init callback — wire cross-cutting concerns (e.g., ResponseDispatcher)
-    // Gateway 하위 호환성을 위해 유지. Task 8에서 제거 예정.
+    // Post-init callback — 서비스 라이프사이클 외부의 cross-cutting concerns 와이어링.
+    // Gateway는 Task 8에서 라이프사이클 훅으로 이전 완료.
+    // Auth/Chat 서비스도 마이그레이션 완료 시 제거 예정.
     if (post_init_cb_) {
         post_init_cb_(*this);
     }

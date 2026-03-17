@@ -4,97 +4,90 @@
 #include <apex/auth_svc/jwt_manager.hpp>
 #include <apex/auth_svc/password_hasher.hpp>
 #include <apex/auth_svc/session_store.hpp>
-#include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
-#include <apex/shared/adapters/kafka/kafka_adapter.hpp>
-#include <apex/shared/adapters/pg/pg_adapter.hpp>
-#include <apex/shared/adapters/redis/redis_adapter.hpp>
+#include <apex/core/service_base.hpp>
+#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
-#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/awaitable.hpp>
 
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
-#include <string_view>
+
+// Forward declarations
+namespace apex::shared::adapters::kafka { class KafkaAdapter; }
+namespace apex::shared::adapters::redis { class RedisAdapter; }
+namespace apex::shared::adapters::pg    { class PgAdapter; }
+
+// Forward declarations for FlatBuffers types
+namespace apex::auth_svc::schemas {
+class LoginRequest;
+class LogoutRequest;
+}
+namespace apex::shared::schemas {
+class RefreshTokenRequest;
+}
 
 namespace apex::auth_svc {
 
-/// Cached Kafka envelope metadata for the currently dispatching message.
-/// Set in dispatch_envelope() before dispatcher_.dispatch(), read by handlers.
-/// Thread-safe: Kafka consumer callback is single-threaded sequential.
-struct EnvelopeMetadata {
-    uint64_t corr_id = 0;
-    uint16_t core_id = 0;
-    uint64_t session_id = 0;
-    uint64_t user_id = 0;
-    std::string reply_topic;
-};
+namespace envelope = apex::shared::protocols::kafka;
 
 /// Auth Service -- Kafka-based authentication request/response handler.
 ///
+/// ServiceBase<AuthService> 상속으로 Server + kafka_route 패턴 사용.
+/// on_configure()에서 어댑터 참조 획득, on_start()에서 kafka_route 핸들러 등록.
+///
 /// Consumes from `auth.requests` topic, processes login/logout/refresh,
 /// and produces responses to `auth.responses` topic.
-///
-/// Does NOT inherit ServiceBase -- Kafka message-driven, not HTTP session-driven.
-/// Uses MessageDispatcher (O(1) hash map) for msg_id-based dispatch.
-/// Handlers are awaitable coroutines; Kafka callback bridges via co_spawn.
-class AuthService {
+class AuthService : public apex::core::ServiceBase<AuthService> {
 public:
-    explicit AuthService(
-        AuthConfig config,
-        boost::asio::any_io_executor executor,
-        apex::shared::adapters::kafka::KafkaAdapter& kafka,
-        apex::shared::adapters::redis::RedisAdapter& redis,
-        apex::shared::adapters::pg::PgAdapter& pg);
-
+    explicit AuthService(AuthConfig config);
     ~AuthService();
 
-    /// Start service: register handlers to MessageDispatcher, set Kafka callback
-    void start();
+    // ── ServiceBase 라이프사이클 훅 ───────────────────────────────────────
 
-    /// Stop service
-    void stop();
+    /// Phase 1: 어댑터 참조 획득 (Kafka, Redis, PG).
+    void on_configure(apex::core::ConfigureContext& ctx) override;
 
-    [[nodiscard]] std::string_view name() const noexcept { return "auth"; }
+    /// 핸들러 등록 (kafka_route).
+    void on_start() override;
+    void on_stop() override;
 
 private:
-    /// Kafka message receive callback
-    apex::core::Result<void> on_kafka_message(
-        std::string_view topic,
-        int32_t partition,
-        std::span<const uint8_t> key,
-        std::span<const uint8_t> payload,
-        int64_t offset);
+    // ── msg_id 상수 (msg_registry.toml 기반) ─────────────────────────────
+    struct msg_ids {
+        static constexpr uint32_t LOGIN_REQUEST           = 1000;
+        static constexpr uint32_t LOGIN_RESPONSE          = 1001;
+        static constexpr uint32_t LOGOUT_REQUEST          = 1002;
+        static constexpr uint32_t LOGOUT_RESPONSE         = 1003;
+        static constexpr uint32_t REFRESH_TOKEN_REQUEST   = 1004;
+        static constexpr uint32_t REFRESH_TOKEN_RESPONSE  = 1005;
+    };
 
-    /// Parse Kafka Envelope (RoutingHeader + Metadata) and dispatch by msg_id.
-    /// Synchronous — called from Kafka consumer thread.
-    /// Internally co_spawns a coroutine on executor_ for async handler execution.
-    void dispatch_envelope(std::span<const uint8_t> payload);
+    // ── Kafka 핸들러 (MetadataPrefix 기반, kafka_route 시그니처) ──────────
+    // current_meta_ 제거 — 메타데이터가 핸들러 파라미터로 직접 전달됨.
 
-    /// Login request handler (awaitable coroutine).
-    /// Metadata accessed via current_meta_ (set before dispatch).
-    boost::asio::awaitable<apex::core::Result<void>> handle_login(
-        apex::core::SessionPtr session,
+    /// Login 요청 처리.
+    boost::asio::awaitable<apex::core::Result<void>> on_login(
+        const envelope::MetadataPrefix& meta,
         uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+        const apex::auth_svc::schemas::LoginRequest* req);
 
-    /// Logout request handler (awaitable coroutine).
-    /// Metadata accessed via current_meta_ (set before dispatch).
-    boost::asio::awaitable<apex::core::Result<void>> handle_logout(
-        apex::core::SessionPtr session,
+    /// Logout 요청 처리.
+    boost::asio::awaitable<apex::core::Result<void>> on_logout(
+        const envelope::MetadataPrefix& meta,
         uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+        const apex::auth_svc::schemas::LogoutRequest* req);
 
-    /// Refresh Token request handler (awaitable coroutine).
-    /// Metadata accessed via current_meta_ (set before dispatch).
-    boost::asio::awaitable<apex::core::Result<void>> handle_refresh_token(
-        apex::core::SessionPtr session,
+    /// Refresh Token 요청 처리.
+    boost::asio::awaitable<apex::core::Result<void>> on_refresh_token(
+        const envelope::MetadataPrefix& meta,
         uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+        const apex::shared::schemas::RefreshTokenRequest* req);
 
-    /// Build response Kafka Envelope and produce to reply_topic (or fallback).
+    /// Kafka 응답 Envelope 빌드 + produce.
+    /// EnvelopeBuilder를 사용하여 build() (힙 할당 — Auth 서비스에는 bump 컨텍스트 불필요).
     void send_response(uint32_t msg_id,
                        uint64_t corr_id,
                        uint16_t core_id,
@@ -103,18 +96,16 @@ private:
                        const std::string& reply_topic);
 
     AuthConfig config_;
-    apex::core::MessageDispatcher dispatcher_;     ///< O(1) hash map dispatch
-    boost::asio::any_io_executor executor_;        ///< Kafka→coroutine bridge (injected from main)
-    EnvelopeMetadata current_meta_;                ///< Cached metadata for current dispatch (side-channel)
-    apex::shared::adapters::kafka::KafkaAdapter& kafka_;
-    apex::shared::adapters::redis::RedisAdapter& redis_;
-    apex::shared::adapters::pg::PgAdapter& pg_;
 
+    // 어댑터 참조 — on_configure()에서 바인딩
+    apex::shared::adapters::kafka::KafkaAdapter* kafka_{nullptr};
+    apex::shared::adapters::redis::RedisAdapter* redis_{nullptr};
+    apex::shared::adapters::pg::PgAdapter* pg_{nullptr};
+
+    // 비즈니스 로직 컴포넌트
     JwtManager jwt_manager_;
     PasswordHasher password_hasher_;
-    SessionStore session_store_;
-
-    bool started_{false};
+    std::unique_ptr<SessionStore> session_store_;  // Redis 바인딩 후 생성
 };
 
 } // namespace apex::auth_svc
