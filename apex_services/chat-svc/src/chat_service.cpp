@@ -1,17 +1,19 @@
 #include <apex/chat_svc/chat_service.hpp>
 
+#include <apex/core/configure_context.hpp>
 #include <apex/core/core_engine.hpp>
+#include <apex/core/server.hpp>
+#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
+#include <apex/shared/protocols/kafka/envelope_builder.hpp>
 
 // FlatBuffers generated headers
 #include <chat_room_generated.h>
 #include <chat_message_generated.h>
 
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <flatbuffers/flatbuffers.h>
 #include <spdlog/spdlog.h>
 
@@ -39,103 +41,49 @@ uint64_t safe_parse_u64(std::string_view sv, std::string_view context = "") noex
 }
 
 } // anonymous namespace
+
 // ============================================================
 // Construction / Lifecycle
 // ============================================================
 
-ChatService::ChatService(
-    Config config,
-    boost::asio::any_io_executor executor,
-    apex::shared::adapters::kafka::KafkaAdapter& kafka,
-    apex::shared::adapters::redis::RedisAdapter& redis_data,
-    apex::shared::adapters::redis::RedisAdapter& redis_pubsub,
-    apex::shared::adapters::pg::PgAdapter& pg)
-    : config_(std::move(config))
-    , executor_(std::move(executor))
-    , kafka_(kafka)
-    , redis_data_(redis_data)
-    , redis_pubsub_(redis_pubsub)
-    , pg_(pg)
+ChatService::ChatService(Config config)
+    : ServiceBase("chat")
+    , config_(std::move(config))
 {}
 
-ChatService::~ChatService() {
-    if (started_) {
-        stop();
-    }
+void ChatService::on_configure(apex::core::ConfigureContext& ctx) {
+    // Phase 1: 어댑터 참조 취득
+    kafka_ = &ctx.server.adapter<apex::shared::adapters::kafka::KafkaAdapter>();
+    redis_data_ = &ctx.server.adapter<apex::shared::adapters::redis::RedisAdapter>("data");
+    redis_pubsub_ = &ctx.server.adapter<apex::shared::adapters::redis::RedisAdapter>("pubsub");
+    pg_ = &ctx.server.adapter<apex::shared::adapters::pg::PgAdapter>();
+
+    spdlog::info("[ChatService] on_configure: adapters acquired (core {})", ctx.core_id);
 }
 
-void ChatService::start() {
-    spdlog::info("[ChatService] Starting...");
+void ChatService::on_start() {
+    spdlog::info("[ChatService] on_start: registering kafka_routes...");
 
-    // Register actual handlers to MessageDispatcher (O(1) hash map).
-    // Handlers access Kafka envelope metadata via this->current_meta_
-    // (set in dispatch_envelope() before dispatcher_.dispatch()).
-    dispatcher_.register_handler(msg_ids::CREATE_ROOM_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_create_room(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::JOIN_ROOM_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_join_room(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::LEAVE_ROOM_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_leave_room(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::LIST_ROOMS_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_list_rooms(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::SEND_MESSAGE_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_send_message(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::WHISPER_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_whisper(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::CHAT_HISTORY_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_chat_history(std::move(session), msg_id, payload);
-        });
-    dispatcher_.register_handler(msg_ids::GLOBAL_BROADCAST_REQUEST,
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<apex::core::Result<void>> {
-            co_return co_await handle_global_broadcast(std::move(session), msg_id, payload);
-        });
+    // 7개 kafka_route 등록 (+ 1개 global_broadcast = 8)
+    kafka_route<fbs::CreateRoomRequest>(
+        msg_ids::CREATE_ROOM_REQUEST, &ChatService::on_create_room);
+    kafka_route<fbs::JoinRoomRequest>(
+        msg_ids::JOIN_ROOM_REQUEST, &ChatService::on_join_room);
+    kafka_route<fbs::LeaveRoomRequest>(
+        msg_ids::LEAVE_ROOM_REQUEST, &ChatService::on_leave_room);
+    kafka_route<fbs::ListRoomsRequest>(
+        msg_ids::LIST_ROOMS_REQUEST, &ChatService::on_list_rooms);
+    kafka_route<fbs::SendMessageRequest>(
+        msg_ids::SEND_MESSAGE_REQUEST, &ChatService::on_send_message);
+    kafka_route<fbs::WhisperRequest>(
+        msg_ids::WHISPER_REQUEST, &ChatService::on_whisper);
+    kafka_route<fbs::ChatHistoryRequest>(
+        msg_ids::CHAT_HISTORY_REQUEST, &ChatService::on_chat_history);
+    kafka_route<fbs::GlobalBroadcastRequest>(
+        msg_ids::GLOBAL_BROADCAST_REQUEST, &ChatService::on_global_broadcast);
 
-    // Register Kafka consumer callback
-    kafka_.set_message_callback(
-        [this](std::string_view topic, int32_t partition,
-               std::span<const uint8_t> key,
-               std::span<const uint8_t> payload,
-               int64_t offset) -> apex::core::Result<void> {
-            return on_kafka_message(topic, partition, key, payload, offset);
-        });
-
-    started_ = true;
-    spdlog::info("[ChatService] Started. {} handlers registered. Consuming from: {}",
-                 dispatcher_.handler_count(), config_.request_topic);
-}
-
-void ChatService::stop() {
-    spdlog::info("[ChatService] Stopping...");
-    started_ = false;
+    spdlog::info("[ChatService] Started. 8 kafka_routes registered. Consuming from: {}",
+                 config_.request_topic);
 }
 
 // ============================================================
@@ -170,23 +118,11 @@ void ChatService::send_response_with_flags(
     std::span<const uint8_t> fbs_payload,
     const std::string& reply_topic)
 {
-    // Build RoutingHeader
-    envelope::RoutingHeader routing;
-    routing.header_version = envelope::RoutingHeader::CURRENT_VERSION;
-    routing.flags = flags;
-    routing.msg_id = msg_id;
-
-    // Build MetadataPrefix
-    envelope::MetadataPrefix metadata;
-    metadata.meta_version = envelope::MetadataPrefix::CURRENT_VERSION;
-    metadata.core_id    = core_id;
-    metadata.corr_id    = corr_id;
-    metadata.source_id  = envelope::source_ids::CHAT;  // 2
-    metadata.session_id = session_id;
-    metadata.timestamp  = current_timestamp_ms();
-
-    // 응답에는 reply_topic 불포함 — 빈 문자열로 build_full_envelope 호출
-    auto envelope_buf = envelope::build_full_envelope(routing, metadata, "", fbs_payload);
+    auto envelope_buf = envelope::EnvelopeBuilder{}
+        .routing(msg_id, flags)
+        .metadata(core_id, corr_id, envelope::source_ids::CHAT, session_id, 0)
+        .payload(fbs_payload)
+        .build();
 
     // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
     const auto& target_topic = reply_topic.empty()
@@ -194,7 +130,7 @@ void ChatService::send_response_with_flags(
 
     // Use session_id as Kafka key (design doc section 7.1)
     auto key = std::to_string(session_id);
-    auto result = kafka_.produce(
+    auto result = kafka_->produce(
         target_topic,
         key,
         std::span<const uint8_t>(envelope_buf));
@@ -225,119 +161,15 @@ std::vector<uint8_t> ChatService::build_pubsub_payload(
 }
 
 // ============================================================
-// Kafka Message Dispatch
+// Room Management Handlers
 // ============================================================
 
-apex::core::Result<void> ChatService::on_kafka_message(
-    std::string_view topic,
-    int32_t /*partition*/,
-    std::span<const uint8_t> /*key*/,
-    std::span<const uint8_t> payload,
-    int64_t /*offset*/)
-{
-    if (topic != config_.request_topic) {
-        return apex::core::ok();  // Ignore other topics
-    }
-
-    dispatch_envelope(payload);
-    return apex::core::ok();
-}
-
-void ChatService::dispatch_envelope(std::span<const uint8_t> payload) {
-    if (payload.size() < envelope::ENVELOPE_HEADER_SIZE) {
-        spdlog::error("[ChatService] Envelope too small: {} bytes", payload.size());
-        return;
-    }
-
-    // Parse RoutingHeader (8B)
-    auto routing_result = envelope::RoutingHeader::parse(payload);
-    if (!routing_result.has_value()) {
-        spdlog::error("[ChatService] Failed to parse RoutingHeader");
-        return;
-    }
-
-    // Parse MetadataPrefix (40B) starting at offset 8
-    auto meta_result = envelope::MetadataPrefix::parse(
-        payload.subspan(envelope::RoutingHeader::SIZE));
-    if (!meta_result.has_value()) {
-        spdlog::error("[ChatService] Failed to parse MetadataPrefix");
-        return;
-    }
-
-    auto& routing = *routing_result;
-    auto& metadata = *meta_result;
-
-    // Check if handler exists (O(1) lookup via MessageDispatcher)
-    if (!dispatcher_.has_handler(routing.msg_id)) {
-        spdlog::warn("[ChatService] Unknown msg_id: {}", routing.msg_id);
-        return;
-    }
-
-    // Extract reply_topic (Reply-To 헤더 패턴)
-    auto reply_topic = envelope::extract_reply_topic(routing.flags, payload);
-
-    // FlatBuffers payload — reply_topic 존재 시 오프셋이 달라짐
-    auto payload_offset = envelope::envelope_payload_offset(routing.flags, payload);
-    auto fbs_payload = payload.subspan(payload_offset);
-
-    // Build metadata locally for value capture into co_spawn lambda.
-    // current_meta_ is NOT set here — each coroutine owns its own copy
-    // to prevent data races when multiple coroutines are in flight.
-    EnvelopeMetadata meta;
-    meta.corr_id = metadata.corr_id;
-    meta.core_id = metadata.core_id;
-    meta.session_id = metadata.session_id;
-    meta.user_id = metadata.user_id;
-    meta.reply_topic = std::move(reply_topic);
-
-    // Copy payload for coroutine lifetime safety.
-    // Kafka callback's payload span is only valid during this synchronous call.
-    // The coroutine may outlive the Kafka callback, so we must own the data.
-    auto fbs_data = std::vector<uint8_t>(fbs_payload.begin(), fbs_payload.end());
-    auto msg_id = routing.msg_id;
-
-    // Kafka callback is synchronous — bridge to coroutine via co_spawn.
-    // Metadata is value-captured (moved) into the lambda to avoid data races.
-    // Each coroutine sets current_meta_ at its start for handler access.
-    boost::asio::co_spawn(executor_,
-        [this, msg_id, fbs_data = std::move(fbs_data),
-         meta = std::move(meta)]() mutable
-            -> boost::asio::awaitable<void> {
-            current_meta_ = std::move(meta);
-            auto payload_span = std::span<const uint8_t>(fbs_data);
-            co_await dispatcher_.dispatch(nullptr, msg_id, payload_span);
-        },
-        boost::asio::detached);
-}
-
-// ============================================================
-// Room Management Handlers (Task 3)
-// ============================================================
-
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::CreateRoomRequest* req)
 {
-    auto meta = current_meta_;
-
-    // 1. FlatBuffers verify + parse
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::CreateRoomRequest>()) {
-        spdlog::error("[ChatService] CreateRoomRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateCreateRoomResponse(fbb,
-            fbs::ChatRoomError_ROOM_NAME_EMPTY);
-        fbb.Finish(resp);
-        send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::CreateRoomRequest>(fbs_payload.data());
-
-    // 2. Input validation
+    // 1. Input validation
     auto room_name = req->room_name();
     if (!room_name || room_name->size() == 0) {
         flatbuffers::FlatBufferBuilder fbb(128);
@@ -346,7 +178,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
     if (room_name->size() > 100) {
@@ -356,7 +188,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -364,16 +196,16 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
     auto max_members = req->max_members() > 0 ? req->max_members() : config_.max_room_members;
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_create_room (name: {}, max: {}, corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_create_room (name: {}, max: {}, corr_id: {}, session: {})",
                  room_name_str, max_members, meta.corr_id, meta.session_id);
 
-    // 1. PG INSERT — create room record
+    // 2. PG INSERT -- create room record
     std::array<std::string, 3> insert_params = {
         room_name_str,
         std::to_string(max_members),
         std::to_string(user_id)
     };
-    auto pg_result = co_await pg_.query(
+    auto pg_result = co_await pg_->query(
         "INSERT INTO chat_svc.chat_rooms (room_name, max_members, owner_id) "
         "VALUES ($1, $2::int, $3::bigint) RETURNING room_id",
         insert_params);
@@ -388,24 +220,24 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
         fbb.Finish(resp);
         send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
     auto room_id = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
 
-    // 2. Redis SADD — add owner as first member
+    // 3. Redis SADD -- add owner as first member
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
     auto user_id_str = std::to_string(user_id);
-    auto redis_result = co_await redis_data_.multiplexer(core_id).command(
+    auto redis_result = co_await redis_data_->multiplexer(core_id).command(
         "SADD %s %s", members_key.c_str(), user_id_str.c_str());
     if (!redis_result.has_value()) {
         spdlog::warn("[ChatService] Redis SADD members failed for room {}", room_id);
         // Non-fatal: room created in PG, membership will be eventually consistent
     }
 
-    // 3. Send CreateRoomResponse with actual room_id
+    // 4. Send CreateRoomResponse with actual room_id
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name_off = fbb.CreateString(room_name_str);
     auto resp = fbs::CreateCreateRoomResponse(fbb,
@@ -415,35 +247,19 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
     fbb.Finish(resp);
     send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::JoinRoomRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::JoinRoomRequest>()) {
-        spdlog::error("[ChatService] JoinRoomRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateJoinRoomResponse(fbb,
-            fbs::ChatRoomError_ROOM_NOT_FOUND);
-        fbb.Finish(resp);
-        send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::JoinRoomRequest>(fbs_payload.data());
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_join_room (room: {}, corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_join_room (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
@@ -452,7 +268,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
 
     // 1. Check room existence in PG
     std::array<std::string, 1> room_params = {std::to_string(room_id)};
-    auto room_result = co_await pg_.query(
+    auto room_result = co_await pg_->query(
         "SELECT room_name, max_members FROM chat_svc.chat_rooms "
         "WHERE room_id = $1::bigint AND is_active = true",
         room_params);
@@ -465,7 +281,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
         fbb.Finish(resp);
         send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -473,8 +289,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
     auto max_members = static_cast<uint32_t>(
         safe_parse_u64(room_result->value(0, 1), "join_room.max_members"));
 
-    // 2. SISMEMBER — already in room?
-    auto is_member = co_await redis_data_.multiplexer(core_id).command(
+    // 2. SISMEMBER -- already in room?
+    auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (is_member.has_value() && is_member->integer == 1) {
         flatbuffers::FlatBufferBuilder fbb(128);
@@ -483,12 +299,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
         fbb.Finish(resp);
         send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
-    // 3. SCARD — room full?
-    auto card_result = co_await redis_data_.multiplexer(core_id).command(
+    // 3. SCARD -- room full?
+    auto card_result = co_await redis_data_->multiplexer(core_id).command(
         "SCARD %s", members_key.c_str());
     if (card_result.has_value() &&
         static_cast<uint32_t>(card_result->integer) >= max_members) {
@@ -498,19 +314,19 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
         fbb.Finish(resp);
         send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
-    // 4. SADD — add member
-    auto sadd_result = co_await redis_data_.multiplexer(core_id).command(
+    // 4. SADD -- add member
+    auto sadd_result = co_await redis_data_->multiplexer(core_id).command(
         "SADD %s %s", members_key.c_str(), user_id_str.c_str());
     if (!sadd_result.has_value()) {
         spdlog::warn("[ChatService] Redis SADD failed for room {}", room_id);
     }
 
     // 5. Get updated member count
-    auto new_card = co_await redis_data_.multiplexer(core_id).command(
+    auto new_card = co_await redis_data_->multiplexer(core_id).command(
         "SCARD %s", members_key.c_str());
     auto member_count = static_cast<uint32_t>(
         new_card.has_value() ? new_card->integer : 0);
@@ -526,43 +342,27 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_join_room(
     fbb.Finish(resp);
     send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_leave_room(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::LeaveRoomRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::LeaveRoomRequest>()) {
-        spdlog::error("[ChatService] LeaveRoomRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateLeaveRoomResponse(fbb,
-            fbs::ChatRoomError_ROOM_NOT_FOUND);
-        fbb.Finish(resp);
-        send_response(msg_ids::LEAVE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::LeaveRoomRequest>(fbs_payload.data());
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_leave_room (room: {}, corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_leave_room (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
     auto user_id_str = std::to_string(user_id);
 
-    // 1. SISMEMBER — check if user is in the room
-    auto is_member = co_await redis_data_.multiplexer(core_id).command(
+    // 1. SISMEMBER -- check if user is in the room
+    auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
         flatbuffers::FlatBufferBuilder fbb(128);
@@ -571,12 +371,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_leave_room(
         fbb.Finish(resp);
         send_response(msg_ids::LEAVE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
-    // 2. SREM — remove member
-    auto srem_result = co_await redis_data_.multiplexer(core_id).command(
+    // 2. SREM -- remove member
+    auto srem_result = co_await redis_data_->multiplexer(core_id).command(
         "SREM %s %s", members_key.c_str(), user_id_str.c_str());
     if (!srem_result.has_value()) {
         spdlog::warn("[ChatService] Redis SREM failed for room {}", room_id);
@@ -590,39 +390,23 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_leave_room(
     fbb.Finish(resp);
     send_response(msg_ids::LEAVE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::ListRoomsRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::ListRoomsRequest>()) {
-        spdlog::error("[ChatService] ListRoomsRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateListRoomsResponse(fbb,
-            fbs::ChatRoomError_ROOM_NOT_FOUND);
-        fbb.Finish(resp);
-        send_response(msg_ids::LIST_ROOMS_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::ListRoomsRequest>(fbs_payload.data());
     auto offset = req->offset();
     auto limit  = std::min(req->limit(), 100u);
 
-    spdlog::info("[ChatService] handle_list_rooms (offset: {}, limit: {}, corr_id: {})",
+    spdlog::info("[ChatService] on_list_rooms (offset: {}, limit: {}, corr_id: {})",
                  offset, limit, meta.corr_id);
 
     // 1. PG: Get total count
-    auto count_result = co_await pg_.query(
+    auto count_result = co_await pg_->query(
         "SELECT COUNT(*) FROM chat_svc.chat_rooms WHERE is_active = true");
 
     uint32_t total_count = 0;
@@ -636,7 +420,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
         std::to_string(limit),
         std::to_string(offset)
     };
-    auto rooms_result = co_await pg_.query(
+    auto rooms_result = co_await pg_->query(
         "SELECT room_id, room_name, max_members, owner_id "
         "FROM chat_svc.chat_rooms WHERE is_active = true "
         "ORDER BY room_id ASC LIMIT $1::int OFFSET $2::int",
@@ -651,7 +435,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
         fbb.Finish(resp);
         send_response(msg_ids::LIST_ROOMS_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -673,7 +457,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
         // Redis SCARD for real-time member count
         auto members_key = std::format("chat:room:{}:members", rid);
         uint32_t member_count = 0;
-        auto scard = co_await redis_data_.multiplexer(core_id).command(
+        auto scard = co_await redis_data_->multiplexer(core_id).command(
             "SCARD %s", members_key.c_str());
         if (scard.has_value()) {
             member_count = static_cast<uint32_t>(scard->integer);
@@ -692,35 +476,19 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_list_rooms(
     fbb.Finish(resp);
     send_response(msg_ids::LIST_ROOMS_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
 // ============================================================
-// Message Send + Redis Pub/Sub Broadcast (Task 4)
+// Message Send + Redis Pub/Sub Broadcast
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_message(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::SendMessageRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::SendMessageRequest>()) {
-        spdlog::error("[ChatService] SendMessageRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateSendMessageResponse(fbb,
-            fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::SendMessageRequest>(fbs_payload.data());
     auto room_id = req->room_id();
     auto content = req->content();
 
@@ -732,7 +500,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
         fbb.Finish(resp);
         send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
     if (content->size() > config_.max_message_length) {
@@ -742,7 +510,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
         fbb.Finish(resp);
         send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -750,15 +518,15 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
     auto timestamp = current_timestamp_ms();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_send_message (room: {}, corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_send_message (room: {}, corr_id: {}, session: {})",
                  room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
     auto user_id_str = std::to_string(user_id);
 
-    // 1. SISMEMBER — membership check
-    auto is_member = co_await redis_data_.multiplexer(core_id).command(
+    // 2. SISMEMBER -- membership check
+    auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
         flatbuffers::FlatBufferBuilder fbb(128);
@@ -767,11 +535,11 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
         fbb.Finish(resp);
         send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
-    // 2. Redis PUBLISH — real-time broadcast via pub/sub
+    // 3. Redis PUBLISH -- real-time broadcast via pub/sub
     auto channel = std::format("pub:chat:room:{}", room_id);
     {
         flatbuffers::FlatBufferBuilder fbb_pub(512);
@@ -785,7 +553,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
 
         auto pub_payload = build_pubsub_payload(msg_ids::CHAT_MESSAGE,
             {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
-        auto pub_result = co_await redis_pubsub_.multiplexer(core_id).command(
+        auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", channel.c_str(),
             reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));
@@ -794,7 +562,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
         }
     }
 
-    // 3. Kafka produce to persist topic for async DB storage
+    // 4. Kafka produce to persist topic for async DB storage
     {
         flatbuffers::FlatBufferBuilder fbb_db(512);
         auto sender_off  = fbb_db.CreateString(user_id_str);
@@ -804,47 +572,31 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_send_messag
             0, timestamp, 0);
         fbb_db.Finish(db_msg);
 
-        kafka_.produce(config_.persist_topic,
+        kafka_->produce(config_.persist_topic,
             std::to_string(room_id),
             std::span<const uint8_t>(fbb_db.GetBufferPointer(), fbb_db.GetSize()));
     }
 
-    // 4. Sender confirmation
+    // 5. Sender confirmation
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateSendMessageResponse(fbb,
         fbs::ChatMessageError_NONE, 0, timestamp);
     fbb.Finish(resp);
     send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
 // ============================================================
-// Whisper (Task 5)
+// Whisper
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_whisper(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::WhisperRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::WhisperRequest>()) {
-        spdlog::error("[ChatService] WhisperRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateWhisperResponse(fbb,
-            fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::WhisperRequest>(fbs_payload.data());
     auto target_user_id = req->target_user_id();
     auto content = req->content();
 
@@ -856,7 +608,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
         fbb.Finish(resp);
         send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
     if (content->size() > config_.max_message_length) {
@@ -866,7 +618,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
         fbb.Finish(resp);
         send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -874,14 +626,14 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
     auto timestamp = current_timestamp_ms();
     auto sender_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_whisper (target: {}, corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_whisper (target: {}, corr_id: {}, session: {})",
                  target_user_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
-    // 1. Redis GET — lookup target user's session_id for online check
+    // 2. Redis GET -- lookup target user's session_id for online check
     auto session_key = std::format("session:user:{}", target_user_id);
-    auto session_result = co_await redis_data_.multiplexer(core_id).command(
+    auto session_result = co_await redis_data_->multiplexer(core_id).command(
         "GET %s", session_key.c_str());
 
     if (!session_result.has_value() || session_result->is_nil()) {
@@ -892,14 +644,14 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
         fbb.Finish(resp);
         send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
     // Parse target session_id from Redis value
     auto target_session_id = safe_parse_u64(session_result->str, "whisper.target_session_id");
 
-    // 2. Build WhisperMessage FBS and send to target via Kafka unicast
+    // 3. Build WhisperMessage FBS and send to target via Kafka unicast
     {
         flatbuffers::FlatBufferBuilder fbb_msg(512);
         auto sender_name_off = fbb_msg.CreateString(std::to_string(sender_id));
@@ -913,62 +665,46 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_whisper(
             envelope::routing_flags::DIRECTION_RESPONSE |
             envelope::routing_flags::DELIVERY_UNICAST,
             0 /* corr_id=0 for push */,
-            0 /* core_id=0 — Gateway routes by session_id */,
+            0 /* core_id=0 -- Gateway routes by session_id */,
             target_session_id,
             {fbb_msg.GetBufferPointer(), fbb_msg.GetSize()},
-            meta.reply_topic);
+            "");
     }
 
-    // 3. Sender confirmation
+    // 4. Sender confirmation
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateWhisperResponse(fbb,
         fbs::ChatMessageError_NONE, timestamp);
     fbb.Finish(resp);
     send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
 // ============================================================
-// Chat History (Task 6)
+// Chat History
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_history(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::ChatHistoryRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::ChatHistoryRequest>()) {
-        spdlog::error("[ChatService] ChatHistoryRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateChatHistoryResponse(fbb,
-            fbs::ChatMessageError_NOT_IN_ROOM);
-        fbb.Finish(resp);
-        send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::ChatHistoryRequest>(fbs_payload.data());
     auto room_id = req->room_id();
     auto before_message_id = req->before_message_id();
     auto limit = std::min(req->limit(), static_cast<uint32_t>(config_.history_page_size));
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_chat_history (room: {}, before: {}, limit: {}, corr_id: {})",
+    spdlog::info("[ChatService] on_chat_history (room: {}, before: {}, limit: {}, corr_id: {})",
                  room_id, before_message_id, limit, meta.corr_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
-    // 1. SISMEMBER — membership check
+    // 1. SISMEMBER -- membership check
     auto members_key = std::format("chat:room:{}:members", room_id);
     auto user_id_str = std::to_string(user_id);
-    auto is_member = co_await redis_data_.multiplexer(core_id).command(
+    auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
         flatbuffers::FlatBufferBuilder fbb(128);
@@ -977,11 +713,11 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
         fbb.Finish(resp);
         send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
-    // 2. PG query — cursor-based paging with LIMIT N+1 for has_more detection
+    // 2. PG query -- cursor-based paging with LIMIT N+1 for has_more detection
     auto fetch_limit = limit + 1;  // fetch one extra to detect has_more
 
     apex::core::Result<apex::shared::adapters::pg::PgResult> msg_result =
@@ -992,7 +728,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
             std::to_string(room_id),
             std::to_string(fetch_limit)
         };
-        msg_result = co_await pg_.query(
+        msg_result = co_await pg_->query(
             "SELECT message_id, sender_id, sender_name, content, "
             "EXTRACT(EPOCH FROM created_at)::bigint * 1000 AS ts "
             "FROM chat_svc.chat_messages WHERE room_id = $1::bigint "
@@ -1005,7 +741,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
             std::to_string(before_message_id),
             std::to_string(fetch_limit)
         };
-        msg_result = co_await pg_.query(
+        msg_result = co_await pg_->query(
             "SELECT message_id, sender_id, sender_name, content, "
             "EXTRACT(EPOCH FROM created_at)::bigint * 1000 AS ts "
             "FROM chat_svc.chat_messages WHERE room_id = $1::bigint AND message_id < $2::bigint "
@@ -1022,7 +758,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
         fbb.Finish(resp);
         send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -1056,35 +792,19 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_chat_histor
     fbb.Finish(resp);
     send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 
 // ============================================================
-// Global Broadcast (Task 7)
+// Global Broadcast
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broadcast(
-    apex::core::SessionPtr /*session*/,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_global_broadcast(
+    const envelope::MetadataPrefix& meta,
     uint32_t /*msg_id*/,
-    std::span<const uint8_t> fbs_payload)
+    const fbs::GlobalBroadcastRequest* req)
 {
-    auto meta = current_meta_;
-
-    flatbuffers::Verifier verifier(fbs_payload.data(), fbs_payload.size());
-    if (!verifier.VerifyBuffer<fbs::GlobalBroadcastRequest>()) {
-        spdlog::error("[ChatService] GlobalBroadcastRequest verification failed");
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateGlobalBroadcastResponse(fbb,
-            fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
-        co_return apex::core::ok();
-    }
-
-    auto* req = flatbuffers::GetRoot<fbs::GlobalBroadcastRequest>(fbs_payload.data());
     auto content = req->content();
 
     // 1. Input validation
@@ -1095,7 +815,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
         fbb.Finish(resp);
         send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
                       meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
         co_return apex::core::ok();
     }
 
@@ -1103,13 +823,10 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
     auto timestamp = current_timestamp_ms();
     auto sender_id = meta.user_id;
 
-    spdlog::info("[ChatService] handle_global_broadcast (corr_id: {}, session: {})",
+    spdlog::info("[ChatService] on_global_broadcast (corr_id: {}, session: {})",
                  meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
-
-    // 1. Permission check — all authenticated users allowed for now (Wave 2 demo)
-    //    Future: admin role check via Redis/PG
 
     // 2. Build GlobalChatMessage FBS
     auto global_channel = std::string("pub:global:chat");
@@ -1125,7 +842,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
         // 3. Redis PUBLISH to global channel
         auto pub_payload = build_pubsub_payload(msg_ids::GLOBAL_CHAT_MESSAGE,
             {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
-        auto pub_result = co_await redis_pubsub_.multiplexer(core_id).command(
+        auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", global_channel.c_str(),
             reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));
@@ -1141,7 +858,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_global_broa
     fbb.Finish(resp);
     send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
-                  {fbb.GetBufferPointer(), fbb.GetSize()}, meta.reply_topic);
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 

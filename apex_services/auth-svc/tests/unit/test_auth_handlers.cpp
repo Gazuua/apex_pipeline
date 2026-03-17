@@ -13,8 +13,9 @@ namespace envelope = apex::shared::protocols::kafka;
 // ============================================================
 // AuthService 핸들러 단위 테스트 — Mock Kafka로 Envelope dispatch 검증.
 //
-// AuthService는 KafkaAdapter/RedisAdapter/PgAdapter 참조를 필요로 하므로,
-// 직접 인스턴스화 대신 dispatch_envelope이 사용하는 핵심 로직을 개별 검증:
+// AuthService는 Server + ServiceBase 패턴으로 동작하며,
+// on_configure()에서 어댑터 참조, on_start()에서 kafka_route 핸들러를 등록한다.
+// 직접 인스턴스화 대신 핵심 로직을 개별 검증:
 // 1. Kafka Envelope 파싱 + msg_id dispatch
 // 2. Mock Kafka produce 기록으로 응답 메시지 검증
 // 3. msg_id 상수 정합성
@@ -22,14 +23,14 @@ namespace envelope = apex::shared::protocols::kafka;
 
 namespace {
 
-// Auth msg_id constants (mirrored from auth_service.cpp)
+// Auth msg_id constants (mirrored from auth_service.hpp msg_ids)
 namespace msg_ids {
     constexpr uint32_t LOGIN_REQUEST = 1000;
     constexpr uint32_t LOGIN_RESPONSE = 1001;
     constexpr uint32_t LOGOUT_REQUEST = 1002;
     constexpr uint32_t LOGOUT_RESPONSE = 1003;
-    constexpr uint32_t REFRESH_TOKEN_REQUEST = 10;
-    constexpr uint32_t REFRESH_TOKEN_RESPONSE = 11;
+    constexpr uint32_t REFRESH_TOKEN_REQUEST = 1004;
+    constexpr uint32_t REFRESH_TOKEN_RESPONSE = 1005;
 } // namespace msg_ids
 
 /// Envelope 빌드 헬퍼 — RoutingHeader + MetadataPrefix + payload.
@@ -74,8 +75,8 @@ TEST(AuthHandlersTest, MsgIdConstants) {
     EXPECT_EQ(msg_ids::LOGIN_RESPONSE, 1001u);
     EXPECT_EQ(msg_ids::LOGOUT_REQUEST, 1002u);
     EXPECT_EQ(msg_ids::LOGOUT_RESPONSE, 1003u);
-    EXPECT_EQ(msg_ids::REFRESH_TOKEN_REQUEST, 10u);
-    EXPECT_EQ(msg_ids::REFRESH_TOKEN_RESPONSE, 11u);
+    EXPECT_EQ(msg_ids::REFRESH_TOKEN_REQUEST, 1004u);
+    EXPECT_EQ(msg_ids::REFRESH_TOKEN_RESPONSE, 1005u);
 }
 
 // --- Envelope 파싱 ---

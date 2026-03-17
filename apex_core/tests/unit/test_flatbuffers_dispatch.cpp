@@ -70,10 +70,10 @@ TEST(FlatBuffersDispatch, RouteInvalidFlatBuffer) {
     svc->start();
 
     std::vector<uint8_t> garbage = {0xFF, 0xFF, 0xFF};
+    // session=nullptr이므로 error frame 전송은 건너뛰고 ok() 반환
     auto result = run_coro(io_ctx, svc->dispatcher().dispatch(nullptr, 0x0010, garbage));
-    // route()가 검증 실패 시 ErrorCode::FlatBuffersVerifyFailed 반환
-    EXPECT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ErrorCode::FlatBuffersVerifyFailed);
+    // route()가 검증 실패 시 error frame 자동 전송 후 ok() 반환
+    EXPECT_TRUE(result.has_value());
 
     EXPECT_EQ(svc->call_count, 0);
 }

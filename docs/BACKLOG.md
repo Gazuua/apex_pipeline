@@ -5,16 +5,6 @@
 
 ---
 
-## In Progress
-
-### [In Progress] E2E 테스트 나머지 5/11건 수정
-- **PR**: #35 (`feature/e2e-infra-fix`), CI 통과, 머지 대기
-- **현재**: 6/11 통과 (Auth Login/Unauth, RateLimit 3종, Timeout)
-- **남은 5건**: PubSubListener 즉시 구독(Chat 2건), JWT TTL 조정(RefreshToken), Chat ListRooms DB 디버깅, 스트림 잔여 응답 flush(TimeoutRecovery)
-- **상세**: `docs/apex_common/progress/20260317_092715_e2e-infra-progress.md` §실패 5건 참조
-
----
-
 ## Critical
 
 ### [Critical] C-1. apex_core 프레임워크 내부 아키텍처 문서 + 구조도
@@ -30,6 +20,13 @@
   - 서비스 구현 시 필수 체크리스트 (서비스 스캐폴딩 기반)
 - **후속**: 이 문서를 기반으로 서비스 스캐폴딩 스크립트(v1.0 로드맵) 자동 생성 가능
 - **배치**: v0.6 착수 전 최우선
+
+---
+
+### [Important] I-19. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
+- **상태**: 미구현
+- **설명**: 서비스 프로세스가 assertion 실패로 크래시할 때 디버깅이 어려움. SIGABRT/SIGILL 시그널 핸들러를 등록하여 assertion 실패 위치(__FUNCTION__, __LINE__)를 spdlog로 출력하거나, custom assert 매크로로 대체하여 크래시 전 로그 남기기. Windows에서는 SetUnhandledExceptionFilter 활용
+- **배치**: v0.6 선행 (디버깅 인프라)
 
 ---
 

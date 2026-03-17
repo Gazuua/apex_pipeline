@@ -1,24 +1,35 @@
 #include <apex/chat_svc/chat_service.hpp>
 
+#include <apex/core/server.hpp>
+#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
-#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
+#include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
+#include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
-
-#include <apex/core/core_engine.hpp>
+#include <apex/shared/adapters/pg/pg_config.hpp>
+#include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/signal_set.hpp>
 #include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <thread>
 
 namespace {
+
+/// TOML 설정 파싱 결과
+struct ParsedConfig {
+    apex::chat_svc::ChatService::Config chat;
+    apex::shared::adapters::kafka::KafkaConfig kafka;
+    apex::shared::adapters::redis::RedisConfig redis_data;
+    apex::shared::adapters::redis::RedisConfig redis_pubsub;
+    apex::shared::adapters::pg::PgAdapterConfig pg;
+};
 
 /// Resolve config file path: CLI arg or default "chat_svc.toml" next to executable.
 std::string resolve_config_path(int argc, char* argv[]) {
@@ -37,153 +48,175 @@ std::string resolve_config_path(int argc, char* argv[]) {
     return "chat_svc.toml";
 }
 
+ParsedConfig parse_config(const std::string& path) {
+    auto tbl = toml::parse_file(path);
+    ParsedConfig cfg;
+
+    // [chat]
+    if (auto chat = tbl["chat"]; chat) {
+        cfg.chat.request_topic      = chat["request_topic"]
+            .value_or(std::string{"chat.requests"});
+        cfg.chat.response_topic     = chat["response_topic"]
+            .value_or(std::string{"chat.responses"});
+        cfg.chat.persist_topic      = chat["persist_topic"]
+            .value_or(std::string{"chat.messages.persist"});
+        cfg.chat.max_room_members   = static_cast<uint32_t>(
+            chat["max_room_members"].value_or(int64_t{100}));
+        cfg.chat.max_message_length = static_cast<uint32_t>(
+            chat["max_message_length"].value_or(int64_t{2000}));
+        cfg.chat.history_page_size  = static_cast<uint32_t>(
+            chat["history_page_size"].value_or(int64_t{50}));
+    }
+
+    // [kafka]
+    if (auto kafka = tbl["kafka"]; kafka) {
+        cfg.kafka.brokers        = kafka["brokers"]
+            .value_or(std::string{"localhost:9092"});
+        cfg.kafka.consumer_group = kafka["consumer_group"]
+            .value_or(std::string{"chat-svc"});
+    }
+    // Ensure request topic is in consume_topics
+    cfg.kafka.consume_topics = {cfg.chat.request_topic};
+
+    // [redis_data] -- Redis for room membership/online status
+    if (auto redis_data = tbl["redis_data"]; redis_data) {
+        cfg.redis_data.host     = redis_data["host"]
+            .value_or(std::string{"localhost"});
+        cfg.redis_data.port     = static_cast<uint16_t>(
+            redis_data["port"].value_or(int64_t{6379}));
+        cfg.redis_data.db       = static_cast<uint32_t>(
+            redis_data["db"].value_or(int64_t{0}));
+        cfg.redis_data.password = redis_data["password"]
+            .value_or(std::string{});
+    }
+
+    // [redis_pubsub] -- Redis for pub/sub broadcast
+    if (auto redis_pubsub = tbl["redis_pubsub"]; redis_pubsub) {
+        cfg.redis_pubsub.host     = redis_pubsub["host"]
+            .value_or(std::string{"localhost"});
+        cfg.redis_pubsub.port     = static_cast<uint16_t>(
+            redis_pubsub["port"].value_or(int64_t{6379}));
+        cfg.redis_pubsub.db       = static_cast<uint32_t>(
+            redis_pubsub["db"].value_or(int64_t{0}));
+        cfg.redis_pubsub.password = redis_pubsub["password"]
+            .value_or(std::string{});
+    }
+
+    // [pg]
+    if (auto pg = tbl["pg"]; pg) {
+        cfg.pg.connection_string  = pg["connection_string"]
+            .value_or(std::string{"host=localhost port=6432 dbname=apex user=apex"});
+        cfg.pg.pool_size_per_core = static_cast<size_t>(
+            pg["pool_size_per_core"].value_or(int64_t{2}));
+    }
+
+    return cfg;
+}
+
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
     spdlog::info("Chat Service starting...");
 
-    // ----------------------------------------------------------------
-    // 1. TOML config loading
-    // ----------------------------------------------------------------
+    // --- 1. Config parsing ---
     auto config_path = resolve_config_path(argc, argv);
     spdlog::info("[ChatService] Loading config: {}", config_path);
 
-    toml::table tbl;
+    ParsedConfig parsed;
     try {
-        tbl = toml::parse_file(config_path);
+        parsed = parse_config(config_path);
     } catch (const toml::parse_error& e) {
         spdlog::error("[ChatService] Failed to parse config '{}': {}", config_path, e.what());
         return EXIT_FAILURE;
     }
 
-    // ChatService::Config
-    apex::chat_svc::ChatService::Config chat_config;
-    if (auto chat = tbl["chat"]; chat) {
-        chat_config.request_topic      = chat["request_topic"]
-            .value_or(std::string{"chat.requests"});
-        chat_config.response_topic     = chat["response_topic"]
-            .value_or(std::string{"chat.responses"});
-        chat_config.persist_topic      = chat["persist_topic"]
-            .value_or(std::string{"chat.messages.persist"});
-        chat_config.max_room_members   = static_cast<uint32_t>(
-            chat["max_room_members"].value_or(int64_t{100}));
-        chat_config.max_message_length = static_cast<uint32_t>(
-            chat["max_message_length"].value_or(int64_t{2000}));
-        chat_config.history_page_size  = static_cast<uint32_t>(
-            chat["history_page_size"].value_or(int64_t{50}));
-    }
+    // --- 2. Server 구성 ---
+    // request_topic을 move 전에 캡처 (post_init 콜백에서 사용)
+    auto request_topic = parsed.chat.request_topic;
 
-    // KafkaConfig
-    apex::shared::adapters::kafka::KafkaConfig kafka_cfg;
-    if (auto kafka = tbl["kafka"]; kafka) {
-        kafka_cfg.brokers        = kafka["brokers"]
-            .value_or(std::string{"localhost:9092"});
-        kafka_cfg.consumer_group = kafka["consumer_group"]
-            .value_or(std::string{"chat-svc"});
-    }
-    // Ensure request topic is in consume_topics
-    kafka_cfg.consume_topics = {chat_config.request_topic};
+    apex::core::Server server({.num_cores = 1});
 
-    // RedisConfig (data) -- Redis #2 for room membership/online status
-    apex::shared::adapters::redis::RedisConfig redis_data_cfg;
-    if (auto redis_data = tbl["redis_data"]; redis_data) {
-        redis_data_cfg.host     = redis_data["host"]
-            .value_or(std::string{"localhost"});
-        redis_data_cfg.port     = static_cast<uint16_t>(
-            redis_data["port"].value_or(int64_t{6379}));
-        redis_data_cfg.db       = static_cast<uint32_t>(
-            redis_data["db"].value_or(int64_t{0}));
-        redis_data_cfg.password = redis_data["password"]
-            .value_or(std::string{});
-    }
+    server
+        .add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(parsed.kafka)
+        .add_adapter<apex::shared::adapters::redis::RedisAdapter>("data", parsed.redis_data)
+        .add_adapter<apex::shared::adapters::redis::RedisAdapter>("pubsub", parsed.redis_pubsub)
+        .add_adapter<apex::shared::adapters::pg::PgAdapter>(parsed.pg)
+        .add_service<apex::chat_svc::ChatService>(std::move(parsed.chat));
 
-    // RedisConfig (pubsub) -- Redis #3 for pub/sub broadcast
-    apex::shared::adapters::redis::RedisConfig redis_pubsub_cfg;
-    if (auto redis_pubsub = tbl["redis_pubsub"]; redis_pubsub) {
-        redis_pubsub_cfg.host     = redis_pubsub["host"]
-            .value_or(std::string{"localhost"});
-        redis_pubsub_cfg.port     = static_cast<uint16_t>(
-            redis_pubsub["port"].value_or(int64_t{6379}));
-        redis_pubsub_cfg.db       = static_cast<uint32_t>(
-            redis_pubsub["db"].value_or(int64_t{0}));
-        redis_pubsub_cfg.password = redis_pubsub["password"]
-            .value_or(std::string{});
-    }
+    // --- 3. Kafka consumer -> KafkaDispatchBridge 와이어링 ---
+    // post_init_callback에서 서비스의 kafka_handler_map()에 접근하여
+    // KafkaDispatchBridge를 생성하고 Kafka consumer 콜백으로 연결.
+    server.set_post_init_callback(
+        [request_topic](apex::core::Server& srv) {
+            auto& state = srv.per_core_state(0);
 
-    // PgAdapterConfig
-    apex::shared::adapters::pg::PgAdapterConfig pg_cfg;
-    if (auto pg = tbl["pg"]; pg) {
-        pg_cfg.connection_string  = pg["connection_string"]
-            .value_or(std::string{"host=localhost port=6432 dbname=apex user=apex"});
-        pg_cfg.pool_size_per_core = static_cast<size_t>(
-            pg["pool_size_per_core"].value_or(int64_t{2}));
-    }
+            // ChatService는 첫 번째(유일한) 서비스
+            auto* chat_svc = dynamic_cast<apex::chat_svc::ChatService*>(
+                state.services[0].get());
 
-    // ----------------------------------------------------------------
-    // 2. CoreEngine (per-core io_context, single core for service)
-    // ----------------------------------------------------------------
-    apex::core::CoreEngine engine({.num_cores = 1});
-    auto& io_ctx = engine.io_context(0);
+            // KafkaDispatchBridge 생성 -- 핸들러 맵 참조
+            // shared_ptr로 관리하여 Kafka 콜백 람다에서 캡처
+            auto bridge = std::make_shared<
+                apex::shared::protocols::kafka::KafkaDispatchBridge>(
+                chat_svc->kafka_handler_map());
 
-    // ----------------------------------------------------------------
-    // 3. Adapter creation
-    // ----------------------------------------------------------------
-    apex::shared::adapters::kafka::KafkaAdapter kafka(kafka_cfg);
-    apex::shared::adapters::redis::RedisAdapter redis_data(redis_data_cfg);
-    apex::shared::adapters::redis::RedisAdapter redis_pubsub(redis_pubsub_cfg);
-    apex::shared::adapters::pg::PgAdapter pg(pg_cfg);
+            // Kafka consumer 콜백 설정
+            // Kafka 콜백은 동기이므로 co_spawn으로 코루틴 브릿지.
+            // payload를 복사하여 코루틴 수명 안전성 보장.
+            auto& kafka = srv.adapter<
+                apex::shared::adapters::kafka::KafkaAdapter>();
+            auto& engine = srv.core_engine();
+            kafka.set_message_callback(
+                [bridge, request_topic, &engine](
+                    std::string_view topic, int32_t /*partition*/,
+                    std::span<const uint8_t> /*key*/,
+                    std::span<const uint8_t> payload,
+                    int64_t /*offset*/) -> apex::core::Result<void> {
+                    if (topic != request_topic) {
+                        return apex::core::ok();  // 다른 토픽 무시
+                    }
 
-    // ----------------------------------------------------------------
-    // 4. ChatService creation
-    // ----------------------------------------------------------------
-    apex::chat_svc::ChatService service(
-        std::move(chat_config),
-        io_ctx.get_executor(),
-        kafka,
-        redis_data,
-        redis_pubsub,
-        pg);
+                    // Kafka 콜백의 payload는 콜백 반환 후 무효 -> 복사 필수
+                    auto payload_copy = std::vector<uint8_t>(
+                        payload.begin(), payload.end());
 
-    // ----------------------------------------------------------------
-    // 5. service.start() + adapter init via CoreEngine
-    // ----------------------------------------------------------------
-    service.start();
-    kafka.init(engine);
-    redis_data.init(engine);
-    redis_pubsub.init(engine);
-    pg.init(engine);
+                    // co_spawn으로 코루틴 실행 -- bridge->dispatch가 파싱+핸들러 호출 수행
+                    boost::asio::co_spawn(engine.io_context(0),
+                        [bridge, data = std::move(payload_copy)]()
+                            -> boost::asio::awaitable<void> {
+                            auto result = co_await bridge->dispatch(
+                                std::span<const uint8_t>(data));
+                            if (!result.has_value()) {
+                                spdlog::warn("[ChatService] Kafka dispatch failed: {}",
+                                    static_cast<int>(result.error()));
+                            }
+                        },
+                        boost::asio::detached);
 
-    // ----------------------------------------------------------------
-    // 6. Signal handling for graceful shutdown
-    // ----------------------------------------------------------------
-    boost::asio::signal_set signals(io_ctx, SIGINT, SIGTERM);
-    signals.async_wait([&](const boost::system::error_code& /*ec*/, int sig) {
-        spdlog::info("[ChatService] Received signal {} -- shutting down", sig);
-        service.stop();
-        engine.stop();
-    });
+                    return apex::core::ok();
+                });
 
-    // ----------------------------------------------------------------
-    // 7. Warm up PG connection pool before accepting Kafka messages
-    // ----------------------------------------------------------------
-    engine.start();
-    boost::asio::co_spawn(io_ctx,
-        [&pg]() -> boost::asio::awaitable<void> {
-            auto r = co_await pg.query("SELECT 1");
-            if (r.has_value()) {
-                spdlog::info("[ChatService] PG connection warm-up OK");
-            } else {
-                spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
-            }
-        },
-        boost::asio::detached);
-    std::this_thread::sleep_for(std::chrono::seconds{1});
+            // PG connection warm-up
+            auto& pg = srv.adapter<apex::shared::adapters::pg::PgAdapter>();
+            boost::asio::co_spawn(engine.io_context(0),
+                [&pg]() -> boost::asio::awaitable<void> {
+                    auto r = co_await pg.query("SELECT 1");
+                    if (r.has_value()) {
+                        spdlog::info("[ChatService] PG connection warm-up OK");
+                    } else {
+                        spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
+                    }
+                },
+                boost::asio::detached);
+            std::this_thread::sleep_for(std::chrono::seconds{1});
 
-    // ----------------------------------------------------------------
-    // 8. Run CoreEngine main loop (blocks until stop())
-    // ----------------------------------------------------------------
+            spdlog::info("[ChatService] KafkaDispatchBridge wired for topic: {}",
+                         request_topic);
+        });
+
+    // --- 4. Server 실행 (블로킹) ---
     spdlog::info("[ChatService] Running. Press Ctrl+C to stop.");
-    engine.join();
+    server.run();
 
     spdlog::info("Chat Service stopped.");
     return EXIT_SUCCESS;

@@ -1,4 +1,6 @@
 #include <apex/core/server.hpp>
+#include <apex/core/configure_context.hpp>
+#include <apex/core/wire_context.hpp>
 #include <apex/core/detail/math_utils.hpp>
 
 #include <spdlog/spdlog.h>
@@ -97,32 +99,100 @@ void Server::run() {
         state->services.clear();
     }
 
-    // Initialize adapters before services
+    // 어댑터 초기화 — 서비스보다 먼저 (어댑터는 서비스의 인프라 의존성)
     for (auto& adapter : adapters_) {
         adapter->init(*core_engine_);
     }
 
-    // Per-core service instances — bind to first listener's dispatcher,
-    // then share the same dispatcher with all other listeners.
-    if (!listeners_.empty()) {
+    // PeriodicTaskScheduler 초기화 — per-core io_context 기반
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+        per_core_[core_id]->scheduler = std::make_unique<PeriodicTaskScheduler>(
+            core_engine_->io_context(core_id));
+    }
+
+    // Per-core 서비스 인스턴스 생성
+    // 리스너가 있으면 리스너의 dispatcher를, 없으면 fallback_dispatcher를 사용 (Kafka-only 서비스).
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+        auto& state = *per_core_[core_id];
+        auto& dispatcher = listeners_.empty()
+            ? state.fallback_dispatcher
+            : listeners_[0]->dispatcher(core_id);
+
+        for (auto& factory : service_factories_) {
+            auto svc = factory(state, dispatcher);
+            state.services.push_back(std::move(svc));
+        }
+    }
+
+    // ── Phase 1: on_configure — 어댑터/설정 접근 단계 ──────────────────
+    // 서비스가 어댑터, 설정, per-core 상태를 받아 초기화한다.
+    // 다른 서비스에 접근 불가 (ServiceRegistry 미제공).
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+        auto& state = *per_core_[core_id];
+        ConfigureContext ctx{*this, core_id, state};
+        for (auto& svc : state.services) {
+            svc->internal_configure(ctx);
+        }
+    }
+
+    // ── Phase 2: on_wire — 서비스 간 와이어링 단계 ─────────────────────
+    // 모든 코어의 서비스 인스턴스가 생성 완료. 코어 스레드 시작 전이므로
+    // ServiceRegistryView를 통한 전 코어 읽기 접근이 데이터 레이스 없이 안전.
+    {
+        // ServiceRegistryView용 per-core 레지스트리 포인터 수집
+        std::vector<ServiceRegistry*> registries;
+        registries.reserve(config_.num_cores);
+        for (uint32_t i = 0; i < config_.num_cores; ++i) {
+            registries.push_back(&per_core_[i]->registry);
+        }
+        ServiceRegistryView global_view(std::move(registries));
+
         for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
             auto& state = *per_core_[core_id];
-            auto& dispatcher = listeners_[0]->dispatcher(core_id);
-
-            for (auto& factory : service_factories_) {
-                auto svc = factory(state, dispatcher);
-                svc->start();
-                state.services.push_back(std::move(svc));
+            WireContext ctx{
+                *this, core_id,
+                state.registry, global_view,
+                *state.scheduler
+            };
+            for (auto& svc : state.services) {
+                svc->internal_wire(ctx);
             }
+        }
+    }
 
-            // Propagate default handler to all other listeners (multi-protocol)
+    // ── Phase 3: on_start — 서비스 시작 ────────────────────────────────
+    for (auto& state : per_core_) {
+        for (auto& svc : state->services) {
+            svc->start();
+        }
+    }
+
+    // ── Phase 3.5: multi-listener handler 동기화 ─────────────────────
+    // on_start()에서 등록된 default_handler를 보조 리스너에 전파.
+    // Phase 0(서비스 생성 직후)에서는 핸들러 미등록 → 반드시 on_start 이후 수행.
+    if (listeners_.size() > 1) {
+        for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+            auto& dispatcher = listeners_[0]->dispatcher(core_id);
             for (size_t li = 1; li < listeners_.size(); ++li) {
                 listeners_[li]->sync_default_handler(core_id, dispatcher);
             }
         }
     }
 
-    // Post-init callback — wire cross-cutting concerns (e.g., ResponseDispatcher)
+    // ── 세션 종료 콜백 와이어링 ────────────────────────────────────────
+    // 세션 제거 시 해당 코어의 모든 서비스에 on_session_closed 통지.
+    for (auto& state : per_core_) {
+        state->session_mgr.set_remove_callback(
+            [&services = state->services](SessionId sid) {
+                for (auto& svc : services) {
+                    svc->on_session_closed(sid);
+                }
+            });
+    }
+
+    // Post-init callback — 서비스 라이프사이클 외부의 cross-cutting concerns 와이어링.
+    // Gateway는 Task 8에서 라이프사이클 훅으로 이전 완료.
+    // Auth/Chat 서비스도 마이그레이션 완료 시 제거 예정.
     if (post_init_cb_) {
         post_init_cb_(*this);
     }
@@ -234,14 +304,21 @@ void Server::finalize_shutdown() {
         adapter->drain();
     }
 
-    // 3. Stop services
+    // 3. 주기적 작업 스케줄러 정지 (서비스 정지 전에 타이머 해제)
+    for (auto& state : per_core_) {
+        if (state->scheduler) {
+            state->scheduler->stop_all();
+        }
+    }
+
+    // 4. Stop services
     for (auto& state : per_core_) {
         for (auto& svc : state->services) {
             svc->stop();
         }
     }
 
-    // 4. CoreEngine stop + join + drain
+    // 5. CoreEngine stop + join + drain
     // Order matters: stop() signals threads, join() waits for exit,
     // drain_remaining() cleans up leftover MPSC messages.
     // CoreEngine must stop before adapter close -- pending completion handlers
@@ -250,7 +327,7 @@ void Server::finalize_shutdown() {
     core_engine_->join();
     core_engine_->drain_remaining();
 
-    // 5. Adapter close (flush + 커넥션 정리)
+    // 6. Adapter close (flush + 커넥션 정리)
     // Safe now: all core threads have exited, no pending handlers.
     for (auto& adapter : adapters_) {
         adapter->close();

@@ -39,6 +39,12 @@ public:
 
     void tick();
 
+    /// 세션 제거 시 호출되는 콜백. 서비스에 on_session_closed 통지용.
+    /// @note remove_session() 호출 시점에 세션은 아직 sessions_ 맵에 존재하지만,
+    ///       콜백 반환 후 곧 제거된다.
+    using RemoveCallback = std::function<void(SessionId)>;
+    void set_remove_callback(RemoveCallback cb);
+
     using TimeoutCallback = std::function<void(SessionPtr)>;
 
     /// Set the callback invoked when a session times out (heartbeat expiry).
@@ -82,6 +88,7 @@ private:
     // unordered_maps, reducing per-session memory overhead and lookup cost.
 
     TimeoutCallback timeout_callback_;
+    RemoveCallback remove_callback_;
 
     // shrink_to_fit 주기 관리 (tick 단위)
     // 기본 tick_interval 100ms 기준: 600 ticks ≈ 60초

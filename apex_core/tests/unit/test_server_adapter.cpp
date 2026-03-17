@@ -73,3 +73,65 @@ TEST(ServerAdapter, AddAdapterWithArgs) {
     EXPECT_EQ(adapter.name(), "another");
     EXPECT_EQ(adapter.value(), 42);
 }
+
+// ── 다중 등록 (role 기반) 테스트 ──────────────────────────────────────
+
+TEST(ServerAdapter, MultiRegistrationWithRole) {
+    // 동일 타입을 역할별로 다중 등록
+    ServerConfig config{.num_cores = 1};
+    Server server(config);
+    server.add_adapter<AnotherTestAdapter>(std::string("primary"), 10);
+    server.add_adapter<AnotherTestAdapter>(std::string("secondary"), 20);
+
+    auto& primary = server.adapter<AnotherTestAdapter>("primary");
+    auto& secondary = server.adapter<AnotherTestAdapter>("secondary");
+
+    // 역할별로 다른 인스턴스
+    EXPECT_EQ(primary.value(), 10);
+    EXPECT_EQ(secondary.value(), 20);
+    EXPECT_NE(&primary, &secondary);
+}
+
+TEST(ServerAdapter, DefaultRoleBackwardCompat) {
+    // role 없이 등록한 어댑터는 "default" 역할로 접근 가능
+    ServerConfig config{.num_cores = 1};
+    Server server(config);
+    server.add_adapter<TestAdapter>();
+
+    // role 명시 없이 접근 (기존 API 호환)
+    auto& a1 = server.adapter<TestAdapter>();
+    // "default" 역할로 명시 접근
+    auto& a2 = server.adapter<TestAdapter>("default");
+
+    EXPECT_EQ(&a1, &a2);
+    EXPECT_EQ(a1.name(), "test");
+}
+
+TEST(ServerAdapter, RoleAndDefaultCoexist) {
+    // 기본 역할 + 명시 역할 공존
+    ServerConfig config{.num_cores = 1};
+    Server server(config);
+    server.add_adapter<AnotherTestAdapter>(100);  // default role
+    server.add_adapter<AnotherTestAdapter>(std::string("custom"), 200);
+
+    auto& def = server.adapter<AnotherTestAdapter>();
+    auto& custom = server.adapter<AnotherTestAdapter>("custom");
+
+    EXPECT_EQ(def.value(), 100);
+    EXPECT_EQ(custom.value(), 200);
+    EXPECT_NE(&def, &custom);
+}
+
+TEST(ServerAdapter, MultiRegistrationChaining) {
+    // 다중 등록 시 체이닝 동작 확인
+    ServerConfig config{.num_cores = 1};
+    Server server(config);
+    auto& ref = server
+        .add_adapter<TestAdapter>()
+        .add_adapter<AnotherTestAdapter>(std::string("a"), 1)
+        .add_adapter<AnotherTestAdapter>(std::string("b"), 2);
+
+    EXPECT_EQ(&ref, &server);
+    EXPECT_EQ(server.adapter<AnotherTestAdapter>("a").value(), 1);
+    EXPECT_EQ(server.adapter<AnotherTestAdapter>("b").value(), 2);
+}

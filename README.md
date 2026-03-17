@@ -114,7 +114,10 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Auth/Chat Service: CoreEngine 기반 전환(standalone→정식), 어댑터 init(engine), bcrypt 시드, PG search_path
   - DB 스키마: locked→locked_until, token_family 추가, SQL 컬럼명 수정(id→room_id/message_id)
   - E2E Fixture: 바이너리 경로 주입, working directory, JWT 키 수정, 디버그 로그
-  - 67/67 유닛 테스트 통과 + E2E LoginAndAuthenticatedRequest 통과
+  - Server::run() sync_default_handler Phase 3.5 타이밍 수정 (multi-listener handler 동기화)
+  - E2E response_topic 정합성 복구 (Auth/Chat → gateway.responses)
+  - test_redis_adapter ASAN heap-use-after-free 수정 (소멸 순서 보장)
+  - 71/71 유닛 테스트 통과 + 11/11 E2E 통과 (CI ASAN/TSAN 포함 전체 통과)
 
 ## 아키텍처
 

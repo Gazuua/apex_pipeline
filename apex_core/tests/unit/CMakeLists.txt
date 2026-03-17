@@ -55,6 +55,11 @@ apex_add_unit_test(test_connection_handler test_connection_handler.cpp)
 apex_add_unit_test(test_session_write_queue test_session_write_queue.cpp)
 apex_add_unit_test(test_server_error_paths test_server_error_paths.cpp)
 
+# v0.6 선행: 서비스 레이어 오버홀
+apex_add_unit_test(test_service_registry test_service_registry.cpp)
+apex_add_unit_test(test_periodic_task_scheduler test_periodic_task_scheduler.cpp)
+apex_add_unit_test(test_service_lifecycle test_service_lifecycle.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -97,5 +102,8 @@ set_tests_properties(
     test_connection_handler
     test_session_write_queue
     test_server_error_paths
+    test_service_registry
+    test_periodic_task_scheduler
+    test_service_lifecycle
     PROPERTIES TIMEOUT 30
 )

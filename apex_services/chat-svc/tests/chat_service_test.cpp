@@ -7,10 +7,8 @@
 
 namespace {
 
-// NOTE: ChatService constructor requires adapter references.
-// These tests only verify Config struct defaults and accessors.
-// Integration tests that instantiate ChatService with mock adapters
-// are deferred to Plan 5 (E2E).
+// NOTE: ChatService constructor now takes Config only (adapter refs from on_configure).
+// These tests verify Config struct defaults and accessors.
 
 TEST(ChatServiceConfigTest, DefaultConfig) {
     apex::chat_svc::ChatService::Config cfg;
@@ -37,6 +35,13 @@ TEST(ChatServiceConfigTest, CustomConfig) {
     EXPECT_EQ(cfg.max_room_members,   50u);
     EXPECT_EQ(cfg.max_message_length, 1000u);
     EXPECT_EQ(cfg.history_page_size,  20u);
+}
+
+TEST(ChatServiceTest, ConstructionAndName) {
+    apex::chat_svc::ChatService::Config cfg;
+    apex::chat_svc::ChatService svc(std::move(cfg));
+    EXPECT_EQ(svc.name(), "chat");
+    EXPECT_FALSE(svc.started());
 }
 
 } // namespace

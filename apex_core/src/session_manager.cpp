@@ -62,6 +62,11 @@ void SessionManager::remove_session(SessionId id) {
         session->timer_entry_id_ = 0;
     }
 
+    // 서비스에 세션 종료 통지 (sessions_ erase 전에 호출)
+    if (remove_callback_) {
+        remove_callback_(id);
+    }
+
     sessions_.erase(it);
 }
 
@@ -96,6 +101,10 @@ void SessionManager::tick() {
     }
 }
 
+void SessionManager::set_remove_callback(RemoveCallback cb) {
+    remove_callback_ = std::move(cb);
+}
+
 void SessionManager::set_timeout_callback(TimeoutCallback cb) {
     timeout_callback_ = std::move(cb);
 }
@@ -122,7 +131,13 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id) {
 
     auto session = session_it->second;
     session->timer_entry_id_ = 0;  // I-07: clear embedded timer ID
-    sessions_.erase(session_it);  // 콜백 전에 erase (댕글링 이터레이터 방지)
+
+    // 서비스에 세션 종료 통지 (erase 전에 호출 — 서비스가 세션 조회 가능)
+    if (remove_callback_) {
+        remove_callback_(session_id);
+    }
+
+    sessions_.erase(session_it);  // timeout_callback 전에 erase (댕글링 이터레이터 방지)
 
     // 콜백에서 세션에 마지막 작업(로깅 등)을 수행할 수 있도록
     // close()는 콜백 이후에 호출한다.

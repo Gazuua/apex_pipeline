@@ -1,10 +1,9 @@
 #pragma once
 
-#include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
-#include <apex/core/session.hpp>
+#include <apex/core/service_base.hpp>
+#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
-#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/awaitable.hpp>
 
 #include <cstdint>
@@ -18,37 +17,33 @@ namespace apex::shared::adapters::kafka { class KafkaAdapter; }
 namespace apex::shared::adapters::redis { class RedisAdapter; }
 namespace apex::shared::adapters::pg    { class PgAdapter; }
 
+// Forward declarations -- FlatBuffers generated types
+namespace apex::chat_svc::fbs {
+struct CreateRoomRequest;
+struct JoinRoomRequest;
+struct LeaveRoomRequest;
+struct ListRoomsRequest;
+struct SendMessageRequest;
+struct WhisperRequest;
+struct ChatHistoryRequest;
+struct GlobalBroadcastRequest;
+} // namespace apex::chat_svc::fbs
+
 namespace apex::chat_svc {
 
-/// Cached Kafka envelope metadata for the currently dispatching message.
-/// Set in dispatch_envelope() before dispatcher_.dispatch(), read by handlers.
-/// Thread-safe: Kafka consumer callback is single-threaded sequential.
-struct EnvelopeMetadata {
-    uint64_t corr_id = 0;
-    uint16_t core_id = 0;
-    uint64_t session_id = 0;
-    uint64_t user_id = 0;
-    std::string reply_topic;
-};
+namespace envelope = apex::shared::protocols::kafka;
 
-/// Chat Service -- Kafka-based room management, message broadcast, chat history.
+/// Chat Service -- Server+ServiceBase 패턴, kafka_route 기반.
 ///
-/// Consumes from `chat.requests` topic, processes room/message/whisper/history,
-/// and produces responses to `chat.responses` topic. Real-time broadcast via
-/// Redis Pub/Sub (pub:chat:room:{id}, pub:global:chat). History persistence
-/// via Kafka `chat.messages.persist` topic -> ChatDbConsumer -> PostgreSQL.
-///
-/// Does NOT inherit ServiceBase -- Kafka message-driven, not HTTP session-driven.
-/// (Same pattern as AuthService)
-/// Uses MessageDispatcher (O(1) hash map) for msg_id-based dispatch.
-/// Handlers are awaitable coroutines; Kafka callback bridges via co_spawn.
+/// Kafka envelope metadata(MetadataPrefix)를 핸들러 인자로 직접 전달.
+/// KafkaDispatchBridge가 파싱/디스패치를 처리.
 ///
 /// Adapter dependencies:
 ///   - KafkaAdapter: consumer(chat.requests), producer(chat.responses, chat.messages.persist)
-///   - RedisAdapter(#2): Room membership, online status (chat:room:{id}:members Set)
-///   - RedisAdapter(#3): Pub/Sub broadcast (pub:chat:room:{id}, pub:global:chat)
+///   - RedisAdapter("data"): Room membership, online status (chat:room:{id}:members Set)
+///   - RedisAdapter("pubsub"): Pub/Sub broadcast (pub:chat:room:{id}, pub:global:chat)
 ///   - PgAdapter: History storage/query (chat_svc schema)
-class ChatService {
+class ChatService : public apex::core::ServiceBase<ChatService> {
 public:
     struct Config {
         std::string request_topic         = "chat.requests";
@@ -59,24 +54,13 @@ public:
         uint32_t    history_page_size     = 50;
     };
 
-    explicit ChatService(
-        Config config,
-        boost::asio::any_io_executor executor,
-        apex::shared::adapters::kafka::KafkaAdapter& kafka,
-        apex::shared::adapters::redis::RedisAdapter& redis_data,
-        apex::shared::adapters::redis::RedisAdapter& redis_pubsub,
-        apex::shared::adapters::pg::PgAdapter& pg);
+    explicit ChatService(Config config);
 
-    ~ChatService();
+    /// Phase 1: 어댑터 참조 취득.
+    void on_configure(apex::core::ConfigureContext& ctx) override;
 
-    /// Start service: register handlers to MessageDispatcher, set Kafka callback
-    void start();
-
-    /// Stop service
-    void stop();
-
-    [[nodiscard]] std::string_view name() const noexcept { return "chat"; }
-    [[nodiscard]] bool started() const noexcept { return started_; }
+    /// kafka_route 등록.
+    void on_start() override;
 
 private:
     // --- msg_id constants (from msg_registry.toml) ---
@@ -111,57 +95,41 @@ private:
         static constexpr uint32_t GLOBAL_CHAT_MESSAGE       = 2043;
     };
 
-    /// Kafka message receive callback
-    apex::core::Result<void> on_kafka_message(
-        std::string_view topic,
-        int32_t partition,
-        std::span<const uint8_t> key,
-        std::span<const uint8_t> payload,
-        int64_t offset);
-
-    /// Parse Kafka Envelope (RoutingHeader + Metadata) and dispatch by msg_id.
-    /// Synchronous — called from Kafka consumer thread.
-    /// Internally co_spawns a coroutine on executor_ for async handler execution.
-    void dispatch_envelope(std::span<const uint8_t> payload);
-
-    // --- Handlers (awaitable coroutines, metadata accessed via current_meta_) ---
-    // Handler signature matches MessageDispatcher::Handler.
-    // Kafka envelope metadata (corr_id, core_id, session_id, reply_topic)
-    // is available via this->current_meta_ (set before dispatch).
+    // --- Handlers (awaitable coroutines, MetadataPrefix 인자로 직접 수신) ---
 
     // Room management
-    boost::asio::awaitable<apex::core::Result<void>> handle_create_room(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
-    boost::asio::awaitable<apex::core::Result<void>> handle_join_room(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
-    boost::asio::awaitable<apex::core::Result<void>> handle_leave_room(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
-    boost::asio::awaitable<apex::core::Result<void>> handle_list_rooms(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> on_create_room(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::CreateRoomRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_join_room(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::JoinRoomRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_leave_room(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::LeaveRoomRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_list_rooms(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::ListRoomsRequest* req);
 
     // Message send
-    boost::asio::awaitable<apex::core::Result<void>> handle_send_message(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> on_send_message(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::SendMessageRequest* req);
 
     // Whisper (1:1)
-    boost::asio::awaitable<apex::core::Result<void>> handle_whisper(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> on_whisper(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::WhisperRequest* req);
 
     // History
-    boost::asio::awaitable<apex::core::Result<void>> handle_chat_history(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> on_chat_history(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::ChatHistoryRequest* req);
 
     // Global broadcast
-    boost::asio::awaitable<apex::core::Result<void>> handle_global_broadcast(
-        apex::core::SessionPtr session, uint32_t msg_id,
-        std::span<const uint8_t> fbs_payload);
+    boost::asio::awaitable<apex::core::Result<void>> on_global_broadcast(
+        const envelope::MetadataPrefix& meta, uint32_t msg_id,
+        const fbs::GlobalBroadcastRequest* req);
 
     // --- Helpers ---
 
@@ -191,15 +159,10 @@ private:
     [[nodiscard]] static uint64_t current_timestamp_ms() noexcept;
 
     Config config_;
-    apex::core::MessageDispatcher dispatcher_;     ///< O(1) hash map dispatch
-    boost::asio::any_io_executor executor_;        ///< Kafka→coroutine bridge (injected from main)
-    EnvelopeMetadata current_meta_;                ///< Cached metadata for current dispatch (side-channel)
-    apex::shared::adapters::kafka::KafkaAdapter& kafka_;
-    apex::shared::adapters::redis::RedisAdapter& redis_data_;
-    apex::shared::adapters::redis::RedisAdapter& redis_pubsub_;
-    apex::shared::adapters::pg::PgAdapter& pg_;
-
-    bool started_{false};
+    apex::shared::adapters::kafka::KafkaAdapter* kafka_{nullptr};
+    apex::shared::adapters::redis::RedisAdapter* redis_data_{nullptr};
+    apex::shared::adapters::redis::RedisAdapter* redis_pubsub_{nullptr};
+    apex::shared::adapters::pg::PgAdapter* pg_{nullptr};
 };
 
 } // namespace apex::chat_svc
