@@ -1,7 +1,12 @@
 #pragma once
 
+#include <apex/core/arena_allocator.hpp>
+#include <apex/core/bump_allocator.hpp>
+#include <apex/core/configure_context.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/session.hpp>
+#include <apex/core/wire_context.hpp>
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
@@ -26,6 +31,18 @@ public:
 
     /// Server가 공유 디스패처를 바인딩할 때 호출.
     virtual void bind_dispatcher(MessageDispatcher& external) = 0;
+
+    // ── 라이프사이클 훅 (기본 구현은 no-op) ─────────────────────────────
+    // Server가 오케스트레이션 단계별로 호출한다.
+
+    /// Phase 1: 어댑터/설정 접근 단계. 다른 서비스에 접근 불가.
+    virtual void on_configure(ConfigureContext&) {}
+
+    /// Phase 2: 서비스 간 와이어링 단계. 다른 서비스 lookup 가능.
+    virtual void on_wire(WireContext&) {}
+
+    /// 세션 종료 시 서비스에 통지. 리소스 정리용.
+    virtual void on_session_closed(SessionId) {}
 };
 
 /// CRTP base class for defining services.
@@ -54,7 +71,7 @@ public:
     virtual void on_stop() {}
 
     void start() override {
-        on_start();
+        static_cast<Derived*>(this)->on_start();
         started_ = true;
     }
 
@@ -79,6 +96,21 @@ public:
         assert(!started_ && "bind_dispatcher must be called before start()");
         dispatcher_ = &external;
         owned_dispatcher_.reset();  // standalone dispatcher 해제
+    }
+
+    // ── 프레임워크 내부 메서드 (Server가 라이프사이클 오케스트레이션 시 호출) ──
+
+    /// Phase 1: per_core_ 바인딩 + on_configure 호출.
+    /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
+    void internal_configure(ConfigureContext& ctx) {
+        per_core_ = &ctx.per_core_state;
+        static_cast<Derived*>(this)->on_configure(ctx);
+    }
+
+    /// Phase 2: on_wire 호출.
+    /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
+    void internal_wire(WireContext& ctx) {
+        static_cast<Derived*>(this)->on_wire(ctx);
     }
 
 protected:
@@ -125,6 +157,33 @@ protected:
         registered_msg_ids_.insert(msg_id);
     }
 
+    /// 기본 핸들러 등록 (미등록 msg_id에 대한 폴백).
+    /// Gateway처럼 모든 메시지를 범용 처리하는 프록시 서비스용.
+    void set_default_handler(
+        boost::asio::awaitable<Result<void>> (Derived::*method)(
+            SessionPtr, uint32_t, std::span<const uint8_t>))
+    {
+        auto* self = static_cast<Derived*>(this);
+        dispatcher_->set_default_handler(
+            [self, method](SessionPtr session, uint32_t id,
+                           std::span<const uint8_t> payload)
+                -> boost::asio::awaitable<Result<void>> {
+                co_return co_await (self->*method)(session, id, payload);
+            });
+    }
+
+    // ── Per-core 상태 접근자 ─────────────────────────────────────────────
+    // internal_configure() 이후에만 유효. 그 전에 호출하면 UB.
+
+    /// 요청/코루틴 수명 임시 데이터용 범프 할당자.
+    BumpAllocator& bump() { return per_core_->bump_allocator; }
+
+    /// 트랜잭션 수명 데이터용 아레나 할당자.
+    ArenaAllocator& arena() { return per_core_->arena_allocator; }
+
+    /// 이 서비스가 실행 중인 코어 ID.
+    uint32_t core_id() const { return per_core_->core_id; }
+
 private:
     std::string name_;
     // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
@@ -134,6 +193,7 @@ private:
     MessageDispatcher* dispatcher_{owned_dispatcher_.get()};
     bool started_{false};
     boost::unordered_flat_set<uint32_t> registered_msg_ids_;
+    PerCoreState* per_core_{nullptr};
 };
 
 } // namespace apex::core
