@@ -44,14 +44,30 @@ ChildProcess E2EEnvironment::launch_service(const std::string& name,
     proc.name = name;
 
 #ifdef _WIN32
-    std::string log_file = name + "_e2e.log";
-    std::string cmd_line = "cmd.exe /c " + exe_path + " " + config_path
-        + " > " + log_file + " 2>&1";
+    // Launch the service EXE directly (not via cmd.exe wrapper) so that
+    // TerminateProcess kills the actual service, not a cmd.exe shell.
+    // I/O redirection is done via STARTUPINFO file handles.
+    std::string log_file_path = name + "_e2e.log";
+    if (!config_.project_root.empty()) {
+        log_file_path = config_.project_root + "/" + log_file_path;
+    }
+
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE hLog = ::CreateFileA(
+        log_file_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+        &sa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+    std::string cmd_line = exe_path + " " + config_path;
 
     STARTUPINFOA si{};
     si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
     si.wShowWindow = SW_HIDE;
+    si.hStdOutput = hLog;
+    si.hStdError = hLog;
+    si.hStdInput = INVALID_HANDLE_VALUE;
 
     const char* work_dir = config_.project_root.empty()
         ? nullptr
@@ -59,8 +75,12 @@ ChildProcess E2EEnvironment::launch_service(const std::string& name,
 
     BOOL ok = ::CreateProcessA(
         nullptr, cmd_line.data(), nullptr, nullptr,
-        FALSE, CREATE_NO_WINDOW, nullptr, work_dir,
+        TRUE /* bInheritHandles */, CREATE_NO_WINDOW, nullptr, work_dir,
         &si, &proc.proc_info);
+
+    if (hLog != INVALID_HANDLE_VALUE) {
+        ::CloseHandle(hLog);  // Child inherited the handle; parent closes its copy
+    }
 
     if (ok) {
         proc.launched = true;
@@ -393,12 +413,13 @@ void E2ETestFixture::authenticate(TcpClient& client,
 
     client.send(3 /* AuthenticateSession */, fbb.GetBufferPointer(), fbb.GetSize());
 
-    try {
-        auto resp = client.recv(std::chrono::seconds{3});
-        (void)resp;
-    } catch (...) {
-        // Timeout is acceptable if Gateway doesn't send explicit ack
-    }
+    // Gateway handles msg_id=3 inline (binds JWT to session) and returns ok()
+    // without sending a response.  No recv() needed — the Gateway's read_loop
+    // processes frames sequentially, so the next send() is guaranteed to see
+    // the bound JWT even without a round-trip wait.
+    //
+    // Brief sleep to yield and let the Gateway's io_context process the frame.
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
 }
 
 // ---------------------------------------------------------------------------

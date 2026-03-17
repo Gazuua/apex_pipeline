@@ -27,8 +27,10 @@ void RedisAdapter::do_init(apex::core::CoreEngine& engine) {
 
     per_core_.reserve(engine.core_count());
     for (uint32_t i = 0; i < engine.core_count(); ++i) {
-        per_core_.push_back(std::make_unique<RedisMultiplexer>(
-            engine.io_context(i), config_));
+        auto mux = std::make_unique<RedisMultiplexer>(
+            engine.io_context(i), config_);
+        mux->connect();
+        per_core_.push_back(std::move(mux));
     }
 
     spdlog::info("RedisAdapter initialized: {} cores, host={}:{}",

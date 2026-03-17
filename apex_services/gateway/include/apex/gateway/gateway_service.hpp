@@ -64,6 +64,12 @@ public:
         pipeline_.set_rate_limiter(limiter);
     }
 
+    /// Wire PubSubListener after construction (post_init_callback).
+    /// PubSubListener is created in post_init, after services are constructed.
+    void set_pubsub_listener(PubSubListener* listener) noexcept {
+        pubsub_listener_ = listener;
+    }
+
 private:
     /// Default handler: pipeline check -> Kafka produce via MessageRouter.
     boost::asio::awaitable<apex::core::Result<void>>

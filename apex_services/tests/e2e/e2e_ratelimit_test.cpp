@@ -79,6 +79,11 @@ TEST_F(RateLimitE2ETest, PerIpRateLimit) {
     EXPECT_GT(rejected_count, 0)
         << "Per-IP Rate Limit did not trigger after " << attempt_count
         << " rapid connections";
+
+    // Wait for IP rate limit window to expire so subsequent tests
+    // (PerEndpointRateLimit, TimeoutE2E) can connect without being blocked.
+    // window_size_seconds=2 in gateway_e2e.toml, wait 3s for margin.
+    std::this_thread::sleep_for(std::chrono::seconds{3});
 }
 
 /// Per-Endpoint Rate Limit (msg_id-specific throttle)

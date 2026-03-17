@@ -57,6 +57,7 @@ public:
     void stop();
 
     /// Add channel subscription (thread-safe).
+    /// Takes effect immediately (within ~1s select timeout) without reconnect.
     void subscribe(const std::string& channel);
 
     /// Remove channel subscription (thread-safe).
@@ -64,6 +65,11 @@ public:
 
 private:
     void run_thread();
+
+    /// Apply pending subscribe/unsubscribe to the live Redis connection.
+    /// Called from run_thread() when has_pending_subs_ is set.
+    void apply_pending_subscriptions(redisContext* ctx,
+                                     std::unordered_set<std::string>& active_subs);
 
     Config config_;
     MessageCallback on_message_;
@@ -73,6 +79,9 @@ private:
 
     std::mutex channels_mutex_;
     std::unordered_set<std::string> subscribed_channels_;
+
+    /// Signals run_thread() to check for new subscribe/unsubscribe requests.
+    std::atomic<bool> has_pending_subs_{false};
 };
 
 } // namespace apex::gateway

@@ -375,7 +375,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::handle_create_room
     };
     auto pg_result = co_await pg_.query(
         "INSERT INTO chat_svc.chat_rooms (room_name, max_members, owner_id) "
-        "VALUES ($1, $2::int, $3::bigint) RETURNING id",
+        "VALUES ($1, $2::int, $3::bigint) RETURNING room_id",
         insert_params);
 
     if (!pg_result.has_value() || pg_result->row_count() == 0) {

@@ -5,6 +5,12 @@
 #include <chrono>
 #include <thread>
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#else
+#include <sys/select.h>
+#endif
+
 namespace apex::gateway {
 
 PubSubListener::PubSubListener(const Config& config,
@@ -34,14 +40,53 @@ void PubSubListener::stop() {
 void PubSubListener::subscribe(const std::string& channel) {
     std::lock_guard lock(channels_mutex_);
     subscribed_channels_.insert(channel);
-    // Note: if connected, the subscribe command will be sent on next reconnect
-    // or we would need async command injection. For the sync implementation,
-    // new subscriptions take effect on reconnect.
+    has_pending_subs_.store(true, std::memory_order_release);
 }
 
 void PubSubListener::unsubscribe(const std::string& channel) {
     std::lock_guard lock(channels_mutex_);
     subscribed_channels_.erase(channel);
+    has_pending_subs_.store(true, std::memory_order_release);
+}
+
+void PubSubListener::apply_pending_subscriptions(
+    redisContext* ctx,
+    std::unordered_set<std::string>& active_subs)
+{
+    std::lock_guard lock(channels_mutex_);
+
+    // Subscribe new channels (in subscribed_channels_ but not active)
+    for (const auto& ch : subscribed_channels_) {
+        if (!active_subs.contains(ch)) {
+            redisAppendCommand(ctx, "SUBSCRIBE %s", ch.c_str());
+            active_subs.insert(ch);
+            spdlog::info("PubSub subscribing to '{}'", ch);
+        }
+    }
+
+    // Unsubscribe removed channels (in active but not subscribed_channels_)
+    std::vector<std::string> to_remove;
+    for (const auto& ch : active_subs) {
+        if (!subscribed_channels_.contains(ch)) {
+            redisAppendCommand(ctx, "UNSUBSCRIBE %s", ch.c_str());
+            to_remove.push_back(ch);
+            spdlog::info("PubSub unsubscribing from '{}'", ch);
+        }
+    }
+    for (const auto& ch : to_remove) {
+        active_subs.erase(ch);
+    }
+
+    has_pending_subs_.store(false, std::memory_order_release);
+
+    // Flush all appended commands to the server
+    int wdone = 0;
+    do {
+        if (redisBufferWrite(ctx, &wdone) == REDIS_ERR) {
+            spdlog::warn("PubSub write error during subscription update");
+            break;
+        }
+    } while (!wdone);
 }
 
 void PubSubListener::run_thread() {
@@ -57,11 +102,10 @@ void PubSubListener::run_thread() {
             continue;
         }
 
-        // Set read timeout so we can check running_ periodically
-        struct timeval tv;
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-        redisSetTimeout(sync_ctx, tv);
+        // NOTE: Do NOT call redisSetTimeout() here.
+        // On Windows, SO_RCVTIMEO timeout causes hiredis to set c->err
+        // permanently (WSAETIMEDOUT → REDIS_ERR_IO), breaking all subsequent
+        // reads. Instead, we use select() to wait for data with timeout.
 
         // AUTH
         if (!config_.password.empty()) {
@@ -70,7 +114,9 @@ void PubSubListener::run_thread() {
             if (reply) freeReplyObject(reply);
         }
 
-        // Initial subscriptions
+        // Initial subscriptions — merge initial_channels into subscribed set
+        // and subscribe all known channels on the fresh connection.
+        std::unordered_set<std::string> active_subs;
         {
             std::lock_guard lock(channels_mutex_);
             for (const auto& ch : config_.initial_channels) {
@@ -80,49 +126,89 @@ void PubSubListener::run_thread() {
                 auto* reply = static_cast<redisReply*>(
                     redisCommand(sync_ctx, "SUBSCRIBE %s", ch.c_str()));
                 if (reply) freeReplyObject(reply);
+                active_subs.insert(ch);
             }
+            has_pending_subs_.store(false, std::memory_order_release);
         }
 
-        // Message receive loop
-        while (running_) {
-            redisReply* reply = nullptr;
-            int status = redisGetReply(sync_ctx,
-                reinterpret_cast<void**>(&reply));
+        spdlog::info("PubSub connected, subscribed to {} channels",
+                      active_subs.size());
 
-            if (status != REDIS_OK || !reply) {
-                // Timeout detection: hiredis sets REDIS_ERR_IO on read timeout
-                // on Linux (errno == EAGAIN). On Windows, hiredis may return
-                // different error codes (REDIS_ERR_IO with WSAETIMEDOUT, or
-                // REDIS_ERR_EOF). Treat any error with null reply as timeout
-                // since we configured a 1s read timeout via redisSetTimeout.
-                if (!reply) {
-                    // Read timeout -- check running_ and loop
-                    continue;
+        // Message receive loop — select() based (no socket timeout).
+        while (running_) {
+            // 1. Apply pending subscribe/unsubscribe requests
+            if (has_pending_subs_.load(std::memory_order_acquire)) {
+                apply_pending_subscriptions(sync_ctx, active_subs);
+                if (sync_ctx->err) {
+                    spdlog::warn("PubSub error after subscription update, "
+                                 "reconnecting...");
+                    break;
                 }
+            }
+
+            // 2. Wait for data with select() (1 second timeout)
+            fd_set rfds;
+            FD_ZERO(&rfds);
+            FD_SET(sync_ctx->fd, &rfds);
+
+            struct timeval tv;
+            tv.tv_sec = 1;
+            tv.tv_usec = 0;
+
+#ifdef _WIN32
+            int nfds = 0;  // Ignored on Windows
+#else
+            int nfds = sync_ctx->fd + 1;
+#endif
+
+            int ready = ::select(nfds, &rfds, nullptr, nullptr, &tv);
+
+            if (ready < 0) {
+                spdlog::warn("PubSub select() error, reconnecting...");
+                break;
+            }
+            if (ready == 0) {
+                // Timeout — no data, loop back to check running_ and pending
+                continue;
+            }
+
+            // 3. Data available — read from socket into hiredis buffer
+            if (redisBufferRead(sync_ctx) != REDIS_OK) {
                 spdlog::warn("PubSub read error (err={}), reconnecting...",
-                    sync_ctx->err);
+                             sync_ctx->err);
                 break;
             }
 
-            if (reply->type == REDIS_REPLY_ARRAY &&
-                reply->elements == 3 &&
-                reply->element[0]->str &&
-                std::string_view(reply->element[0]->str,
-                    reply->element[0]->len) == "message") {
+            // 4. Parse all complete replies from the buffer
+            void* reply_ptr = nullptr;
+            while (redisReaderGetReply(sync_ctx->reader, &reply_ptr) == REDIS_OK) {
+                if (!reply_ptr) break;  // No more complete replies
 
-                std::string_view channel(
-                    reply->element[1]->str, reply->element[1]->len);
-                auto* data = reinterpret_cast<const uint8_t*>(
-                    reply->element[2]->str);
-                size_t len = reply->element[2]->len;
+                auto* reply = static_cast<redisReply*>(reply_ptr);
 
-                if (on_message_) {
-                    on_message_(channel,
-                        std::span<const uint8_t>(data, len));
+                if (reply->type == REDIS_REPLY_ARRAY && reply->elements == 3
+                    && reply->element[0]->str) {
+
+                    std::string_view type(
+                        reply->element[0]->str, reply->element[0]->len);
+
+                    if (type == "message") {
+                        std::string_view channel(
+                            reply->element[1]->str, reply->element[1]->len);
+                        auto* data = reinterpret_cast<const uint8_t*>(
+                            reply->element[2]->str);
+                        size_t len = reply->element[2]->len;
+
+                        if (on_message_) {
+                            on_message_(channel,
+                                std::span<const uint8_t>(data, len));
+                        }
+                    }
+                    // subscribe/unsubscribe acks are silently consumed
                 }
-            }
 
-            freeReplyObject(reply);
+                freeReplyObject(reply);
+            }
         }
 
         redisFree(sync_ctx);

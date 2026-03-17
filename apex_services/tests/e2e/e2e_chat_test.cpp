@@ -67,8 +67,10 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
 
     // 2b. Subscribe Bob to the room's Pub/Sub channel for broadcast delivery
     subscribe_channel(bob, "pub:chat:room:" + std::to_string(room_id));
-    // Brief wait for PubSubListener to register the subscription
-    std::this_thread::sleep_for(std::chrono::milliseconds{200});
+    // PubSubListener uses select() with 1-second timeout to poll for pending
+    // subscriptions. Wait long enough for the subscription to be applied on
+    // the Redis side before sending the message.
+    std::this_thread::sleep_for(std::chrono::milliseconds{1500});
 
     // 3. Alice sends a message
     {
@@ -170,19 +172,30 @@ TEST_F(ChatE2ETest, GlobalBroadcast) {
         auto req = chat_fbs::CreateGlobalBroadcastRequest(fbb, content);
         fbb.Finish(req);
         alice.send(2041, fbb.GetBufferPointer(), fbb.GetSize());
-
-        // Alice receives GlobalBroadcastResponse
-        auto resp = alice.recv();
-        EXPECT_EQ(resp.msg_id, 2042u);
     }
 
-    // Bob receives GlobalChatMessage (pub:global:chat channel)
+    // Alice receives both GlobalBroadcastResponse (2042) and
+    // GlobalChatMessage (2043) in non-deterministic order.
+    // Redis Pub/Sub delivery can be faster than the Kafka response round-trip,
+    // so the broadcast may arrive before the response.
     {
-        auto msg = bob.recv(std::chrono::seconds{5});
-        EXPECT_EQ(msg.msg_id, 2043u);
+        auto msg1 = alice.recv(std::chrono::seconds{5});
+        auto msg2 = alice.recv(std::chrono::seconds{5});
 
+        bool got_response = (msg1.msg_id == 2042 || msg2.msg_id == 2042);
+        bool got_broadcast = (msg1.msg_id == 2043 || msg2.msg_id == 2043);
+
+        EXPECT_TRUE(got_response)
+            << "Expected GlobalBroadcastResponse (2042), got "
+            << msg1.msg_id << " and " << msg2.msg_id;
+        EXPECT_TRUE(got_broadcast)
+            << "Expected GlobalChatMessage (2043), got "
+            << msg1.msg_id << " and " << msg2.msg_id;
+
+        // Verify broadcast content regardless of arrival order
+        auto& broadcast = (msg1.msg_id == 2043) ? msg1 : msg2;
         auto* global_msg = flatbuffers::GetRoot<
-            chat_fbs::GlobalChatMessage>(msg.payload.data());
+            chat_fbs::GlobalChatMessage>(broadcast.payload.data());
         ASSERT_NE(global_msg->content(), nullptr);
         EXPECT_STREQ(global_msg->content()->c_str(),
                      "Server maintenance at 03:00 UTC");
@@ -190,9 +203,9 @@ TEST_F(ChatE2ETest, GlobalBroadcast) {
         EXPECT_STREQ(global_msg->channel()->c_str(), "pub:global:chat");
     }
 
-    // Alice also receives her own GlobalChatMessage (global = self-inclusive)
+    // Bob receives GlobalChatMessage (pub:global:chat channel)
     {
-        auto msg = alice.recv(std::chrono::seconds{5});
+        auto msg = bob.recv(std::chrono::seconds{5});
         EXPECT_EQ(msg.msg_id, 2043u);
     }
 

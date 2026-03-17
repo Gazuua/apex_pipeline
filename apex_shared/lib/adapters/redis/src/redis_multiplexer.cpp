@@ -20,6 +20,32 @@ RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx,
     : slab_(64, {.auto_grow = true, .max_total_count = 4096}),
       io_ctx_(io_ctx), config_(config) {}
 
+void RedisMultiplexer::connect() {
+    // Establish the initial connection.  redisAsyncConnect is non-blocking;
+    // the TCP handshake completes once the io_context event loop runs.
+    conn_ = RedisConnection::create(io_ctx_, config_);
+    if (conn_ && conn_->is_connected()) {
+        if (!config_.password.empty()) {
+            // AUTH must run asynchronously after the event loop starts.
+            boost::asio::co_spawn(io_ctx_, [this]() -> boost::asio::awaitable<void> {
+                auto result = co_await authenticate(*conn_);
+                if (!result.has_value()) {
+                    spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting",
+                                 config_.host, config_.port);
+                    conn_.reset();
+                    on_disconnect();
+                }
+            }, boost::asio::detached);
+        }
+    } else {
+        spdlog::warn("RedisMultiplexer: initial connect failed ({}:{}), starting reconnect",
+                     config_.host, config_.port);
+        conn_.reset();  // Ensure null on failure
+        reconnecting_ = true;
+        boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
+    }
+}
+
 RedisMultiplexer::~RedisMultiplexer() {
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 }

@@ -1,6 +1,7 @@
 #include <apex/shared/rate_limit/redis_rate_limiter.hpp>
 
 #include <format>
+#include <string>
 
 namespace apex::shared::rate_limit {
 
@@ -31,8 +32,10 @@ void RedisRateLimiter::update_config(RedisRateLimiterConfig config) noexcept {
 
 boost::asio::awaitable<apex::core::Result<void>>
 RedisRateLimiter::load_script() {
-    auto cmd = std::format("SCRIPT LOAD {}", LUA_SCRIPT);
-    auto result = co_await multiplexer_.command(cmd);
+    // Use parameterized command to pass Lua script as a proper RESP bulk string.
+    // The deprecated command(string_view) splits on whitespace, breaking multi-line scripts.
+    auto script = std::string(LUA_SCRIPT);
+    auto result = co_await multiplexer_.command("SCRIPT LOAD %s", script.c_str());
     if (!result.has_value()) {
         co_return std::unexpected(result.error());
     }
@@ -49,19 +52,29 @@ RedisRateLimiter::execute_lua(std::string_view cur_key, std::string_view prev_ke
     auto window_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         config_.window_size).count();
 
-    std::string cmd;
+    // Convert all arguments to strings for %s binding.
+    // hiredis %s creates proper RESP bulk strings, preventing whitespace splitting
+    // that breaks multi-line Lua scripts with the deprecated command(string_view).
+    auto cur = std::string(cur_key);
+    auto prev = std::string(prev_key);
+    auto limit_str = std::to_string(limit);
+    auto window_str = std::to_string(window_ms);
+    auto now_str = std::to_string(now_ms);
+
+    apex::core::Result<adapters::redis::RedisReply> result;
     if (!script_sha_.empty()) {
-        cmd = std::format("EVALSHA {} 2 {} {} {} {} {}",
-                          script_sha_, cur_key, prev_key,
-                          limit, window_ms, now_ms);
+        result = co_await multiplexer_.command(
+            "EVALSHA %s 2 %s %s %s %s %s",
+            script_sha_.c_str(), cur.c_str(), prev.c_str(),
+            limit_str.c_str(), window_str.c_str(), now_str.c_str());
     } else {
-        // Fallback to EVAL if script not loaded
-        cmd = std::format("EVAL \"{}\" 2 {} {} {} {} {}",
-                          LUA_SCRIPT, cur_key, prev_key,
-                          limit, window_ms, now_ms);
+        auto script = std::string(LUA_SCRIPT);
+        result = co_await multiplexer_.command(
+            "EVAL %s 2 %s %s %s %s %s",
+            script.c_str(), cur.c_str(), prev.c_str(),
+            limit_str.c_str(), window_str.c_str(), now_str.c_str());
     }
 
-    auto result = co_await multiplexer_.command(cmd);
     if (!result.has_value()) {
         co_return std::unexpected(result.error());
     }
