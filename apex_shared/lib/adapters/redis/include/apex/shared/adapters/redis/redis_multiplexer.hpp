@@ -80,6 +80,12 @@ public:
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<std::vector<RedisReply>>>
     pipeline(std::span<const std::string> commands);
 
+    /// Establish the initial Redis connection.
+    /// Call once after construction (typically from RedisAdapter::do_init).
+    /// If the connection fails, starts the automatic reconnect loop.
+    /// If password is configured, schedules AUTH after the event loop starts.
+    void connect();
+
     /// Whether the underlying connection is established and not reconnecting.
     [[nodiscard]] bool connected() const noexcept;
 

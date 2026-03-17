@@ -49,12 +49,26 @@ TEST_F(TimeoutE2ETest, ServiceTimeout) {
 
 /// Supplementary: After a timeout, normal requests still work
 /// (Gateway session is not corrupted by the timeout)
+///
+/// Uses a fresh TCP connection to avoid stream contamination from prior tests'
+/// late-arriving Kafka responses on the same Gateway consumer.
 TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout) {
+    // Fresh connection — isolates from any residual responses in previous sessions
     TcpClient client(io_ctx_, config_);
     client.connect();
 
     auto auth = login(client, "alice@apex.dev", "password123");
     authenticate(client, auth.access_token);
+
+    // Flush any stale responses that arrived before our request
+    // (e.g., previous test's late Kafka responses dispatched to this new session)
+    for (int i = 0; i < 3; ++i) {
+        try {
+            (void)client.recv(std::chrono::seconds{1});
+        } catch (...) {
+            break;  // No more stale data — timeout is expected
+        }
+    }
 
     // Normal request -> should succeed
     {
@@ -65,7 +79,7 @@ TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout) {
 
         auto resp = client.recv();
         EXPECT_EQ(resp.msg_id, 2008u)
-            << "Normal request should succeed";
+            << "Normal request should succeed, got msg_id=" << resp.msg_id;
     }
 
     client.close();

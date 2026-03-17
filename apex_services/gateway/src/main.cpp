@@ -205,6 +205,15 @@ int main(int argc, char* argv[]) {
                 });
             pubsub_listener->start();
 
+            // Wire PubSubListener to per-core GatewayService instances.
+            // PubSubListener is created here (post_init), after services are
+            // constructed, so the factory's deps.pubsub_listener was null.
+            for (uint32_t i = 0; i < num_cores; ++i) {
+                auto* gw_svc = dynamic_cast<apex::gateway::GatewayService*>(
+                    srv.per_core_state(i).services[0].get());
+                gw_svc->set_pubsub_listener(pubsub_listener.get());
+            }
+
             // --- Pending Requests Timeout Sweep ---
             // Re-collect pending maps (previous was moved)
             std::vector<apex::gateway::PendingRequestsMap*> sweep_maps;
