@@ -110,18 +110,21 @@ void Server::run() {
             core_engine_->io_context(core_id));
     }
 
-    // Per-core 서비스 인스턴스 생성 — bind to first listener's dispatcher
-    if (!listeners_.empty()) {
-        for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
-            auto& state = *per_core_[core_id];
-            auto& dispatcher = listeners_[0]->dispatcher(core_id);
+    // Per-core 서비스 인스턴스 생성
+    // 리스너가 있으면 리스너의 dispatcher를, 없으면 fallback_dispatcher를 사용 (Kafka-only 서비스).
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
+        auto& state = *per_core_[core_id];
+        auto& dispatcher = listeners_.empty()
+            ? state.fallback_dispatcher
+            : listeners_[0]->dispatcher(core_id);
 
-            for (auto& factory : service_factories_) {
-                auto svc = factory(state, dispatcher);
-                state.services.push_back(std::move(svc));
-            }
+        for (auto& factory : service_factories_) {
+            auto svc = factory(state, dispatcher);
+            state.services.push_back(std::move(svc));
+        }
 
-            // Propagate default handler to all other listeners (multi-protocol)
+        // Propagate default handler to all other listeners (multi-protocol)
+        if (!listeners_.empty()) {
             for (size_t li = 1; li < listeners_.size(); ++li) {
                 listeners_[li]->sync_default_handler(core_id, dispatcher);
             }

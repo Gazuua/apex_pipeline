@@ -33,6 +33,13 @@
 
 ---
 
+### [Important] I-19. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
+- **상태**: 미구현
+- **설명**: 서비스 프로세스가 assertion 실패로 크래시할 때 디버깅이 어려움. SIGABRT/SIGILL 시그널 핸들러를 등록하여 assertion 실패 위치(__FUNCTION__, __LINE__)를 spdlog로 출력하거나, custom assert 매크로로 대체하여 크래시 전 로그 남기기. Windows에서는 SetUnhandledExceptionFilter 활용
+- **배치**: v0.6 선행 (디버깅 인프라)
+
+---
+
 ## Important
 
 ### [Important] I-17. E2E 테스트 실행 가이드 문서

@@ -99,8 +99,9 @@ struct ServerConfig {
 struct PerCoreState {
     uint32_t core_id;
     SessionManager session_mgr;
-    // MessageDispatcher 제거 — Listener<P>가 소유
-    // ConnectionHandler 제거 — Listener<P>가 소유
+    // Fallback dispatcher — 리스너 없는 서비스(Kafka-only)용.
+    // Listener가 있으면 Listener의 dispatcher를 사용하고, 없으면 이것을 사용.
+    MessageDispatcher fallback_dispatcher;
 
     // 서비스 레지스트리 — 타입 기반 서비스 조회 (services 벡터와 공존, 점진적 마이그레이션)
     ServiceRegistry registry;
