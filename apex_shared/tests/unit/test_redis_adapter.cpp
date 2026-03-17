@@ -26,11 +26,11 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers) {
         .host = "localhost",
         .port = 6379,
     };
-    RedisAdapter adapter(config);
 
     CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 
@@ -43,11 +43,10 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers) {
 
 TEST(RedisAdapter, DrainSetsNotReady) {
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 
@@ -57,11 +56,10 @@ TEST(RedisAdapter, DrainSetsNotReady) {
 
 TEST(RedisAdapter, CloseCallsCleanup) {
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
     adapter.drain();
     adapter.close();
@@ -102,11 +100,10 @@ TEST(RedisAdapter, CloseWithoutInit) {
 TEST(RedisAdapter, DoubleInit) {
     // Double init — should not crash
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 
@@ -115,11 +112,10 @@ TEST(RedisAdapter, DoubleInit) {
 
 TEST(RedisAdapter, ActiveConnectionsInitiallyZero) {
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
 
     // After init(), connect() is called per core.  redisAsyncConnect is
@@ -139,11 +135,10 @@ TEST(RedisAdapter, DrainWithoutInit) {
 TEST(RedisAdapter, FullLifecycle) {
     // init -> drain -> close full lifecycle
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     EXPECT_FALSE(adapter.is_ready());
 
     adapter.init(engine);
@@ -161,11 +156,10 @@ TEST(RedisAdapter, FullLifecycle) {
 
 TEST(RedisAdapter, MultiplexerInitialState) {
     RedisConfig config;
-    RedisAdapter adapter(config);
-
     CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
 
+    RedisAdapter adapter(config);
     adapter.init(engine);
 
     // Multiplexer exists and connect() has been called during init.
