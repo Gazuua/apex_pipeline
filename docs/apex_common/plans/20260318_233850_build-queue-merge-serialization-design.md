@@ -103,7 +103,7 @@ cmd.exe //c "${PROJECT_ROOT}\\build.bat" "${BUILD_ARGS[@]}"
 2. 폴링 루프 (1초 간격):
    - `ls | sort` → 내 파일이 첫 번째인가?
    - YES + lock 없음 → lock 획득 시도 (`mkdir`), 성공 시 owner 기록, 큐 파일 삭제, 작업 시작
-   - NO → "대기 중... 앞에 N개 작업, 현재: 브랜치 X (PID Y)" 출력 + 10초 대기
+   - NO → "대기 중... 앞에 N개 작업, 현재: 브랜치 X (PID Y)" 출력 + POLL_INTERVAL 대기
 3. 작업 완료 → lock 해제 (`rmdir` + owner 삭제)
 
 ### Atomic Lock
@@ -163,7 +163,7 @@ queue-lock.sh build debug [--target ...]
       고아 큐 엔트리 정리 (PID 확인)
       stale lock 확인 + 정리
       내 순서 + mkdir lock 성공? → owner 기록, 큐 파일 삭제
-      아니면 → 상태 출력 + 10초 대기
+      아니면 → 상태 출력 + POLL_INTERVAL 대기
   → cmd.exe //c "${PROJECT_ROOT}\build.bat" debug [--target ...]
       빌드 로그를 logs/{branch}.log에 tee (콘솔 + 파일 동시 출력)
   → lock 해제 (trap EXIT로 정상/에러/시그널 모든 경로에서 보장)
