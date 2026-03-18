@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #55. 로컬 빌드 큐잉 + 머지 직렬화 시스템 (Windows)
+- **등급**: MAJOR | **스코프**: tools, infra | **타입**: infra
+- **해결**: 2026-03-19 00:49:44 | **방식**: FIXED
+- **비고**: `queue-lock.sh` 통합 스크립트 (FIFO 큐 + mkdir atomic lock + PID/timestamp stale 감지). PreToolUse hook으로 빌드/머지 우회 원천 차단. 테스트 26/26 + 빌드 71/71 통과.
+
 ### #15. Server 라이프사이클 에러 경로 테스트
 - **등급**: MAJOR | **스코프**: core | **타입**: test
 - **해결**: 2026-03-18 22:21:52 | **방식**: FIXED
