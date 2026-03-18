@@ -162,6 +162,25 @@ else
     echo "  SKIP: validate-merge.sh not found"
 fi
 
+# ── Test 12: 동시 lock 획득 경합 ──
+echo "[Test 12] 동시 lock 획득 경합"
+rm -rf "$TEST_DIR/build.lock" "$TEST_DIR/build.owner" "$TEST_DIR/build-queue/"*
+
+(APEX_BUILD_QUEUE_DIR="$TEST_DIR" BRANCH_ID="proc_a" "$QUEUE_LOCK" _try_lock build && echo "GOT" > "$TEST_DIR/result_a") &
+pid_a=$!
+(APEX_BUILD_QUEUE_DIR="$TEST_DIR" BRANCH_ID="proc_b" "$QUEUE_LOCK" _try_lock build && echo "GOT" > "$TEST_DIR/result_b") &
+pid_b=$!
+
+wait "$pid_a" 2>/dev/null || true
+wait "$pid_b" 2>/dev/null || true
+
+lock_count=0
+[[ -f "$TEST_DIR/result_a" ]] && ((lock_count++)) || true
+[[ -f "$TEST_DIR/result_b" ]] && ((lock_count++)) || true
+assert_eq "동시 시도 중 정확히 1개만 lock 획득" "1" "$lock_count"
+
+rm -rf "$TEST_DIR/build.lock" "$TEST_DIR/build.owner" "$TEST_DIR/result_a" "$TEST_DIR/result_b"
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"
