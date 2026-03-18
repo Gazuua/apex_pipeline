@@ -7,7 +7,7 @@
 - **빌드 명령**:
   ```bash
   # MSYS bash에서 실행 (//c 필수 — /c는 MSYS가 경로로 변환함)
-  cmd.exe //c "D:\\.workspace\\apex_core\\build.bat debug"
+  cmd.exe //c "D:\\.workspace\\apex_pipeline_branch_01\\build.bat debug"
   ```
 - **빌드 변형**: `APEX_BUILD_VARIANT` = release / debug / asan / tsan
 - **출력**: `apex_core/bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`, `bin/release/bench_mpsc_queue.exe`)

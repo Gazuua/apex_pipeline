@@ -406,7 +406,7 @@ Tier 상세:
 | v0.5.2.1 | 소 | Wave 2: Rate Limiting 3계층 — Per-IP Sliding Window (TimingWheel), Per-User Redis, Per-Endpoint Config | PR #27 |
 | v0.5.3.0 | 중 | Wave 2: Auth Service — JWT 발급/검증/블랙리스트, bcrypt 해싱, Redis 세션 관리, PostgreSQL 사용자 저장소 | PR #27 |
 | v0.5.3.1 | 소 | Wave 2: Chat Service — 방 관리, 메시지/귓속말, 히스토리, PubSub 기반 전역 브로드캐스트 | PR #27 |
-| v0.5.4.0 | 중 | Wave 2: E2E 통합 테스트 6개 시나리오 (인증 → 채팅 → 브로드캐스트 전체 경로) | PR #27 |
+| v0.5.4.0 | 중 | Wave 2: E2E 통합 테스트 초기 6개 시나리오 (인증 → 채팅 → 브로드캐스트 전체 경로), 이후 v0.5.5.x에서 11개로 확장 | PR #27 |
 | v0.5.4.1 | 소 | Wave 2 패치: Mock 어댑터 인프라 (Kafka/Redis/PG) + Gateway/Auth/Chat 단위 테스트 신설, Redis 파라미터 바인딩 API + 인젝션 방어, Gateway 동시성 수정 (ResponseDispatcher core post, Rate Limiter per-core), PubSub WireHeader v2, JWT user_id Kafka 전달, 환경변수 치환, 구독 상한, sleep 제거 → 시간 주입/poll_now 패턴. 56/56 테스트 통과 | PR #28 |
 | v0.5.4.2 | 소 | auto-review 21건 수정 | Critical UAF·바이트오더·JWT 5건 + Important 14건 + Minor 2건 | 완료 |
 | v0.5.5 | 소 | 서비스 체인 완성: PR #30 리뷰 8건 수정 (kafka_envelope overflow, spdlog 제거, JWT uid string, JwtVerifier copy/move 삭제, config DI, auth exempt TOML 등) + Auth/Chat full impl (MessageDispatcher 기반 핸들러, login/logout/refresh_token, 8개 채팅 핸들러) + E2E 인프라 (RS256 키, fixture launch/teardown, TOML 설정) + 56 테스트 | 완료 |
@@ -423,7 +423,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.2.1 Rate Limiting (3계층: Per-IP / Per-User / Per-Endpoint)
          v0.5.3.0 Auth Service (JWT 발급/검증/블랙리스트, bcrypt, Redis 세션)
          v0.5.3.1 Chat Service (방 관리, 메시지, 브로드캐스트, 히스토리)
-         v0.5.4.0 E2E 통합 테스트 (6개 시나리오)
+         v0.5.4.0 E2E 통합 테스트 (초기 6개 → v0.5.5.x에서 11개 확장)
          v0.5.4.1 Wave 2 패치 (auto-review + 백로그 17건 수정, 56 테스트)
          v0.5.4.2 auto-review 21건 수정 (Critical 5 + Important 14 + Minor 2)
          v0.5.5   서비스 체인 완성 (PR #30 리뷰 8건 + Auth/Chat full impl + E2E 인프라)
