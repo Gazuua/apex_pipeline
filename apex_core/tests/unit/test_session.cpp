@@ -238,9 +238,10 @@ TEST_F(SessionTest, EnqueueWriteBufferFull) {
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
-    // Fill the queue to max_queue_depth_ (256).
+    // Fill the queue to max_queue_depth_ (default: 256).
     // Don't run io_context so write_pump doesn't drain the queue.
-    for (size_t i = 0; i < 256; ++i) {
+    constexpr size_t kDefaultMaxQueueDepth = 256;
+    for (size_t i = 0; i < kDefaultMaxQueueDepth; ++i) {
         auto result = session->enqueue_write({0x01});
         ASSERT_TRUE(result.has_value()) << "enqueue failed at i=" << i;
     }

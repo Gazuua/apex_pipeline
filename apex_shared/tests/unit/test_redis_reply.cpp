@@ -170,7 +170,7 @@ TEST(RedisReplyTest, NestedArray) {
 // TC6: nullptr reply
 TEST(RedisReplyTest, NullptrReply) {
     RedisReply reply(nullptr);
-    EXPECT_EQ(reply.type, 0);
+    EXPECT_EQ(reply.type, 0);  // zero-initialized (no hiredis type constant for nullptr)
     EXPECT_TRUE(reply.str.empty());
     EXPECT_TRUE(reply.array.empty());
 }

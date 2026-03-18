@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 60
+다음 발번: 61
 
 ---
 
@@ -30,9 +30,28 @@
 - **연관**: #56
 - **설명**: 서비스 개발자와 에이전트 양쪽이 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 통합 가이드. 현재는 Gateway/Auth/Chat 구현 코드를 직접 역추적해야 하며 반복 시행착오 발생. **2레이어 문서 구조**: **레이어 1 — 서비스 개발 API 가이드** (내부를 몰라도 서비스를 만들 수 있는 인터페이스 레퍼런스): ServiceBase<T> 상속 및 라이프사이클 훅(on_configure/on_wire/on_start/on_stop/on_session_closed), 핸들러 등록 3종(handle/route<T>/kafka_route<T>), set_default_handler(프록시 패턴), ConfigureContext·WireContext 사용 가능 API, bump()/arena() 사용법, 하지 말아야 할 것 목록(코어 간 직접 공유, Phase 순서 위반, co_await 후 FlatBuffers 포인터 접근 등). **레이어 2 — 프레임워크 내부 아키텍처** (왜 이렇게 동작하는지): 아키텍처 구조도(Server/CoreEngine/Listener/ConnectionHandler per-core 배치), 클래스 다이어그램 + 주요 클래스 호출 관계, Phase 1→2→3→3.5 시퀀스, AdapterBase 초기화 순서, ResponseDispatcher 배선, standalone CoreEngine 패턴. 2단계 전략: 1차 md 초안(에이전트 친화 구조 — 계층별 요약→상세 점진적 깊이), 2차 코어 안정화 후 다이어그램 그림 승격. v0.6 서비스 온보딩의 선행 조건.
 
+### #60. 로그 디렉토리 구조 확립 + 경로 중앙화 + 파일명 표준화
+- **등급**: MAJOR
+- **스코프**: core, gateway, auth-svc, chat-svc, infra
+- **타입**: infra
+- **연관**: #52
+- **설명**: 로그 파일이 프로젝트 루트에 산란하는 문제. 3가지 작업: ① **루트 로그 디렉토리 지정** — TOML `logging.file.path`를 서비스별/환경별 구조화된 디렉토리로 변경 (예: `logs/{service}/{env}/`). ② **로그 디렉토리 구조 결정** — 서비스명/날짜/환경 기반 계층 설계. ③ **로그 파일명 형식 표준화** — `{service}_{date}_{pid}.log` 등 구조화된 네이밍. E2E fixture(`e2e_test_fixture.cpp:50`)의 하드코딩 `name + "_e2e.log"` → 루트 산란도 이 항목에서 해결. `.gitignore`에 `*.log` 포함되어 git 오염은 없으나 작업 디렉토리 위생 문제.
+
 ---
 
 ## IN VIEW
+
+### #2. RedisMultiplexer cancel_all_pending UAF
+- **등급**: CRITICAL
+- **스코프**: shared
+- **타입**: bug
+- **설명**: `cancel_all_pending()`에서 timed_out 경로와 async_wait 경로 간 UAF 가능. `redis_multiplexer.cpp` 361-366 주석 참조.
+
+### #3. Protocol concept Frame 내부 구조 미제약
+- **등급**: CRITICAL
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: Protocol concept이 Frame 내부 구조를 명시적으로 요구하지 않음. accessor 메서드 요구 또는 Frame trait 도입 필요.
 
 ### #58. 코딩 컨벤션 확립 + .clang-format 도입 + 전체 일괄 포맷팅
 - **등급**: MAJOR
@@ -48,18 +67,57 @@
 - **연관**: #58
 - **설명**: CMakeLists.txt에 `-Wall`/`-Wextra`(GCC/Clang), `/W4`(MSVC) 플래그 자체가 미설정 — 컴파일러 기본 경고만 출력 중. 3단계 작업: ① CMake에 경고 플래그 추가 + 외부 라이브러리 헤더는 system include로 경고 억제 ② 전체 빌드 후 발생하는 GCC/Clang/MSVC 경고 전수 수정 또는 의도적 억제 ③ clangd 진단 경고 잔여분 소탕 (session.cpp 3건 포함, 기존 #30 흡수) ④ CI에서 `-Werror`/`/WX` 격상 여부 판단. 구현 시 경고 건수 측정 후 수정 범위 브레인스토밍.
 
-### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
+### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
 - **등급**: MAJOR
-- **스코프**: tools, docs
+- **스코프**: ci, shared
 - **타입**: infra
-- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
+- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
+
+### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
+- **등급**: MAJOR
+- **스코프**: ci, infra
+- **타입**: infra
+- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
+
+### #5. gateway.toml 시크릿 운영 환경 관리
+- **등급**: MAJOR
+- **스코프**: infra, gateway
+- **타입**: security
+- **연관**: #6, #8
+- **설명**: Redis/PgBouncer 프로덕션 시크릿 주입 전략 (Docker Secrets 또는 K8s ConfigMap).
+
+### #6. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
+- **등급**: MAJOR
+- **스코프**: infra, auth-svc
+- **타입**: security
+- **연관**: #5, #8
+- **설명**: 평문 비밀번호 하드코딩. 환경 변수 치환 미구현.
+
+### #8. Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: security
+- **연관**: #5, #6
+- **설명**: 프로덕션 v0.6 배포 전 Redis ACL + PgBouncer SCRAM-SHA-256 + 시크릿 주입 필수.
+
+### #49. Docker 이미지 버전 감사 + pgbouncer 교체
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
 
 ### #52. 디버깅/운영 흐름 로깅 대폭 추가
 - **등급**: MAJOR
 - **스코프**: core, shared, gateway, auth-svc, chat-svc
 - **타입**: infra
-- **연관**: #48
+- **연관**: #48, #60
 - **설명**: 현재 spdlog 호출 249건 중 debug 10건, trace 0건. 코어 핫패스 10개 소스에 로깅 전무. 개선: ① 코어 핫패스 debug/trace 추가 ② named logger 전환 ③ core_id/session_id 체계 포함 ④ MDC trace_id 활성화. #48 코드 리뷰 결과에 따라 범위 조정.
+
+### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
+- **등급**: MAJOR
+- **스코프**: core, infra
+- **타입**: infra
+- **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
 
 ### #56. 서비스 레이어 가드레일 — 코어 인터페이스 캡슐화 + 원칙 위반 방지
 - **등급**: MAJOR
@@ -68,89 +126,25 @@
 - **연관**: #1
 - **설명**: 서비스 코드가 shared-nothing 원칙을 깨거나 프레임워크 우회 코드를 작성하는 것을 설계 레벨에서 방지. 방향: ① io_context 직접 접근 차단 — 캡슐화 인터페이스 제공 ② 인터페이스 갭 → 코어 확장 ③ 힙 할당은 가이드(금지 아님). #1과 연계.
 
-### #51. Visual Studio + WSL 디버그 환경 구축
+### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
-- **스코프**: infra
+- **스코프**: tools, docs
 - **타입**: infra
-- **설명**: IDE 디버그 설정 파일 전무. ① Windows/VS2022 F5 디버깅 타겟 ② WSL/Linux 리모트 디버깅. docker-compose 연동 확인 필수.
-
-### #49. Docker 이미지 버전 감사 + pgbouncer 교체
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
-
-### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
-- **등급**: MAJOR
-- **스코프**: ci, infra
-- **타입**: infra
-- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
-
-### #2. RedisMultiplexer cancel_all_pending UAF
-- **등급**: CRITICAL
-- **스코프**: shared
-- **타입**: bug
-- **설명**: `cancel_all_pending()`에서 timed_out 경로와 async_wait 경로 간 UAF 가능. `redis_multiplexer.cpp` 361-366 주석 참조.
-
-### #3. Protocol concept Frame 내부 구조 미제약
-- **등급**: CRITICAL
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: Protocol concept이 Frame 내부 구조를 명시적으로 요구하지 않음. accessor 메서드 요구 또는 Frame trait 도입 필요.
-
-### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
-- **등급**: MAJOR
-- **스코프**: docs
-- **타입**: docs
-- **설명**: 공개 임박 시점에서 프로젝트 첫인상 역할. 프로젝트 소개, 아키텍처 개요, 퀵스타트, 빌드 가이드 포함 리뉴얼. README는 진입점 + 링크 허브 역할.
-
-### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
-- **등급**: MAJOR
-- **스코프**: core, infra
-- **타입**: infra
-- **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
-
-### #5. gateway.toml 시크릿 운영 환경 관리
-- **등급**: MAJOR
-- **스코프**: infra, gateway
-- **타입**: security
-- **설명**: Redis/PgBouncer 프로덕션 시크릿 주입 전략 (Docker Secrets 또는 K8s ConfigMap).
-
-### #6. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
-- **등급**: MAJOR
-- **스코프**: infra, auth-svc
-- **타입**: security
-- **설명**: 평문 비밀번호 하드코딩. 환경 변수 치환 미구현.
-
-### #8. Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: security
-- **설명**: 프로덕션 v0.6 배포 전 Redis ACL + PgBouncer SCRAM-SHA-256 + 시크릿 주입 필수.
-
-### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
-- **등급**: MAJOR
-- **스코프**: ci, shared
-- **타입**: infra
-- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
+- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
 
 ### #10. CircuitBreaker HALF_OPEN 코루틴 인터리빙
 - **등급**: MAJOR
 - **스코프**: shared
 - **타입**: design-debt
+- **연관**: #11
 - **설명**: should_allow() 비원자적. 어댑터 통합 시점에 수정.
 
 ### #11. CircuitBreaker::call() Result<void> 타입 제한
 - **등급**: MAJOR
 - **스코프**: shared
 - **타입**: design-debt
+- **연관**: #10
 - **설명**: Result<T> 제네릭 확장 필요.
-
-### #12. Server 예외 경로 소멸 순서
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: bug
-- **설명**: listener->start() 실패 시 dangling pointer 위험. RAII 패턴 필요.
 
 ### #13. Listener<P> 단위 테스트 부재
 - **등급**: MAJOR
@@ -164,41 +158,35 @@
 - **타입**: test
 - **설명**: try_decode(), consume_frame() 단위 테스트 미작성.
 
-### #15. Server 라이프사이클 에러 경로 테스트
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: test
-- **설명**: 에러 경로 테스트 미구현. 정상 경로만 커버.
-
 ### #16. PgTransaction begun_ 경로 unit test
 - **등급**: MAJOR
 - **스코프**: shared
 - **타입**: test
 - **설명**: MockPgConnection 필요.
 
-### #17. Gateway/Auth/Chat 핵심 모듈 테스트 부재
-- **등급**: MAJOR
-- **스코프**: gateway, auth-svc, chat-svc
-- **타입**: test
-- **설명**: Mock 인프라 미구축이 근본 원인. E2E 간접 커버 중.
-
-### #18. Mock thread-safety 불일치
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: test
-- **설명**: v0.6 테스트 정리 단계에서 감사 필요.
-
-### #19. Auth/Chat 비즈니스 로직 단위 테스트 0건
+### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
 - **스코프**: auth-svc, chat-svc
 - **타입**: test
-- **설명**: ~1500줄 핸들러에 단위 테스트 없음. Mock 인프라 구축 후 격리 테스트.
+- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족.
 
 ### #20. BumpAllocator / ArenaAllocator 벤치마크
-- **등급**: MAJOR
+- **등급**: MINOR
 - **스코프**: core
 - **타입**: perf
 - **설명**: malloc vs BumpAllocator vs ArenaAllocator 벤치마크 미구현.
+
+### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: 공개 임박 시점에서 프로젝트 첫인상 역할. 프로젝트 소개, 아키텍처 개요, 퀵스타트, 빌드 가이드 포함 리뉴얼. README는 진입점 + 링크 허브 역할.
+
+### #51. Visual Studio + WSL 디버그 환경 구축
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: IDE 디버그 설정 파일 전무. ① Windows/VS2022 F5 디버깅 타겟 ② WSL/Linux 리모트 디버깅. docker-compose 연동 확인 필수.
 
 ---
 
@@ -234,12 +222,6 @@
 - **타입**: design-debt
 - **설명**: KafkaAdapter 자체 AdapterState vs 나머지 AdapterBase::ready_. 정규화 시 통일.
 
-### #25. GatewayEnvelope FBS msg_id uint16 불일치
-- **등급**: MINOR
-- **스코프**: gateway, shared
-- **타입**: design-debt
-- **설명**: FBS uint16 vs 코드 uint32_t. 런타임 영향 없음.
-
 ### #26. ReplyTopicHeader::serialize() silent failure
 - **등급**: MINOR
 - **스코프**: shared
@@ -252,53 +234,17 @@
 - **타입**: design-debt
 - **설명**: 모두 ErrorCode::InvalidMessage로 매핑. 세분화 검토.
 
-### #28. drain_timeout 만료 시 Server 멤버 소멸 순서
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: 현재 안전. 명시적 reset() 견고화 가능.
-
 ### #29. drain()/stop() 동일 구현
 - **등급**: MINOR
 - **스코프**: core
 - **타입**: design-debt
 - **설명**: drain=soft close, stop=hard close 분리 검토.
 
-### #31. make_socket_pair 반환 순서 불일치
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: bug
-- **설명**: 벤치마크에서 역순 사용. 통일 필요.
-
-### #33. vcpkg.json 의존성 정리 + 버전 불일치
-- **등급**: MINOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: version 필드 0.4.0 vs 실제 v0.5.5.1.
-
-### #34. test_session.cpp 매직 넘버 256 하드코딩
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: test
-- **설명**: named constant 정의로 개선.
-
-### #35. test_redis_reply.cpp 매직 넘버 0
-- **등급**: MINOR
-- **스코프**: shared
-- **타입**: test
-- **설명**: 코드 위생 개선.
-
 ### #36. Acceptor core 0 부하 불균형
 - **등급**: MINOR
 - **스코프**: core
 - **타입**: perf
 - **설명**: 단일 acceptor core 0 집중. per-core acceptor 검토.
-
-### #37. cross-thread acceptor close
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: bug
-- **설명**: 다른 스레드 호출 가능성. 현재 위험 낮음.
 
 ### #38. boost-beast 조기 추가
 - **등급**: MINOR
@@ -342,14 +288,3 @@
 - **타입**: perf
 - **설명**: 벤치마크에서 병목 확인 시 도입.
 
-### #45. plans-progress 추적성 갭
-- **등급**: MINOR
-- **스코프**: docs
-- **타입**: docs
-- **설명**: 초기 레거시. 전수 감사 시 해결.
-
-### #46. auto-review 리뷰어 확장
-- **등급**: MINOR
-- **스코프**: tools
-- **타입**: infra
-- **설명**: 현재 6명 리뷰어가 v0.5 범위에 적합.
