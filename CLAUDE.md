@@ -11,7 +11,10 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ## 빌드
 
-- `cmd.exe //c "<프로젝트루트절대경로>\\build.bat" debug` (bash 셸에서, `//c` 필수). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합. 상대 경로(`build.bat`)는 백그라운드 실행 시 작업 디렉토리 불일치로 실패함
+- `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug` (bash 셸). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합
+- 개별 타겟 빌드: `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug --target apex_core`
+- **`build.bat` 직접 호출 금지** (PreToolUse hook이 차단)
+- **`cmake`, `ninja` 등 빌드 도구 직접 호출 금지** (PreToolUse hook이 차단)
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
 - **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
 - **빌드 오류 책임**: 빌드 실패는 작업 프로세스 내에서 해결. auto-review와 별개 — 작업 완료+빌드 성공 확인 후 리뷰 진입
@@ -38,7 +41,14 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
-- **머지**: 리뷰 이슈 0건 → `gh pr merge --squash --admin`
+- **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
+  1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
+  2. `git fetch origin main && git rebase origin/main` (충돌 시 에이전트가 resolve)
+  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증)
+  4. `git push --force-with-lease`
+  5. `gh pr merge --squash --admin`
+  6. `queue-lock.sh merge release`
+- **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
