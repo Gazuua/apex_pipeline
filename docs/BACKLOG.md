@@ -1,297 +1,373 @@
 # BACKLOG
 
-미해결 TODO/백로그 항목 집약. 새 작업 시작 전 반드시 확인.
-완료된 항목은 즉시 삭제 (git에 이력 보존).
+미해결 이슈 집약. 새 작업 시작 전 반드시 확인.
+완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
+운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
+
+다음 발번: 60
 
 ---
 
-## Critical
+## NOW
 
-### [Critical] C-1. apex_core 프레임워크 내부 아키텍처 문서 + 구조도
-- **상태**: 미작성
-- **목적**: 서비스 개발자가 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 것. 현재는 Gateway/Auth/Chat 구현 시 코어 내부를 직접 파악해야 하며, standalone 서비스의 CoreEngine 활용 패턴, 어댑터 초기화 순서, 시스템 메시지 처리 등이 문서화되지 않아 반복적인 시행착오 발생
-- **포함 내용**:
-  - Server/CoreEngine/Listener/ConnectionHandler/MessageDispatcher/ServiceBase/AdapterBase 내부 구조 + 시각적 구조도
-  - per-core 아키텍처 (shared-nothing 원칙, 메시지 흐름, 세션 라이프사이클)
-  - 서비스 라이프사이클: factory 생성 → bind_dispatcher → on_start/on_stop
-  - 어댑터 초기화 순서: adapter.init(CoreEngine&) → consumer start → producer poll
-  - standalone 서비스 패턴: CoreEngine 직접 사용 시 어댑터 배선 방법
-  - Gateway 전용: ResponseDispatcher 배선, post_init_callback 활용, 시스템 메시지 처리
-  - 서비스 구현 시 필수 체크리스트 (서비스 스캐폴딩 기반)
-- **후속**: 이 문서를 기반으로 서비스 스캐폴딩 스크립트(v1.0 로드맵) 자동 생성 가능
-- **배치**: v0.6 착수 전 최우선
+### #32. CI docs-only 커밋 빌드 스킵
+- **등급**: MAJOR
+- **스코프**: ci
+- **타입**: infra
+- **설명**: GitHub Actions `paths-ignore`가 PR 전체 diff 기준으로 평가하여 docs-only 커밋에도 전체 빌드 ~11분 소모. 모든 문서 PR의 반복 비용. `paths-ignore` 보강 또는 dorny/paths-filter 활용으로 source 변경 없는 PR은 빌드 job 스킵 처리. `[skip ci]` 수동 워크어라운드 대체.
 
----
+### #57. 백로그 항목 간 연관 링킹 필드 도입 + 섹션 내 우선순위 규칙
+- **등급**: MINOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: 백로그 운영 규칙 3건 추가. ① 연관된 백로그 항목 간 상호 참조를 위한 `연관` 필드 도입. 필수 아닌 선택 필드로, 필요할 때만 기재. 항목 수 제한 없음 (2개 이상 자유). 예: `- **연관**: #1, #48, #56`. 반드시 다방향 링킹 — A가 B를 참조하면 B도 A를 참조해야 함. 3개 이상 그룹이면 모든 멤버가 나머지 전원을 참조. ② 섹션 내 항목 순서가 실행 우선순위 — 각 섹션(NOW/IN VIEW/DEFERRED) 안에서 위에 있는 항목이 먼저 착수. 착수 시 상단 항목부터. 동일 등급이면 ROI(작업 크기 대비 효과) 높은 항목을 상단에 배치. ③ NOW 판단 기준 확장 — 기존 "블로커" 기준에 "또는 ROI가 극단적으로 높은 경우 (작업 소규모 + 이후 전체 작업에 반복 효과)" 추가. `docs/CLAUDE.md` § 백로그 운영에 3건 모두 반영. 도입 후 기존 항목 중 명확한 연관 관계가 있는 그룹(#1↔#56, #48↔#52 등)에 소급 적용.
 
-### [Important] I-19. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
-- **상태**: 미구현
-- **설명**: 서비스 프로세스가 assertion 실패로 크래시할 때 디버깅이 어려움. SIGABRT/SIGILL 시그널 핸들러를 등록하여 assertion 실패 위치(__FUNCTION__, __LINE__)를 spdlog로 출력하거나, custom assert 매크로로 대체하여 크래시 전 로그 남기기. Windows에서는 SetUnhandledExceptionFilter 활용
-- **배치**: v0.6 선행 (디버깅 인프라)
+### #53. 전체 문서에서 "포트폴리오" 표현 완전 제거
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: 공개 시점이 임박하여 프로젝트 문서 전반에서 "포트폴리오"라는 표현을 완전히 제거해야 함. 대상 18건: `docs/Apex_Pipeline.md`(4건), `docs/apex_core/design-rationale.md`(6건), `docs/apex_core/design-decisions.md`(2건), `docs/apex_core/review/`(1건), `docs/apex_common/plans/`(4건), 히스토리 문서 포함 전수 검색. 각 문맥에 맞게 "프로젝트", "설계", "기술적 가치" 등으로 자연스럽게 대체하거나 해당 문장 자체를 삭제. 완료 후 레포 전체 `grep -r "포트폴리오\|portfolio"` 제로 확인 필수. 본 백로그 항목이 BACKLOG_HISTORY로 이동될 때 해당 표현이 포함되지 않도록 제목·설명을 치환하여 아카이브할 것.
 
----
+### #55. 로컬 빌드 큐잉 + 머지 직렬화 시스템 (Windows)
+- **등급**: MAJOR
+- **스코프**: tools, infra
+- **타입**: infra
+- **설명**: 로컬 멀티 브랜치(A/B/C 물리 분리) 환경에서 PC 자원 제약에 따른 두 가지 중앙 큐잉 시스템 설계·적용. 공통 경로(`C:\apex-build-queue\` 등)에서 파일 기반 lock + status + 브랜치별 로그를 중앙 관리. ① **빌드 큐잉**: `build.bat`에 뮤텍스 통합. lock 획득 실패 시 10초 폴링 대기, 빌드는 백그라운드·타임아웃 없이 실행, 로그는 중앙 경로에 브랜치별 리다이렉트하여 tail로 가시성 확보. ② **머지 직렬화**: 동일 인프라에 `merge.lock` + `merge.status`(MERGING/CONFLICT/IDLE) + `merge.owner`. 머지 시도 시 lock 획득 → main rebase → 공통 파일 갱신 → squash merge → lock 해제. 선행 브랜치 conflict 발생 시 status를 CONFLICT로 갱신, 후속 에이전트는 폴링 중 conflict 상태 감지하여 작업 중단·대기 모드 진입. 공통 파일(BACKLOG.md, CLAUDE.md, Apex_Pipeline.md, CMakeLists.txt 등)은 머지 락 획득 후에만 갱신하는 규칙으로 충돌 원천 방지. stale lock 복구, conflict 시 자동 resolve vs abort 판단은 구현 시 브레인스토밍.
 
-## Important
+### #48. Post-E2E 코드 리뷰 (10개 관점)
+- **등급**: CRITICAL
+- **스코프**: core, gateway, auth-svc, chat-svc, shared
+- **타입**: design-debt
+- **연관**: #52
+- **설명**: v0.5.5.1 E2E 11/11 통과 후 코드 품질 리뷰 미수행 상태. PR #27~#37 (101파일, ~7,863 insertions) 대상으로 10개 관점 체계 리뷰 수행. 관점: ① 코어 인터페이스 단순화 ② 초기화 순서 의존성 ③ OOP/유지보수성 ④ shared-nothing 준수 ⑤ 서비스 간 의존성 ⑥ 코루틴 lifetime ⑦ 에러 핸들링 일관성 ⑧ shutdown 경로 정합성 ⑨ 매직넘버/하드코딩 ⑩ 에이전트 자율 판단. 상세 계획: `docs/apex_common/plans/20260318_144700_post-e2e-code-review.md` 참조. v0.6 진입 전 반드시 완료.
 
-### [Important] I-17. E2E 테스트 실행 가이드 문서
-- **상태**: 미작성
-- **설명**: Docker 인프라 구성, 서비스 빌드/실행, E2E 테스트 실행 흐름, 디버깅 방법(서비스 로그 확인, 수동 실행), 알려진 이슈(Kafka cold start, PG warm-up) 등을 포함한 실행 가이드. `BUILD_TESTING=ON` 설정, `ctest -LE e2e`로 유닛만 실행, `apex_e2e_tests.exe` 직접 실행 등 실무 워크플로우
-- **배치**: E2E 안정화 완료 직후
-
-### [Important] I-18. Server multi-listener dispatcher sync_all_handlers
-- **상태**: 미구현
-- **설명**: 현재 `sync_default_handler`가 default handler만 다른 listener의 dispatcher에 복사. 개별 msg_id 핸들러(`register_handler`)는 복사 안 됨. 서비스가 시스템 메시지 등 개별 핸들러를 등록하면 primary listener 외 다른 프로토콜 listener에서 동작 안 함. `sync_all_handlers`로 확장 필요
-- **배치**: 다음 멀티 프로토콜 작업 시 (v0.6 운영 인프라 또는 WebSocket 정식 지원 시)
-
-### [Important] I-4. review 문서 2개 상세 내용 부재
-- **위치**: `docs/apex_common/review/20260315_210204_v0.5-wave1-phase*.md`
-- **상태**: 미구현
-- **배치**: 별도 판단 (원본 데이터 없이 복원 불가)
-- **설명**: 원본 데이터 없이 복원 불가 — 출처: auto-review (reviewer-docs-records)
-
-### [Important] I-7. gateway.toml 시크릿 운영 환경 관리
-- **위치**: `apex_services/gateway/gateway.toml`, TOML 파서 전반
-- **상태**: 부분 해결 (expand_env 구현 완료, JWT RS256 전환으로 secret 불필요)
-- **배치**: v0.6 (운영 인프라)
-- **설명**: expand_env()로 ${VAR:-default} 치환 구현 완료. JWT가 RS256 공개키로 전환되어 secret 하드코딩 이슈 해소. 남은 과제: Redis 비밀번호 등 운영 환경 시크릿 주입 전략 — 출처: auto-review (reviewer-infra-security) + 에스컬레이션
-
-### [Important] I-8. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
-- **위치**: `apex_services/auth-svc/migrations/`
-- **상태**: 미구현
-- **배치**: v0.6 (운영 인프라, 시크릿 매니저 도입 시 해결)
-- **설명**: migration SQL에 평문 비밀번호. 인프라 시크릿 주입 전략 필요 — 출처: auto-review (reviewer-infra-security) + 에스컬레이션
-
-### [Important] I-13. async_send_raw + write_pump 동시 write 위험
-- **위치**: `apex_core/` Session (async_send_raw, write_pump)
-- **상태**: 미트리거 (async_send_raw 호출처 없음)
-- **배치**: Wave 배정 보류 (현재 미트리거, 향후 API 사용 시 검토)
-- **설명**: async_send_raw와 write_pump가 동시에 소켓 write를 시도할 수 있는 구조. 현재 코드 경로에서는 트리거되지 않지만, 향후 확장 시 위험 — 출처: auto-review (reviewer-systems)
-
-### [Important] I-14. GatewayEnvelope FBS msg_id uint16 불일치 (코드 uint32)
-- **위치**: `apex_services/gateway/` FlatBuffers 스키마 + 코드
-- **상태**: 미구현
-- **배치**: Wave 배정 보류 (레거시 FBS 미사용, 삭제로 해결 가능)
-- **설명**: GatewayEnvelope FBS에서 msg_id가 uint16으로 정의되어 있으나 코드에서 uint32로 사용. 타입 불일치. 실제 런타임에서는 kafka_envelope.hpp 수동 직렬화(uint32)를 사용하므로 영향 없음. 레거시 FBS 파일 삭제 검토. — 출처: auto-review (reviewer-design)
-
-### [Important] I-15. Linux CI Sanitizer 파이프라인 추가 (ASAN+UBSAN+TSAN+Valgrind)
-- **위치**: `.github/workflows/` CI 파이프라인
-- **상태**: 미구현
-- **배치**: 빠를수록 좋음 (우선순위 높음)
-- **설명**: Linux/Clang cross-compile CI job 추가. ASAN+UBSAN: 하나의 job에 합쳐서 PR CI에 포함. TSAN: 별도 job으로 PR CI에 포함 (ASAN과 동시 사용 불가). Valgrind memcheck: PR CI에 포함 (현 규모에서는 실행 가능, 느려지면 야간 빌드로 분리 검토)
-
-### [Important] I-16. ReplyTopicHeader::serialize() silent failure
-- **위치**: `apex_shared/lib/protocols/kafka/src/kafka_envelope.cpp`
-- **상태**: 미구현
-- **배치**: Wave 배정 보류
-- **설명**: overflow 시 빈 vector 반환하여 정상 케이스(빈 데이터)와 구분 불가. `std::expected` 반환으로 전환 검토 — 출처: auto-review 에스컬레이션
+### #1. apex_core 프레임워크 가이드 (API 가이드 + 내부 아키텍처)
+- **등급**: CRITICAL
+- **스코프**: core, docs
+- **타입**: docs
+- **연관**: #56
+- **설명**: 서비스 개발자와 에이전트 양쪽이 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 통합 가이드. 현재는 Gateway/Auth/Chat 구현 코드를 직접 역추적해야 하며 반복 시행착오 발생. **2레이어 문서 구조**: **레이어 1 — 서비스 개발 API 가이드** (내부를 몰라도 서비스를 만들 수 있는 인터페이스 레퍼런스): ServiceBase<T> 상속 및 라이프사이클 훅(on_configure/on_wire/on_start/on_stop/on_session_closed), 핸들러 등록 3종(handle/route<T>/kafka_route<T>), set_default_handler(프록시 패턴), ConfigureContext·WireContext 사용 가능 API, bump()/arena() 사용법, 하지 말아야 할 것 목록(코어 간 직접 공유, Phase 순서 위반, co_await 후 FlatBuffers 포인터 접근 등). **레이어 2 — 프레임워크 내부 아키텍처** (왜 이렇게 동작하는지): 아키텍처 구조도(Server/CoreEngine/Listener/ConnectionHandler per-core 배치), 클래스 다이어그램 + 주요 클래스 호출 관계, Phase 1→2→3→3.5 시퀀스, AdapterBase 초기화 순서, ResponseDispatcher 배선, standalone CoreEngine 패턴. 2단계 전략: 1차 md 초안(에이전트 친화 구조 — 계층별 요약→상세 점진적 깊이), 2차 코어 안정화 후 다이어그램 그림 승격. v0.6 서비스 온보딩의 선행 조건.
 
 ---
 
-## Minor
+## IN VIEW
 
-### [Minor] m-2. 별도 백로그 파일 2건 미이전
-- **위치**: `docs/apex_core/backlog_memory_os_level.md`, `docs/` 내 `20260315_094300_backlog.md`
-- **상태**: 미구현
-- **배치**: 즉시 (문서 정리)
-- **설명**: `backlog_memory_os_level.md` → BACKLOG.md 리네이밍/통합 필요, `20260315_094300_backlog.md` → BACKLOG.md로 이전. 규칙: 별도 백로그 파일 생성 금지 — 출처: auto-review (reviewer-docs-records)
+### #58. 코딩 컨벤션 확립 + .clang-format 도입 + 전체 일괄 포맷팅
+- **등급**: MAJOR
+- **스코프**: core, shared, gateway, auth-svc, chat-svc, ci
+- **타입**: infra
+- **연관**: #54
+- **설명**: 코딩 스타일이 K&R/Allman 혼용 상태(K&R 90%, Allman은 생성자 이니셜라이저만). 멤버 변수 trailing underscore, snake_case 네이밍은 이미 일관적. 3단계 작업: ① `.clang-format` 설정 파일 작성 — Allman brace(`BreakBeforeBraces: Allman`), 인덴트, 줄 길이, 네이밍 등 프로젝트 컨벤션 확정. 구현 시 세부 옵션 브레인스토밍 ② 전체 코드베이스 `clang-format -i` 일괄 포맷팅 + `.git-blame-ignore-revs`에 포맷팅 커밋 등록(blame 히스토리 보존) ③ CI에 `clang-format --dry-run --Werror` 추가로 이후 스타일 위반 자동 차단. v0.6에서 코드량 증가 전에 적용해야 변환 비용 최소.
 
-### [Minor] m-3. ResponseDispatcher 하드코딩 오프셋
-- **위치**: `apex_services/gateway/src/response_dispatcher.cpp:74-76`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: ENVELOPE_HEADER_SIZE 고정 오프셋 사용. envelope_payload_offset() 사용으로 방어적 수정 추천 — 출처: auto-review 에스컬레이션
+### #54. 빌드/정적분석 경고 전수 소탕 + 경고 레벨 확립
+- **등급**: MAJOR
+- **스코프**: core, shared, gateway, auth-svc, chat-svc, ci
+- **타입**: infra
+- **연관**: #58
+- **설명**: CMakeLists.txt에 `-Wall`/`-Wextra`(GCC/Clang), `/W4`(MSVC) 플래그 자체가 미설정 — 컴파일러 기본 경고만 출력 중. 3단계 작업: ① CMake에 경고 플래그 추가 + 외부 라이브러리 헤더는 system include로 경고 억제 ② 전체 빌드 후 발생하는 GCC/Clang/MSVC 경고 전수 수정 또는 의도적 억제 ③ clangd 진단 경고 잔여분 소탕 (session.cpp 3건 포함, 기존 #30 흡수) ④ CI에서 `-Werror`/`/WX` 격상 여부 판단. 구현 시 경고 건수 측정 후 수정 범위 브레인스토밍.
 
-### [Minor] m-4. ReplyTopicHeader serialize 길이 미검증
-- **위치**: `apex_shared/lib/protocols/kafka/include/apex/shared/protocols/kafka/kafka_envelope.hpp`
-- **상태**: 미구현
-- **배치**: Wave 배정 보류 (Kafka 토픽 249자 제한으로 현실적 위험 극히 낮음)
-- **설명**: uint16_t truncation 가능성. Kafka 토픽명 249자 제한으로 실제 위험은 극히 낮음 — 출처: auto-review 에스컬레이션
+### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
+- **등급**: MAJOR
+- **스코프**: tools, docs
+- **타입**: infra
+- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
 
-### [Minor] m-5. CI docs-only 커밋에도 전체 빌드 실행
-- **위치**: `.github/workflows/ci.yml`
-- **상태**: 미구현
-- **배치**: v0.6 (운영 인프라)
-- **설명**: `pull_request` 이벤트가 마지막 커밋이 아닌 PR 전체 diff를 기준으로 `paths-ignore`를 평가하기 때문에, docs-only 커밋에도 전체 빌드가 실행됨. 불필요한 빌드 시간 소모 (~11분/회). workaround: `[skip ci]` 커밋 메시지
+### #52. 디버깅/운영 흐름 로깅 대폭 추가
+- **등급**: MAJOR
+- **스코프**: core, shared, gateway, auth-svc, chat-svc
+- **타입**: infra
+- **연관**: #48
+- **설명**: 현재 spdlog 호출 249건 중 debug 10건, trace 0건. 코어 핫패스 10개 소스에 로깅 전무. 개선: ① 코어 핫패스 debug/trace 추가 ② named logger 전환 ③ core_id/session_id 체계 포함 ④ MDC trace_id 활성화. #48 코드 리뷰 결과에 따라 범위 조정.
 
----
+### #56. 서비스 레이어 가드레일 — 코어 인터페이스 캡슐화 + 원칙 위반 방지
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **연관**: #1
+- **설명**: 서비스 코드가 shared-nothing 원칙을 깨거나 프레임워크 우회 코드를 작성하는 것을 설계 레벨에서 방지. 방향: ① io_context 직접 접근 차단 — 캡슐화 인터페이스 제공 ② 인터페이스 갭 → 코어 확장 ③ 힙 할당은 가이드(금지 아님). #1과 연계.
 
-## 코드 위생
+### #51. Visual Studio + WSL 디버그 환경 구축
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: IDE 디버그 설정 파일 전무. ① Windows/VS2022 F5 디버깅 타겟 ② WSL/Linux 리모트 디버깅. docker-compose 연동 확인 필수.
 
-### [Low] session.cpp clang-tidy 워닝 잔여분
-- **위치**: `apex_core/` — `session.cpp`
-- **상태**: 부분 구현
-- **배치**: v0.5 패치
-- **설명**: server.cpp(1건), arena_allocator.cpp(8건) 수정 완료. session.cpp 5건(implicit-bool-conversion, owning-memory, coroutine-ref-param, unused-return-value 등) 중 2건만 수정, 나머지 미완료 — 출처: clangd LSP 진단 (v0.4.5.2)
+### #49. Docker 이미지 버전 감사 + pgbouncer 교체
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
 
-### [Low] 테스트 이름 오타 MoveConstruction 2건
-- **위치**: `apex_core/` — `test_bump_allocator.cpp:103`, `test_arena_allocator.cpp:109`
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: `MoveConstruction` (오타 여부 확인 필요) — 출처: review/20260314_140000_auto-review.md
+### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
+- **등급**: MAJOR
+- **스코프**: ci, infra
+- **타입**: infra
+- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
 
-### [Low] make_socket_pair 반환 순서 불일치
-- **위치**: `apex_core/` make_socket_pair 및 호출처
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 함수는 `{server, client}` 반환하나 일부 호출처에서 순서 혼용 — 출처: review/20260314_140000_auto-review.md
+### #2. RedisMultiplexer cancel_all_pending UAF
+- **등급**: CRITICAL
+- **스코프**: shared
+- **타입**: bug
+- **설명**: `cancel_all_pending()`에서 timed_out 경로와 async_wait 경로 간 UAF 가능. `redis_multiplexer.cpp` 361-366 주석 참조.
 
-### [Low] main 히스토리 문서 전용 커밋 squash
-- **위치**: main 브랜치 git 히스토리
-- **상태**: 미구현
-- **배치**: Wave 배정 보류
-- **설명**: docs 전용 커밋이 전체의 30~40% 차지. interactive rebase로 인접 문서 커밋 squash 정리 필요 — 출처: 코드 리뷰 피드백
+### #3. Protocol concept Frame 내부 구조 미제약
+- **등급**: CRITICAL
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: Protocol concept이 Frame 내부 구조를 명시적으로 요구하지 않음. accessor 메서드 요구 또는 Frame trait 도입 필요.
 
-### [Low] plans-progress 추적성 갭 2건
-- **위치**: `docs/` plans, progress
-- **상태**: 미구현
-- **배치**: Wave 배정 보류
-- **설명**: docs-consolidation, roadmap-redesign 계획서에 대응하는 progress 문서 없음 (초기 레거시) — 출처: review/20260314_140000_auto-review.md
+### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: 공개 임박 시점에서 프로젝트 첫인상 역할. 프로젝트 소개, 아키텍처 개요, 퀵스타트, 빌드 가이드 포함 리뉴얼. README는 진입점 + 링크 허브 역할.
 
----
+### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
+- **등급**: MAJOR
+- **스코프**: core, infra
+- **타입**: infra
+- **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
 
-## 단위 테스트
+### #5. gateway.toml 시크릿 운영 환경 관리
+- **등급**: MAJOR
+- **스코프**: infra, gateway
+- **타입**: security
+- **설명**: Redis/PgBouncer 프로덕션 시크릿 주입 전략 (Docker Secrets 또는 K8s ConfigMap).
 
-### [Medium] ConnectionHandler 단위 테스트 부재
-- **위치**: `apex_core/` ConnectionHandler
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 다수 리뷰에서 반복 지적, E2E 간접 커버 중. 상당한 작업량 — 출처: review/20260314_140000_auto-review.md, review/20260313_005117_auto-review.md (v0.5)
+### #6. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
+- **등급**: MAJOR
+- **스코프**: infra, auth-svc
+- **타입**: security
+- **설명**: 평문 비밀번호 하드코딩. 환경 변수 치환 미구현.
 
-### [Medium] PgTransaction begun_ 경로 unit test 불가
-- **위치**: `apex_shared/` PgTransaction
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: begin()이 async이므로 mock PgConnection 또는 integration test 필요 — 출처: review/20260314_090000_auto-review.md (v0.5)
+### #8. Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: security
+- **설명**: 프로덕션 v0.6 배포 전 Redis ACL + PgBouncer SCRAM-SHA-256 + 시크릿 주입 필수.
 
-### [Medium] Server 라이프사이클 에러 경로 테스트
-- **위치**: `apex_core/` Server
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 별도 태스크로 분리 — 출처: review/20260314_090000_auto-review.md (v0.5)
+### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
+- **등급**: MAJOR
+- **스코프**: ci, shared
+- **타입**: infra
+- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
 
-### [Medium] RedisMultiplexer 코루틴 명령 테스트
-- **위치**: `apex_shared/` RedisMultiplexer
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: async 테스트 인프라 필요 — 출처: review/20260314_140000_auto-review.md (v0.5)
+### #10. CircuitBreaker HALF_OPEN 코루틴 인터리빙
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: should_allow() 비원자적. 어댑터 통합 시점에 수정.
 
-### [Medium] Session async_recv 테스트
-- **위치**: `apex_core/` Session
-- **상태**: 미구현
-- **배치**: v0.5 패치
-- **설명**: 별도 태스크 — 출처: review/20260314_140000_auto-review.md (v0.5)
+### #11. CircuitBreaker::call() Result<void> 타입 제한
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: Result<T> 제네릭 확장 필요.
 
-### [Medium] TC-1. Gateway/Auth/Chat 핵심 모듈 9건+ 테스트 부재
-- **위치**: `apex_services/` (gateway, auth-svc, chat-svc)
-- **상태**: 미구현
-- **배치**: v0.5 이후 별도 테스트 인프라 구축
-- **설명**: Mock 인프라(MockKafkaAdapter, MockRedisAdapter, MockPgAdapter, MockCoreEngine) 미구축이 근본 원인. 대상: websocket_protocol, rate_limit_facade, redis_connection, broadcast_fanout, jwt_blacklist, pubsub_listener, auth_service, chat_db_consumer, gateway_pipeline 코루틴 경로 + message_router, response_dispatcher, gateway_config_parser, config_reloader — 출처: auto-review (reviewer-test) + 에스컬레이션
+### #12. Server 예외 경로 소멸 순서
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: bug
+- **설명**: listener->start() 실패 시 dangling pointer 위험. RAII 패턴 필요.
 
-### [Medium] TC-2. Mock thread-safety 불일치 + E2E fixture 미구현 + suppression 파일 중복
-- **위치**: `apex_services/` 테스트 인프라
-- **상태**: 미구현
-- **배치**: v0.5 이후
-- **설명**: Mock 객체의 thread-safety가 실제 구현체와 불일치, E2E fixture 미구현, 테스트 suppression 파일 중복 — 출처: auto-review (reviewer-test)
+### #13. Listener<P> 단위 테스트 부재
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: test
+- **설명**: start/drain/stop, per-core handler 동기화, acceptor 관리 단위 테스트 없음.
 
-### [Medium] TC-3. Auth/Chat 비즈니스 로직 단위 테스트 0건
-- **위치**: `apex_services/auth-svc/`, `apex_services/chat-svc/`
-- **상태**: 미구현
-- **배치**: v0.6 이후
-- **설명**: 1500+줄 핸들러 코드에 단위 테스트 없음. Mock 인프라 구축 필요 — 출처: auto-review 에스컬레이션
+### #14. WebSocketProtocol 테스트 부재
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: test
+- **설명**: try_decode(), consume_frame() 단위 테스트 미작성.
 
-### [Medium] TC-4. new_refresh_token E2E 테스트 미검증
-- **위치**: `apex_services/auth-svc/` Token Rotation
-- **상태**: 미구현
-- **배치**: E2E 환경 구축 후
-- **설명**: Token Rotation 핵심 필드 new_refresh_token에 대한 E2E 테스트 0건. E2E 환경 구축 후 추가 필요 — 출처: auto-review 에스컬레이션
+### #15. Server 라이프사이클 에러 경로 테스트
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: test
+- **설명**: 에러 경로 테스트 미구현. 정상 경로만 커버.
 
----
+### #16. PgTransaction begun_ 경로 unit test
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: test
+- **설명**: MockPgConnection 필요.
 
-## 서비스 체인
+### #17. Gateway/Auth/Chat 핵심 모듈 테스트 부재
+- **등급**: MAJOR
+- **스코프**: gateway, auth-svc, chat-svc
+- **타입**: test
+- **설명**: Mock 인프라 미구축이 근본 원인. E2E 간접 커버 중.
 
-### [Medium] TOCTOU: join_room SCARD→SADD 경합
-- **위치**: `apex_services/chat-svc/src/chat_service.cpp`
-- **상태**: 미구현
-- **배치**: Wave 배정 보류 (현실적 발생 빈도 낮음)
-- **설명**: join_room에서 SCARD→SADD 사이 TOCTOU 경합 가능. Redis Lua script로 원자적 처리 필요하나 어댑터 인터페이스 변경 수반. 현실적 발생 빈도 극히 낮음 — 출처: auto-review 에스컬레이션
+### #18. Mock thread-safety 불일치
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: test
+- **설명**: v0.6 테스트 정리 단계에서 감사 필요.
 
-### [Medium] Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
-- **위치**: `apex_infra/` Redis 설정, pgbouncer 설정
-- **상태**: 미구현
-- **배치**: v0.6 (운영 인프라, 프로덕션 배포 시 설정 변경 필요)
-- **설명**: 로컬 개발 환경에서 Redis 4인스턴스 무인증, PgBouncer md5 평문 비밀번호. 프로덕션 배포 전 인증 설정 필수 — 출처: review/20260314_140000_auto-review.md + 에스컬레이션
+### #19. Auth/Chat 비즈니스 로직 단위 테스트 0건
+- **등급**: MAJOR
+- **스코프**: auth-svc, chat-svc
+- **타입**: test
+- **설명**: ~1500줄 핸들러에 단위 테스트 없음. Mock 인프라 구축 후 격리 테스트.
 
----
-
-## 운영 인프라
-
-### [Medium] CI에서 Windows apex_shared 어댑터 빌드 미검증
-- **위치**: `.github/` CI 워크플로우
-- **상태**: 미구현
-- **배치**: Wave 3 — F. 운영 인프라
-- **설명**: CI가 apex_core만 빌드, apex_shared 어댑터는 Windows에서 미커버 — 출처: review/20260314_140000_auto-review.md (v0.5)
-
----
-
-## 빌드 / 의존성
-
-### [Low] vcpkg.json 의존성 정리 + 버전 불일치
-- **위치**: `vcpkg.json`, `apex_shared/vcpkg.json`
-- **상태**: 미구현
-- **배치**: Wave 배정 보류 (빌드 영향 큼, 별도 판단)
-- **설명**: 빌드 영향 큼, 별도 태스크. 추가: vcpkg.json 버전이 0.4.0으로 실제 v0.5.4.1과 불일치, apex_shared/vcpkg.json에 독립 빌드 의존성 누락 — 출처: review/20260314_140000_auto-review.md + auto-review (reviewer-infra-security)
-
----
-
-## 성능 / 최적화
-
-### [Low] BumpAllocator / ArenaAllocator 벤치마크
-- **위치**: `apex_core/` BumpAllocator, ArenaAllocator
-- **상태**: 미구현
-- **배치**: v0.6 전 (Wave 배정 보류)
-- **설명**: malloc 대비 성능 기준 수치 확보 필요 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.5)
-
-### [Low] 코루틴 프레임 풀 할당 (ADR-21)
-- **위치**: `apex_core/` 코루틴 promise_type
-- **상태**: 설계만 완료
-- **배치**: v1.0 이후 (Wave 배정 보류)
-- **설명**: 벤치마크에서 코루틴 프레임 힙 할당이 병목으로 확인될 경우 커스텀 코루틴 타입(promise_type 풀 오버로드) 도입 검토. 현재는 mimalloc/jemalloc + HALO 최적화로 대응 — 출처: plans/roadmap-redesign.md, design-decisions.md (벤치마크 후)
-
-### [Low] NUMA 바인딩 + Core Affinity
-- **위치**: `apex_core/` 스레드 관리
-- **상태**: 미구현
-- **배치**: v1.0 이후 (Wave 배정 보류)
-- **설명**: 멀티 소켓 환경 전용, 싱글 소켓에서는 불필요 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.6+)
-
-### [Low] mmap 직접 사용 (malloc 대체)
-- **위치**: `apex_core/` 메모리 관리
-- **상태**: 미구현
-- **배치**: v1.0 이후 (Wave 배정 보류)
-- **설명**: RSS 모니터링/메모리 프로파일링 도입 시 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.6+)
-
-### [Low] Hugepage (대형 페이지)
-- **위치**: `apex_core/` 메모리 관리
-- **상태**: 미구현
-- **배치**: v1.0 이후 (Wave 배정 보류)
-- **설명**: TLB miss 병목 확인 후 적용 — 출처: docs/apex_core/backlog_memory_os_level.md (v0.6+)
-
-### [Low] L1 로컬 캐시
-- **위치**: `apex_core/` per-core 데이터 관리
-- **상태**: 미구현
-- **배치**: v1.0 이후 (Wave 배정 보류)
-- **설명**: per-core 핫 데이터 캐싱. 부하 테스트에서 캐시 미스가 병목으로 확인 시 도입 — 출처: plans/roadmap-redesign.md (v1.0 부하 테스트 후)
+### #20. BumpAllocator / ArenaAllocator 벤치마크
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: malloc vs BumpAllocator vs ArenaAllocator 벤치마크 미구현.
 
 ---
 
-## 도구 / 자동화
+## DEFERRED
 
-### [Low] auto-review 리뷰어 확장 (v0.5+)
-- **위치**: `apex_tools/auto-review/`
-- **상태**: 미구현
-- **배치**: v0.5+ (Wave 배정 보류)
-- **설명**: reviewer-protocol (서비스 간 FlatBuffers/메시지 스키마), reviewer-adapter (Kafka/Redis/PG 사용 패턴), reviewer-perf (핫패스 분석/벤치마크 회귀) 3명 추가 예정 — 출처: plans/auto-review-redesign.md
+### #50. apex_tools/scripts 폴더 신설 + 스크립트 정리
+- **등급**: MINOR
+- **스코프**: tools
+- **타입**: infra
+- **설명**: 독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지.
 
-### [Low] README 빌드 안내 보강
-- **위치**: `README.md`
-- **상태**: 미구현
-- **배치**: Wave 배정 보류
-- **설명**: 별도 작업 — 출처: review/20260314_140000_auto-review.md
+### #21. Server multi-listener dispatcher sync_all_handlers
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: 개별 msg_id 핸들러가 primary listener만 적용. 멀티 프로토콜 시 확장 필요.
+
+### #22. async_send_raw + write_pump 동시 write 위험
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: 현재 write_pump만 사용하여 미트리거. API 확장 시 동기화 필요.
+
+### #23. TOCTOU: join_room SCARD→SADD 경합
+- **등급**: MAJOR
+- **스코프**: chat-svc
+- **타입**: bug
+- **설명**: Redis Lua script 원자적 처리 필요하나 어댑터 Lua 지원 미구현. 발생 빈도 극히 낮음.
+
+### #24. 어댑터 상태 관리 불일치
+- **등급**: MINOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: KafkaAdapter 자체 AdapterState vs 나머지 AdapterBase::ready_. 정규화 시 통일.
+
+### #25. GatewayEnvelope FBS msg_id uint16 불일치
+- **등급**: MINOR
+- **스코프**: gateway, shared
+- **타입**: design-debt
+- **설명**: FBS uint16 vs 코드 uint32_t. 런타임 영향 없음.
+
+### #26. ReplyTopicHeader::serialize() silent failure
+- **등급**: MINOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: overflow 시 빈 vector 반환. `std::expected` 통일 검토.
+
+### #27. FrameError→ErrorCode 매핑 구분 불가
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: 모두 ErrorCode::InvalidMessage로 매핑. 세분화 검토.
+
+### #28. drain_timeout 만료 시 Server 멤버 소멸 순서
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: 현재 안전. 명시적 reset() 견고화 가능.
+
+### #29. drain()/stop() 동일 구현
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: drain=soft close, stop=hard close 분리 검토.
+
+### #31. make_socket_pair 반환 순서 불일치
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: bug
+- **설명**: 벤치마크에서 역순 사용. 통일 필요.
+
+### #33. vcpkg.json 의존성 정리 + 버전 불일치
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: version 필드 0.4.0 vs 실제 v0.5.5.1.
+
+### #34. test_session.cpp 매직 넘버 256 하드코딩
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: test
+- **설명**: named constant 정의로 개선.
+
+### #35. test_redis_reply.cpp 매직 넘버 0
+- **등급**: MINOR
+- **스코프**: shared
+- **타입**: test
+- **설명**: 코드 위생 개선.
+
+### #36. Acceptor core 0 부하 불균형
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: 단일 acceptor core 0 집중. per-core acceptor 검토.
+
+### #37. cross-thread acceptor close
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: bug
+- **설명**: 다른 스레드 호출 가능성. 현재 위험 낮음.
+
+### #38. boost-beast 조기 추가
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: Beast 통합 전까지 미사용 의존성.
+
+### #39. CMakeLists.txt 하드코딩 상대 경로
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: CMake 변수 활용 검토.
+
+### #40. NUMA 바인딩 + Core Affinity
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: v1.0+ 멀티 소켓 배포 시 재평가.
+
+### #41. mmap 직접 사용 (malloc 대체)
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: v0.6 RSS 모니터링 도입 시 재평가.
+
+### #42. Hugepage (대형 페이지)
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: 부하 테스트에서 TLB miss 병목 확인 후.
+
+### #43. L1 로컬 캐시
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: v1.0+ 이후.
+
+### #44. 코루틴 프레임 풀 할당 (ADR-21)
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: perf
+- **설명**: 벤치마크에서 병목 확인 시 도입.
+
+### #45. plans-progress 추적성 갭
+- **등급**: MINOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: 초기 레거시. 전수 감사 시 해결.
+
+### #46. auto-review 리뷰어 확장
+- **등급**: MINOR
+- **스코프**: tools
+- **타입**: infra
+- **설명**: 현재 6명 리뷰어가 v0.5 범위에 적합.
