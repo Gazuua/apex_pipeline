@@ -31,6 +31,23 @@ assert_dir_exists "$TEST_DIR/build-queue" "build-queue 디렉토리 생성"
 assert_dir_exists "$TEST_DIR/merge-queue" "merge-queue 디렉토리 생성"
 assert_dir_exists "$TEST_DIR/logs" "logs 디렉토리 생성"
 
+# ── Test 2: PID 검증 ──
+echo "[Test 2] PID 생존 확인"
+
+result=$("$QUEUE_LOCK" _check_pid $$ && echo "0" || echo "1")
+assert_eq "현재 PID는 alive" "0" "$result"
+
+result=$("$QUEUE_LOCK" _check_pid 99999 && echo "0" || echo "1")
+assert_eq "존재하지 않는 PID는 dead" "1" "$result"
+
+# ── Test 3: stale lock 감지 ──
+echo "[Test 3] stale lock 감지"
+mkdir -p "$TEST_DIR/build.lock"
+printf "PID=99999\nBRANCH=test_branch\nACQUIRED=$(date +%s)\n" > "$TEST_DIR/build.owner"
+
+"$QUEUE_LOCK" _detect_stale build > /dev/null 2>&1 || true
+assert_no_dir "$TEST_DIR/build.lock" "stale lock 제거됨"
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"
