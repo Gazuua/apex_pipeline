@@ -48,6 +48,28 @@ printf "PID=99999\nBRANCH=test_branch\nACQUIRED=$(date +%s)\n" > "$TEST_DIR/buil
 "$QUEUE_LOCK" _detect_stale build > /dev/null 2>&1 || true
 assert_no_dir "$TEST_DIR/build.lock" "stale lock 제거됨"
 
+# ── Test 4: 큐 등록 + 순서 확인 ──
+echo "[Test 4] FIFO 큐 등록 + 순서"
+rm -rf "$TEST_DIR/build-queue/"*
+
+touch "$TEST_DIR/build-queue/20260318_100000_branch_01_1111"
+touch "$TEST_DIR/build-queue/20260318_100001_branch_02_2222"
+touch "$TEST_DIR/build-queue/20260318_100002_branch_03_3333"
+
+first=$(ls "$TEST_DIR/build-queue/" | sort | head -1)
+assert_eq "첫 번째는 branch_01" "20260318_100000_branch_01_1111" "$first"
+
+# ── Test 5: 고아 큐 엔트리 정리 ──
+echo "[Test 5] 고아 큐 엔트리 정리"
+rm -rf "$TEST_DIR/build-queue/"*
+
+touch "$TEST_DIR/build-queue/20260318_100000_branch_01_99999"
+touch "$TEST_DIR/build-queue/20260318_100001_branch_02_$$"
+
+"$QUEUE_LOCK" _cleanup_queue build 2>/dev/null
+remaining=$(ls "$TEST_DIR/build-queue/" | wc -l | tr -d ' ')
+assert_eq "고아 엔트리 삭제 후 1개 남음" "1" "$remaining"
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"
