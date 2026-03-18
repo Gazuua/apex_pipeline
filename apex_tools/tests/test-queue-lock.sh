@@ -128,6 +128,40 @@ status_output=$("$QUEUE_LOCK" merge status 2>/dev/null)
 echo "$status_output" | grep -q "LOCK=FREE"
 assert_eq "LOCK=FREE 출력" "0" "$?"
 
+# ── Test 10: validate-build.sh hook ──
+echo "[Test 10] PreToolUse hook — 빌드 차단"
+HOOK_DIR="$SCRIPT_DIR/../../.claude/hooks"
+BUILD_HOOK="$HOOK_DIR/validate-build.sh"
+if [[ -f "$BUILD_HOOK" ]]; then
+    result=$(echo '{"tool_input":{"command":"cmake --build build/Windows/debug"}}' | bash "$BUILD_HOOK" 2>/dev/null; echo $?)
+    assert_eq "cmake --build 차단" "2" "$result"
+
+    result=$(echo '{"tool_input":{"command":"bash apex_tools/queue-lock.sh build debug"}}' | bash "$BUILD_HOOK" 2>/dev/null; echo $?)
+    assert_eq "queue-lock.sh 허용" "0" "$result"
+
+    result=$(echo '{"tool_input":{"command":"ninja -C build"}}' | bash "$BUILD_HOOK" 2>/dev/null; echo $?)
+    assert_eq "ninja 차단" "2" "$result"
+
+    result=$(echo '{"tool_input":{"command":"git status"}}' | bash "$BUILD_HOOK" 2>/dev/null; echo $?)
+    assert_eq "git status 허용" "0" "$result"
+else
+    echo "  SKIP: validate-build.sh not found"
+fi
+
+# ── Test 11: validate-merge.sh hook ──
+echo "[Test 11] PreToolUse hook — 머지 차단"
+MERGE_HOOK="$HOOK_DIR/validate-merge.sh"
+if [[ -f "$MERGE_HOOK" ]]; then
+    rm -rf "$TEST_DIR/merge.lock"
+    result=$(echo '{"tool_input":{"command":"gh pr merge --squash --admin"},"cwd":"/test"}' | APEX_BUILD_QUEUE_DIR="$TEST_DIR" bash "$MERGE_HOOK" 2>/dev/null; echo $?)
+    assert_eq "lock 없이 merge 차단" "2" "$result"
+
+    result=$(echo '{"tool_input":{"command":"git push"}}' | APEX_BUILD_QUEUE_DIR="$TEST_DIR" bash "$MERGE_HOOK" 2>/dev/null; echo $?)
+    assert_eq "git push 허용" "0" "$result"
+else
+    echo "  SKIP: validate-merge.sh not found"
+fi
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"
