@@ -4,6 +4,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #H12. session.cpp clang-tidy 워닝 잔여분
+- **등급**: MINOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-18 19:57:43 | **방식**: SUPERSEDED
+- **비고**: #54 (빌드/정적분석 경고 전수 소탕)에 흡수.
+
 ### #H11. main 히스토리 문서 전용 커밋 squash
 - **등급**: MINOR | **스코프**: docs | **타입**: infra
 - **해결**: 2026-03-18 12:53:47 | **방식**: SUPERSEDED
