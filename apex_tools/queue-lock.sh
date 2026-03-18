@@ -175,6 +175,35 @@ acquire_lock() {
     done
 }
 
+# === Channel: build ===
+do_build() {
+    local preset="${1:-debug}"
+    shift || true
+    local extra_args=("$@")
+
+    echo "[queue-lock] build requested: preset=$preset, args=${extra_args[*]:-none}, branch=$BRANCH_ID"
+
+    acquire_lock "build"
+    trap 'release_lock "build"; rm -f "$MY_QUEUE_FILE"' EXIT
+
+    local log_file="$QUEUE_DIR/logs/${BRANCH_ID}.log"
+    local -a build_cmd=(cmd.exe //c "${PROJECT_ROOT}\\build.bat" "$preset" "${extra_args[@]}")
+
+    echo "[queue-lock] starting build: ${build_cmd[*]}"
+    echo "[queue-lock] log: $log_file"
+
+    local exit_code=0
+    "${build_cmd[@]}" 2>&1 | tee "$log_file" || exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        echo "[queue-lock] build completed successfully"
+    else
+        echo "[queue-lock] build FAILED (exit code: $exit_code)"
+    fi
+
+    exit $exit_code
+}
+
 # === Init ===
 do_init() {
     mkdir -p "$QUEUE_DIR/build-queue"
@@ -189,7 +218,7 @@ main() {
 
     case "$channel" in
         init)   do_init ;;
-        build)  do_init; echo "build channel: not yet implemented" ;;
+        build)  do_init; do_build "$@" ;;
         merge)  do_init; echo "merge channel: not yet implemented" ;;
         _check_pid)    check_pid_alive "$1" ;;
         _detect_stale) detect_stale_lock "$1" ;;
