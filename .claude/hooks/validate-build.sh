@@ -18,6 +18,11 @@ if echo "$COMMAND" | grep -q 'queue-lock\.sh'; then
     exit 0
 fi
 
+# 읽기 전용 명령은 허용 (cat, head, grep 등으로 build.bat 내용 확인)
+if echo "$COMMAND" | grep -qE '^\s*(cat|head|tail|grep|less|more|type|echo|ls|dir|file|wc|read)\b'; then
+    exit 0
+fi
+
 # 차단 대상 패턴
 BLOCKED_PATTERNS=(
     'cmake --build'
@@ -25,7 +30,8 @@ BLOCKED_PATTERNS=(
     '\bninja\b'
     '\bmsbuild\b'
     '\bcl\.exe\b'
-    'build\.bat'
+    '(^|[;&|]\s*)build\.bat'
+    'cmd\.exe.*build\.bat'
 )
 
 for pattern in "${BLOCKED_PATTERNS[@]}"; do

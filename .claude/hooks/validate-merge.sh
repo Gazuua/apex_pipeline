@@ -38,7 +38,7 @@ fi
 OWNER_FILE="$QUEUE_DIR/merge.owner"
 if [[ -f "$OWNER_FILE" ]]; then
     OWNER_BRANCH=$(grep '^BRANCH=' "$OWNER_FILE" | cut -d= -f2)
-    if [[ -n "$OWNER_BRANCH" ]] && ! echo "$CWD" | grep -q "$OWNER_BRANCH"; then
+    if [[ -n "$OWNER_BRANCH" ]] && ! echo "$CWD" | grep -qE "(^|/)${OWNER_BRANCH}(/|$)"; then
         echo "차단: merge lock 소유자가 $OWNER_BRANCH입니다 (현재: $CWD). 먼저 queue-lock.sh merge acquire를 실행하세요." >&2
         exit 2
     fi

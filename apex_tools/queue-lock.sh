@@ -189,7 +189,7 @@ do_build() {
     echo "[queue-lock] build requested: preset=$preset, args=${extra_args[*]:-none}, branch=$BRANCH_ID"
 
     acquire_lock "build"
-    trap 'release_lock "build"; rm -f "$MY_QUEUE_FILE"' EXIT
+    trap 'release_lock "build"' EXIT
 
     local log_file="$QUEUE_DIR/logs/${BRANCH_ID}.log"
     local -a build_cmd=(cmd.exe //c "${PROJECT_ROOT}\\build.bat" "$preset" "${extra_args[@]}")
