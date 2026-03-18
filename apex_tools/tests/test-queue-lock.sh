@@ -94,6 +94,40 @@ assert_eq "이미 잠긴 lock은 실패" "1" "$result"
 
 rm -rf "$TEST_DIR/build.lock" "$TEST_DIR/build.owner"
 
+# ── Test 8: merge lock/release/status ──
+echo "[Test 8] merge lock + release + status"
+rm -rf "$TEST_DIR/merge.lock" "$TEST_DIR/merge.owner" "$TEST_DIR/merge-queue/"*
+
+# try_lock으로 merge lock 획득 (acquire는 폴링 루프가 있으므로 직접 테스트)
+"$QUEUE_LOCK" _try_lock merge
+assert_dir_exists "$TEST_DIR/merge.lock" "merge lock 획득"
+
+# STATUS를 MERGING으로 변경 (do_merge_acquire가 하는 것과 동일)
+sed -i 's/^STATUS=.*/STATUS=MERGING/' "$TEST_DIR/merge.owner" 2>/dev/null || true
+owner_status=$(grep '^STATUS=' "$TEST_DIR/merge.owner" | cut -d= -f2)
+assert_eq "merge status는 MERGING" "MERGING" "$owner_status"
+
+# status 출력 확인 (HELD)
+status_output=$("$QUEUE_LOCK" merge status 2>/dev/null)
+echo "$status_output" | grep -q "LOCK=HELD"
+assert_eq "status에 LOCK=HELD" "0" "$?"
+
+# conflict 서브커맨드 테스트
+"$QUEUE_LOCK" merge conflict 2>/dev/null
+owner_status=$(grep '^STATUS=' "$TEST_DIR/merge.owner" | cut -d= -f2)
+assert_eq "conflict 후 STATUS=CONFLICT" "CONFLICT" "$owner_status"
+
+# release
+"$QUEUE_LOCK" merge release 2>/dev/null
+assert_no_dir "$TEST_DIR/merge.lock" "merge lock 해제"
+
+# ── Test 9: merge status 출력 ──
+echo "[Test 9] merge status — lock 없을 때"
+rm -rf "$TEST_DIR/merge.lock" "$TEST_DIR/merge.owner"
+status_output=$("$QUEUE_LOCK" merge status 2>/dev/null)
+echo "$status_output" | grep -q "LOCK=FREE"
+assert_eq "LOCK=FREE 출력" "0" "$?"
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"

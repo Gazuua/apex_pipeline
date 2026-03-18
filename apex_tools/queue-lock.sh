@@ -204,6 +204,77 @@ do_build() {
     exit $exit_code
 }
 
+# === Channel: merge ===
+do_merge() {
+    local subcmd="${1:-help}"
+    shift || true
+
+    case "$subcmd" in
+        acquire)  do_merge_acquire ;;
+        release)  do_merge_release ;;
+        status)   do_merge_status ;;
+        conflict) do_merge_conflict ;;
+        *)        echo "Usage: queue-lock.sh merge <acquire|release|status|conflict>"; exit 1 ;;
+    esac
+}
+
+do_merge_acquire() {
+    echo "[queue-lock] merge lock requested: branch=$BRANCH_ID"
+    acquire_lock "merge"
+
+    sed -i 's/^STATUS=.*/STATUS=MERGING/' "$QUEUE_DIR/merge.owner" 2>/dev/null || true
+
+    echo "[queue-lock] merge lock acquired. Proceed with merge workflow."
+    echo "[queue-lock] IMPORTANT: run 'queue-lock.sh merge release' when done."
+
+    # acquire/release 패턴: 비정상 종료 시 안전망으로 자동 해제
+    trap 'echo "[queue-lock] WARNING: merge lock auto-released on exit"; release_lock "merge"' EXIT
+}
+
+do_merge_release() {
+    echo "[queue-lock] releasing merge lock"
+    release_lock "merge"
+    echo "[queue-lock] merge lock released"
+}
+
+do_merge_conflict() {
+    local owner_file="$QUEUE_DIR/merge.owner"
+    if [[ -f "$owner_file" ]]; then
+        sed -i 's/^STATUS=.*/STATUS=CONFLICT/' "$owner_file"
+        echo "[queue-lock] merge status set to CONFLICT"
+    else
+        echo "[queue-lock] ERROR: no merge lock owner file" >&2
+        exit 1
+    fi
+}
+
+do_merge_status() {
+    local lock_dir="$QUEUE_DIR/merge.lock"
+    local owner_file="$QUEUE_DIR/merge.owner"
+    local queue_dir="$QUEUE_DIR/merge-queue"
+
+    if [[ -d "$lock_dir" && -f "$owner_file" ]]; then
+        echo "LOCK=HELD"
+        grep '^BRANCH=' "$owner_file" | sed 's/BRANCH=/OWNER=/'
+        grep '^PID=' "$owner_file"
+        grep '^ACQUIRED=' "$owner_file"
+        grep '^STATUS=' "$owner_file"
+    else
+        echo "LOCK=FREE"
+        echo "STATUS=IDLE"
+    fi
+
+    local depth
+    depth=$(ls "$queue_dir" 2>/dev/null | wc -l | tr -d ' ')
+    echo "QUEUE_DEPTH=$depth"
+
+    if [[ "$depth" -gt 0 ]]; then
+        local entries
+        entries=$(ls "$queue_dir" 2>/dev/null | sort | tr '\n' ',')
+        echo "QUEUE=${entries%,}"
+    fi
+}
+
 # === Init ===
 do_init() {
     mkdir -p "$QUEUE_DIR/build-queue"
@@ -219,7 +290,7 @@ main() {
     case "$channel" in
         init)   do_init ;;
         build)  do_init; do_build "$@" ;;
-        merge)  do_init; echo "merge channel: not yet implemented" ;;
+        merge)  do_init; do_merge "$@" ;;
         _check_pid)    check_pid_alive "$1" ;;
         _detect_stale) detect_stale_lock "$1" ;;
         _cleanup_queue) cleanup_orphan_queue "$1" ;;
