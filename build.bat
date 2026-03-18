@@ -4,6 +4,15 @@ setlocal
 set PRESET=%~1
 if "%PRESET%"=="" set PRESET=debug
 
+:: Collect extra args (--target etc.) from %~2 onwards
+set "EXTRA_ARGS="
+:parse_extra
+if "%~2"=="" goto :done_extra
+set "EXTRA_ARGS=%EXTRA_ARGS% %~2"
+shift
+goto :parse_extra
+:done_extra
+
 :: Pre-flight checks (vcvarsall, cmake, ninja, vcpkg)
 call "%~dp0apex_tools\build-preflight.bat"
 if errorlevel 1 exit /b 1
@@ -23,7 +32,7 @@ if errorlevel 1 exit /b 1
 copy /Y "build\Windows\%PRESET%\compile_commands.json" compile_commands.json >nul 2>&1
 
 :: Build
-cmake --build "build/Windows/%PRESET%"
+cmake --build "build/Windows/%PRESET%" %EXTRA_ARGS%
 if errorlevel 1 exit /b 1
 
 :: Test (exclude E2E tests — they require docker infrastructure)

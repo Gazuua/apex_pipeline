@@ -10,11 +10,6 @@
 
 ## NOW
 
-### #55. 로컬 빌드 큐잉 + 머지 직렬화 시스템 (Windows)
-- **등급**: MAJOR
-- **스코프**: tools, infra
-- **타입**: infra
-- **설명**: 로컬 멀티 브랜치(A/B/C 물리 분리) 환경에서 PC 자원 제약에 따른 두 가지 중앙 큐잉 시스템 설계·적용. 공통 경로(`C:\apex-build-queue\` 등)에서 파일 기반 lock + status + 브랜치별 로그를 중앙 관리. ① **빌드 큐잉**: `build.bat`에 뮤텍스 통합. lock 획득 실패 시 10초 폴링 대기, 빌드는 백그라운드·타임아웃 없이 실행, 로그는 중앙 경로에 브랜치별 리다이렉트하여 tail로 가시성 확보. ② **머지 직렬화**: 동일 인프라에 `merge.lock` + `merge.status`(MERGING/CONFLICT/IDLE) + `merge.owner`. 머지 시도 시 lock 획득 → main rebase → 공통 파일 갱신 → squash merge → lock 해제. 선행 브랜치 conflict 발생 시 status를 CONFLICT로 갱신, 후속 에이전트는 폴링 중 conflict 상태 감지하여 작업 중단·대기 모드 진입. 공통 파일(BACKLOG.md, CLAUDE.md, Apex_Pipeline.md, CMakeLists.txt 등)은 머지 락 획득 후에만 갱신하는 규칙으로 충돌 원천 방지. stale lock 복구, conflict 시 자동 resolve vs abort 판단은 구현 시 브레인스토밍.
 
 ### #48. Post-E2E 코드 리뷰 (10개 관점)
 - **등급**: CRITICAL
