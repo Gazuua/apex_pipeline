@@ -152,6 +152,8 @@ acquire_lock() {
     local channel="$1"
     register_queue "$channel"
 
+    local printed_wait=false
+
     while true; do
         cleanup_orphan_queue "$channel"
         detect_stale_lock "$channel" || true
@@ -162,15 +164,18 @@ acquire_lock() {
             return 0
         fi
 
-        local depth owner_info=""
-        depth=$(get_queue_depth "$channel")
-        if [[ -f "$QUEUE_DIR/${channel}.owner" ]]; then
-            local owner_branch owner_pid
-            owner_branch=$(grep '^BRANCH=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
-            owner_pid=$(grep '^PID=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
-            owner_info=" (current: $owner_branch, PID $owner_pid)"
+        if [[ "$printed_wait" == false ]]; then
+            local depth owner_info=""
+            depth=$(get_queue_depth "$channel")
+            if [[ -f "$QUEUE_DIR/${channel}.owner" ]]; then
+                local owner_branch owner_pid
+                owner_branch=$(grep '^BRANCH=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
+                owner_pid=$(grep '^PID=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
+                owner_info=" (current: $owner_branch, PID $owner_pid)"
+            fi
+            echo "[queue-lock] waiting for $channel lock... queue depth: $depth$owner_info"
+            printed_wait=true
         fi
-        echo "[queue-lock] waiting for $channel lock... queue depth: $depth$owner_info"
         sleep "$POLL_INTERVAL"
     done
 }
