@@ -124,6 +124,57 @@ cleanup_orphan_queue() {
     eval "$prev_nullglob" 2>/dev/null || true
 }
 
+# === Lock Acquisition ===
+try_lock() {
+    local channel="$1"
+    local lock_dir="$QUEUE_DIR/${channel}.lock"
+
+    if mkdir "$lock_dir" 2>/dev/null; then
+        local owner_file="$QUEUE_DIR/${channel}.owner"
+        {
+            echo "PID=$$"
+            echo "BRANCH=$BRANCH_ID"
+            echo "ACQUIRED=$(date +%s)"
+            echo "STATUS=ACTIVE"
+        } > "$owner_file"
+        return 0
+    fi
+    return 1
+}
+
+release_lock() {
+    local channel="$1"
+    rmdir "$QUEUE_DIR/${channel}.lock" 2>/dev/null || rm -rf "$QUEUE_DIR/${channel}.lock"
+    rm -f "$QUEUE_DIR/${channel}.owner"
+}
+
+acquire_lock() {
+    local channel="$1"
+    register_queue "$channel"
+
+    while true; do
+        cleanup_orphan_queue "$channel"
+        detect_stale_lock "$channel" || true
+
+        if get_queue_position "$channel" && try_lock "$channel"; then
+            rm -f "$MY_QUEUE_FILE"
+            echo "[queue-lock] lock acquired: $channel (branch=$BRANCH_ID, pid=$$)"
+            return 0
+        fi
+
+        local depth owner_info=""
+        depth=$(get_queue_depth "$channel")
+        if [[ -f "$QUEUE_DIR/${channel}.owner" ]]; then
+            local owner_branch owner_pid
+            owner_branch=$(grep '^BRANCH=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
+            owner_pid=$(grep '^PID=' "$QUEUE_DIR/${channel}.owner" | cut -d= -f2)
+            owner_info=" (current: $owner_branch, PID $owner_pid)"
+        fi
+        echo "[queue-lock] waiting for $channel lock... queue depth: $depth$owner_info"
+        sleep "$POLL_INTERVAL"
+    done
+}
+
 # === Init ===
 do_init() {
     mkdir -p "$QUEUE_DIR/build-queue"
@@ -143,6 +194,9 @@ main() {
         _check_pid)    check_pid_alive "$1" ;;
         _detect_stale) detect_stale_lock "$1" ;;
         _cleanup_queue) cleanup_orphan_queue "$1" ;;
+        _try_lock)     try_lock "$1" ;;
+        _acquire_lock) acquire_lock "$1" ;;
+        _release_lock) release_lock "$1" ;;
         *)      echo "Usage: queue-lock.sh <init|build|merge> [args...]"; exit 1 ;;
     esac
 }

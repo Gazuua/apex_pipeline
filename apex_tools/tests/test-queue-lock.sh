@@ -70,6 +70,30 @@ touch "$TEST_DIR/build-queue/20260318_100001_branch_02_$$"
 remaining=$(ls "$TEST_DIR/build-queue/" | wc -l | tr -d ' ')
 assert_eq "고아 엔트리 삭제 후 1개 남음" "1" "$remaining"
 
+# ── Test 6: atomic lock 획득/해제 ──
+echo "[Test 6] atomic lock 획득/해제"
+rm -rf "$TEST_DIR/build.lock" "$TEST_DIR/build.owner" "$TEST_DIR/build-queue/"*
+
+"$QUEUE_LOCK" _try_lock build
+assert_dir_exists "$TEST_DIR/build.lock" "lock 디렉토리 생성"
+assert_file_exists "$TEST_DIR/build.owner" "owner 파일 생성"
+
+owner_pid=$(grep '^PID=' "$TEST_DIR/build.owner" | cut -d= -f2)
+assert_eq "owner PID가 기록됨" "true" "$([[ -n "$owner_pid" ]] && echo true || echo false)"
+
+"$QUEUE_LOCK" _release_lock build
+assert_no_dir "$TEST_DIR/build.lock" "lock 디렉토리 삭제"
+
+# ── Test 7: 이중 lock 획득 방지 ──
+echo "[Test 7] 이중 lock 획득 방지"
+mkdir -p "$TEST_DIR/build.lock"
+printf "PID=$$\nBRANCH=test\nACQUIRED=$(date +%s)\n" > "$TEST_DIR/build.owner"
+
+result=$("$QUEUE_LOCK" _try_lock build && echo "0" || echo "1")
+assert_eq "이미 잠긴 lock은 실패" "1" "$result"
+
+rm -rf "$TEST_DIR/build.lock" "$TEST_DIR/build.owner"
+
 echo ""
 echo "=========================================="
 echo "결과: pass=$pass, fail=$fail"
