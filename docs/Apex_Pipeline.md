@@ -611,7 +611,7 @@ v1.0.0.0 포함 항목:
 - 서비스 수를 3~4개로 제한 (Gateway, Auth, 핵심 Logic 1~2개)
 - 공유 라이브러리(core/ 프레임워크)로 중복 코드 최소화
 - 로컬 개발 시 docker-compose로 전체를 한 번에 띄우는 편의성 확보
-- **포트폴리오 목적상 MSA 설계 능력을 보여주는 것 자체가 핵심 가치**
+- **MSA 설계 능력을 실증하는 것 자체가 프로젝트의 핵심 가치**
 
 ---
 
@@ -652,7 +652,7 @@ v1.0.0.0 포함 항목:
 - io_uring의 진짜 강점은 파일 I/O — 이 프레임워크는 네트워크 I/O 중심
 - Docker 기본 seccomp 프로파일이 io_uring 시스콜 차단 → 프로덕션 마찰
 - BOOST_ASIO_HAS_IO_URING은 컴파일 타임 스위치 → CMake 옵션 `APEX_USE_IO_URING`으로 제어 (기본 OFF)
-- **"io_uring의 한계를 알면서 선택하지 않은" 판단이 포트폴리오에서 깊이를 보여줌**
+- **"io_uring의 한계를 알면서 선택하지 않은" 판단이 설계 깊이를 보여줌**
 
 ---
 
@@ -666,7 +666,7 @@ v1.0.0.0 포함 항목:
 **반: gRPC를 유지했을 때의 장점**
 - 즉시 응답(request-response)이 필요한 경우 Kafka 경유보다 지연이 낮음
 - gRPC의 강타입 인터페이스(.proto)로 서비스 간 계약 명확
-- 업계 표준 RPC 프레임워크로 포트폴리오 어필
+- 업계 표준 RPC 프레임워크로 기술적 어필
 
 **합: gRPC를 제거하고, 즉시 응답이 필요한 부분은 Gateway 로컬 처리**
 - 인증 검증(JWT)은 Gateway가 로컬에서 처리 (네트워크 홉 제로)
@@ -736,7 +736,7 @@ v1.0.0.0 포함 항목:
 **합: PostgreSQL 채택. libpq → Asio 어댑터 직접 구현**
 - 고가용성 + 업계 트렌드 + MVCC 우수성으로 PostgreSQL 선택
 - Repository 패턴으로 DBMS 추상화 → 교체 가능성 확보
-- libpq fd를 Asio에 등록하는 어댑터를 직접 구현 (포트폴리오 가치)
+- libpq fd를 Asio에 등록하는 어댑터를 직접 구현 (기술적 차별점)
 - DB 커넥션 폭증 문제: **DB Proxy로 해결** (PgBouncer/Odyssey/PgCat)
 - MySQL 운영 경험은 여전히 유효 — PostgreSQL에도 적용 가능한 범용적 지식
 
