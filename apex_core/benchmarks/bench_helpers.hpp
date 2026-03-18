@@ -21,7 +21,7 @@ make_socket_pair(boost::asio::io_context& io) {
     tcp::socket client(io);
     client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
     auto server = acc.accept();
-    return {std::move(client), std::move(server)};
+    return {std::move(server), std::move(client)};
 }
 
 /// Build a complete wire frame (12B header + payload).
