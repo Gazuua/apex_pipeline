@@ -55,7 +55,7 @@
 - **PostgreSQL** (MySQL에서 변경)
 - 이유: 고가용성 아키텍처 + 업계 트렌드 + MVCC 우수
 - DB 커넥션 폭증 문제: **DB Proxy로 해결** (PgBouncer/Odyssey/PgCat 중 나중에 선택)
-- libpq → Asio 어댑터 직접 구현 (포트폴리오 가치)
+- libpq → Asio 어댑터 직접 구현 (기술적 차별점)
 
 ### 직렬화
 - **FlatBuffers** (Protobuf에서 변경)
@@ -145,7 +145,7 @@
 ### 형상 관리
 - **GitHub Flow** (main + feature 브랜치, PR 기반 머지)
 - **4자리 버전 체계** 태깅 (`v[메이저].[대].[중].[소]` — v0.1.0.0, v0.2.0.0, ... v1.0.0.0)
-- PR 단위로 작업 기록 → 포트폴리오 가치 + 나중에 협업 확장 가능
+- PR 단위로 작업 기록 → 작업 이력 추적 + 나중에 협업 확장 가능
 - GitHub Actions CI: PR마다 자동 빌드/테스트
 
 ### 로깅/모니터링

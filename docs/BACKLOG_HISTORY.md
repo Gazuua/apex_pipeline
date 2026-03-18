@@ -4,6 +4,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #H15. 전체 문서에서 특정 표현 완전 제거
+- **등급**: MAJOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-18 21:10:25 | **방식**: FIXED
+- **비고**: 대상 16건 전수 치환 완료. 7개 파일 수정. grep 제로 확인 완료.
+
+### #H14. 백로그 연관 링킹 필드 + 섹션 내 우선순위 규칙 + NOW 기준 확장
+- **등급**: MINOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-18 21:10:25 | **방식**: FIXED
+- **비고**: docs/CLAUDE.md § 백로그 운영에 3건 반영 완료. 기존 연관 필드 양방향 검증 완료.
+
+### #H13. CI docs-only 커밋 빌드 스킵
+- **등급**: MAJOR | **스코프**: ci | **타입**: infra
+- **해결**: 2026-03-18 21:10:25 | **방식**: FIXED
+- **비고**: dorny/paths-filter@v3 이미 구현됨 (.github/workflows/ci.yml). source 필터로 docs-only PR 자동 스킵.
+
 ### #H12. session.cpp clang-tidy 워닝 잔여분
 - **등급**: MINOR | **스코프**: core | **타입**: design-debt
 - **해결**: 2026-03-18 19:57:43 | **방식**: SUPERSEDED
