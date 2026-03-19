@@ -50,7 +50,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   5. `gh pr merge --squash --admin`
   6. `queue-lock.sh merge release`
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
 
