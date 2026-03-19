@@ -119,13 +119,15 @@ void GatewayService::on_start()
             // Client sends JWT token after login; bind it to the session.
             if (msg_id == system_msg_ids::AUTHENTICATE_SESSION)
             {
-                if (!payload.empty())
+                if (payload.size() >= sizeof(flatbuffers::uoffset_t))
                 {
+                    flatbuffers::Verifier verifier(payload.data(), payload.size());
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (root)
+                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
                     {
+                        verifier.EndTable();
                         auto* token = root->GetPointer<const flatbuffers::String*>(4);
-                        if (token && token->size() > 0)
+                        if (token && verifier.VerifyString(token) && token->size() > 0)
                         {
                             auto& state = auth_states_[session->id()];
                             state.token = token->str();
@@ -142,13 +144,15 @@ void GatewayService::on_start()
             // per-core 맵만 수정 — cross_core_post 불필요 (세션은 per-core).
             if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL)
             {
-                if (globals_ && !payload.empty())
+                if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
                 {
+                    flatbuffers::Verifier verifier(payload.data(), payload.size());
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (root)
+                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
                     {
+                        verifier.EndTable();
                         auto* ch = root->GetPointer<const flatbuffers::String*>(4);
-                        if (ch && ch->size() > 0)
+                        if (ch && verifier.VerifyString(ch) && ch->size() > 0)
                         {
                             auto result =
                                 globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
@@ -170,13 +174,15 @@ void GatewayService::on_start()
             // per-core 맵만 수정 — cross_core_post 불필요.
             if (msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL)
             {
-                if (globals_ && !payload.empty())
+                if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
                 {
+                    flatbuffers::Verifier verifier(payload.data(), payload.size());
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (root)
+                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
                     {
+                        verifier.EndTable();
                         auto* ch = root->GetPointer<const flatbuffers::String*>(4);
-                        if (ch && ch->size() > 0)
+                        if (ch && verifier.VerifyString(ch) && ch->size() > 0)
                         {
                             globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
                             logger_->info("Session {} unsubscribed from '{}'", session->id(), ch->str());

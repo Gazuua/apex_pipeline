@@ -73,6 +73,11 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
 
         // Build WireHeader response (skip envelope headers + reply topic)
         auto payload_offset = envelope_payload_offset(routing_copy.flags, std::span<const uint8_t>(*payload_copy));
+        if (payload_offset > payload_copy->size())
+        {
+            spdlog::warn("Response payload offset {} exceeds size {}", payload_offset, payload_copy->size());
+            return;
+        }
         auto fbs_payload =
             std::span<const uint8_t>(payload_copy->data() + payload_offset, payload_copy->size() - payload_offset);
 
