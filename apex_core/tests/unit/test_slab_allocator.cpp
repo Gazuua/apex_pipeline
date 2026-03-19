@@ -204,7 +204,7 @@ TEST(SlabAllocator, AutoGrowOnExhaustion)
 
 TEST(SlabAllocator, MetricsTracking)
 {
-    SlabAllocator pool(64, 10, SlabAllocatorConfig{.auto_grow = false});
+    SlabAllocator pool(64, 10, SlabAllocatorConfig{.auto_grow = false, .grow_chunk_size = {}, .max_total_count = {}});
 
     void* p1 = pool.allocate();
     void* p2 = pool.allocate();
@@ -230,7 +230,7 @@ TEST(SlabAllocator, AutoGrowDisabledByDefault)
 TEST(SlabAllocator, AutoGrowDefaultChunkSize)
 {
     // grow_chunk_size=0 → initial_count 크기로 grow
-    SlabAllocator pool(64, 8, SlabAllocatorConfig{.auto_grow = true, .grow_chunk_size = 0});
+    SlabAllocator pool(64, 8, SlabAllocatorConfig{.auto_grow = true, .grow_chunk_size = 0, .max_total_count = {}});
     std::vector<void*> ptrs;
     for (int i = 0; i < 8; ++i)
         ptrs.push_back(pool.allocate());

@@ -29,9 +29,14 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
         .host = "localhost",
         .port = 6379,
         .password = {},
+        .db = {},
+        .connect_timeout = {},
+        .command_timeout = {},
+        .reconnect_max_backoff = {},
+        .max_pending_commands = {},
     };
 
-    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -48,7 +53,7 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
 TEST(RedisAdapter, DrainSetsNotReady)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -62,7 +67,7 @@ TEST(RedisAdapter, DrainSetsNotReady)
 TEST(RedisAdapter, CloseCallsCleanup)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -93,6 +98,11 @@ TEST(RedisAdapter, ConfigAccessible)
         .host = "redis.local",
         .port = 6380,
         .password = {},
+        .db = {},
+        .connect_timeout = {},
+        .command_timeout = {},
+        .reconnect_max_backoff = {},
+        .max_pending_commands = {},
     };
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.config().host, "redis.local");
@@ -111,7 +121,7 @@ TEST(RedisAdapter, DoubleInit)
 {
     // Double init — should not crash
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -124,7 +134,7 @@ TEST(RedisAdapter, DoubleInit)
 TEST(RedisAdapter, ActiveConnectionsInitiallyZero)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -149,7 +159,7 @@ TEST(RedisAdapter, FullLifecycle)
 {
     // init -> drain -> close full lifecycle
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -171,7 +181,7 @@ TEST(RedisAdapter, FullLifecycle)
 TEST(RedisAdapter, MultiplexerInitialState)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);

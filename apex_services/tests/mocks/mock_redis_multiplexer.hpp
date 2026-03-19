@@ -64,7 +64,7 @@ class MockRedisMultiplexer
             response_queue_.pop_front();
             return reply;
         }
-        return MockRedisReply{.type = MockRedisReply::Type::kNil};
+        return MockRedisReply{.type = MockRedisReply::Type::kNil, .str_value = {}, .int_value = {}, .array_value = {}};
     }
 
     // --- Response pre-configuration ---
@@ -97,7 +97,7 @@ class MockRedisMultiplexer
     /// Enqueue a nil response.
     void enqueue_nil()
     {
-        enqueue_response(MockRedisReply{.type = MockRedisReply::Type::kNil});
+        enqueue_response(MockRedisReply{.type = MockRedisReply::Type::kNil, .str_value = {}, .int_value = {}, .array_value = {}});
     }
 
     // --- Test inspection ---

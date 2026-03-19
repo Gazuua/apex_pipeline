@@ -69,7 +69,8 @@ class AnotherTestAdapter : public AdapterBase<AnotherTestAdapter>
 
 TEST(ServerAdapter, AddAdapterChaining)
 {
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     auto& ref = server.add_adapter<TestAdapter>();
     EXPECT_EQ(&ref, &server); // 체이닝 반환
@@ -77,7 +78,8 @@ TEST(ServerAdapter, AddAdapterChaining)
 
 TEST(ServerAdapter, AdapterAccessible)
 {
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
     auto& adapter = server.adapter<TestAdapter>();
@@ -86,7 +88,8 @@ TEST(ServerAdapter, AdapterAccessible)
 
 TEST(ServerAdapter, MultipleAdapters)
 {
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
     server.add_adapter<AnotherTestAdapter>();
@@ -100,7 +103,8 @@ TEST(ServerAdapter, MultipleAdapters)
 
 TEST(ServerAdapter, AddAdapterWithArgs)
 {
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(42);
 
@@ -114,7 +118,8 @@ TEST(ServerAdapter, AddAdapterWithArgs)
 TEST(ServerAdapter, MultiRegistrationWithRole)
 {
     // 동일 타입을 역할별로 다중 등록
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(std::string("primary"), 10);
     server.add_adapter<AnotherTestAdapter>(std::string("secondary"), 20);
@@ -131,7 +136,8 @@ TEST(ServerAdapter, MultiRegistrationWithRole)
 TEST(ServerAdapter, DefaultRoleBackwardCompat)
 {
     // role 없이 등록한 어댑터는 "default" 역할로 접근 가능
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
 
@@ -147,7 +153,8 @@ TEST(ServerAdapter, DefaultRoleBackwardCompat)
 TEST(ServerAdapter, RoleAndDefaultCoexist)
 {
     // 기본 역할 + 명시 역할 공존
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(100); // default role
     server.add_adapter<AnotherTestAdapter>(std::string("custom"), 200);
@@ -163,7 +170,8 @@ TEST(ServerAdapter, RoleAndDefaultCoexist)
 TEST(ServerAdapter, MultiRegistrationChaining)
 {
     // 다중 등록 시 체이닝 동작 확인
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     auto& ref = server.add_adapter<TestAdapter>()
                     .add_adapter<AnotherTestAdapter>(std::string("a"), 1)

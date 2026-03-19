@@ -8,7 +8,7 @@ using namespace apex::core;
 // Measures ping-pong latency between core 0 and core 1
 static void BM_CrossCore_Latency(benchmark::State& state)
 {
-    CoreEngineConfig config{.num_cores = 2, .mpsc_queue_capacity = 65536};
+    CoreEngineConfig config{.num_cores = 2, .mpsc_queue_capacity = 65536, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(config);
 
     std::atomic<uint64_t> pong_count{0};

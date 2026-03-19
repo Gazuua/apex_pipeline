@@ -20,7 +20,7 @@ using namespace std::chrono_literals;
 TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
 {
     // 첫 번째 서버: 포트 0으로 바인딩 (OS 할당)
-    Server server1({.num_cores = 1, .handle_signals = false});
+    Server server1({.num_cores = 1, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server1.listen<TcpBinaryProtocol>(0);
 
     std::thread t1([&] { server1.run(); });
@@ -30,7 +30,7 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
     ASSERT_NE(occupied_port, 0u) << "Server1 should have a real port";
 
     // 두 번째 서버: 동일 포트로 바인딩 시도
-    Server server2({.num_cores = 1, .handle_signals = false});
+    Server server2({.num_cores = 1, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server2.listen<TcpBinaryProtocol>(occupied_port);
 
     // listen<P>()는 lazy binding (start()에서 bind) — run()에서 실패
@@ -72,7 +72,7 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
 // TC2: run() 이중 호출 -- logic_error
 TEST(ServerErrorPaths, DoubleRunThrowsLogicError)
 {
-    Server server({.num_cores = 1, .handle_signals = false});
+    Server server({.num_cores = 1, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -123,7 +123,7 @@ TEST(ServerErrorPaths, GracefulShutdownDrainsToZero)
 // TC4: stop() 재진입 안전성
 TEST(ServerErrorPaths, DoubleStopIsSafe)
 {
-    Server server({.num_cores = 1, .handle_signals = false});
+    Server server({.num_cores = 1, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -140,7 +140,7 @@ TEST(ServerErrorPaths, DoubleStopIsSafe)
 // TC5: listen 없이 run -- 서비스만 있는 서버
 TEST(ServerErrorPaths, RunWithoutListenersWorks)
 {
-    Server server({.num_cores = 1, .handle_signals = false});
+    Server server({.num_cores = 1, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     // listen<P>() 호출 없음 — listeners_ 비어있음
 
     std::thread t([&] { server.run(); });

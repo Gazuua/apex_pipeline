@@ -87,7 +87,8 @@ static std::vector<uint8_t> build_echo_request(uint32_t payload_size)
     fbb.Finish(req);
 
     WireHeader header{.msg_id = 0x0001, // EchoRequest msg_id
-                      .body_size = static_cast<uint32_t>(fbb.GetSize())};
+                      .body_size = static_cast<uint32_t>(fbb.GetSize()),
+                      .reserved = {}};
     auto hdr_bytes = header.serialize();
 
     std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());

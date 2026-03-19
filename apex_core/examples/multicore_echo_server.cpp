@@ -52,7 +52,7 @@ class EchoService : public ServiceBase<EchoService>
         auto resp = apex::messages::CreateEchoResponse(builder, data_vec);
         builder.Finish(resp);
 
-        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize())};
+        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize()), .reserved = {}};
         // m-07: Explicitly discard [[nodiscard]] return value
         (void)co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         co_return ok();

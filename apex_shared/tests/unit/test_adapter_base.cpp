@@ -38,7 +38,7 @@ TEST(AdapterBase, NotReadyBeforeInit)
 TEST(AdapterBase, ReadyAfterInit)
 {
     MockAdapter adapter;
-    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
@@ -48,7 +48,7 @@ TEST(AdapterBase, ReadyAfterInit)
 TEST(AdapterBase, NotReadyAfterDrain)
 {
     MockAdapter adapter;
-    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     adapter.drain();
@@ -85,7 +85,7 @@ TEST(AdapterWrapper, LifecycleDelegation)
     auto& mock = wrapper->get();
 
     // init delegation
-    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(config);
     iface->init(engine);
     EXPECT_TRUE(mock.init_called);

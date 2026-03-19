@@ -23,7 +23,7 @@ void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data)
 // Uses WireHeader::CURRENT_VERSION by default (set in WireHeader's designated initializer)
 std::vector<uint8_t> build_frame(uint32_t msg_id, std::span<const uint8_t> payload)
 {
-    WireHeader h{.msg_id = msg_id, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader h{.msg_id = msg_id, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     auto header_bytes = h.serialize();
     std::vector<uint8_t> frame(header_bytes.begin(), header_bytes.end());
     frame.insert(frame.end(), payload.begin(), payload.end());
@@ -117,7 +117,7 @@ TEST(FrameCodec, DecodeHeaderPresentButBodyIncomplete)
     RingBuffer buf(4096);
 
     // Build a frame with body_size=100 but only write the header + partial body
-    WireHeader h{.msg_id = 5, .body_size = 100};
+    WireHeader h{.msg_id = 5, .body_size = 100, .reserved = {}};
     auto header_bytes = h.serialize();
     write_to_buf(buf, header_bytes);
 
@@ -146,7 +146,7 @@ TEST(FrameCodec, DecodeZeroBodyFrame)
 TEST(FrameCodec, EncodeToBuffer)
 {
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 55, .body_size = 4};
+    WireHeader h{.msg_id = 55, .body_size = 4, .reserved = {}};
 
     std::vector<uint8_t> out(WireHeader::SIZE + payload.size());
     auto written = FrameCodec::encode_to(out, h, payload);
@@ -172,7 +172,7 @@ TEST(FrameCodec, DecodeBodyTooLarge)
     RingBuffer buf(4096);
 
     // Build a header with body_size exceeding MAX_BODY_SIZE
-    WireHeader h{.msg_id = 1, .body_size = WireHeader::MAX_BODY_SIZE + 1};
+    WireHeader h{.msg_id = 1, .body_size = WireHeader::MAX_BODY_SIZE + 1, .reserved = {}};
     // Manually serialize (serialize doesn't validate body_size)
     auto header_bytes = h.serialize();
     write_to_buf(buf, header_bytes);
@@ -186,7 +186,7 @@ TEST(FrameCodec, DecodeBodyTooLarge)
 TEST(FrameCodec, EncodeToBodySizeMismatch)
 {
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 100}; // mismatch: says 100, payload is 4
+    WireHeader h{.msg_id = 1, .body_size = 100, .reserved = {}}; // mismatch: says 100, payload is 4
 
     std::vector<uint8_t> out(256);
     auto written = FrameCodec::encode_to(out, h, payload);
@@ -198,7 +198,7 @@ TEST(FrameCodec, EncodeBodySizeMismatch)
 {
     RingBuffer buf(4096);
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 10}; // mismatch
+    WireHeader h{.msg_id = 1, .body_size = 10, .reserved = {}}; // mismatch
 
     EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
     EXPECT_EQ(buf.readable_size(), 0u); // nothing written
@@ -217,7 +217,7 @@ TEST(FrameCodec, EncodeWrapAround)
     // Now write_pos is at 50, read_pos is at 50. Remaining contiguous space = 14.
     // Encode a frame that wraps around the boundary
     std::array<uint8_t, 8> payload{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    WireHeader h{.msg_id = 42, .body_size = 8};
+    WireHeader h{.msg_id = 42, .body_size = 8, .reserved = {}};
 
     // Total frame size = WireHeader::SIZE(12) + 8 = 20 bytes, which exceeds
     // the 14 bytes of contiguous space, requiring wrap-around
@@ -246,7 +246,7 @@ TEST(FrameCodec, EncodeInsufficientSpace)
 
     // Try to encode a frame that won't fit
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 4};
+    WireHeader h{.msg_id = 1, .body_size = 4, .reserved = {}};
     // Total needed: WireHeader::SIZE(12) + 4 = 16, but only 2 bytes free
     EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
 }
@@ -254,7 +254,7 @@ TEST(FrameCodec, EncodeInsufficientSpace)
 TEST(FrameCodec, EncodeToBufferTooSmall)
 {
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 4};
+    WireHeader h{.msg_id = 1, .body_size = 4, .reserved = {}};
 
     std::array<uint8_t, 5> small_buf{}; // Too small for header + payload
     auto written = FrameCodec::encode_to(small_buf, h, payload);

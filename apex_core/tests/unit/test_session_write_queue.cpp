@@ -115,7 +115,7 @@ TEST_F(SessionWriteQueueRegressionTest, EnqueueWireHeaderFrame)
 
     // WireHeader + payload를 enqueue_write로 전송 가능한지 확인
     std::vector<uint8_t> payload = {0xCA, 0xFE};
-    WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     auto hdr_bytes = header.serialize();
 
     std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());

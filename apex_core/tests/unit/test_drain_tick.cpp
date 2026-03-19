@@ -11,7 +11,7 @@ using namespace apex::core;
 
 TEST(DrainTick, PostTriggersImmediateDrain)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = std::chrono::milliseconds(1000)});
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = std::chrono::milliseconds(1000), .drain_batch_limit = {}});
 
     std::atomic<int> received{0};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -37,7 +37,7 @@ TEST(DrainTick, PostTriggersImmediateDrain)
 
 TEST(DrainTick, TickCallbackFiresIndependently)
 {
-    CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = std::chrono::milliseconds(50)});
+    CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = std::chrono::milliseconds(50), .drain_batch_limit = {}});
 
     std::atomic<int> tick_count{0};
     engine.set_tick_callback([&](uint32_t) { tick_count.fetch_add(1, std::memory_order_relaxed); });
@@ -66,7 +66,7 @@ TEST(DrainTick, BatchLimitPreventsStarvation)
     // Flood 100 messages — should be processed in batches of 10
     for (int i = 0; i < 100; ++i)
     {
-        CoreMessage msg{.op = CrossCoreOp::Custom, .source_core = 0};
+        CoreMessage msg{.op = CrossCoreOp::Custom, .source_core = 0, .data = {}};
         (void)engine.post_to(1, msg);
     }
 

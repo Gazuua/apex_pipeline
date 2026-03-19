@@ -29,7 +29,7 @@ TEST(KafkaAdapter, InitMakesReady)
     config.brokers = "localhost:9092";
 
     // engine must outlive adapter (adapter holds io_context references)
-    apex::core::CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -42,7 +42,7 @@ TEST(KafkaAdapter, DrainMakesNotReady)
     KafkaConfig config;
     config.brokers = "localhost:9092";
 
-    apex::core::CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -58,7 +58,7 @@ TEST(KafkaAdapter, ProduceAfterDrainFails)
     KafkaConfig config;
     config.brokers = "localhost:9092";
 
-    apex::core::CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 

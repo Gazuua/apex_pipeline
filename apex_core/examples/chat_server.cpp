@@ -52,7 +52,7 @@ class ChatService : public ServiceBase<ChatService>
         auto broadcast = apex::messages::CreateChatMessage(builder, sender->id(), content);
         builder.Finish(broadcast);
 
-        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize())};
+        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize()), .reserved = {}};
 
         auto payload_span = std::span<const uint8_t>{builder.GetBufferPointer(), builder.GetSize()};
 

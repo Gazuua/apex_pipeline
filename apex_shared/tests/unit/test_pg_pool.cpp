@@ -20,6 +20,8 @@ TEST(PgPool, ConstructionWithConfig)
         .pool_size_per_core = 3,
         .max_idle_time = std::chrono::seconds{60},
         .health_check_interval = std::chrono::seconds{15},
+        .max_acquire_retries = {},
+        .retry_backoff = {},
     };
 
     PgPool pool(io_ctx, config);
@@ -43,7 +45,7 @@ TEST(PgPool, DefaultConfig)
 TEST(PgPool, ConnectionStringAccessible)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.connection_string = "host=db.example.com"};
+    PgAdapterConfig config{.connection_string = "host=db.example.com", .pool_size_per_core = {}, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgPool pool(io_ctx, config);
     EXPECT_EQ(pool.connection_string(), "host=db.example.com");
 }
@@ -51,7 +53,7 @@ TEST(PgPool, ConnectionStringAccessible)
 TEST(PgPool, AcquireCreatesUnconnectedConnection)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgPool pool(io_ctx, config);
 
     // acquire() is synchronous -- returns unconnected PgConnection
@@ -69,7 +71,7 @@ TEST(PgPool, AcquireCreatesUnconnectedConnection)
 TEST(PgPool, CloseAllCleansUp)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgPool pool(io_ctx, config);
 
     auto c1 = pool.acquire();
@@ -89,7 +91,7 @@ TEST(PgPool, CloseAllCleansUp)
 TEST(PgPool, ExhaustedPoolReturnsError)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 1}; // max = 2
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}}; // max = 2
     PgPool pool(io_ctx, config);
 
     auto c1 = pool.acquire();
@@ -109,7 +111,7 @@ TEST(PgPool, ExhaustedPoolReturnsError)
 TEST(PgPool, AcquireAfterRelease)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 1}; // max = 2
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}}; // max = 2
     PgPool pool(io_ctx, config);
 
     auto c1 = pool.acquire();
@@ -129,7 +131,7 @@ TEST(PgPool, AcquireAfterRelease)
 TEST(PgPool, MultipleAcquireWithinMax)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 2}; // max = 4
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}}; // max = 4
     PgPool pool(io_ctx, config);
 
     auto c1 = pool.acquire();
@@ -155,7 +157,7 @@ TEST(PgPool, MultipleAcquireWithinMax)
 TEST(PgPool, StatsTracking)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 1}; // max = 2
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}}; // max = 2
     PgPool pool(io_ctx, config);
 
     auto c1 = pool.acquire();
@@ -182,7 +184,7 @@ TEST(PgPool, StatsTracking)
 TEST(PgPool, ReleasePoisonedConnectionDiscards)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgPool pool(io_ctx, config);
 
     auto result = pool.acquire();
@@ -210,6 +212,9 @@ TEST(PgPool, ShrinkIdleRemovesExpiredConnections)
     PgAdapterConfig config{
         .pool_size_per_core = 2,
         .max_idle_time = std::chrono::seconds{0}, // expire immediately
+        .health_check_interval = {},
+        .max_acquire_retries = {},
+        .retry_backoff = {},
     };
     PgPool pool(io_ctx, config);
 
@@ -234,7 +239,7 @@ TEST(PgPool, ShrinkIdleRemovesExpiredConnections)
 TEST(PgPool, HealthCheckTickRemovesInvalidConnections)
 {
     boost::asio::io_context io_ctx;
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgPool pool(io_ctx, config);
 
     // Acquire and release — unconnected PgConnection will fail is_valid()

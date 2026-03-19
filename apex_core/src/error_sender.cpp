@@ -27,6 +27,7 @@ std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, Er
         .flags = wire_flags::ERROR_RESPONSE,
         .msg_id = original_msg_id,
         .body_size = static_cast<uint32_t>(payload_size),
+        .reserved = {},
     };
 
     std::vector<uint8_t> frame(header.frame_size());

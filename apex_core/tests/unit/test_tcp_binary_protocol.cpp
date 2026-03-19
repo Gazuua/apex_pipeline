@@ -16,7 +16,7 @@ class TcpBinaryProtocolTest : public ::testing::Test
 
     void write_frame(uint32_t msg_id, const std::vector<uint8_t>& body)
     {
-        WireHeader hdr{.msg_id = msg_id, .body_size = static_cast<uint32_t>(body.size())};
+        WireHeader hdr{.msg_id = msg_id, .body_size = static_cast<uint32_t>(body.size()), .reserved = {}};
         std::array<uint8_t, WireHeader::SIZE> raw{};
         hdr.serialize(raw);
 
@@ -82,7 +82,7 @@ TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame)
 TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData)
 {
     // 헤더에 body_size=100 기록하지만 실제로 10바이트만 write
-    WireHeader hdr{.msg_id = 0x0042, .body_size = 100};
+    WireHeader hdr{.msg_id = 0x0042, .body_size = 100, .reserved = {}};
     std::array<uint8_t, WireHeader::SIZE> raw{};
     hdr.serialize(raw);
 
@@ -104,7 +104,7 @@ TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData)
 TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError)
 {
     // body_size를 MAX_BODY_SIZE 초과 값으로 설정 (16MB + 1)
-    WireHeader hdr{.msg_id = 0x0042, .body_size = WireHeader::MAX_BODY_SIZE + 1};
+    WireHeader hdr{.msg_id = 0x0042, .body_size = WireHeader::MAX_BODY_SIZE + 1, .reserved = {}};
     std::array<uint8_t, WireHeader::SIZE> raw{};
     hdr.serialize(raw);
 

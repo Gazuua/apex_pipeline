@@ -39,7 +39,7 @@ static std::vector<uint8_t> build_echo_frame(const std::vector<uint8_t>& data)
     auto req = apex::messages::CreateEchoRequest(builder, data_vec);
     builder.Finish(req);
 
-    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(builder.GetSize())};
+    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(builder.GetSize()), .reserved = {}};
     auto hdr_bytes = header.serialize();
 
     std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());
@@ -95,7 +95,7 @@ class TestEchoService : public ServiceBase<TestEchoService>
         auto resp = apex::messages::CreateEchoResponse(builder, data_vec);
         builder.Finish(resp);
 
-        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize())};
+        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize()), .reserved = {}};
         (void)co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         co_return ok();
     }
@@ -160,7 +160,7 @@ class ServerE2ETest : public ::testing::Test
 
 TEST_F(ServerE2ETest, ServerAcceptAndEcho)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -190,7 +190,7 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho)
 
 TEST_F(ServerE2ETest, MultipleClients)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -222,7 +222,7 @@ TEST_F(ServerE2ETest, MultipleClients)
 
 TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -230,7 +230,7 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    WireHeader header{.msg_id = 0x9999, .body_size = 0};
+    WireHeader header{.msg_id = 0x9999, .body_size = 0, .reserved = {}};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
 
@@ -249,7 +249,7 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
 
 TEST_F(ServerE2ETest, GracefulShutdown)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -276,6 +276,11 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
         .heartbeat_timeout_ticks = 3,
         .timer_wheel_slots = 8,
         .handle_signals = false,
+        .drain_timeout = {},
+        .cross_core_call_timeout = {},
+        .bump_capacity_bytes = {},
+        .arena_block_bytes = {},
+        .arena_max_bytes = {},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -304,7 +309,7 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
 
 TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ThrowingService>();
     run_server(server);
@@ -312,7 +317,7 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    WireHeader header{.msg_id = 0x0010, .body_size = 0};
+    WireHeader header{.msg_id = 0x0010, .body_size = 0, .reserved = {}};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
 
@@ -331,7 +336,7 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
 
 TEST_F(ServerE2ETest, HandlerErrorCodeResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ErrorReturningService>();
     run_server(server);
@@ -339,7 +344,7 @@ TEST_F(ServerE2ETest, HandlerErrorCodeResponse)
     boost::asio::io_context client_ctx;
     auto client = make_client(client_ctx, server.port());
 
-    WireHeader header{.msg_id = 0x0020, .body_size = 0};
+    WireHeader header{.msg_id = 0x0020, .body_size = 0, .reserved = {}};
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
 
@@ -364,6 +369,11 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
         .num_cores = 2,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
+        .drain_timeout = {},
+        .cross_core_call_timeout = {},
+        .bump_capacity_bytes = {},
+        .arena_block_bytes = {},
+        .arena_max_bytes = {},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -438,7 +448,7 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
 
 TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -452,6 +462,7 @@ TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession)
     WireHeader header{
         .msg_id = 0x0001,
         .body_size = WireHeader::MAX_BODY_SIZE + 1,
+        .reserved = {},
     };
     auto hdr_bytes = header.serialize();
     boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
@@ -478,7 +489,7 @@ TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions)
 {
     constexpr int NUM_CLIENTS = 4;
 
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false});
+    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);

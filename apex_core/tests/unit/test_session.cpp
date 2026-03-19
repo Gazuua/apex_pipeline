@@ -47,7 +47,7 @@ TEST_F(SessionTest, SendFrame)
     SessionPtr session(new Session(1, std::move(server), 0));
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
-    WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     auto result = run_coro(io_ctx_, session->async_send(header, payload));
     EXPECT_TRUE(result.has_value());
 
@@ -72,7 +72,7 @@ TEST_F(SessionTest, SendAfterClose)
     EXPECT_FALSE(session->is_open());
 
     std::vector<uint8_t> payload = {0x01};
-    WireHeader header{.msg_id = 1, .body_size = 1};
+    WireHeader header{.msg_id = 1, .body_size = 1, .reserved = {}};
     auto result = run_coro(io_ctx_, session->async_send(header, payload));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ErrorCode::SessionClosed);
@@ -110,7 +110,7 @@ TEST_F(SessionTest, SendRawSucceeds)
 
     // Build a raw frame: WireHeader + payload
     std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
-    WireHeader header{.msg_id = 0x0077, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0077, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     auto hdr_bytes = header.serialize();
     std::vector<uint8_t> raw_frame(hdr_bytes.begin(), hdr_bytes.end());
     raw_frame.insert(raw_frame.end(), payload.begin(), payload.end());
@@ -175,7 +175,7 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash)
 
     // Try to send from the server side -- should handle the error gracefully
     std::vector<uint8_t> payload = {0xDE, 0xAD};
-    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     auto result = run_coro(io_ctx_, session->async_send(header, payload));
     // Send may succeed (buffered) or fail (connection reset).
     if (result.has_value())

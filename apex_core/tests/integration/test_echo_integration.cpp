@@ -25,6 +25,7 @@ static std::vector<uint8_t> build_raw_frame(uint32_t msg_id, std::span<const uin
         .flags = flags,
         .msg_id = msg_id,
         .body_size = static_cast<uint32_t>(payload.size()),
+        .reserved = {},
     };
     auto hdr = h.serialize();
     std::vector<uint8_t> frame(hdr.begin(), hdr.end());

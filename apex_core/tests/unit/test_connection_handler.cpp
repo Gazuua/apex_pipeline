@@ -187,6 +187,7 @@ TEST(ConnectionHandlerTest, InvalidFrameClosesSession)
         WireHeader bad_header{
             .msg_id = 0x0001,
             .body_size = WireHeader::MAX_BODY_SIZE + 1,
+            .reserved = {},
         };
         auto hdr_bytes = bad_header.serialize();
         boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
@@ -345,6 +346,7 @@ TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession)
         WireHeader header{
             .msg_id = 0x0001,
             .body_size = 100, // 32바이트 버퍼에 12+100 = 112바이트 필요
+            .reserved = {},
         };
         auto hdr_bytes = header.serialize();
         boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));

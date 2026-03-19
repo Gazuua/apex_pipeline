@@ -122,7 +122,9 @@ int main(int argc, char* argv[])
     spdlog::info("Config loaded from '{}'", config_path);
 
     // --- 3. Server 구성 (CoreEngine 내장) ---
-    apex::core::Server server({.num_cores = 1});
+    apex::core::ServerConfig server_config;
+    server_config.num_cores = 1;
+    apex::core::Server server(server_config);
 
     // --- 4. 어댑터 등록 ---
     server.add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(parsed.kafka)

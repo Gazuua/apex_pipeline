@@ -25,10 +25,10 @@ TEST(PgAdapter, NotReadyBeforeInit)
 
 TEST(PgAdapter, ReadyAfterInit)
 {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -37,10 +37,10 @@ TEST(PgAdapter, ReadyAfterInit)
 
 TEST(PgAdapter, InitCreatesPerCorePools)
 {
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -55,10 +55,10 @@ TEST(PgAdapter, InitCreatesPerCorePools)
 
 TEST(PgAdapter, DrainMakesNotReady)
 {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -70,10 +70,10 @@ TEST(PgAdapter, DrainMakesNotReady)
 
 TEST(PgAdapter, CloseReleasesResources)
 {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -98,10 +98,10 @@ TEST(PgAdapter, DrainWithoutInit)
 
 TEST(PgAdapter, FullLifecycle)
 {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     EXPECT_FALSE(adapter.is_ready());
@@ -121,6 +121,10 @@ TEST(PgAdapter, ConfigAccessible)
     PgAdapterConfig config{
         .connection_string = "host=mydb port=6432",
         .pool_size_per_core = 4,
+        .max_idle_time = {},
+        .health_check_interval = {},
+        .max_acquire_retries = {},
+        .retry_backoff = {},
     };
     PgAdapter adapter(config);
     EXPECT_EQ(adapter.config().connection_string, "host=mydb port=6432");
@@ -142,10 +146,10 @@ TEST(PgAdapter, TypeErasureViaAdapterWrapper)
 
 TEST(PgAdapter, PoolConfigMatchesPgConfig)
 {
-    PgAdapterConfig config{.pool_size_per_core = 5};
+    PgAdapterConfig config{.pool_size_per_core = 5, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -158,10 +162,10 @@ TEST(PgAdapter, PoolConfigMatchesPgConfig)
 
 TEST(PgAdapter, ActiveAndIdleConnectionsInitiallyZero)
 {
-    PgAdapterConfig config{.pool_size_per_core = 2};
+    PgAdapterConfig config{.pool_size_per_core = 2, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -179,10 +183,10 @@ TEST(PgAdapter, ActiveAndIdleWithoutInit)
 
 TEST(PgAdapter, DoubleInit)
 {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+    PgAdapterConfig config{.pool_size_per_core = 1, .max_idle_time = {}, .health_check_interval = {}, .max_acquire_retries = {}, .retry_backoff = {}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);

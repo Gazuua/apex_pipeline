@@ -18,7 +18,7 @@ namespace apex::shared::adapters::redis
 RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config)
     : io_ctx_(io_ctx)
     , config_(config)
-    , slab_(64, {.auto_grow = true, .max_total_count = config_.max_pending_commands})
+    , slab_(64, {.auto_grow = true, .grow_chunk_size = {}, .max_total_count = config_.max_pending_commands})
 {}
 
 void RedisMultiplexer::connect()

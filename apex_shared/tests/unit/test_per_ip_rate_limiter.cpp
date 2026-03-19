@@ -75,7 +75,7 @@ class PerIpRateLimiterTest : public ::testing::Test
 
 TEST_F(PerIpRateLimiterTest, BasicAllowDeny)
 {
-    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     for (int i = 0; i < 10; ++i)
@@ -87,7 +87,7 @@ TEST_F(PerIpRateLimiterTest, BasicAllowDeny)
 
 TEST_F(PerIpRateLimiterTest, DifferentIpsIndependent)
 {
-    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     for (int i = 0; i < 5; ++i)
@@ -103,7 +103,7 @@ TEST_F(PerIpRateLimiterTest, DifferentIpsIndependent)
 TEST_F(PerIpRateLimiterTest, PerCoreLimitDivision)
 {
     // total=100, 4 cores -> per-core = 25
-    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 4}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 4, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     EXPECT_EQ(limiter.per_core_limit(), 25u);
@@ -117,7 +117,7 @@ TEST_F(PerIpRateLimiterTest, PerCoreLimitDivision)
 
 TEST_F(PerIpRateLimiterTest, MaxEntriesEvictsLRU)
 {
-    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = 3},
+    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = 3, .ttl_multiplier = {}},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
     (void)limiter.allow("ip1", base_);
@@ -144,7 +144,7 @@ TEST_F(PerIpRateLimiterTest, MaxEntriesEvictsLRU)
 
 TEST_F(PerIpRateLimiterTest, EntryCount)
 {
-    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     EXPECT_EQ(limiter.entry_count(), 0u);
@@ -159,7 +159,7 @@ TEST_F(PerIpRateLimiterTest, EntryCount)
 
 TEST_F(PerIpRateLimiterTest, UpdateConfigResetsAll)
 {
-    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     for (int i = 0; i < 10; ++i)
@@ -169,7 +169,7 @@ TEST_F(PerIpRateLimiterTest, UpdateConfigResetsAll)
     EXPECT_FALSE(limiter.allow("ip", base_ + 10ms));
 
     // Update config -- all counters reset
-    limiter.update_config({.total_limit = 20, .window_size = 1s, .num_cores = 1});
+    limiter.update_config({.total_limit = 20, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}});
     EXPECT_EQ(limiter.entry_count(), 0u);
     EXPECT_EQ(limiter.per_core_limit(), 20u);
     EXPECT_TRUE(limiter.allow("ip", base_ + 1s));
@@ -177,7 +177,7 @@ TEST_F(PerIpRateLimiterTest, UpdateConfigResetsAll)
 
 TEST_F(PerIpRateLimiterTest, IPv6Support)
 {
-    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     EXPECT_TRUE(limiter.allow("::1", base_));
@@ -188,7 +188,7 @@ TEST_F(PerIpRateLimiterTest, IPv6Support)
 TEST_F(PerIpRateLimiterTest, MinimumPerCoreLimit)
 {
     // total=1, 4 cores -> per-core should be at least 1
-    PerIpRateLimiter limiter({.total_limit = 1, .window_size = 1s, .num_cores = 4}, mock_.make_schedule(),
+    PerIpRateLimiter limiter({.total_limit = 1, .window_size = 1s, .num_cores = 4, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                              mock_.make_cancel(), mock_.make_reschedule());
 
     EXPECT_GE(limiter.per_core_limit(), 1u);
@@ -196,7 +196,7 @@ TEST_F(PerIpRateLimiterTest, MinimumPerCoreLimit)
 
 TEST_F(PerIpRateLimiterTest, TtlExpirationRemovesEntry)
 {
-    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1, .ttl_multiplier = 2},
+    PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = 2},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
     (void)limiter.allow("10.0.0.1", base_);
@@ -219,7 +219,7 @@ TEST_F(PerIpRateLimiterTest, TtlExpirationRemovesEntry)
 
 TEST_F(PerIpRateLimiterTest, TtlExpirationResetsCounter)
 {
-    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1, .ttl_multiplier = 2},
+    PerIpRateLimiter limiter({.total_limit = 5, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = 2},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
     // Exhaust rate limit for an IP
@@ -247,7 +247,7 @@ TEST_F(PerIpRateLimiterTest, TtlExpirationResetsCounter)
 
 TEST_F(PerIpRateLimiterTest, RescheduleOnAccess)
 {
-    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .ttl_multiplier = 2},
+    PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = 2},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
     (void)limiter.allow("10.0.0.1", base_);
@@ -264,7 +264,7 @@ TEST_F(PerIpRateLimiterTest, RescheduleOnAccess)
 TEST_F(PerIpRateLimiterTest, DestructorCancelsAllTimers)
 {
     {
-        PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
+        PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = {}, .ttl_multiplier = {}}, mock_.make_schedule(),
                                  mock_.make_cancel(), mock_.make_reschedule());
 
         (void)limiter.allow("ip1", base_);

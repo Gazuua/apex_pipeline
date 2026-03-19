@@ -25,6 +25,11 @@ class CrossCoreCallTest : public ::testing::Test
             .num_cores = 2,
             .heartbeat_timeout_ticks = 0,
             .handle_signals = false,
+            .drain_timeout = {},
+            .cross_core_call_timeout = {},
+            .bump_capacity_bytes = {},
+            .arena_block_bytes = {},
+            .arena_max_bytes = {},
         });
         server_->listen<TcpBinaryProtocol>(0);
         server_thread_ = std::thread([this] { server_->run(); });
@@ -155,6 +160,11 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull)
         .mpsc_queue_capacity = 2,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
+        .drain_timeout = {},
+        .cross_core_call_timeout = {},
+        .bump_capacity_bytes = {},
+        .arena_block_bytes = {},
+        .arena_max_bytes = {},
     });
     server->listen<TcpBinaryProtocol>(0);
     std::thread server_thread([&] { server->run(); });
@@ -214,7 +224,7 @@ TEST(CrossCoreCallQueueFullTest, QueueFullReturnsCrossCoreQueueFull)
 TEST(CrossCorePostMsgTest, PostMsgFireAndForget)
 {
     // CoreEngine directly — register_cross_core_handler must be called before start()
-    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
 
     std::atomic<int> received_value{0};
     std::atomic<uint32_t> received_source{999};
@@ -243,7 +253,7 @@ TEST(CrossCorePostMsgTest, PostMsgFireAndForget)
 
 TEST(CoreEngineTest, TlsCoreId)
 {
-    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
 
     std::atomic<uint32_t> id_on_core0{UINT32_MAX};
     std::atomic<uint32_t> id_on_core1{UINT32_MAX};
@@ -292,7 +302,7 @@ TEST_F(CrossCoreCallTest, FuncExceptionResultsInTimeout)
 
 TEST(CrossCorePostMsgTest, InvalidTargetReturnsError)
 {
-    CoreEngine engine(CoreEngineConfig{.num_cores = 2});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
     // Don't start — post_to with invalid target returns error immediately
     auto result = cross_core_post_msg(engine, 0, 99, CrossCoreOp::Custom);
     EXPECT_FALSE(result.has_value());
@@ -301,7 +311,7 @@ TEST(CrossCorePostMsgTest, InvalidTargetReturnsError)
 
 TEST(CrossCorePostMsgTest, QueueFullReturnsError)
 {
-    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = 2});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 2, .mpsc_queue_capacity = 2, .tick_interval = {}, .drain_batch_limit = {}});
     // Don't start — fill queue without draining
     for (int i = 0; i < 2; ++i)
     {
@@ -316,7 +326,7 @@ TEST(CrossCorePostMsgTest, QueueFullReturnsError)
 TEST(BroadcastTest, PartialFailureReleasesRefcount)
 {
     // Small queue — some cores' posts will fail, broadcast should release for them
-    CoreEngine engine(CoreEngineConfig{.num_cores = 3, .mpsc_queue_capacity = 2});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 3, .mpsc_queue_capacity = 2, .tick_interval = {}, .drain_batch_limit = {}});
 
     // Fill core 2's queue (don't start engine — no draining)
     for (int i = 0; i < 2; ++i)
@@ -362,7 +372,7 @@ TEST(BroadcastTest, PartialFailureReleasesRefcount)
 
 TEST(BroadcastTest, BroadcastToAllCores)
 {
-    CoreEngine engine(CoreEngineConfig{.num_cores = 4});
+    CoreEngine engine(CoreEngineConfig{.num_cores = 4, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
 
     // External counter — survives SharedPayload deletion
     std::atomic<int> received_count{0};

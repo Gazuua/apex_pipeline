@@ -66,7 +66,7 @@ TEST(PipelineIntegration, EncodeDecodeDispatch)
     // 2. Encode a frame into RingBuffer
     RingBuffer buf(4096);
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
-    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     ASSERT_TRUE(FrameCodec::encode(buf, header, payload));
 
     // 3. Decode the frame
@@ -102,9 +102,9 @@ TEST(PipelineIntegration, MultiFramePipeline)
     std::vector<uint8_t> p2 = {0x02, 0x03};
     std::vector<uint8_t> p3 = {0x04, 0x05, 0x06};
 
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 1}, p1));
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0002, .body_size = 2}, p2));
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3}, p3));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 1, .reserved = {}}, p1));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0002, .body_size = 2, .reserved = {}}, p2));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3, .reserved = {}}, p3));
 
     // TQ2: Decode and dispatch all frames — verify dispatch return values
     boost::asio::io_context io_ctx;
@@ -130,7 +130,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
 
     RingBuffer buf(4096);
     std::vector<uint8_t> payload = {0xFF};
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x9999, .body_size = 1}, payload));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x9999, .body_size = 1, .reserved = {}}, payload));
 
     auto frame = FrameCodec::try_decode(buf);
     ASSERT_TRUE(frame.has_value());
@@ -145,7 +145,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
 
 TEST(PipelineIntegration, CoreEngineInterCoreDelivery)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024, .tick_interval = {}, .drain_batch_limit = {}});
 
     std::atomic<int> core0_received{0};
     std::atomic<int> core1_received{0};
@@ -184,6 +184,7 @@ TEST(PipelineIntegration, WireHeaderFlagsPreserved)
         .flags = static_cast<uint8_t>(wire_flags::COMPRESSED | wire_flags::REQUIRE_AUTH_CHECK),
         .msg_id = 0x0042,
         .body_size = 0,
+        .reserved = {},
     };
 
     auto bytes = h.serialize();
