@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 63
+다음 발번: 66
 
 ---
 
@@ -18,12 +18,6 @@
 - **연관**: #52
 - **설명**: v0.5.5.1 E2E 11/11 통과 후 코드 품질 리뷰 미수행 상태. PR #27~#37 (101파일, ~7,863 insertions) 대상으로 10개 관점 체계 리뷰 수행. 관점: ① 코어 인터페이스 단순화 ② 초기화 순서 의존성 ③ OOP/유지보수성 ④ shared-nothing 준수 ⑤ 서비스 간 의존성 ⑥ 코루틴 lifetime ⑦ 에러 핸들링 일관성 ⑧ shutdown 경로 정합성 ⑨ 매직넘버/하드코딩 ⑩ 에이전트 자율 판단. 상세 계획: `docs/apex_common/plans/20260318_144700_post-e2e-code-review.md` 참조. v0.6 진입 전 반드시 완료.
 
-### #1. apex_core 프레임워크 가이드 (API 가이드 + 내부 아키텍처)
-- **등급**: CRITICAL
-- **스코프**: core, docs
-- **타입**: docs
-- **연관**: #56
-- **설명**: 서비스 개발자와 에이전트 양쪽이 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 통합 가이드. 현재는 Gateway/Auth/Chat 구현 코드를 직접 역추적해야 하며 반복 시행착오 발생. **2레이어 문서 구조**: **레이어 1 — 서비스 개발 API 가이드** (내부를 몰라도 서비스를 만들 수 있는 인터페이스 레퍼런스): ServiceBase<T> 상속 및 라이프사이클 훅(on_configure/on_wire/on_start/on_stop/on_session_closed), 핸들러 등록 3종(handle/route<T>/kafka_route<T>), set_default_handler(프록시 패턴), ConfigureContext·WireContext 사용 가능 API, bump()/arena() 사용법, 하지 말아야 할 것 목록(코어 간 직접 공유, Phase 순서 위반, co_await 후 FlatBuffers 포인터 접근 등). **레이어 2 — 프레임워크 내부 아키텍처** (왜 이렇게 동작하는지): 아키텍처 구조도(Server/CoreEngine/Listener/ConnectionHandler per-core 배치), 클래스 다이어그램 + 주요 클래스 호출 관계, Phase 1→2→3→3.5 시퀀스, AdapterBase 초기화 순서, ResponseDispatcher 배선, standalone CoreEngine 패턴. 2단계 전략: 1차 md 초안(에이전트 친화 구조 — 계층별 요약→상세 점진적 깊이), 2차 코어 안정화 후 다이어그램 그림 승격. v0.6 서비스 온보딩의 선행 조건.
 
 ---
 
@@ -181,6 +175,26 @@
 - **스코프**: infra
 - **타입**: infra
 - **설명**: IDE 디버그 설정 파일 전무. ① Windows/VS2022 F5 디버깅 타겟 ② WSL/Linux 리모트 디버깅. docker-compose 연동 확인 필수.
+
+### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
+- **등급**: MINOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: `docs/CLAUDE.md` 백로그 운영 규칙 80줄이 루트 `CLAUDE.md`와 부분 중복. 중복 제거 또는 역할 분리 명확화.
+
+### #64. 서비스 테스트 작성 가이드
+- **등급**: MAJOR
+- **스코프**: core, docs
+- **타입**: docs
+- **연관**: #1
+- **설명**: 유닛 테스트(GTest + Mock 어댑터) + E2E 테스트 패턴을 다루는 별도 가이드. 프레임워크 가이드(#1)에서 분리된 스코프.
+
+### #65. auto-review 가이드 검증 자동화
+- **등급**: MINOR
+- **스코프**: tools
+- **타입**: infra
+- **연관**: #1
+- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
 ---
 
