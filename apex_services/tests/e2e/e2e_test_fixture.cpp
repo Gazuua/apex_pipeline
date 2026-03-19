@@ -86,15 +86,53 @@ void E2EEnvironment::SetUp()
 
     ASSERT_TRUE(gateway_ready) << "Gateway not reachable within timeout";
 
-    // Kafka consumer rebalance + 토픽 생성 대기.
-    // CI 환경에서는 auto-create 토픽이 느리므로 E2E_KAFKA_INIT_WAIT로 조절 가능.
-    int kafka_wait = 8;
-    if (auto* v = std::getenv("E2E_KAFKA_INIT_WAIT"))
+    // Kafka 파이프라인 warm-up: 로그인 요청을 보내서 실제 응답이 올 때까지 재시도.
+    // Kafka consumer rebalance + 토픽 auto-create + response consumer 준비를 모두 확인.
+    std::cout << "[E2E] Warming up Kafka pipeline (login probe)...\n";
+    auto warmup_deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
+    bool pipeline_ready = false;
+
+    while (std::chrono::steady_clock::now() < warmup_deadline)
     {
-        kafka_wait = std::atoi(v);
+        try
+        {
+            boost::asio::io_context warmup_io;
+            TcpClient warmup_client(warmup_io, config_);
+            warmup_client.connect();
+
+            // LoginRequest: alice@apex.dev / password123
+            flatbuffers::FlatBufferBuilder fbb(256);
+            auto email_off = fbb.CreateString("alice@apex.dev");
+            auto pw_off = fbb.CreateString("password123");
+            auto start = fbb.StartTable();
+            fbb.AddOffset(4, email_off);
+            fbb.AddOffset(6, pw_off);
+            auto loc = fbb.EndTable(start);
+            fbb.Finish(flatbuffers::Offset<void>(loc));
+            warmup_client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
+
+            auto resp = warmup_client.recv(std::chrono::seconds{5});
+            if (resp.msg_id == 1001)
+            {
+                pipeline_ready = true;
+                std::cout << "[E2E] Kafka pipeline ready (login response received).\n";
+                break;
+            }
+        }
+        catch (...)
+        {
+            // 타임아웃 또는 연결 실패 — 재시도
+        }
+        std::this_thread::sleep_for(std::chrono::seconds{2});
     }
-    std::cout << "[E2E] Waiting " << kafka_wait << "s for Kafka consumer initialization...\n";
-    std::this_thread::sleep_for(std::chrono::seconds{kafka_wait});
+
+    if (!pipeline_ready)
+    {
+        std::cerr << "[E2E] Warning: Kafka pipeline warm-up failed. Tests may fail.\n";
+    }
+
+    // PubSub + consumer 안정화 추가 대기
+    std::this_thread::sleep_for(std::chrono::seconds{3});
 
     ready_ = true;
     std::cout << "[E2E] Infrastructure ready.\n";
