@@ -44,7 +44,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
   2. `git fetch origin main && git rebase origin/main` (충돌 시 에이전트가 resolve)
-  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증)
+  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증) — **문서 전용 PR은 빌드 스킵** (`.md`, `.txt`, `docs/` 변경만인 경우)
   4. `git push --force-with-lease`
   5. `gh pr merge --squash --admin`
   6. `queue-lock.sh merge release`
@@ -55,6 +55,17 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### 설계 원칙
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
+
+### 프레임워크 가이드 유지보수
+- **갱신 트리거**: 코어 인터페이스 변경 시 `docs/apex_core/apex_core_guide.md` 동시 갱신 필수
+  - ServiceBase 훅 추가/삭제/시그니처 변경
+  - 핸들러 등록 API 변경 (handle, route, kafka_route, set_default_handler)
+  - ConfigureContext / WireContext 필드 변경
+  - ServerConfig 필드 추가/삭제
+  - 새 Phase 도입 또는 Phase 순서 변경
+  - 새 어댑터 타입 추가
+- **갱신 범위**: 레이어 1(API)은 직접 수정, 레이어 2(내부)는 ADR 포인터 정합성 확인
+- **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
 ### 문서/프로세스 규칙
 - **백로그**: `docs/BACKLOG.md`에 기록 (2축 분류: NOW/IN VIEW/DEFERRED × CRITICAL/MAJOR/MINOR). 별도 백로그 파일 생성 금지. 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록. 운영 규칙 상세: `docs/CLAUDE.md` § 백로그 운영
@@ -87,3 +98,4 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | 도구/플러그인 캐시/auto-review | `apex_tools/CLAUDE.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
+| 프레임워크 가이드 (서비스 개발 API + 내부 아키텍처) | `docs/apex_core/apex_core_guide.md` |
