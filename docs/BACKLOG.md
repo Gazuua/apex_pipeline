@@ -4,11 +4,18 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 99
+다음 발번: 100
 
 ---
 
 ## NOW
+
+### #99. Nightly Valgrind 첫 실행 결과 확인
+- **등급**: MAJOR
+- **스코프**: ci
+- **타입**: infra
+- **연관**: #7, #98
+- **설명**: v0.5.8.0 머지 후 Nightly Valgrind workflow 수동 트리거 실행 중. 첫 실행이므로 결과 확인 필수: ① valgrind-unit job 통과 여부 ② valgrind-e2e job 통과 여부 (서비스 Valgrind 래핑 + 호스트 실행 구조 검증) ③ 아티팩트 경로·nightly.yml 구조가 auto-review에서 대폭 수정됐으므로 실제 동작 검증. 결과에 따라 추가 수정 필요할 수 있음.
 
 ### #98. CI E2E 타이밍 민감 테스트 안정화
 - **등급**: MAJOR
