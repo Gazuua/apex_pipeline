@@ -10,6 +10,19 @@
 
 ## NOW
 
+### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
+- **등급**: MAJOR
+- **스코프**: ci, infra
+- **타입**: infra
+- **연관**: #9
+- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
+
+### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
+- **등급**: MAJOR
+- **스코프**: ci, shared
+- **타입**: infra
+- **연관**: #7
+- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
 
 ---
 
@@ -89,18 +102,6 @@
 - **타입**: infra
 - **연관**: #58
 - **설명**: CMakeLists.txt에 `-Wall`/`-Wextra`(GCC/Clang), `/W4`(MSVC) 플래그 자체가 미설정 — 컴파일러 기본 경고만 출력 중. 3단계 작업: ① CMake에 경고 플래그 추가 + 외부 라이브러리 헤더는 system include로 경고 억제 ② 전체 빌드 후 발생하는 GCC/Clang/MSVC 경고 전수 수정 또는 의도적 억제 ③ clangd 진단 경고 잔여분 소탕 (session.cpp 3건 포함, 기존 #30 흡수) ④ CI에서 `-Werror`/`/WX` 격상 여부 판단. 구현 시 경고 건수 측정 후 수정 범위 브레인스토밍.
-
-### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
-- **등급**: MAJOR
-- **스코프**: ci, shared
-- **타입**: infra
-- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
-
-### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
-- **등급**: MAJOR
-- **스코프**: ci, infra
-- **타입**: infra
-- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
 
 ### #5. gateway.toml 시크릿 운영 환경 관리
 - **등급**: MAJOR
