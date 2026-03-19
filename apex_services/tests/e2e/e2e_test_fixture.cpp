@@ -97,7 +97,7 @@ void E2EEnvironment::SetUp()
         try
         {
             boost::asio::io_context warmup_io;
-            TcpClient warmup_client(warmup_io, config_);
+            E2ETestFixture::TcpClient warmup_client(warmup_io, config_);
             warmup_client.connect();
 
             // LoginRequest: alice@apex.dev / password123
