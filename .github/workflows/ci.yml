@@ -211,10 +211,10 @@ jobs:
 
       - name: Start services
         run: |
-          artifacts/gateway/apex_gateway apex_services/tests/e2e/gateway_e2e.toml &
-          artifacts/auth-svc/auth_svc_main apex_services/tests/e2e/auth_svc_e2e.toml &
-          artifacts/chat-svc/chat_svc_main apex_services/tests/e2e/chat_svc_e2e.toml &
-          sleep 10  # 서비스 초기화 대기
+          nohup artifacts/gateway/apex_gateway apex_services/tests/e2e/gateway_e2e.toml > /tmp/gateway.log 2>&1 &
+          nohup artifacts/auth-svc/auth_svc_main apex_services/tests/e2e/auth_svc_e2e.toml > /tmp/auth.log 2>&1 &
+          nohup artifacts/chat-svc/chat_svc_main apex_services/tests/e2e/chat_svc_e2e.toml > /tmp/chat.log 2>&1 &
+          sleep 20  # Kafka consumer rebalance + 서비스 초기화 대기
 
       - name: Run E2E tests
         run: |
@@ -223,6 +223,13 @@ jobs:
           E2E_GATEWAY_HOST: "127.0.0.1"
           E2E_GATEWAY_TCP_PORT: "8443"
           E2E_STARTUP_TIMEOUT: "60"
+
+      - name: Service logs (debug)
+        if: always()
+        run: |
+          echo "=== Gateway ===" && cat /tmp/gateway.log 2>/dev/null | tail -30 || true
+          echo "=== Auth ===" && cat /tmp/auth.log 2>/dev/null | tail -30 || true
+          echo "=== Chat ===" && cat /tmp/chat.log 2>/dev/null | tail -30 || true
 
       - name: Teardown
         if: always()
