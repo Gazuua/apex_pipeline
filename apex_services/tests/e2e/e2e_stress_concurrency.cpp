@@ -71,72 +71,70 @@ TEST_F(E2EStressConcurrencyFixture, ConcurrentRoomJoinLeave)
     threads.reserve(kClientCount);
     for (int i = 0; i < kClientCount; ++i)
     {
-        threads.emplace_back(
-            [this, room_id, i, &success_count, &error_count, &results_mutex, &failures]()
+        threads.emplace_back([this, room_id, i, &success_count, &error_count, &results_mutex, &failures]() {
+            try
             {
-                try
-                {
-                    boost::asio::io_context local_io_ctx;
-                    TcpClient client(local_io_ctx, config_);
-                    client.connect();
+                boost::asio::io_context local_io_ctx;
+                TcpClient client(local_io_ctx, config_);
+                client.connect();
 
-                    // bob@apex.dev 로그인 (동시 다중 로그인 허용 가정)
-                    auto auth = login(client, "bob@apex.dev", "password123");
-                    if (auth.access_token.empty())
+                // bob@apex.dev 로그인 (동시 다중 로그인 허용 가정)
+                auto auth = login(client, "bob@apex.dev", "password123");
+                if (auth.access_token.empty())
+                {
+                    std::lock_guard<std::mutex> lock(results_mutex);
+                    failures.push_back("client " + std::to_string(i) + ": login failed");
+                    error_count++;
+                    return;
+                }
+                authenticate(client, auth.access_token);
+
+                // JoinRoom
+                {
+                    flatbuffers::FlatBufferBuilder fbb(128);
+                    auto req = chat_fbs::CreateJoinRoomRequest(fbb, room_id);
+                    fbb.Finish(req);
+                    client.send(2003, fbb.GetBufferPointer(), fbb.GetSize());
+
+                    auto resp = client.recv(std::chrono::seconds{10});
+                    if (resp.msg_id != 2004u)
                     {
                         std::lock_guard<std::mutex> lock(results_mutex);
-                        failures.push_back("client " + std::to_string(i) + ": login failed");
+                        failures.push_back("client " + std::to_string(i) +
+                                           ": JoinRoom got msg_id=" + std::to_string(resp.msg_id));
                         error_count++;
                         return;
                     }
-                    authenticate(client, auth.access_token);
-
-                    // JoinRoom
-                    {
-                        flatbuffers::FlatBufferBuilder fbb(128);
-                        auto req = chat_fbs::CreateJoinRoomRequest(fbb, room_id);
-                        fbb.Finish(req);
-                        client.send(2003, fbb.GetBufferPointer(), fbb.GetSize());
-
-                        auto resp = client.recv(std::chrono::seconds{10});
-                        if (resp.msg_id != 2004u)
-                        {
-                            std::lock_guard<std::mutex> lock(results_mutex);
-                            failures.push_back("client " + std::to_string(i) + ": JoinRoom got msg_id=" +
-                                               std::to_string(resp.msg_id));
-                            error_count++;
-                            return;
-                        }
-                    }
-
-                    // LeaveRoom
-                    {
-                        flatbuffers::FlatBufferBuilder fbb(128);
-                        auto req = chat_fbs::CreateLeaveRoomRequest(fbb, room_id);
-                        fbb.Finish(req);
-                        client.send(2005, fbb.GetBufferPointer(), fbb.GetSize());
-
-                        auto resp = client.recv(std::chrono::seconds{10});
-                        if (resp.msg_id != 2006u)
-                        {
-                            std::lock_guard<std::mutex> lock(results_mutex);
-                            failures.push_back("client " + std::to_string(i) + ": LeaveRoom got msg_id=" +
-                                               std::to_string(resp.msg_id));
-                            error_count++;
-                            return;
-                        }
-                    }
-
-                    success_count++;
-                    client.close();
                 }
-                catch (const std::exception& ex)
+
+                // LeaveRoom
                 {
-                    std::lock_guard<std::mutex> lock(results_mutex);
-                    failures.push_back("client " + std::to_string(i) + ": exception: " + ex.what());
-                    error_count++;
+                    flatbuffers::FlatBufferBuilder fbb(128);
+                    auto req = chat_fbs::CreateLeaveRoomRequest(fbb, room_id);
+                    fbb.Finish(req);
+                    client.send(2005, fbb.GetBufferPointer(), fbb.GetSize());
+
+                    auto resp = client.recv(std::chrono::seconds{10});
+                    if (resp.msg_id != 2006u)
+                    {
+                        std::lock_guard<std::mutex> lock(results_mutex);
+                        failures.push_back("client " + std::to_string(i) +
+                                           ": LeaveRoom got msg_id=" + std::to_string(resp.msg_id));
+                        error_count++;
+                        return;
+                    }
                 }
-            });
+
+                success_count++;
+                client.close();
+            }
+            catch (const std::exception& ex)
+            {
+                std::lock_guard<std::mutex> lock(results_mutex);
+                failures.push_back("client " + std::to_string(i) + ": exception: " + ex.what());
+                error_count++;
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -179,56 +177,54 @@ TEST_F(E2EStressConcurrencyFixture, ConcurrentLogin)
     threads.reserve(kConcurrentCount);
     for (int i = 0; i < kConcurrentCount; ++i)
     {
-        threads.emplace_back(
-            [this, i, &responded_count, &crash_count]()
+        threads.emplace_back([this, i, &responded_count, &crash_count]() {
+            SCOPED_TRACE("concurrent-login client " + std::to_string(i));
+            try
             {
-                SCOPED_TRACE("concurrent-login client " + std::to_string(i));
-                try
-                {
-                    boost::asio::io_context local_io_ctx;
-                    TcpClient client(local_io_ctx, config_);
-                    client.connect();
+                boost::asio::io_context local_io_ctx;
+                TcpClient client(local_io_ctx, config_);
+                client.connect();
 
-                    // 동일 이메일로 동시 로그인 시도
-                    // 계정이 없으면 에러 응답, 있으면 토큰 발급 — 둘 다 정상
-                    flatbuffers::FlatBufferBuilder fbb(256);
-                    auto email_off = fbb.CreateString("alice@apex.dev");
-                    auto pw_off = fbb.CreateString("password123");
-                    auto start = fbb.StartTable();
-                    fbb.AddOffset(4, email_off);
-                    fbb.AddOffset(6, pw_off);
-                    auto loc = fbb.EndTable(start);
-                    fbb.Finish(flatbuffers::Offset<void>(loc));
-                    client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
+                // 동일 이메일로 동시 로그인 시도
+                // 계정이 없으면 에러 응답, 있으면 토큰 발급 — 둘 다 정상
+                flatbuffers::FlatBufferBuilder fbb(256);
+                auto email_off = fbb.CreateString("alice@apex.dev");
+                auto pw_off = fbb.CreateString("password123");
+                auto start = fbb.StartTable();
+                fbb.AddOffset(4, email_off);
+                fbb.AddOffset(6, pw_off);
+                auto loc = fbb.EndTable(start);
+                fbb.Finish(flatbuffers::Offset<void>(loc));
+                client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
 
-                    auto resp = client.recv(std::chrono::seconds{10});
-                    // 응답이 왔다면 (성공 또는 에러 무관) 크래시 아님
-                    if (resp.msg_id == 1001u || (resp.flags & ERROR_RESPONSE))
-                    {
-                        responded_count++;
-                    }
-                    else
-                    {
-                        // 예상치 못한 msg_id도 크래시는 아님
-                        responded_count++;
-                        std::cerr << "[E2E-DEBUG] ConcurrentLogin unexpected resp: msg_id=" << resp.msg_id
-                                  << " flags=" << static_cast<int>(resp.flags) << "\n";
-                    }
+                auto resp = client.recv(std::chrono::seconds{10});
+                // 응답이 왔다면 (성공 또는 에러 무관) 크래시 아님
+                if (resp.msg_id == 1001u || (resp.flags & ERROR_RESPONSE))
+                {
+                    responded_count++;
+                }
+                else
+                {
+                    // 예상치 못한 msg_id도 크래시는 아님
+                    responded_count++;
+                    std::cerr << "[E2E-DEBUG] ConcurrentLogin unexpected resp: msg_id=" << resp.msg_id
+                              << " flags=" << static_cast<int>(resp.flags) << "\n";
+                }
 
-                    client.close();
-                }
-                catch (const std::exception& ex)
-                {
-                    // 연결 실패나 타임아웃은 허용 (크래시 아님)
-                    std::cerr << "[E2E-DEBUG] ConcurrentLogin client " << i << " exception: " << ex.what() << "\n";
-                    responded_count++; // 예외도 크래시는 아님
-                }
-                catch (...)
-                {
-                    crash_count++;
-                    std::cerr << "[E2E-DEBUG] ConcurrentLogin client " << i << " unknown exception\n";
-                }
-            });
+                client.close();
+            }
+            catch (const std::exception& ex)
+            {
+                // 연결 실패나 타임아웃은 허용 (크래시 아님)
+                std::cerr << "[E2E-DEBUG] ConcurrentLogin client " << i << " exception: " << ex.what() << "\n";
+                responded_count++; // 예외도 크래시는 아님
+            }
+            catch (...)
+            {
+                crash_count++;
+                std::cerr << "[E2E-DEBUG] ConcurrentLogin client " << i << " unknown exception\n";
+            }
+        });
     }
 
     for (auto& t : threads)
@@ -287,8 +283,7 @@ TEST_F(E2EStressConcurrencyFixture, RateLimitBurst)
             if (resp.flags & ERROR_RESPONSE)
             {
                 rate_limited_count++;
-                std::cerr << "[E2E-DEBUG] RateLimitBurst iter=" << i
-                          << " rate-limited: msg_id=" << resp.msg_id
+                std::cerr << "[E2E-DEBUG] RateLimitBurst iter=" << i << " rate-limited: msg_id=" << resp.msg_id
                           << " flags=" << static_cast<int>(resp.flags) << "\n";
             }
 
@@ -303,8 +298,8 @@ TEST_F(E2EStressConcurrencyFixture, RateLimitBurst)
     }
 
     // rate limit이 적용되었거나 적어도 요청이 처리되었어야 함
-    std::cerr << "[E2E-DEBUG] RateLimitBurst: responded=" << responded_count
-              << " rate_limited=" << rate_limited_count << "\n";
+    std::cerr << "[E2E-DEBUG] RateLimitBurst: responded=" << responded_count << " rate_limited=" << rate_limited_count
+              << "\n";
 
     // rate limit이 트리거되었거나 전체 요청이 처리됨 — 크래시가 없으면 통과
     EXPECT_GT(responded_count + rate_limited_count, 0) << "All burst requests should be handled (no crash)";

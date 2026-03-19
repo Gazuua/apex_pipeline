@@ -60,8 +60,7 @@ void E2EEnvironment::SetUp()
 {
     config_ = E2EConfig::from_env();
 
-    std::cout << "[E2E] Waiting for Gateway at " << config_.gateway_host
-              << ":" << config_.gateway_tcp_port << "...\n";
+    std::cout << "[E2E] Waiting for Gateway at " << config_.gateway_host << ":" << config_.gateway_tcp_port << "...\n";
 
     auto deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
     bool gateway_ready = false;
@@ -72,9 +71,8 @@ void E2EEnvironment::SetUp()
         {
             boost::asio::io_context probe_ctx;
             boost::asio::ip::tcp::socket probe_sock(probe_ctx);
-            boost::asio::ip::tcp::endpoint ep(
-                boost::asio::ip::make_address(config_.gateway_host),
-                config_.gateway_tcp_port);
+            boost::asio::ip::tcp::endpoint ep(boost::asio::ip::make_address(config_.gateway_host),
+                                              config_.gateway_tcp_port);
             probe_sock.connect(ep);
             probe_sock.close();
             gateway_ready = true;

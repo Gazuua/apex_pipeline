@@ -39,8 +39,7 @@ class E2EStressProtocolFixture : public E2ETestFixture
     }
 
     /// WireHeader를 raw bytes로 직렬화 (big-endian)
-    static std::array<uint8_t, WireHeader::SIZE> make_raw_header(uint32_t msg_id, uint32_t body_size,
-                                                                  uint8_t flags = 0)
+    static std::array<uint8_t, WireHeader::SIZE> make_raw_header(uint32_t msg_id, uint32_t body_size, uint8_t flags = 0)
     {
         std::array<uint8_t, WireHeader::SIZE> buf{};
         buf[0] = WireHeader::CURRENT_VERSION;
