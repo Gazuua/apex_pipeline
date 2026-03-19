@@ -1,0 +1,146 @@
+name: Nightly Valgrind
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: '0 18 * * *'   # UTC 18:00 = KST 03:00
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Valgrind 범위'
+        type: choice
+        options:
+          - all
+          - unit-only
+          - e2e-only
+        default: all
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gazuua/apex-pipeline-ci:latest
+    env:
+      VCPKG_ROOT: /opt/vcpkg
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
+
+      - name: Build
+        run: cmake --build build/Linux/debug
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-build
+          path: |
+            build/Linux/debug/bin/
+            build/Linux/debug/CTestTestfile.cmake
+            build/Linux/debug/**/CTestTestfile.cmake
+          retention-days: 1
+
+  valgrind-unit:
+    permissions:
+      contents: read
+    needs: build
+    if: >-
+      github.event.inputs.scope == 'all' ||
+      github.event.inputs.scope == 'unit-only' ||
+      github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gazuua/apex-pipeline-ci:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-build
+          path: build/Linux/debug
+
+      - name: Make binaries executable
+        run: chmod -R +x build/Linux/debug/bin/ || true
+
+      - name: Install Valgrind
+        run: apt-get update && apt-get install -y valgrind
+
+      # Note: --test-dir 사용 (--preset 대신) — ctest -T MemCheck + --overwrite 조합이
+      # test preset과 호환되지 않으므로 --test-dir로 직접 지정.
+      - name: Run unit tests under Valgrind
+        run: |
+          ctest --test-dir build/Linux/debug \
+            -LE "e2e|e2e_stress" \
+            --overwrite MemoryCheckCommand=valgrind \
+            --overwrite MemoryCheckCommandOptions="--tool=memcheck --leak-check=full --error-exitcode=1" \
+            -T MemCheck \
+            --output-on-failure
+
+  valgrind-e2e:
+    permissions:
+      contents: read
+    needs: build
+    if: >-
+      github.event.inputs.scope == 'all' ||
+      github.event.inputs.scope == 'e2e-only' ||
+      github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-build
+          path: build/Linux/debug
+
+      - name: Make binaries executable
+        run: chmod -R +x build/Linux/debug/bin/ || true
+
+      - name: Start E2E with Valgrind override
+        run: |
+          docker compose \
+            -f apex_infra/docker/docker-compose.e2e.yml \
+            -f apex_infra/docker/docker-compose.valgrind.yml \
+            up -d --build --wait --timeout 300
+
+      - name: Run E2E tests
+        run: |
+          build/Linux/debug/bin/apex_e2e_tests
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "120"
+          E2E_REQUEST_TIMEOUT: "60"
+
+      - name: Run stress tests
+        run: |
+          build/Linux/debug/bin/apex_e2e_stress_tests
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "120"
+          E2E_REQUEST_TIMEOUT: "60"
+          E2E_STRESS_CONNECTIONS: "10"
+          E2E_STRESS_MESSAGES: "20"
+          E2E_STRESS_TIMEOUT_SEC: "600"
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose \
+            -f apex_infra/docker/docker-compose.e2e.yml \
+            -f apex_infra/docker/docker-compose.valgrind.yml \
+            down -v
