@@ -168,10 +168,10 @@ jobs:
         with:
           name: service-binaries
           path: |
-            build/Linux/debug/bin/apex_gateway
-            build/Linux/debug/bin/auth_svc_main
-            build/Linux/debug/bin/chat_svc_main
-            build/Linux/debug/bin/apex_e2e_tests
+            build/Linux/debug/apex_services/gateway/apex_gateway
+            build/Linux/debug/apex_services/auth-svc/auth_svc_main
+            build/Linux/debug/apex_services/chat-svc/chat_svc_main
+            build/Linux/debug/apex_services/tests/e2e/apex_e2e_tests
           retention-days: 1
 
       - name: Test
@@ -196,24 +196,27 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: service-binaries
-          path: build/Linux/debug/bin
 
       - name: Make binaries executable
-        run: chmod +x build/Linux/debug/bin/*
+        run: |
+          chmod +x build/Linux/debug/apex_services/gateway/apex_gateway
+          chmod +x build/Linux/debug/apex_services/auth-svc/auth_svc_main
+          chmod +x build/Linux/debug/apex_services/chat-svc/chat_svc_main
+          chmod +x build/Linux/debug/apex_services/tests/e2e/apex_e2e_tests
 
       - name: Build service Docker images (runtime only, builder skipped)
         run: |
           docker build -f apex_infra/docker/gateway.Dockerfile \
             --target runtime \
-            --build-arg PREBUILT_BIN=build/Linux/debug/bin/apex_gateway \
+            --build-arg PREBUILT_BIN=build/Linux/debug/apex_services/gateway/apex_gateway \
             -t apex-gateway:e2e .
           docker build -f apex_infra/docker/auth-svc.Dockerfile \
             --target runtime \
-            --build-arg PREBUILT_BIN=build/Linux/debug/bin/auth_svc_main \
+            --build-arg PREBUILT_BIN=build/Linux/debug/apex_services/auth-svc/auth_svc_main \
             -t apex-auth-svc:e2e .
           docker build -f apex_infra/docker/chat-svc.Dockerfile \
             --target runtime \
-            --build-arg PREBUILT_BIN=build/Linux/debug/bin/chat_svc_main \
+            --build-arg PREBUILT_BIN=build/Linux/debug/apex_services/chat-svc/chat_svc_main \
             -t apex-chat-svc:e2e .
 
       - name: Start E2E infrastructure
@@ -222,7 +225,7 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          build/Linux/debug/bin/apex_e2e_tests --gtest_output=xml:e2e-results.xml
+          build/Linux/debug/apex_services/tests/e2e/apex_e2e_tests --gtest_output=xml:e2e-results.xml
         env:
           E2E_GATEWAY_HOST: "127.0.0.1"
           E2E_GATEWAY_TCP_PORT: "8443"
