@@ -4,11 +4,18 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 98
+다음 발번: 99
 
 ---
 
 ## NOW
+
+### #98. CI E2E 타이밍 민감 테스트 안정화
+- **등급**: MAJOR
+- **스코프**: ci, e2e
+- **타입**: test
+- **연관**: BACKLOG-7
+- **설명**: CI E2E에서 `RefreshTokenRenewal` (31초 sleep 토큰 만료 대기)와 `ServiceRecoveryAfterTimeout` (30초 타임아웃 복구)이 Linux CI 환경에서 간헐적 실패. 현재 `--gtest_filter`로 제외 중. 원인: TCP recv timeout + Kafka 라운드트립 지연. 해결 방향: ① access_token_ttl_sec을 CI에서 짧게 설정 (환경변수 오버라이드) ② request_timeout 확대 ③ Timeout 테스트의 시간 의존성 완화.
 
 ---
 
