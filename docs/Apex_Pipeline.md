@@ -413,6 +413,7 @@ Tier 상세:
 | v0.5.5.1 | 소 | E2E 인프라 수정 + 서비스 체인 검증 완료: BUILD_TESTING=ON, CTest E2E 제외(-LE e2e). 코어: MessageDispatcher default handler, Server post_init_callback, multi-listener sync_default_handler(Phase 3.5 타이밍 수정). Gateway: TcpBinaryProtocol listen, TOML 구조, GatewayService 배선, ResponseDispatcher, 시스템 메시지. Auth/Chat: CoreEngine 전환, 어댑터 init, bcrypt 시드, PG search_path, response_topic 정합성. DB 스키마: locked_until, token_family. E2E Fixture: 바이너리 경로 주입, 디버그 로그. ASAN UAF 수정(test_redis_adapter 소멸 순서). 71/71 유닛 + 11/11 E2E + CI 전체 통과(ASAN/TSAN 포함) | 완료 |
 | v0.5.5.2 | 소 | 로그 디렉토리 구조 확립: async logger + daily_file_format_sink + exact_level_sink 조합. 서비스별/레벨별/날짜별 파일 로깅 구조화, 프로젝트 루트 자동 탐지, service_name TOML 설정 + 검증, E2E 로그 경로 통합. 71/71 유닛 통과 | 완료 |
 | v0.5.6.0 | 중 | Post-E2E 코드 리뷰 + 프레임워크 인프라 정비: 10개 관점 체계 리뷰(46건 발견) → 코어 인프라 확장 D2-D7(server.global\<T\>, wire_services 자동 배선, spawn tracked API, ChannelSessionMap per-core shared_mutex 완전 제거, ConsumerPayloadPool, send_error 헬퍼 11개) + post_init_callback 완전 제거 + GatewayGlobals 소유권 Server 이관 + auto-review 5명(CRITICAL 4+MAJOR 5 추가 수정, 보안 취약점 1건 포함). ~45파일 변경, 71/71 유닛 통과 | 완료 |
+| v0.5.7.0 | 중 | 코드 위생 확립: `.clang-format` 도입(Allman brace, 120자) + 전체 274파일 포맷팅 + CI format-check 강제 + `.git-blame-ignore-revs`. `apex_set_warnings()` 정의 + 전 타겟 적용(MSVC `/W4 /WX`, GCC `-Wall -Wextra -Wpedantic -Werror`) + 경고 전수 수정. FileWatcher flaky 테스트 수정. 307파일 변경, 71/71 유닛 + CI 전체 통과 | PR #46 |
 
 ### 활성 로드맵
 
@@ -432,6 +433,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.5.1 E2E 인프라 수정 + 서비스 체인 검증 완료 (71/71 유닛 + 11/11 E2E, CI ASAN/TSAN 포함 전체 통과)
          v0.5.5.2 로그 디렉토리 구조 확립 (async + daily_file_format + exact_level, 서비스별/레벨별/날짜별 분리)
          v0.5.6.0 Post-E2E 코드 리뷰 + 프레임워크 인프라 정비 (D2-D7 구현, shared_mutex 제거, auto-review)
+         v0.5.7.0 코드 위생 확립 (clang-format 전체 적용 + CI 강제, 경고 전수 소탕 + -Werror/WX)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

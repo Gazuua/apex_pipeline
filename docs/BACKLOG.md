@@ -10,20 +10,6 @@
 
 ## NOW
 
-### #58. 코딩 컨벤션 확립 + .clang-format 도입 + 전체 일괄 포맷팅
-- **등급**: MAJOR
-- **스코프**: core, shared, gateway, auth-svc, chat-svc, ci
-- **타입**: infra
-- **연관**: #54
-- **설명**: 코딩 스타일이 K&R/Allman 혼용 상태(K&R 90%, Allman은 생성자 이니셜라이저만). 멤버 변수 trailing underscore, snake_case 네이밍은 이미 일관적. 3단계 작업: ① `.clang-format` 설정 파일 작성 — Allman brace(`BreakBeforeBraces: Allman`), 인덴트, 줄 길이, 네이밍 등 프로젝트 컨벤션 확정. 구현 시 세부 옵션 브레인스토밍 ② 전체 코드베이스 `clang-format -i` 일괄 포맷팅 + `.git-blame-ignore-revs`에 포맷팅 커밋 등록(blame 히스토리 보존) ③ CI에 `clang-format --dry-run --Werror` 추가로 이후 스타일 위반 자동 차단. v0.6에서 코드량 증가 전에 적용해야 변환 비용 최소.
-
-### #54. 빌드/정적분석 경고 전수 소탕 + 경고 레벨 확립
-- **등급**: MAJOR
-- **스코프**: core, shared, gateway, auth-svc, chat-svc, ci
-- **타입**: infra
-- **연관**: #58
-- **설명**: CMakeLists.txt에 `-Wall`/`-Wextra`(GCC/Clang), `/W4`(MSVC) 플래그 자체가 미설정 — 컴파일러 기본 경고만 출력 중. 3단계 작업: ① CMake에 경고 플래그 추가 + 외부 라이브러리 헤더는 system include로 경고 억제 ② 전체 빌드 후 발생하는 GCC/Clang/MSVC 경고 전수 수정 또는 의도적 억제 ③ clangd 진단 경고 잔여분 소탕 (session.cpp 3건 포함, 기존 #30 흡수) ④ CI에서 `-Werror`/`/WX` 격상 여부 판단. 구현 시 경고 건수 측정 후 수정 범위 브레인스토밍.
-
 ### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
 - **등급**: MAJOR
 - **스코프**: ci, infra
@@ -188,12 +174,6 @@
 - **스코프**: shared
 - **타입**: test
 - **설명**: try_decode(), consume_frame() 단위 테스트 미작성.
-
-### #62. FileWatcher::DetectsChange 간헐 실패 (Windows 타임스탬프 해상도)
-- **등급**: MINOR
-- **스코프**: gateway
-- **타입**: bug
-- **설명**: `test_file_watcher.cpp` DetectsChange 테스트가 Windows에서 간헐적으로 실패. 원인: NTFS `last_write_time` 갱신 지연 (100ms~2초). 파일 덮어쓴 직후 `poll_now()` 호출 시 타임스탬프가 아직 갱신되지 않을 수 있음. 수정 방향: `poll_now()` 전 짧은 sleep 추가 또는 파일 내용 해시 기반 비교로 전환.
 
 ### #16. PgTransaction begun_ 경로 unit test
 - **등급**: MAJOR
