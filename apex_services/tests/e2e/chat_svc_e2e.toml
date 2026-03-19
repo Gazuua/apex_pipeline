@@ -1,5 +1,11 @@
 # Chat Service E2E Test Configuration
 
+[logging]
+service_name = "chat-svc"
+
+[logging.file]
+enabled = true
+
 [chat]
 max_message_length = 2000
 max_room_name_length = 100

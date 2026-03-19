@@ -16,13 +16,15 @@ drain_timeout_s = 25       # Graceful Shutdown drain timeout (seconds)
 level = "info"                 # Global default level (app logger)
 framework_level = "info"       # apex logger level (independent control)
 pattern = "%Y-%m-%d %H:%M:%S.%e [%l] [%n] %v"  # Console format
+# service_name — 서비스별 TOML에서 설정. 미설정 시 "default"
 
 [logging.console]
 enabled = true
 
 [logging.file]
 enabled = false
-path = "logs/apex.log"
-max_size_mb = 100
-max_files = 3
-json = true                    # FileSink uses JSON format
+path = ""                      # 빈 값 → {project_root}/logs/. 설정 시 그대로 사용
+json = false
+
+[logging.async]
+queue_size = 8192

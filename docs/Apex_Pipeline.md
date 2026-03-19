@@ -411,6 +411,7 @@ Tier 상세:
 | v0.5.4.2 | 소 | auto-review 21건 수정 | Critical UAF·바이트오더·JWT 5건 + Important 14건 + Minor 2건 | 완료 |
 | v0.5.5 | 소 | 서비스 체인 완성: PR #30 리뷰 8건 수정 (kafka_envelope overflow, spdlog 제거, JWT uid string, JwtVerifier copy/move 삭제, config DI, auth exempt TOML 등) + Auth/Chat full impl (MessageDispatcher 기반 핸들러, login/logout/refresh_token, 8개 채팅 핸들러) + E2E 인프라 (RS256 키, fixture launch/teardown, TOML 설정) + 56 테스트 | 완료 |
 | v0.5.5.1 | 소 | E2E 인프라 수정 + 서비스 체인 검증 완료: BUILD_TESTING=ON, CTest E2E 제외(-LE e2e). 코어: MessageDispatcher default handler, Server post_init_callback, multi-listener sync_default_handler(Phase 3.5 타이밍 수정). Gateway: TcpBinaryProtocol listen, TOML 구조, GatewayService 배선, ResponseDispatcher, 시스템 메시지. Auth/Chat: CoreEngine 전환, 어댑터 init, bcrypt 시드, PG search_path, response_topic 정합성. DB 스키마: locked_until, token_family. E2E Fixture: 바이너리 경로 주입, 디버그 로그. ASAN UAF 수정(test_redis_adapter 소멸 순서). 71/71 유닛 + 11/11 E2E + CI 전체 통과(ASAN/TSAN 포함) | 완료 |
+| v0.5.5.2 | 소 | 로그 디렉토리 구조 확립: async logger + daily_file_format_sink + exact_level_sink 조합. 서비스별/레벨별/날짜별 파일 로깅 구조화, 프로젝트 루트 자동 탐지, service_name TOML 설정 + 검증, E2E 로그 경로 통합. 71/71 유닛 통과 | 완료 |
 
 ### 활성 로드맵
 
@@ -428,6 +429,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.4.2 auto-review 21건 수정 (Critical 5 + Important 14 + Minor 2)
          v0.5.5   서비스 체인 완성 (PR #30 리뷰 8건 + Auth/Chat full impl + E2E 인프라)
          v0.5.5.1 E2E 인프라 수정 + 서비스 체인 검증 완료 (71/71 유닛 + 11/11 E2E, CI ASAN/TSAN 포함 전체 통과)
+         v0.5.5.2 로그 디렉토리 구조 확립 (async + daily_file_format + exact_level, 서비스별/레벨별/날짜별 분리)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

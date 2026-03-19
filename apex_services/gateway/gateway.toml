@@ -1,5 +1,11 @@
 # Apex Gateway Configuration
 
+[logging]
+service_name = "gateway"
+
+[logging.file]
+enabled = true
+
 [server]
 ws_port = 8443
 num_cores = 2

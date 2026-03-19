@@ -123,6 +123,7 @@ LogConfig parse_logging(const toml::table& root) {
     cfg.level = get_or<std::string>(*tbl, "level", cfg.level);
     cfg.framework_level = get_or<std::string>(*tbl, "framework_level", cfg.framework_level);
     cfg.pattern = get_or<std::string>(*tbl, "pattern", cfg.pattern);
+    cfg.service_name = get_or<std::string>(*tbl, "service_name", cfg.service_name);
 
     // [logging.console]
     if (auto* con = (*tbl)["console"].as_table()) {
@@ -133,13 +134,15 @@ LogConfig parse_logging(const toml::table& root) {
     if (auto* file = (*tbl)["file"].as_table()) {
         cfg.file.enabled = get_or<bool>(*file, "enabled", cfg.file.enabled);
         cfg.file.path = get_or<std::string>(*file, "path", cfg.file.path);
-        cfg.file.max_size_mb = checked_narrow<size_t>(
-            get_or<int64_t>(*file, "max_size_mb", int64_t{100}),
-            "max_size_mb");
-        cfg.file.max_files = checked_narrow<size_t>(
-            get_or<int64_t>(*file, "max_files", int64_t{3}),
-            "max_files");
         cfg.file.json = get_or<bool>(*file, "json", cfg.file.json);
+        // deprecated: max_size_mb, max_files — 존재해도 무시
+    }
+
+    // [logging.async]
+    if (auto* async_tbl = (*tbl)["async"].as_table()) {
+        cfg.async.queue_size = checked_narrow<size_t>(
+            get_or<int64_t>(*async_tbl, "queue_size", int64_t{8192}),
+            "queue_size");
     }
 
     return cfg;

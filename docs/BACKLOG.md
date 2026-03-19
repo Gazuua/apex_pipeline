@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 61
+다음 발번: 62
 
 ---
 
@@ -24,13 +24,6 @@
 - **타입**: docs
 - **연관**: #56
 - **설명**: 서비스 개발자와 에이전트 양쪽이 이 문서만 보고 새 서비스를 프레임워크 위에 올릴 수 있도록 하는 통합 가이드. 현재는 Gateway/Auth/Chat 구현 코드를 직접 역추적해야 하며 반복 시행착오 발생. **2레이어 문서 구조**: **레이어 1 — 서비스 개발 API 가이드** (내부를 몰라도 서비스를 만들 수 있는 인터페이스 레퍼런스): ServiceBase<T> 상속 및 라이프사이클 훅(on_configure/on_wire/on_start/on_stop/on_session_closed), 핸들러 등록 3종(handle/route<T>/kafka_route<T>), set_default_handler(프록시 패턴), ConfigureContext·WireContext 사용 가능 API, bump()/arena() 사용법, 하지 말아야 할 것 목록(코어 간 직접 공유, Phase 순서 위반, co_await 후 FlatBuffers 포인터 접근 등). **레이어 2 — 프레임워크 내부 아키텍처** (왜 이렇게 동작하는지): 아키텍처 구조도(Server/CoreEngine/Listener/ConnectionHandler per-core 배치), 클래스 다이어그램 + 주요 클래스 호출 관계, Phase 1→2→3→3.5 시퀀스, AdapterBase 초기화 순서, ResponseDispatcher 배선, standalone CoreEngine 패턴. 2단계 전략: 1차 md 초안(에이전트 친화 구조 — 계층별 요약→상세 점진적 깊이), 2차 코어 안정화 후 다이어그램 그림 승격. v0.6 서비스 온보딩의 선행 조건.
-
-### #60. 로그 디렉토리 구조 확립 + 경로 중앙화 + 파일명 표준화
-- **등급**: MAJOR
-- **스코프**: core, gateway, auth-svc, chat-svc, infra
-- **타입**: infra
-- **연관**: #52
-- **설명**: 로그 파일이 프로젝트 루트에 산란하는 문제. 3가지 작업: ① **루트 로그 디렉토리 지정** — TOML `logging.file.path`를 서비스별/환경별 구조화된 디렉토리로 변경 (예: `logs/{service}/{env}/`). ② **로그 디렉토리 구조 결정** — 서비스명/날짜/환경 기반 계층 설계. ③ **로그 파일명 형식 표준화** — `{service}_{date}_{pid}.log` 등 구조화된 네이밍. E2E fixture(`e2e_test_fixture.cpp:50`)의 하드코딩 `name + "_e2e.log"` → 루트 산란도 이 항목에서 해결. `.gitignore`에 `*.log` 포함되어 git 오염은 없으나 작업 디렉토리 위생 문제.
 
 ---
 
@@ -105,7 +98,7 @@
 - **등급**: MAJOR
 - **스코프**: core, shared, gateway, auth-svc, chat-svc
 - **타입**: infra
-- **연관**: #48, #60
+- **연관**: #48
 - **설명**: 현재 spdlog 호출 249건 중 debug 10건, trace 0건. 코어 핫패스 10개 소스에 로깅 전무. 개선: ① 코어 핫패스 debug/trace 추가 ② named logger 전환 ③ core_id/session_id 체계 포함 ④ MDC trace_id 활성화. #48 코드 리뷰 결과에 따라 범위 조정.
 
 ### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
@@ -186,6 +179,12 @@
 ---
 
 ## DEFERRED
+
+### #61. 로그 보존 정책 TOML 파라미터화
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: infra
+- **설명**: `retention_days` 등으로 자동 삭제 제어. 현재 영구 보존. 디스크 용량 이슈 발생 시 트리거.
 
 ### #50. apex_tools/scripts 폴더 신설 + 스크립트 정리
 - **등급**: MINOR

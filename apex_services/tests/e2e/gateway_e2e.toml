@@ -1,5 +1,11 @@
 # Gateway E2E Test Configuration
 
+[logging]
+service_name = "gateway"
+
+[logging.file]
+enabled = true
+
 [server]
 ws_port = 8444
 tcp_port = 8443

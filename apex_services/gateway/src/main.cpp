@@ -10,6 +10,8 @@
 #include <apex/gateway/route_table.hpp>
 #include <apex/gateway/channel_session_map.hpp>
 
+#include <apex/core/config.hpp>
+#include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 #include <apex/shared/protocols/websocket/websocket_protocol.hpp>
@@ -23,14 +25,17 @@
 #include <memory>
 
 int main(int argc, char* argv[]) {
-    spdlog::set_level(spdlog::level::info);
-    spdlog::info("Apex Gateway starting...");
-
     // ── Config 파싱 ──────────────────────────────────────────────────
     std::string config_path = "gateway.toml";
     if (argc > 1) {
         config_path = argv[1];
     }
+
+    // 로깅 초기화 (TOML의 [logging] 섹션 사용)
+    auto app_config = apex::core::AppConfig::from_file(config_path);
+    apex::core::init_logging(app_config.logging);
+
+    spdlog::info("Apex Gateway starting...");
 
     auto config_result = apex::gateway::parse_gateway_config(config_path);
     if (!config_result) {

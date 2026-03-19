@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #60. 로그 디렉토리 구조 확립 + 경로 중앙화 + 파일명 표준화
+- **등급**: MAJOR | **스코프**: core, gateway, auth-svc, chat-svc, infra | **타입**: infra
+- **해결**: 2026-03-19 10:56:29 | **방식**: FIXED
+- **비고**: async logger + daily_file_format_sink + exact_level_sink 조합. 서비스별/레벨별/날짜별 로그 분리, 프로젝트 루트 자동 탐지, service_name 검증, E2E 로그 경로 통합. 71/71 유닛 통과.
+
 ### #55. 로컬 빌드 큐잉 + 머지 직렬화 시스템 (Windows)
 - **등급**: MAJOR | **스코프**: tools, infra | **타입**: infra
 - **해결**: 2026-03-19 00:49:44 | **방식**: FIXED

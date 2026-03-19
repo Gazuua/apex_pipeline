@@ -1,5 +1,11 @@
 # Chat Service Configuration
 
+[logging]
+service_name = "chat-svc"
+
+[logging.file]
+enabled = true
+
 [chat]
 request_topic = "chat.requests"
 response_topic = "chat.responses"

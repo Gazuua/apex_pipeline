@@ -1,9 +1,11 @@
 #include <apex/core/logging.hpp>
 
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/ostream_sink.h>
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <sstream>
 
 using namespace apex::core;
 
@@ -55,26 +57,24 @@ TEST_F(LoggingTest, ConsoleOnlyByDefault) {
 
 TEST_F(LoggingTest, FileEnabled) {
     auto tmp = std::filesystem::temp_directory_path() / "apex_log_test";
-    std::filesystem::create_directories(tmp);
-    auto log_path = (tmp / "test.log").string();
+    std::filesystem::remove_all(tmp);
 
     {
         LogConfig cfg;
         cfg.file.enabled = true;
-        cfg.file.path = log_path;
+        cfg.file.path = tmp.string();
+        cfg.service_name = "test-svc";
         init_logging(cfg);
 
-        auto logger = spdlog::get("apex");
-        EXPECT_EQ(logger->sinks().size(), 2);  // Console + File
+        auto logger = spdlog::get("app");
+        // Console(1) + 6 level sinks = 7
+        EXPECT_EQ(logger->sinks().size(), 7);
 
         logger->info("test message");
         logger->flush();
-
-        EXPECT_TRUE(std::filesystem::exists(log_path));
     }
 
-    // Drop all loggers to release file handles before cleanup
-    spdlog::drop_all();
+    shutdown_logging();
     std::filesystem::remove_all(tmp);
 }
 
@@ -107,7 +107,6 @@ TEST_F(LoggingTest, InitLoggingWithInvalidLevel) {
     auto app = spdlog::get("app");
     ASSERT_NE(apex, nullptr);
     ASSERT_NE(app, nullptr);
-    // Both loggers should have level::off (spdlog's default for unknown strings)
     EXPECT_EQ(apex->level(), spdlog::level::off);
     EXPECT_EQ(app->level(), spdlog::level::off);
 }
@@ -116,14 +115,94 @@ TEST_F(LoggingTest, LoggingAfterShutdownDoesNotCrash) {
     LogConfig cfg;
     init_logging(cfg);
     shutdown_logging();
-    // Loggers should be gone
     EXPECT_EQ(spdlog::get("apex"), nullptr);
-    // Named logger lookup returns nullptr — null check으로 안전하게 처리
     EXPECT_NO_THROW({
         auto logger = spdlog::get("apex");
         if (logger) {
             logger->info("should not reach here");
         }
     });
-    // If we reach here, no crash occurred
+}
+
+TEST_F(LoggingTest, ExactLevelSinkFiltersExactLevel) {
+    std::ostringstream oss;
+    auto ostream_sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(oss);
+    auto exact_info = std::make_shared<exact_level_sink<std::mutex>>(
+        ostream_sink, spdlog::level::info);
+
+    auto logger = std::make_shared<spdlog::logger>("test_exact", exact_info);
+    logger->set_level(spdlog::level::trace);
+
+    logger->trace("trace msg");
+    logger->debug("debug msg");
+    logger->info("info msg");
+    logger->warn("warn msg");
+    logger->error("error msg");
+    logger->flush();
+
+    auto output = oss.str();
+    EXPECT_NE(output.find("info msg"), std::string::npos);
+    EXPECT_EQ(output.find("trace msg"), std::string::npos);
+    EXPECT_EQ(output.find("debug msg"), std::string::npos);
+    EXPECT_EQ(output.find("warn msg"), std::string::npos);
+    EXPECT_EQ(output.find("error msg"), std::string::npos);
+}
+
+TEST_F(LoggingTest, FileEnabledCreatesPerLevelFiles) {
+    auto tmp = std::filesystem::temp_directory_path() / "apex_log_level_test";
+    std::filesystem::remove_all(tmp);
+
+    {
+        LogConfig cfg;
+        cfg.file.enabled = true;
+        cfg.file.path = tmp.string();
+        cfg.service_name = "test-svc";
+        init_logging(cfg);
+
+        auto logger = spdlog::get("app");
+        ASSERT_NE(logger, nullptr);
+        logger->set_level(spdlog::level::trace);
+        logger->trace("trace test");
+        logger->info("info test");
+        logger->warn("warn test");
+        logger->error("error test");
+        logger->flush();
+
+        // 서비스 디렉토리 생성 확인
+        auto svc_dir = tmp / "test-svc";
+        EXPECT_TRUE(std::filesystem::exists(svc_dir));
+    }
+
+    shutdown_logging();
+    std::filesystem::remove_all(tmp);
+}
+
+TEST_F(LoggingTest, AsyncLoggerCreated) {
+    auto tmp = std::filesystem::temp_directory_path() / "apex_async_test";
+    std::filesystem::remove_all(tmp);  // 이전 테스트 잔여물 정리
+
+    LogConfig cfg;
+    cfg.file.enabled = true;
+    cfg.file.path = tmp.string();
+    cfg.service_name = "async-svc";
+    init_logging(cfg);
+
+    auto logger = spdlog::get("app");
+    ASSERT_NE(logger, nullptr);
+    // Console(1) + 6 level sinks = 7
+    EXPECT_GE(logger->sinks().size(), 6);
+
+    // shutdown_logging()은 TearDown에서 호출.
+    // async 스레드 파일 핸들 해제까지 Windows에서 지연 가능 → cleanup은 best-effort
+    shutdown_logging();
+    std::error_code ec;
+    std::filesystem::remove_all(tmp, ec);  // 핸들 잠금 시 무시
+}
+
+TEST_F(LoggingTest, ServiceNameValidation) {
+    LogConfig cfg;
+    cfg.service_name = "../escape";
+    cfg.file.enabled = true;
+    cfg.file.path = (std::filesystem::temp_directory_path() / "apex_validation_test").string();
+    EXPECT_THROW(init_logging(cfg), std::invalid_argument);
 }

@@ -15,18 +15,22 @@ struct LogConsoleConfig {
 
 struct LogFileConfig {
     bool enabled = false;
-    std::string path = "logs/apex.log";
-    size_t max_size_mb = 100;
-    size_t max_files = 3;
-    bool json = true;
+    std::string path;  // 빈 값 → {project_root}/logs/. 설정 시 그대로 사용
+    bool json = false;
+};
+
+struct LogAsyncConfig {
+    size_t queue_size = 8192;
 };
 
 struct LogConfig {
     std::string level = "info";
     std::string framework_level = "info";
     std::string pattern = "%Y-%m-%d %H:%M:%S.%e [%l] [%n] %v";
+    std::string service_name;  // 빈 값 시 "default" 사용
     LogConsoleConfig console;
     LogFileConfig file;
+    LogAsyncConfig async;
 };
 
 struct AppConfig {

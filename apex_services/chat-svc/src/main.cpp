@@ -1,5 +1,7 @@
 #include <apex/chat_svc/chat_service.hpp>
 
+#include <apex/core/config.hpp>
+#include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
@@ -116,10 +118,14 @@ ParsedConfig parse_config(const std::string& path) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
-    spdlog::info("Chat Service starting...");
-
     // --- 1. Config parsing ---
     auto config_path = resolve_config_path(argc, argv);
+
+    // 로깅 초기화 (TOML의 [logging] 섹션 사용)
+    auto app_config = apex::core::AppConfig::from_file(config_path);
+    apex::core::init_logging(app_config.logging);
+
+    spdlog::info("Chat Service starting...");
     spdlog::info("[ChatService] Loading config: {}", config_path);
 
     ParsedConfig parsed;
