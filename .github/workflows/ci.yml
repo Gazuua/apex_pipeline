@@ -70,15 +70,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install clang-format
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang-format-18
+        run: pip install clang-format
       - name: Check formatting
         run: |
           find apex_core apex_shared apex_services \
             \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) \
             ! -name '*_generated.h' \
-            | xargs clang-format-18 --dry-run --Werror
+            | xargs clang-format --dry-run --Werror
 
   build-image:
     needs: changes

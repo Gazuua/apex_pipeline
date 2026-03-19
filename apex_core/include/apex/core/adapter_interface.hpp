@@ -25,10 +25,8 @@ class AdapterInterface
 
     /// [D2] Adapter-service 자동 배선. Server가 Phase 3 이후 호출.
     /// 기본 구현은 no-op. KafkaAdapter가 override하여 KafkaDispatchBridge 자동 생성.
-    virtual void wire_services(std::vector<std::unique_ptr<ServiceBaseInterface>>& /*services*/,
-                               CoreEngine& /*engine*/)
-    {
-    }
+    virtual void wire_services(std::vector<std::unique_ptr<ServiceBaseInterface>>& /*services*/, CoreEngine& /*engine*/)
+    {}
 };
 
 } // namespace apex::core
