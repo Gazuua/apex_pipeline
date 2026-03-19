@@ -112,6 +112,10 @@ jobs:
             os: ubuntu-latest
             preset: tsan
             container: true
+          - name: linux-ubsan
+            os: ubuntu-latest
+            preset: ubsan
+            container: true
           - name: windows-msvc
             os: windows-latest
             preset: debug
@@ -138,7 +142,7 @@ jobs:
         if: ${{ !matrix.container }}
         uses: actions/cache@v4
         with:
-          path: apex_core/vcpkg_installed
+          path: vcpkg_installed
           key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'apex_core/vcpkg.json', 'apex_shared/vcpkg.json') }}
 
       - name: Setup Ninja
@@ -151,44 +155,24 @@ jobs:
 
       # ── Build & test ─────────────────────────────
       - name: Configure
-        working-directory: apex_core
         run: >-
           cmake --preset ${{ matrix.preset }}
           ${{ matrix.container && '-DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed' || '' }}
 
       - name: Build
-        working-directory: apex_core
         run: cmake --build build/${{ runner.os == 'Windows' && 'Windows' || 'Linux' }}/${{ matrix.preset }}
 
-      - name: Test
-        working-directory: apex_core
-        run: ctest --preset ${{ matrix.preset }}
-
-  # ── Root build integrity check ───────────────────
-  build-root:
-    permissions:
-      contents: read
-    needs: [changes, build-image]
-    if: >-
-      always() &&
-      needs.changes.outputs.source == 'true' &&
-      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
-    name: root-linux-gcc
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gazuua/apex-pipeline-ci:latest
-
-    env:
-      VCPKG_ROOT: /opt/vcpkg
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure
-        run: cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
-
-      - name: Build
-        run: cmake --build build/Linux/debug
+      - name: Upload service binaries
+        if: matrix.name == 'linux-gcc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-binaries
+          path: |
+            build/Linux/debug/bin/apex_gateway
+            build/Linux/debug/bin/auth_svc_main
+            build/Linux/debug/bin/chat_svc_main
+            build/Linux/debug/bin/apex_e2e_tests
+          retention-days: 1
 
       - name: Test
-        run: ctest --preset debug
+        run: ctest --preset ${{ matrix.preset }} -LE e2e
