@@ -130,7 +130,7 @@ void KafkaConsumer::poll_messages() {
     if (!rk_ || !consuming_) return;
 
     // Non-blocking batch poll
-    constexpr int max_batch = 64;
+    const int max_batch = config_.consumer_max_batch;
     for (int i = 0; i < max_batch; ++i) {
         rd_kafka_message_t* msg = rd_kafka_consumer_poll(rk_, 0);
         if (!msg) break;

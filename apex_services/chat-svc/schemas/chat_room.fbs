@@ -12,7 +12,8 @@ enum ChatRoomError : uint16 {
     NOT_IN_ROOM = 4,
     ROOM_NAME_TOO_LONG = 5,
     ROOM_NAME_EMPTY = 6,
-    PERMISSION_DENIED = 7
+    PERMISSION_DENIED = 7,
+    INTERNAL_ERROR = 8
 }
 
 // --- Create Room (msg_id: 2001/2002) ---

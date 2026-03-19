@@ -1,5 +1,9 @@
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
+#include <apex/core/service_base.hpp>
+#include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
 
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <spdlog/spdlog.h>
 
 #include <cassert>
@@ -11,6 +15,9 @@ namespace apex::shared::adapters::kafka {
 
 KafkaAdapter::KafkaAdapter(KafkaConfig config)
     : config_(std::move(config))
+    , payload_pool_(config_.payload_pool_initial_count,
+                    config_.payload_pool_buffer_size,
+                    config_.payload_pool_max_count)
     , producer_(std::make_unique<KafkaProducer>(config_)) {}
 
 KafkaAdapter::~KafkaAdapter() {
@@ -64,8 +71,11 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine) {
     // 4. Start Producer poll timer (on core 0's io_context)
     start_producer_poll_timer(engine.io_context(0));
 
-    spdlog::info("KafkaAdapter initialized: {} cores, brokers={}",
-                  num_cores, config_.brokers);
+    spdlog::info("KafkaAdapter initialized: {} cores, brokers={}, payload_pool(init={}, buf={}B, max={})",
+                  num_cores, config_.brokers,
+                  config_.payload_pool_initial_count,
+                  config_.payload_pool_buffer_size,
+                  config_.payload_pool_max_count);
 }
 
 void KafkaAdapter::do_drain() {
@@ -84,11 +94,14 @@ void KafkaAdapter::do_close() {
         producer_poll_timer_->cancel();
     }
 
-    // Flush Producer (max 10s wait)
+    // Flush Producer
     if (producer_->initialized()) {
         spdlog::info("KafkaAdapter: flushing producer (outq={})",
                       producer_->outq_len());
-        producer_->flush(std::chrono::seconds{10});
+        auto flushed = producer_->flush(std::chrono::milliseconds{config_.flush_timeout_ms});
+        if (!flushed) {
+            spdlog::warn("KafkaAdapter: producer flush timed out ({}ms)", config_.flush_timeout_ms);
+        }
     }
 
     // Clean up Consumers
@@ -96,6 +109,13 @@ void KafkaAdapter::do_close() {
 
     // Clean up Producer (destructor does flush + destroy)
     producer_.reset();
+
+    // Payload pool metrics
+    spdlog::info("KafkaAdapter: payload_pool stats — acquired={}, fallback={}, peak_in_use={}, free={}",
+                  payload_pool_.acquire_count(),
+                  payload_pool_.fallback_alloc_count(),
+                  payload_pool_.peak_in_use(),
+                  payload_pool_.free_count());
 
     spdlog::info("KafkaAdapter: closed");
 }
@@ -122,6 +142,61 @@ apex::core::Result<void> KafkaAdapter::produce(
     return producer_->produce(topic, key, payload);
 }
 
+void KafkaAdapter::wire_services(
+    std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+    apex::core::CoreEngine& engine)
+{
+    for (auto& svc : services) {
+        if (!svc->has_kafka_handlers()) continue;
+
+        auto bridge = std::make_shared<
+            apex::shared::protocols::kafka::KafkaDispatchBridge>(
+            svc->kafka_handler_map());
+
+        // request_topic: consume_topics의 첫 번째 토픽을 request_topic으로 사용.
+        // 서비스별 TOML에서 consume_topics에 request_topic을 설정하므로 일관됨.
+        std::string request_topic;
+        if (!config_.consume_topics.empty()) {
+            request_topic = config_.consume_topics[0];
+        }
+
+        // 기존 Auth/Chat main.cpp의 패턴을 자동화:
+        // consumer callback에서 topic 필터링 후 bridge->dispatch() 호출
+        set_message_callback(
+            [bridge, request_topic, &engine, this](
+                std::string_view topic, int32_t /*partition*/,
+                std::span<const uint8_t> /*key*/,
+                std::span<const uint8_t> payload,
+                int64_t /*offset*/) -> apex::core::Result<void>
+            {
+                if (!request_topic.empty() && topic != request_topic) {
+                    return apex::core::ok();  // 다른 토픽 무시
+                }
+
+                // Kafka 콜백의 payload는 콜백 반환 후 무효 → 풀에서 버퍼 획득 후 복사
+                auto pooled_buf = payload_pool_.acquire(payload);
+
+                // co_spawn으로 코루틴 실행 — bridge->dispatch가 파싱+핸들러 호출 수행
+                boost::asio::co_spawn(engine.io_context(0),
+                    [bridge, buf = std::move(pooled_buf)]()
+                        -> boost::asio::awaitable<void> {
+                        auto result = co_await bridge->dispatch(buf->span());
+                        if (!result.has_value()) {
+                            spdlog::warn("[KafkaAdapter] auto-wired dispatch failed: {}",
+                                static_cast<int>(result.error()));
+                        }
+                    },
+                    boost::asio::detached);
+
+                return apex::core::ok();
+            });
+
+        spdlog::info("[KafkaAdapter] Auto-wired KafkaDispatchBridge for service '{}'",
+                     svc->name());
+        break;  // 현재 1 adapter = 1 service 패턴 (multi-service는 v0.6+)
+    }
+}
+
 void KafkaAdapter::set_message_callback(MessageCallback cb) {
     message_cb_ = cb;
     // Propagate to already-initialized consumers (for late callback registration)
@@ -146,8 +221,9 @@ void KafkaAdapter::on_producer_poll_tick() {
     // Process delivery callbacks
     producer_->poll(0);
 
-    // Reschedule at 100ms interval (delivery report latency <= 100ms)
-    producer_poll_timer_->expires_after(std::chrono::milliseconds{100});
+    // Reschedule at configured interval (delivery report latency bound)
+    producer_poll_timer_->expires_after(
+        std::chrono::milliseconds{config_.producer_poll_interval_ms});
     producer_poll_timer_->async_wait([this](const boost::system::error_code& ec) {
         if (ec) return;
         on_producer_poll_tick();

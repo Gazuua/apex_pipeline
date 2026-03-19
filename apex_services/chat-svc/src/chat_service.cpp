@@ -82,8 +82,28 @@ void ChatService::on_start() {
     kafka_route<fbs::GlobalBroadcastRequest>(
         msg_ids::GLOBAL_BROADCAST_REQUEST, &ChatService::on_global_broadcast);
 
+    // PG connection warm-up — spawn()으로 tracked 코루틴 실행
+    if (pg_) {
+        spawn([this]() -> boost::asio::awaitable<void> {
+            auto result = co_await pg_->query("SELECT 1");
+            if (result.has_value()) {
+                spdlog::info("[ChatService] PG connection warm-up OK");
+            } else {
+                spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
+            }
+        });
+    }
+
     spdlog::info("[ChatService] Started. 8 kafka_routes registered. Consuming from: {}",
                  config_.request_topic);
+}
+
+void ChatService::on_stop() {
+    spdlog::info("[ChatService] on_stop — cleaning up");
+    kafka_ = nullptr;
+    redis_data_ = nullptr;
+    redis_pubsub_ = nullptr;
+    pg_ = nullptr;
 }
 
 // ============================================================
@@ -172,24 +192,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(
     // 1. Input validation
     auto room_name = req->room_name();
     if (!room_name || room_name->size() == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateCreateRoomResponse(fbb,
+        co_return co_await send_create_room_error(meta,
             fbs::ChatRoomError_ROOM_NAME_EMPTY);
-        fbb.Finish(resp);
-        send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
-    if (room_name->size() > 100) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateCreateRoomResponse(fbb,
+    if (room_name->size() > config_.max_room_name_length) {
+        co_return co_await send_create_room_error(meta,
             fbs::ChatRoomError_ROOM_NAME_TOO_LONG);
-        fbb.Finish(resp);
-        send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     auto room_name_str = std::string(room_name->string_view());
@@ -214,17 +222,16 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(
         spdlog::error("[ChatService] PG INSERT chat_rooms failed: {}",
                       pg_result.has_value() ? "no rows returned"
                           : apex::core::error_code_name(pg_result.error()));
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateCreateRoomResponse(fbb,
-            fbs::ChatRoomError_PERMISSION_DENIED);
-        fbb.Finish(resp);
-        send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
+        co_return co_await send_create_room_error(meta,
+            fbs::ChatRoomError_INTERNAL_ERROR);
     }
 
     auto room_id = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
+    if (room_id == 0) {
+        spdlog::error("[ChatService] PG returned invalid room_id for create_room");
+        co_return co_await send_create_room_error(meta,
+            fbs::ChatRoomError_INTERNAL_ERROR);
+    }
 
     // 3. Redis SADD -- add owner as first member
     auto core_id = apex::core::CoreEngine::current_core_id();
@@ -275,14 +282,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(
 
     if (!room_result.has_value() || room_result->row_count() == 0) {
         spdlog::warn("[ChatService] join_room: room {} not found", room_id);
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateJoinRoomResponse(fbb,
+        co_return co_await send_join_room_error(meta,
             fbs::ChatRoomError_ROOM_NOT_FOUND, room_id);
-        fbb.Finish(resp);
-        send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     auto room_name_sv = room_result->value(0, 0);
@@ -293,14 +294,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(
     auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (is_member.has_value() && is_member->integer == 1) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateJoinRoomResponse(fbb,
+        co_return co_await send_join_room_error(meta,
             fbs::ChatRoomError_ALREADY_IN_ROOM, room_id);
-        fbb.Finish(resp);
-        send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     // 3. SCARD -- room full?
@@ -308,14 +303,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(
         "SCARD %s", members_key.c_str());
     if (card_result.has_value() &&
         static_cast<uint32_t>(card_result->integer) >= max_members) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateJoinRoomResponse(fbb,
+        co_return co_await send_join_room_error(meta,
             fbs::ChatRoomError_ROOM_FULL, room_id);
-        fbb.Finish(resp);
-        send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     // 4. SADD -- add member
@@ -365,14 +354,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(
     auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateLeaveRoomResponse(fbb,
+        co_return co_await send_leave_room_error(meta,
             fbs::ChatRoomError_NOT_IN_ROOM, room_id);
-        fbb.Finish(resp);
-        send_response(msg_ids::LEAVE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     // 2. SREM -- remove member
@@ -400,7 +383,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(
     const fbs::ListRoomsRequest* req)
 {
     auto offset = req->offset();
-    auto limit  = std::min(req->limit(), 100u);
+    auto limit  = std::min(req->limit(), config_.max_list_rooms_limit);
 
     spdlog::info("[ChatService] on_list_rooms (offset: {}, limit: {}, corr_id: {})",
                  offset, limit, meta.corr_id);
@@ -429,14 +412,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(
     if (!rooms_result.has_value()) {
         spdlog::error("[ChatService] PG query chat_rooms failed: {}",
                       apex::core::error_code_name(rooms_result.error()));
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateListRoomsResponse(fbb,
-            fbs::ChatRoomError_ROOM_NOT_FOUND);
-        fbb.Finish(resp);
-        send_response(msg_ids::LIST_ROOMS_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
+        co_return co_await send_list_rooms_error(meta,
+            fbs::ChatRoomError_INTERNAL_ERROR);
     }
 
     // 3. Build RoomInfo vector with real-time member count from Redis
@@ -494,24 +471,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(
 
     // 1. Input validation
     if (!content || content->size() == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateSendMessageResponse(fbb,
+        co_return co_await send_message_error(meta,
             fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
     if (content->size() > config_.max_message_length) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateSendMessageResponse(fbb,
+        co_return co_await send_message_error(meta,
             fbs::ChatMessageError_MESSAGE_TOO_LONG);
-        fbb.Finish(resp);
-        send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     auto content_str = std::string(content->string_view());
@@ -529,14 +494,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(
     auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateSendMessageResponse(fbb,
+        co_return co_await send_message_error(meta,
             fbs::ChatMessageError_NOT_IN_ROOM);
-        fbb.Finish(resp);
-        send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     // 3. Redis PUBLISH -- real-time broadcast via pub/sub
@@ -572,9 +531,13 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(
             0, timestamp, 0);
         fbb_db.Finish(db_msg);
 
-        kafka_->produce(config_.persist_topic,
+        auto produce_result = kafka_->produce(config_.persist_topic,
             std::to_string(room_id),
             std::span<const uint8_t>(fbb_db.GetBufferPointer(), fbb_db.GetSize()));
+        if (!produce_result.has_value()) {
+            spdlog::error("[ChatService] Kafka persist produce failed for room {}: {}",
+                          room_id, apex::core::error_code_name(produce_result.error()));
+        }
     }
 
     // 5. Sender confirmation
@@ -602,24 +565,18 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_whisper(
 
     // 1. Input validation
     if (!content || content->size() == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateWhisperResponse(fbb,
+        co_return co_await send_whisper_error(meta,
             fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
     if (content->size() > config_.max_message_length) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateWhisperResponse(fbb,
+        co_return co_await send_whisper_error(meta,
             fbs::ChatMessageError_MESSAGE_TOO_LONG);
-        fbb.Finish(resp);
-        send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
+    }
+
+    if (target_user_id == meta.user_id) {
+        spdlog::warn("[ChatService] Whisper to self rejected (user_id: {})", meta.user_id);
+        co_return co_await send_whisper_error(meta,
+            fbs::ChatMessageError_PERMISSION_DENIED);
     }
 
     auto content_str = std::string(content->string_view());
@@ -638,14 +595,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_whisper(
 
     if (!session_result.has_value() || session_result->is_nil()) {
         spdlog::info("[ChatService] Whisper target {} is offline", target_user_id);
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateWhisperResponse(fbb,
-            fbs::ChatMessageError_TARGET_OFFLINE, timestamp);
-        fbb.Finish(resp);
-        send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
+        co_return co_await send_whisper_error(meta,
+            fbs::ChatMessageError_TARGET_OFFLINE);
     }
 
     // Parse target session_id from Redis value
@@ -707,14 +658,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(
     auto is_member = co_await redis_data_->multiplexer(core_id).command(
         "SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value() || is_member->integer == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateChatHistoryResponse(fbb,
+        co_return co_await send_history_error(meta,
             fbs::ChatMessageError_NOT_IN_ROOM);
-        fbb.Finish(resp);
-        send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     // 2. PG query -- cursor-based paging with LIMIT N+1 for has_more detection
@@ -752,14 +697,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(
     if (!msg_result.has_value()) {
         spdlog::error("[ChatService] PG query chat_messages failed: {}",
                       apex::core::error_code_name(msg_result.error()));
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateChatHistoryResponse(fbb,
-            fbs::ChatMessageError_NOT_IN_ROOM);
-        fbb.Finish(resp);
-        send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
+        co_return co_await send_history_error(meta,
+            fbs::ChatMessageError_INTERNAL_ERROR);
     }
 
     auto& pg_res = *msg_result;
@@ -809,14 +748,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_global_broadcas
 
     // 1. Input validation
     if (!content || content->size() == 0) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        auto resp = fbs::CreateGlobalBroadcastResponse(fbb,
+        co_return co_await send_global_broadcast_error(meta,
             fbs::ChatMessageError_EMPTY_MESSAGE);
-        fbb.Finish(resp);
-        send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {fbb.GetBufferPointer(), fbb.GetSize()}, "");
-        co_return apex::core::ok();
     }
 
     auto content_str = std::string(content->string_view());
@@ -859,6 +792,106 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_global_broadcas
     send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
                   meta.session_id,
                   {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+// ============================================================
+// Error Response Helpers [D5]
+// ============================================================
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_create_room_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateCreateRoomResponse(fbb,
+        static_cast<fbs::ChatRoomError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::CREATE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_join_room_error(
+    const envelope::MetadataPrefix& meta, uint16_t error, uint64_t room_id)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateJoinRoomResponse(fbb,
+        static_cast<fbs::ChatRoomError>(error), room_id);
+    fbb.Finish(resp);
+    send_response(msg_ids::JOIN_ROOM_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_leave_room_error(
+    const envelope::MetadataPrefix& meta, uint16_t error, uint64_t room_id)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateLeaveRoomResponse(fbb,
+        static_cast<fbs::ChatRoomError>(error), room_id);
+    fbb.Finish(resp);
+    send_response(msg_ids::LEAVE_ROOM_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_list_rooms_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateListRoomsResponse(fbb,
+        static_cast<fbs::ChatRoomError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::LIST_ROOMS_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_message_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateSendMessageResponse(fbb,
+        static_cast<fbs::ChatMessageError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::SEND_MESSAGE_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_whisper_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateWhisperResponse(fbb,
+        static_cast<fbs::ChatMessageError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::WHISPER_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_history_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateChatHistoryResponse(fbb,
+        static_cast<fbs::ChatMessageError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::CHAT_HISTORY_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> ChatService::send_global_broadcast_error(
+    const envelope::MetadataPrefix& meta, uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = fbs::CreateGlobalBroadcastResponse(fbb,
+        static_cast<fbs::ChatMessageError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::GLOBAL_BROADCAST_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id, {fbb.GetBufferPointer(), fbb.GetSize()}, "");
     co_return apex::core::ok();
 }
 

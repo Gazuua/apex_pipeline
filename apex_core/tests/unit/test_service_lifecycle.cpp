@@ -5,12 +5,25 @@
 
 #include <gtest/gtest.h>
 
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/io_context.hpp>
+
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
 using namespace apex::core;
+
+// ── 헬퍼: ConfigureContext를 안전하게 생성 ──────────────────────────────────
+// ConfigureContext에서 io_context 제거됨 (§8 #4 강제). spawn()용 io_context는
+// bind_io_context()로 별도 주입.
+
+static ConfigureContext make_cfg_ctx(Server& server, uint32_t core_id,
+                                     PerCoreState& pcs) {
+    return ConfigureContext{server, core_id, pcs};
+}
 
 // ── 테스트용 서비스 정의 ──────────────────────────────────────────────────────
 
@@ -70,6 +83,46 @@ public:
     bool arena_available = false;
 };
 
+/// [D7] spawn() + outstanding_coroutines() 검증용 서비스.
+/// spawn()은 protected이므로 public wrapper 메서드를 통해 테스트한다.
+class SpawnService : public ServiceBase<SpawnService> {
+public:
+    SpawnService() : ServiceBase("spawn_test") {}
+
+    void on_configure(ConfigureContext&) override {
+        configured = true;
+    }
+
+    /// spawn()으로 코루틴 실행. flag를 세팅하여 실행 확인.
+    void do_spawn_simple() {
+        spawn([this]() -> boost::asio::awaitable<void> {
+            spawn_executed.store(true, std::memory_order_release);
+            co_return;
+        });
+    }
+
+    /// 테스트용: N개의 카운터 증가 코루틴 spawn.
+    void do_spawn_counting(int count, std::atomic<int>& completed) {
+        for (int i = 0; i < count; ++i) {
+            spawn([&completed]() -> boost::asio::awaitable<void> {
+                completed.fetch_add(1, std::memory_order_relaxed);
+                co_return;
+            });
+        }
+    }
+
+    /// 테스트용: 예외를 던지는 코루틴 spawn.
+    void do_spawn_throwing() {
+        spawn([]() -> boost::asio::awaitable<void> {
+            throw std::runtime_error("test exception");
+            co_return;
+        });
+    }
+
+    bool configured = false;
+    std::atomic<bool> spawn_executed{false};
+};
+
 // ── 테스트 ───────────────────────────────────────────────────────────────────
 
 TEST(ServiceLifecycle, MinimalServiceStartWorks) {
@@ -89,11 +142,11 @@ TEST(ServiceLifecycle, DefaultHooksAreNoOp) {
     PerCoreState pcs(/*id=*/0, /*heartbeat_timeout_ticks=*/0,
                      /*timer_wheel_slots=*/64, /*recv_buf_capacity=*/4096,
                      /*bump_capacity=*/4096, /*arena_block=*/1024, /*arena_max=*/4096);
-    ConfigureContext cfg_ctx{
-        .server = *reinterpret_cast<Server*>(0x1),  // 테스트에서 server는 접근하지 않음
-        .core_id = 0,
-        .per_core_state = pcs
-    };
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(
+        *reinterpret_cast<Server*>(0x1),  // 테스트에서 server는 접근하지 않음
+        0, pcs);
+    svc->bind_io_context(test_io);
     // on_configure 기본 구현은 no-op — 크래시 없어야 함
     svc->internal_configure(cfg_ctx);
 
@@ -116,11 +169,9 @@ TEST(ServiceLifecycle, LifecycleOrderTracking) {
     auto svc = std::make_unique<TrackerService>();
 
     PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
-    ConfigureContext cfg_ctx{
-        .server = *reinterpret_cast<Server*>(0x1),
-        .core_id = 0,
-        .per_core_state = pcs
-    };
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    svc->bind_io_context(test_io);
     WireContext wire_ctx{
         .server = *reinterpret_cast<Server*>(0x1),
         .core_id = 0,
@@ -154,11 +205,9 @@ TEST(ServiceLifecycle, InternalConfigureBindsPerCoreState) {
     auto svc = std::make_unique<ConfigAwareService>();
 
     PerCoreState pcs(/*id=*/7, 0, 64, 4096, 4096, 1024, 4096);
-    ConfigureContext cfg_ctx{
-        .server = *reinterpret_cast<Server*>(0x1),
-        .core_id = 7,
-        .per_core_state = pcs
-    };
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 7, pcs);
+    svc->bind_io_context(test_io);
 
     svc->internal_configure(cfg_ctx);
 
@@ -188,4 +237,100 @@ TEST(ServiceLifecycle, BackwardCompatStartStop) {
     EXPECT_TRUE(svc->start_called);
     svc->stop();
     EXPECT_FALSE(svc->started());
+}
+
+// ── D7: spawn() + outstanding_coroutines() 테스트 ───────────────────────────
+
+TEST(ServiceLifecycle, OutstandingCoroutinesDefaultZero) {
+    // 서비스 생성 직후 outstanding == 0
+    auto svc = std::make_unique<MinimalService>();
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
+}
+
+TEST(ServiceLifecycle, SpawnExecutesCoroutine) {
+    // spawn()으로 실행한 코루틴이 실제로 실행되는지 확인
+    auto svc = std::make_unique<SpawnService>();
+
+    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    svc->bind_io_context(test_io);
+    svc->internal_configure(cfg_ctx);
+    EXPECT_TRUE(svc->configured);
+
+    // spawn 실행 전 outstanding == 0
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
+
+    svc->do_spawn_simple();
+
+    // spawn 직후 outstanding >= 1 (아직 io_context가 돌지 않았으므로 코루틴 미완료)
+    EXPECT_GE(svc->outstanding_coroutines(), 1u);
+
+    // io_context 실행하여 코루틴 완료
+    test_io.run();
+
+    EXPECT_TRUE(svc->spawn_executed.load());
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
+}
+
+TEST(ServiceLifecycle, SpawnOutstandingCounterTracksMultiple) {
+    // 여러 spawn 코루틴이 대기 중일 때 outstanding 카운터가 정확히 추적하는지 확인
+    auto svc = std::make_unique<SpawnService>();
+
+    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    svc->bind_io_context(test_io);
+    svc->internal_configure(cfg_ctx);
+
+    // 간단한 코루틴 3개 spawn (public wrapper 사용)
+    std::atomic<int> completed{0};
+    svc->do_spawn_counting(3, completed);
+
+    // spawn 직후 outstanding == 3 (io_context 미실행)
+    EXPECT_EQ(svc->outstanding_coroutines(), 3u);
+
+    test_io.run();
+
+    EXPECT_EQ(completed.load(), 3);
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
+}
+
+TEST(ServiceLifecycle, SpawnExceptionDoesNotLeak) {
+    // spawn 내부에서 예외 발생해도 outstanding 카운터가 감소하는지 확인.
+    // 예외가 밖으로 전파되지 않고 spdlog::error로 로깅만 됨.
+    auto svc = std::make_unique<SpawnService>();
+
+    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    boost::asio::io_context test_io;
+    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    svc->bind_io_context(test_io);
+    svc->internal_configure(cfg_ctx);
+
+    svc->do_spawn_throwing();
+
+    EXPECT_EQ(svc->outstanding_coroutines(), 1u);
+
+    // io_context 실행 — 예외가 catch되어 카운터 감소
+    test_io.run();
+
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
+}
+
+// ── Kafka 핸들러 기본값 테스트 ──────────────────────────────────────────────
+
+TEST(ServiceLifecycle, KafkaHandlersDefaultEmpty) {
+    // ServiceBase의 기본 구현: Kafka 핸들러 미등록
+    auto svc = std::make_unique<MinimalService>();
+    EXPECT_FALSE(svc->has_kafka_handlers());
+    EXPECT_TRUE(svc->kafka_handler_map().empty());
+}
+
+// ── ServiceBaseInterface 기본 구현 테스트 ───────────────────────────────────
+
+TEST(ServiceLifecycle, InterfaceOutstandingDefaultZero) {
+    // ServiceBaseInterface의 기본 구현은 0 반환
+    // TrackerService(ServiceBase<Derived>)를 통해 간접 검증
+    auto svc = std::make_unique<TrackerService>();
+    EXPECT_EQ(svc->outstanding_coroutines(), 0u);
 }

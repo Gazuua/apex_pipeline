@@ -12,6 +12,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace apex::core {
 
@@ -70,9 +71,17 @@ Server::Server(ServerConfig config)
 }
 
 Server::~Server() {
+    // finalize_shutdown이 미호출된 비정상 경로 감지:
+    // running_이 true면 run() 진입 후 정상 종료 경로를 거치지 않은 것
+    if (running_.load(std::memory_order_acquire)) {
+        spdlog::warn("[Server] Destructor called while still running - "
+                     "finalize_shutdown may not have been called");
+    }
     for (auto& state : per_core_) {
         for (auto& svc : state->services) {
             if (svc->started()) {
+                spdlog::warn("[Server] Service '{}' still running in destructor",
+                             svc->name());
                 svc->stop();
             }
         }
@@ -122,15 +131,23 @@ void Server::run() {
             auto svc = factory(state, dispatcher);
             state.services.push_back(std::move(svc));
         }
+
+        // [D1] ServiceRegistry에 서비스 참조 등록 — on_wire에서 타입 기반 조회 가능
+        for (auto& svc : state.services) {
+            state.registry.register_ref(*svc);
+        }
     }
 
     // ── Phase 1: on_configure — 어댑터/설정 접근 단계 ──────────────────
     // 서비스가 어댑터, 설정, per-core 상태를 받아 초기화한다.
     // 다른 서비스에 접근 불가 (ServiceRegistry 미제공).
+    // io_context는 ConfigureContext에 노출하지 않고 bind_io_context()로 별도 주입.
     for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id) {
         auto& state = *per_core_[core_id];
+        auto& io = core_engine_->io_context(core_id);
         ConfigureContext ctx{*this, core_id, state};
         for (auto& svc : state.services) {
+            svc->bind_io_context(io);  // [D7] spawn()용 io_context 주입
             svc->internal_configure(ctx);
         }
     }
@@ -177,6 +194,13 @@ void Server::run() {
                 listeners_[li]->sync_default_handler(core_id, dispatcher);
             }
         }
+    }
+
+    // ── Phase 3.75: Adapter-service auto-wiring [D2] ────────────────────
+    // 어댑터가 서비스의 핸들러를 감지하여 자동 배선 (예: KafkaDispatchBridge)
+    for (auto& adapter : adapters_) {
+        // core 0의 서비스에 대해 와이어링 (Kafka는 단일 consumer → core 0 디스패치)
+        adapter->wire_services(per_core_[0]->services, *core_engine_);
     }
 
     // ── 세션 종료 콜백 와이어링 ────────────────────────────────────────
@@ -318,6 +342,21 @@ void Server::finalize_shutdown() {
         }
     }
 
+    // 4.5 [D7] Outstanding 코루틴 drain 대기 (drain_timeout 설정 사용)
+    {
+        auto coro_deadline = std::chrono::steady_clock::now() + config_.drain_timeout;
+        while (std::chrono::steady_clock::now() < coro_deadline) {
+            uint32_t total = 0;
+            for (auto& state : per_core_) {
+                for (auto& svc : state->services) {
+                    total += svc->outstanding_coroutines();
+                }
+            }
+            if (total == 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+    }
+
     // 5. CoreEngine stop + join + drain
     // Order matters: stop() signals threads, join() waits for exit,
     // drain_remaining() cleans up leftover MPSC messages.
@@ -332,6 +371,9 @@ void Server::finalize_shutdown() {
     for (auto& adapter : adapters_) {
         adapter->close();
     }
+
+    // 7. [D3] Global resources 정리
+    globals_.clear();
 
     // Finally stop control_io_ (causes run() to return)
     control_io_.stop();

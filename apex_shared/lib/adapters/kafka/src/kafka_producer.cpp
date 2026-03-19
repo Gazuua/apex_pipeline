@@ -19,7 +19,7 @@ KafkaProducer::~KafkaProducer() {
         topic_cache_.clear();
 
         // Flush then destroy handle
-        rd_kafka_flush(rk_, 5000);
+        rd_kafka_flush(rk_, static_cast<int>(config_.flush_timeout_ms));
         rd_kafka_destroy(rk_);
         rk_ = nullptr;
     }

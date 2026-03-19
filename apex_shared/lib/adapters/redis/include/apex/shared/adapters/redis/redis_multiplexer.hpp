@@ -134,10 +134,10 @@ private:
     boost::asio::awaitable<void> reconnect_loop();
 
     std::deque<PendingCommand*> pending_;
-    apex::core::TypedSlabAllocator<PendingCommand> slab_;
-    std::unique_ptr<RedisConnection> conn_;
     boost::asio::io_context& io_ctx_;
     RedisConfig config_;
+    apex::core::TypedSlabAllocator<PendingCommand> slab_;
+    std::unique_ptr<RedisConnection> conn_;
     uint64_t next_sequence_{0};
     bool reconnecting_{false};
     uint32_t reconnect_attempts_{0};

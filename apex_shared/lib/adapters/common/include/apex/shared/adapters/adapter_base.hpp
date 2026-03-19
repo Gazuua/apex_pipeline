@@ -6,7 +6,9 @@
 #include <apex/core/result.hpp>
 
 #include <atomic>
+#include <memory>
 #include <string_view>
+#include <vector>
 
 namespace apex::shared::adapters {
 
@@ -49,6 +51,12 @@ public:
         static_cast<Derived*>(this)->do_close();
     }
 
+    /// [D2] Adapter-service 자동 배선 (기본 no-op).
+    /// KafkaAdapter 등이 override하여 서비스 핸들러를 자동 감지.
+    void wire_services(
+        std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&,
+        apex::core::CoreEngine&) {}
+
     /// init 완료 + drain 안 됨
     [[nodiscard]] bool is_ready() const noexcept {
         return ready_.load(std::memory_order_acquire);
@@ -77,6 +85,13 @@ public:
     void close() override { adapter_.close(); }
     [[nodiscard]] bool is_ready() const noexcept override { return adapter_.is_ready(); }
     [[nodiscard]] std::string_view name() const noexcept override { return adapter_.name(); }
+
+    /// [D2] wire_services를 Derived 어댑터에 전달.
+    void wire_services(
+        std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+        apex::core::CoreEngine& engine) override {
+        adapter_.wire_services(services, engine);
+    }
 
     Derived& get() noexcept { return adapter_; }
     const Derived& get() const noexcept { return adapter_; }

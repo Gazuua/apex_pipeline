@@ -179,6 +179,10 @@ parse_gateway_config(std::string_view path) {
                 timeouts["request_timeout_ms"].value_or(int64_t{5000})};
             cfg.max_pending_per_core = static_cast<size_t>(
                 timeouts["max_pending_per_core"].value_or(int64_t{65536}));
+            cfg.heartbeat_timeout_ticks = static_cast<uint32_t>(
+                timeouts["heartbeat_timeout_ticks"].value_or(int64_t{300}));
+            cfg.sweep_interval_ms = static_cast<uint32_t>(
+                timeouts["sweep_interval_ms"].value_or(int64_t{1000}));
         }
 
         // [auth.exempt] — 인증 면제 msg_id 화이트리스트 (deny-by-default)

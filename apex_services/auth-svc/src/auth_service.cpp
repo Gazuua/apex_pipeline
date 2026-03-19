@@ -71,12 +71,38 @@ void AuthService::on_start() {
     kafka_route<apex::shared::schemas::RefreshTokenRequest>(
         msg_ids::REFRESH_TOKEN_REQUEST, &AuthService::on_refresh_token);
 
+    // 테스트 사용자 패스워드 시딩 (E2E) — spawn()으로 tracked 코루틴 실행
+    if (pg_) {
+        spawn([this]() -> boost::asio::awaitable<void> {
+            auto hash = password_hasher_.hash("password123");
+            if (!hash.empty()) {
+                std::array<std::string, 1> params = {hash};
+                auto result = co_await pg_->execute(
+                    "UPDATE users SET password_hash = $1 WHERE password_hash = 'PENDING'",
+                    params);
+                if (result.has_value()) {
+                    spdlog::info("[AuthService] Seeded test user passwords");
+                } else {
+                    spdlog::warn("[AuthService] Password seed failed (may already be set)");
+                }
+            }
+        });
+    }
+
     spdlog::info("[AuthService] on_start 완료. Consuming from: {}",
                  config_.request_topic);
 }
 
 void AuthService::on_stop() {
-    spdlog::info("[AuthService] on_stop");
+    spdlog::info("[AuthService] on_stop — cleaning up");
+
+    // SessionStore 해제 — shutdown 후 Redis 접근 방지
+    session_store_.reset();
+
+    // 어댑터 참조를 null로 리셋 — shutdown 후 dangling pointer 접근 방지
+    kafka_ = nullptr;
+    redis_ = nullptr;
+    pg_ = nullptr;
 }
 
 // ============================================================
@@ -91,16 +117,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(
     // FlatBuffers 검증은 kafka_route가 자동 수행 — 실패 시 여기에 도달하지 않음.
     // 필드 null 체크만 수행.
     if (!req->email() || !req->password()) {
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder,
+        co_return co_await send_login_error(meta,
             apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});  // reply_topic은 현재 메타에서 추출 불가 — 빈 문자열로 fallback
-        co_return apex::core::ok();
     }
 
     // co_await 전에 필요한 데이터를 로컬에 복사 (FlatBuffers 포인터는 co_await 이후 무효)
@@ -119,29 +137,15 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(
     if (!user_result.has_value()) {
         spdlog::error("[AuthService] PG query failed for login: {}",
                       apex::core::error_code_name(user_result.error()));
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
 
     auto& pg_res = *user_result;
     if (pg_res.row_count() == 0) {
         spdlog::warn("[AuthService] Login failed: user not found (email: {})", email);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
     }
 
     // --- Step 2: Extract user data ---
@@ -155,15 +159,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(
             user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
         if (ec != std::errc{}) {
             spdlog::error("[AuthService] Failed to parse user_id: '{}'", user_id_str);
-            flatbuffers::FlatBufferBuilder builder(128);
-            auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-                builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
-            builder.Finish(resp);
-            send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                          meta.session_id,
-                          {builder.GetBufferPointer(), builder.GetSize()},
-                          {});
-            co_return apex::core::ok();
+            co_return co_await send_login_error(meta,
+                apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
         }
     }
     bool is_locked = !pg_res.is_null(0, 2);  // locked_until IS NOT NULL → account locked
@@ -171,59 +168,31 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(
     // --- Step 3: Account lock check ---
     if (is_locked) {
         spdlog::warn("[AuthService] Login failed: account locked (user_id: {})", user_id);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_ACCOUNT_LOCKED);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_ACCOUNT_LOCKED);
     }
 
     // --- Step 4: bcrypt password verification ---
     if (!password_hasher_.verify(password, password_hash)) {
         spdlog::warn("[AuthService] Login failed: bad credentials (user_id: {})", user_id);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
     }
 
     // --- Step 5: JWT access token issuance ---
     auto access_token = jwt_manager_.create_access_token(user_id, email);
     if (access_token.empty()) {
         spdlog::error("[AuthService] Failed to create access token (user_id: {})", user_id);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
 
     // --- Step 6: Opaque refresh token generation ---
     auto refresh_token_result = generate_secure_token();
     if (!refresh_token_result.has_value()) {
         spdlog::error("[AuthService] Failed to generate refresh token (CSPRNG failure)");
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = apex::auth_svc::schemas::CreateLoginResponse(
-            builder, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_login_error(meta,
+            apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
     auto& refresh_token = *refresh_token_result;
 
@@ -258,7 +227,11 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(
 
     // Store session:user:{uid} -> session_id (integer string)
     // Used by other services (e.g., Chat whisper) for online check + unicast routing
-    co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    auto user_session_result = co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    if (!user_session_result.has_value()) {
+        spdlog::error("[AuthService] set_user_session_id failed for user_id={}: {}",
+                      user_id, apex::core::error_code_name(user_session_result.error()));
+    }
 
     // --- Step 9: Build and send LoginResponse ---
     flatbuffers::FlatBufferBuilder builder(512);
@@ -291,16 +264,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_logout(
     const apex::auth_svc::schemas::LogoutRequest* req)
 {
     if (!req->access_token()) {
-        flatbuffers::FlatBufferBuilder builder(64);
-        auto resp = apex::auth_svc::schemas::CreateLogoutResponse(
-            builder,
+        co_return co_await send_logout_error(meta,
             apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
     }
 
     // co_await 전에 로컬 복사
@@ -313,15 +278,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_logout(
     auto verify_result = jwt_manager_.verify_access_token(access_token);
     if (!verify_result.has_value()) {
         spdlog::warn("[AuthService] Logout failed: invalid token");
-        flatbuffers::FlatBufferBuilder builder(64);
-        auto resp = apex::auth_svc::schemas::CreateLogoutResponse(
-            builder, apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
-        builder.Finish(resp);
-        send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_logout_error(meta,
+            apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
     }
 
     auto& claims = *verify_result;
@@ -345,7 +303,11 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_logout(
         // Non-fatal: token is blacklisted, session will expire naturally
     }
     // Also remove session:user:{uid} mapping
-    co_await session_store_->remove_user_session_id(claims.user_id);
+    auto remove_user_session = co_await session_store_->remove_user_session_id(claims.user_id);
+    if (!remove_user_session.has_value()) {
+        spdlog::error("[AuthService] remove_user_session_id failed for user_id={}: {}",
+                      claims.user_id, apex::core::error_code_name(remove_user_session.error()));
+    }
 
     // --- Step 4: Send success response ---
     flatbuffers::FlatBufferBuilder builder(64);
@@ -376,15 +338,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
                  meta.corr_id, meta.session_id);
 
     if (!req->refresh_token()) {
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_TOKEN_INVALID);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_TOKEN_INVALID);
     }
 
     // co_await 전에 로컬 복사
@@ -401,29 +356,15 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
     if (!lookup_result.has_value()) {
         spdlog::error("[AuthService] PG query failed for refresh token: {}",
                       apex::core::error_code_name(lookup_result.error()));
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
     auto& pg_res = *lookup_result;
     if (pg_res.row_count() == 0) {
         spdlog::warn("[AuthService] Refresh token not found");
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_TOKEN_INVALID);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_TOKEN_INVALID);
     }
 
     // Columns: user_id(0), revoked_at(1), expires_at(2), token_family(3)
@@ -434,15 +375,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
             user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
         if (ec != std::errc{}) {
             spdlog::error("[AuthService] Failed to parse user_id in refresh: '{}'", user_id_str);
-            flatbuffers::FlatBufferBuilder builder(128);
-            auto resp = rt_schemas::CreateRefreshTokenResponse(
-                builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
-            builder.Finish(resp);
-            send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                          meta.session_id,
-                          {builder.GetBufferPointer(), builder.GetSize()},
-                          {});
-            co_return apex::core::ok();
+            co_return co_await send_refresh_token_error(meta,
+                rt_schemas::RefreshTokenError_INTERNAL_ERROR);
         }
     }
     bool is_revoked = !pg_res.is_null(0, 1);  // revoked_at != NULL
@@ -461,22 +395,25 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
             "UPDATE refresh_tokens SET revoked_at = NOW() "
             "WHERE token_family = $1 AND revoked_at IS NULL",
             family_params);
-        (void)revoke_all;  // Best-effort
+        if (!revoke_all.has_value()) {
+            spdlog::warn("[AuthService] Best-effort revoke_all failed: {}",
+                         apex::core::error_code_name(revoke_all.error()));
+        }
 
         // Also remove Redis sessions for safety
         auto remove_result = co_await session_store_->remove(user_id);
-        (void)remove_result;
-        co_await session_store_->remove_user_session_id(user_id);
+        if (!remove_result.has_value()) {
+            spdlog::error("[AuthService] Failed to remove session during reuse detection (user_id={}): {}",
+                          user_id, apex::core::error_code_name(remove_result.error()));
+        }
+        auto remove_user_sid = co_await session_store_->remove_user_session_id(user_id);
+        if (!remove_user_sid.has_value()) {
+            spdlog::error("[AuthService] remove_user_session_id failed for user_id={}: {}",
+                          user_id, apex::core::error_code_name(remove_user_sid.error()));
+        }
 
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_TOKEN_REVOKED);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_TOKEN_REVOKED);
     }
 
     // --- Step 4: Expiry check ---
@@ -487,17 +424,17 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
         "SELECT 1 FROM refresh_tokens WHERE token_hash = $1 AND expires_at < NOW()",
         expiry_params);
 
-    if (expiry_result.has_value() && expiry_result->row_count() > 0) {
+    if (!expiry_result.has_value()) {
+        spdlog::error("[AuthService] PG expiry check query failed: {}",
+                      apex::core::error_code_name(expiry_result.error()));
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+    }
+
+    if (expiry_result->row_count() > 0) {
         spdlog::warn("[AuthService] Refresh token expired (user_id: {})", user_id);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_TOKEN_EXPIRED);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_TOKEN_EXPIRED);
     }
 
     // --- Step 5: Token Rotation — revoke old, issue new ---
@@ -506,21 +443,17 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
     auto revoke_result = co_await pg_->execute(
         "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1",
         revoke_params);
-    (void)revoke_result;  // Best-effort
+    if (!revoke_result.has_value()) {
+        spdlog::warn("[AuthService] Best-effort revoke_result failed: {}",
+                     apex::core::error_code_name(revoke_result.error()));
+    }
 
     // Generate new refresh token
     auto new_rt_result = generate_secure_token();
     if (!new_rt_result.has_value()) {
         spdlog::error("[AuthService] Failed to generate new refresh token");
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
     auto& new_refresh_token = *new_rt_result;
     auto new_refresh_hash = sha256_hex(new_refresh_token);
@@ -534,7 +467,12 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
         "INSERT INTO refresh_tokens (token_hash, user_id, expires_at, token_family) "
         "VALUES ($1, $2, NOW() + make_interval(secs => $3::int), $4)",
         insert_params);
-    (void)insert_result;  // Best-effort
+    if (!insert_result.has_value()) {
+        spdlog::error("[AuthService] Failed to insert new refresh token: {}",
+                      apex::core::error_code_name(insert_result.error()));
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+    }
 
     // --- Step 6: Issue new access token ---
     // We need user email for JWT claims — query from PG
@@ -546,19 +484,17 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
     if (email_result.has_value() && email_result->row_count() > 0) {
         user_email = std::string(email_result->value(0, 0));
     }
+    if (user_email.empty()) {
+        spdlog::error("[AuthService] Failed to retrieve email for user_id={} during refresh", user_id);
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+    }
 
     auto new_access_token = jwt_manager_.create_access_token(user_id, user_email);
     if (new_access_token.empty()) {
         spdlog::error("[AuthService] Failed to create access token for refresh (user_id: {})", user_id);
-        flatbuffers::FlatBufferBuilder builder(128);
-        auto resp = rt_schemas::CreateRefreshTokenResponse(
-            builder, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
-        builder.Finish(resp);
-        send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
-                      meta.session_id,
-                      {builder.GetBufferPointer(), builder.GetSize()},
-                      {});
-        co_return apex::core::ok();
+        co_return co_await send_refresh_token_error(meta,
+            rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
     // Update Redis session
@@ -567,9 +503,17 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_refresh_token(
         std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::system_clock::now().time_since_epoch()).count());
     auto session_set = co_await session_store_->set(user_id, session_data);
-    (void)session_set;  // Best-effort
+    if (!session_set.has_value()) {
+        spdlog::error("[AuthService] Failed to update Redis session during refresh: {}",
+                      apex::core::error_code_name(session_set.error()));
+        // Non-fatal: refresh still succeeds
+    }
     // Also refresh session:user:{uid} -> session_id mapping
-    co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    auto refresh_user_session = co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    if (!refresh_user_session.has_value()) {
+        spdlog::error("[AuthService] set_user_session_id failed for user_id={}: {}",
+                      user_id, apex::core::error_code_name(refresh_user_session.error()));
+    }
 
     // --- Step 7: Build and send RefreshTokenResponse ---
     flatbuffers::FlatBufferBuilder builder(512);
@@ -627,6 +571,53 @@ void AuthService::send_response(
         spdlog::error("[AuthService] Failed to produce response to '{}' (msg_id: {}, corr_id: {})",
                       target_topic, msg_id, corr_id);
     }
+}
+
+// ============================================================
+// Error Response Helpers [D5]
+// ============================================================
+
+boost::asio::awaitable<apex::core::Result<void>> AuthService::send_login_error(
+    const envelope::MetadataPrefix& meta,
+    uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = apex::auth_svc::schemas::CreateLoginResponse(
+        fbb, static_cast<apex::auth_svc::schemas::LoginError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, {});
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> AuthService::send_logout_error(
+    const envelope::MetadataPrefix& meta,
+    uint16_t error)
+{
+    flatbuffers::FlatBufferBuilder fbb(64);
+    auto resp = apex::auth_svc::schemas::CreateLogoutResponse(
+        fbb, static_cast<apex::auth_svc::schemas::LogoutError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, {});
+    co_return apex::core::ok();
+}
+
+boost::asio::awaitable<apex::core::Result<void>> AuthService::send_refresh_token_error(
+    const envelope::MetadataPrefix& meta,
+    uint16_t error)
+{
+    namespace rt_schemas = apex::shared::schemas;
+    flatbuffers::FlatBufferBuilder fbb(128);
+    auto resp = rt_schemas::CreateRefreshTokenResponse(
+        fbb, static_cast<rt_schemas::RefreshTokenError>(error));
+    fbb.Finish(resp);
+    send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id,
+                  meta.session_id,
+                  {fbb.GetBufferPointer(), fbb.GetSize()}, {});
+    co_return apex::core::ok();
 }
 
 } // namespace apex::auth_svc

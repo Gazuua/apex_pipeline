@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <unordered_set>
@@ -86,7 +87,7 @@ struct GatewayConfig {
     std::string redis_pubsub_host = "localhost";
     uint16_t redis_pubsub_port = 6379;
     std::string redis_pubsub_password;
-    std::vector<std::string> global_channels = {"pub:global:chat"};
+    std::vector<std::string> global_channels = {};
 
     // Redis (Auth / blacklist)
     std::string redis_auth_host = "localhost";
@@ -101,6 +102,8 @@ struct GatewayConfig {
     // Timeouts
     std::chrono::milliseconds request_timeout{5000};  // Pending request timeout
     size_t max_pending_per_core = 65536;               // per-core pending map max size
+    uint32_t heartbeat_timeout_ticks = 300;            // Server heartbeat timeout ticks
+    uint32_t sweep_interval_ms = 1000;                 // Pending request sweep interval (ms)
 
     // Pub/Sub
     uint32_t max_subscriptions_per_session = 50;  // 0 = unlimited

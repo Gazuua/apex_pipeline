@@ -23,6 +23,8 @@
 #include <apex/core/wire_header.hpp>
 #include <flatbuffers/flatbuffers.h>
 
+#include <stdexcept>
+
 namespace apex::gateway {
 
 // GatewayGlobals 소멸자 — PubSubListener 정지 포함
@@ -34,18 +36,14 @@ GatewayGlobals::~GatewayGlobals() {
 
 GatewayService::GatewayService(const GatewayConfig& config,
                                const JwtVerifier& jwt_verifier,
-                               JwtBlacklist* jwt_blacklist,
                                RouteTablePtr route_table,
-                               ChannelSessionMap* channel_map,
                                apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter)
     : ServiceBase("gateway")
     , config_(config)
     , logger_(spdlog::default_logger()->clone("gateway"))
     , jwt_verifier_(&jwt_verifier)
-    , jwt_blacklist_(jwt_blacklist)
     , route_table_(std::move(route_table))
     , pending_requests_(config_.max_pending_per_core, config_.request_timeout)
-    , channel_map_(channel_map)
     , rl_redis_adapter_(rl_redis_adapter)
 {
     logger_->info("GatewayService created (routes={})", config_.routes.size());
@@ -60,7 +58,7 @@ void GatewayService::on_configure(apex::core::ConfigureContext& ctx) {
 
     // per-core 컴포넌트 초기화 (어댑터 참조 필요)
     pipeline_ = std::make_unique<GatewayPipeline>(
-        config_, *jwt_verifier_, jwt_blacklist_, nullptr);
+        config_, *jwt_verifier_, nullptr, nullptr);
     router_ = std::make_unique<MessageRouter>(
         *kafka_, route_table_,
         static_cast<uint16_t>(ctx.core_id),
@@ -71,18 +69,24 @@ void GatewayService::on_configure(apex::core::ConfigureContext& ctx) {
 
 // ── Phase 2: cross-core 와이어링 ─────────────────────────────────────────
 void GatewayService::on_wire(apex::core::WireContext& ctx) {
-    // core 0에서 글로벌 객체 생성 (1회)
+    // core 0: factory 실행하여 GatewayGlobals 생성 (Server가 소유)
+    // core 1+: 이미 생성된 인스턴스 반환 (factory 미실행)
+    // on_wire는 단일 스레드(main)에서 순차 호출되므로 동기화 불필요.
     if (ctx.core_id == 0) {
-        create_globals(ctx);
+        globals_ = &ctx.server.global<GatewayGlobals>([&]() {
+            return create_globals(ctx);
+        });
+        // BroadcastFanout에 per-core 채널 맵 바인딩 — globals_가 server.global<T>()에
+        // move-store된 후이므로 per_core_channel_maps 주소가 확정됨.
+        if (globals_->broadcast_fanout) {
+            globals_->broadcast_fanout->set_channel_maps(
+                &globals_->per_core_channel_maps);
+        }
+    } else {
+        globals_ = &ctx.server.global<GatewayGlobals>([]() -> GatewayGlobals {
+            throw std::logic_error("GatewayGlobals should be created by core 0");
+        });
     }
-
-    // 모든 코어: globals_ 참조로 per-core 와이어링 수행
-    // Note: on_wire는 단일 스레드(main)에서 순차 호출되므로
-    // core 0 완료 후 core 1이 호출됨. globals_ 접근 안전.
-    auto& core0_state = ctx.server.per_core_state(0);
-    auto* core0_svc = dynamic_cast<GatewayService*>(
-        core0_state.services[0].get());
-    globals_ = core0_svc->globals_;
 
     // PubSubListener 와이어링
     if (globals_ && globals_->pubsub_listener) {
@@ -111,9 +115,9 @@ void GatewayService::on_start() {
                std::span<const uint8_t> payload)
             -> boost::asio::awaitable<apex::core::Result<void>> {
 
-            // System message: AuthenticateSession (msg_id=3)
+            // System message: AuthenticateSession
             // Client sends JWT token after login; bind it to the session.
-            if (msg_id == 3) {
+            if (msg_id == system_msg_ids::AUTHENTICATE_SESSION) {
                 if (!payload.empty()) {
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
                     if (root) {
@@ -128,17 +132,18 @@ void GatewayService::on_start() {
                 co_return apex::core::ok();
             }
 
-            // System message: SubscribeChannel (msg_id=4)
+            // System message: SubscribeChannel
             // Client subscribes to a Redis Pub/Sub channel for broadcast delivery.
             // Gateway is channel-name-agnostic (no domain knowledge).
-            if (msg_id == 4) {
-                if (channel_map_ && !payload.empty()) {
+            // per-core 맵만 수정 — cross_core_post 불필요 (세션은 per-core).
+            if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL) {
+                if (globals_ && !payload.empty()) {
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
                     if (root) {
                         auto* ch = root->GetPointer<const flatbuffers::String*>(4);
                         if (ch && ch->size() > 0) {
-                            auto result = channel_map_->subscribe(
-                                ch->str(), session->id(), core_id());
+                            auto result = globals_->per_core_channel_maps[core_id()]
+                                .subscribe(ch->str(), session->id());
                             if (result) {
                                 if (pubsub_listener_) {
                                     pubsub_listener_->subscribe(ch->str());
@@ -152,14 +157,16 @@ void GatewayService::on_start() {
                 co_return apex::core::ok();
             }
 
-            // System message: UnsubscribeChannel (msg_id=5)
-            if (msg_id == 5) {
-                if (channel_map_ && !payload.empty()) {
+            // System message: UnsubscribeChannel
+            // per-core 맵만 수정 — cross_core_post 불필요.
+            if (msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL) {
+                if (globals_ && !payload.empty()) {
                     auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
                     if (root) {
                         auto* ch = root->GetPointer<const flatbuffers::String*>(4);
                         if (ch && ch->size() > 0) {
-                            channel_map_->unsubscribe(ch->str(), session->id());
+                            globals_->per_core_channel_maps[core_id()]
+                                .unsubscribe(ch->str(), session->id());
                             logger_->info("Session {} unsubscribed from '{}'",
                                           session->id(), ch->str());
                         }
@@ -175,6 +182,12 @@ void GatewayService::on_start() {
 
 void GatewayService::on_stop() {
     dispatcher().clear_default_handler();
+    // PubSubListener 정지는 core 0에서만 수행.
+    // GatewayGlobals 소멸자에서도 stop()을 호출하지만,
+    // on_stop 단계에서 명시적으로 정리하는 것이 graceful shutdown에 유리.
+    if (core_id() == 0 && globals_ && globals_->pubsub_listener) {
+        globals_->pubsub_listener->stop();
+    }
     auth_states_.clear();
 }
 
@@ -183,16 +196,24 @@ void GatewayService::on_session_closed(apex::core::SessionId sid) {
     // per-session 인증 상태 제거
     auth_states_.erase(sid);
 
-    // 채널 구독 해제 (ChannelSessionMap은 thread-safe)
-    if (channel_map_) {
-        channel_map_->unsubscribe_all(sid);
+    // 채널 구독 해제 — per-core 맵이므로 로컬 맵만 수정 (뮤텍스 불필요)
+    if (globals_) {
+        globals_->per_core_channel_maps[core_id()].unsubscribe_all(sid);
     }
 }
 
-// ── cross-core 글로벌 객체 생성 (core 0 전용) ────────────────────────────
-void GatewayService::create_globals(apex::core::WireContext& ctx) {
+// ── cross-core 글로벌 객체 생성 (core 0 전용, factory 반환) ──────────────
+GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx) {
     auto num_cores = ctx.server.core_count();
-    globals_ = std::make_shared<GatewayGlobals>();
+    GatewayGlobals g;
+
+    // per-core 채널 구독 맵 초기화
+    g.per_core_channel_maps.reserve(num_cores);
+    for (uint32_t i = 0; i < num_cores; ++i) {
+        g.per_core_channel_maps.emplace_back(config_.max_subscriptions_per_session);
+    }
+    g.engine = &ctx.server.core_engine();
+    g.num_cores = num_cores;
 
     // ── per-core 포인터 수집 ─────────────────────────────────────────
     std::vector<PendingRequestsMap*> pending_maps;
@@ -207,47 +228,52 @@ void GatewayService::create_globals(apex::core::WireContext& ctx) {
     }
 
     // ── ResponseDispatcher ───────────────────────────────────────────
-    globals_->response_dispatcher = std::make_unique<ResponseDispatcher>(
+    g.response_dispatcher = std::make_unique<ResponseDispatcher>(
         ctx.server.core_engine(),
         std::move(pending_maps),
         std::move(session_mgrs));
 
+    // Kafka 콜백: this->globals_ 를 캡처. factory 반환 후 on_wire에서
+    // globals_가 설정되며, Kafka 메시지 도착 시점에는 유효.
     kafka_->set_message_callback(
-        [&rd = *globals_->response_dispatcher](
+        [this](
             std::string_view, int32_t,
             std::span<const uint8_t>,
             std::span<const uint8_t> payload,
             int64_t) -> apex::core::Result<void> {
-            return rd.on_response(payload);
+            return globals_->response_dispatcher->on_response(payload);
         });
 
     // ── BroadcastFanout ──────────────────────────────────────────────
+    // BroadcastFanout은 GatewayGlobals* 를 참조. create_globals() 반환 후
+    // Server::global<T>()이 소유하며, on_wire에서 globals_ 포인터 설정됨.
+    // fanout은 런타임에 globals_->per_core_channel_maps를 직접 참조한다.
     std::vector<apex::core::SessionManager*> session_mgrs2;
     for (uint32_t i = 0; i < num_cores; ++i) {
         session_mgrs2.push_back(&ctx.server.per_core_state(i).session_mgr);
     }
-    globals_->broadcast_fanout = std::make_unique<BroadcastFanout>(
-        ctx.server.core_engine(), *channel_map_, std::move(session_mgrs2));
+    g.broadcast_fanout = std::make_unique<BroadcastFanout>(
+        ctx.server.core_engine(), num_cores, std::move(session_mgrs2));
 
     // ── PubSubListener ───────────────────────────────────────────────
-    auto* fanout_ptr = globals_->broadcast_fanout.get();
+    auto* fanout_ptr = g.broadcast_fanout.get();
     PubSubListener::Config pubsub_cfg{
         .host = config_.redis_pubsub_host,
         .port = config_.redis_pubsub_port,
         .password = config_.redis_pubsub_password,
         .initial_channels = config_.global_channels,
     };
-    globals_->pubsub_listener = std::make_unique<PubSubListener>(
+    g.pubsub_listener = std::make_unique<PubSubListener>(
         pubsub_cfg,
         [fanout_ptr](std::string_view channel,
                      std::span<const uint8_t> message) {
             fanout_ptr->fanout(channel, message);
         });
-    globals_->pubsub_listener->start();
+    g.pubsub_listener->start();
 
     // ── Rate Limiting ────────────────────────────────────────────────
     if (rl_redis_adapter_) {
-        rl_redis_adapter_->do_init(ctx.server.core_engine());
+        rl_redis_adapter_->init(ctx.server.core_engine());
 
         // EndpointRateConfig 빌드
         apex::shared::rate_limit::EndpointRateConfig ep_config;
@@ -259,9 +285,9 @@ void GatewayService::create_globals(apex::core::WireContext& ctx) {
         }
 
         // per-core rate limit 컴포넌트 생성
-        globals_->per_core_ip.resize(num_cores);
-        globals_->per_core_redis_rl.resize(num_cores);
-        globals_->per_core_facade.resize(num_cores);
+        g.per_core_ip.resize(num_cores);
+        g.per_core_redis_rl.resize(num_cores);
+        g.per_core_facade.resize(num_cores);
 
         for (uint32_t core = 0; core < num_cores; ++core) {
             apex::shared::rate_limit::PerIpRateLimiterConfig ip_cfg{
@@ -272,7 +298,7 @@ void GatewayService::create_globals(apex::core::WireContext& ctx) {
                 .max_entries = config_.rate_limit.ip.max_entries,
                 .ttl_multiplier = config_.rate_limit.ip.ttl_multiplier,
             };
-            globals_->per_core_ip[core] = std::make_unique<
+            g.per_core_ip[core] = std::make_unique<
                 apex::shared::rate_limit::PerIpRateLimiter>(
                 ip_cfg,
                 [](auto, auto) -> uint64_t { return 0; },
@@ -285,19 +311,21 @@ void GatewayService::create_globals(apex::core::WireContext& ctx) {
                 .window_size = std::chrono::seconds{
                     config_.rate_limit.user.window_size_seconds},
             };
-            globals_->per_core_redis_rl[core] = std::make_unique<
+            g.per_core_redis_rl[core] = std::make_unique<
                 apex::shared::rate_limit::RedisRateLimiter>(
                 redis_rl_config,
                 rl_redis_adapter_->multiplexer(core));
 
-            globals_->per_core_facade[core] = std::make_unique<
+            g.per_core_facade[core] = std::make_unique<
                 apex::shared::rate_limit::RateLimitFacade>(
-                *globals_->per_core_ip[core],
-                *globals_->per_core_redis_rl[core],
+                *g.per_core_ip[core],
+                *g.per_core_redis_rl[core],
                 ep_config);
         }
         spdlog::info("Rate limiting enabled ({} cores)", num_cores);
     }
+
+    return g;
 }
 
 // ── per-core 타임아웃 스윕 스케줄링 ──────────────────────────────────────
@@ -307,7 +335,7 @@ void GatewayService::schedule_sweep(apex::core::WireContext& ctx) {
     auto* pending = &pending_requests_;
     auto* session_mgr = &ctx.server.per_core_state(ctx.core_id).session_mgr;
 
-    ctx.scheduler.schedule(std::chrono::milliseconds{1000},
+    ctx.scheduler.schedule(std::chrono::milliseconds{config_.sweep_interval_ms},
         [pending, session_mgr]() {
             pending->sweep_expired(
                 [session_mgr](uint64_t,

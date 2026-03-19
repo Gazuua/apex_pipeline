@@ -10,17 +10,12 @@
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
-#include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
-
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
 #include <cstdlib>
 #include <filesystem>
 #include <string>
-#include <thread>
 
 namespace {
 
@@ -68,6 +63,10 @@ ParsedConfig parse_config(const std::string& path) {
             chat["max_message_length"].value_or(int64_t{2000}));
         cfg.chat.history_page_size  = static_cast<uint32_t>(
             chat["history_page_size"].value_or(int64_t{50}));
+        cfg.chat.max_room_name_length = static_cast<size_t>(
+            chat["max_room_name_length"].value_or(int64_t{100}));
+        cfg.chat.max_list_rooms_limit = static_cast<uint32_t>(
+            chat["max_list_rooms_limit"].value_or(int64_t{100}));
     }
 
     // [kafka]
@@ -137,9 +136,6 @@ int main(int argc, char* argv[]) {
     }
 
     // --- 2. Server 구성 ---
-    // request_topic을 move 전에 캡처 (post_init 콜백에서 사용)
-    auto request_topic = parsed.chat.request_topic;
-
     apex::core::Server server({.num_cores = 1});
 
     server
@@ -149,78 +145,10 @@ int main(int argc, char* argv[]) {
         .add_adapter<apex::shared::adapters::pg::PgAdapter>(parsed.pg)
         .add_service<apex::chat_svc::ChatService>(std::move(parsed.chat));
 
-    // --- 3. Kafka consumer -> KafkaDispatchBridge 와이어링 ---
-    // post_init_callback에서 서비스의 kafka_handler_map()에 접근하여
-    // KafkaDispatchBridge를 생성하고 Kafka consumer 콜백으로 연결.
-    server.set_post_init_callback(
-        [request_topic](apex::core::Server& srv) {
-            auto& state = srv.per_core_state(0);
+    // Kafka auto-wiring [D2]: kafka_route() 등록만 하면 코어가 KafkaDispatchBridge를 자동 배선.
+    // post_init_callback 수동 와이어링 제거됨.
 
-            // ChatService는 첫 번째(유일한) 서비스
-            auto* chat_svc = dynamic_cast<apex::chat_svc::ChatService*>(
-                state.services[0].get());
-
-            // KafkaDispatchBridge 생성 -- 핸들러 맵 참조
-            // shared_ptr로 관리하여 Kafka 콜백 람다에서 캡처
-            auto bridge = std::make_shared<
-                apex::shared::protocols::kafka::KafkaDispatchBridge>(
-                chat_svc->kafka_handler_map());
-
-            // Kafka consumer 콜백 설정
-            // Kafka 콜백은 동기이므로 co_spawn으로 코루틴 브릿지.
-            // payload를 복사하여 코루틴 수명 안전성 보장.
-            auto& kafka = srv.adapter<
-                apex::shared::adapters::kafka::KafkaAdapter>();
-            auto& engine = srv.core_engine();
-            kafka.set_message_callback(
-                [bridge, request_topic, &engine](
-                    std::string_view topic, int32_t /*partition*/,
-                    std::span<const uint8_t> /*key*/,
-                    std::span<const uint8_t> payload,
-                    int64_t /*offset*/) -> apex::core::Result<void> {
-                    if (topic != request_topic) {
-                        return apex::core::ok();  // 다른 토픽 무시
-                    }
-
-                    // Kafka 콜백의 payload는 콜백 반환 후 무효 -> 복사 필수
-                    auto payload_copy = std::vector<uint8_t>(
-                        payload.begin(), payload.end());
-
-                    // co_spawn으로 코루틴 실행 -- bridge->dispatch가 파싱+핸들러 호출 수행
-                    boost::asio::co_spawn(engine.io_context(0),
-                        [bridge, data = std::move(payload_copy)]()
-                            -> boost::asio::awaitable<void> {
-                            auto result = co_await bridge->dispatch(
-                                std::span<const uint8_t>(data));
-                            if (!result.has_value()) {
-                                spdlog::warn("[ChatService] Kafka dispatch failed: {}",
-                                    static_cast<int>(result.error()));
-                            }
-                        },
-                        boost::asio::detached);
-
-                    return apex::core::ok();
-                });
-
-            // PG connection warm-up
-            auto& pg = srv.adapter<apex::shared::adapters::pg::PgAdapter>();
-            boost::asio::co_spawn(engine.io_context(0),
-                [&pg]() -> boost::asio::awaitable<void> {
-                    auto r = co_await pg.query("SELECT 1");
-                    if (r.has_value()) {
-                        spdlog::info("[ChatService] PG connection warm-up OK");
-                    } else {
-                        spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
-                    }
-                },
-                boost::asio::detached);
-            std::this_thread::sleep_for(std::chrono::seconds{1});
-
-            spdlog::info("[ChatService] KafkaDispatchBridge wired for topic: {}",
-                         request_topic);
-        });
-
-    // --- 4. Server 실행 (블로킹) ---
+    // --- 3. Server 실행 (블로킹) ---
     spdlog::info("[ChatService] Running. Press Ctrl+C to stop.");
     server.run();
 

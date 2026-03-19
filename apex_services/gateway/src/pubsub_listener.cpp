@@ -98,7 +98,8 @@ void PubSubListener::run_thread() {
             spdlog::error("PubSub connect failed: {}",
                 sync_ctx ? sync_ctx->errstr : "null context");
             if (sync_ctx) redisFree(sync_ctx);
-            std::this_thread::sleep_for(std::chrono::seconds{1});
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds{config_.reconnect_interval_ms});
             continue;
         }
 
@@ -214,8 +215,10 @@ void PubSubListener::run_thread() {
         redisFree(sync_ctx);
 
         if (running_) {
-            spdlog::info("PubSub reconnecting in 1 second...");
-            std::this_thread::sleep_for(std::chrono::seconds{1});
+            spdlog::info("PubSub reconnecting in {}ms...",
+                         config_.reconnect_interval_ms);
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds{config_.reconnect_interval_ms});
         }
     }
 }
