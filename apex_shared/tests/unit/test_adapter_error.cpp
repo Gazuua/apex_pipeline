@@ -16,7 +16,7 @@ TEST(AdapterError, DefaultIsAdapterError)
 
 TEST(AdapterError, OkWhenCodeIsOk)
 {
-    AdapterError err{.code = ErrorCode::Ok};
+    AdapterError err{.code = ErrorCode::Ok, .message = {}};
     EXPECT_TRUE(err.ok());
 }
 

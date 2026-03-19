@@ -12,6 +12,11 @@ if(NOT COMMAND apex_set_warnings)
             target_compile_options(${target} PRIVATE
                 -Wall -Wextra -Wpedantic -Werror
             )
+            # GCC 14 + TSAN: 표준 라이브러리(atomic_base.h)에서 atomic_thread_fence 경고 발생.
+            # 우리 코드가 아닌 GCC 자체 이슈이므로 tsan 빌드에서만 억제.
+            if(APEX_BUILD_VARIANT STREQUAL "tsan")
+                target_compile_options(${target} PRIVATE -Wno-tsan)
+            endif()
         endif()
     endfunction()
 endif()
