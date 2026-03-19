@@ -414,6 +414,7 @@ Tier 상세:
 | v0.5.5.2 | 소 | 로그 디렉토리 구조 확립: async logger + daily_file_format_sink + exact_level_sink 조합. 서비스별/레벨별/날짜별 파일 로깅 구조화, 프로젝트 루트 자동 탐지, service_name TOML 설정 + 검증, E2E 로그 경로 통합. 71/71 유닛 통과 | 완료 |
 | v0.5.6.0 | 중 | Post-E2E 코드 리뷰 + 프레임워크 인프라 정비: 10개 관점 체계 리뷰(46건 발견) → 코어 인프라 확장 D2-D7(server.global\<T\>, wire_services 자동 배선, spawn tracked API, ChannelSessionMap per-core shared_mutex 완전 제거, ConsumerPayloadPool, send_error 헬퍼 11개) + post_init_callback 완전 제거 + GatewayGlobals 소유권 Server 이관 + auto-review 5명(CRITICAL 4+MAJOR 5 추가 수정, 보안 취약점 1건 포함). ~45파일 변경, 71/71 유닛 통과 | 완료 |
 | v0.5.7.0 | 중 | 코드 위생 확립: `.clang-format` 도입(Allman brace, 120자) + 전체 274파일 포맷팅 + CI format-check 강제 + `.git-blame-ignore-revs`. `apex_set_warnings()` 정의 + 전 타겟 적용(MSVC `/W4 /WX`, GCC `-Wall -Wextra -Wpedantic -Werror`) + 경고 전수 수정. FileWatcher flaky 테스트 수정. 307파일 변경, 71/71 유닛 + CI 전체 통과 | PR #46 |
+| v0.5.8.0 | 중 | CI 파이프라인 확장: build matrix 루트 빌드 통합(apex_shared 검증 포함), UBSAN CMake preset 추가, 서비스 Dockerfile 3개(Gateway/Auth/Chat) + docker-compose.e2e.yml Docker 기반 서비스 기동, E2E CI job(docker compose --wait + ctest -L e2e), Nightly Valgrind workflow(unit+E2E+stress 12개, cron + workflow_dispatch). E2E fixture CreateProcessW → Docker 전환. 71/71 유닛 + CI 전체 통과 | PR #49 |
 
 ### 활성 로드맵
 
@@ -434,6 +435,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.5.2 로그 디렉토리 구조 확립 (async + daily_file_format + exact_level, 서비스별/레벨별/날짜별 분리)
          v0.5.6.0 Post-E2E 코드 리뷰 + 프레임워크 인프라 정비 (D2-D7 구현, shared_mutex 제거, auto-review)
          v0.5.7.0 코드 위생 확립 (clang-format 전체 적용 + CI 강제, 경고 전수 소탕 + -Werror/WX)
+         v0.5.8.0 CI 파이프라인 확장 (루트 빌드 통합, UBSAN, Docker E2E, Nightly Valgrind, 스트레스 12개)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

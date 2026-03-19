@@ -10,20 +10,6 @@
 
 ## NOW
 
-### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
-- **등급**: MAJOR
-- **스코프**: ci, infra
-- **타입**: infra
-- **연관**: #9
-- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
-
-### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
-- **등급**: MAJOR
-- **스코프**: ci, shared
-- **타입**: infra
-- **연관**: #7
-- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
-
 ---
 
 ## IN VIEW

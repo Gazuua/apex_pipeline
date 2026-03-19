@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
+- **등급**: MAJOR | **스코프**: ci, infra | **타입**: infra
+- **해결**: 2026-03-19 22:46:48 | **방식**: FIXED
+- **비고**: UBSAN preset 추가, 서비스 Docker 컨테이너화, E2E CI 통합, Nightly Valgrind (unit+E2E+스트레스 12개), workflow_dispatch 수동 트리거
+
+### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
+- **등급**: MAJOR | **스코프**: ci, shared | **타입**: infra
+- **해결**: 2026-03-19 22:46:48 | **방식**: FIXED
+- **비고**: build matrix 전체를 루트 레벨 빌드로 전환하여 해결. build-root 중복 job 제거
+
 ### #73. Docker 로컬 리눅스 빌드 스크립트 + 빌드 락 연동
 - **등급**: MAJOR | **스코프**: tools, infra | **타입**: infra
 - **해결**: 2026-03-19 21:42:41 | **방식**: SUPERSEDED

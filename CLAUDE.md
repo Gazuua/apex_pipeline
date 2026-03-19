@@ -30,7 +30,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.7.0 — 코드 위생 확립 (clang-format 전체 적용 + CI 강제, 경고 전수 소탕 + -Werror/WX, 71/71 유닛 + CI 전체 통과)
+- **현재**: v0.5.8.0 — CI 파이프라인 확장 (루트 빌드 통합, UBSAN, Docker E2E, Nightly Valgrind, 스트레스 테스트 12개)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -55,6 +55,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
 
 ### 설계 원칙
+- **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
 
 ### 경고 정책 (Zero Warning)
