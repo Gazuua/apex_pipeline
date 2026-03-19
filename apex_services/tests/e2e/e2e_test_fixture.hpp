@@ -77,10 +77,7 @@ class E2EEnvironment : public ::testing::Environment
 /// Infrastructure lifecycle is managed by E2EEnvironment (global).
 class E2ETestFixture : public ::testing::Test
 {
-  protected:
-    void SetUp() override;
-    void TearDown() override;
-
+  public:
     /// TCP client that speaks WireHeader v2 protocol.
     /// Sends and receives framed messages through Gateway.
     class TcpClient
@@ -122,6 +119,10 @@ class E2ETestFixture : public ::testing::Test
         boost::asio::ip::tcp::socket socket_;
         bool connected_{false};
     };
+
+  protected:
+    void SetUp() override;
+    void TearDown() override;
 
     /// JWT login helper (sends LoginRequest through Auth Service pipeline)
     struct AuthResult
