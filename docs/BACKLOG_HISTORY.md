@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #73. Docker 로컬 리눅스 빌드 스크립트 + 빌드 락 연동
+- **등급**: MAJOR | **스코프**: tools, infra | **타입**: infra
+- **해결**: 2026-03-19 21:42:41 | **방식**: SUPERSEDED
+- **비고**: 멀티스테이지 Docker 이미지로 빌드를 말아넣는 방향으로 결정되어 로컬 Docker 빌드 스크립트 불필요. Docker Desktop WSL2의 OOM/좀비 컨테이너 문제(3회 재현)도 회피.
+
 ### #58. 코딩 컨벤션 확립 + .clang-format 도입 + 전체 일괄 포맷팅
 - **등급**: MAJOR | **스코프**: core, shared, gateway, auth-svc, chat-svc, ci | **타입**: infra
 - **해결**: 2026-03-19 20:40:08 | **방식**: FIXED | **커밋**: d9edce2
