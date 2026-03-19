@@ -2,7 +2,7 @@
 
 **이슈**: BACKLOG-7 (Linux CI 확장), BACKLOG-9 (Windows apex_shared 미검증)
 **브랜치**: `feature/7-9-ci-pipeline`
-**작성일**: 2026-03-19
+**작성일**: 2026-03-19 21:55:38
 
 ---
 

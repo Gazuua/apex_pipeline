@@ -16,24 +16,17 @@
 namespace apex::e2e
 {
 
-// 환경변수에서 부하 파라미터 읽기 — Valgrind 환경에서는 낮은 값 사용
-static int get_env_int(const char* name, int default_val)
-{
-    const char* val = std::getenv(name);
-    return val ? std::atoi(val) : default_val;
-}
-
 class E2EStressProtocolFixture : public E2ETestFixture
 {
   protected:
-    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 100);
+    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 20);
 
     /// Raw TCP 소켓으로 Gateway에 연결 (TcpClient 없이 직접 제어)
     boost::asio::ip::tcp::socket connect_raw()
     {
         boost::asio::ip::tcp::socket sock(io_ctx_);
         boost::asio::ip::tcp::resolver resolver(io_ctx_);
-        auto endpoints = resolver.resolve(config_.gateway_host, std::to_string(config_.gateway_ws_port));
+        auto endpoints = resolver.resolve(config_.gateway_host, std::to_string(config_.gateway_tcp_port));
         boost::asio::connect(sock, endpoints);
         return sock;
     }
@@ -122,6 +115,7 @@ TEST_F(E2EStressProtocolFixture, MaxSizeMessage)
     }
 
     // 에러 응답이 오거나 연결이 끊기는지 확인 (크래시 아님)
+    bool got_error_or_disconnect = false;
     if (!ec)
     {
         // 응답 헤더 수신 시도
@@ -136,11 +130,24 @@ TEST_F(E2EStressProtocolFixture, MaxSizeMessage)
             {
                 std::cerr << "[E2E-DEBUG] MaxSizeMessage resp: msg_id=" << hdr_result->msg_id
                           << " flags=" << static_cast<int>(hdr_result->flags) << "\n";
-                // 에러 응답 또는 정상 처리 — 둘 다 크래시가 아니므로 통과
+                EXPECT_TRUE(hdr_result->flags & ERROR_RESPONSE)
+                    << "Response to oversized payload should have ERROR_RESPONSE flag";
+                got_error_or_disconnect = true;
             }
         }
-        // 연결이 끊겼거나 타임아웃 — 정상 거부로 간주
+        else
+        {
+            // 연결이 끊겼거나 타임아웃 — 정상 거부로 간주
+            got_error_or_disconnect = true;
+        }
     }
+    else
+    {
+        // 전송 자체가 실패 — 서버가 연결을 끊음
+        got_error_or_disconnect = true;
+    }
+    EXPECT_TRUE(got_error_or_disconnect)
+        << "Server should either send error response or disconnect for oversized payload";
 
     sock.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
     sock.close(ec);

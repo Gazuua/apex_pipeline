@@ -72,7 +72,7 @@ CI 파이프라인 전면 확장. build matrix 루트 빌드 통합, UBSAN prese
 ### Task 9 — Nightly Valgrind Workflow
 
 - `.github/workflows/nightly.yml` 신설
-- cron 스케줄: 매일 02:00 UTC + `workflow_dispatch` 수동 트리거
+- cron 스케줄: 매일 18:00 UTC (KST 03:00) + `workflow_dispatch` 수동 트리거
 - job 구성: `build` → `valgrind-unit` → `e2e` (unit + E2E + stress 순차 실행)
 - valgrind-unit: `ctest -LE "e2e|e2e_stress"` 단위 테스트만 memcheck
 - e2e: docker compose + apex_e2e_tests + apex_e2e_stress_tests

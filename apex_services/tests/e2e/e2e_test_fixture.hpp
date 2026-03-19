@@ -12,17 +12,12 @@
 #include <apex/shared/protocols/tcp/wire_header.hpp>
 
 #include <boost/asio/io_context.hpp>
-
-// Re-export wire_flags for test assertions
-namespace apex::e2e
-{
-using namespace apex::shared::protocols::tcp::wire_flags;
-} // namespace apex::e2e
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <thread>
@@ -31,7 +26,18 @@ using namespace apex::shared::protocols::tcp::wire_flags;
 namespace apex::e2e
 {
 
+// Re-export wire_flags for test assertions (e.g. ERROR_RESPONSE)
+using namespace apex::shared::protocols::tcp::wire_flags;
+
 using WireHeader = apex::shared::protocols::tcp::WireHeader;
+
+/// Read an integer from environment variable, returning default_val if unset.
+/// Centralized to avoid default-value drift across stress test files.
+inline int get_env_int(const char* name, int default_val)
+{
+    const char* val = std::getenv(name);
+    return val ? std::atoi(val) : default_val;
+}
 
 /// E2E test environment configuration.
 /// Ports match docker-compose.e2e.yml definitions.

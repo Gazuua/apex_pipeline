@@ -3,16 +3,16 @@ FROM ghcr.io/gazuua/apex-pipeline-ci:latest AS builder
 COPY . /src
 WORKDIR /src
 RUN cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
-    && cmake --build build/Linux/debug --target chat_svc_main
+    && cmake --build build/Linux/debug --target chat_svc_main \
+    && mkdir -p /out \
+    && cp build/Linux/debug/apex_services/chat-svc/chat_svc_main /out/chat_svc_main
 
 # ── Runtime stage ──
-# ARG PREBUILT_BIN: CI에서 사전 빌드된 바이너리 경로. 설정 시 builder stage 결과물 대신 사용.
 FROM ubuntu:24.04 AS runtime
-ARG PREBUILT_BIN=""
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 libpq5 libsasl2-2 libzstd1 libcurl4 netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
-COPY ${PREBUILT_BIN:-build/Linux/debug/bin/chat_svc_main} /app/chat_svc_main
+COPY --from=builder /out/chat_svc_main /app/chat_svc_main
 COPY apex_services/tests/e2e/chat_svc_e2e.toml /app/config.toml
 WORKDIR /app
 ENTRYPOINT ["/app/chat_svc_main", "config.toml"]

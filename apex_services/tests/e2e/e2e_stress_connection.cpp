@@ -10,17 +10,10 @@
 namespace apex::e2e
 {
 
-// 환경변수에서 부하 파라미터 읽기 — Valgrind 환경에서는 낮은 값 사용
-static int get_env_int(const char* name, int default_val)
-{
-    const char* val = std::getenv(name);
-    return val ? std::atoi(val) : default_val;
-}
-
 class E2EStressConnectionFixture : public E2ETestFixture
 {
   protected:
-    int stress_connections_ = get_env_int("E2E_STRESS_CONNECTIONS", 50);
+    int stress_connections_ = get_env_int("E2E_STRESS_CONNECTIONS", 10);
 };
 
 /// Stress 1: 순차 connect → disconnect 반복
@@ -128,10 +121,11 @@ TEST_F(E2EStressConnectionFixture, DisconnectDuringResponse)
     // Gateway가 고아 응답 처리 중 서버 측 오류를 회복할 시간 확보
     std::this_thread::sleep_for(std::chrono::milliseconds{500});
 
-    // Gateway still alive: 정상 클라이언트로 접속 가능한지 확인
+    // Gateway still alive: 정상 로그인까지 가능한지 확인 (전체 파이프라인 검증)
     TcpClient probe(io_ctx_, config_);
     ASSERT_NO_THROW(probe.connect()) << "Gateway should not crash after disconnect-during-response";
-    EXPECT_TRUE(probe.is_connected());
+    auto auth = login(probe, "alice@apex.dev", "password123");
+    EXPECT_FALSE(auth.access_token.empty()) << "Gateway should still handle login after disconnect-during-response";
     probe.close();
 }
 

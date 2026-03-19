@@ -214,7 +214,10 @@ jobs:
           nohup artifacts/gateway/apex_gateway apex_services/tests/e2e/gateway_e2e.toml > /tmp/gateway.log 2>&1 &
           nohup artifacts/auth-svc/auth_svc_main apex_services/tests/e2e/auth_svc_e2e.toml > /tmp/auth.log 2>&1 &
           nohup artifacts/chat-svc/chat_svc_main apex_services/tests/e2e/chat_svc_e2e.toml > /tmp/chat.log 2>&1 &
-          sleep 20  # Kafka consumer rebalance + 서비스 초기화 대기
+
+          # Gateway TCP 포트 대기 (최대 60초) + Kafka consumer rebalance 여유
+          timeout 60 bash -c 'until nc -z 127.0.0.1 8443 2>/dev/null; do sleep 1; done'
+          sleep 5  # Kafka consumer rebalance 추가 대기
 
       - name: Run E2E tests
         run: |

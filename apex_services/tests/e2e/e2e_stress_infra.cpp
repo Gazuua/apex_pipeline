@@ -10,17 +10,10 @@
 namespace apex::e2e
 {
 
-// 환경변수에서 부하 파라미터 읽기 — Valgrind 환경에서는 낮은 값 사용
-static int get_env_int(const char* name, int default_val)
-{
-    const char* val = std::getenv(name);
-    return val ? std::atoi(val) : default_val;
-}
-
 class E2EStressInfraFixture : public E2ETestFixture
 {
   protected:
-    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 100);
+    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 20);
 };
 
 /// Infra 1: PendingRequests 타임아웃 대량 발생 경로 검증

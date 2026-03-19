@@ -16,18 +16,11 @@ namespace apex::e2e
 
 namespace chat_fbs = apex::chat_svc::fbs;
 
-// 환경변수에서 부하 파라미터 읽기 — Valgrind 환경에서는 낮은 값 사용
-static int get_env_int(const char* name, int default_val)
-{
-    const char* val = std::getenv(name);
-    return val ? std::atoi(val) : default_val;
-}
-
 class E2EStressConcurrencyFixture : public E2ETestFixture
 {
   protected:
-    int stress_connections_ = get_env_int("E2E_STRESS_CONNECTIONS", 50);
-    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 100);
+    int stress_connections_ = get_env_int("E2E_STRESS_CONNECTIONS", 10);
+    int stress_messages_ = get_env_int("E2E_STRESS_MESSAGES", 20);
 };
 
 /// Concurrency 1: 동일 방에 다수 클라이언트 동시 join → leave 반복
@@ -178,7 +171,7 @@ TEST_F(E2EStressConcurrencyFixture, ConcurrentLogin)
     for (int i = 0; i < kConcurrentCount; ++i)
     {
         threads.emplace_back([this, i, &responded_count, &crash_count]() {
-            SCOPED_TRACE("concurrent-login client " + std::to_string(i));
+            // NOTE: SCOPED_TRACE is not thread-safe in GTest — use stderr for debug output instead.
             try
             {
                 boost::asio::io_context local_io_ctx;

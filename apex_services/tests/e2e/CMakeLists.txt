@@ -88,13 +88,13 @@ endif()
 # Run only E2E: ctest -L e2e
 # Exclude E2E: ctest -LE e2e
 gtest_discover_tests(apex_e2e_tests
-    PROPERTIES LABELS "e2e"
+    PROPERTIES LABELS "e2e" TIMEOUT 120
     DISCOVERY_TIMEOUT 60
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
 gtest_discover_tests(apex_e2e_stress_tests
-    PROPERTIES LABELS "e2e;e2e_stress"
+    PROPERTIES LABELS "e2e;e2e_stress" TIMEOUT 300
     DISCOVERY_TIMEOUT 60
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
