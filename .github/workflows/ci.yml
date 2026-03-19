@@ -201,24 +201,20 @@ jobs:
       - name: Make binaries executable
         run: chmod +x artifacts/gateway/apex_gateway artifacts/auth-svc/auth_svc_main artifacts/chat-svc/chat_svc_main artifacts/tests/e2e/apex_e2e_tests
 
-      - name: Build service Docker images (runtime only, builder skipped)
+      # 인프라만 Docker로 기동 (Kafka, Redis×4, PostgreSQL)
+      # 서비스(Gateway, Auth, Chat)는 호스트에서 직접 실행 — Docker 이미지 빌드 불필요
+      - name: Start infrastructure
         run: |
-          docker build -f apex_infra/docker/gateway.Dockerfile \
-            --target runtime \
-            --build-arg PREBUILT_BIN=artifacts/gateway/apex_gateway \
-            -t apex-gateway:e2e .
-          docker build -f apex_infra/docker/auth-svc.Dockerfile \
-            --target runtime \
-            --build-arg PREBUILT_BIN=artifacts/auth-svc/auth_svc_main \
-            -t apex-auth-svc:e2e .
-          docker build -f apex_infra/docker/chat-svc.Dockerfile \
-            --target runtime \
-            --build-arg PREBUILT_BIN=artifacts/chat-svc/chat_svc_main \
-            -t apex-chat-svc:e2e .
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d \
+            kafka redis-auth redis-ratelimit redis-chat redis-pubsub postgres \
+            --wait --timeout 120
 
-      - name: Start E2E infrastructure
+      - name: Start services
         run: |
-          docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait --timeout 120
+          artifacts/gateway/apex_gateway apex_services/tests/e2e/gateway_e2e.toml &
+          artifacts/auth-svc/auth_svc_main apex_services/tests/e2e/auth_svc_e2e.toml &
+          artifacts/chat-svc/chat_svc_main apex_services/tests/e2e/chat_svc_e2e.toml &
+          sleep 10  # 서비스 초기화 대기
 
       - name: Run E2E tests
         run: |
@@ -230,7 +226,11 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v
+        run: |
+          pkill -f apex_gateway || true
+          pkill -f auth_svc_main || true
+          pkill -f chat_svc_main || true
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v
 
       - name: Upload test results
         if: always()
