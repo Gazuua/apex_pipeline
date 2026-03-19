@@ -1,0 +1,49 @@
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+
+# Allman brace (람다 제외)
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# 레이아웃
+ColumnLimit: 120
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: true
+NamespaceIndentation: None
+
+# 생성자 이니셜라이저
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+
+# 포인터/참조
+PointerAlignment: Left
+
+# include 정렬
+SortIncludes: CaseInsensitive
+IncludeBlocks: Preserve
+
+# 기타
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlignTrailingComments: true
+SpaceAfterCStyleCast: false
