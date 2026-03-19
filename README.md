@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.7.0
+## 현재 상태 — v0.5.8.0
 
 ### 완료
 
@@ -139,6 +139,14 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 컴파일러 경고 전수 수정 (missing-field-initializers, unused-parameter, redundant-move 등)
   - FileWatcher flaky 테스트 수정 (NTFS 타임스탬프 캐싱 우회)
   - 71/71 유닛 통과 + CI 전체 통과 (GCC, ASAN, TSAN, MSVC)
+
+- **v0.5.8.0 — CI 파이프라인 확장**
+  - build matrix 루트 빌드 통합 (apex_core + apex_shared 동시 검증, MSVC 포함)
+  - UBSAN CMake preset 추가 (`linux-ubsan`)
+  - 서비스 Dockerfile 3개 (Gateway/Auth/Chat) + docker-compose.e2e.yml Docker 기반 서비스 기동
+  - CI E2E job: docker compose `--wait` 기동 후 `apex_e2e_tests` 실행
+  - Nightly Valgrind workflow: unit + E2E + 스트레스 12개 (cron + workflow_dispatch)
+  - 71/71 유닛 테스트 통과 + CI 전체 통과
 
 ## 아키텍처
 

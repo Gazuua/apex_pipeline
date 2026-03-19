@@ -1,0 +1,179 @@
+name: Nightly Valgrind
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: '0 18 * * *'   # UTC 18:00 = KST 03:00
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'Valgrind 범위'
+        type: choice
+        options:
+          - all
+          - unit-only
+          - e2e-only
+        default: all
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gazuua/apex-pipeline-ci:latest
+    env:
+      VCPKG_ROOT: /opt/vcpkg
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
+
+      - name: Build
+        run: cmake --build build/Linux/debug
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-build
+          path: |
+            build/Linux/debug/**/apex_gateway
+            build/Linux/debug/**/auth_svc_main
+            build/Linux/debug/**/chat_svc_main
+            build/Linux/debug/**/apex_e2e_tests
+            build/Linux/debug/**/apex_e2e_stress_tests
+            build/Linux/debug/**/test_*
+            build/Linux/debug/**/CTestTestfile.cmake
+          retention-days: 1
+
+  valgrind-unit:
+    permissions:
+      contents: read
+    needs: build
+    if: >-
+      github.event.inputs.scope == 'all' ||
+      github.event.inputs.scope == 'unit-only' ||
+      github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/gazuua/apex-pipeline-ci:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-build
+          path: build/Linux/debug
+
+      - name: Make binaries executable
+        run: |
+          find build/Linux/debug -type f \( -name 'test_*' -o -name 'apex_*' -o -name 'auth_*' -o -name 'chat_*' \) ! -name '*.cmake' ! -name '*.txt' | xargs chmod +x 2>/dev/null || true
+
+      - name: Install Valgrind
+        run: apt-get update && apt-get install -y valgrind
+
+      # Note: --test-dir 사용 (--preset 대신) — ctest -T MemCheck + --overwrite 조합이
+      # test preset과 호환되지 않으므로 --test-dir로 직접 지정.
+      - name: Run unit tests under Valgrind
+        run: |
+          ctest --test-dir build/Linux/debug \
+            -LE "e2e|e2e_stress" \
+            --overwrite MemoryCheckCommand=valgrind \
+            --overwrite MemoryCheckCommandOptions="--tool=memcheck --leak-check=full --error-exitcode=1" \
+            -T MemCheck \
+            --output-on-failure
+
+  valgrind-e2e:
+    permissions:
+      contents: read
+    needs: build
+    if: >-
+      github.event.inputs.scope == 'all' ||
+      github.event.inputs.scope == 'e2e-only' ||
+      github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-build
+          path: build/Linux/debug
+
+      - name: Make binaries executable
+        run: |
+          find build/Linux/debug -type f \( -name 'apex_*' -o -name 'auth_*' -o -name 'chat_*' -o -name 'test_*' \) ! -name '*.cmake' ! -name '*.txt' | xargs chmod +x 2>/dev/null || true
+
+      - name: Install Valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      # 인프라만 Docker로 기동 (Kafka, Redis x4, PostgreSQL)
+      # 서비스는 Valgrind 하에서 호스트 직접 실행 — Docker 네트워크 localhost 이슈 회피
+      - name: Start infrastructure
+        run: |
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d \
+            kafka redis-auth redis-ratelimit redis-chat redis-pubsub postgres \
+            --wait --timeout 120
+
+      - name: Start services under Valgrind
+        run: |
+          nohup valgrind --tool=memcheck --leak-check=full --error-exitcode=1 \
+            build/Linux/debug/apex_services/gateway/apex_gateway \
+            apex_services/tests/e2e/gateway_e2e.toml > /tmp/gateway.log 2>&1 &
+          nohup valgrind --tool=memcheck --leak-check=full --error-exitcode=1 \
+            build/Linux/debug/apex_services/auth-svc/auth_svc_main \
+            apex_services/tests/e2e/auth_svc_e2e.toml > /tmp/auth.log 2>&1 &
+          nohup valgrind --tool=memcheck --leak-check=full --error-exitcode=1 \
+            build/Linux/debug/apex_services/chat-svc/chat_svc_main \
+            apex_services/tests/e2e/chat_svc_e2e.toml > /tmp/chat.log 2>&1 &
+
+          # Valgrind 하에서는 기동이 느리므로 Gateway TCP 포트 대기 (최대 120초)
+          timeout 120 bash -c 'until nc -z 127.0.0.1 8443 2>/dev/null; do sleep 2; done'
+          sleep 10  # Kafka consumer rebalance 추가 대기
+
+      - name: Run E2E tests
+        run: |
+          build/Linux/debug/apex_services/tests/e2e/apex_e2e_tests
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "120"
+          E2E_REQUEST_TIMEOUT: "60"
+
+      - name: Run stress tests
+        run: |
+          build/Linux/debug/apex_services/tests/e2e/apex_e2e_stress_tests
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "120"
+          E2E_REQUEST_TIMEOUT: "60"
+          E2E_STRESS_CONNECTIONS: "10"
+          E2E_STRESS_MESSAGES: "20"
+          E2E_STRESS_TIMEOUT_SEC: "600"
+
+      - name: Service logs (debug)
+        if: always()
+        run: |
+          echo "=== Gateway ===" && tail -50 /tmp/gateway.log 2>/dev/null || true
+          echo "=== Auth ===" && tail -50 /tmp/auth.log 2>/dev/null || true
+          echo "=== Chat ===" && tail -50 /tmp/chat.log 2>/dev/null || true
+
+      - name: Teardown
+        if: always()
+        run: |
+          pkill -f apex_gateway || true
+          pkill -f auth_svc_main || true
+          pkill -f chat_svc_main || true
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v

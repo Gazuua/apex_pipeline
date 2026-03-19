@@ -1,0 +1,28 @@
+# Valgrind override for nightly E2E
+# Usage: docker compose -f docker-compose.e2e.yml -f docker-compose.valgrind.yml up -d --build
+
+services:
+  gateway:
+    build:
+      target: valgrind
+    environment:
+      - APEX_REQUEST_TIMEOUT_MS=60000
+    healthcheck:
+      interval: 15s
+      timeout: 30s
+      retries: 15
+      start_period: 60s
+
+  auth-svc:
+    build:
+      target: valgrind
+
+  chat-svc:
+    build:
+      target: valgrind
+
+  kafka:
+    healthcheck:
+      interval: 15s
+      timeout: 10s
+      retries: 15

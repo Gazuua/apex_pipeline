@@ -25,6 +25,32 @@ static ConfigureContext make_cfg_ctx(Server& server, uint32_t core_id, PerCoreSt
     return ConfigureContext{server, core_id, pcs};
 }
 
+// UBSAN-safe 더미 참조 — reinterpret_cast<T*>(0x1)는 정렬 UB.
+// 테스트에서 실제 접근하지 않는 필드에 대해 aligned storage를 사용.
+// NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+alignas(Server) static char dummy_server_storage[sizeof(Server)]{};
+alignas(ServiceRegistry) static char dummy_registry_storage[sizeof(ServiceRegistry)]{};
+alignas(ServiceRegistryView) static char dummy_registry_view_storage[sizeof(ServiceRegistryView)]{};
+alignas(PeriodicTaskScheduler) static char dummy_scheduler_storage[sizeof(PeriodicTaskScheduler)]{};
+
+static Server& dummy_server()
+{
+    return *reinterpret_cast<Server*>(dummy_server_storage);
+}
+static ServiceRegistry& dummy_registry()
+{
+    return *reinterpret_cast<ServiceRegistry*>(dummy_registry_storage);
+}
+static ServiceRegistryView& dummy_registry_view()
+{
+    return *reinterpret_cast<ServiceRegistryView*>(dummy_registry_view_storage);
+}
+static PeriodicTaskScheduler& dummy_scheduler()
+{
+    return *reinterpret_cast<PeriodicTaskScheduler*>(dummy_scheduler_storage);
+}
+// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+
 // ── 테스트용 서비스 정의 ──────────────────────────────────────────────────────
 
 /// 최소 서비스: on_start만 오버라이드.
@@ -171,17 +197,17 @@ TEST(ServiceLifecycle, DefaultHooksAreNoOp)
                      /*timer_wheel_slots=*/64, /*recv_buf_capacity=*/4096,
                      /*bump_capacity=*/4096, /*arena_block=*/1024, /*arena_max=*/4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), // 테스트에서 server는 접근하지 않음
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), // 테스트에서 server는 접근하지 않음
                                 0, pcs);
     svc->bind_io_context(test_io);
     // on_configure 기본 구현은 no-op — 크래시 없어야 함
     svc->internal_configure(cfg_ctx);
 
-    WireContext wire_ctx{.server = *reinterpret_cast<Server*>(0x1),
+    WireContext wire_ctx{.server = dummy_server(),
                          .core_id = 0,
-                         .local_registry = *reinterpret_cast<ServiceRegistry*>(0x1),
-                         .global_registry = *reinterpret_cast<ServiceRegistryView*>(0x1),
-                         .scheduler = *reinterpret_cast<PeriodicTaskScheduler*>(0x1)};
+                         .local_registry = dummy_registry(),
+                         .global_registry = dummy_registry_view(),
+                         .scheduler = dummy_scheduler()};
     // on_wire 기본 구현은 no-op — 크래시 없어야 함
     svc->internal_wire(wire_ctx);
 
@@ -196,13 +222,13 @@ TEST(ServiceLifecycle, LifecycleOrderTracking)
 
     PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
-    WireContext wire_ctx{.server = *reinterpret_cast<Server*>(0x1),
+    WireContext wire_ctx{.server = dummy_server(),
                          .core_id = 0,
-                         .local_registry = *reinterpret_cast<ServiceRegistry*>(0x1),
-                         .global_registry = *reinterpret_cast<ServiceRegistryView*>(0x1),
-                         .scheduler = *reinterpret_cast<PeriodicTaskScheduler*>(0x1)};
+                         .local_registry = dummy_registry(),
+                         .global_registry = dummy_registry_view(),
+                         .scheduler = dummy_scheduler()};
 
     svc->internal_configure(cfg_ctx);
     svc->internal_wire(wire_ctx);
@@ -231,7 +257,7 @@ TEST(ServiceLifecycle, InternalConfigureBindsPerCoreState)
 
     PerCoreState pcs(/*id=*/7, 0, 64, 4096, 4096, 1024, 4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 7, pcs);
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), 7, pcs);
     svc->bind_io_context(test_io);
 
     svc->internal_configure(cfg_ctx);
@@ -282,7 +308,7 @@ TEST(ServiceLifecycle, SpawnExecutesCoroutine)
 
     PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
     svc->internal_configure(cfg_ctx);
     EXPECT_TRUE(svc->configured);
@@ -309,7 +335,7 @@ TEST(ServiceLifecycle, SpawnOutstandingCounterTracksMultiple)
 
     PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
     svc->internal_configure(cfg_ctx);
 
@@ -334,7 +360,7 @@ TEST(ServiceLifecycle, SpawnExceptionDoesNotLeak)
 
     PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
     boost::asio::io_context test_io;
-    auto cfg_ctx = make_cfg_ctx(*reinterpret_cast<Server*>(0x1), 0, pcs);
+    auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
     svc->internal_configure(cfg_ctx);
 

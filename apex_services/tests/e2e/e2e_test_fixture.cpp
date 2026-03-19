@@ -11,176 +11,46 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
 
 #ifdef _WIN32
-#include <WinSock2.h>
-#else
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <unistd.h>
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <Windows.h>
 #endif
 
 namespace apex::e2e
 {
 
 // ---------------------------------------------------------------------------
+// E2EConfig factory
+// ---------------------------------------------------------------------------
+
+E2EConfig E2EConfig::from_env()
+{
+    E2EConfig cfg;
+    if (auto* v = std::getenv("E2E_GATEWAY_HOST"))
+        cfg.gateway_host = v;
+    if (auto* v = std::getenv("E2E_GATEWAY_TCP_PORT"))
+        cfg.gateway_tcp_port = static_cast<uint16_t>(std::atoi(v));
+    if (auto* v = std::getenv("E2E_GATEWAY_WS_PORT"))
+        cfg.gateway_ws_port = static_cast<uint16_t>(std::atoi(v));
+    if (auto* v = std::getenv("E2E_STARTUP_TIMEOUT"))
+        cfg.startup_timeout = std::chrono::seconds{std::atoi(v)};
+    if (auto* v = std::getenv("E2E_REQUEST_TIMEOUT"))
+        cfg.request_timeout = std::chrono::seconds{std::atoi(v)};
+    return cfg;
+}
+
+// ---------------------------------------------------------------------------
 // E2EEnvironment static members
 // ---------------------------------------------------------------------------
 
 E2EConfig E2EEnvironment::config_{};
-ChildProcess E2EEnvironment::gateway_proc_{};
-ChildProcess E2EEnvironment::auth_proc_{};
-ChildProcess E2EEnvironment::chat_proc_{};
 bool E2EEnvironment::ready_{false};
-
-// ---------------------------------------------------------------------------
-// Process management
-// ---------------------------------------------------------------------------
-
-ChildProcess E2EEnvironment::launch_service(const std::string& name, const std::string& exe_path,
-                                            const std::string& config_path)
-{
-    ChildProcess proc;
-    proc.name = name;
-
-#ifdef _WIN32
-    // Launch the service EXE directly (not via cmd.exe wrapper) so that
-    // TerminateProcess kills the actual service, not a cmd.exe shell.
-    // I/O redirection is done via STARTUPINFO file handles.
-
-    // service name 매핑 (프로세스명 → TOML service_name)
-    auto svc_name = name;
-    std::transform(svc_name.begin(), svc_name.end(), svc_name.begin(), ::tolower);
-    if (svc_name == "authservice")
-        svc_name = "auth-svc";
-    else if (svc_name == "chatservice")
-        svc_name = "chat-svc";
-
-    // 날짜 접두사
-    auto now = std::chrono::system_clock::now();
-    auto tt = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_s(&tm, &tt);
-    char date_buf[9];
-    std::strftime(date_buf, sizeof(date_buf), "%Y%m%d", &tm);
-
-    std::string log_dir = "logs/" + svc_name;
-    if (!config_.project_root.empty())
-    {
-        log_dir = config_.project_root + "/" + log_dir;
-    }
-    std::filesystem::create_directories(log_dir);
-
-    std::string log_file_path = log_dir + "/" + std::string(date_buf) + "_e2e.log";
-
-    SECURITY_ATTRIBUTES sa{};
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = TRUE;
-    HANDLE hLog = ::CreateFileA(log_file_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &sa, CREATE_ALWAYS,
-                                FILE_ATTRIBUTE_NORMAL, nullptr);
-
-    std::string cmd_line = exe_path + " " + config_path;
-
-    STARTUPINFOA si{};
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
-    si.wShowWindow = SW_HIDE;
-    si.hStdOutput = hLog;
-    si.hStdError = hLog;
-    si.hStdInput = INVALID_HANDLE_VALUE;
-
-    const char* work_dir = config_.project_root.empty() ? nullptr : config_.project_root.c_str();
-
-    BOOL ok = ::CreateProcessA(nullptr, cmd_line.data(), nullptr, nullptr, TRUE /* bInheritHandles */, CREATE_NO_WINDOW,
-                               nullptr, work_dir, &si, &proc.proc_info);
-
-    if (hLog != INVALID_HANDLE_VALUE)
-    {
-        ::CloseHandle(hLog); // Child inherited the handle; parent closes its copy
-    }
-
-    if (ok)
-    {
-        proc.launched = true;
-        ::CloseHandle(proc.proc_info.hThread);
-        proc.proc_info.hThread = nullptr;
-        std::cout << "[E2E] Launched " << name << " (PID " << proc.proc_info.dwProcessId << ")\n";
-    }
-    else
-    {
-        std::cerr << "[E2E] Failed to launch " << name << " (error " << ::GetLastError() << ")\n";
-    }
-#else
-    pid_t pid = ::fork();
-    if (pid == 0)
-    {
-        if (!config_.project_root.empty())
-        {
-            if (::chdir(config_.project_root.c_str()) != 0)
-            {
-                std::cerr << "[E2E] chdir failed for " << name << "\n";
-                ::_exit(1);
-            }
-        }
-        ::execl(exe_path.c_str(), exe_path.c_str(), config_path.c_str(), nullptr);
-        std::cerr << "[E2E] execl failed for " << name << "\n";
-        ::_exit(1);
-    }
-    else if (pid > 0)
-    {
-        proc.pid = pid;
-        proc.launched = true;
-        std::cout << "[E2E] Launched " << name << " (PID " << pid << ")\n";
-    }
-    else
-    {
-        std::cerr << "[E2E] fork failed for " << name << "\n";
-    }
-#endif
-
-    return proc;
-}
-
-void E2EEnvironment::terminate_service(ChildProcess& proc)
-{
-    if (!proc.launched)
-    {
-        return;
-    }
-
-#ifdef _WIN32
-    if (proc.proc_info.hProcess)
-    {
-        ::TerminateProcess(proc.proc_info.hProcess, 0);
-        ::WaitForSingleObject(proc.proc_info.hProcess, 3000);
-        ::CloseHandle(proc.proc_info.hProcess);
-        proc.proc_info.hProcess = nullptr;
-        std::cout << "[E2E] Terminated " << proc.name << "\n";
-    }
-#else
-    if (proc.pid > 0)
-    {
-        ::kill(proc.pid, SIGTERM);
-        int status = 0;
-        for (int i = 0; i < 30; ++i)
-        {
-            pid_t result = ::waitpid(proc.pid, &status, WNOHANG);
-            if (result != 0)
-                break;
-            std::this_thread::sleep_for(std::chrono::milliseconds{100});
-        }
-        ::kill(proc.pid, SIGKILL);
-        ::waitpid(proc.pid, &status, 0);
-        std::cout << "[E2E] Terminated " << proc.name << "\n";
-    }
-#endif
-
-    proc.launched = false;
-}
 
 // ---------------------------------------------------------------------------
 // Global environment lifecycle (once for all tests)
@@ -188,30 +58,10 @@ void E2EEnvironment::terminate_service(ChildProcess& proc)
 
 void E2EEnvironment::SetUp()
 {
-    // 1. Start infrastructure via docker-compose
-    std::cout << "[E2E] Starting infrastructure (global)...\n";
-    int rc = std::system("docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d "
-                         "--wait --timeout 60");
-    ASSERT_EQ(rc, 0) << "docker-compose failed to start";
+    config_ = E2EConfig::from_env();
 
-    // 2. Create Kafka topics
-    std::cout << "[E2E] Creating Kafka topics...\n";
-    rc = std::system("docker compose -f apex_infra/docker/docker-compose.e2e.yml "
-                     "exec -T kafka //init-kafka.sh");
-    if (rc != 0)
-    {
-        std::cerr << "[E2E] Warning: Kafka topic creation returned non-zero "
-                  << "(auto-create may handle it)\n";
-    }
+    std::cout << "[E2E] Waiting for Gateway at " << config_.gateway_host << ":" << config_.gateway_tcp_port << "...\n";
 
-    // 3. Start Gateway, Auth Service, Chat Service processes
-    std::cout << "[E2E] Starting Gateway and services...\n";
-    gateway_proc_ = launch_service("Gateway", config_.gateway_exe, config_.gateway_config);
-    auth_proc_ = launch_service("AuthService", config_.auth_svc_exe, config_.auth_svc_config);
-    chat_proc_ = launch_service("ChatService", config_.chat_svc_exe, config_.chat_svc_config);
-
-    // 4. Wait for Gateway to accept connections
-    std::cout << "[E2E] Waiting for services to be ready...\n";
     auto deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
     bool gateway_ready = false;
 
@@ -222,7 +72,7 @@ void E2EEnvironment::SetUp()
             boost::asio::io_context probe_ctx;
             boost::asio::ip::tcp::socket probe_sock(probe_ctx);
             boost::asio::ip::tcp::endpoint ep(boost::asio::ip::make_address(config_.gateway_host),
-                                              config_.gateway_ws_port);
+                                              config_.gateway_tcp_port);
             probe_sock.connect(ep);
             probe_sock.close();
             gateway_ready = true;
@@ -234,33 +84,64 @@ void E2EEnvironment::SetUp()
         }
     }
 
-    if (!gateway_ready)
+    ASSERT_TRUE(gateway_ready) << "Gateway not reachable within timeout";
+
+    // Kafka 파이프라인 warm-up: 로그인 요청을 보내서 실제 응답이 올 때까지 재시도.
+    // Kafka consumer rebalance + 토픽 auto-create + response consumer 준비를 모두 확인.
+    std::cout << "[E2E] Warming up Kafka pipeline (login probe)...\n";
+    auto warmup_deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
+    bool pipeline_ready = false;
+
+    while (std::chrono::steady_clock::now() < warmup_deadline)
     {
-        std::cerr << "[E2E] Warning: Could not connect to Gateway at " << config_.gateway_host << ":"
-                  << config_.gateway_ws_port << " within timeout. Tests may fail.\n";
+        try
+        {
+            boost::asio::io_context warmup_io;
+            E2ETestFixture::TcpClient warmup_client(warmup_io, config_);
+            warmup_client.connect();
+
+            // LoginRequest: alice@apex.dev / password123
+            flatbuffers::FlatBufferBuilder fbb(256);
+            auto email_off = fbb.CreateString("alice@apex.dev");
+            auto pw_off = fbb.CreateString("password123");
+            auto start = fbb.StartTable();
+            fbb.AddOffset(4, email_off);
+            fbb.AddOffset(6, pw_off);
+            auto loc = fbb.EndTable(start);
+            fbb.Finish(flatbuffers::Offset<void>(loc));
+            warmup_client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
+
+            auto resp = warmup_client.recv(std::chrono::seconds{5});
+            if (resp.msg_id == 1001)
+            {
+                pipeline_ready = true;
+                std::cout << "[E2E] Kafka pipeline ready (login response received).\n";
+                break;
+            }
+        }
+        catch (...)
+        {
+            // 타임아웃 또는 연결 실패 — 재시도
+        }
+        std::this_thread::sleep_for(std::chrono::seconds{2});
     }
 
-    // 5. Wait for Kafka consumers + service handlers to fully initialize.
-    //    Single wait (not per-suite) — Docker stays up for all tests.
-    std::this_thread::sleep_for(std::chrono::seconds{8});
+    if (!pipeline_ready)
+    {
+        std::cerr << "[E2E] Warning: Kafka pipeline warm-up failed. Tests may fail.\n";
+    }
+
+    // PubSub + consumer 안정화 추가 대기
+    std::this_thread::sleep_for(std::chrono::seconds{3});
 
     ready_ = true;
-    std::cout << "[E2E] Infrastructure ready (global).\n";
+    std::cout << "[E2E] Infrastructure ready.\n";
 }
 
 void E2EEnvironment::TearDown()
 {
-    // 1. Terminate service processes
-    std::cout << "[E2E] Stopping services (global)...\n";
-    terminate_service(chat_proc_);
-    terminate_service(auth_proc_);
-    terminate_service(gateway_proc_);
-
-    // 2. Tear down docker-compose
-    std::cout << "[E2E] Stopping infrastructure (global)...\n";
-    std::system("docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v");
-
     ready_ = false;
+    std::cout << "[E2E] Tests complete.\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +184,7 @@ E2ETestFixture::TcpClient::~TcpClient()
 void E2ETestFixture::TcpClient::connect()
 {
     boost::asio::ip::tcp::resolver resolver(io_ctx_);
-    auto endpoints = resolver.resolve(config_.gateway_host, std::to_string(config_.gateway_ws_port));
+    auto endpoints = resolver.resolve(config_.gateway_host, std::to_string(config_.gateway_tcp_port));
     boost::asio::connect(socket_, endpoints);
     connected_ = true;
 }

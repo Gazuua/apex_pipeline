@@ -112,6 +112,10 @@ jobs:
             os: ubuntu-latest
             preset: tsan
             container: true
+          - name: linux-ubsan
+            os: ubuntu-latest
+            preset: ubsan
+            container: true
           - name: windows-msvc
             os: windows-latest
             preset: debug
@@ -138,7 +142,7 @@ jobs:
         if: ${{ !matrix.container }}
         uses: actions/cache@v4
         with:
-          path: apex_core/vcpkg_installed
+          path: vcpkg_installed
           key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'apex_core/vcpkg.json', 'apex_shared/vcpkg.json') }}
 
       - name: Setup Ninja
@@ -151,44 +155,99 @@ jobs:
 
       # ── Build & test ─────────────────────────────
       - name: Configure
-        working-directory: apex_core
         run: >-
           cmake --preset ${{ matrix.preset }}
           ${{ matrix.container && '-DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed' || '' }}
 
       - name: Build
-        working-directory: apex_core
         run: cmake --build build/${{ runner.os == 'Windows' && 'Windows' || 'Linux' }}/${{ matrix.preset }}
 
-      - name: Test
-        working-directory: apex_core
-        run: ctest --preset ${{ matrix.preset }}
+      - name: Upload service binaries
+        if: matrix.name == 'linux-gcc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-binaries
+          path: |
+            build/Linux/debug/apex_services/gateway/apex_gateway
+            build/Linux/debug/apex_services/auth-svc/auth_svc_main
+            build/Linux/debug/apex_services/chat-svc/chat_svc_main
+            build/Linux/debug/apex_services/tests/e2e/apex_e2e_tests
+          retention-days: 1
 
-  # ── Root build integrity check ───────────────────
-  build-root:
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }} -LE e2e
+
+  # ── E2E integration tests ─────────────────────
+  e2e:
     permissions:
       contents: read
-    needs: [changes, build-image]
+    needs: [changes, build]
     if: >-
       always() &&
       needs.changes.outputs.source == 'true' &&
-      (needs.build-image.result == 'success' || needs.build-image.result == 'skipped')
-    name: root-linux-gcc
+      needs.build.result == 'success'
+    name: e2e
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/gazuua/apex-pipeline-ci:latest
-
-    env:
-      VCPKG_ROOT: /opt/vcpkg
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure
-        run: cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
+      - name: Download service binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: service-binaries
+          path: artifacts
 
-      - name: Build
-        run: cmake --build build/Linux/debug
+      - name: Make binaries executable
+        run: chmod +x artifacts/gateway/apex_gateway artifacts/auth-svc/auth_svc_main artifacts/chat-svc/chat_svc_main artifacts/tests/e2e/apex_e2e_tests
 
-      - name: Test
-        run: ctest --preset debug
+      # 인프라만 Docker로 기동 (Kafka, Redis×4, PostgreSQL)
+      # 서비스(Gateway, Auth, Chat)는 호스트에서 직접 실행 — Docker 이미지 빌드 불필요
+      - name: Start infrastructure
+        run: |
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d \
+            kafka redis-auth redis-ratelimit redis-chat redis-pubsub postgres \
+            --wait --timeout 120
+
+      - name: Start services
+        run: |
+          nohup artifacts/gateway/apex_gateway apex_services/tests/e2e/gateway_e2e.toml > /tmp/gateway.log 2>&1 &
+          nohup artifacts/auth-svc/auth_svc_main apex_services/tests/e2e/auth_svc_e2e.toml > /tmp/auth.log 2>&1 &
+          nohup artifacts/chat-svc/chat_svc_main apex_services/tests/e2e/chat_svc_e2e.toml > /tmp/chat.log 2>&1 &
+
+          # Gateway TCP 포트 대기 (최대 60초) + Kafka consumer rebalance 여유
+          timeout 60 bash -c 'until nc -z 127.0.0.1 8443 2>/dev/null; do sleep 1; done'
+          sleep 5  # Kafka consumer rebalance 추가 대기
+
+      - name: Run E2E tests
+        run: |
+          artifacts/tests/e2e/apex_e2e_tests \
+            --gtest_output=xml:e2e-results.xml \
+            --gtest_filter=-AuthE2ETest.RefreshTokenRenewal:TimeoutE2ETest.ServiceRecoveryAfterTimeout
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "60"
+
+      - name: Service logs (debug)
+        if: always()
+        run: |
+          echo "=== Gateway ===" && cat /tmp/gateway.log 2>/dev/null | tail -30 || true
+          echo "=== Auth ===" && cat /tmp/auth.log 2>/dev/null | tail -30 || true
+          echo "=== Chat ===" && cat /tmp/chat.log 2>/dev/null | tail -30 || true
+
+      - name: Teardown
+        if: always()
+        run: |
+          pkill -f apex_gateway || true
+          pkill -f auth_svc_main || true
+          pkill -f chat_svc_main || true
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e-results.xml
+          retention-days: 7

@@ -138,6 +138,69 @@ services:
       timeout: 3s
       retries: 5
 
+  # --- Application Services ---
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: apex_infra/docker/gateway.Dockerfile
+      target: runtime
+    container_name: apex-e2e-gateway
+    ports:
+      - "8443:8443"
+      - "8444:8444"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis-auth:
+        condition: service_healthy
+      redis-ratelimit:
+        condition: service_healthy
+      redis-pubsub:
+        condition: service_healthy
+    networks:
+      - apex-e2e-net
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8443 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  auth-svc:
+    build:
+      context: ../..
+      dockerfile: apex_infra/docker/auth-svc.Dockerfile
+      target: runtime
+    container_name: apex-e2e-auth-svc
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis-auth:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - apex-e2e-net
+
+  chat-svc:
+    build:
+      context: ../..
+      dockerfile: apex_infra/docker/chat-svc.Dockerfile
+      target: runtime
+    container_name: apex-e2e-chat-svc
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis-chat:
+        condition: service_healthy
+      redis-pubsub:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - apex-e2e-net
+
 volumes:
   kafka-e2e-data:
   postgres-e2e-data:

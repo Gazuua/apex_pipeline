@@ -4,25 +4,18 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 98
+다음 발번: 99
 
 ---
 
 ## NOW
 
-### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
+### #98. CI E2E 타이밍 민감 테스트 안정화
 - **등급**: MAJOR
-- **스코프**: ci, infra
-- **타입**: infra
-- **연관**: #9
-- **설명**: ① E2E-in-CI docker-compose 기동 + ctest -L e2e ② UBSAN 플래그 누락 교정 ③ Valgrind memcheck job 추가 검토.
-
-### #9. CI에서 Windows apex_shared 어댑터 빌드 미검증
-- **등급**: MAJOR
-- **스코프**: ci, shared
-- **타입**: infra
+- **스코프**: ci, e2e
+- **타입**: test
 - **연관**: #7
-- **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
+- **설명**: CI E2E에서 `RefreshTokenRenewal` (31초 sleep 토큰 만료 대기)와 `ServiceRecoveryAfterTimeout` (30초 타임아웃 복구)이 Linux CI 환경에서 간헐적 실패. 현재 `--gtest_filter`로 제외 중. 원인: TCP recv timeout + Kafka 라운드트립 지연. 해결 방향: ① access_token_ttl_sec을 CI에서 짧게 설정 (환경변수 오버라이드) ② request_timeout 확대 ③ Timeout 테스트의 시간 의존성 완화.
 
 ---
 
