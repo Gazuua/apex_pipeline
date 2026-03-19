@@ -59,7 +59,7 @@ apex::core::Result<PgPool::Connection> PgPool::acquire()
         ++active_count_;
         ++stats_.total_created;
         ++stats_.total_acquired;
-        return std::move(conn);
+        return conn;
     }
     ++stats_.total_failed;
     return std::unexpected(apex::core::ErrorCode::AdapterError);

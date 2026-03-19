@@ -250,12 +250,11 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
 
     // Kafka 콜백: this->globals_ 를 캡처. factory 반환 후 on_wire에서
     // globals_가 설정되며, Kafka 메시지 도착 시점에는 유효.
-    kafka_->set_message_callback(
-        [this](std::string_view /*topic*/, int32_t /*partition*/, std::span<const uint8_t> /*key*/,
-               std::span<const uint8_t> payload,
-               int64_t /*timestamp*/) -> apex::core::Result<void> {
-            return globals_->response_dispatcher->on_response(payload);
-        });
+    kafka_->set_message_callback([this](std::string_view /*topic*/, int32_t /*partition*/,
+                                        std::span<const uint8_t> /*key*/, std::span<const uint8_t> payload,
+                                        int64_t /*timestamp*/) -> apex::core::Result<void> {
+        return globals_->response_dispatcher->on_response(payload);
+    });
 
     // ── BroadcastFanout ──────────────────────────────────────────────
     // BroadcastFanout은 GatewayGlobals* 를 참조. create_globals() 반환 후

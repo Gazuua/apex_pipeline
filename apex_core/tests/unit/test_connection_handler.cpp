@@ -129,13 +129,12 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData)
     ConnectionHandlerConfig config{.tcp_nodelay = true};
 
     std::atomic<int> dispatch_count{0};
-    dispatcher.register_handler(
-        0x0010,
-        [&](SessionPtr /*session*/, uint32_t /*msg_id*/, std::span<const uint8_t> /*payload*/)
-            -> boost::asio::awaitable<Result<void>> {
-            dispatch_count.fetch_add(1);
-            co_return ok();
-        });
+    dispatcher.register_handler(0x0010,
+                                [&](SessionPtr /*session*/, uint32_t /*msg_id*/,
+                                    std::span<const uint8_t> /*payload*/) -> boost::asio::awaitable<Result<void>> {
+                                    dispatch_count.fetch_add(1);
+                                    co_return ok();
+                                });
 
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);

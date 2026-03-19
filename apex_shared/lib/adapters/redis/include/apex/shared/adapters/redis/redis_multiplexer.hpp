@@ -49,9 +49,9 @@ class RedisMultiplexer
 
     /// Execute a single Redis command (raw string, no parameter escaping).
     /// @deprecated Use the parameterized overload to prevent Redis command injection.
-    [[deprecated("Use command(const char* fmt, Args&&... args) for safe parameter binding")]] [[nodiscard]] boost::
-        asio::awaitable<apex::core::Result<RedisReply>>
-        command(std::string_view cmd);
+    [[deprecated("Use command(const char* fmt, Args&&... args) for safe parameter binding")]]
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
+    command(std::string_view cmd);
 
     /// Execute a Redis command with printf-style parameter binding.
     /// Parameters are escaped by hiredis (via redisFormatCommand), preventing
