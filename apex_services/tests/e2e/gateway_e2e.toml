@@ -12,24 +12,24 @@ tcp_port = 8443
 num_cores = 1
 
 [kafka]
-brokers = "localhost:9092"
+brokers = "kafka:9092"
 consumer_group = "gateway-e2e"
 response_topic = "gateway.responses"
 
 [redis.auth]
-host = "localhost"
-port = 6380
+host = "redis-auth"
+port = 6379
 
 [redis.pubsub]
-host = "localhost"
-port = 6383
+host = "redis-pubsub"
+port = 6379
 
 [redis.ratelimit]
-host = "localhost"
-port = 6381
+host = "redis-ratelimit"
+port = 6379
 
 [jwt]
-public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
+public_key_file = "keys/test_rs256_pub.pem"
 algorithm = "RS256"
 issuer = "apex-auth"
 clock_skew_seconds = 0
