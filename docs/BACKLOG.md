@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 62
+다음 발번: 63
 
 ---
 
@@ -145,6 +145,12 @@
 - **스코프**: shared
 - **타입**: test
 - **설명**: try_decode(), consume_frame() 단위 테스트 미작성.
+
+### #62. FileWatcher::DetectsChange 간헐 실패 (Windows 타임스탬프 해상도)
+- **등급**: MINOR
+- **스코프**: gateway
+- **타입**: bug
+- **설명**: `test_file_watcher.cpp` DetectsChange 테스트가 Windows에서 간헐적으로 실패. 원인: NTFS `last_write_time` 갱신 지연 (100ms~2초). 파일 덮어쓴 직후 `poll_now()` 호출 시 타임스탬프가 아직 갱신되지 않을 수 있음. 수정 방향: `poll_now()` 전 짧은 sleep 추가 또는 파일 내용 해시 기반 비교로 전환.
 
 ### #16. PgTransaction begun_ 경로 unit test
 - **등급**: MAJOR
