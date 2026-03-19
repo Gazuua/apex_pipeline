@@ -89,7 +89,7 @@ class ConfigAwareService : public ServiceBase<ConfigAwareService>
         : ServiceBase("config_aware")
     {}
 
-    void on_configure(ConfigureContext& ctx) override
+    void on_configure(ConfigureContext& /*ctx*/) override
     {
         captured_core_id = core_id();
         bump_available = (&bump() != nullptr);

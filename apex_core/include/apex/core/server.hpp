@@ -173,7 +173,7 @@ class Server
     template <typename T, typename... Args> Server& add_service(Args&&... args)
     {
         service_factories_.push_back(
-            [args...](PerCoreState& state, MessageDispatcher& dispatcher) -> std::unique_ptr<ServiceBaseInterface> {
+            [args...](PerCoreState& /*state*/, MessageDispatcher& dispatcher) -> std::unique_ptr<ServiceBaseInterface> {
                 auto svc = std::make_unique<T>(args...);
                 svc->bind_dispatcher(dispatcher);
                 return svc;

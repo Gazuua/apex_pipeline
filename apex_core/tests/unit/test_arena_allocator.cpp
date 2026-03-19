@@ -64,9 +64,9 @@ TEST(ArenaAllocator, MaxBytesLimit)
 TEST(ArenaAllocator, ResetReleasesAllButFirstBlock)
 {
     ArenaAllocator alloc(64, 1024);
-    alloc.allocate(60, 1);
-    alloc.allocate(60, 1); // 2nd block
-    alloc.allocate(60, 1); // 3rd block
+    (void)alloc.allocate(60, 1);
+    (void)alloc.allocate(60, 1); // 2nd block
+    (void)alloc.allocate(60, 1); // 3rd block
     EXPECT_GE(alloc.used_bytes(), 180);
     alloc.reset();
     EXPECT_EQ(alloc.used_bytes(), 0);
@@ -91,7 +91,7 @@ TEST(ArenaAllocator, OwnsCheckAcrossBlocks)
 TEST(ArenaAllocator, AlignmentAcrossBlockBoundary)
 {
     ArenaAllocator alloc(48, 1024);
-    alloc.allocate(47, 1); // 블록 거의 가득
+    (void)alloc.allocate(47, 1); // 블록 거의 가득
     // 다음 할당은 alignment 후 공간 부족 → 새 블록
     void* p = alloc.allocate(16, 16);
     ASSERT_NE(p, nullptr);

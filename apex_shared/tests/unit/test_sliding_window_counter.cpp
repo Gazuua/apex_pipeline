@@ -92,7 +92,7 @@ TEST_F(SlidingWindowCounterTest, Reset)
 
     for (int i = 0; i < 5; ++i)
     {
-        counter.allow(base_ + std::chrono::milliseconds(i));
+        (void)counter.allow(base_ + std::chrono::milliseconds(i));
     }
 
     counter.reset();
@@ -104,11 +104,11 @@ TEST_F(SlidingWindowCounterTest, LastAccess)
     SlidingWindowCounter counter(10, 1s);
 
     auto t1 = base_ + 100ms;
-    counter.allow(t1);
+    (void)counter.allow(t1);
     EXPECT_EQ(counter.last_access(), t1);
 
     auto t2 = base_ + 200ms;
-    counter.allow(t2);
+    (void)counter.allow(t2);
     EXPECT_EQ(counter.last_access(), t2);
 }
 
@@ -117,9 +117,9 @@ TEST_F(SlidingWindowCounterTest, DeniedRequestDoesNotUpdateLastAccess)
     SlidingWindowCounter counter(1, 1s);
 
     auto t1 = base_;
-    counter.allow(t1); // allowed
+    (void)counter.allow(t1); // allowed
     auto t2 = base_ + 100ms;
-    counter.allow(t2); // denied
+    (void)counter.allow(t2); // denied
     EXPECT_EQ(counter.last_access(), t1);
 }
 

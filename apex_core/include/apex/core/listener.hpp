@@ -75,7 +75,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
 
     void start() override
     {
-        uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
+        [[maybe_unused]] uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
 
         // Build acceptors into a local vector first, then move-assign to the
         // member in one shot.  This ensures acceptors_ is either empty or

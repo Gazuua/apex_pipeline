@@ -238,7 +238,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                     if (session)
                     {
                         auto frame = ErrorSender::build_error_frame(id, ErrorCode::FlatBuffersVerifyFailed);
-                        session->enqueue_write(std::move(frame));
+                        (void)session->enqueue_write(std::move(frame));
                     }
                     co_return apex::core::ok();
                 }

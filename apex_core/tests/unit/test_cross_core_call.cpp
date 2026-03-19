@@ -249,7 +249,7 @@ TEST(CoreEngineTest, TlsCoreId)
     std::atomic<uint32_t> id_on_core1{UINT32_MAX};
 
     engine.register_cross_core_handler(static_cast<CrossCoreOp>(0x0101),
-                                       [](uint32_t core_id, uint32_t /*source*/, void* data) {
+                                       [](uint32_t /*core_id*/, uint32_t /*source*/, void* data) {
                                            auto* target = static_cast<std::atomic<uint32_t>*>(data);
                                            target->store(CoreEngine::current_core_id(), std::memory_order_release);
                                        });

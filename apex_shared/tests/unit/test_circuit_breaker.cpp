@@ -54,7 +54,7 @@ TEST_F(CircuitBreakerTest, ClosedToOpenTransition)
         };
         for (int i = 0; i < 3; ++i)
         {
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         }
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
         EXPECT_EQ(cb.failure_count(), 3u);
@@ -75,7 +75,7 @@ TEST_F(CircuitBreakerTest, OpenStateRejectsCall)
         };
         // Trip to OPEN
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
 
         // Now subsequent call should be rejected without invoking fn
@@ -103,7 +103,7 @@ TEST_F(CircuitBreakerTest, OpenToHalfOpenTransition)
         };
         // Trip to OPEN
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
 
         // Wait for open_duration to elapse
@@ -133,7 +133,7 @@ TEST_F(CircuitBreakerTest, HalfOpenToClosedTransition)
 
         // Trip to OPEN
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
 
         // Wait for transition
@@ -141,9 +141,9 @@ TEST_F(CircuitBreakerTest, HalfOpenToClosedTransition)
         co_await timer.async_wait(boost::asio::use_awaitable);
 
         // half_open_max_calls = 2 successes should close the circuit
-        co_await cb.call(ok);
+        (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::HALF_OPEN);
-        co_await cb.call(ok);
+        (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED);
         EXPECT_EQ(cb.failure_count(), 0u);
         co_return;
@@ -164,7 +164,7 @@ TEST_F(CircuitBreakerTest, HalfOpenToOpenOnFailure)
 
         // Trip to OPEN
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
 
         // Wait for transition to HALF_OPEN
@@ -172,11 +172,11 @@ TEST_F(CircuitBreakerTest, HalfOpenToOpenOnFailure)
         co_await timer.async_wait(boost::asio::use_awaitable);
 
         // One success
-        co_await cb.call(ok);
+        (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::HALF_OPEN);
 
         // Failure in HALF_OPEN -> back to OPEN
-        co_await cb.call(fail);
+        (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
         co_return;
     });
@@ -195,18 +195,18 @@ TEST_F(CircuitBreakerTest, ClosedPartialFailuresResetOnSuccess)
 
         // Accumulate threshold-1 failures
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED);
         EXPECT_EQ(cb.failure_count(), 2u);
 
         // One success should reset failure_count to 0
-        co_await cb.call(ok);
+        (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED);
         EXPECT_EQ(cb.failure_count(), 0u);
 
         // Need full threshold again to trip
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED); // still CLOSED (only 2/3)
         co_return;
     });
@@ -223,7 +223,7 @@ TEST_F(CircuitBreakerTest, ResetClearsState)
         };
         // Trip to OPEN
         for (int i = 0; i < 2; ++i)
-            co_await cb.call(fail);
+            (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::OPEN);
 
         // Reset

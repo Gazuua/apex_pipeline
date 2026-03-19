@@ -171,7 +171,7 @@ TEST(AuthHandlersTest, MockKafkaMessageInjection)
     bool callback_invoked = false;
     uint32_t received_msg_id = 0;
 
-    mock.set_message_callback([&](std::string_view topic, int32_t /*partition*/, std::span<const uint8_t> /*key*/,
+    mock.set_message_callback([&](std::string_view /*topic*/, int32_t /*partition*/, std::span<const uint8_t> /*key*/,
                                   std::span<const uint8_t> payload, int64_t /*offset*/) -> apex::core::Result<void> {
         callback_invoked = true;
 
@@ -217,9 +217,9 @@ TEST(AuthHandlersTest, MockKafkaDispatchByTopic)
 
     auto env = build_envelope(msg_ids::LOGIN_REQUEST, 1, 0, 100);
 
-    mock.inject_message("auth.requests", 0, {}, env);
-    mock.inject_message("chat.requests", 0, {}, env);
-    mock.inject_message("auth.requests", 0, {}, env);
+    (void)mock.inject_message("auth.requests", 0, {}, env);
+    (void)mock.inject_message("chat.requests", 0, {}, env);
+    (void)mock.inject_message("auth.requests", 0, {}, env);
 
     EXPECT_EQ(auth_count, 2);
     EXPECT_EQ(other_count, 1);

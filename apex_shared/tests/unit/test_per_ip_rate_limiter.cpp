@@ -120,13 +120,13 @@ TEST_F(PerIpRateLimiterTest, MaxEntriesEvictsLRU)
     PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .max_entries = 3},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
-    limiter.allow("ip1", base_);
-    limiter.allow("ip2", base_ + 1ms);
-    limiter.allow("ip3", base_ + 2ms);
+    (void)limiter.allow("ip1", base_);
+    (void)limiter.allow("ip2", base_ + 1ms);
+    (void)limiter.allow("ip3", base_ + 2ms);
     EXPECT_EQ(limiter.entry_count(), 3u);
 
     // Adding ip4 should evict ip1 (LRU)
-    limiter.allow("ip4", base_ + 3ms);
+    (void)limiter.allow("ip4", base_ + 3ms);
     EXPECT_EQ(limiter.entry_count(), 3u);
 
     // ip1's counter was evicted -- fresh counter created
@@ -148,12 +148,12 @@ TEST_F(PerIpRateLimiterTest, EntryCount)
                              mock_.make_cancel(), mock_.make_reschedule());
 
     EXPECT_EQ(limiter.entry_count(), 0u);
-    limiter.allow("a", base_);
+    (void)limiter.allow("a", base_);
     EXPECT_EQ(limiter.entry_count(), 1u);
-    limiter.allow("b", base_ + 1ms);
+    (void)limiter.allow("b", base_ + 1ms);
     EXPECT_EQ(limiter.entry_count(), 2u);
     // Same IP doesn't create new entry
-    limiter.allow("a", base_ + 2ms);
+    (void)limiter.allow("a", base_ + 2ms);
     EXPECT_EQ(limiter.entry_count(), 2u);
 }
 
@@ -164,7 +164,7 @@ TEST_F(PerIpRateLimiterTest, UpdateConfigResetsAll)
 
     for (int i = 0; i < 10; ++i)
     {
-        limiter.allow("ip", base_ + std::chrono::milliseconds(i));
+        (void)limiter.allow("ip", base_ + std::chrono::milliseconds(i));
     }
     EXPECT_FALSE(limiter.allow("ip", base_ + 10ms));
 
@@ -199,8 +199,8 @@ TEST_F(PerIpRateLimiterTest, TtlExpirationRemovesEntry)
     PerIpRateLimiter limiter({.total_limit = 10, .window_size = 1s, .num_cores = 1, .ttl_multiplier = 2},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
-    limiter.allow("10.0.0.1", base_);
-    limiter.allow("10.0.0.2", base_ + 1ms);
+    (void)limiter.allow("10.0.0.1", base_);
+    (void)limiter.allow("10.0.0.2", base_ + 1ms);
     EXPECT_EQ(limiter.entry_count(), 2u);
 
     // Verify schedule was called with correct TTL (1s * 2 = 2000ms)
@@ -250,12 +250,12 @@ TEST_F(PerIpRateLimiterTest, RescheduleOnAccess)
     PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1, .ttl_multiplier = 2},
                              mock_.make_schedule(), mock_.make_cancel(), mock_.make_reschedule());
 
-    limiter.allow("10.0.0.1", base_);
+    (void)limiter.allow("10.0.0.1", base_);
     EXPECT_EQ(mock_.tasks.size(), 1u);       // schedule called once
     EXPECT_EQ(mock_.rescheduled.size(), 0u); // no reschedule yet
 
     // Access same IP again — should trigger reschedule
-    limiter.allow("10.0.0.1", base_ + 100ms);
+    (void)limiter.allow("10.0.0.1", base_ + 100ms);
     EXPECT_EQ(mock_.tasks.size(), 1u);              // no new schedule
     ASSERT_EQ(mock_.rescheduled.size(), 1u);        // reschedule called
     EXPECT_EQ(mock_.rescheduled[0].second, 2000ms); // TTL = 1s * 2
@@ -267,9 +267,9 @@ TEST_F(PerIpRateLimiterTest, DestructorCancelsAllTimers)
         PerIpRateLimiter limiter({.total_limit = 100, .window_size = 1s, .num_cores = 1}, mock_.make_schedule(),
                                  mock_.make_cancel(), mock_.make_reschedule());
 
-        limiter.allow("ip1", base_);
-        limiter.allow("ip2", base_ + 1ms);
-        limiter.allow("ip3", base_ + 2ms);
+        (void)limiter.allow("ip1", base_);
+        (void)limiter.allow("ip2", base_ + 1ms);
+        (void)limiter.allow("ip3", base_ + 2ms);
         EXPECT_EQ(mock_.cancelled.size(), 0u);
     }
     // After destruction, all 3 timers should be cancelled

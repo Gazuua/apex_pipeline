@@ -229,10 +229,10 @@ TEST(ChatHandlersTest, MockKafkaMessageDispatch)
     });
 
     // Inject various chat message types
-    mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100));
-    mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::SEND_MESSAGE_REQUEST, 2, 0, 200));
-    mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::WHISPER_REQUEST, 3, 0, 300));
-    mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CHAT_HISTORY_REQUEST, 4, 0, 400));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::SEND_MESSAGE_REQUEST, 2, 0, 200));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::WHISPER_REQUEST, 3, 0, 300));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CHAT_HISTORY_REQUEST, 4, 0, 400));
 
     ASSERT_EQ(dispatched_msg_ids.size(), 4u);
     EXPECT_EQ(dispatched_msg_ids[0], msg_ids::CREATE_ROOM_REQUEST);
@@ -257,10 +257,10 @@ TEST(ChatHandlersTest, MockKafkaTopicFiltering)
     auto env = build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100);
 
     // Only chat.requests should be counted
-    mock.inject_message("chat.requests", 0, {}, env);
-    mock.inject_message("auth.requests", 0, {}, env);
-    mock.inject_message("chat.requests", 0, {}, env);
-    mock.inject_message("game.requests", 0, {}, env);
+    (void)mock.inject_message("chat.requests", 0, {}, env);
+    (void)mock.inject_message("auth.requests", 0, {}, env);
+    (void)mock.inject_message("chat.requests", 0, {}, env);
+    (void)mock.inject_message("game.requests", 0, {}, env);
 
     EXPECT_EQ(chat_count, 2);
 }

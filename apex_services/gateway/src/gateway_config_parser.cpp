@@ -40,7 +40,15 @@ std::string expand_env(std::string_view value)
         result.append(input, last_pos, static_cast<size_t>(match.position()) - last_pos);
 
         const std::string var_name = match[1].str();
+        // MSVC C4996: getenv is standard C++ and safe for read-only use
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
         const char* env_val = std::getenv(var_name.c_str());
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
         if (env_val)
         {

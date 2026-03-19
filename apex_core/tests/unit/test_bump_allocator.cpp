@@ -70,7 +70,7 @@ TEST(BumpAllocator, OverflowReturnsNullptr)
 TEST(BumpAllocator, ResetRestoresFull)
 {
     BumpAllocator alloc(128);
-    alloc.allocate(100, 1);
+    (void)alloc.allocate(100, 1);
     EXPECT_EQ(alloc.used_bytes(), 100);
     alloc.reset();
     EXPECT_EQ(alloc.used_bytes(), 0);
