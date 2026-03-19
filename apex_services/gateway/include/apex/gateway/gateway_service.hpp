@@ -46,9 +46,9 @@ class BroadcastFanout;
 /// 프레임워크가 직접 처리하는 시스템 메시지용이며, 서비스 라우팅을 거치지 않는다.
 struct system_msg_ids
 {
-    static constexpr uint16_t AUTHENTICATE_SESSION = 3;
-    static constexpr uint16_t SUBSCRIBE_CHANNEL = 4;
-    static constexpr uint16_t UNSUBSCRIBE_CHANNEL = 5;
+    static constexpr uint32_t AUTHENTICATE_SESSION = 3;
+    static constexpr uint32_t SUBSCRIBE_CHANNEL = 4;
+    static constexpr uint32_t UNSUBSCRIBE_CHANNEL = 5;
 };
 
 /// cross-core 글로벌 객체 — Server.global<T>()가 소유, 서비스는 raw pointer로 참조.

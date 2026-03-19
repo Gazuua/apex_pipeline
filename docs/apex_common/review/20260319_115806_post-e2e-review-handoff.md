@@ -128,17 +128,6 @@ PR #27~#37 (v0.5.2.0 ~ v0.5.5.1) 범위의 ~18K줄 프로덕션 코드를 10개 
 
 ---
 
-## 4. MINOR → 백로그 이전 예정 (18건, 주요 항목만)
+## 4. MINOR 항목 — 백로그 이전 완료
 
-| 항목 | 설명 |
-|------|------|
-| `ParsedConfig` 중복 | Auth/Chat main.cpp에서 익명 네임스페이스 구조체 중복 정의 |
-| `std::unordered_map` | 서비스 레이어 5곳에서 `boost::unordered_flat_map` 미사용 |
-| `response_topic` 기본값 | Auth(`auth.responses`)/Chat(`chat.responses`) 기본값 ≠ 실제 사용값(`gateway.responses`) |
-| `pub:global:chat` 산재 | Gateway config + Chat 서비스 + TOML 3곳에 동일 문자열 |
-| `on_start` default handler 비대 | Gateway의 65줄 인라인 람다, system message handler 미분리 |
-| `set_default_handler` 캡슐화 우회 | Gateway가 `dispatcher()` 직접 조작 |
-| `BroadcastFanout` 힙 할당 | `make_shared<vector<uint8_t>>` per-broadcast |
-| `drain_batch_limit` 미파싱 | CoreEngineConfig에 필드는 있으나 TOML에서 미파싱 |
-| `Session::max_queue_depth_` | `256` 하드코딩, ServerConfig 미노출 |
-| `Kafka producer 소멸자 5초` | 수정 6과 별도의 5초 하드코딩 (이미 config 연동됨) |
+10건 → `docs/BACKLOG.md` #97 (서비스 레이어 코드 위생 일괄 정리) + #68 (set_default_handler 캡슐화 우회)로 이전 완료.

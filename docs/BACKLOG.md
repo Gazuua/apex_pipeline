@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 74
+다음 발번: 98
 
 ---
 
@@ -73,7 +73,7 @@
 ### #71. PubSubListener mutex 예외 가이드 명시
 - **등급**: MINOR
 - **스코프**: docs, gateway
-- **타ип**: docs
+- **타입**: docs
 - **연관**: #48
 - **설명**: 가이드 §8 #2 "모든 뮤텍스 금지" 원칙에 외부 라이브러리 스레드(hiredis) 예외 조항 명시 필요. PubSubListener는 dedicated Redis 스레드와 서비스 스레드 간 채널 목록 공유에 mutex 사용이 불가피.
 
@@ -225,6 +225,57 @@
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
+### #89. core → shared 역방향 의존 해소 (forwarding header + kafka_envelope)
+- **등급**: CRITICAL
+- **스코프**: core, shared
+- **타입**: design-debt
+- **설명**: `wire_header.hpp`, `frame_codec.hpp`, `tcp_binary_protocol.hpp` 3개 forwarding header + `service_base.hpp`의 `kafka_envelope.hpp` 직접 include로 core가 shared에 물리적으로 의존. "core는 concept만 정의" 원칙 위반. 두 방향: (A) WireHeader/FrameCodec을 core로 복원, (B) forwarding header 제거 + 사용 지점에서 shared를 직접 include.
+
+### #90. ErrorCode에 Gateway 전용 에러 코드 혼입
+- **등급**: MAJOR
+- **스코프**: core, gateway
+- **타입**: design-debt
+- **연관**: #89
+- **설명**: `ErrorCode` enum에 Gateway 전용 에러(100-199 범위)가 포함. 새 서비스 추가 시마다 core를 수정해야 함. 서비스별 에러는 각 서비스 모듈에서 자체 enum으로 관리하도록 분리.
+
+### #91. SessionId 강타입 부재 (uint64_t typedef)
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: `using SessionId = uint64_t`로 정의되어 corr_id, user_id와 암묵적 변환 가능. `enum class SessionId : uint64_t {}` 형태로 강타입화하여 컴파일 타임 타입 안전성 확보.
+
+### #92. WebSocket msg_id 바이트오더 미지정
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **연관**: #3
+- **설명**: `connection_handler.hpp`의 WebSocket msg_id 추출이 `memcpy`로 host byte order 사용. TCP(WireHeader)는 big-endian. 프로토콜 간 바이트오더 불일치. 명시적 문서화 또는 big-endian 통일 필요.
+
+### #93. config.hpp → server.hpp 순환 include 비용
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: `config.hpp`가 `server.hpp`를 include하여 전체 프레임워크 헤더 체인(~15개)이 끌려옴. `ServerConfig`를 별도 경량 헤더(`server_config.hpp`)로 분리하면 컴파일 의존성 대폭 감소. 파일에 `TODO(I-01)` 주석 존재.
+
+### #94. outstanding_coros_ fetch_add 메모리 오더 비대칭
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **설명**: `spawn()`에서 `fetch_add(1, relaxed)` 사용. shutdown 시 `load(acquire)`와 쌍이 맞지 않아 이론적으로 카운터 미반영 가능. 단일 코어 스레드 호출 보장이면 문서화, 아니면 `acq_rel`로 변경.
+
+### #95. apex_core/README.md 전면 갱신 (WireHeader 크기, 의존성, 프로토콜 위치)
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **연관**: #47
+- **설명**: WireHeader 10→12바이트, "향후 추가 예정" 항목(beast, jwt-cpp 이미 추가), TcpBinaryProtocol 위치(core→shared 이동) 등 v0.5.0.0 이전 정보 잔존. #47 README 리뉴얼과 함께 처리.
+
+### #96. post_init_callback 문서 vs 코드 괴리
+- **등급**: MAJOR
+- **스코프**: core, docs
+- **타입**: design-debt
+- **설명**: Apex_Pipeline.md v0.5.6.0에 "post_init_callback 완전 제거" 기재, 실제 코드에 `set_post_init_callback` API + 3개 서비스 main.cpp에서 사용 중. 문서 수정 또는 실제 제거 중 선택 필요.
+
 ---
 
 ## DEFERRED
@@ -330,4 +381,10 @@
 - **스코프**: core
 - **타입**: perf
 - **설명**: 벤치마크에서 병목 확인 시 도입.
+
+### #97. 서비스 레이어 코드 위생 일괄 정리
+- **등급**: MINOR
+- **스코프**: gateway, auth-svc, chat-svc
+- **타입**: design-debt
+- **설명**: Post-E2E 핸드오프 리뷰에서 발견된 MINOR 이슈 묶음: ① `ParsedConfig` 익명 구조체 Auth/Chat 중복 ② `std::unordered_map` 5곳 `boost::unordered_flat_map` 미사용 ③ `response_topic` 기본값 불일치 ④ `pub:global:chat` 문자열 3곳 산재 ⑤ `BroadcastFanout` per-broadcast 힙 할당 ⑥ `drain_batch_limit` TOML 미파싱 ⑦ `Session::max_queue_depth_` 256 하드코딩 ⑧ Gateway `on_start` default handler 65줄 인라인 람다 분리.
 

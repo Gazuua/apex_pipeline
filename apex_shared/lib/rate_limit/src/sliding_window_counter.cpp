@@ -5,7 +5,7 @@ namespace apex::shared::rate_limit
 
 SlidingWindowCounter::SlidingWindowCounter(uint32_t limit, Duration window_size) noexcept
     : limit_(limit)
-    , window_size_(window_size)
+    , window_size_(window_size.count() > 0 ? window_size : Duration{1})
 {}
 
 bool SlidingWindowCounter::allow(TimePoint now) noexcept

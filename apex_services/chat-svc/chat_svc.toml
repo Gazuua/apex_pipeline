@@ -21,14 +21,16 @@ consume_topics = ["chat.requests"]
 
 [redis_data]
 # Redis #2: Room membership, online status (chat:room:{id}:members Set)
+# docker-compose: redis-chat = 6382
 host = "localhost"
-port = 6381
+port = 6382
 db = 0
 
 [redis_pubsub]
 # Redis #3: Pub/Sub broadcast (pub:chat:room:{id}, pub:global:chat)
+# docker-compose: redis-pubsub = 6383
 host = "localhost"
-port = 6382
+port = 6383
 db = 0
 
 [pg]

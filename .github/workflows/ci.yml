@@ -51,6 +51,7 @@ jobs:
               - '**/CMakeLists.txt'
               - '**/CMakePresets.json'
               - '**/vcpkg.json'
+              - 'cmake/**'
               - '**/*_suppressions.txt'
               - '.github/workflows/**'
               - 'build.bat'
