@@ -97,7 +97,8 @@ class MockRedisMultiplexer
     /// Enqueue a nil response.
     void enqueue_nil()
     {
-        enqueue_response(MockRedisReply{.type = MockRedisReply::Type::kNil, .str_value = {}, .int_value = {}, .array_value = {}});
+        enqueue_response(
+            MockRedisReply{.type = MockRedisReply::Type::kNil, .str_value = {}, .int_value = {}, .array_value = {}});
     }
 
     // --- Test inspection ---
