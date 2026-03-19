@@ -1,7 +1,7 @@
-#include <apex/core/tcp_binary_protocol.hpp>
-#include <apex/core/wire_header.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/protocol.hpp>
+#include <apex/core/tcp_binary_protocol.hpp>
+#include <apex/core/wire_header.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,13 +9,14 @@
 
 using namespace apex::core;
 
-class TcpBinaryProtocolTest : public ::testing::Test {
-protected:
+class TcpBinaryProtocolTest : public ::testing::Test
+{
+  protected:
     RingBuffer buf_{4096};
 
-    void write_frame(uint32_t msg_id, const std::vector<uint8_t>& body) {
-        WireHeader hdr{.msg_id = msg_id,
-                       .body_size = static_cast<uint32_t>(body.size())};
+    void write_frame(uint32_t msg_id, const std::vector<uint8_t>& body)
+    {
+        WireHeader hdr{.msg_id = msg_id, .body_size = static_cast<uint32_t>(body.size()), .reserved = {}};
         std::array<uint8_t, WireHeader::SIZE> raw{};
         hdr.serialize(raw);
 
@@ -23,7 +24,8 @@ protected:
         std::memcpy(w.data(), raw.data(), raw.size());
         buf_.commit_write(raw.size());
 
-        if (!body.empty()) {
+        if (!body.empty())
+        {
             auto w2 = buf_.writable();
             std::memcpy(w2.data(), body.data(), body.size());
             buf_.commit_write(body.size());
@@ -31,7 +33,8 @@ protected:
     }
 };
 
-TEST_F(TcpBinaryProtocolTest, DecodeMatchesFrameCodec) {
+TEST_F(TcpBinaryProtocolTest, DecodeMatchesFrameCodec)
+{
     std::vector<uint8_t> body = {0xDE, 0xAD, 0xBE, 0xEF};
     write_frame(0x0042, body);
 
@@ -43,7 +46,8 @@ TEST_F(TcpBinaryProtocolTest, DecodeMatchesFrameCodec) {
     EXPECT_EQ(result->payload[0], 0xDE);
 }
 
-TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer) {
+TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer)
+{
     std::vector<uint8_t> body = {0x01, 0x02};
     write_frame(0x0001, body);
 
@@ -58,23 +62,27 @@ TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer) {
     EXPECT_EQ(after, 0u);
 }
 
-TEST_F(TcpBinaryProtocolTest, EmptyBufferReturnsError) {
+TEST_F(TcpBinaryProtocolTest, EmptyBufferReturnsError)
+{
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
-TEST_F(TcpBinaryProtocolTest, SatisfiesProtocolConcept) {
+TEST_F(TcpBinaryProtocolTest, SatisfiesProtocolConcept)
+{
     static_assert(Protocol<TcpBinaryProtocol>);
 }
 
-TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame) {
+TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame)
+{
     static_assert(std::is_same_v<TcpBinaryProtocol::Frame, apex::shared::protocols::tcp::Frame>);
 }
 
-TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
+TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData)
+{
     // 헤더에 body_size=100 기록하지만 실제로 10바이트만 write
-    WireHeader hdr{.msg_id = 0x0042, .body_size = 100};
+    WireHeader hdr{.msg_id = 0x0042, .body_size = 100, .reserved = {}};
     std::array<uint8_t, WireHeader::SIZE> raw{};
     hdr.serialize(raw);
 
@@ -93,9 +101,10 @@ TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData) {
     EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
-TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
+TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError)
+{
     // body_size를 MAX_BODY_SIZE 초과 값으로 설정 (16MB + 1)
-    WireHeader hdr{.msg_id = 0x0042, .body_size = WireHeader::MAX_BODY_SIZE + 1};
+    WireHeader hdr{.msg_id = 0x0042, .body_size = WireHeader::MAX_BODY_SIZE + 1, .reserved = {}};
     std::array<uint8_t, WireHeader::SIZE> raw{};
     hdr.serialize(raw);
 
@@ -108,7 +117,8 @@ TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError) {
     EXPECT_EQ(result.error(), ErrorCode::InvalidMessage);
 }
 
-TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
+TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle)
+{
     // 2개 프레임 연속 write
     write_frame(0x0001, {0xAA});
     write_frame(0x0002, {0xBB});
@@ -138,7 +148,8 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle) {
     EXPECT_EQ(result3.error(), ErrorCode::InsufficientData);
 }
 
-TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully) {
+TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully)
+{
     // 경계값: body_size=0 프레임 — 헤더만 존재, payload 비어있음
     write_frame(0x0042, {});
 
@@ -152,7 +163,8 @@ TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully) {
     EXPECT_EQ(buf_.readable_size(), 0u);
 }
 
-TEST_F(TcpBinaryProtocolTest, HeaderOnlyInsufficientData) {
+TEST_F(TcpBinaryProtocolTest, HeaderOnlyInsufficientData)
+{
     // 경계값: 헤더 바이트 수보다 적은 데이터 (예: 5바이트)
     std::vector<uint8_t> partial(5, 0x00);
     auto w = buf_.writable();

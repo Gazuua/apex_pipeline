@@ -1,6 +1,6 @@
-#include <apex/core/timing_wheel.hpp>
-#include <apex/core/detail/math_utils.hpp>
 #include <algorithm>
+#include <apex/core/detail/math_utils.hpp>
+#include <apex/core/timing_wheel.hpp>
 #include <cassert>
 #include <stdexcept>
 #include <string>
@@ -8,68 +8,85 @@
 
 #include <spdlog/spdlog.h>
 
-namespace apex::core {
+namespace apex::core
+{
 
 TimingWheel::TimingWheel(size_t num_slots, Callback on_expire)
     : num_slots_(detail::next_power_of_2(num_slots < 1 ? 1 : num_slots))
     , mask_(num_slots_ - 1)
     , on_expire_(std::move(on_expire))
 {
-    if (num_slots_ == 0) {
+    if (num_slots_ == 0)
+    {
         throw std::overflow_error("TimingWheel num_slots overflow in next_power_of_2");
     }
     slots_.resize(num_slots_);
 }
 
-TimingWheel::~TimingWheel() {
+TimingWheel::~TimingWheel()
+{
     // Active entries are silently deleted without invoking their callbacks.
     // This is intentional — the owning component (e.g., SessionManager) must
     // clean up all entries before destroying the TimingWheel.
-    for (auto* entry : entries_) {
+    for (auto* entry : entries_)
+    {
         delete entry;
     }
 }
 
-void TimingWheel::insert_entry(Entry* entry, size_t slot_idx) {
+void TimingWheel::insert_entry(Entry* entry, size_t slot_idx)
+{
     entry->prev = nullptr;
     entry->next = slots_[slot_idx].head;
-    if (slots_[slot_idx].head) {
+    if (slots_[slot_idx].head)
+    {
         slots_[slot_idx].head->prev = entry;
     }
     slots_[slot_idx].head = entry;
 }
 
-void TimingWheel::remove_entry(Entry* entry, size_t slot_idx) {
-    if (entry->prev) {
+void TimingWheel::remove_entry(Entry* entry, size_t slot_idx)
+{
+    if (entry->prev)
+    {
         entry->prev->next = entry->next;
-    } else {
+    }
+    else
+    {
         slots_[slot_idx].head = entry->next;
     }
-    if (entry->next) {
+    if (entry->next)
+    {
         entry->next->prev = entry->prev;
     }
     entry->prev = nullptr;
     entry->next = nullptr;
 }
 
-uint64_t TimingWheel::compute_deadline(uint32_t ticks_from_now) const {
+uint64_t TimingWheel::compute_deadline(uint32_t ticks_from_now) const
+{
     return (ticks_from_now == 0) ? current_tick_ : current_tick_ + ticks_from_now;
 }
 
-TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
-    if (ticks_from_now >= num_slots_) {
-        throw std::out_of_range("TimingWheel::schedule: ticks_from_now ("
-            + std::to_string(ticks_from_now) + ") must be < num_slots ("
-            + std::to_string(num_slots_) + ")");
+TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now)
+{
+    if (ticks_from_now >= num_slots_)
+    {
+        throw std::out_of_range("TimingWheel::schedule: ticks_from_now (" + std::to_string(ticks_from_now) +
+                                ") must be < num_slots (" + std::to_string(num_slots_) + ")");
     }
     EntryId id;
-    if (!free_ids_.empty()) {
+    if (!free_ids_.empty())
+    {
         id = free_ids_.back();
         free_ids_.pop_back();
         assert(id < entries_.size() && "recycled id must be within entries range");
-    } else {
+    }
+    else
+    {
         id = next_id_++;
-        if (id >= entries_.size()) {
+        if (id >= entries_.size())
+        {
             // entries_ grows to accommodate the highest concurrent entry ID but never
             // shrinks. At 8 bytes per pointer, even 100k entries ≈ 800KB — acceptable
             // for a server. IDs are recycled via free_ids_ to limit growth.
@@ -93,11 +110,14 @@ TimingWheel::EntryId TimingWheel::schedule(uint32_t ticks_from_now) {
     return id;
 }
 
-void TimingWheel::cancel(EntryId id) {
-    if (id >= entries_.size() || !entries_[id]) return;
+void TimingWheel::cancel(EntryId id)
+{
+    if (id >= entries_.size() || !entries_[id])
+        return;
 
     Entry* entry = entries_[id];
-    if (entry->cancelled) return;
+    if (entry->cancelled)
+        return;
 
     entry->cancelled = true;
     size_t slot_idx = entry->deadline_tick & mask_;
@@ -109,17 +129,20 @@ void TimingWheel::cancel(EntryId id) {
     --active_count_;
 }
 
-void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
-    if (ticks_from_now >= num_slots_) {
-        throw std::out_of_range("TimingWheel::reschedule: ticks_from_now ("
-            + std::to_string(ticks_from_now) + ") must be < num_slots ("
-            + std::to_string(num_slots_) + ")");
+void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now)
+{
+    if (ticks_from_now >= num_slots_)
+    {
+        throw std::out_of_range("TimingWheel::reschedule: ticks_from_now (" + std::to_string(ticks_from_now) +
+                                ") must be < num_slots (" + std::to_string(num_slots_) + ")");
     }
 
-    if (id >= entries_.size() || !entries_[id]) return;
+    if (id >= entries_.size() || !entries_[id])
+        return;
 
     Entry* entry = entries_[id];
-    if (entry->cancelled) return;
+    if (entry->cancelled)
+        return;
 
     size_t old_slot = entry->deadline_tick & mask_;
     remove_entry(entry, old_slot);
@@ -129,44 +152,53 @@ void TimingWheel::reschedule(EntryId id, uint32_t ticks_from_now) {
     insert_entry(entry, new_slot);
 }
 
-void TimingWheel::tick() {
+void TimingWheel::tick()
+{
     size_t slot_idx = current_tick_ & mask_;
 
     // Phase 1: Collect expired entries
     expired_buf_.clear();
     Entry* entry = slots_[slot_idx].head;
-    while (entry) {
+    while (entry)
+    {
         Entry* next = entry->next;
-        if (!entry->cancelled && entry->deadline_tick == current_tick_) {
+        if (!entry->cancelled && entry->deadline_tick == current_tick_)
+        {
             expired_buf_.push_back(entry);
         }
         entry = next;
     }
 
     // Phase 2: Remove from slot (safe — no callbacks yet)
-    for (auto* e : expired_buf_) {
+    for (auto* e : expired_buf_)
+    {
         remove_entry(e, slot_idx);
     }
 
     // Phase 3a: 엔트리 정리 (콜백 전 — 콜백 내 cancel() 재진입 시 UAF 방지)
-    for (auto* e : expired_buf_) {
+    for (auto* e : expired_buf_)
+    {
         entries_[e->id] = nullptr;
         --active_count_;
     }
 
     // Phase 3b: 콜백 호출 후 메모리 해제 + ID 재사용 허용
-    for (auto* e : expired_buf_) {
+    for (auto* e : expired_buf_)
+    {
         EntryId expired_id = e->id;
-        try {
+        try
+        {
             on_expire_(expired_id);
-        } catch (...) {
+        }
+        catch (...)
+        {
             // m-08: Use spdlog for consistent log routing (null-safe pattern)
-            if (auto logger = spdlog::get("apex")) {
-                logger->error("TimingWheel: on_expire callback threw an exception for entry {}",
-                    expired_id);
+            if (auto logger = spdlog::get("apex"))
+            {
+                logger->error("TimingWheel: on_expire callback threw an exception for entry {}", expired_id);
             }
         }
-        delete e;                       // 콜백 완료 후 삭제
+        delete e; // 콜백 완료 후 삭제
         // Invariant: free_ids_.push_back(expired_id) is done AFTER the callback invocation.
         // This ensures that schedule() called within the callback cannot reuse an ID
         // that is still being processed in this loop iteration.
@@ -176,11 +208,13 @@ void TimingWheel::tick() {
     ++current_tick_;
 }
 
-size_t TimingWheel::active_count() const noexcept {
+size_t TimingWheel::active_count() const noexcept
+{
     return active_count_;
 }
 
-uint64_t TimingWheel::current_tick() const noexcept {
+uint64_t TimingWheel::current_tick() const noexcept
+{
     return current_tick_;
 }
 

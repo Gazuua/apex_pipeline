@@ -13,8 +13,9 @@
 #include <boost/asio/io_context.hpp>
 
 // Re-export wire_flags for test assertions
-namespace apex::e2e {
-    using namespace apex::shared::protocols::tcp::wire_flags;
+namespace apex::e2e
+{
+using namespace apex::shared::protocols::tcp::wire_flags;
 } // namespace apex::e2e
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -33,64 +34,66 @@ namespace apex::e2e {
 #endif
 #include <Windows.h>
 #else
-#include <sys/types.h>
 #include <signal.h>
+#include <sys/types.h>
 #endif
 
-namespace apex::e2e {
+namespace apex::e2e
+{
 
 using WireHeader = apex::shared::protocols::tcp::WireHeader;
 
 /// E2E test environment configuration.
 /// Ports match docker-compose.e2e.yml definitions.
-struct E2EConfig {
-    std::string gateway_host     = "127.0.0.1";
-    uint16_t    gateway_ws_port  = 8443;
+struct E2EConfig
+{
+    std::string gateway_host = "127.0.0.1";
+    uint16_t gateway_ws_port = 8443;
 
     // Redis ports (docker-compose.e2e.yml)
-    uint16_t redis_auth_port     = 6380;
+    uint16_t redis_auth_port = 6380;
     uint16_t redis_ratelimit_port = 6381;
-    uint16_t redis_chat_port     = 6382;
-    uint16_t redis_pubsub_port   = 6383;
+    uint16_t redis_chat_port = 6382;
+    uint16_t redis_pubsub_port = 6383;
 
     // Kafka
-    std::string kafka_broker     = "localhost:9092";
+    std::string kafka_broker = "localhost:9092";
 
     // PostgreSQL
-    std::string pg_host          = "localhost";
-    uint16_t    pg_port          = 5432;
-    std::string pg_dbname        = "apex_db";
-    std::string pg_user          = "apex_admin";
-    std::string pg_password      = "apex_e2e_password";
+    std::string pg_host = "localhost";
+    uint16_t pg_port = 5432;
+    std::string pg_dbname = "apex_db";
+    std::string pg_user = "apex_admin";
+    std::string pg_password = "apex_e2e_password";
 
     // Service executable paths (injected by CMake via target_compile_definitions)
 #ifdef E2E_GATEWAY_EXE
-    std::string gateway_exe      = E2E_GATEWAY_EXE;
+    std::string gateway_exe = E2E_GATEWAY_EXE;
 #else
-    std::string gateway_exe      = "apex_gateway";
+    std::string gateway_exe = "apex_gateway";
 #endif
 #ifdef E2E_AUTH_SVC_EXE
-    std::string auth_svc_exe     = E2E_AUTH_SVC_EXE;
+    std::string auth_svc_exe = E2E_AUTH_SVC_EXE;
 #else
-    std::string auth_svc_exe     = "auth_svc_main";
+    std::string auth_svc_exe = "auth_svc_main";
 #endif
 #ifdef E2E_CHAT_SVC_EXE
-    std::string chat_svc_exe     = E2E_CHAT_SVC_EXE;
+    std::string chat_svc_exe = E2E_CHAT_SVC_EXE;
 #else
-    std::string chat_svc_exe     = "chat_svc_main";
+    std::string chat_svc_exe = "chat_svc_main";
 #endif
 
     // Service config files (TOML) — relative to project root
-    std::string gateway_config   = "apex_services/tests/e2e/gateway_e2e.toml";
-    std::string auth_svc_config  = "apex_services/tests/e2e/auth_svc_e2e.toml";
-    std::string chat_svc_config  = "apex_services/tests/e2e/chat_svc_e2e.toml";
+    std::string gateway_config = "apex_services/tests/e2e/gateway_e2e.toml";
+    std::string auth_svc_config = "apex_services/tests/e2e/auth_svc_e2e.toml";
+    std::string chat_svc_config = "apex_services/tests/e2e/chat_svc_e2e.toml";
 
     // Project root directory — used as working directory for spawned service
     // processes so that relative paths in TOML configs resolve correctly.
 #ifdef E2E_PROJECT_ROOT
-    std::string project_root     = E2E_PROJECT_ROOT;
+    std::string project_root = E2E_PROJECT_ROOT;
 #else
-    std::string project_root;    // empty = inherit parent CWD
+    std::string project_root; // empty = inherit parent CWD
 #endif
 
     // Timeouts
@@ -99,7 +102,8 @@ struct E2EConfig {
 };
 
 /// Cross-platform child process handle.
-struct ChildProcess {
+struct ChildProcess
+{
     std::string name;
     bool launched{false};
 
@@ -113,18 +117,24 @@ struct ChildProcess {
 /// Global E2E test environment.
 /// Docker + services start once before all tests, teardown once after all tests.
 /// Registered via ::testing::AddGlobalTestEnvironment() in main().
-class E2EEnvironment : public ::testing::Environment {
-public:
+class E2EEnvironment : public ::testing::Environment
+{
+  public:
     void SetUp() override;
     void TearDown() override;
 
-    static E2EConfig& config() { return config_; }
-    static bool is_ready() { return ready_; }
+    static E2EConfig& config()
+    {
+        return config_;
+    }
+    static bool is_ready()
+    {
+        return ready_;
+    }
 
-private:
-    static ChildProcess launch_service(const std::string& name,
-                                        const std::string& exe_path,
-                                        const std::string& config_path);
+  private:
+    static ChildProcess launch_service(const std::string& name, const std::string& exe_path,
+                                       const std::string& config_path);
     static void terminate_service(ChildProcess& proc);
 
     static E2EConfig config_;
@@ -137,15 +147,17 @@ private:
 /// E2E test base fixture.
 /// Per-test: fresh io_context + helper methods.
 /// Infrastructure lifecycle is managed by E2EEnvironment (global).
-class E2ETestFixture : public ::testing::Test {
-protected:
+class E2ETestFixture : public ::testing::Test
+{
+  protected:
     void SetUp() override;
     void TearDown() override;
 
     /// TCP client that speaks WireHeader v2 protocol.
     /// Sends and receives framed messages through Gateway.
-    class TcpClient {
-    public:
+    class TcpClient
+    {
+      public:
         TcpClient(boost::asio::io_context& io_ctx, const E2EConfig& config);
         ~TcpClient();
 
@@ -159,9 +171,10 @@ protected:
         void send(uint32_t msg_id, const uint8_t* payload, size_t size);
 
         /// Receive WireHeader + payload (blocking with timeout)
-        struct Response {
+        struct Response
+        {
             uint32_t msg_id{0};
-            uint8_t  flags{0};
+            uint8_t flags{0};
             std::vector<uint8_t> payload;
         };
         Response recv(std::chrono::seconds timeout = std::chrono::seconds{10});
@@ -170,9 +183,12 @@ protected:
         void close();
 
         /// Check if connected
-        [[nodiscard]] bool is_connected() const noexcept { return connected_; }
+        [[nodiscard]] bool is_connected() const noexcept
+        {
+            return connected_;
+        }
 
-    private:
+      private:
         boost::asio::io_context& io_ctx_;
         E2EConfig config_;
         boost::asio::ip::tcp::socket socket_;
@@ -180,14 +196,14 @@ protected:
     };
 
     /// JWT login helper (sends LoginRequest through Auth Service pipeline)
-    struct AuthResult {
+    struct AuthResult
+    {
         std::string access_token;
         std::string refresh_token;
         uint64_t user_id{0};
         uint32_t expires_in_sec{0};
     };
-    AuthResult login(TcpClient& client, const std::string& email,
-                     const std::string& password);
+    AuthResult login(TcpClient& client, const std::string& email, const std::string& password);
 
     /// Bind JWT to session (sends AuthenticateSession message)
     void authenticate(TcpClient& client, const std::string& token);

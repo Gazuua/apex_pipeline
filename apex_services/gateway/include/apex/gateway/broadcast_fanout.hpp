@@ -1,16 +1,17 @@
 #pragma once
 
-#include <apex/gateway/channel_session_map.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/gateway/channel_session_map.hpp>
 
 #include <cstdint>
 #include <span>
 #include <string_view>
 #include <vector>
 
-namespace apex::gateway {
+namespace apex::gateway
+{
 
 /// Redis Pub/Sub message prefix: 4-byte big-endian msg_id before the payload.
 /// Services MUST publish messages in this format:
@@ -25,10 +26,10 @@ static constexpr size_t PUBSUB_MSG_ID_SIZE = 4;
 ///
 /// Redis message format:  [4B msg_id BE] + [payload]
 /// Client wire format:    [12B WireHeader v2] + [payload]
-class BroadcastFanout {
-public:
-    BroadcastFanout(apex::core::CoreEngine& engine,
-                    uint32_t num_cores,
+class BroadcastFanout
+{
+  public:
+    BroadcastFanout(apex::core::CoreEngine& engine, uint32_t num_cores,
                     std::vector<apex::core::SessionManager*> session_mgrs);
 
     /// per-core 채널 맵 바인딩. create_globals() → server.global<T>() move 후
@@ -39,15 +40,13 @@ public:
     /// 모든 코어에 post → 각 코어가 로컬 맵에서 구독자 확인 후 전송.
     /// @param channel Channel name
     /// @param message Redis Pub/Sub message ([4B msg_id BE] + [payload])
-    void fanout(std::string_view channel,
-                std::span<const uint8_t> message);
+    void fanout(std::string_view channel, std::span<const uint8_t> message);
 
-private:
+  private:
     /// Build WireHeader v2 framed data from Redis Pub/Sub message.
     /// @param message [4B msg_id BE] + [payload]
     /// @return [12B WireHeader v2] + [payload], or empty on error
-    [[nodiscard]] static std::vector<uint8_t>
-    build_wire_frame(std::span<const uint8_t> message);
+    [[nodiscard]] static std::vector<uint8_t> build_wire_frame(std::span<const uint8_t> message);
 
     apex::core::CoreEngine& engine_;
     uint32_t num_cores_;

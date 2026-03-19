@@ -3,38 +3,44 @@
 
 using namespace apex::shared::rate_limit;
 
-TEST(EndpointRateConfig, DefaultLimit) {
-    EndpointRateConfig config{.default_limit = 60};
+TEST(EndpointRateConfig, DefaultLimit)
+{
+    EndpointRateConfig config{.default_limit = 60, .window_size = std::chrono::seconds{60}, .overrides = {}};
     EXPECT_EQ(config.limit_for(9999), 60u);
 }
 
-TEST(EndpointRateConfig, OverrideLimit) {
-    EndpointRateConfig config{.default_limit = 60};
-    config.overrides[1001] = 10;   // LoginRequest
-    config.overrides[2001] = 200;  // ChatSendMessage
+TEST(EndpointRateConfig, OverrideLimit)
+{
+    EndpointRateConfig config{.default_limit = 60, .window_size = std::chrono::seconds{60}, .overrides = {}};
+    config.overrides[1001] = 10;  // LoginRequest
+    config.overrides[2001] = 200; // ChatSendMessage
 
     EXPECT_EQ(config.limit_for(1001), 10u);
     EXPECT_EQ(config.limit_for(2001), 200u);
-    EXPECT_EQ(config.limit_for(3000), 60u);  // No override -> default
+    EXPECT_EQ(config.limit_for(3000), 60u); // No override -> default
 }
 
-TEST(EndpointRateConfig, EmptyOverrides) {
-    EndpointRateConfig config{.default_limit = 100};
+TEST(EndpointRateConfig, EmptyOverrides)
+{
+    EndpointRateConfig config{.default_limit = 100, .window_size = std::chrono::seconds{60}, .overrides = {}};
     // All msg_ids use default
-    for (uint32_t id = 0; id < 100; ++id) {
+    for (uint32_t id = 0; id < 100; ++id)
+    {
         EXPECT_EQ(config.limit_for(id), 100u);
     }
 }
 
-TEST(EndpointRateConfig, ZeroDefault) {
-    EndpointRateConfig config{.default_limit = 0};
+TEST(EndpointRateConfig, ZeroDefault)
+{
+    EndpointRateConfig config{.default_limit = 0, .window_size = std::chrono::seconds{60}, .overrides = {}};
     config.overrides[1001] = 10;
 
     EXPECT_EQ(config.limit_for(1001), 10u);
-    EXPECT_EQ(config.limit_for(9999), 0u);  // Effectively disabled
+    EXPECT_EQ(config.limit_for(9999), 0u); // Effectively disabled
 }
 
-TEST(EndpointRateConfig, WindowSize) {
-    EndpointRateConfig config{.window_size = std::chrono::seconds{30}};
+TEST(EndpointRateConfig, WindowSize)
+{
+    EndpointRateConfig config{.window_size = std::chrono::seconds{30}, .overrides = {}};
     EXPECT_EQ(config.window_size, std::chrono::seconds{30});
 }

@@ -4,7 +4,8 @@
 - **ASAN/LSAN**: spdlog 글로벌 레지스트리 leak → `lsan_suppressions.txt`
 - **ASAN aligned_alloc**: size는 alignment 배수여야 함. `max(capacity, alignment)`로 보정
 - **CMakePresets ${sourceDir}**: 루트+하위 양쪽에 suppressions 파일 배치 (include 시 `${sourceDir}` 변환 대응)
-- **[[nodiscard]]**: GCC에서 EXPECT_THROW 내 반환값 경고 → `(void)` 캐스트
+- **[[nodiscard]]**: GCC에서 EXPECT_THROW 내 `[[nodiscard]]` 반환값 경고 → `(void)` 캐스트로 수정 (경고 무시 금지, 반드시 코드 수정)
+- **경고 정책**: `/W4 /WX`(MSVC) + `-Wall -Wextra -Wpedantic -Werror`(GCC/Clang) 전 타겟 적용. 경고 0건이 CI 통과 조건. 상세: 루트 `CLAUDE.md` § 경고 정책
 - **test preset**: TSAN_OPTIONS/LSAN_OPTIONS는 configure preset이 아닌 **test preset**에 설정
 - **CI workflow**: `ctest --preset <name>` 사용 (--test-dir 대신)
 - **vcpkg 다운로드 실패**: GitHub CDN 간헐적 HTTP 502 → `gh run rerun --failed`

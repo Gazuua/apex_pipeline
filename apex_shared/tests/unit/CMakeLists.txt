@@ -7,6 +7,7 @@ function(apex_shared_add_unit_test TEST_NAME TEST_SOURCE)
             apex::shared::adapters::common
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
 endfunction()
@@ -22,6 +23,7 @@ target_link_libraries(test_circuit_breaker
         apex::shared::adapters::common
         GTest::gtest_main
 )
+apex_set_warnings(test_circuit_breaker)
 add_test(NAME test_circuit_breaker COMMAND test_circuit_breaker)
 set_tests_properties(test_circuit_breaker PROPERTIES TIMEOUT 30)
 
@@ -35,6 +37,7 @@ function(apex_shared_add_kafka_test TEST_NAME TEST_SOURCE)
             apex::shared::adapters::kafka
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 60)
 endfunction()
@@ -52,6 +55,7 @@ function(apex_shared_add_redis_test TEST_NAME TEST_SOURCE)
             apex::shared::adapters::redis
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
 endfunction()
@@ -69,6 +73,7 @@ function(apex_shared_add_pg_test TEST_NAME TEST_SOURCE)
             apex::shared::adapters::pg
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
 endfunction()
@@ -86,6 +91,7 @@ target_link_libraries(test_kafka_envelope
         apex::shared::protocols::kafka
         GTest::gtest_main
 )
+apex_set_warnings(test_kafka_envelope)
 add_test(NAME test_kafka_envelope COMMAND test_kafka_envelope)
 set_tests_properties(test_kafka_envelope PROPERTIES TIMEOUT 30)
 
@@ -97,6 +103,7 @@ function(apex_shared_add_rate_limit_test TEST_NAME TEST_SOURCE)
             apex::shared::rate_limit
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES TIMEOUT 30)
 endfunction()

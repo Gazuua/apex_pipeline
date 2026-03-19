@@ -30,6 +30,7 @@ if(WIN32)
     target_compile_definitions(auth_svc_unit_tests PRIVATE _WIN32_WINNT=0x0A00)
 endif()
 
+apex_set_warnings(auth_svc_unit_tests)
 add_test(NAME auth_svc_unit_tests COMMAND auth_svc_unit_tests)
 set_tests_properties(auth_svc_unit_tests PROPERTIES TIMEOUT 30)
 

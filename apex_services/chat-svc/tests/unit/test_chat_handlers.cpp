@@ -19,45 +19,43 @@ namespace envelope = apex::shared::protocols::kafka;
 // 3. msg_id 상수 정합성 + Config 검증
 // ============================================================
 
-namespace {
+namespace
+{
 
 // Chat msg_id constants (mirrored from chat_service.hpp)
-namespace msg_ids {
-    // Room management
-    constexpr uint32_t CREATE_ROOM_REQUEST   = 2001;
-    constexpr uint32_t CREATE_ROOM_RESPONSE  = 2002;
-    constexpr uint32_t JOIN_ROOM_REQUEST     = 2003;
-    constexpr uint32_t JOIN_ROOM_RESPONSE    = 2004;
-    constexpr uint32_t LEAVE_ROOM_REQUEST    = 2005;
-    constexpr uint32_t LEAVE_ROOM_RESPONSE   = 2006;
-    constexpr uint32_t LIST_ROOMS_REQUEST    = 2007;
-    constexpr uint32_t LIST_ROOMS_RESPONSE   = 2008;
+namespace msg_ids
+{
+// Room management
+constexpr uint32_t CREATE_ROOM_REQUEST = 2001;
+constexpr uint32_t CREATE_ROOM_RESPONSE = 2002;
+constexpr uint32_t JOIN_ROOM_REQUEST = 2003;
+constexpr uint32_t JOIN_ROOM_RESPONSE = 2004;
+constexpr uint32_t LEAVE_ROOM_REQUEST = 2005;
+constexpr uint32_t LEAVE_ROOM_RESPONSE = 2006;
+constexpr uint32_t LIST_ROOMS_REQUEST = 2007;
+constexpr uint32_t LIST_ROOMS_RESPONSE = 2008;
 
-    // Message send/broadcast
-    constexpr uint32_t SEND_MESSAGE_REQUEST  = 2011;
-    constexpr uint32_t SEND_MESSAGE_RESPONSE = 2012;
-    constexpr uint32_t CHAT_MESSAGE          = 2013;
+// Message send/broadcast
+constexpr uint32_t SEND_MESSAGE_REQUEST = 2011;
+constexpr uint32_t SEND_MESSAGE_RESPONSE = 2012;
+constexpr uint32_t CHAT_MESSAGE = 2013;
 
-    // Whisper
-    constexpr uint32_t WHISPER_REQUEST       = 2021;
-    constexpr uint32_t WHISPER_RESPONSE      = 2022;
+// Whisper
+constexpr uint32_t WHISPER_REQUEST = 2021;
+constexpr uint32_t WHISPER_RESPONSE = 2022;
 
-    // History
-    constexpr uint32_t CHAT_HISTORY_REQUEST  = 2031;
-    constexpr uint32_t CHAT_HISTORY_RESPONSE = 2032;
+// History
+constexpr uint32_t CHAT_HISTORY_REQUEST = 2031;
+constexpr uint32_t CHAT_HISTORY_RESPONSE = 2032;
 
-    // Global broadcast
-    constexpr uint32_t GLOBAL_BROADCAST_REQUEST  = 2041;
-    constexpr uint32_t GLOBAL_BROADCAST_RESPONSE = 2042;
+// Global broadcast
+constexpr uint32_t GLOBAL_BROADCAST_REQUEST = 2041;
+constexpr uint32_t GLOBAL_BROADCAST_RESPONSE = 2042;
 } // namespace msg_ids
 
 /// Envelope 빌드 헬퍼.
-std::vector<uint8_t> build_envelope(
-    uint32_t msg_id,
-    uint64_t corr_id,
-    uint16_t core_id,
-    uint64_t session_id,
-    std::span<const uint8_t> fbs_payload = {})
+std::vector<uint8_t> build_envelope(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                                    std::span<const uint8_t> fbs_payload = {})
 {
     envelope::RoutingHeader rh;
     rh.header_version = envelope::RoutingHeader::CURRENT_VERSION;
@@ -87,7 +85,8 @@ std::vector<uint8_t> build_envelope(
 
 // --- msg_id 상수 정합성 ---
 
-TEST(ChatHandlersTest, MsgIdRoomManagement) {
+TEST(ChatHandlersTest, MsgIdRoomManagement)
+{
     EXPECT_EQ(msg_ids::CREATE_ROOM_REQUEST, 2001u);
     EXPECT_EQ(msg_ids::CREATE_ROOM_RESPONSE, 2002u);
     EXPECT_EQ(msg_ids::JOIN_ROOM_REQUEST, 2003u);
@@ -98,44 +97,49 @@ TEST(ChatHandlersTest, MsgIdRoomManagement) {
     EXPECT_EQ(msg_ids::LIST_ROOMS_RESPONSE, 2008u);
 }
 
-TEST(ChatHandlersTest, MsgIdMessageSend) {
+TEST(ChatHandlersTest, MsgIdMessageSend)
+{
     EXPECT_EQ(msg_ids::SEND_MESSAGE_REQUEST, 2011u);
     EXPECT_EQ(msg_ids::SEND_MESSAGE_RESPONSE, 2012u);
     EXPECT_EQ(msg_ids::CHAT_MESSAGE, 2013u);
 }
 
-TEST(ChatHandlersTest, MsgIdWhisper) {
+TEST(ChatHandlersTest, MsgIdWhisper)
+{
     EXPECT_EQ(msg_ids::WHISPER_REQUEST, 2021u);
     EXPECT_EQ(msg_ids::WHISPER_RESPONSE, 2022u);
 }
 
-TEST(ChatHandlersTest, MsgIdHistory) {
+TEST(ChatHandlersTest, MsgIdHistory)
+{
     EXPECT_EQ(msg_ids::CHAT_HISTORY_REQUEST, 2031u);
     EXPECT_EQ(msg_ids::CHAT_HISTORY_RESPONSE, 2032u);
 }
 
-TEST(ChatHandlersTest, MsgIdGlobalBroadcast) {
+TEST(ChatHandlersTest, MsgIdGlobalBroadcast)
+{
     EXPECT_EQ(msg_ids::GLOBAL_BROADCAST_REQUEST, 2041u);
     EXPECT_EQ(msg_ids::GLOBAL_BROADCAST_RESPONSE, 2042u);
 }
 
 // --- Envelope 파싱 ---
 
-TEST(ChatHandlersTest, EnvelopeParseCreateRoom) {
+TEST(ChatHandlersTest, EnvelopeParseCreateRoom)
+{
     auto env = build_envelope(msg_ids::CREATE_ROOM_REQUEST, 100, 2, 55555);
 
     auto rh = envelope::RoutingHeader::parse(env);
     ASSERT_TRUE(rh.has_value());
     EXPECT_EQ(rh->msg_id, msg_ids::CREATE_ROOM_REQUEST);
 
-    auto meta = envelope::MetadataPrefix::parse(
-        std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
+    auto meta = envelope::MetadataPrefix::parse(std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
     ASSERT_TRUE(meta.has_value());
     EXPECT_EQ(meta->corr_id, 100u);
     EXPECT_EQ(meta->session_id, 55555u);
 }
 
-TEST(ChatHandlersTest, EnvelopeParseSendMessage) {
+TEST(ChatHandlersTest, EnvelopeParseSendMessage)
+{
     auto env = build_envelope(msg_ids::SEND_MESSAGE_REQUEST, 200, 0, 77777);
 
     auto rh = envelope::RoutingHeader::parse(env);
@@ -143,7 +147,8 @@ TEST(ChatHandlersTest, EnvelopeParseSendMessage) {
     EXPECT_EQ(rh->msg_id, msg_ids::SEND_MESSAGE_REQUEST);
 }
 
-TEST(ChatHandlersTest, EnvelopeParseWhisper) {
+TEST(ChatHandlersTest, EnvelopeParseWhisper)
+{
     auto env = build_envelope(msg_ids::WHISPER_REQUEST, 300, 1, 88888);
 
     auto rh = envelope::RoutingHeader::parse(env);
@@ -153,14 +158,16 @@ TEST(ChatHandlersTest, EnvelopeParseWhisper) {
 
 // --- Envelope too small ---
 
-TEST(ChatHandlersTest, EnvelopeTooSmallRejected) {
+TEST(ChatHandlersTest, EnvelopeTooSmallRejected)
+{
     std::vector<uint8_t> small(20, 0);
     EXPECT_LT(small.size(), envelope::ENVELOPE_HEADER_SIZE);
 }
 
 // --- Response Envelope 구조 검증 ---
 
-TEST(ChatHandlersTest, ResponseEnvelopeDirection) {
+TEST(ChatHandlersTest, ResponseEnvelopeDirection)
+{
     envelope::RoutingHeader routing;
     routing.header_version = envelope::RoutingHeader::CURRENT_VERSION;
     routing.flags = envelope::routing_flags::DIRECTION_RESPONSE;
@@ -173,7 +180,8 @@ TEST(ChatHandlersTest, ResponseEnvelopeDirection) {
     EXPECT_EQ(parsed->msg_id, msg_ids::CREATE_ROOM_RESPONSE);
 }
 
-TEST(ChatHandlersTest, ResponseEnvelopeSourceId) {
+TEST(ChatHandlersTest, ResponseEnvelopeSourceId)
+{
     envelope::MetadataPrefix meta;
     meta.source_id = envelope::source_ids::CHAT;
 
@@ -183,10 +191,10 @@ TEST(ChatHandlersTest, ResponseEnvelopeSourceId) {
     EXPECT_EQ(parsed->source_id, envelope::source_ids::CHAT);
 }
 
-TEST(ChatHandlersTest, BroadcastEnvelopeFlags) {
+TEST(ChatHandlersTest, BroadcastEnvelopeFlags)
+{
     envelope::RoutingHeader routing;
-    routing.flags = envelope::routing_flags::DIRECTION_RESPONSE
-                  | envelope::routing_flags::DELIVERY_BROADCAST;
+    routing.flags = envelope::routing_flags::DIRECTION_RESPONSE | envelope::routing_flags::DELIVERY_BROADCAST;
     routing.msg_id = msg_ids::GLOBAL_BROADCAST_RESPONSE;
 
     auto bytes = routing.serialize();
@@ -196,41 +204,35 @@ TEST(ChatHandlersTest, BroadcastEnvelopeFlags) {
     // Direction = response
     EXPECT_TRUE((parsed->flags & envelope::routing_flags::DIRECTION_RESPONSE) != 0);
     // Delivery = broadcast
-    EXPECT_EQ(parsed->flags & envelope::routing_flags::DELIVERY_MASK,
-              envelope::routing_flags::DELIVERY_BROADCAST);
+    EXPECT_EQ(parsed->flags & envelope::routing_flags::DELIVERY_MASK, envelope::routing_flags::DELIVERY_BROADCAST);
 }
 
 // --- MockKafkaAdapter로 메시지 흐름 시뮬레이션 ---
 
-TEST(ChatHandlersTest, MockKafkaMessageDispatch) {
+TEST(ChatHandlersTest, MockKafkaMessageDispatch)
+{
     apex::test::MockKafkaAdapter mock;
 
     std::vector<uint32_t> dispatched_msg_ids;
 
-    mock.set_message_callback(
-        [&](std::string_view topic, int32_t,
-            std::span<const uint8_t>, std::span<const uint8_t> payload,
-            int64_t) -> apex::core::Result<void> {
-
-            if (topic == "chat.requests" &&
-                payload.size() >= envelope::ENVELOPE_HEADER_SIZE) {
-                auto rh = envelope::RoutingHeader::parse(payload);
-                if (rh.has_value()) {
-                    dispatched_msg_ids.push_back(rh->msg_id);
-                }
+    mock.set_message_callback([&](std::string_view topic, int32_t, std::span<const uint8_t>,
+                                  std::span<const uint8_t> payload, int64_t) -> apex::core::Result<void> {
+        if (topic == "chat.requests" && payload.size() >= envelope::ENVELOPE_HEADER_SIZE)
+        {
+            auto rh = envelope::RoutingHeader::parse(payload);
+            if (rh.has_value())
+            {
+                dispatched_msg_ids.push_back(rh->msg_id);
             }
-            return apex::core::ok();
-        });
+        }
+        return apex::core::ok();
+    });
 
     // Inject various chat message types
-    mock.inject_message("chat.requests", 0, {},
-        build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100));
-    mock.inject_message("chat.requests", 0, {},
-        build_envelope(msg_ids::SEND_MESSAGE_REQUEST, 2, 0, 200));
-    mock.inject_message("chat.requests", 0, {},
-        build_envelope(msg_ids::WHISPER_REQUEST, 3, 0, 300));
-    mock.inject_message("chat.requests", 0, {},
-        build_envelope(msg_ids::CHAT_HISTORY_REQUEST, 4, 0, 400));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::SEND_MESSAGE_REQUEST, 2, 0, 200));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::WHISPER_REQUEST, 3, 0, 300));
+    (void)mock.inject_message("chat.requests", 0, {}, build_envelope(msg_ids::CHAT_HISTORY_REQUEST, 4, 0, 400));
 
     ASSERT_EQ(dispatched_msg_ids.size(), 4u);
     EXPECT_EQ(dispatched_msg_ids[0], msg_ids::CREATE_ROOM_REQUEST);
@@ -239,30 +241,32 @@ TEST(ChatHandlersTest, MockKafkaMessageDispatch) {
     EXPECT_EQ(dispatched_msg_ids[3], msg_ids::CHAT_HISTORY_REQUEST);
 }
 
-TEST(ChatHandlersTest, MockKafkaTopicFiltering) {
+TEST(ChatHandlersTest, MockKafkaTopicFiltering)
+{
     apex::test::MockKafkaAdapter mock;
 
     int chat_count = 0;
 
-    mock.set_message_callback(
-        [&](std::string_view topic, int32_t, std::span<const uint8_t>,
-            std::span<const uint8_t>, int64_t) -> apex::core::Result<void> {
-            if (topic == "chat.requests") ++chat_count;
-            return apex::core::ok();
-        });
+    mock.set_message_callback([&](std::string_view topic, int32_t, std::span<const uint8_t>, std::span<const uint8_t>,
+                                  int64_t) -> apex::core::Result<void> {
+        if (topic == "chat.requests")
+            ++chat_count;
+        return apex::core::ok();
+    });
 
     auto env = build_envelope(msg_ids::CREATE_ROOM_REQUEST, 1, 0, 100);
 
     // Only chat.requests should be counted
-    mock.inject_message("chat.requests", 0, {}, env);
-    mock.inject_message("auth.requests", 0, {}, env);
-    mock.inject_message("chat.requests", 0, {}, env);
-    mock.inject_message("game.requests", 0, {}, env);
+    (void)mock.inject_message("chat.requests", 0, {}, env);
+    (void)mock.inject_message("auth.requests", 0, {}, env);
+    (void)mock.inject_message("chat.requests", 0, {}, env);
+    (void)mock.inject_message("game.requests", 0, {}, env);
 
     EXPECT_EQ(chat_count, 2);
 }
 
-TEST(ChatHandlersTest, MockKafkaProduceResponse) {
+TEST(ChatHandlersTest, MockKafkaProduceResponse)
+{
     apex::test::MockKafkaAdapter mock;
 
     // Simulate producing a response
@@ -290,7 +294,8 @@ TEST(ChatHandlersTest, MockKafkaProduceResponse) {
 
 // --- PubSub payload 형식 검증 ---
 
-TEST(ChatHandlersTest, PubSubPayloadFormat) {
+TEST(ChatHandlersTest, PubSubPayloadFormat)
+{
     // ChatService::build_pubsub_payload 형식: [msg_id(u32 BE)] + [fbs payload]
     // Gateway BroadcastFanout reads msg_id as big-endian to build WireHeader.
     uint32_t msg_id = msg_ids::CHAT_MESSAGE;
@@ -307,11 +312,8 @@ TEST(ChatHandlersTest, PubSubPayloadFormat) {
     EXPECT_EQ(buf.size(), sizeof(uint32_t) + fbs.size());
 
     // Parse back msg_id (big-endian, matching BroadcastFanout::build_wire_frame)
-    uint32_t parsed_msg_id =
-        (static_cast<uint32_t>(buf[0]) << 24) |
-        (static_cast<uint32_t>(buf[1]) << 16) |
-        (static_cast<uint32_t>(buf[2]) << 8)  |
-        (static_cast<uint32_t>(buf[3]));
+    uint32_t parsed_msg_id = (static_cast<uint32_t>(buf[0]) << 24) | (static_cast<uint32_t>(buf[1]) << 16) |
+                             (static_cast<uint32_t>(buf[2]) << 8) | (static_cast<uint32_t>(buf[3]));
     EXPECT_EQ(parsed_msg_id, msg_ids::CHAT_MESSAGE);
 
     // Payload
@@ -322,7 +324,8 @@ TEST(ChatHandlersTest, PubSubPayloadFormat) {
 
 // --- ChatService::Config ---
 
-TEST(ChatHandlersTest, ChatConfigDefaults) {
+TEST(ChatHandlersTest, ChatConfigDefaults)
+{
     apex::chat_svc::ChatService::Config cfg;
     EXPECT_EQ(cfg.request_topic, "chat.requests");
     EXPECT_EQ(cfg.response_topic, "chat.responses");
@@ -332,7 +335,8 @@ TEST(ChatHandlersTest, ChatConfigDefaults) {
     EXPECT_EQ(cfg.history_page_size, 50u);
 }
 
-TEST(ChatHandlersTest, ChatConfigCustom) {
+TEST(ChatHandlersTest, ChatConfigCustom)
+{
     apex::chat_svc::ChatService::Config cfg{
         .request_topic = "test.requests",
         .response_topic = "test.responses",

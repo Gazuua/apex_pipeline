@@ -5,7 +5,8 @@
 #include <cstring>
 #include <span>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Circular buffer for network receive buffering.
 /// Designed for per-core use (no thread synchronization).
@@ -15,8 +16,9 @@ namespace apex::core {
 /// - contiguous_read() returns the largest contiguous readable span.
 /// - For FlatBuffers zero-copy: if the message fits in contiguous area, no copy.
 ///   If it wraps around, linearize() copies to make it contiguous.
-class RingBuffer {
-public:
+class RingBuffer
+{
+  public:
     /// @param capacity Buffer size in bytes. Rounded up to next power of 2.
     explicit RingBuffer(size_t capacity);
 
@@ -77,13 +79,13 @@ public:
     /// If readable_size() is 0, frees linear_buf_ entirely.
     void shrink_to_fit() noexcept;
 
-private:
+  private:
     uint8_t* buffer_;
     // linear_buf_ is managed with malloc/realloc/free (not unique_ptr) because
     // std::realloc requires raw pointers. Ownership is guaranteed by destructor + reset().
-    uint8_t* linear_buf_{nullptr};     // linearization scratch buffer (allocated on first use)
+    uint8_t* linear_buf_{nullptr}; // linearization scratch buffer (allocated on first use)
     size_t capacity_;
-    size_t mask_;             // capacity_ - 1
+    size_t mask_; // capacity_ - 1
     size_t read_pos_{0};
     size_t write_pos_{0};
     size_t linear_buf_size_{0};

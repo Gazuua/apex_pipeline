@@ -5,7 +5,8 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
-namespace apex::shared::rate_limit {
+namespace apex::shared::rate_limit
+{
 
 /// Per-endpoint rate limit configuration.
 /// Loaded from TOML config, supports hot-reload.
@@ -22,17 +23,20 @@ namespace apex::shared::rate_limit {
 /// 2011 = 200   # SendMessageRequest: 분당 200회
 /// 2001 = 5     # CreateRoomRequest: 분당 5회
 /// ```
-struct EndpointRateConfig {
-    uint32_t default_limit = 60;             ///< msg_id 오버라이드가 없을 때 적용
-    std::chrono::seconds window_size{60};    ///< 윈도우 크기
+struct EndpointRateConfig
+{
+    uint32_t default_limit = 60;          ///< msg_id 오버라이드가 없을 때 적용
+    std::chrono::seconds window_size{60}; ///< 윈도우 크기
 
     /// msg_id -> limit 오버라이드 매핑
     boost::unordered_flat_map<uint32_t, uint32_t> overrides;
 
     /// Get the effective limit for a msg_id.
-    [[nodiscard]] uint32_t limit_for(uint32_t msg_id) const noexcept {
+    [[nodiscard]] uint32_t limit_for(uint32_t msg_id) const noexcept
+    {
         auto it = overrides.find(msg_id);
-        if (it != overrides.end()) {
+        if (it != overrides.end())
+        {
             return it->second;
         }
         return default_limit;

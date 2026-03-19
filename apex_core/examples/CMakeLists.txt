@@ -9,6 +9,7 @@ endif()
 function(apex_add_example EXAMPLE_NAME EXAMPLE_SOURCE)
     add_executable(${EXAMPLE_NAME} ${EXAMPLE_SOURCE})
     target_link_libraries(${EXAMPLE_NAME} PRIVATE apex::core)
+    apex_set_warnings(${EXAMPLE_NAME})
     set_target_properties(${EXAMPLE_NAME} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${_bin_dir}")
     if(WIN32)

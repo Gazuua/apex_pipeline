@@ -2,12 +2,13 @@
 
 #include <apex/shared/adapters/kafka/kafka_producer.hpp>
 
-#include <spdlog/sinks/base_sink.h>
 #include <spdlog/details/null_mutex.h>
+#include <spdlog/sinks/base_sink.h>
 
 #include <string>
 
-namespace apex::shared::adapters::kafka {
+namespace apex::shared::adapters::kafka
+{
 
 /// spdlog sink -> Kafka topic.
 ///
@@ -24,25 +25,25 @@ namespace apex::shared::adapters::kafka {
 /// Usage:
 ///   auto kafka_sink = std::make_shared<KafkaSink>(producer, "apex-logs");
 ///   auto logger = std::make_shared<spdlog::logger>("apex", kafka_sink);
-class KafkaSink : public spdlog::sinks::base_sink<spdlog::details::null_mutex> {
-public:
+class KafkaSink : public spdlog::sinks::base_sink<spdlog::details::null_mutex>
+{
+  public:
     /// @param producer KafkaProducer reference (caller guarantees lifetime)
     /// @param topic Log-dedicated topic name
     KafkaSink(KafkaProducer& producer, std::string topic);
 
     ~KafkaSink() override = default;
 
-protected:
+  protected:
     /// Produce log message to Kafka.
     void sink_it_(const spdlog::details::log_msg& msg) override;
 
     /// Flush (Kafka produce is async, so call producer.poll())
     void flush_() override;
 
-private:
+  private:
     /// Convert spdlog log_msg -> JSON string
-    [[nodiscard]] std::string format_json(
-        const spdlog::details::log_msg& msg) const;
+    [[nodiscard]] std::string format_json(const spdlog::details::log_msg& msg) const;
 
     KafkaProducer& producer_;
     std::string topic_;

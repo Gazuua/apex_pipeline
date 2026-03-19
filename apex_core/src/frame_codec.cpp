@@ -4,11 +4,13 @@
 #include <array>
 #include <cstring>
 
-namespace apex::shared::protocols::tcp {
+namespace apex::shared::protocols::tcp
+{
 
-std::expected<Frame, FrameError>
-FrameCodec::try_decode(apex::core::RingBuffer& buf) {
-    if (buf.readable_size() < WireHeader::SIZE) {
+std::expected<Frame, FrameError> FrameCodec::try_decode(apex::core::RingBuffer& buf)
+{
+    if (buf.readable_size() < WireHeader::SIZE)
+    {
         return std::unexpected(FrameError::InsufficientData);
     }
 
@@ -22,9 +24,11 @@ FrameCodec::try_decode(apex::core::RingBuffer& buf) {
 
     auto parse_result = WireHeader::parse(hdr_buf);
 
-    if (!parse_result) {
+    if (!parse_result)
+    {
         auto err = parse_result.error();
-        if (err == ParseError::BodyTooLarge) {
+        if (err == ParseError::BodyTooLarge)
+        {
             return std::unexpected(FrameError::BodyTooLarge);
         }
         // I-19: ParseError::UnsupportedVersion is mapped to FrameError::HeaderParseError.
@@ -36,7 +40,8 @@ FrameCodec::try_decode(apex::core::RingBuffer& buf) {
     auto header = *parse_result;
     size_t total = header.frame_size();
 
-    if (buf.readable_size() < total) {
+    if (buf.readable_size() < total)
+    {
         return std::unexpected(FrameError::InsufficientData);
     }
 
@@ -48,18 +53,21 @@ FrameCodec::try_decode(apex::core::RingBuffer& buf) {
     return Frame{header, payload};
 }
 
-void FrameCodec::consume_frame(apex::core::RingBuffer& buf, const Frame& frame) {
+void FrameCodec::consume_frame(apex::core::RingBuffer& buf, const Frame& frame)
+{
     buf.consume(frame.header.frame_size());
 }
 
-bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header,
-                         std::span<const uint8_t> payload) {
-    if (header.body_size != static_cast<uint32_t>(payload.size())) {
+bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header, std::span<const uint8_t> payload)
+{
+    if (header.body_size != static_cast<uint32_t>(payload.size()))
+    {
         return false;
     }
 
     size_t total = WireHeader::SIZE + payload.size();
-    if (buf.writable_size() < total) {
+    if (buf.writable_size() < total)
+    {
         return false;
     }
 
@@ -67,9 +75,11 @@ bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header,
 
     // Write header - may need multiple writable() calls due to wrap-around
     size_t header_written = 0;
-    while (header_written < WireHeader::SIZE) {
+    while (header_written < WireHeader::SIZE)
+    {
         auto w = buf.writable();
-        if (w.empty()) return false;  // defensive guard against infinite loop
+        if (w.empty())
+            return false; // defensive guard against infinite loop
         size_t to_write = std::min(w.size(), WireHeader::SIZE - header_written);
         std::memcpy(w.data(), header_bytes.data() + header_written, to_write);
         buf.commit_write(to_write);
@@ -78,9 +88,11 @@ bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header,
 
     // Write payload - may need multiple writable() calls due to wrap-around
     size_t payload_written = 0;
-    while (payload_written < payload.size()) {
+    while (payload_written < payload.size())
+    {
         auto w = buf.writable();
-        if (w.empty()) return false;  // defensive guard against infinite loop
+        if (w.empty())
+            return false; // defensive guard against infinite loop
         size_t to_write = std::min(w.size(), payload.size() - payload_written);
         std::memcpy(w.data(), payload.data() + payload_written, to_write);
         buf.commit_write(to_write);
@@ -90,20 +102,23 @@ bool FrameCodec::encode(apex::core::RingBuffer& buf, const WireHeader& header,
     return true;
 }
 
-size_t FrameCodec::encode_to(std::span<uint8_t> out, const WireHeader& header,
-                               std::span<const uint8_t> payload) {
-    if (header.body_size != static_cast<uint32_t>(payload.size())) {
+size_t FrameCodec::encode_to(std::span<uint8_t> out, const WireHeader& header, std::span<const uint8_t> payload)
+{
+    if (header.body_size != static_cast<uint32_t>(payload.size()))
+    {
         return 0;
     }
 
     size_t total = WireHeader::SIZE + payload.size();
-    if (out.size() < total) {
+    if (out.size() < total)
+    {
         return 0;
     }
 
     auto header_bytes = header.serialize();
     std::memcpy(out.data(), header_bytes.data(), WireHeader::SIZE);
-    if (!payload.empty()) {
+    if (!payload.empty())
+    {
         std::memcpy(out.data() + WireHeader::SIZE, payload.data(), payload.size());
     }
 

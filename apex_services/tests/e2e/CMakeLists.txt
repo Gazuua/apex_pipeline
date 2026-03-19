@@ -37,6 +37,8 @@ target_link_libraries(apex_e2e_tests
         GTest::gtest
 )
 
+apex_set_warnings(apex_e2e_tests)
+
 if(WIN32)
     target_compile_options(apex_e2e_tests PRIVATE /utf-8)
     target_compile_definitions(apex_e2e_tests PRIVATE _WIN32_WINNT=0x0A00)

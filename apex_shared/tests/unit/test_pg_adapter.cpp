@@ -1,8 +1,8 @@
-#include <apex/shared/adapters/pg/pg_adapter.hpp>
-#include <apex/shared/adapters/pg/pg_config.hpp>
-#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/core/adapter_interface.hpp>
 #include <apex/core/core_engine.hpp>
+#include <apex/shared/adapters/adapter_base.hpp>
+#include <apex/shared/adapters/pg/pg_adapter.hpp>
+#include <apex/shared/adapters/pg/pg_config.hpp>
 
 #include <gtest/gtest.h>
 
@@ -11,32 +11,50 @@ using namespace apex::shared::adapters;
 using apex::core::CoreEngine;
 using apex::core::CoreEngineConfig;
 
-TEST(PgAdapter, NameIsPg) {
+TEST(PgAdapter, NameIsPg)
+{
     PgAdapter adapter;
     EXPECT_EQ(adapter.name(), "pg");
 }
 
-TEST(PgAdapter, NotReadyBeforeInit) {
+TEST(PgAdapter, NotReadyBeforeInit)
+{
     PgAdapter adapter;
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(PgAdapter, ReadyAfterInit) {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+TEST(PgAdapter, ReadyAfterInit)
+{
+    PgAdapterConfig config{.pool_size_per_core = 1,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
 }
 
-TEST(PgAdapter, InitCreatesPerCorePools) {
-    PgAdapterConfig config{.pool_size_per_core = 2};
+TEST(PgAdapter, InitCreatesPerCorePools)
+{
+    PgAdapterConfig config{.pool_size_per_core = 2,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 4,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -49,11 +67,19 @@ TEST(PgAdapter, InitCreatesPerCorePools) {
     EXPECT_NO_THROW((void)adapter.pool(3));
 }
 
-TEST(PgAdapter, DrainMakesNotReady) {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+TEST(PgAdapter, DrainMakesNotReady)
+{
+    PgAdapterConfig config{.pool_size_per_core = 1,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -63,36 +89,54 @@ TEST(PgAdapter, DrainMakesNotReady) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(PgAdapter, CloseReleasesResources) {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+TEST(PgAdapter, CloseReleasesResources)
+{
+    PgAdapterConfig config{.pool_size_per_core = 1,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
-    adapter.drain();   // drain sets ready_ = false
-    adapter.close();   // close releases resources
+    adapter.drain(); // drain sets ready_ = false
+    adapter.close(); // close releases resources
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(PgAdapter, CloseWithoutInit) {
+TEST(PgAdapter, CloseWithoutInit)
+{
     PgAdapter adapter;
     // close() without init() should not crash
     EXPECT_NO_THROW(adapter.close());
 }
 
-TEST(PgAdapter, DrainWithoutInit) {
+TEST(PgAdapter, DrainWithoutInit)
+{
     PgAdapter adapter;
     // drain() without init() should not crash
     EXPECT_NO_THROW(adapter.drain());
 }
 
-TEST(PgAdapter, FullLifecycle) {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+TEST(PgAdapter, FullLifecycle)
+{
+    PgAdapterConfig config{.pool_size_per_core = 1,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     EXPECT_FALSE(adapter.is_ready());
@@ -107,17 +151,23 @@ TEST(PgAdapter, FullLifecycle) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(PgAdapter, ConfigAccessible) {
+TEST(PgAdapter, ConfigAccessible)
+{
     PgAdapterConfig config{
         .connection_string = "host=mydb port=6432",
         .pool_size_per_core = 4,
+        .max_idle_time = std::chrono::seconds{120},
+        .health_check_interval = std::chrono::seconds{30},
+        .max_acquire_retries = 3,
+        .retry_backoff = std::chrono::milliseconds{100},
     };
     PgAdapter adapter(config);
     EXPECT_EQ(adapter.config().connection_string, "host=mydb port=6432");
     EXPECT_EQ(adapter.config().pool_size_per_core, 4u);
 }
 
-TEST(PgAdapter, TypeErasureViaAdapterWrapper) {
+TEST(PgAdapter, TypeErasureViaAdapterWrapper)
+{
     auto wrapper = std::make_unique<AdapterWrapper<PgAdapter>>(PgAdapterConfig{});
     apex::core::AdapterInterface* iface = wrapper.get();
 
@@ -129,11 +179,19 @@ TEST(PgAdapter, TypeErasureViaAdapterWrapper) {
     EXPECT_EQ(adapter.name(), "pg");
 }
 
-TEST(PgAdapter, PoolConfigMatchesPgConfig) {
-    PgAdapterConfig config{.pool_size_per_core = 5};
+TEST(PgAdapter, PoolConfigMatchesPgConfig)
+{
+    PgAdapterConfig config{.pool_size_per_core = 5,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 1,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -144,11 +202,19 @@ TEST(PgAdapter, PoolConfigMatchesPgConfig) {
     EXPECT_EQ(pool.config().max_size, 10u);
 }
 
-TEST(PgAdapter, ActiveAndIdleConnectionsInitiallyZero) {
-    PgAdapterConfig config{.pool_size_per_core = 2};
+TEST(PgAdapter, ActiveAndIdleConnectionsInitiallyZero)
+{
+    PgAdapterConfig config{.pool_size_per_core = 2,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -157,17 +223,26 @@ TEST(PgAdapter, ActiveAndIdleConnectionsInitiallyZero) {
     EXPECT_EQ(adapter.idle_connections(), 0u);
 }
 
-TEST(PgAdapter, ActiveAndIdleWithoutInit) {
+TEST(PgAdapter, ActiveAndIdleWithoutInit)
+{
     PgAdapter adapter;
     EXPECT_EQ(adapter.active_connections(), 0u);
     EXPECT_EQ(adapter.idle_connections(), 0u);
 }
 
-TEST(PgAdapter, DoubleInit) {
-    PgAdapterConfig config{.pool_size_per_core = 1};
+TEST(PgAdapter, DoubleInit)
+{
+    PgAdapterConfig config{.pool_size_per_core = 1,
+                           .max_idle_time = std::chrono::seconds{120},
+                           .health_check_interval = std::chrono::seconds{30},
+                           .max_acquire_retries = 3,
+                           .retry_backoff = std::chrono::milliseconds{100}};
     PgAdapter adapter(config);
 
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);

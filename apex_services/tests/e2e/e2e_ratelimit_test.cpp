@@ -5,17 +5,20 @@
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
-namespace apex::e2e {
+namespace apex::e2e
+{
 
 namespace chat_fbs = apex::chat_svc::fbs;
 
-class RateLimitE2ETest : public E2ETestFixture {};
+class RateLimitE2ETest : public E2ETestFixture
+{};
 
 /// Scenario 5: Per-User Rate Limit exceeded -> error response
 ///
 /// Pipeline position: JWT verified -> [Per-User check] -> reject
 /// E2E config should set low per-user limit (e.g., 5 req/sec) for testing.
-TEST_F(RateLimitE2ETest, PerUserRateLimit) {
+TEST_F(RateLimitE2ETest, PerUserRateLimit)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -26,22 +29,23 @@ TEST_F(RateLimitE2ETest, PerUserRateLimit) {
     int rate_limited_count = 0;
     constexpr int burst_count = 20;
 
-    for (int i = 0; i < burst_count; ++i) {
+    for (int i = 0; i < burst_count; ++i)
+    {
         flatbuffers::FlatBufferBuilder fbb(128);
         auto req = chat_fbs::CreateListRoomsRequest(fbb, 0, 20);
         fbb.Finish(req);
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv(std::chrono::seconds{3});
-        if (resp.flags & ERROR_RESPONSE) {
+        if (resp.flags & ERROR_RESPONSE)
+        {
             // Error response -> Rate Limit or auth pipeline rejection
             rate_limited_count++;
         }
     }
 
-    EXPECT_GT(rate_limited_count, 0)
-        << "Per-User Rate Limit did not trigger after " << burst_count
-        << " rapid requests";
+    EXPECT_GT(rate_limited_count, 0) << "Per-User Rate Limit did not trigger after " << burst_count
+                                     << " rapid requests";
 
     client.close();
 }
@@ -50,12 +54,15 @@ TEST_F(RateLimitE2ETest, PerUserRateLimit) {
 ///
 /// Pipeline position: TLS -> [Per-IP check] -> reject
 /// Flood connections from same IP without JWT.
-TEST_F(RateLimitE2ETest, PerIpRateLimit) {
+TEST_F(RateLimitE2ETest, PerIpRateLimit)
+{
     int rejected_count = 0;
     constexpr int attempt_count = 50;
 
-    for (int i = 0; i < attempt_count; ++i) {
-        try {
+    for (int i = 0; i < attempt_count; ++i)
+    {
+        try
+        {
             TcpClient client(io_ctx_, config_);
             client.connect();
 
@@ -66,19 +73,20 @@ TEST_F(RateLimitE2ETest, PerIpRateLimit) {
             client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
             auto resp = client.recv(std::chrono::seconds{2});
-            if (resp.flags & ERROR_RESPONSE) {
+            if (resp.flags & ERROR_RESPONSE)
+            {
                 rejected_count++;
             }
             client.close();
-        } catch (...) {
+        }
+        catch (...)
+        {
             // Connection refused -> IP rate limit kicked in
             rejected_count++;
         }
     }
 
-    EXPECT_GT(rejected_count, 0)
-        << "Per-IP Rate Limit did not trigger after " << attempt_count
-        << " rapid connections";
+    EXPECT_GT(rejected_count, 0) << "Per-IP Rate Limit did not trigger after " << attempt_count << " rapid connections";
 
     // Wait for IP rate limit window to expire so subsequent tests
     // (PerEndpointRateLimit, TimeoutE2E) can connect without being blocked.
@@ -90,7 +98,8 @@ TEST_F(RateLimitE2ETest, PerIpRateLimit) {
 ///
 /// Pipeline position: JWT verified -> Per-User OK -> [Per-Endpoint check] -> reject
 /// CreateRoom (msg_id 2001) has a low override limit in gateway.toml.
-TEST_F(RateLimitE2ETest, PerEndpointRateLimit) {
+TEST_F(RateLimitE2ETest, PerEndpointRateLimit)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -101,7 +110,8 @@ TEST_F(RateLimitE2ETest, PerEndpointRateLimit) {
     int rate_limited = 0;
     constexpr int burst_count = 15;
 
-    for (int i = 0; i < burst_count; ++i) {
+    for (int i = 0; i < burst_count; ++i)
+    {
         flatbuffers::FlatBufferBuilder fbb(256);
         auto name = fbb.CreateString("Room " + std::to_string(i));
         auto req = chat_fbs::CreateCreateRoomRequest(fbb, name, 10);
@@ -109,14 +119,14 @@ TEST_F(RateLimitE2ETest, PerEndpointRateLimit) {
         client.send(2001, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv(std::chrono::seconds{3});
-        if (resp.flags & ERROR_RESPONSE) {
+        if (resp.flags & ERROR_RESPONSE)
+        {
             rate_limited++;
         }
     }
 
-    EXPECT_GT(rate_limited, 0)
-        << "Per-Endpoint Rate Limit did not trigger after " << burst_count
-        << " rapid CreateRoom requests";
+    EXPECT_GT(rate_limited, 0) << "Per-Endpoint Rate Limit did not trigger after " << burst_count
+                               << " rapid CreateRoom requests";
 
     client.close();
 }

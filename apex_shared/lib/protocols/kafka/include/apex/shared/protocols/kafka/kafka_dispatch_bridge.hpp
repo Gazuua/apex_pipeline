@@ -11,7 +11,8 @@
 #include <functional>
 #include <span>
 
-namespace apex::shared::protocols::kafka {
+namespace apex::shared::protocols::kafka
+{
 
 /// Kafka 메시지를 서비스의 kafka_route 핸들러로 디스패치하는 브릿지.
 ///
@@ -26,12 +27,12 @@ namespace apex::shared::protocols::kafka {
 ///   bridge_ = KafkaDispatchBridge(kafka_handler_map());
 ///   // Kafka consumer 콜백에서
 ///   co_await bridge_.dispatch(raw_message);
-class KafkaDispatchBridge {
-public:
+class KafkaDispatchBridge
+{
+  public:
     /// 핸들러 함수 시그니처 — ServiceBase::KafkaHandler와 동일.
-    using Handler = std::function<
-        boost::asio::awaitable<apex::core::Result<void>>(
-            MetadataPrefix, uint32_t, std::span<const uint8_t>)>;
+    using Handler = std::function<boost::asio::awaitable<apex::core::Result<void>>(MetadataPrefix, uint32_t,
+                                                                                   std::span<const uint8_t>)>;
 
     /// 핸들러 맵 타입 — msg_id → Handler.
     using HandlerMap = boost::unordered_flat_map<uint32_t, Handler>;
@@ -47,13 +48,12 @@ public:
     ///
     /// @param raw_message [RoutingHeader][MetadataPrefix][ReplyTopic?][Payload] 형식의 raw 바이트
     /// @return 핸들러 실행 결과. 파싱 실패 시 ParseFailed, 핸들러 미등록 시 HandlerNotFound.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
-    dispatch(std::span<const uint8_t> raw_message);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> dispatch(std::span<const uint8_t> raw_message);
 
     /// 특정 msg_id에 대한 핸들러가 등록되어 있는지 확인.
     [[nodiscard]] bool has_handler(uint32_t msg_id) const noexcept;
 
-private:
+  private:
     const HandlerMap* handlers_{nullptr};
 };
 

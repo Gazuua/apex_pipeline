@@ -1,9 +1,9 @@
 #include <apex/core/connection_handler.hpp>
+#include <apex/core/error_code.hpp>
+#include <apex/core/frame_codec.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/wire_header.hpp>
-#include <apex/core/frame_codec.hpp>
-#include <apex/core/error_code.hpp>
 
 #include "../test_helpers.hpp"
 #include "../test_mocks.hpp"
@@ -24,29 +24,36 @@
 
 using namespace apex::core;
 using namespace std::chrono_literals;
-using apex::test::MockProtocol;
 using apex::test::build_test_frame;
 using apex::test::make_socket_pair;
+using apex::test::MockProtocol;
 using apex::test::wait_for;
 
 /// io_context를 백그라운드 스레드에서 실행하는 RAII guard.
 /// 소멸 시 work_guard 해제 + stop + join.
-struct IoRunner {
+struct IoRunner
+{
     boost::asio::io_context& ctx;
     boost::asio::executor_work_guard<boost::asio::io_context::executor_type> guard;
     std::thread thread;
 
     explicit IoRunner(boost::asio::io_context& c)
-        : ctx(c), guard(c.get_executor()), thread([&c] { c.run(); }) {}
-    ~IoRunner() {
+        : ctx(c)
+        , guard(c.get_executor())
+        , thread([&c] { c.run(); })
+    {}
+    ~IoRunner()
+    {
         guard.reset();
         ctx.stop();
-        if (thread.joinable()) thread.join();
+        if (thread.joinable())
+            thread.join();
     }
 };
 
 // TC1: accept_connection -- 세션 생성 확인
-TEST(ConnectionHandlerTest, AcceptConnectionCreatesSession) {
+TEST(ConnectionHandlerTest, AcceptConnectionCreatesSession)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -72,7 +79,8 @@ TEST(ConnectionHandlerTest, AcceptConnectionCreatesSession) {
 }
 
 // TC2: 정상 프레임 수신 -- dispatch 호출 확인
-TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly) {
+TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -82,9 +90,9 @@ TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly) {
     uint32_t dispatched_msg_id = 0;
     std::vector<uint8_t> dispatched_payload;
 
-    dispatcher.register_handler(0x0042,
-        [&](SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload)
-            -> boost::asio::awaitable<Result<void>> {
+    dispatcher.register_handler(
+        0x0042,
+        [&](SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
             dispatch_count.fetch_add(1);
             dispatched_msg_id = msg_id;
             dispatched_payload.assign(payload.begin(), payload.end());
@@ -113,7 +121,8 @@ TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly) {
 }
 
 // TC3: 불완전 프레임 -- 추가 읽기 대기 (연결 유지)
-TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
+TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -121,11 +130,11 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
 
     std::atomic<int> dispatch_count{0};
     dispatcher.register_handler(0x0010,
-        [&](SessionPtr, uint32_t, std::span<const uint8_t>)
-            -> boost::asio::awaitable<Result<void>> {
-            dispatch_count.fetch_add(1);
-            co_return ok();
-        });
+                                [&](SessionPtr /*session*/, uint32_t /*msg_id*/,
+                                    std::span<const uint8_t> /*payload*/) -> boost::asio::awaitable<Result<void>> {
+                                    dispatch_count.fetch_add(1);
+                                    co_return ok();
+                                });
 
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
@@ -139,8 +148,7 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
         IoRunner runner(io_ctx);
 
         // 헤더만 전송 (10바이트)
-        boost::asio::write(client, boost::asio::buffer(
-            full_frame.data(), WireHeader::SIZE));
+        boost::asio::write(client, boost::asio::buffer(full_frame.data(), WireHeader::SIZE));
 
         // 잠시 대기 — dispatch가 호출되지 않아야 함
         std::this_thread::sleep_for(50ms);
@@ -148,8 +156,7 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
         EXPECT_GE(handler.active_sessions(), 1u);
 
         // 나머지 body 전송
-        boost::asio::write(client, boost::asio::buffer(
-            full_frame.data() + WireHeader::SIZE, payload.size()));
+        boost::asio::write(client, boost::asio::buffer(full_frame.data() + WireHeader::SIZE, payload.size()));
 
         ASSERT_TRUE(wait_for([&] { return dispatch_count.load() >= 1; }, 3000ms));
 
@@ -161,7 +168,8 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData) {
 }
 
 // TC4: 유효하지 않은 프레임 -- 세션 종료
-TEST(ConnectionHandlerTest, InvalidFrameClosesSession) {
+TEST(ConnectionHandlerTest, InvalidFrameClosesSession)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -179,10 +187,10 @@ TEST(ConnectionHandlerTest, InvalidFrameClosesSession) {
         WireHeader bad_header{
             .msg_id = 0x0001,
             .body_size = WireHeader::MAX_BODY_SIZE + 1,
+            .reserved = {},
         };
         auto hdr_bytes = bad_header.serialize();
-        boost::asio::write(client, boost::asio::buffer(
-            std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+        boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
 
         // 세션이 닫히면 active_sessions가 0으로 돌아감
         ASSERT_TRUE(wait_for([&] { return handler.active_sessions() == 0; }, 3000ms));
@@ -192,7 +200,8 @@ TEST(ConnectionHandlerTest, InvalidFrameClosesSession) {
 }
 
 // TC5: 클라이언트 연결 끊김 -- 세션 정리
-TEST(ConnectionHandlerTest, ClientDisconnectCleansUpSession) {
+TEST(ConnectionHandlerTest, ClientDisconnectCleansUpSession)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -216,7 +225,8 @@ TEST(ConnectionHandlerTest, ClientDisconnectCleansUpSession) {
 }
 
 // TC6: dispatch 실패 -- 에러 응답 전송
-TEST(ConnectionHandlerTest, DispatchFailureSendsErrorResponse) {
+TEST(ConnectionHandlerTest, DispatchFailureSendsErrorResponse)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -252,7 +262,8 @@ TEST(ConnectionHandlerTest, DispatchFailureSendsErrorResponse) {
 }
 
 // TC7: 다중 프레임 연속 처리
-TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
+TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -263,8 +274,7 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
     std::mutex ids_mutex;
 
     auto make_handler = [&](uint32_t msg_id) {
-        return [&, msg_id](SessionPtr, uint32_t id, std::span<const uint8_t>)
-            -> boost::asio::awaitable<Result<void>> {
+        return [&, msg_id](SessionPtr, uint32_t id, std::span<const uint8_t>) -> boost::asio::awaitable<Result<void>> {
             {
                 std::lock_guard lock(ids_mutex);
                 dispatched_ids.push_back(id);
@@ -314,7 +324,8 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially) {
 // read_loop에서 writable().empty() 분기를 테스트한다.
 // 매우 작은 recv_buf_capacity(32)로 SessionManager를 생성하고,
 // body_size > capacity인 프레임 헤더를 보내 버퍼를 채운다.
-TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
+TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession)
+{
     boost::asio::io_context io_ctx;
     // recv_buf_capacity=32 — 헤더(12) + body 20바이트로 꽉 참
     SessionManager session_mgr(0, 0, 8, 32);
@@ -334,11 +345,11 @@ TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
         // writable().empty() → session close.
         WireHeader header{
             .msg_id = 0x0001,
-            .body_size = 100,  // 32바이트 버퍼에 12+100 = 112바이트 필요
+            .body_size = 100, // 32바이트 버퍼에 12+100 = 112바이트 필요
+            .reserved = {},
         };
         auto hdr_bytes = header.serialize();
-        boost::asio::write(client, boost::asio::buffer(
-            std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
+        boost::asio::write(client, boost::asio::buffer(std::vector<uint8_t>(hdr_bytes.begin(), hdr_bytes.end())));
 
         // 나머지 body 데이터를 계속 전송해서 버퍼를 채운다
         std::vector<uint8_t> filler(100, 0xAA);
@@ -354,7 +365,8 @@ TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession) {
 }
 
 // TC9: tcp_nodelay=false 분기 테스트
-TEST(ConnectionHandlerTest, TcpNodelayFalseSkipsOptionSet) {
+TEST(ConnectionHandlerTest, TcpNodelayFalseSkipsOptionSet)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;
@@ -377,7 +389,8 @@ TEST(ConnectionHandlerTest, TcpNodelayFalseSkipsOptionSet) {
 }
 
 // TC10: active_sessions 카운트 정확성
-TEST(ConnectionHandlerTest, ActiveSessionsCountAccurate) {
+TEST(ConnectionHandlerTest, ActiveSessionsCountAccurate)
+{
     boost::asio::io_context io_ctx;
     SessionManager session_mgr(0, 0, 8, 8192);
     MessageDispatcher dispatcher;

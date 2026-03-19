@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.6.0
+## 현재 상태 — v0.5.7.0
 
 ### 완료
 
@@ -118,6 +118,27 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - E2E response_topic 정합성 복구 (Auth/Chat → gateway.responses)
   - test_redis_adapter ASAN heap-use-after-free 수정 (소멸 순서 보장)
   - 71/71 유닛 테스트 통과 + 11/11 E2E 통과 (CI ASAN/TSAN 포함 전체 통과)
+
+- **v0.5.5.2 — 로그 디렉토리 구조 확립**
+  - async logger + daily_file_format_sink + exact_level_sink 조합
+  - 서비스별/레벨별/날짜별 파일 로깅 구조화
+  - 프로젝트 루트 자동 탐지, service_name TOML 설정 + 검증
+  - 71/71 유닛 통과
+
+- **v0.5.6.0 — Post-E2E 코드 리뷰 + 프레임워크 인프라 정비**
+  - 10개 관점 체계 리뷰 (46건 발견), ~35건 직접 수정
+  - 코어 인프라 확장 D2-D7: server.global\<T\>, wire_services 자동 배선, spawn tracked API, ConsumerPayloadPool
+  - ChannelSessionMap per-core shared_mutex 완전 제거, GatewayGlobals 소유권 Server 이관
+  - auto-review 5명 (CRITICAL 4 + MAJOR 5 추가 수정, 보안 취약점 1건 포함)
+  - 71/71 유닛 통과
+
+- **v0.5.7.0 — 코드 위생 확립**
+  - `.clang-format` 도입 (Allman brace, 120자, 4칸 인덴트) + 전체 274파일 일괄 포맷팅
+  - `.git-blame-ignore-revs` 등록, CI `format-check` job 추가 (clang-format 21.1.8 고정)
+  - `apex_set_warnings()` 정의 + 전 타겟 적용 (MSVC `/W4 /WX`, GCC `-Wall -Wextra -Wpedantic -Werror`)
+  - 컴파일러 경고 전수 수정 (missing-field-initializers, unused-parameter, redundant-move 등)
+  - FileWatcher flaky 테스트 수정 (NTFS 타임스탬프 캐싱 우회)
+  - 71/71 유닛 통과 + CI 전체 통과 (GCC, ASAN, TSAN, MSVC)
 
 ## 아키텍처
 

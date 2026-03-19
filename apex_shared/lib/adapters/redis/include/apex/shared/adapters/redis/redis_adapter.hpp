@@ -9,7 +9,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::redis {
+namespace apex::shared::adapters::redis
+{
 
 /// Redis adapter. Registered as a single global instance per Server.
 /// Internally manages per-core RedisMultiplexer instances.
@@ -24,8 +25,9 @@ namespace apex::shared::adapters::redis {
 ///   auto& redis = server.adapter<RedisAdapter>();
 ///   auto& mux = redis.multiplexer(core_id);
 ///   auto val = co_await mux.command("GET %s", "key");
-class RedisAdapter : public AdapterBase<RedisAdapter> {
-public:
+class RedisAdapter : public AdapterBase<RedisAdapter>
+{
+  public:
     explicit RedisAdapter(RedisConfig config);
     ~RedisAdapter();
 
@@ -41,7 +43,10 @@ public:
     void do_close();
 
     /// Adapter name.
-    [[nodiscard]] std::string_view do_name() const noexcept { return "redis"; }
+    [[nodiscard]] std::string_view do_name() const noexcept
+    {
+        return "redis";
+    }
 
     // --- Multiplexer access ---
 
@@ -54,9 +59,12 @@ public:
     [[nodiscard]] std::size_t active_connections() const noexcept;
 
     /// Config access.
-    [[nodiscard]] const RedisConfig& config() const noexcept { return config_; }
+    [[nodiscard]] const RedisConfig& config() const noexcept
+    {
+        return config_;
+    }
 
-private:
+  private:
     RedisConfig config_;
     std::vector<std::unique_ptr<RedisMultiplexer>> per_core_;
 };

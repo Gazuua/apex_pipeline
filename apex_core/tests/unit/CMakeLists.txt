@@ -7,6 +7,7 @@ function(apex_add_unit_test TEST_NAME TEST_SOURCE)
             apex::core
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
 
@@ -68,6 +69,7 @@ target_link_libraries(test_server_adapter
         apex::shared::adapters::common
         GTest::gtest_main
 )
+apex_set_warnings(test_server_adapter)
 add_test(NAME test_server_adapter COMMAND test_server_adapter)
 
 # 단위 테스트 일괄 타임아웃 (30초)

@@ -7,26 +7,31 @@
 #include <iomanip>
 #include <sstream>
 
-namespace apex::shared::adapters::kafka {
+namespace apex::shared::adapters::kafka
+{
 
 KafkaSink::KafkaSink(KafkaProducer& producer, std::string topic)
-    : producer_(producer), topic_(std::move(topic)) {}
+    : producer_(producer)
+    , topic_(std::move(topic))
+{}
 
-void KafkaSink::sink_it_(const spdlog::details::log_msg& msg) {
+void KafkaSink::sink_it_(const spdlog::details::log_msg& msg)
+{
     auto json = format_json(msg);
     // fire-and-forget -- errors handled in delivery callback
     (void)producer_.produce(topic_, "", std::string_view(json));
 }
 
-void KafkaSink::flush_() {
+void KafkaSink::flush_()
+{
     producer_.poll(0);
 }
 
-std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
+std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const
+{
     // ISO 8601 timestamp
     auto time_t = std::chrono::system_clock::to_time_t(msg.time);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        msg.time.time_since_epoch()) % 1000;
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(msg.time.time_since_epoch()) % 1000;
 
     std::ostringstream oss;
     oss << "{\"ts\":\"";
@@ -55,23 +60,41 @@ std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
     // message (JSON escape -- RFC 8259 compliant)
     oss << ",\"msg\":\"";
     std::string_view payload(msg.payload.data(), msg.payload.size());
-    for (char c : payload) {
-        switch (c) {
-            case '"': oss << "\\\""; break;
-            case '\\': oss << "\\\\"; break;
-            case '\n': oss << "\\n"; break;
-            case '\r': oss << "\\r"; break;
-            case '\t': oss << "\\t"; break;
-            case '\b': oss << "\\b"; break;
-            case '\f': oss << "\\f"; break;
+    for (char c : payload)
+    {
+        switch (c)
+        {
+            case '"':
+                oss << "\\\"";
+                break;
+            case '\\':
+                oss << "\\\\";
+                break;
+            case '\n':
+                oss << "\\n";
+                break;
+            case '\r':
+                oss << "\\r";
+                break;
+            case '\t':
+                oss << "\\t";
+                break;
+            case '\b':
+                oss << "\\b";
+                break;
+            case '\f':
+                oss << "\\f";
+                break;
             default:
-                if (static_cast<unsigned char>(c) < 0x20) {
+                if (static_cast<unsigned char>(c) < 0x20)
+                {
                     // Control characters U+0000..U+001F → \u00XX
                     char buf[7];
-                    std::snprintf(buf, sizeof(buf), "\\u%04x",
-                                  static_cast<unsigned char>(c));
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
                     oss << buf;
-                } else {
+                }
+                else
+                {
                     oss << c;
                 }
                 break;
@@ -80,14 +103,19 @@ std::string KafkaSink::format_json(const spdlog::details::log_msg& msg) const {
     oss << "\"";
 
     // source location (if available)
-    if (!msg.source.empty()) {
+    if (!msg.source.empty())
+    {
         oss << ",\"file\":\"";
         // JSON-escape filename (Windows paths contain backslashes)
         std::string_view filename_sv(msg.source.filename);
-        for (char fc : filename_sv) {
-            if (fc == '\\') oss << "\\\\";
-            else if (fc == '"') oss << "\\\"";
-            else oss << fc;
+        for (char fc : filename_sv)
+        {
+            if (fc == '\\')
+                oss << "\\\\";
+            else if (fc == '"')
+                oss << "\\\"";
+            else
+                oss << fc;
         }
         oss << "\",\"line\":" << msg.source.line;
     }

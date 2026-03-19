@@ -18,6 +18,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     enable_testing()
 endif()
 
+include(${CMAKE_CURRENT_LIST_DIR}/../cmake/ApexWarnings.cmake)
+
 # --- Dependencies ---
 find_package(Boost REQUIRED)  # asio, unordered (header-only)
 find_package(flatbuffers CONFIG REQUIRED)
@@ -93,6 +95,7 @@ target_link_libraries(apex_core
 )
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
+apex_set_warnings(apex_core)
 
 # io_uring backend (Linux only)
 if(APEX_USE_IO_URING)

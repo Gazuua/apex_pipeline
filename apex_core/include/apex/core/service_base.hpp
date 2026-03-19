@@ -28,11 +28,13 @@
 #include <string>
 #include <string_view>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// 비템플릿 서비스 인터페이스. Server가 서비스를 소유하기 위해 사용.
-class ServiceBaseInterface {
-public:
+class ServiceBaseInterface
+{
+  public:
     virtual ~ServiceBaseInterface() = default;
     virtual void start() = 0;
     virtual void stop() = 0;
@@ -48,14 +50,20 @@ public:
 
     /// Server가 호출하는 진입점. 프레임워크 전처리 + on_configure 호출.
     /// ServiceBase<Derived>가 오버라이드하여 per_core_ 바인딩 등 수행.
-    virtual void internal_configure(ConfigureContext& ctx) { on_configure(ctx); }
+    virtual void internal_configure(ConfigureContext& ctx)
+    {
+        on_configure(ctx);
+    }
 
     /// [D7] Server가 internal_configure 전에 호출하여 io_context를 주입.
     /// ConfigureContext에 io_context를 노출하지 않고 spawn()을 사용 가능하게 함.
     virtual void bind_io_context(boost::asio::io_context&) {}
 
     /// Server가 호출하는 진입점. 프레임워크 전처리 + on_wire 호출.
-    virtual void internal_wire(WireContext& ctx) { on_wire(ctx); }
+    virtual void internal_wire(WireContext& ctx)
+    {
+        on_wire(ctx);
+    }
 
     /// Phase 1: 어댑터/설정 접근 단계. 다른 서비스에 접근 불가.
     virtual void on_configure(ConfigureContext&) {}
@@ -67,18 +75,19 @@ public:
     virtual void on_session_closed(SessionId) {}
 
     // ── D2: Kafka auto-wiring support ──────────────────────────────────
-    using KafkaHandler = std::function<
-        boost::asio::awaitable<Result<void>>(
-            shared::protocols::kafka::MetadataPrefix,
-            uint32_t,
-            std::span<const uint8_t>)>;
+    using KafkaHandler = std::function<boost::asio::awaitable<Result<void>>(shared::protocols::kafka::MetadataPrefix,
+                                                                            uint32_t, std::span<const uint8_t>)>;
     using KafkaHandlerMap = boost::unordered_flat_map<uint32_t, KafkaHandler>;
 
     /// Kafka 핸들러 등록 여부. KafkaAdapter auto-wiring에서 사용.
-    [[nodiscard]] virtual bool has_kafka_handlers() const noexcept { return false; }
+    [[nodiscard]] virtual bool has_kafka_handlers() const noexcept
+    {
+        return false;
+    }
 
     /// Kafka 핸들러 맵 접근. has_kafka_handlers() == true일 때만 유효.
-    [[nodiscard]] virtual const KafkaHandlerMap& kafka_handler_map() const noexcept {
+    [[nodiscard]] virtual const KafkaHandlerMap& kafka_handler_map() const noexcept
+    {
         static const KafkaHandlerMap empty;
         return empty;
     }
@@ -86,7 +95,10 @@ public:
     // ── D7: Outstanding coroutine tracking ─────────────────────────────
 
     /// [D7] Outstanding 코루틴 수. shutdown 대기용.
-    [[nodiscard]] virtual uint32_t outstanding_coroutines() const noexcept { return 0; }
+    [[nodiscard]] virtual uint32_t outstanding_coroutines() const noexcept
+    {
+        return 0;
+    }
 };
 
 /// CRTP base class for defining services.
@@ -103,10 +115,12 @@ public:
 ///           co_return apex::core::ok();
 ///       }
 ///   };
-template <typename Derived>
-class ServiceBase : public ServiceBaseInterface {
-public:
-    explicit ServiceBase(std::string name) : name_(std::move(name)) {}
+template <typename Derived> class ServiceBase : public ServiceBaseInterface
+{
+  public:
+    explicit ServiceBase(std::string name)
+        : name_(std::move(name))
+    {}
 
     ServiceBase(const ServiceBase&) = delete;
     ServiceBase& operator=(const ServiceBase&) = delete;
@@ -114,16 +128,20 @@ public:
     virtual void on_start() {}
     virtual void on_stop() {}
 
-    void start() override {
+    void start() override
+    {
         static_cast<Derived*>(this)->on_start();
         started_ = true;
     }
 
-    void stop() override {
+    void stop() override
+    {
         started_ = false;
         // I-02: Guard against nullptr dispatcher (e.g., stop() called before bind_dispatcher())
-        if (dispatcher_) {
-            for (auto id : registered_msg_ids_) {
+        if (dispatcher_)
+        {
+            for (auto id : registered_msg_ids_)
+            {
                 dispatcher_->unregister_handler(id);
             }
         }
@@ -131,55 +149,68 @@ public:
         on_stop();
     }
 
-    [[nodiscard]] std::string_view name() const noexcept override { return name_; }
-    [[nodiscard]] bool started() const noexcept override { return started_; }
-    [[nodiscard]] MessageDispatcher& dispatcher() noexcept { return *dispatcher_; }
-    [[nodiscard]] const MessageDispatcher& dispatcher() const noexcept { return *dispatcher_; }
+    [[nodiscard]] std::string_view name() const noexcept override
+    {
+        return name_;
+    }
+    [[nodiscard]] bool started() const noexcept override
+    {
+        return started_;
+    }
+    [[nodiscard]] MessageDispatcher& dispatcher() noexcept
+    {
+        return *dispatcher_;
+    }
+    [[nodiscard]] const MessageDispatcher& dispatcher() const noexcept
+    {
+        return *dispatcher_;
+    }
 
-    void bind_dispatcher(MessageDispatcher& external) override {
+    void bind_dispatcher(MessageDispatcher& external) override
+    {
         assert(!started_ && "bind_dispatcher must be called before start()");
         dispatcher_ = &external;
-        owned_dispatcher_.reset();  // standalone dispatcher 해제
+        owned_dispatcher_.reset(); // standalone dispatcher 해제
     }
 
     // ── 프레임워크 내부 메서드 (Server가 라이프사이클 오케스트레이션 시 호출) ──
 
     /// Phase 1: per_core_ 바인딩 + on_configure 호출.
     /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
-    void internal_configure(ConfigureContext& ctx) override {
+    void internal_configure(ConfigureContext& ctx) override
+    {
         per_core_ = &ctx.per_core_state;
         // io_ctx_는 bind_io_context()에서 이미 바인딩됨
         static_cast<Derived*>(this)->on_configure(ctx);
     }
 
     /// [D7] io_context 바인딩 — Server가 internal_configure 전에 호출.
-    void bind_io_context(boost::asio::io_context& io) override {
+    void bind_io_context(boost::asio::io_context& io) override
+    {
         io_ctx_ = &io;
     }
 
     /// Phase 2: on_wire 호출.
     /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
-    void internal_wire(WireContext& ctx) override {
+    void internal_wire(WireContext& ctx) override
+    {
         static_cast<Derived*>(this)->on_wire(ctx);
     }
 
-protected:
+  protected:
     /// @warning 핸들러 람다가 this(Derived*) raw pointer를 캡처함.
     /// 서비스 수명이 디스패처 수명보다 길거나 같아야 한다.
     /// Server 사용 시 자동 보장됨 (서비스와 디스패처를 동시 소유).
 
     /// 로우 핸들러 등록 (코루틴, Result<void> 반환).
     void handle(uint32_t msg_id,
-                boost::asio::awaitable<Result<void>> (Derived::*method)(
-                    SessionPtr, uint32_t, std::span<const uint8_t>))
+                boost::asio::awaitable<Result<void>> (Derived::*method)(SessionPtr, uint32_t, std::span<const uint8_t>))
     {
         auto* self = static_cast<Derived*>(this);
-        dispatcher_->register_handler(msg_id,
-            [self, method](SessionPtr session, uint32_t id,
-                           std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<Result<void>> {
-                co_return co_await (self->*method)(session, id, payload);
-            });
+        dispatcher_->register_handler(
+            msg_id,
+            [self, method](SessionPtr session, uint32_t id, std::span<const uint8_t> payload)
+                -> boost::asio::awaitable<Result<void>> { co_return co_await (self->*method)(session, id, payload); });
         registered_msg_ids_.insert(msg_id);
     }
 
@@ -191,23 +222,23 @@ protected:
     ///       ok()를 반환합니다 (세션이 유효한 경우).
     template <typename FbsType>
     void route(uint32_t msg_id,
-               boost::asio::awaitable<Result<void>> (Derived::*method)(
-                   SessionPtr, uint32_t, const FbsType*))
+               boost::asio::awaitable<Result<void>> (Derived::*method)(SessionPtr, uint32_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
-        dispatcher_->register_handler(msg_id,
+        dispatcher_->register_handler(
+            msg_id,
             [self, method](SessionPtr session, uint32_t id,
-                           std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<Result<void>> {
+                           std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
-                if (!verifier.VerifyBuffer<FbsType>()) {
-                    spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})",
-                                 id, session ? session->id() : 0);
+                if (!verifier.VerifyBuffer<FbsType>())
+                {
+                    spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})", id,
+                                 session ? session->id() : 0);
                     // 자동 error frame 전송 후 ok() 반환
-                    if (session) {
-                        auto frame = ErrorSender::build_error_frame(
-                            id, ErrorCode::FlatBuffersVerifyFailed);
-                        session->enqueue_write(std::move(frame));
+                    if (session)
+                    {
+                        auto frame = ErrorSender::build_error_frame(id, ErrorCode::FlatBuffersVerifyFailed);
+                        (void)session->enqueue_write(std::move(frame));
                     }
                     co_return apex::core::ok();
                 }
@@ -219,15 +250,13 @@ protected:
 
     /// 기본 핸들러 등록 (미등록 msg_id에 대한 폴백).
     /// Gateway처럼 모든 메시지를 범용 처리하는 프록시 서비스용.
-    void set_default_handler(
-        boost::asio::awaitable<Result<void>> (Derived::*method)(
-            SessionPtr, uint32_t, std::span<const uint8_t>))
+    void set_default_handler(boost::asio::awaitable<Result<void>> (Derived::*method)(SessionPtr, uint32_t,
+                                                                                     std::span<const uint8_t>))
     {
         auto* self = static_cast<Derived*>(this);
         dispatcher_->set_default_handler(
             [self, method](SessionPtr session, uint32_t id,
-                           std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<Result<void>> {
+                           std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
                 co_return co_await (self->*method)(session, id, payload);
             });
     }
@@ -238,18 +267,16 @@ protected:
     /// KafkaDispatchBridge가 수신한 Kafka 메시지를 msg_id 기반으로 라우팅할 때 사용.
     /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
     template <typename FbsType>
-    void kafka_route(uint32_t msg_id,
-                     boost::asio::awaitable<Result<void>> (Derived::*method)(
-                         const shared::protocols::kafka::MetadataPrefix&,
-                         uint32_t, const FbsType*))
+    void kafka_route(uint32_t msg_id, boost::asio::awaitable<Result<void>> (Derived::*method)(
+                                          const shared::protocols::kafka::MetadataPrefix&, uint32_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
-        kafka_handlers_[msg_id] = [self, method](
-            shared::protocols::kafka::MetadataPrefix meta, uint32_t id,
-            std::span<const uint8_t> payload)
-                -> boost::asio::awaitable<Result<void>> {
+        kafka_handlers_[msg_id] = [self,
+                                   method](shared::protocols::kafka::MetadataPrefix meta, uint32_t id,
+                                           std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
             flatbuffers::Verifier verifier(payload.data(), payload.size());
-            if (!verifier.VerifyBuffer<FbsType>()) {
+            if (!verifier.VerifyBuffer<FbsType>())
+            {
                 co_return apex::core::error(ErrorCode::FlatBuffersVerifyFailed);
             }
             auto* msg = flatbuffers::GetRoot<FbsType>(payload.data());
@@ -262,34 +289,30 @@ protected:
     // internal_configure() 이후에만 유효. 그 전에 호출하면 UB.
 
     /// 요청/코루틴 수명 임시 데이터용 범프 할당자.
-    BumpAllocator& bump() {
-        assert(per_core_ != nullptr && "bump() called before internal_configure");
-        return per_core_->bump_allocator;
-    }
+    /// @note 정의는 server.hpp에 위치 (PerCoreState complete type 필요).
+    BumpAllocator& bump();
 
     /// 트랜잭션 수명 데이터용 아레나 할당자.
-    ArenaAllocator& arena() {
-        assert(per_core_ != nullptr && "arena() called before internal_configure");
-        return per_core_->arena_allocator;
-    }
+    ArenaAllocator& arena();
 
     /// 이 서비스가 실행 중인 코어 ID.
-    uint32_t core_id() const {
-        assert(per_core_ != nullptr && "core_id() called before internal_configure");
-        return per_core_->core_id;
-    }
+    uint32_t core_id() const;
 
     /// [D7] Tracked 코루틴 스폰. co_spawn(detached) 대신 사용.
     /// outstanding 카운터를 관리하여 shutdown 시 완료 대기 가능.
-    template<typename F>
-    void spawn(F&& coro_factory) {
+    template <typename F> void spawn(F&& coro_factory)
+    {
         assert(io_ctx_ && "spawn() called before internal_configure");
         outstanding_coros_.fetch_add(1, std::memory_order_relaxed);
-        boost::asio::co_spawn(*io_ctx_,
+        boost::asio::co_spawn(
+            *io_ctx_,
             [this, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {
-                try {
+                try
+                {
                     co_await f();
-                } catch (const std::exception& e) {
+                }
+                catch (const std::exception& e)
+                {
                     spdlog::error("[{}] spawn() coroutine exception: {}", name_, e.what());
                 }
                 outstanding_coros_.fetch_sub(1, std::memory_order_release);
@@ -297,21 +320,28 @@ protected:
             boost::asio::detached);
     }
 
-public:
+  public:
     // ── Kafka 핸들러 접근자 (D2: ServiceBaseInterface override) ──────────
 
     /// KafkaDispatchBridge가 핸들러 맵에 접근하기 위한 getter.
-    [[nodiscard]] bool has_kafka_handlers() const noexcept override { return has_kafka_handlers_; }
-    [[nodiscard]] const KafkaHandlerMap& kafka_handler_map() const noexcept override { return kafka_handlers_; }
+    [[nodiscard]] bool has_kafka_handlers() const noexcept override
+    {
+        return has_kafka_handlers_;
+    }
+    [[nodiscard]] const KafkaHandlerMap& kafka_handler_map() const noexcept override
+    {
+        return kafka_handlers_;
+    }
 
     // ── D7: Outstanding coroutine tracking ──────────────────────────────
 
     /// [D7] Outstanding 코루틴 수.
-    [[nodiscard]] uint32_t outstanding_coroutines() const noexcept override {
+    [[nodiscard]] uint32_t outstanding_coroutines() const noexcept override
+    {
         return outstanding_coros_.load(std::memory_order_acquire);
     }
 
-private:
+  private:
     std::string name_;
     // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
     // When used with Server, bind_dispatcher() replaces it with the shared per-core
@@ -321,8 +351,8 @@ private:
     bool started_{false};
     boost::unordered_flat_set<uint32_t> registered_msg_ids_;
     PerCoreState* per_core_{nullptr};
-    boost::asio::io_context* io_ctx_{nullptr};          // D7: spawn()용
-    std::atomic<uint32_t> outstanding_coros_{0};         // D7: outstanding 코루틴 카운터
+    boost::asio::io_context* io_ctx_{nullptr};   // D7: spawn()용
+    std::atomic<uint32_t> outstanding_coros_{0}; // D7: outstanding 코루틴 카운터
 
     // ── Kafka 디스패치 ──────────────────────────────────────────────────
     KafkaHandlerMap kafka_handlers_;

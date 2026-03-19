@@ -5,11 +5,13 @@
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
-namespace apex::e2e {
+namespace apex::e2e
+{
 
 namespace chat_fbs = apex::chat_svc::fbs;
 
-class TimeoutE2ETest : public E2ETestFixture {};
+class TimeoutE2ETest : public E2ETestFixture
+{};
 
 /// Scenario 6: Service timeout -> Gateway returns SERVICE_TIMEOUT
 ///
@@ -18,7 +20,8 @@ class TimeoutE2ETest : public E2ETestFixture {};
 /// The Pending Requests Map in Gateway will eventually time out, and
 /// the client receives SystemResponse with GatewayError::SERVICE_TIMEOUT
 /// (or INVALID_MSG_ID if Gateway detects it before routing).
-TEST_F(TimeoutE2ETest, ServiceTimeout) {
+TEST_F(TimeoutE2ETest, ServiceTimeout)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -40,9 +43,8 @@ TEST_F(TimeoutE2ETest, ServiceTimeout) {
     auto resp = client.recv(std::chrono::seconds{15});
 
     // Gateway should return error response (timeout)
-    EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
-        << "Expected error flag for service timeout, msg_id="
-        << resp.msg_id << " flags=" << static_cast<int>(resp.flags);
+    EXPECT_TRUE(resp.flags & ERROR_RESPONSE) << "Expected error flag for service timeout, msg_id=" << resp.msg_id
+                                             << " flags=" << static_cast<int>(resp.flags);
 
     client.close();
 }
@@ -52,7 +54,8 @@ TEST_F(TimeoutE2ETest, ServiceTimeout) {
 ///
 /// Uses a fresh TCP connection to avoid stream contamination from prior tests'
 /// late-arriving Kafka responses on the same Gateway consumer.
-TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout) {
+TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout)
+{
     // Fresh connection — isolates from any residual responses in previous sessions
     TcpClient client(io_ctx_, config_);
     client.connect();
@@ -62,11 +65,15 @@ TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout) {
 
     // Flush any stale responses that arrived before our request
     // (e.g., previous test's late Kafka responses dispatched to this new session)
-    for (int i = 0; i < 3; ++i) {
-        try {
+    for (int i = 0; i < 3; ++i)
+    {
+        try
+        {
             (void)client.recv(std::chrono::seconds{1});
-        } catch (...) {
-            break;  // No more stale data — timeout is expected
+        }
+        catch (...)
+        {
+            break; // No more stale data — timeout is expected
         }
     }
 
@@ -78,8 +85,7 @@ TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout) {
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv();
-        EXPECT_EQ(resp.msg_id, 2008u)
-            << "Normal request should succeed, got msg_id=" << resp.msg_id;
+        EXPECT_EQ(resp.msg_id, 2008u) << "Normal request should succeed, got msg_id=" << resp.msg_id;
     }
 
     client.close();

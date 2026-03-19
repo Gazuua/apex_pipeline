@@ -5,6 +5,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #58. 코딩 컨벤션 확립 + .clang-format 도입 + 전체 일괄 포맷팅
+- **등급**: MAJOR | **스코프**: core, shared, gateway, auth-svc, chat-svc, ci | **타입**: infra
+- **해결**: 2026-03-19 20:40:08 | **방식**: FIXED | **커밋**: d9edce2
+- **비고**: Allman brace + 120자 + 4칸 인덴트 `.clang-format` 설정. 전체 274 소스 파일 일괄 포맷팅. `.git-blame-ignore-revs` 등록. CI `format-check` job 추가 (`clang-format --dry-run --Werror`). clang-format 버전 21.1.8 고정.
+
+### #54. 빌드/정적분석 경고 전수 소탕 + 경고 레벨 확립
+- **등급**: MAJOR | **스코프**: core, shared, gateway, auth-svc, chat-svc, ci | **타입**: infra
+- **해결**: 2026-03-19 20:40:08 | **방식**: FIXED | **커밋**: d9edce2
+- **비고**: `cmake/ApexWarnings.cmake` — `apex_set_warnings()` 함수 정의 + 전 타겟 적용. MSVC `/W4 /WX`, GCC `-Wall -Wextra -Wpedantic -Werror`. designated initializer `{}` → 명시적 기본값, unused parameter, redundant-move, missing-field-initializers 전수 수정. TSAN atomic_thread_fence 억제.
+
+### #62. FileWatcher::DetectsChange 간헐 실패 (Windows 타임스탬프 해상도)
+- **등급**: MINOR | **스코프**: gateway | **타입**: bug
+- **해결**: 2026-03-19 20:40:08 | **방식**: FIXED | **커밋**: 6ed6b67
+- **비고**: 초기 파일 `last_write_time`을 2초 과거로 고정하여 NTFS 타임스탬프 캐싱 우회. sleep 없는 결정적 테스트 유지.
+
 ### #48. Post-E2E 코드 리뷰 (10개 관점)
 - **등급**: CRITICAL | **스코프**: core, gateway, auth-svc, chat-svc, shared | **타입**: design-debt
 - **해결**: 2026-03-19 14:58:14 | **방식**: FIXED

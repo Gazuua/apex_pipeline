@@ -5,7 +5,8 @@
 #include <functional>
 #include <vector>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Hierarchical timing wheel for O(1) timeout management.
 /// Designed for per-core use (no thread synchronization).
@@ -14,8 +15,9 @@ namespace apex::core {
 /// Sessions are added with a timeout. On each tick, expired entries fire callbacks.
 ///
 /// Typical configuration: 512 slots, 1-second tick = ~8.5 minute max timeout.
-class TimingWheel {
-public:
+class TimingWheel
+{
+  public:
     /// EntryId 0 is never issued by schedule() and serves as an invalid/sentinel value.
     using EntryId = uint64_t;
     using Callback = std::function<void(EntryId)>;
@@ -60,8 +62,9 @@ public:
     /// Current tick position in the wheel.
     [[nodiscard]] uint64_t current_tick() const noexcept;
 
-private:
-    struct Entry {
+  private:
+    struct Entry
+    {
         EntryId id;
         uint64_t deadline_tick;
         bool cancelled{false};
@@ -69,7 +72,8 @@ private:
         Entry* prev{nullptr};
     };
 
-    struct Slot {
+    struct Slot
+    {
         Entry* head{nullptr};
     };
 
@@ -85,10 +89,10 @@ private:
     Callback on_expire_;
 
     // Entry storage (pool-friendly)
-    std::vector<Entry*> entries_;  // indexed by id for O(1) lookup
-    std::vector<EntryId> free_ids_;  // free-list for id reuse
-    size_t active_count_{0};  // 현재 활성 엔트리 수 (O(1) 조회용)
-    std::vector<Entry*> expired_buf_;  // tick()에서 재사용하는 만료 엔트리 버퍼
+    std::vector<Entry*> entries_;     // indexed by id for O(1) lookup
+    std::vector<EntryId> free_ids_;   // free-list for id reuse
+    size_t active_count_{0};          // 현재 활성 엔트리 수 (O(1) 조회용)
+    std::vector<Entry*> expired_buf_; // tick()에서 재사용하는 만료 엔트리 버퍼
 };
 
 } // namespace apex::core

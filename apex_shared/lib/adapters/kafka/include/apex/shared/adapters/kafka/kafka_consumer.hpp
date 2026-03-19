@@ -1,7 +1,7 @@
 #pragma once
 
-#include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/core/result.hpp>
+#include <apex/shared/adapters/kafka/kafka_config.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -19,9 +19,10 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::kafka {
+namespace apex::shared::adapters::kafka
+{
 
-class KafkaProducer;  // forward declaration for DLQ injection
+class KafkaProducer; // forward declaration for DLQ injection
 
 /// Received message callback signature.
 /// Returns Result<void> — failure triggers DLQ routing if producer is available.
@@ -30,12 +31,9 @@ class KafkaProducer;  // forward declaration for DLQ injection
 /// @param key Message key
 /// @param payload Message body
 /// @param offset Kafka offset
-using MessageCallback = std::function<apex::core::Result<void>(
-    std::string_view topic,
-    int32_t partition,
-    std::span<const uint8_t> key,
-    std::span<const uint8_t> payload,
-    int64_t offset)>;
+using MessageCallback =
+    std::function<apex::core::Result<void>(std::string_view topic, int32_t partition, std::span<const uint8_t> key,
+                                           std::span<const uint8_t> payload, int64_t offset)>;
 
 /// Per-core Kafka Consumer instance.
 ///
@@ -46,15 +44,14 @@ using MessageCallback = std::function<apex::core::Result<void>(
 /// Asio integration:
 /// - Linux: rd_kafka_queue_io_event_enable() -> pipe fd -> Asio stream_descriptor
 /// - Windows: steady_timer-based periodic polling (5ms default)
-class KafkaConsumer {
-public:
+class KafkaConsumer
+{
+  public:
     /// @param config Kafka configuration
     /// @param core_id Core ID this Consumer is bound to
     /// @param io_ctx The core's io_context
     /// @param producer DLQ produce target (non-owning, nullptr = no DLQ)
-    explicit KafkaConsumer(const KafkaConfig& config,
-                           uint32_t core_id,
-                           boost::asio::io_context& io_ctx,
+    explicit KafkaConsumer(const KafkaConfig& config, uint32_t core_id, boost::asio::io_context& io_ctx,
                            KafkaProducer* producer = nullptr);
     ~KafkaConsumer();
 
@@ -77,15 +74,24 @@ public:
     void stop_consuming();
 
     /// Whether initialization is complete
-    [[nodiscard]] bool initialized() const noexcept { return rk_ != nullptr; }
+    [[nodiscard]] bool initialized() const noexcept
+    {
+        return rk_ != nullptr;
+    }
 
     /// Whether currently consuming
-    [[nodiscard]] bool consuming() const noexcept { return consuming_; }
+    [[nodiscard]] bool consuming() const noexcept
+    {
+        return consuming_;
+    }
 
     /// Statistics
-    [[nodiscard]] uint64_t total_consumed() const noexcept { return total_consumed_; }
+    [[nodiscard]] uint64_t total_consumed() const noexcept
+    {
+        return total_consumed_;
+    }
 
-private:
+  private:
     /// Message polling + callback invocation (non-blocking)
     void poll_messages();
 
@@ -100,10 +106,10 @@ private:
     boost::asio::io_context& io_ctx_;
 
     rd_kafka_t* rk_ = nullptr;
-    rd_kafka_queue_t* rkqu_ = nullptr;          ///< consumer queue handle
+    rd_kafka_queue_t* rkqu_ = nullptr; ///< consumer queue handle
 
     MessageCallback message_cb_;
-    KafkaProducer* producer_ = nullptr;  ///< DLQ produce target (non-owning)
+    KafkaProducer* producer_ = nullptr; ///< DLQ produce target (non-owning)
     bool consuming_ = false;
     uint64_t total_consumed_ = 0;
 

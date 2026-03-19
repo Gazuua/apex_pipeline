@@ -1,46 +1,54 @@
-#include <apex/shared/adapters/kafka/kafka_adapter.hpp>
-#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
+#include <apex/shared/adapters/adapter_base.hpp>
+#include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace apex::shared::adapters::kafka;
 using apex::core::ErrorCode;
 
-TEST(KafkaAdapter, NameIsKafka) {
+TEST(KafkaAdapter, NameIsKafka)
+{
     KafkaConfig config;
     KafkaAdapter adapter(config);
     EXPECT_EQ(adapter.name(), "kafka");
 }
 
-TEST(KafkaAdapter, NotReadyBeforeInit) {
+TEST(KafkaAdapter, NotReadyBeforeInit)
+{
     KafkaConfig config;
     KafkaAdapter adapter(config);
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(KafkaAdapter, InitMakesReady) {
+TEST(KafkaAdapter, InitMakesReady)
+{
     KafkaConfig config;
     config.brokers = "localhost:9092";
 
     // engine must outlive adapter (adapter holds io_context references)
-    apex::core::CoreEngineConfig engine_config{
-        .num_cores = 2, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 2,
+                                               .mpsc_queue_capacity = 64,
+                                               .tick_interval = std::chrono::milliseconds{100},
+                                               .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
-    adapter.init(engine);  // AdapterBase::init -> do_init
+    adapter.init(engine); // AdapterBase::init -> do_init
     EXPECT_TRUE(adapter.is_ready());
 }
 
-TEST(KafkaAdapter, DrainMakesNotReady) {
+TEST(KafkaAdapter, DrainMakesNotReady)
+{
     KafkaConfig config;
     config.brokers = "localhost:9092";
 
-    apex::core::CoreEngineConfig engine_config{
-        .num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 1,
+                                               .mpsc_queue_capacity = 64,
+                                               .tick_interval = std::chrono::milliseconds{100},
+                                               .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -51,12 +59,15 @@ TEST(KafkaAdapter, DrainMakesNotReady) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(KafkaAdapter, ProduceAfterDrainFails) {
+TEST(KafkaAdapter, ProduceAfterDrainFails)
+{
     KafkaConfig config;
     config.brokers = "localhost:9092";
 
-    apex::core::CoreEngineConfig engine_config{
-        .num_cores = 1, .mpsc_queue_capacity = 64};
+    apex::core::CoreEngineConfig engine_config{.num_cores = 1,
+                                               .mpsc_queue_capacity = 64,
+                                               .tick_interval = std::chrono::milliseconds{100},
+                                               .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -68,7 +79,8 @@ TEST(KafkaAdapter, ProduceAfterDrainFails) {
     EXPECT_EQ(result.error(), ErrorCode::AdapterError);
 }
 
-TEST(KafkaAdapter, ProduceBeforeInitFails) {
+TEST(KafkaAdapter, ProduceBeforeInitFails)
+{
     KafkaConfig config;
     KafkaAdapter adapter(config);
 
@@ -76,9 +88,10 @@ TEST(KafkaAdapter, ProduceBeforeInitFails) {
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(KafkaAdapter, AdapterWrapperTypeErasure) {
-    using apex::shared::adapters::AdapterWrapper;
+TEST(KafkaAdapter, AdapterWrapperTypeErasure)
+{
     using apex::core::AdapterInterface;
+    using apex::shared::adapters::AdapterWrapper;
 
     KafkaConfig config;
     auto wrapper = std::make_unique<AdapterWrapper<KafkaAdapter>>(config);
@@ -88,25 +101,25 @@ TEST(KafkaAdapter, AdapterWrapperTypeErasure) {
     EXPECT_FALSE(iface->is_ready());
 }
 
-TEST(KafkaAdapter, ConfigAccessible) {
+TEST(KafkaAdapter, ConfigAccessible)
+{
     KafkaConfig config;
     config.brokers = "my-broker:9092";
     KafkaAdapter adapter(config);
     EXPECT_EQ(adapter.config().brokers, "my-broker:9092");
 }
 
-TEST(KafkaAdapter, SetMessageCallback) {
+TEST(KafkaAdapter, SetMessageCallback)
+{
     KafkaConfig config;
     KafkaAdapter adapter(config);
 
     bool cb_set = false;
-    adapter.set_message_callback(
-        [&](std::string_view, int32_t,
-            std::span<const uint8_t>, std::span<const uint8_t>,
-            int64_t) -> apex::core::Result<void> {
-            cb_set = true;
-            return {};
-        });
+    adapter.set_message_callback([&](std::string_view, int32_t, std::span<const uint8_t>, std::span<const uint8_t>,
+                                     int64_t) -> apex::core::Result<void> {
+        cb_set = true;
+        return {};
+    });
 
     // Callback is passed to Consumers during init -- only verify setup here
     EXPECT_FALSE(cb_set);

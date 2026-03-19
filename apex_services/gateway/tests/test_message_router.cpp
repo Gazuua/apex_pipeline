@@ -1,7 +1,7 @@
-#include <apex/gateway/message_router.hpp>
-#include <apex/gateway/route_table.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/gateway/message_router.hpp>
+#include <apex/gateway/route_table.hpp>
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include "../../tests/mocks/mock_kafka_adapter.hpp"
@@ -17,10 +17,12 @@ namespace envelope = apex::shared::protocols::kafka;
 // WireHeader→Envelope 변환 검증 (Mock Kafka 사용)
 // ============================================================
 
-namespace {
+namespace
+{
 
 /// RouteTable 생성 헬퍼.
-auto make_route_table(std::vector<apex::gateway::RouteEntry> routes) {
+auto make_route_table(std::vector<apex::gateway::RouteEntry> routes)
+{
     auto table = apex::gateway::RouteTable::build(std::move(routes));
     assert(table.has_value());
     return std::make_shared<const apex::gateway::RouteTable>(std::move(*table));
@@ -28,9 +30,11 @@ auto make_route_table(std::vector<apex::gateway::RouteEntry> routes) {
 
 } // namespace
 
-class MessageRouterTest : public ::testing::Test {
-protected:
-    void SetUp() override {
+class MessageRouterTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
         table_ = make_route_table({
             {1000, 1999, "auth.requests"},
             {2000, 2999, "chat.requests"},
@@ -43,7 +47,8 @@ protected:
 
 // --- msg_id → topic 라우팅 ---
 
-TEST_F(MessageRouterTest, RouteAuthRange) {
+TEST_F(MessageRouterTest, RouteAuthRange)
+{
     // MessageRouter는 KafkaAdapter& 를 받으므로, MockKafkaAdapter를 직접 사용할 수 없다.
     // 대신 RouteTable::resolve를 직접 테스트 (MessageRouter의 핵심 로직).
     auto topic = table_->resolve(1000);
@@ -51,18 +56,21 @@ TEST_F(MessageRouterTest, RouteAuthRange) {
     EXPECT_EQ(*topic, "auth.requests");
 }
 
-TEST_F(MessageRouterTest, RouteChatRange) {
+TEST_F(MessageRouterTest, RouteChatRange)
+{
     auto topic = table_->resolve(2500);
     ASSERT_TRUE(topic.has_value());
     EXPECT_EQ(*topic, "chat.requests");
 }
 
-TEST_F(MessageRouterTest, RouteNotFound) {
+TEST_F(MessageRouterTest, RouteNotFound)
+{
     auto topic = table_->resolve(9999);
     EXPECT_FALSE(topic.has_value());
 }
 
-TEST_F(MessageRouterTest, RouteBoundaryValues) {
+TEST_F(MessageRouterTest, RouteBoundaryValues)
+{
     // Range begin boundary
     EXPECT_TRUE(table_->resolve(1000).has_value());
     EXPECT_TRUE(table_->resolve(2000).has_value());
@@ -78,7 +86,8 @@ TEST_F(MessageRouterTest, RouteBoundaryValues) {
 
 // --- RouteTable atomic update ---
 
-TEST_F(MessageRouterTest, RouteTableAtomicSwap) {
+TEST_F(MessageRouterTest, RouteTableAtomicSwap)
+{
     // Initial table resolves auth range
     ASSERT_TRUE(table_->resolve(1000).has_value());
 
@@ -104,7 +113,8 @@ TEST_F(MessageRouterTest, RouteTableAtomicSwap) {
 
 // --- WireHeader → Envelope 변환 ---
 
-TEST_F(MessageRouterTest, EnvelopeBuildAndParse) {
+TEST_F(MessageRouterTest, EnvelopeBuildAndParse)
+{
     // Envelope의 직렬화/역직렬화 round-trip 검증.
     // MessageRouter::build_envelope은 private이므로, 동일 로직을 재현.
 
@@ -134,22 +144,22 @@ TEST_F(MessageRouterTest, EnvelopeBuildAndParse) {
     ASSERT_TRUE(parsed_rh.has_value());
     EXPECT_EQ(parsed_rh->msg_id, 1001u);
 
-    auto parsed_meta = envelope::MetadataPrefix::parse(
-        std::span<const uint8_t>(envelope_buf).subspan(envelope::RoutingHeader::SIZE));
+    auto parsed_meta =
+        envelope::MetadataPrefix::parse(std::span<const uint8_t>(envelope_buf).subspan(envelope::RoutingHeader::SIZE));
     ASSERT_TRUE(parsed_meta.has_value());
     EXPECT_EQ(parsed_meta->core_id, 2);
     EXPECT_EQ(parsed_meta->corr_id, 42u);
     EXPECT_EQ(parsed_meta->session_id, 12345u);
 
-    auto fbs = std::span<const uint8_t>(envelope_buf)
-                   .subspan(envelope::ENVELOPE_HEADER_SIZE);
+    auto fbs = std::span<const uint8_t>(envelope_buf).subspan(envelope::ENVELOPE_HEADER_SIZE);
     ASSERT_EQ(fbs.size(), 3u);
     EXPECT_EQ(fbs[0], 0x01);
 }
 
 // --- MockKafkaAdapter produce 기록 검증 ---
 
-TEST_F(MessageRouterTest, MockKafkaProduceRecorded) {
+TEST_F(MessageRouterTest, MockKafkaProduceRecorded)
+{
     std::vector<uint8_t> payload = {0xAA, 0xBB};
     auto result = mock_kafka_.produce("auth.requests", "key-1", payload);
     ASSERT_TRUE(result.has_value());
@@ -160,7 +170,8 @@ TEST_F(MessageRouterTest, MockKafkaProduceRecorded) {
     EXPECT_EQ(mock_kafka_.produced()[0].payload, payload);
 }
 
-TEST_F(MessageRouterTest, MockKafkaProduceFailure) {
+TEST_F(MessageRouterTest, MockKafkaProduceFailure)
+{
     mock_kafka_.set_fail_produce(true);
     std::vector<uint8_t> payload = {0x01};
     auto result = mock_kafka_.produce("topic", "key", payload);
@@ -170,7 +181,8 @@ TEST_F(MessageRouterTest, MockKafkaProduceFailure) {
 
 // --- Correlation ID 생성 ---
 
-TEST_F(MessageRouterTest, CorrIdGenerationPattern) {
+TEST_F(MessageRouterTest, CorrIdGenerationPattern)
+{
     // corr_id = (core_id << 48) | counter
     // core_id 2라면, 상위 16비트가 2이어야 함.
     uint16_t core_id = 2;

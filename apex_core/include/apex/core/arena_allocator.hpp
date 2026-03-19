@@ -5,7 +5,8 @@
 #include <cstdlib>
 #include <vector>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Arena (block-chaining + bump) allocator for transaction-lifetime data.
 ///
@@ -18,13 +19,13 @@ namespace apex::core {
 /// no per-object deallocate(). Call reset() to bulk-release all allocations.
 ///
 /// NOT thread-safe. Designed for per-core / per-coroutine use.
-class ArenaAllocator {
-public:
+class ArenaAllocator
+{
+  public:
     static constexpr std::size_t kDefaultBlockSize = 4096;
     static constexpr std::size_t kDefaultMaxBytes = 1024 * 1024;
 
-    explicit ArenaAllocator(std::size_t block_size = kDefaultBlockSize,
-                            std::size_t max_bytes = kDefaultMaxBytes);
+    explicit ArenaAllocator(std::size_t block_size = kDefaultBlockSize, std::size_t max_bytes = kDefaultMaxBytes);
     ~ArenaAllocator();
 
     ArenaAllocator(const ArenaAllocator&) = delete;
@@ -36,8 +37,7 @@ public:
     /// @param size  Allocation size in bytes. 0 returns nullptr.
     /// @param align Alignment requirement (must be power of 2).
     /// @return Aligned pointer, or nullptr if size==0 or max_bytes exceeded.
-    [[nodiscard]] void* allocate(std::size_t size,
-                                 std::size_t align = alignof(std::max_align_t));
+    [[nodiscard]] void* allocate(std::size_t size, std::size_t align = alignof(std::max_align_t));
 
     /// Bulk-deallocate: free all blocks except the first, reset first block's cursor.
     void reset() noexcept;
@@ -51,8 +51,9 @@ public:
     /// Total bytes allocated from the system (sum of all block sizes).
     [[nodiscard]] std::size_t capacity() const noexcept;
 
-private:
-    struct Block {
+  private:
+    struct Block
+    {
         char* base;
         char* cursor;
         char* end;

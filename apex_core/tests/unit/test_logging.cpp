@@ -1,19 +1,22 @@
 #include <apex/core/logging.hpp>
 
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/ostream_sink.h>
 #include <gtest/gtest.h>
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/spdlog.h>
 
 #include <filesystem>
 #include <sstream>
 
 using namespace apex::core;
 
-namespace {
+namespace
+{
 
-class LoggingTest : public ::testing::Test {
-protected:
-    void TearDown() override {
+class LoggingTest : public ::testing::Test
+{
+  protected:
+    void TearDown() override
+    {
         shutdown_logging();
         // 테스트 간 로거 격리
     }
@@ -21,21 +24,24 @@ protected:
 
 } // anonymous namespace
 
-TEST_F(LoggingTest, InitCreatesApexLogger) {
+TEST_F(LoggingTest, InitCreatesApexLogger)
+{
     LogConfig cfg;
     init_logging(cfg);
     auto logger = spdlog::get("apex");
     ASSERT_NE(logger, nullptr);
 }
 
-TEST_F(LoggingTest, InitCreatesAppLogger) {
+TEST_F(LoggingTest, InitCreatesAppLogger)
+{
     LogConfig cfg;
     init_logging(cfg);
     auto logger = spdlog::get("app");
     ASSERT_NE(logger, nullptr);
 }
 
-TEST_F(LoggingTest, FrameworkLevelIndependent) {
+TEST_F(LoggingTest, FrameworkLevelIndependent)
+{
     LogConfig cfg;
     cfg.level = "info";
     cfg.framework_level = "debug";
@@ -47,15 +53,17 @@ TEST_F(LoggingTest, FrameworkLevelIndependent) {
     EXPECT_EQ(app->level(), spdlog::level::info);
 }
 
-TEST_F(LoggingTest, ConsoleOnlyByDefault) {
-    LogConfig cfg;  // console.enabled=true, file.enabled=false
+TEST_F(LoggingTest, ConsoleOnlyByDefault)
+{
+    LogConfig cfg; // console.enabled=true, file.enabled=false
     init_logging(cfg);
     auto logger = spdlog::get("apex");
     // 기본 설정: ConsoleSink 1개만
     EXPECT_EQ(logger->sinks().size(), 1);
 }
 
-TEST_F(LoggingTest, FileEnabled) {
+TEST_F(LoggingTest, FileEnabled)
+{
     auto tmp = std::filesystem::temp_directory_path() / "apex_log_test";
     std::filesystem::remove_all(tmp);
 
@@ -78,7 +86,8 @@ TEST_F(LoggingTest, FileEnabled) {
     std::filesystem::remove_all(tmp);
 }
 
-TEST_F(LoggingTest, ShutdownCleansUp) {
+TEST_F(LoggingTest, ShutdownCleansUp)
+{
     LogConfig cfg;
     init_logging(cfg);
     shutdown_logging();
@@ -86,7 +95,8 @@ TEST_F(LoggingTest, ShutdownCleansUp) {
     EXPECT_EQ(spdlog::get("app"), nullptr);
 }
 
-TEST_F(LoggingTest, DoubleInitIsSafe) {
+TEST_F(LoggingTest, DoubleInitIsSafe)
+{
     LogConfig cfg;
     init_logging(cfg);
     // Second init should not crash or corrupt state
@@ -95,7 +105,8 @@ TEST_F(LoggingTest, DoubleInitIsSafe) {
     EXPECT_NE(spdlog::get("app"), nullptr);
 }
 
-TEST_F(LoggingTest, InitLoggingWithInvalidLevel) {
+TEST_F(LoggingTest, InitLoggingWithInvalidLevel)
+{
     LogConfig cfg;
     cfg.level = "not_a_valid_level";
     cfg.framework_level = "also_invalid";
@@ -111,24 +122,26 @@ TEST_F(LoggingTest, InitLoggingWithInvalidLevel) {
     EXPECT_EQ(app->level(), spdlog::level::off);
 }
 
-TEST_F(LoggingTest, LoggingAfterShutdownDoesNotCrash) {
+TEST_F(LoggingTest, LoggingAfterShutdownDoesNotCrash)
+{
     LogConfig cfg;
     init_logging(cfg);
     shutdown_logging();
     EXPECT_EQ(spdlog::get("apex"), nullptr);
     EXPECT_NO_THROW({
         auto logger = spdlog::get("apex");
-        if (logger) {
+        if (logger)
+        {
             logger->info("should not reach here");
         }
     });
 }
 
-TEST_F(LoggingTest, ExactLevelSinkFiltersExactLevel) {
+TEST_F(LoggingTest, ExactLevelSinkFiltersExactLevel)
+{
     std::ostringstream oss;
     auto ostream_sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(oss);
-    auto exact_info = std::make_shared<exact_level_sink<std::mutex>>(
-        ostream_sink, spdlog::level::info);
+    auto exact_info = std::make_shared<exact_level_sink<std::mutex>>(ostream_sink, spdlog::level::info);
 
     auto logger = std::make_shared<spdlog::logger>("test_exact", exact_info);
     logger->set_level(spdlog::level::trace);
@@ -148,7 +161,8 @@ TEST_F(LoggingTest, ExactLevelSinkFiltersExactLevel) {
     EXPECT_EQ(output.find("error msg"), std::string::npos);
 }
 
-TEST_F(LoggingTest, FileEnabledCreatesPerLevelFiles) {
+TEST_F(LoggingTest, FileEnabledCreatesPerLevelFiles)
+{
     auto tmp = std::filesystem::temp_directory_path() / "apex_log_level_test";
     std::filesystem::remove_all(tmp);
 
@@ -177,9 +191,10 @@ TEST_F(LoggingTest, FileEnabledCreatesPerLevelFiles) {
     std::filesystem::remove_all(tmp);
 }
 
-TEST_F(LoggingTest, AsyncLoggerCreated) {
+TEST_F(LoggingTest, AsyncLoggerCreated)
+{
     auto tmp = std::filesystem::temp_directory_path() / "apex_async_test";
-    std::filesystem::remove_all(tmp);  // 이전 테스트 잔여물 정리
+    std::filesystem::remove_all(tmp); // 이전 테스트 잔여물 정리
 
     LogConfig cfg;
     cfg.file.enabled = true;
@@ -196,10 +211,11 @@ TEST_F(LoggingTest, AsyncLoggerCreated) {
     // async 스레드 파일 핸들 해제까지 Windows에서 지연 가능 → cleanup은 best-effort
     shutdown_logging();
     std::error_code ec;
-    std::filesystem::remove_all(tmp, ec);  // 핸들 잠금 시 무시
+    std::filesystem::remove_all(tmp, ec); // 핸들 잠금 시 무시
 }
 
-TEST_F(LoggingTest, ServiceNameValidation) {
+TEST_F(LoggingTest, ServiceNameValidation)
+{
     LogConfig cfg;
     cfg.service_name = "../escape";
     cfg.file.enabled = true;

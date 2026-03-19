@@ -19,6 +19,8 @@ target_link_libraries(apex_protocols_kafka
         apex::core
 )
 
+apex_set_warnings(apex_protocols_kafka)
+
 if(WIN32)
     target_compile_options(apex_protocols_kafka PUBLIC /utf-8)
     target_compile_definitions(apex_protocols_kafka PUBLIC _WIN32_WINNT=0x0A00)

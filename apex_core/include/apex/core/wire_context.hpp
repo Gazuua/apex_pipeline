@@ -2,7 +2,8 @@
 
 #include <cstdint>
 
-namespace apex::core {
+namespace apex::core
+{
 
 // 순환 의존 방지를 위한 전방 선언
 class Server;
@@ -11,7 +12,8 @@ class ServiceRegistryView;
 class PeriodicTaskScheduler;
 
 /// Phase 2 Context: 서비스 간 와이어링 + 유틸리티.
-struct WireContext {
+struct WireContext
+{
     Server& server;
     uint32_t core_id;
     ServiceRegistry& local_registry;

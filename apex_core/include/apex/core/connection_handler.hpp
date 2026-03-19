@@ -25,10 +25,12 @@
 #include <memory>
 #include <span>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Configuration for ConnectionHandler behavior.
-struct ConnectionHandlerConfig {
+struct ConnectionHandlerConfig
+{
     bool tcp_nodelay = true;
 };
 
@@ -37,12 +39,10 @@ struct ConnectionHandlerConfig {
 ///
 /// Templated on Protocol concept for zero-overhead dispatch.
 /// Each ConnectionHandler<P> is bound to a single core's PerCoreState.
-template<Protocol P, Transport T = DefaultTransport>
-class ConnectionHandler {
-public:
-    ConnectionHandler(SessionManager& session_mgr,
-                      MessageDispatcher& dispatcher,
-                      ConnectionHandlerConfig config)
+template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
+{
+  public:
+    ConnectionHandler(SessionManager& session_mgr, MessageDispatcher& dispatcher, ConnectionHandlerConfig config)
         : session_mgr_(session_mgr)
         , dispatcher_(dispatcher)
         , config_(config)
@@ -51,54 +51,62 @@ public:
 
     /// Accept a new connection -- create session + spawn read_loop.
     /// Must be called on the owning core's io_context thread.
-    void accept_connection(boost::asio::ip::tcp::socket socket,
-                           boost::asio::io_context& io_ctx)
+    void accept_connection(boost::asio::ip::tcp::socket socket, boost::asio::io_context& io_ctx)
     {
-        if (config_.tcp_nodelay) {
+        if (config_.tcp_nodelay)
+        {
             boost::system::error_code ec;
             socket.set_option(boost::asio::ip::tcp::no_delay(true), ec);
         }
 
         auto session = session_mgr_.create_session(std::move(socket));
-        boost::asio::co_spawn(io_ctx,
-            read_loop(std::move(session)),
-            boost::asio::detached);
+        boost::asio::co_spawn(io_ctx, read_loop(std::move(session)), boost::asio::detached);
     }
 
     /// Number of currently active read_loop coroutines.
-    [[nodiscard]] uint32_t active_sessions() const noexcept {
+    [[nodiscard]] uint32_t active_sessions() const noexcept
+    {
         return active_sessions_.load(std::memory_order_acquire);
     }
 
-private:
-    boost::asio::awaitable<void> read_loop(SessionPtr session) {
-        struct ActiveSessionGuard {
+  private:
+    boost::asio::awaitable<void> read_loop(SessionPtr session)
+    {
+        struct ActiveSessionGuard
+        {
             std::atomic<uint32_t>& counter;
-            ~ActiveSessionGuard() { counter.fetch_sub(1, std::memory_order_release); }
+            ~ActiveSessionGuard()
+            {
+                counter.fetch_sub(1, std::memory_order_release);
+            }
         };
         active_sessions_.fetch_add(1, std::memory_order_relaxed);
         ActiveSessionGuard guard{active_sessions_};
 
-        while (session->is_open()) {
+        while (session->is_open())
+        {
             auto& rb = session->recv_buffer();
             auto writable = rb.writable();
-            if (writable.empty()) {
+            if (writable.empty())
+            {
                 if (logger_)
-                    logger_->warn("session {} recv_buffer full — closing connection",
-                                  session->id());
+                    logger_->warn("session {} recv_buffer full — closing connection", session->id());
                 session->close();
                 break;
             }
 
-            auto [ec, n] = co_await session->socket().async_read_some(
-                boost::asio::buffer(writable.data(), writable.size()),
-                boost::asio::as_tuple(boost::asio::use_awaitable));
-            if (ec || n == 0) {
-                if (ec && ec != boost::asio::error::eof) {
+            auto [ec, n] =
+                co_await session->socket().async_read_some(boost::asio::buffer(writable.data(), writable.size()),
+                                                           boost::asio::as_tuple(boost::asio::use_awaitable));
+            if (ec || n == 0)
+            {
+                if (ec && ec != boost::asio::error::eof)
+                {
                     if (logger_)
-                        logger_->warn("session {} abnormal disconnect: {}",
-                                      session->id(), ec.message());
-                } else {
+                        logger_->warn("session {} abnormal disconnect: {}", session->id(), ec.message());
+                }
+                else
+                {
                     if (logger_)
                         logger_->debug("session {} disconnected (EOF)", session->id());
                 }
@@ -107,7 +115,8 @@ private:
 
             rb.commit_write(n);
             co_await process_frames(session);
-            if (!session->is_open()) break;
+            if (!session->is_open())
+                break;
 
             session_mgr_.touch_session(session->id());
         }
@@ -115,14 +124,18 @@ private:
         session_mgr_.remove_session(session->id());
     }
 
-    boost::asio::awaitable<void> process_frames(SessionPtr session) {
+    boost::asio::awaitable<void> process_frames(SessionPtr session)
+    {
         auto& recv_buf = session->recv_buffer();
 
-        for (;;) {
+        for (;;)
+        {
             auto decode_result = P::try_decode(recv_buf);
-            if (!decode_result) {
-                if (decode_result.error() == ErrorCode::InsufficientData) {
-                    break;  // 더 읽기
+            if (!decode_result)
+            {
+                if (decode_result.error() == ErrorCode::InsufficientData)
+                {
+                    break; // 더 읽기
                 }
                 // 그 외 에러 (InvalidMessage 등) → 연결 종료
                 session->close();
@@ -136,45 +149,46 @@ private:
             uint32_t msg_id{};
             std::span<const uint8_t> payload_span;
 
-            if constexpr (requires { frame.header.msg_id; }) {
+            if constexpr (requires { frame.header.msg_id; })
+            {
                 // TCP-style frame (header + payload)
                 msg_id = frame.header.msg_id;
                 payload_span = frame.payload;
-            } else {
+            }
+            else
+            {
                 // WebSocket-style frame (payload only, msg_id in first 4 bytes)
                 const auto& raw = frame.payload;
-                if (raw.size() < sizeof(uint32_t)) {
+                if (raw.size() < sizeof(uint32_t))
+                {
                     if (logger_)
-                        logger_->warn("session {} frame too small for msg_id — closing",
-                                      session->id());
+                        logger_->warn("session {} frame too small for msg_id — closing", session->id());
                     session->close();
                     co_return;
                 }
                 std::memcpy(&msg_id, raw.data(), sizeof(uint32_t));
-                payload_span = std::span<const uint8_t>(
-                    raw.data() + sizeof(uint32_t),
-                    raw.size() - sizeof(uint32_t));
+                payload_span = std::span<const uint8_t>(raw.data() + sizeof(uint32_t), raw.size() - sizeof(uint32_t));
             }
 
-            auto result = co_await dispatcher_.dispatch(
-                session, msg_id, payload_span);
+            auto result = co_await dispatcher_.dispatch(session, msg_id, payload_span);
 
             P::consume_frame(recv_buf, frame);
 
-            if (!result.has_value()) {
-                auto error_frame = ErrorSender::build_error_frame(
-                    msg_id, result.error());
+            if (!result.has_value())
+            {
+                auto error_frame = ErrorSender::build_error_frame(msg_id, result.error());
                 (void)co_await session->async_send_raw(error_frame);
             }
 
-            if (!session->is_open()) break;
+            if (!session->is_open())
+                break;
         }
     }
 
     SessionManager& session_mgr_;
     MessageDispatcher& dispatcher_;
     ConnectionHandlerConfig config_;
-    std::shared_ptr<spdlog::logger> logger_;  // Cached to survive spdlog::shutdown()
+    std::shared_ptr<spdlog::logger> logger_; // Cached to survive spdlog::shutdown()
     std::atomic<uint32_t> active_sessions_{0};
 };
 

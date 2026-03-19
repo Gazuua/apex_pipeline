@@ -1,10 +1,10 @@
 #pragma once
 
+#include <apex/core/result.hpp>
+#include <apex/core/slab_allocator.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/redis/redis_connection.hpp>
 #include <apex/shared/adapters/redis/redis_reply.hpp>
-#include <apex/core/result.hpp>
-#include <apex/core/slab_allocator.hpp>
 
 #include <hiredis/async.h>
 
@@ -22,7 +22,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::redis {
+namespace apex::shared::adapters::redis
+{
 
 /// Single-connection multiplexer for Redis commands.
 /// Uses hiredis async API with FIFO reply matching (Redis protocol guarantees
@@ -34,8 +35,9 @@ namespace apex::shared::adapters::redis {
 ///   - Commands are sent via redisAsyncCommand; replies matched FIFO via pending_ deque
 ///   - Each pending command has a resolver timer (for coroutine resume) and a timeout timer
 ///   - On disconnect, all pending commands get AdapterError and reconnect loop starts
-class RedisMultiplexer {
-public:
+class RedisMultiplexer
+{
+  public:
     RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config);
     ~RedisMultiplexer();
 
@@ -47,9 +49,9 @@ public:
 
     /// Execute a single Redis command (raw string, no parameter escaping).
     /// @deprecated Use the parameterized overload to prevent Redis command injection.
-    [[deprecated("Use command(const char* fmt, Args&&... args) for safe parameter binding")]]
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
-    command(std::string_view cmd);
+    [[deprecated("Use command(const char* fmt, Args&&... args) for safe parameter binding")]] [[nodiscard]] boost::
+        asio::awaitable<apex::core::Result<RedisReply>>
+        command(std::string_view cmd);
 
     /// Execute a Redis command with printf-style parameter binding.
     /// Parameters are escaped by hiredis (via redisFormatCommand), preventing
@@ -58,18 +60,24 @@ public:
     ///
     /// Example:
     ///   co_await mux.command("SETEX %s %d %s", key, ttl, value);
-    template<typename... Args>
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
-    command(const char* fmt, Args&&... args) {
+    template <typename... Args>
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>> command(const char* fmt, Args&&... args)
+    {
         char* buf = nullptr;
         int len = redisFormatCommand(&buf, fmt, std::forward<Args>(args)...);
-        if (len < 0 || !buf) {
+        if (len < 0 || !buf)
+        {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
         // RAII guard for hiredis-allocated buffer
-        struct FreeGuard {
+        struct FreeGuard
+        {
             char* p;
-            ~FreeGuard() { if (p) redisFreeCommand(p); }
+            ~FreeGuard()
+            {
+                if (p)
+                    redisFreeCommand(p);
+            }
         } guard{buf};
         co_return co_await submit_formatted_command(buf, len);
     }
@@ -98,13 +106,13 @@ public:
     /// Graceful close — cancel all pending commands with AdapterError.
     boost::asio::awaitable<void> close();
 
-private:
+  private:
     /// Authenticate connection via AUTH command.
     /// Uses raw_async_command to bypass reconnecting_ guard.
-    boost::asio::awaitable<apex::core::Result<void>>
-    authenticate(RedisConnection& conn);
+    boost::asio::awaitable<apex::core::Result<void>> authenticate(RedisConnection& conn);
 
-    struct PendingCommand {
+    struct PendingCommand
+    {
         boost::asio::steady_timer resolver;
         boost::asio::steady_timer timeout;
         apex::core::Result<RedisReply> result;
@@ -127,8 +135,8 @@ private:
     /// Submit an already-formatted Redis protocol command and await reply.
     /// Used by both the deprecated command(string_view) and the new
     /// parameterized command(fmt, args...) overload.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>>
-    submit_formatted_command(const char* cmd, int len);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>> submit_formatted_command(const char* cmd,
+                                                                                                  int len);
 
     /// Exponential backoff reconnect loop
     boost::asio::awaitable<void> reconnect_loop();

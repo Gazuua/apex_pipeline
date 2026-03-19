@@ -36,6 +36,8 @@ target_link_libraries(apex_shared_adapters_redis
 
 target_compile_features(apex_shared_adapters_redis PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_shared_adapters_redis)
+
 if(WIN32)
     target_compile_options(apex_shared_adapters_redis PUBLIC /utf-8)
     target_link_libraries(apex_shared_adapters_redis PUBLIC ws2_32)

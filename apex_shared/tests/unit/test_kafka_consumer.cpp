@@ -1,6 +1,6 @@
-#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
-#include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/core/error_code.hpp>
+#include <apex/shared/adapters/kafka/kafka_config.hpp>
+#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
 
 #include <boost/asio/io_context.hpp>
 
@@ -9,7 +9,8 @@
 using namespace apex::shared::adapters::kafka;
 using apex::core::ErrorCode;
 
-TEST(KafkaConsumer, NotInitializedByDefault) {
+TEST(KafkaConsumer, NotInitializedByDefault)
+{
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     KafkaConsumer consumer(config, 0, io_ctx);
@@ -19,7 +20,8 @@ TEST(KafkaConsumer, NotInitializedByDefault) {
     EXPECT_EQ(consumer.total_consumed(), 0u);
 }
 
-TEST(KafkaConsumer, InitCreatesHandle) {
+TEST(KafkaConsumer, InitCreatesHandle)
+{
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     config.brokers = "localhost:9092";
@@ -32,7 +34,8 @@ TEST(KafkaConsumer, InitCreatesHandle) {
     EXPECT_TRUE(consumer.initialized());
 }
 
-TEST(KafkaConsumer, InitWithTopicSubscription) {
+TEST(KafkaConsumer, InitWithTopicSubscription)
+{
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     config.brokers = "localhost:9092";
@@ -43,32 +46,33 @@ TEST(KafkaConsumer, InitWithTopicSubscription) {
     EXPECT_TRUE(result.has_value());
 }
 
-TEST(KafkaConsumer, SetMessageCallback) {
+TEST(KafkaConsumer, SetMessageCallback)
+{
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     KafkaConsumer consumer(config, 0, io_ctx);
 
     bool called = false;
-    consumer.set_message_callback(
-        [&](std::string_view, int32_t,
-            std::span<const uint8_t>, std::span<const uint8_t>,
-            int64_t) -> apex::core::Result<void> {
-            called = true;
-            return {};
-        });
+    consumer.set_message_callback([&](std::string_view, int32_t, std::span<const uint8_t>, std::span<const uint8_t>,
+                                      int64_t) -> apex::core::Result<void> {
+        called = true;
+        return {};
+    });
 
     // Only verify callback was set -- actual invocation in integration tests
     EXPECT_FALSE(called);
 }
 
-TEST(KafkaConsumer, StartStopConsuming) {
+TEST(KafkaConsumer, StartStopConsuming)
+{
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     config.brokers = "localhost:9092";
     KafkaConsumer consumer(config, 0, io_ctx);
 
     auto result = consumer.init();
-    if (!result.has_value()) {
+    if (!result.has_value())
+    {
         GTEST_SKIP() << "librdkafka init failed";
     }
 

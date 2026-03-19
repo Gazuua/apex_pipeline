@@ -1,14 +1,14 @@
+#include "../test_helpers.hpp"
 #include <apex/core/core_engine.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/core/wire_header.hpp>
-#include "../test_helpers.hpp"
 #include <gtest/gtest.h>
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/co_spawn.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/use_future.hpp>
 
 #include <atomic>
@@ -22,23 +22,29 @@ using boost::asio::awaitable;
 
 // --- Test service that records dispatched messages ---
 
-class RecordingService : public ServiceBase<RecordingService> {
-public:
-    RecordingService() : ServiceBase("recording") {}
+class RecordingService : public ServiceBase<RecordingService>
+{
+  public:
+    RecordingService()
+        : ServiceBase("recording")
+    {}
 
-    void on_start() override {
+    void on_start() override
+    {
         handle(0x0001, &RecordingService::on_echo);
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload)
+    {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
         co_return ok();
     }
 
-    awaitable<Result<void>> on_ping(SessionPtr, uint32_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_ping(SessionPtr /*session*/, uint32_t /*msg_id*/, std::span<const uint8_t> /*payload*/)
+    {
         ++ping_count;
         co_return ok();
     }
@@ -51,7 +57,8 @@ public:
 
 // --- Pipeline: RingBuffer -> FrameCodec -> ServiceBase dispatch ---
 
-TEST(PipelineIntegration, EncodeDecodeDispatch) {
+TEST(PipelineIntegration, EncodeDecodeDispatch)
+{
     // 1. Create and start service
     auto service = std::make_unique<RecordingService>();
     service->start();
@@ -59,7 +66,7 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
     // 2. Encode a frame into RingBuffer
     RingBuffer buf(4096);
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
-    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
     ASSERT_TRUE(FrameCodec::encode(buf, header, payload));
 
     // 3. Decode the frame
@@ -70,8 +77,7 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
 
     // 4. Dispatch to service
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
     ASSERT_TRUE(result.has_value());
 
     // 5. Verify handler received correct data
@@ -84,7 +90,8 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
     EXPECT_EQ(buf.readable_size(), 0);
 }
 
-TEST(PipelineIntegration, MultiFramePipeline) {
+TEST(PipelineIntegration, MultiFramePipeline)
+{
     auto service = std::make_unique<RecordingService>();
     service->start();
 
@@ -95,56 +102,64 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     std::vector<uint8_t> p2 = {0x02, 0x03};
     std::vector<uint8_t> p3 = {0x04, 0x05, 0x06};
 
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 1}, p1));
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0002, .body_size = 2}, p2));
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3}, p3));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 1, .reserved = {}}, p1));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0002, .body_size = 2, .reserved = {}}, p2));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x0001, .body_size = 3, .reserved = {}}, p3));
 
     // TQ2: Decode and dispatch all frames — verify dispatch return values
     boost::asio::io_context io_ctx;
     int frames_processed = 0;
-    while (auto frame = FrameCodec::try_decode(buf)) {
-        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,frame->header.msg_id, frame->payload));
+    while (auto frame = FrameCodec::try_decode(buf))
+    {
+        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
         EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
     }
 
     EXPECT_EQ(frames_processed, 3);
-    EXPECT_EQ(service->call_count, 2);  // msg_id 0x0001 called twice
-    EXPECT_EQ(service->ping_count, 1);  // msg_id 0x0002 called once
+    EXPECT_EQ(service->call_count, 2); // msg_id 0x0001 called twice
+    EXPECT_EQ(service->ping_count, 1); // msg_id 0x0002 called once
     EXPECT_EQ(buf.readable_size(), 0);
 }
 
-TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
+TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
+{
     auto service = std::make_unique<RecordingService>();
     service->start();
 
     RingBuffer buf(4096);
     std::vector<uint8_t> payload = {0xFF};
-    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x9999, .body_size = 1}, payload));
+    ASSERT_TRUE(FrameCodec::encode(buf, {.msg_id = 0x9999, .body_size = 1, .reserved = {}}, payload));
 
     auto frame = FrameCodec::try_decode(buf);
     ASSERT_TRUE(frame.has_value());
 
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), apex::core::ErrorCode::HandlerNotFound);
 }
 
 // --- CoreEngine + ServiceBase integration ---
 
-TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
+TEST(PipelineIntegration, CoreEngineInterCoreDelivery)
+{
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 1024,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<int> core0_received{0};
     std::atomic<int> core1_received{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
-        if (msg.op == CrossCoreOp::Custom) {
-            if (core_id == 0) ++core0_received;
-            if (core_id == 1) ++core1_received;
+        if (msg.op == CrossCoreOp::Custom)
+        {
+            if (core_id == 0)
+                ++core0_received;
+            if (core_id == 1)
+                ++core1_received;
         }
     });
 
@@ -157,9 +172,7 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     // Core 1 -> Core 0
     (void)engine.post_to(0, {.op = CrossCoreOp::Custom, .source_core = 1, .data = 3});
 
-    ASSERT_TRUE(apex::test::wait_for([&] {
-        return core0_received.load() >= 1 && core1_received.load() >= 2;
-    }));
+    ASSERT_TRUE(apex::test::wait_for([&] { return core0_received.load() >= 1 && core1_received.load() >= 2; }));
 
     EXPECT_EQ(core0_received.load(), 1);
     EXPECT_EQ(core1_received.load(), 2);
@@ -168,11 +181,13 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     t.join();
 }
 
-TEST(PipelineIntegration, WireHeaderFlagsPreserved) {
+TEST(PipelineIntegration, WireHeaderFlagsPreserved)
+{
     WireHeader h{
         .flags = static_cast<uint8_t>(wire_flags::COMPRESSED | wire_flags::REQUIRE_AUTH_CHECK),
         .msg_id = 0x0042,
         .body_size = 0,
+        .reserved = {},
     };
 
     auto bytes = h.serialize();

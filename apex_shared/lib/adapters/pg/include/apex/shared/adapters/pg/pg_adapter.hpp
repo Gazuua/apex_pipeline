@@ -1,9 +1,9 @@
 #pragma once
 
+#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_pool.hpp>
 #include <apex/shared/adapters/pg/pg_result.hpp>
-#include <apex/shared/adapters/adapter_base.hpp>
 
 #include <boost/asio/awaitable.hpp>
 
@@ -14,7 +14,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
 /// PostgreSQL adapter -- registered as an infrastructure component on Server.
 ///
@@ -30,8 +31,9 @@ namespace apex::shared::adapters::pg {
 ///
 /// Ownership: single global instance. Internally manages per-core PgPool.
 /// CoreEngine::current_core_id() routes to the current core's pool.
-class PgAdapter : public AdapterBase<PgAdapter> {
-public:
+class PgAdapter : public AdapterBase<PgAdapter>
+{
+  public:
     explicit PgAdapter(PgAdapterConfig config = {});
     ~PgAdapter();
 
@@ -39,25 +41,26 @@ public:
     void do_init(apex::core::CoreEngine& engine);
     void do_drain();
     void do_close();
-    [[nodiscard]] std::string_view do_name() const noexcept { return "pg"; }
+    [[nodiscard]] std::string_view do_name() const noexcept
+    {
+        return "pg";
+    }
 
     // --- Query API (coroutine) ---
 
     /// Execute SQL query (no parameters)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    query(std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> query(std::string_view sql);
 
     /// Execute parameterized query ($1, $2, ... placeholders)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    query(std::string_view sql, std::span<const std::string> params);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> query(std::string_view sql,
+                                                                             std::span<const std::string> params);
 
     /// Execute command (INSERT/UPDATE/DELETE) -- returns affected_rows
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>>
-    execute(std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>> execute(std::string_view sql);
 
     /// Execute parameterized command
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>>
-    execute(std::string_view sql, std::span<const std::string> params);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>> execute(std::string_view sql,
+                                                                          std::span<const std::string> params);
 
     // --- Monitoring API ---
 
@@ -67,12 +70,15 @@ public:
     [[nodiscard]] size_t idle_connections() const noexcept;
 
     /// Config access
-    [[nodiscard]] const PgAdapterConfig& config() const noexcept { return config_; }
+    [[nodiscard]] const PgAdapterConfig& config() const noexcept
+    {
+        return config_;
+    }
 
     /// Per-core pool access (test/advanced)
     [[nodiscard]] PgPool& pool(uint32_t core_id);
 
-private:
+  private:
     /// Return the PgPool for the current core
     [[nodiscard]] PgPool& current_pool();
 

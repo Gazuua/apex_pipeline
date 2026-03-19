@@ -15,6 +15,8 @@ option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
 enable_testing()
 
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/ApexWarnings.cmake)
+
 # --- Sub-projects ---
 add_subdirectory(apex_core)
 # 실제 코드 추가 시 활성화 (현재 placeholder만 존재)

@@ -8,6 +8,7 @@ message(STATUS "Building benchmarks")
 
 # Shared bench_main (custom main with SystemProfile)
 add_library(apex_bench_main OBJECT bench_main.cpp)
+apex_set_warnings(apex_bench_main)
 target_include_directories(apex_bench_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(apex_bench_main PRIVATE benchmark::benchmark)
 
@@ -23,6 +24,7 @@ function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
     add_executable(${BENCH_NAME} ${BENCH_SOURCE} $<TARGET_OBJECTS:apex_bench_main>)
     target_include_directories(${BENCH_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(${BENCH_NAME} PRIVATE apex::core benchmark::benchmark)
+    apex_set_warnings(${BENCH_NAME})
     set_target_properties(${BENCH_NAME} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${_bench_bin_dir}")
     if(WIN32)

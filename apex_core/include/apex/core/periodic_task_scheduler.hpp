@@ -9,7 +9,8 @@
 #include <memory>
 #include <unordered_map>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// 작업 핸들 — schedule()이 반환하는 불투명 식별자.
 /// cancel() 호출 시 사용.
@@ -21,8 +22,9 @@ using TaskHandle = uint64_t;
 ///
 /// 주의: 단일 스레드(io_context 실행 스레드)에서만 사용해야 한다.
 ///       스레드 동기화 없음.
-class PeriodicTaskScheduler {
-public:
+class PeriodicTaskScheduler
+{
+  public:
     explicit PeriodicTaskScheduler(boost::asio::io_context& io_ctx);
     ~PeriodicTaskScheduler();
 
@@ -32,8 +34,7 @@ public:
 
     /// 주기적 작업 등록. interval마다 task를 반복 실행한다.
     /// @return 취소에 사용할 TaskHandle. handle은 stop_all() 후 무효화된다.
-    TaskHandle schedule(std::chrono::milliseconds interval,
-                        std::function<void()> task);
+    TaskHandle schedule(std::chrono::milliseconds interval, std::function<void()> task);
 
     /// 특정 작업 취소. 이미 취소됐거나 존재하지 않으면 no-op.
     void cancel(TaskHandle handle);
@@ -42,8 +43,9 @@ public:
     /// Server shutdown 시 io_context 정지 전에 호출해야 한다.
     void stop_all();
 
-private:
-    struct TaskEntry {
+  private:
+    struct TaskEntry
+    {
         std::unique_ptr<boost::asio::steady_timer> timer;
         std::function<void()> task;
         std::chrono::milliseconds interval;

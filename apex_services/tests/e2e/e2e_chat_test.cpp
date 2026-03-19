@@ -1,25 +1,28 @@
 #include "e2e_test_fixture.hpp"
 
-#include <chat_room_generated.h>
 #include <chat_message_generated.h>
+#include <chat_room_generated.h>
 
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
 #include <thread>
 
-namespace apex::e2e {
+namespace apex::e2e
+{
 
 namespace chat_fbs = apex::chat_svc::fbs;
 
-class ChatE2ETest : public E2ETestFixture {};
+class ChatE2ETest : public E2ETestFixture
+{};
 
 /// Scenario 2: Room join -> message send -> broadcast receive
 ///
 /// Full pipeline:
 ///   Alice creates room -> Bob joins -> Alice sends message
 ///   -> Chat Service -> Redis PUBLISH -> Gateway SUBSCRIBE -> fan-out to Bob
-TEST_F(ChatE2ETest, RoomMessageBroadcast) {
+TEST_F(ChatE2ETest, RoomMessageBroadcast)
+{
     // --- Alice login ---
     TcpClient alice(io_ctx_, config_);
     alice.connect();
@@ -43,8 +46,7 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
 
         auto resp = alice.recv();
         ASSERT_EQ(resp.msg_id, 2002u);
-        auto* create_resp = flatbuffers::GetRoot<
-            chat_fbs::CreateRoomResponse>(resp.payload.data());
+        auto* create_resp = flatbuffers::GetRoot<chat_fbs::CreateRoomResponse>(resp.payload.data());
         ASSERT_EQ(create_resp->error(), chat_fbs::ChatRoomError_NONE);
         room_id = create_resp->room_id();
         ASSERT_GT(room_id, 0u);
@@ -59,10 +61,9 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
 
         auto resp = bob.recv();
         ASSERT_EQ(resp.msg_id, 2004u);
-        auto* join_resp = flatbuffers::GetRoot<
-            chat_fbs::JoinRoomResponse>(resp.payload.data());
+        auto* join_resp = flatbuffers::GetRoot<chat_fbs::JoinRoomResponse>(resp.payload.data());
         ASSERT_EQ(join_resp->error(), chat_fbs::ChatRoomError_NONE);
-        EXPECT_EQ(join_resp->member_count(), 2u);  // Alice + Bob
+        EXPECT_EQ(join_resp->member_count(), 2u); // Alice + Bob
     }
 
     // 2b. Subscribe Bob to the room's Pub/Sub channel for broadcast delivery
@@ -88,10 +89,9 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
     // 4. Bob receives broadcast message (Redis Pub/Sub -> Gateway -> Bob)
     {
         auto msg = bob.recv(std::chrono::seconds{5});
-        EXPECT_EQ(msg.msg_id, 2013u);  // ChatMessage broadcast
+        EXPECT_EQ(msg.msg_id, 2013u); // ChatMessage broadcast
 
-        auto* chat_msg = flatbuffers::GetRoot<
-            chat_fbs::ChatMessage>(msg.payload.data());
+        auto* chat_msg = flatbuffers::GetRoot<chat_fbs::ChatMessage>(msg.payload.data());
         EXPECT_EQ(chat_msg->room_id(), room_id);
         ASSERT_NE(chat_msg->sender_name(), nullptr);
         // sender_name is set by Chat Service from user data
@@ -115,7 +115,8 @@ TEST_F(ChatE2ETest, RoomMessageBroadcast) {
 }
 
 /// Supplementary: list rooms after creation
-TEST_F(ChatE2ETest, ListRooms) {
+TEST_F(ChatE2ETest, ListRooms)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
     auto auth = login(client, "alice@apex.dev", "password123");
@@ -128,7 +129,7 @@ TEST_F(ChatE2ETest, ListRooms) {
         auto req = chat_fbs::CreateCreateRoomRequest(fbb, name, 10);
         fbb.Finish(req);
         client.send(2001, fbb.GetBufferPointer(), fbb.GetSize());
-        client.recv();  // CreateRoomResponse
+        client.recv(); // CreateRoomResponse
     }
 
     // List rooms
@@ -140,8 +141,7 @@ TEST_F(ChatE2ETest, ListRooms) {
 
         auto resp = client.recv();
         ASSERT_EQ(resp.msg_id, 2008u);
-        auto* list_resp = flatbuffers::GetRoot<
-            chat_fbs::ListRoomsResponse>(resp.payload.data());
+        auto* list_resp = flatbuffers::GetRoot<chat_fbs::ListRoomsResponse>(resp.payload.data());
         EXPECT_GT(list_resp->total_count(), 0u);
         ASSERT_NE(list_resp->rooms(), nullptr);
         EXPECT_GT(list_resp->rooms()->size(), 0u);
@@ -153,7 +153,8 @@ TEST_F(ChatE2ETest, ListRooms) {
 /// Scenario 3: Global broadcast -> all connected users receive
 ///
 /// Alice sends global broadcast -> both Alice and Bob receive GlobalChatMessage
-TEST_F(ChatE2ETest, GlobalBroadcast) {
+TEST_F(ChatE2ETest, GlobalBroadcast)
+{
     // Alice and Bob login
     TcpClient alice(io_ctx_, config_);
     alice.connect();
@@ -185,20 +186,16 @@ TEST_F(ChatE2ETest, GlobalBroadcast) {
         bool got_response = (msg1.msg_id == 2042 || msg2.msg_id == 2042);
         bool got_broadcast = (msg1.msg_id == 2043 || msg2.msg_id == 2043);
 
-        EXPECT_TRUE(got_response)
-            << "Expected GlobalBroadcastResponse (2042), got "
-            << msg1.msg_id << " and " << msg2.msg_id;
-        EXPECT_TRUE(got_broadcast)
-            << "Expected GlobalChatMessage (2043), got "
-            << msg1.msg_id << " and " << msg2.msg_id;
+        EXPECT_TRUE(got_response) << "Expected GlobalBroadcastResponse (2042), got " << msg1.msg_id << " and "
+                                  << msg2.msg_id;
+        EXPECT_TRUE(got_broadcast) << "Expected GlobalChatMessage (2043), got " << msg1.msg_id << " and "
+                                   << msg2.msg_id;
 
         // Verify broadcast content regardless of arrival order
         auto& broadcast = (msg1.msg_id == 2043) ? msg1 : msg2;
-        auto* global_msg = flatbuffers::GetRoot<
-            chat_fbs::GlobalChatMessage>(broadcast.payload.data());
+        auto* global_msg = flatbuffers::GetRoot<chat_fbs::GlobalChatMessage>(broadcast.payload.data());
         ASSERT_NE(global_msg->content(), nullptr);
-        EXPECT_STREQ(global_msg->content()->c_str(),
-                     "Server maintenance at 03:00 UTC");
+        EXPECT_STREQ(global_msg->content()->c_str(), "Server maintenance at 03:00 UTC");
         ASSERT_NE(global_msg->channel(), nullptr);
         EXPECT_STREQ(global_msg->channel()->c_str(), "pub:global:chat");
     }

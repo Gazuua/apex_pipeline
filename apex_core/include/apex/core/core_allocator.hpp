@@ -3,7 +3,8 @@
 #include <concepts>
 #include <cstddef>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// CoreAllocator concept — 메모리 할당기의 기본 인터페이스 계약.
 ///
@@ -19,9 +20,9 @@ namespace apex::core {
 template <typename T>
 concept CoreAllocator = requires(T a, void* ptr) {
     { a.allocate(std::size_t{}, std::size_t{}) } -> std::same_as<void*>;
-    { a.owns(ptr) }       -> std::same_as<bool>;
-    { a.used_bytes() }    -> std::convertible_to<std::size_t>;
-    { a.capacity() }      -> std::convertible_to<std::size_t>;
+    { a.owns(ptr) } -> std::same_as<bool>;
+    { a.used_bytes() } -> std::convertible_to<std::size_t>;
+    { a.capacity() } -> std::convertible_to<std::size_t>;
 };
 
 /// Freeable concept — 개별 해제가 가능한 할당기.

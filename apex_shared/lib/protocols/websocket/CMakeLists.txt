@@ -18,6 +18,8 @@ target_link_libraries(apex_protocols_websocket
 
 target_compile_features(apex_protocols_websocket PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_protocols_websocket)
+
 if(WIN32)
     target_compile_options(apex_protocols_websocket PUBLIC /utf-8)
 endif()

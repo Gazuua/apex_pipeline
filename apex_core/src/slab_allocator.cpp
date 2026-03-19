@@ -1,26 +1,27 @@
-#include <apex/core/slab_allocator.hpp>
 #include <algorithm>
+#include <apex/core/slab_allocator.hpp>
 #include <cstdlib>
 #include <stdexcept>
 
 #ifdef _MSC_VER
-#include <malloc.h>  // _aligned_malloc, _aligned_free
+#include <malloc.h> // _aligned_malloc, _aligned_free
 #endif
 
-namespace apex::core {
+namespace apex::core
+{
 
 // 슬롯 상태 마커 (allocated/freed 구분)
 static constexpr uint32_t SLAB_MAGIC_ALLOCATED = 0xA110CA7E;
-static constexpr uint32_t SLAB_MAGIC_FREED     = 0xF2EED000;
+static constexpr uint32_t SLAB_MAGIC_FREED = 0xF2EED000;
 
-static size_t align_up(size_t size, size_t alignment) {
+static size_t align_up(size_t size, size_t alignment)
+{
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
 SlabAllocator::SlabAllocator(size_t slot_size, size_t initial_count)
     : SlabAllocator(slot_size, initial_count, SlabAllocatorConfig{})
-{
-}
+{}
 
 SlabAllocator::SlabAllocator(size_t slot_size, size_t initial_count, SlabAllocatorConfig config)
     : free_list_(nullptr)
@@ -30,14 +31,17 @@ SlabAllocator::SlabAllocator(size_t slot_size, size_t initial_count, SlabAllocat
     , config_(config)
     , initial_count_(initial_count)
 {
-    if (initial_count == 0) {
+    if (initial_count == 0)
+    {
         throw std::invalid_argument("SlabAllocator: initial_count must be > 0");
     }
     grow(initial_count);
 }
 
-SlabAllocator::~SlabAllocator() {
-    for (auto& chunk : chunks_) {
+SlabAllocator::~SlabAllocator()
+{
+    for (auto& chunk : chunks_)
+    {
 #ifdef _MSC_VER
         _aligned_free(chunk.data);
 #else
@@ -46,11 +50,13 @@ SlabAllocator::~SlabAllocator() {
     }
 }
 
-void SlabAllocator::grow(size_t count) {
-    constexpr size_t kAlignment = 64;  // cache-line alignment
+void SlabAllocator::grow(size_t count)
+{
+    constexpr size_t kAlignment = 64; // cache-line alignment
 
     // Overflow check for slot_size_ * count
-    if (count > 0 && slot_size_ > SIZE_MAX / count) {
+    if (count > 0 && slot_size_ > SIZE_MAX / count)
+    {
         throw std::bad_alloc();
     }
 
@@ -63,14 +69,16 @@ void SlabAllocator::grow(size_t count) {
     chunk = static_cast<uint8_t*>(std::aligned_alloc(kAlignment, alloc_size));
 #endif
 
-    if (!chunk) {
+    if (!chunk)
+    {
         throw std::bad_alloc();
     }
 
     chunks_.push_back({chunk, count});
 
     // Build free-list from back to front so first allocate returns first slot
-    for (size_t i = count; i > 0; --i) {
+    for (size_t i = count; i > 0; --i)
+    {
         auto* node = reinterpret_cast<FreeNode*>(chunk + (i - 1) * slot_size_);
         node->next = free_list_;
         node->magic = SLAB_MAGIC_FREED;
@@ -81,25 +89,29 @@ void SlabAllocator::grow(size_t count) {
     free_count_ += count;
 }
 
-void* SlabAllocator::allocate() {
-    if (!free_list_) {
-        if (!config_.auto_grow) return nullptr;
+void* SlabAllocator::allocate()
+{
+    if (!free_list_)
+    {
+        if (!config_.auto_grow)
+            return nullptr;
 
         // max_total check
-        if (config_.max_total_count > 0 && total_count_ >= config_.max_total_count) {
+        if (config_.max_total_count > 0 && total_count_ >= config_.max_total_count)
+        {
             return nullptr;
         }
 
-        size_t chunk = config_.grow_chunk_size > 0
-            ? config_.grow_chunk_size
-            : initial_count_;
+        size_t chunk = config_.grow_chunk_size > 0 ? config_.grow_chunk_size : initial_count_;
 
         // Clamp to max_total
-        if (config_.max_total_count > 0) {
+        if (config_.max_total_count > 0)
+        {
             chunk = std::min(chunk, config_.max_total_count - total_count_);
         }
 
-        if (chunk == 0) return nullptr;
+        if (chunk == 0)
+            return nullptr;
         grow(chunk);
         ++grow_count_;
     }
@@ -111,22 +123,27 @@ void* SlabAllocator::allocate() {
 
     // Peak tracking
     size_t current = allocated_count();
-    if (current > peak_allocated_) {
+    if (current > peak_allocated_)
+    {
         peak_allocated_ = current;
     }
 
     return static_cast<void*>(node);
 }
 
-void* SlabAllocator::allocate(std::size_t size, std::size_t /*align*/) {
+void* SlabAllocator::allocate(std::size_t size, std::size_t /*align*/)
+{
     // CoreAllocator concept 호환용 overload.
     // size==0 또는 size > slot_size_ 이면 할당 불가.
-    if (size == 0 || size > slot_size_) return nullptr;
+    if (size == 0 || size > slot_size_)
+        return nullptr;
     return allocate();
 }
 
-void SlabAllocator::deallocate(void* ptr) noexcept {
-    if (!ptr) return;
+void SlabAllocator::deallocate(void* ptr) noexcept
+{
+    if (!ptr)
+        return;
 
     // Debug: verify pointer belongs to this allocator
     assert(owns(ptr) && "deallocate: pointer not owned by this allocator");
@@ -138,7 +155,8 @@ void SlabAllocator::deallocate(void* ptr) noexcept {
     // and double-free detection becomes ineffective.
 
     // Double-free 감지: magic이 FREED이면 이미 반환된 슬롯
-    if (node->magic == SLAB_MAGIC_FREED) {
+    if (node->magic == SLAB_MAGIC_FREED)
+    {
         // Release에서도 동작: 카운터 증가 + early return
         ++double_free_count_;
         return;
@@ -150,12 +168,15 @@ void SlabAllocator::deallocate(void* ptr) noexcept {
     ++free_count_;
 }
 
-bool SlabAllocator::owns(void* ptr) const noexcept {
+bool SlabAllocator::owns(void* ptr) const noexcept
+{
     // Linear scan over chunks. O(1) when pool has a single chunk (typical case).
     // With auto-grow, chunk count grows slowly (e.g., 4→8→12→16 = 4 chunks).
     auto* p = static_cast<uint8_t*>(ptr);
-    for (const auto& chunk : chunks_) {
-        if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count) {
+    for (const auto& chunk : chunks_)
+    {
+        if (p >= chunk.data && p < chunk.data + slot_size_ * chunk.count)
+        {
             // 슬롯 정렬 검증: 포인터가 슬롯 경계에 정확히 맞아야 함
             size_t offset = static_cast<size_t>(p - chunk.data);
             return (offset % slot_size_) == 0;
@@ -164,35 +185,43 @@ bool SlabAllocator::owns(void* ptr) const noexcept {
     return false;
 }
 
-size_t SlabAllocator::allocated_count() const noexcept {
+size_t SlabAllocator::allocated_count() const noexcept
+{
     return total_count_ - free_count_;
 }
 
-size_t SlabAllocator::free_count() const noexcept {
+size_t SlabAllocator::free_count() const noexcept
+{
     return free_count_;
 }
 
-size_t SlabAllocator::total_count() const noexcept {
+size_t SlabAllocator::total_count() const noexcept
+{
     return total_count_;
 }
 
-size_t SlabAllocator::slot_size() const noexcept {
+size_t SlabAllocator::slot_size() const noexcept
+{
     return slot_size_;
 }
 
-size_t SlabAllocator::grow_count() const noexcept {
+size_t SlabAllocator::grow_count() const noexcept
+{
     return grow_count_;
 }
 
-size_t SlabAllocator::peak_allocated() const noexcept {
+size_t SlabAllocator::peak_allocated() const noexcept
+{
     return peak_allocated_;
 }
 
-std::size_t SlabAllocator::used_bytes() const noexcept {
+std::size_t SlabAllocator::used_bytes() const noexcept
+{
     return allocated_count() * slot_size_;
 }
 
-std::size_t SlabAllocator::capacity() const noexcept {
+std::size_t SlabAllocator::capacity() const noexcept
+{
     return total_count() * slot_size_;
 }
 

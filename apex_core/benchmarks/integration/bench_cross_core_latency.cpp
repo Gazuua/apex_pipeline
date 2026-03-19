@@ -1,25 +1,33 @@
 #include <apex/core/core_engine.hpp>
-#include <benchmark/benchmark.h>
 #include <atomic>
+#include <benchmark/benchmark.h>
 #include <chrono>
 
 using namespace apex::core;
 
 // Measures ping-pong latency between core 0 and core 1
-static void BM_CrossCore_Latency(benchmark::State& state) {
-    CoreEngineConfig config{.num_cores = 2, .mpsc_queue_capacity = 65536};
+static void BM_CrossCore_Latency(benchmark::State& state)
+{
+    CoreEngineConfig config{.num_cores = 2,
+                            .mpsc_queue_capacity = 65536,
+                            .tick_interval = std::chrono::milliseconds{100},
+                            .drain_batch_limit = 1024};
     CoreEngine engine(config);
 
     std::atomic<uint64_t> pong_count{0};
     std::atomic<uint64_t> total_rtt_ns{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
-        if (msg.op == CrossCoreOp::Custom) {
-            if (core_id == 1) {
+        if (msg.op == CrossCoreOp::Custom)
+        {
+            if (core_id == 1)
+            {
                 // Pong back to core 0
                 CoreMessage pong{.op = CrossCoreOp::Custom, .source_core = 1, .data = msg.data};
                 (void)engine.post_to(0, pong);
-            } else {
+            }
+            else
+            {
                 // Core 0 received pong — accumulate RTT
                 auto now = std::chrono::steady_clock::now().time_since_epoch().count();
                 auto sent = static_cast<int64_t>(msg.data);
@@ -31,14 +39,15 @@ static void BM_CrossCore_Latency(benchmark::State& state) {
 
     engine.start();
 
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-        CoreMessage ping{.op = CrossCoreOp::Custom, .source_core = 0,
-                         .data = static_cast<uintptr_t>(now)};
+        CoreMessage ping{.op = CrossCoreOp::Custom, .source_core = 0, .data = static_cast<uintptr_t>(now)};
         (void)engine.post_to(1, ping);
 
         auto expected = pong_count.load(std::memory_order_acquire) + 1;
-        while (pong_count.load(std::memory_order_acquire) < expected) {
+        while (pong_count.load(std::memory_order_acquire) < expected)
+        {
             std::this_thread::yield();
         }
     }

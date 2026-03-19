@@ -6,13 +6,17 @@
 #include <memory>
 #include <string_view>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
 /// RAII wrapper around PGresult. Automatically calls PQclear() on destruction.
-class PgResult {
-public:
+class PgResult
+{
+  public:
     PgResult() = default;
-    explicit PgResult(PGresult* result) : result_(result, &PQclear) {}
+    explicit PgResult(PGresult* result)
+        : result_(result, &PQclear)
+    {}
 
     /// Query succeeded (PGRES_COMMAND_OK or PGRES_TUPLES_OK)
     [[nodiscard]] bool ok() const noexcept;
@@ -38,12 +42,18 @@ public:
     [[nodiscard]] int affected_rows() const noexcept;
 
     /// Check if result is valid
-    [[nodiscard]] explicit operator bool() const noexcept { return result_ != nullptr; }
+    [[nodiscard]] explicit operator bool() const noexcept
+    {
+        return result_ != nullptr;
+    }
 
     /// Raw PGresult access (escape hatch)
-    [[nodiscard]] PGresult* get() const noexcept { return result_.get(); }
+    [[nodiscard]] PGresult* get() const noexcept
+    {
+        return result_.get();
+    }
 
-private:
+  private:
     std::unique_ptr<PGresult, decltype(&PQclear)> result_{nullptr, &PQclear};
 };
 

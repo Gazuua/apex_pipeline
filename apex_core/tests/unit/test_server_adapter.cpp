@@ -5,54 +5,91 @@
 using namespace apex::core;
 using namespace apex::shared::adapters;
 
-class TestAdapter : public AdapterBase<TestAdapter> {
-public:
-    void do_init(CoreEngine& /*engine*/) { init_called = true; }
-    void do_drain() { drain_called = true; }
-    void do_close() { close_called = true; }
-    std::string_view do_name() const noexcept { return "test"; }
+class TestAdapter : public AdapterBase<TestAdapter>
+{
+  public:
+    void do_init(CoreEngine& /*engine*/)
+    {
+        init_called = true;
+    }
+    void do_drain()
+    {
+        drain_called = true;
+    }
+    void do_close()
+    {
+        close_called = true;
+    }
+    std::string_view do_name() const noexcept
+    {
+        return "test";
+    }
 
     bool init_called = false;
     bool drain_called = false;
     bool close_called = false;
 };
 
-class AnotherTestAdapter : public AdapterBase<AnotherTestAdapter> {
-public:
-    explicit AnotherTestAdapter(int value = 0) : value_(value) {}
+class AnotherTestAdapter : public AdapterBase<AnotherTestAdapter>
+{
+  public:
+    explicit AnotherTestAdapter(int value = 0)
+        : value_(value)
+    {}
 
-    void do_init(CoreEngine& /*engine*/) { init_called = true; }
-    void do_drain() { drain_called = true; }
-    void do_close() { close_called = true; }
-    std::string_view do_name() const noexcept { return "another"; }
+    void do_init(CoreEngine& /*engine*/)
+    {
+        init_called = true;
+    }
+    void do_drain()
+    {
+        drain_called = true;
+    }
+    void do_close()
+    {
+        close_called = true;
+    }
+    std::string_view do_name() const noexcept
+    {
+        return "another";
+    }
 
-    int value() const noexcept { return value_; }
+    int value() const noexcept
+    {
+        return value_;
+    }
 
     bool init_called = false;
     bool drain_called = false;
     bool close_called = false;
 
-private:
+  private:
     int value_;
 };
 
-TEST(ServerAdapter, AddAdapterChaining) {
-    ServerConfig config{.num_cores = 1};
+TEST(ServerAdapter, AddAdapterChaining)
+{
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     auto& ref = server.add_adapter<TestAdapter>();
-    EXPECT_EQ(&ref, &server);  // 체이닝 반환
+    EXPECT_EQ(&ref, &server); // 체이닝 반환
 }
 
-TEST(ServerAdapter, AdapterAccessible) {
-    ServerConfig config{.num_cores = 1};
+TEST(ServerAdapter, AdapterAccessible)
+{
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
     auto& adapter = server.adapter<TestAdapter>();
     EXPECT_EQ(adapter.name(), "test");
 }
 
-TEST(ServerAdapter, MultipleAdapters) {
-    ServerConfig config{.num_cores = 1};
+TEST(ServerAdapter, MultipleAdapters)
+{
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
     server.add_adapter<AnotherTestAdapter>();
@@ -64,8 +101,10 @@ TEST(ServerAdapter, MultipleAdapters) {
     EXPECT_EQ(another_adapter.name(), "another");
 }
 
-TEST(ServerAdapter, AddAdapterWithArgs) {
-    ServerConfig config{.num_cores = 1};
+TEST(ServerAdapter, AddAdapterWithArgs)
+{
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(42);
 
@@ -76,9 +115,11 @@ TEST(ServerAdapter, AddAdapterWithArgs) {
 
 // ── 다중 등록 (role 기반) 테스트 ──────────────────────────────────────
 
-TEST(ServerAdapter, MultiRegistrationWithRole) {
+TEST(ServerAdapter, MultiRegistrationWithRole)
+{
     // 동일 타입을 역할별로 다중 등록
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<AnotherTestAdapter>(std::string("primary"), 10);
     server.add_adapter<AnotherTestAdapter>(std::string("secondary"), 20);
@@ -92,9 +133,11 @@ TEST(ServerAdapter, MultiRegistrationWithRole) {
     EXPECT_NE(&primary, &secondary);
 }
 
-TEST(ServerAdapter, DefaultRoleBackwardCompat) {
+TEST(ServerAdapter, DefaultRoleBackwardCompat)
+{
     // role 없이 등록한 어댑터는 "default" 역할로 접근 가능
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
     server.add_adapter<TestAdapter>();
 
@@ -107,11 +150,13 @@ TEST(ServerAdapter, DefaultRoleBackwardCompat) {
     EXPECT_EQ(a1.name(), "test");
 }
 
-TEST(ServerAdapter, RoleAndDefaultCoexist) {
+TEST(ServerAdapter, RoleAndDefaultCoexist)
+{
     // 기본 역할 + 명시 역할 공존
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
-    server.add_adapter<AnotherTestAdapter>(100);  // default role
+    server.add_adapter<AnotherTestAdapter>(100); // default role
     server.add_adapter<AnotherTestAdapter>(std::string("custom"), 200);
 
     auto& def = server.adapter<AnotherTestAdapter>();
@@ -122,14 +167,15 @@ TEST(ServerAdapter, RoleAndDefaultCoexist) {
     EXPECT_NE(&def, &custom);
 }
 
-TEST(ServerAdapter, MultiRegistrationChaining) {
+TEST(ServerAdapter, MultiRegistrationChaining)
+{
     // 다중 등록 시 체이닝 동작 확인
-    ServerConfig config{.num_cores = 1};
+    ServerConfig config;
+    config.num_cores = 1;
     Server server(config);
-    auto& ref = server
-        .add_adapter<TestAdapter>()
-        .add_adapter<AnotherTestAdapter>(std::string("a"), 1)
-        .add_adapter<AnotherTestAdapter>(std::string("b"), 2);
+    auto& ref = server.add_adapter<TestAdapter>()
+                    .add_adapter<AnotherTestAdapter>(std::string("a"), 1)
+                    .add_adapter<AnotherTestAdapter>(std::string("b"), 2);
 
     EXPECT_EQ(&ref, &server);
     EXPECT_EQ(server.adapter<AnotherTestAdapter>("a").value(), 1);

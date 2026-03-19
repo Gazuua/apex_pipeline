@@ -4,19 +4,20 @@
 #include <apex/core/wire_header.hpp>
 
 #include <benchmark/benchmark.h>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/write.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <boost/asio/use_awaitable.hpp>
+#include <boost/asio/write.hpp>
 
 using namespace apex::core;
 using boost::asio::ip::tcp;
 
 // Measures synchronous TCP send/recv round-trip through Session
-static void BM_Session_EchoRoundTrip(benchmark::State& state) {
+static void BM_Session_EchoRoundTrip(benchmark::State& state)
+{
     auto payload_size = static_cast<size_t>(state.range(0));
     boost::asio::io_context io_ctx;
 
@@ -26,13 +27,13 @@ static void BM_Session_EchoRoundTrip(benchmark::State& state) {
     auto frame = apex::bench::build_frame(0x0001, payload_size);
     std::vector<uint8_t> recv_buf(frame.size());
 
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         // Client sends
         boost::asio::write(client, boost::asio::buffer(frame));
 
         // Server reads
-        boost::asio::read(session->socket(),
-            boost::asio::buffer(recv_buf.data(), frame.size()));
+        boost::asio::read(session->socket(), boost::asio::buffer(recv_buf.data(), frame.size()));
         benchmark::DoNotOptimize(recv_buf.data());
     }
 

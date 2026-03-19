@@ -47,6 +47,7 @@ jobs:
               - '**/*.cpp'
               - '**/*.hpp'
               - '**/*.h'
+              - '.clang-format'
               - '**/CMakeLists.txt'
               - '**/CMakePresets.json'
               - '**/vcpkg.json'
@@ -58,6 +59,24 @@ jobs:
               - 'apex_core/build.sh'
               - 'apex_tools/build-preflight.bat'
               - 'apex_tools/build-preflight.sh'
+
+  # ── Format check (clang-format) ────────────────
+  format-check:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.source == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: pip install clang-format==21.1.8
+      - name: Check formatting
+        run: |
+          find apex_core apex_shared apex_services \
+            \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) \
+            ! -name '*_generated.h' \
+            | xargs clang-format --dry-run --Werror
 
   build-image:
     needs: changes

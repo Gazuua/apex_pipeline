@@ -1,13 +1,14 @@
 #include <apex/gateway/jwt_verifier.hpp>
 
-#include <jwt-cpp/jwt.h>
 #include <gtest/gtest.h>
+#include <jwt-cpp/jwt.h>
 
 #include <fstream>
 
 using namespace apex::gateway;
 
-namespace {
+namespace
+{
 
 // Minimal 2048-bit RSA key pair for testing only.
 // Generated via: openssl genrsa 2048 / openssl rsa -pubout
@@ -53,9 +54,11 @@ Tvggab4jP8CatHP54rBx1P/LBTFVid7saTS2URyRizsF0VUekO7CULdV6NO5oR5J
 
 } // anonymous namespace
 
-class JwtVerifierTest : public ::testing::Test {
-protected:
-    void SetUp() override {
+class JwtVerifierTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
         // Write test public key to a temp file for JwtVerifier to load
         test_key_path_ = ::testing::TempDir() + "test_rs256_pub.pem";
         std::ofstream ofs(test_key_path_);
@@ -69,22 +72,20 @@ protected:
         config_.sensitive_msg_ids = {1004, 1005};
     }
 
-    void TearDown() override {
+    void TearDown() override
+    {
         std::remove(test_key_path_.c_str());
     }
 
-    std::string make_token(uint64_t uid,
-                           std::string_view email = "test@example.com",
-                           int expires_in_seconds = 3600) {
+    std::string make_token(uint64_t uid, std::string_view email = "test@example.com", int expires_in_seconds = 3600)
+    {
         auto now = std::chrono::system_clock::now();
         return jwt::create()
             .set_issuer("apex-auth")
             .set_type("JWT")
             .set_subject(std::string(email))
-            .set_payload_claim("uid",
-                jwt::claim(std::to_string(uid)))
-            .set_payload_claim("jti",
-                jwt::claim(std::string("test-jti-001")))
+            .set_payload_claim("uid", jwt::claim(std::to_string(uid)))
+            .set_payload_claim("jti", jwt::claim(std::string("test-jti-001")))
             .set_issued_at(now)
             .set_expires_at(now + std::chrono::seconds{expires_in_seconds})
             .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
@@ -94,7 +95,8 @@ protected:
     std::string test_key_path_;
 };
 
-TEST_F(JwtVerifierTest, ValidToken) {
+TEST_F(JwtVerifierTest, ValidToken)
+{
     JwtVerifier verifier(config_);
     auto token = make_token(12345);
     auto result = verifier.verify(token);
@@ -104,31 +106,33 @@ TEST_F(JwtVerifierTest, ValidToken) {
     EXPECT_EQ(result->jti, "test-jti-001");
 }
 
-TEST_F(JwtVerifierTest, ExpiredToken) {
+TEST_F(JwtVerifierTest, ExpiredToken)
+{
     JwtVerifier verifier(config_);
-    auto token = make_token(12345, "test@example.com", -100);  // Already expired
+    auto token = make_token(12345, "test@example.com", -100); // Already expired
     auto result = verifier.verify(token);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, InvalidIssuer) {
+TEST_F(JwtVerifierTest, InvalidIssuer)
+{
     // Token signed with correct key but wrong issuer -- issuer validation should reject
     JwtVerifier verifier(config_);
     auto now = std::chrono::system_clock::now();
     auto token = jwt::create()
-        .set_issuer("wrong-issuer")
-        .set_type("JWT")
-        .set_subject("test@example.com")
-        .set_payload_claim("uid",
-            jwt::claim(std::to_string(1)))
-        .set_issued_at(now)
-        .set_expires_at(now + std::chrono::hours{1})
-        .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+                     .set_issuer("wrong-issuer")
+                     .set_type("JWT")
+                     .set_subject("test@example.com")
+                     .set_payload_claim("uid", jwt::claim(std::to_string(1)))
+                     .set_issued_at(now)
+                     .set_expires_at(now + std::chrono::hours{1})
+                     .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
     auto result = verifier.verify(token);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, InvalidSignature) {
+TEST_F(JwtVerifierTest, InvalidSignature)
+{
     // Tamper with a valid token to break the signature
     JwtVerifier verifier(config_);
     auto token = make_token(12345);
@@ -136,19 +140,21 @@ TEST_F(JwtVerifierTest, InvalidSignature) {
     auto last_dot = token.rfind('.');
     ASSERT_NE(last_dot, std::string::npos);
     ASSERT_GT(token.size(), last_dot + 1);
-    token[last_dot + 1] ^= 0x01;  // flip one bit
+    token[last_dot + 1] ^= 0x01; // flip one bit
     auto result = verifier.verify(token);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, SensitiveMsgId) {
+TEST_F(JwtVerifierTest, SensitiveMsgId)
+{
     JwtVerifier verifier(config_);
     EXPECT_TRUE(verifier.is_sensitive(1004));
     EXPECT_TRUE(verifier.is_sensitive(1005));
     EXPECT_FALSE(verifier.is_sensitive(1000));
 }
 
-TEST_F(JwtVerifierTest, ClaimParsing_UidAsString) {
+TEST_F(JwtVerifierTest, ClaimParsing_UidAsString)
+{
     // Verify uid is parsed correctly as string (avoids double precision loss)
     JwtVerifier verifier(config_);
     auto token = make_token(9999999);
@@ -157,19 +163,19 @@ TEST_F(JwtVerifierTest, ClaimParsing_UidAsString) {
     EXPECT_EQ(result->user_id, 9999999u);
 }
 
-TEST_F(JwtVerifierTest, MissingJti) {
+TEST_F(JwtVerifierTest, MissingJti)
+{
     // Token without jti should still verify -- jti is optional
     JwtVerifier verifier(config_);
     auto now = std::chrono::system_clock::now();
     auto token = jwt::create()
-        .set_issuer("apex-auth")
-        .set_type("JWT")
-        .set_subject("nojti@example.com")
-        .set_payload_claim("uid",
-            jwt::claim(std::to_string(42)))
-        .set_issued_at(now)
-        .set_expires_at(now + std::chrono::hours{1})
-        .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+                     .set_issuer("apex-auth")
+                     .set_type("JWT")
+                     .set_subject("nojti@example.com")
+                     .set_payload_claim("uid", jwt::claim(std::to_string(42)))
+                     .set_issued_at(now)
+                     .set_expires_at(now + std::chrono::hours{1})
+                     .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
     auto result = verifier.verify(token);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->user_id, 42u);
@@ -177,7 +183,8 @@ TEST_F(JwtVerifierTest, MissingJti) {
     EXPECT_TRUE(result->jti.empty());
 }
 
-TEST_F(JwtVerifierTest, MissingKeyFile_VerifyFails) {
+TEST_F(JwtVerifierTest, MissingKeyFile_VerifyFails)
+{
     // read_file() fails -> empty public key -> verify should fail
     JwtConfig bad_config = config_;
     bad_config.public_key_file = "/nonexistent/path/pub.pem";
@@ -188,31 +195,33 @@ TEST_F(JwtVerifierTest, MissingKeyFile_VerifyFails) {
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, MissingUidClaim) {
+TEST_F(JwtVerifierTest, MissingUidClaim)
+{
     // Token without uid claim -> claim_not_present_exception path
     JwtVerifier verifier(config_);
     auto now = std::chrono::system_clock::now();
     auto token = jwt::create()
-        .set_issuer("apex-auth")
-        .set_type("JWT")
-        .set_subject("nouid@example.com")
-        .set_payload_claim("jti",
-            jwt::claim(std::string("jti-no-uid")))
-        .set_issued_at(now)
-        .set_expires_at(now + std::chrono::hours{1})
-        .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+                     .set_issuer("apex-auth")
+                     .set_type("JWT")
+                     .set_subject("nouid@example.com")
+                     .set_payload_claim("jti", jwt::claim(std::string("jti-no-uid")))
+                     .set_issued_at(now)
+                     .set_expires_at(now + std::chrono::hours{1})
+                     .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
     auto result = verifier.verify(token);
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, GarbageToken) {
+TEST_F(JwtVerifierTest, GarbageToken)
+{
     // Completely invalid token string -> std::exception catch path
     JwtVerifier verifier(config_);
     auto result = verifier.verify("not-a-jwt-token-at-all");
     EXPECT_FALSE(result.has_value());
 }
 
-TEST_F(JwtVerifierTest, EmptyToken) {
+TEST_F(JwtVerifierTest, EmptyToken)
+{
     // Empty string token
     JwtVerifier verifier(config_);
     auto result = verifier.verify("");
