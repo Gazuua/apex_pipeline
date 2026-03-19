@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 73
+다음 발번: 74
 
 ---
 
@@ -37,6 +37,13 @@
 - **타입**: infra
 - **연관**: #7
 - **설명**: CI Windows job이 apex_core만 빌드. apex_shared 미커버.
+
+### #73. Docker 로컬 리눅스 빌드 스크립트 + 빌드 락 연동
+- **등급**: MAJOR
+- **스코프**: tools, infra
+- **타입**: infra
+- **연관**: #7, #9
+- **설명**: 현재 GCC/Clang 경고 확인은 CI push 후에만 가능 (왕복 10-15분). Docker CI 이미지(`ghcr.io/gazuua/apex-pipeline-ci`) 기반 로컬 리눅스 빌드 스크립트 구축: ① `queue-lock.sh`에 `build-linux` 서브커맨드 추가 (빌드 락 연동, MSVC/Docker 동시 빌드 방지) ② MSYS bash 경로 이스케이프 (`//workspace`) 자동 처리 ③ debug/asan/tsan 프리셋 지원 ④ vcpkg 캐시 마운트 (매번 재빌드 방지). GCC 경고 수정 사이클을 1-2분으로 단축.
 
 ---
 

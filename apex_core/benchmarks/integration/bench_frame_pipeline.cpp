@@ -23,7 +23,9 @@ static void BM_FramePipeline(benchmark::State& state)
     MessageDispatcher dispatcher;
     std::atomic<uint64_t> handled{0};
     dispatcher.register_handler(
-        0x0001, [&handled](SessionPtr, uint32_t, std::span<const uint8_t>) -> boost::asio::awaitable<Result<void>> {
+        0x0001,
+        [&handled](SessionPtr /*session*/, uint32_t /*msg_id*/,
+                   std::span<const uint8_t> /*payload*/) -> boost::asio::awaitable<Result<void>> {
             handled.fetch_add(1, std::memory_order_relaxed);
             co_return ok();
         });

@@ -111,7 +111,7 @@ class ThrowingService : public ServiceBase<ThrowingService>
     {
         handle(0x0010, &ThrowingService::on_msg);
     }
-    awaitable<Result<void>> on_msg(SessionPtr, uint32_t, std::span<const uint8_t>)
+    awaitable<Result<void>> on_msg(SessionPtr /*session*/, uint32_t /*msg_id*/, std::span<const uint8_t> /*payload*/)
     {
         throw std::runtime_error("test exception");
         co_return ok();
@@ -128,7 +128,7 @@ class ErrorReturningService : public ServiceBase<ErrorReturningService>
     {
         handle(0x0020, &ErrorReturningService::on_msg);
     }
-    awaitable<Result<void>> on_msg(SessionPtr, uint32_t, std::span<const uint8_t>)
+    awaitable<Result<void>> on_msg(SessionPtr /*session*/, uint32_t /*msg_id*/, std::span<const uint8_t> /*payload*/)
     {
         co_return apex::core::error(ErrorCode::Timeout);
     }

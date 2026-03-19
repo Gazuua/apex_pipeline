@@ -251,8 +251,11 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
     // Kafka 콜백: this->globals_ 를 캡처. factory 반환 후 on_wire에서
     // globals_가 설정되며, Kafka 메시지 도착 시점에는 유효.
     kafka_->set_message_callback(
-        [this](std::string_view, int32_t, std::span<const uint8_t>, std::span<const uint8_t> payload,
-               int64_t) -> apex::core::Result<void> { return globals_->response_dispatcher->on_response(payload); });
+        [this](std::string_view /*topic*/, int32_t /*partition*/, std::span<const uint8_t> /*key*/,
+               std::span<const uint8_t> payload,
+               int64_t /*timestamp*/) -> apex::core::Result<void> {
+            return globals_->response_dispatcher->on_response(payload);
+        });
 
     // ── BroadcastFanout ──────────────────────────────────────────────
     // BroadcastFanout은 GatewayGlobals* 를 참조. create_globals() 반환 후
@@ -309,7 +312,8 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
                 .ttl_multiplier = config_.rate_limit.ip.ttl_multiplier,
             };
             g.per_core_ip[core] = std::make_unique<apex::shared::rate_limit::PerIpRateLimiter>(
-                ip_cfg, [](auto, auto) -> uint64_t { return 0; }, [](auto) {}, [](auto, auto) {});
+                ip_cfg, [](auto /*key*/, auto /*window*/) -> uint64_t { return 0; }, [](auto /*key*/) {},
+                [](auto /*key*/, auto /*count*/) {});
 
             apex::shared::rate_limit::RedisRateLimiterConfig redis_rl_config{
                 .default_limit = config_.rate_limit.user.default_limit,
@@ -336,7 +340,7 @@ void GatewayService::schedule_sweep(apex::core::WireContext& ctx)
     auto* session_mgr = &ctx.server.per_core_state(ctx.core_id).session_mgr;
 
     ctx.scheduler.schedule(std::chrono::milliseconds{config_.sweep_interval_ms}, [pending, session_mgr]() {
-        pending->sweep_expired([session_mgr](uint64_t, const PendingRequestsMap::PendingEntry& entry) {
+        pending->sweep_expired([session_mgr](uint64_t /*corr_id*/, const PendingRequestsMap::PendingEntry& entry) {
             auto session = session_mgr->find_session(entry.session_id);
             if (session && session->is_open())
             {

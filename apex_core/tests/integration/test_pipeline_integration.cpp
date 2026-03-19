@@ -43,7 +43,7 @@ class RecordingService : public ServiceBase<RecordingService>
         co_return ok();
     }
 
-    awaitable<Result<void>> on_ping(SessionPtr, uint32_t, std::span<const uint8_t>)
+    awaitable<Result<void>> on_ping(SessionPtr /*session*/, uint32_t /*msg_id*/, std::span<const uint8_t> /*payload*/)
     {
         ++ping_count;
         co_return ok();

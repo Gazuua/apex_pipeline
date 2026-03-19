@@ -16,7 +16,8 @@ static void BM_Dispatcher_Lookup(benchmark::State& state)
     {
         dispatcher.register_handler(
             static_cast<uint32_t>(i),
-            [](SessionPtr, uint32_t, std::span<const uint8_t>) -> boost::asio::awaitable<Result<void>> {
+            [](SessionPtr /*session*/, uint32_t /*msg_id*/,
+               std::span<const uint8_t> /*payload*/) -> boost::asio::awaitable<Result<void>> {
                 co_return ok();
             });
     }

@@ -41,7 +41,7 @@ class TypedEchoService : public ServiceBase<TypedEchoService>
         route<apex::messages::EchoRequest>(0x0010, &TypedEchoService::on_echo);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, const apex::messages::EchoRequest* req)
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t /*msg_id*/, const apex::messages::EchoRequest* req)
     {
         ++call_count;
         if (req && req->data())
