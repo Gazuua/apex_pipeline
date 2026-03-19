@@ -191,6 +191,10 @@ void init_logging(const LogConfig& config) {
         spdlog::thread_pool(), spdlog::async_overflow_policy::overrun_oldest);
     app_logger->set_level(parse_level(config.level));
     spdlog::register_logger(app_logger);
+
+    // spdlog::shutdown()이 default logger를 파괴하므로 "app"을 default로 설정.
+    // 이후 spdlog::info() 등 전역 호출이 "app" 로거로 라우팅됨.
+    spdlog::set_default_logger(app_logger);
 }
 
 // spdlog::shutdown()은 모든 로거를 drop + thread pool 정리. 이후 init_logging() 재호출 안전.
