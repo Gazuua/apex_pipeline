@@ -38,6 +38,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### Git / 브랜치
 - **커밋 메시지는 한국어로 작성** — `feat(core): 코루틴 할당기 추가` 형태 (타입+스코프 영어, 설명 한국어)
+- **커밋 메시지에서 백로그 번호는 `BACKLOG-N` 형식** — `#N` 금지 (GitHub PR/Issue 자동 링크 충돌)
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
