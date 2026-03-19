@@ -44,7 +44,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
   2. `git fetch origin main && git rebase origin/main` (충돌 시 에이전트가 resolve)
-  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증)
+  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증) — **문서 전용 PR은 빌드 스킵** (`.md`, `.txt`, `docs/` 변경만인 경우)
   4. `git push --force-with-lease`
   5. `gh pr merge --squash --admin`
   6. `queue-lock.sh merge release`
