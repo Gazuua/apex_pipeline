@@ -5,13 +5,13 @@ using namespace apex::shared::rate_limit;
 
 TEST(EndpointRateConfig, DefaultLimit)
 {
-    EndpointRateConfig config{.default_limit = 60, .window_size = {}, .overrides = {}};
+    EndpointRateConfig config{.default_limit = 60, .window_size = std::chrono::seconds{60}, .overrides = {}};
     EXPECT_EQ(config.limit_for(9999), 60u);
 }
 
 TEST(EndpointRateConfig, OverrideLimit)
 {
-    EndpointRateConfig config{.default_limit = 60, .window_size = {}, .overrides = {}};
+    EndpointRateConfig config{.default_limit = 60, .window_size = std::chrono::seconds{60}, .overrides = {}};
     config.overrides[1001] = 10;  // LoginRequest
     config.overrides[2001] = 200; // ChatSendMessage
 
@@ -22,7 +22,7 @@ TEST(EndpointRateConfig, OverrideLimit)
 
 TEST(EndpointRateConfig, EmptyOverrides)
 {
-    EndpointRateConfig config{.default_limit = 100, .window_size = {}, .overrides = {}};
+    EndpointRateConfig config{.default_limit = 100, .window_size = std::chrono::seconds{60}, .overrides = {}};
     // All msg_ids use default
     for (uint32_t id = 0; id < 100; ++id)
     {
@@ -32,7 +32,7 @@ TEST(EndpointRateConfig, EmptyOverrides)
 
 TEST(EndpointRateConfig, ZeroDefault)
 {
-    EndpointRateConfig config{.default_limit = 0, .window_size = {}, .overrides = {}};
+    EndpointRateConfig config{.default_limit = 0, .window_size = std::chrono::seconds{60}, .overrides = {}};
     config.overrides[1001] = 10;
 
     EXPECT_EQ(config.limit_for(1001), 10u);

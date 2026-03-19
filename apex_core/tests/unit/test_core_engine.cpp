@@ -23,14 +23,20 @@ TEST(CoreEngineTest, DefaultConfig)
 
 TEST(CoreEngineTest, CreateWithExplicitCores)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
     EXPECT_EQ(engine.core_count(), 2u);
     EXPECT_FALSE(engine.running());
 }
 
 TEST(CoreEngineTest, RunAndStop)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::thread runner([&]() { engine.run(); });
 
@@ -45,7 +51,10 @@ TEST(CoreEngineTest, RunAndStop)
 
 TEST(CoreEngineTest, PostToCore)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<uint64_t> received_data{0};
     std::atomic<uint32_t> received_core{UINT32_MAX};
@@ -76,7 +85,10 @@ TEST(CoreEngineTest, PostToCore)
 TEST(CoreEngineTest, Broadcast)
 {
     constexpr uint32_t num_cores = 4;
-    CoreEngine engine({.num_cores = num_cores, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = num_cores,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<uint32_t> count{0};
 
@@ -101,7 +113,10 @@ TEST(CoreEngineTest, Broadcast)
 TEST(CoreEngineTest, PostToFullQueueReturnsFalse)
 {
     // Use a very small queue capacity
-    CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 4, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 1,
+                       .mpsc_queue_capacity = 4,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     // Queue capacity is rounded up to next power of 2, so 4 stays 4
     CoreMessage msg;
@@ -120,7 +135,10 @@ TEST(CoreEngineTest, PostToFullQueueReturnsFalse)
 
 TEST(CoreEngineTest, IoContextAccessValid)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
     // Valid access
     EXPECT_NO_THROW((void)engine.io_context(0));
     EXPECT_NO_THROW((void)engine.io_context(1));
@@ -130,7 +148,10 @@ TEST(CoreEngineTest, IoContextAccessValid)
 
 TEST(CoreEngineTest, StartAndJoin)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<uint64_t> received{0};
     engine.set_message_handler(
@@ -154,7 +175,10 @@ TEST(CoreEngineTest, StartAndJoin)
 
 TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
     CoreMessage msg;
     msg.op = CrossCoreOp::Custom;
     msg.data = 1;
@@ -163,7 +187,7 @@ TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse)
 
 TEST(CoreEngineTest, TickCallback)
 {
-    CoreEngine engine({.num_cores = 2, .tick_interval = std::chrono::milliseconds(50), .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2, .tick_interval = std::chrono::milliseconds(50), .drain_batch_limit = 1024});
 
     std::atomic<uint32_t> tick_count{0};
     engine.set_tick_callback([&](uint32_t) { tick_count.fetch_add(1, std::memory_order_relaxed); });
@@ -180,7 +204,10 @@ TEST(CoreEngineTest, TickCallback)
 
 TEST(CoreEngineTest, CrossCoreMessageViaHandler)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<uint16_t> received_type{0xFFFF};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -205,7 +232,10 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler)
 
 TEST(CoreEngineTest, CrossCoreRequestAutoExecuted)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<int> value{0};
     auto* task = new std::function<void()>([&value] { value.store(42, std::memory_order_relaxed); });
@@ -226,7 +256,10 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted)
 
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers)
 {
-    CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 1,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     // Track whether each task's destructor was called by watching an external flag
     auto flag1 = std::make_shared<bool>(false);
@@ -269,7 +302,10 @@ TEST(CoreEngineTest, DestructorDrainsRemaining)
     auto flag = std::make_shared<bool>(false);
     {
         // Engine never started — destructor should still drain queued messages
-        CoreEngine engine({.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}});
+        CoreEngine engine({.num_cores = 1,
+                           .mpsc_queue_capacity = 64,
+                           .tick_interval = std::chrono::milliseconds{100},
+                           .drain_batch_limit = 1024});
 
         auto* task = new std::function<void()>([flag] { *flag = true; });
         CoreMessage msg;
@@ -287,7 +323,10 @@ TEST(CoreEngineTest, CrossCoreDispatcherPriorityOverMessageHandler)
 {
     // When both CrossCoreDispatcher handler and message_handler_ are set,
     // registered ops should go to CrossCoreDispatcher, unregistered ops to message_handler_
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<int> dispatcher_count{0};
     std::atomic<int> handler_count{0};
@@ -323,7 +362,10 @@ TEST(CoreEngineTest, CrossCoreDispatcherPriorityOverMessageHandler)
 TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain)
 {
     // A legacy closure that throws should not prevent subsequent messages from processing
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     std::atomic<int> after_exception{0};
 
@@ -353,7 +395,10 @@ TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain)
 
 TEST(CoreEngineTest, DoubleStartThrows)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
 
@@ -365,7 +410,10 @@ TEST(CoreEngineTest, DoubleStartThrows)
 
 TEST(CoreEngineTest, MultipleInterCoreMessages)
 {
-    CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = {}, .tick_interval = {}, .drain_batch_limit = {}});
+    CoreEngine engine({.num_cores = 2,
+                       .mpsc_queue_capacity = 65536,
+                       .tick_interval = std::chrono::milliseconds{100},
+                       .drain_batch_limit = 1024});
 
     constexpr int num_messages = 100;
     std::atomic<uint64_t> sum{0};

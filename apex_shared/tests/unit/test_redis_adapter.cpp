@@ -30,13 +30,16 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
         .port = 6379,
         .password = {},
         .db = {},
-        .connect_timeout = {},
-        .command_timeout = {},
-        .reconnect_max_backoff = {},
-        .max_pending_commands = {},
+        .connect_timeout = std::chrono::milliseconds{3000},
+        .command_timeout = std::chrono::milliseconds{1000},
+        .reconnect_max_backoff = std::chrono::milliseconds{30000},
+        .max_pending_commands = 4096,
     };
 
-    CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 4,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -53,7 +56,10 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
 TEST(RedisAdapter, DrainSetsNotReady)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -67,7 +73,10 @@ TEST(RedisAdapter, DrainSetsNotReady)
 TEST(RedisAdapter, CloseCallsCleanup)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 1,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -99,10 +108,10 @@ TEST(RedisAdapter, ConfigAccessible)
         .port = 6380,
         .password = {},
         .db = {},
-        .connect_timeout = {},
-        .command_timeout = {},
-        .reconnect_max_backoff = {},
-        .max_pending_commands = {},
+        .connect_timeout = std::chrono::milliseconds{3000},
+        .command_timeout = std::chrono::milliseconds{1000},
+        .reconnect_max_backoff = std::chrono::milliseconds{30000},
+        .max_pending_commands = 4096,
     };
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.config().host, "redis.local");
@@ -121,7 +130,10 @@ TEST(RedisAdapter, DoubleInit)
 {
     // Double init — should not crash
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -134,7 +146,10 @@ TEST(RedisAdapter, DoubleInit)
 TEST(RedisAdapter, ActiveConnectionsInitiallyZero)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -159,7 +174,10 @@ TEST(RedisAdapter, FullLifecycle)
 {
     // init -> drain -> close full lifecycle
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 2,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -181,7 +199,10 @@ TEST(RedisAdapter, FullLifecycle)
 TEST(RedisAdapter, MultiplexerInitialState)
 {
     RedisConfig config;
-    CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig engine_config{.num_cores = 1,
+                                   .mpsc_queue_capacity = 64,
+                                   .tick_interval = std::chrono::milliseconds{100},
+                                   .drain_batch_limit = 1024};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);

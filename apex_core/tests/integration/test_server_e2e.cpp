@@ -160,7 +160,13 @@ class ServerE2ETest : public ::testing::Test
 
 TEST_F(ServerE2ETest, ServerAcceptAndEcho)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -190,7 +196,13 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho)
 
 TEST_F(ServerE2ETest, MultipleClients)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -222,7 +234,13 @@ TEST_F(ServerE2ETest, MultipleClients)
 
 TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -249,7 +267,13 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
 
 TEST_F(ServerE2ETest, GracefulShutdown)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -276,11 +300,11 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
         .heartbeat_timeout_ticks = 3,
         .timer_wheel_slots = 8,
         .handle_signals = false,
-        .drain_timeout = {},
-        .cross_core_call_timeout = {},
-        .bump_capacity_bytes = {},
-        .arena_block_bytes = {},
-        .arena_max_bytes = {},
+        .drain_timeout = std::chrono::seconds{25},
+        .cross_core_call_timeout = std::chrono::milliseconds{5000},
+        .bump_capacity_bytes = 64 * 1024,
+        .arena_block_bytes = 4096,
+        .arena_max_bytes = 1024 * 1024,
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -309,7 +333,13 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
 
 TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ThrowingService>();
     run_server(server);
@@ -336,7 +366,13 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
 
 TEST_F(ServerE2ETest, HandlerErrorCodeResponse)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ErrorReturningService>();
     run_server(server);
@@ -369,11 +405,11 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
         .num_cores = 2,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
-        .drain_timeout = {},
-        .cross_core_call_timeout = {},
-        .bump_capacity_bytes = {},
-        .arena_block_bytes = {},
-        .arena_max_bytes = {},
+        .drain_timeout = std::chrono::seconds{25},
+        .cross_core_call_timeout = std::chrono::milliseconds{5000},
+        .bump_capacity_bytes = 64 * 1024,
+        .arena_block_bytes = 4096,
+        .arena_max_bytes = 1024 * 1024,
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -448,7 +484,13 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
 
 TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession)
 {
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -489,7 +531,13 @@ TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions)
 {
     constexpr int NUM_CLIENTS = 4;
 
-    Server server({.heartbeat_timeout_ticks = 0, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.heartbeat_timeout_ticks = 0,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);

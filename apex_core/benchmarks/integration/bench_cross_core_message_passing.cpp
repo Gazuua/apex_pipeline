@@ -7,7 +7,10 @@ using namespace apex::core;
 // Measures throughput of inter-core message posting
 static void BM_CrossCore_PostThroughput(benchmark::State& state)
 {
-    CoreEngineConfig config{.num_cores = 2, .mpsc_queue_capacity = 65536, .tick_interval = {}, .drain_batch_limit = {}};
+    CoreEngineConfig config{.num_cores = 2,
+                            .mpsc_queue_capacity = 65536,
+                            .tick_interval = std::chrono::milliseconds{100},
+                            .drain_batch_limit = 1024};
     CoreEngine engine(config);
 
     std::atomic<uint64_t> received{0};

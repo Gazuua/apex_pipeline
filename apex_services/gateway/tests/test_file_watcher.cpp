@@ -19,6 +19,10 @@ TEST(FileWatcher, DetectsChange)
         f << "initial = true\n";
     }
 
+    // Pin initial timestamp to the past so rewrite always produces a newer time.
+    // Windows NTFS can cache last_write_time, causing same-tick rewrites to go undetected.
+    std::filesystem::last_write_time(tmp, std::filesystem::last_write_time(tmp) - std::chrono::seconds(2));
+
     boost::asio::io_context io;
     bool changed = false;
 

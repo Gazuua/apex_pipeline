@@ -31,7 +31,8 @@ template <typename Fn> void run_coro(boost::asio::io_context& io, Fn&& fn)
 // TC1: CLOSED state — successful call keeps CLOSED
 TEST_F(CircuitBreakerTest, ClosedStateSuccessStaysClosed)
 {
-    CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 3, .open_duration = {}, .half_open_max_calls = {}});
+    CircuitBreaker cb(CircuitBreakerConfig{
+        .failure_threshold = 3, .open_duration = std::chrono::milliseconds{30000}, .half_open_max_calls = 3});
 
     run_coro(io_, [&]() -> boost::asio::awaitable<void> {
         auto ok = [&]() -> boost::asio::awaitable<Result<void>> { co_return Result<void>{}; };
@@ -46,7 +47,8 @@ TEST_F(CircuitBreakerTest, ClosedStateSuccessStaysClosed)
 // TC2: CLOSED -> OPEN transition (failure_threshold reached)
 TEST_F(CircuitBreakerTest, ClosedToOpenTransition)
 {
-    CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 3, .open_duration = {}, .half_open_max_calls = {}});
+    CircuitBreaker cb(CircuitBreakerConfig{
+        .failure_threshold = 3, .open_duration = std::chrono::milliseconds{30000}, .half_open_max_calls = 3});
 
     run_coro(io_, [&]() -> boost::asio::awaitable<void> {
         auto fail = [&]() -> boost::asio::awaitable<Result<void>> {
@@ -68,7 +70,7 @@ TEST_F(CircuitBreakerTest, OpenStateRejectsCall)
     CircuitBreaker cb(CircuitBreakerConfig{
         .failure_threshold = 2,
         .open_duration = std::chrono::hours{1}, // long duration to stay OPEN
-        .half_open_max_calls = {},
+        .half_open_max_calls = 3,
     });
 
     run_coro(io_, [&]() -> boost::asio::awaitable<void> {
@@ -187,7 +189,8 @@ TEST_F(CircuitBreakerTest, HalfOpenToOpenOnFailure)
 // TC7: CLOSED state — partial failures reset on success (consecutive failure counting)
 TEST_F(CircuitBreakerTest, ClosedPartialFailuresResetOnSuccess)
 {
-    CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 3, .open_duration = {}, .half_open_max_calls = {}});
+    CircuitBreaker cb(CircuitBreakerConfig{
+        .failure_threshold = 3, .open_duration = std::chrono::milliseconds{30000}, .half_open_max_calls = 3});
 
     run_coro(io_, [&]() -> boost::asio::awaitable<void> {
         auto fail = [&]() -> boost::asio::awaitable<Result<void>> {
@@ -217,7 +220,8 @@ TEST_F(CircuitBreakerTest, ClosedPartialFailuresResetOnSuccess)
 // TC8: reset() test
 TEST_F(CircuitBreakerTest, ResetClearsState)
 {
-    CircuitBreaker cb(CircuitBreakerConfig{.failure_threshold = 2, .open_duration = {}, .half_open_max_calls = {}});
+    CircuitBreaker cb(CircuitBreakerConfig{
+        .failure_threshold = 2, .open_duration = std::chrono::milliseconds{30000}, .half_open_max_calls = 3});
 
     run_coro(io_, [&]() -> boost::asio::awaitable<void> {
         auto fail = [&]() -> boost::asio::awaitable<Result<void>> {

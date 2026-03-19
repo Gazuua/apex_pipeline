@@ -48,7 +48,7 @@ Server::Server(ServerConfig config)
         .num_cores = config_.num_cores,
         .mpsc_queue_capacity = config_.mpsc_queue_capacity,
         .tick_interval = config_.tick_interval,
-        .drain_batch_limit = {},
+        .drain_batch_limit = 1024,
     };
     core_engine_ = std::make_unique<CoreEngine>(engine_config);
 

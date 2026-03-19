@@ -75,7 +75,14 @@ TEST(HiredisAsioAdapter, CompileAndLinkCheck)
 TEST(RedisConnection, CreateFailsWithInvalidHost)
 {
     boost::asio::io_context io_ctx;
-    RedisConfig config{.host = "invalid-host-for-unit-test", .port = 6379, .password = {}, .db = {}, .connect_timeout = {}, .command_timeout = {}, .reconnect_max_backoff = {}, .max_pending_commands = {}};
+    RedisConfig config{.host = "invalid-host-for-unit-test",
+                       .port = 6379,
+                       .password = {},
+                       .db = {},
+                       .connect_timeout = std::chrono::milliseconds{3000},
+                       .command_timeout = std::chrono::milliseconds{1000},
+                       .reconnect_max_backoff = std::chrono::milliseconds{30000},
+                       .max_pending_commands = 4096};
 
     // DNS 실패 또는 즉시 connect 실패 → nullptr 또는 유효한 연결
     // 환경에 따라 결과가 다를 수 있음 (DNS가 해석되는 경우)
@@ -95,7 +102,14 @@ TEST(RedisConnection, CreateFailsWithInvalidHost)
 TEST(RedisConnection, ValidateReturnsFalseAfterDisconnect)
 {
     boost::asio::io_context io_ctx;
-    RedisConfig config{.host = "127.0.0.1", .port = 59999, .password = {}, .db = {}, .connect_timeout = {}, .command_timeout = {}, .reconnect_max_backoff = {}, .max_pending_commands = {}}; // 사용하지 않는 포트
+    RedisConfig config{.host = "127.0.0.1",
+                       .port = 59999,
+                       .password = {},
+                       .db = {},
+                       .connect_timeout = std::chrono::milliseconds{3000},
+                       .command_timeout = std::chrono::milliseconds{1000},
+                       .reconnect_max_backoff = std::chrono::milliseconds{30000},
+                       .max_pending_commands = 4096}; // 사용하지 않는 포트
 
     auto conn = RedisConnection::create(io_ctx, config);
     if (!conn)
@@ -250,7 +264,14 @@ TEST(RedisConnection, ParseStringReplyEmptyString)
 TEST(RedisConnection, DisconnectDoubleCallSafe)
 {
     boost::asio::io_context io_ctx;
-    RedisConfig config{.host = "127.0.0.1", .port = 59999, .password = {}, .db = {}, .connect_timeout = {}, .command_timeout = {}, .reconnect_max_backoff = {}, .max_pending_commands = {}};
+    RedisConfig config{.host = "127.0.0.1",
+                       .port = 59999,
+                       .password = {},
+                       .db = {},
+                       .connect_timeout = std::chrono::milliseconds{3000},
+                       .command_timeout = std::chrono::milliseconds{1000},
+                       .reconnect_max_backoff = std::chrono::milliseconds{30000},
+                       .max_pending_commands = 4096};
 
     auto conn = RedisConnection::create(io_ctx, config);
     if (!conn)

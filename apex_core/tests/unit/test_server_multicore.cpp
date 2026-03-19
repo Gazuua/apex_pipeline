@@ -25,11 +25,11 @@ TEST(ServerMulticoreTest, RunAndStop)
     Server server({
         .num_cores = 2,
         .handle_signals = false,
-        .drain_timeout = {},
-        .cross_core_call_timeout = {},
-        .bump_capacity_bytes = {},
-        .arena_block_bytes = {},
-        .arena_max_bytes = {},
+        .drain_timeout = std::chrono::seconds{25},
+        .cross_core_call_timeout = std::chrono::milliseconds{5000},
+        .bump_capacity_bytes = 64 * 1024,
+        .arena_block_bytes = 4096,
+        .arena_max_bytes = 1024 * 1024,
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -43,7 +43,13 @@ TEST(ServerMulticoreTest, RunAndStop)
 
 TEST(ServerMulticoreTest, CoreCount)
 {
-    Server server({.num_cores = 4, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.num_cores = 4,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     EXPECT_EQ(server.core_count(), 4u);
 }
 
@@ -87,7 +93,13 @@ class CountingServiceFixture : public ::testing::Test
 
 TEST_F(CountingServiceFixture, ServicePerCoreInstance)
 {
-    Server server({.num_cores = 4, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.num_cores = 4,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -110,7 +122,13 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance)
 
 TEST_F(CountingServiceFixture, AddServiceChaining)
 {
-    Server server({.num_cores = 2, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.num_cores = 2,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
 
     // Chaining compiles and works
     server.listen<TcpBinaryProtocol>(0).add_service<CountingService>().add_service<CountingService>();
@@ -175,7 +193,13 @@ TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances)
     // Track core_ids assigned by the factory (bitfield for 2 cores: bits 0,1)
     std::atomic<uint32_t> core_id_bits{0};
 
-    Server server({.num_cores = 2, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.num_cores = 2,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
 
     server.add_service_factory([&core_id_bits](PerCoreState& state) -> std::unique_ptr<ServiceBaseInterface> {
@@ -212,7 +236,14 @@ TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows)
 {
     // heartbeat_timeout_ticks must be < effective timer_wheel_slots
     // timer_wheel_slots=8 (power of 2), so heartbeat_timeout_ticks >= 8 throws
-    EXPECT_THROW(Server({.heartbeat_timeout_ticks = 100, .timer_wheel_slots = 8, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}}),
+    EXPECT_THROW(Server({.heartbeat_timeout_ticks = 100,
+                         .timer_wheel_slots = 8,
+                         .handle_signals = false,
+                         .drain_timeout = std::chrono::seconds{25},
+                         .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                         .bump_capacity_bytes = 64 * 1024,
+                         .arena_block_bytes = 4096,
+                         .arena_max_bytes = 1024 * 1024}),
                  std::invalid_argument);
 }
 
@@ -225,7 +256,13 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests)
     EXPECT_EQ(CountingService::start_count.load(), 0u);
     EXPECT_EQ(CountingService::stop_count.load(), 0u);
 
-    Server server({.num_cores = 2, .handle_signals = false, .drain_timeout = {}, .cross_core_call_timeout = {}, .bump_capacity_bytes = {}, .arena_block_bytes = {}, .arena_max_bytes = {}});
+    Server server({.num_cores = 2,
+                   .handle_signals = false,
+                   .drain_timeout = std::chrono::seconds{25},
+                   .cross_core_call_timeout = std::chrono::milliseconds{5000},
+                   .bump_capacity_bytes = 64 * 1024,
+                   .arena_block_bytes = 4096,
+                   .arena_max_bytes = 1024 * 1024});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -244,11 +281,11 @@ TEST(ServerMulticoreTest, DoubleRunThrows)
     Server server({
         .num_cores = 1,
         .handle_signals = false,
-        .drain_timeout = {},
-        .cross_core_call_timeout = {},
-        .bump_capacity_bytes = {},
-        .arena_block_bytes = {},
-        .arena_max_bytes = {},
+        .drain_timeout = std::chrono::seconds{25},
+        .cross_core_call_timeout = std::chrono::milliseconds{5000},
+        .bump_capacity_bytes = 64 * 1024,
+        .arena_block_bytes = 4096,
+        .arena_max_bytes = 1024 * 1024,
     });
     server.listen<TcpBinaryProtocol>(0);
 
