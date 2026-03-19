@@ -4,24 +4,65 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 66
+다음 발번: 73
 
 ---
 
 ## NOW
 
 
-### #48. Post-E2E 코드 리뷰 (10개 관점)
-- **등급**: CRITICAL
-- **스코프**: core, gateway, auth-svc, chat-svc, shared
-- **타입**: design-debt
-- **연관**: #52
-- **설명**: v0.5.5.1 E2E 11/11 통과 후 코드 품질 리뷰 미수행 상태. PR #27~#37 (101파일, ~7,863 insertions) 대상으로 10개 관점 체계 리뷰 수행. 관점: ① 코어 인터페이스 단순화 ② 초기화 순서 의존성 ③ OOP/유지보수성 ④ shared-nothing 준수 ⑤ 서비스 간 의존성 ⑥ 코루틴 lifetime ⑦ 에러 핸들링 일관성 ⑧ shutdown 경로 정합성 ⑨ 매직넘버/하드코딩 ⑩ 에이전트 자율 판단. 상세 계획: `docs/apex_common/plans/20260318_144700_post-e2e-code-review.md` 참조. v0.6 진입 전 반드시 완료.
-
-
 ---
 
 ## IN VIEW
+
+### #66. wire_services() co_spawn(detached) → spawn() tracked API 전환
+- **등급**: MAJOR
+- **스코프**: shared, core
+- **타입**: design-debt
+- **연관**: #48
+- **설명**: `KafkaAdapter::wire_services()`에서 `co_spawn(detached)`를 직접 호출하여 D7 outstanding 코루틴 추적을 우회. shutdown 시 Kafka dispatch 코루틴이 미완료 상태로 CoreEngine이 중단될 수 있음. spawn() tracked API를 사용하도록 변경 필요. wire_services()가 서비스의 spawn()을 호출할 수 있는 경로 설계 필요 (현재 spawn은 protected).
+
+### #67. server.global&lt;T&gt;() / ConsumerPayloadPool / wire_services() 단위 테스트
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: test
+- **연관**: #48
+- **설명**: D3/D6/D2 신규 API에 대한 단위 테스트 부재. server.global&lt;T&gt;()의 타입 소거 + 중복 호출, ConsumerPayloadPool의 thread-safe acquire/release + 풀 고갈 fallback, wire_services()의 서비스 자동 감지 등 검증 필요.
+
+### #68. GatewayService set_default_handler() 캡슐화 우회 해소
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: design-debt
+- **연관**: #48
+- **설명**: GatewayService가 `dispatcher().set_default_handler(lambda)` 형태로 ServiceBase의 set_default_handler(member_function_pointer) 패턴을 우회. 시스템 메시지 분기 로직을 멤버 함수로 이동하면 가이드 §4.1 패턴과 일치.
+
+### #69. 프레임워크 가이드 Shutdown 시퀀스 갱신
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **연관**: #48
+- **설명**: `docs/apex_core/apex_core_guide.md` §3 Shutdown 시퀀스가 실제 `finalize_shutdown()` 구현과 불일치 (Listener stop, Scheduler stop, Adapter drain/close 분리 미반영). 코드 기준으로 갱신 필요.
+
+### #70. 프레임워크 가이드 코드 예시 ServiceRegistry API 수정
+- **등급**: MINOR
+- **스코프**: docs
+- **타입**: docs
+- **연관**: #48
+- **설명**: 가이드에서 `ctx.local_registry.get<T>()`를 포인터 반환으로 사용하지만 실제 API는 참조 반환 + 미등록 시 예외. `find<T>()` 사용으로 변경 필요.
+
+### #71. PubSubListener mutex 예외 가이드 명시
+- **등급**: MINOR
+- **스코프**: docs, gateway
+- **타ип**: docs
+- **연관**: #48
+- **설명**: 가이드 §8 #2 "모든 뮤텍스 금지" 원칙에 외부 라이브러리 스레드(hiredis) 예외 조항 명시 필요. PubSubListener는 dedicated Redis 스레드와 서비스 스레드 간 채널 목록 공유에 mutex 사용이 불가피.
+
+### #72. safe_parse_u64 Result&lt;uint64_t&gt; 반환 개선
+- **등급**: MINOR
+- **스코프**: chat-svc
+- **타입**: design-debt
+- **연관**: #48
+- **설명**: `safe_parse_u64`가 실패 시 0을 반환하는 설계. 0이 유효값인 맥락에서 조용한 실패 가능. `Result<uint64_t>` 반환으로 변경하면 호출부 에러 핸들링 강제 가능.
 
 ### #2. RedisMultiplexer cancel_all_pending UAF
 - **등급**: CRITICAL

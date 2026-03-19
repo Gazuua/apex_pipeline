@@ -17,10 +17,18 @@ namespace apex::core {
 class ServiceRegistry {
 public:
     /// Server가 서비스 인스턴스 생성 시 호출. type_index로 자동 키잉.
+    /// 소유권을 가져가므로 독립 사용(registry가 유일 소유자)에 적합.
     void register_service(std::unique_ptr<ServiceBaseInterface> svc) {
         auto key = std::type_index(typeid(*svc));
         map_[key] = svc.get();
         services_.push_back(std::move(svc));
+    }
+
+    /// 소유권 없이 서비스 참조만 등록. Server::run()에서 services 벡터와
+    /// registry가 공존하는 현재 구조에서 사용. 서비스 수명은 호출자가 보장.
+    void register_ref(ServiceBaseInterface& svc) {
+        auto key = std::type_index(typeid(svc));
+        map_[key] = &svc;
     }
 
     /// 타입으로 서비스 조회. 미등록 시 std::logic_error throw.

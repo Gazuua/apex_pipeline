@@ -20,17 +20,23 @@ static constexpr size_t PUBSUB_MSG_ID_SIZE = 4;
 
 /// PubSub message -> subscriber session fan-out.
 /// Called from PubSubListener's callback.
-/// Posts to each core via cross_core_post to deliver to that core's sessions.
+/// Posts to ALL cores via cross_core_post; each core checks its local
+/// per-core ChannelSessionMap for subscribers.
 ///
 /// Redis message format:  [4B msg_id BE] + [payload]
 /// Client wire format:    [12B WireHeader v2] + [payload]
 class BroadcastFanout {
 public:
     BroadcastFanout(apex::core::CoreEngine& engine,
-                    const ChannelSessionMap& channel_map,
+                    uint32_t num_cores,
                     std::vector<apex::core::SessionManager*> session_mgrs);
 
+    /// per-core 채널 맵 바인딩. create_globals() → server.global<T>() move 후
+    /// on_wire()에서 globals_ 포인터 확정 시점에 호출한다.
+    void set_channel_maps(std::vector<ChannelSessionMap>* maps);
+
     /// Fan-out channel message to subscriber sessions.
+    /// 모든 코어에 post → 각 코어가 로컬 맵에서 구독자 확인 후 전송.
     /// @param channel Channel name
     /// @param message Redis Pub/Sub message ([4B msg_id BE] + [payload])
     void fanout(std::string_view channel,
@@ -44,8 +50,9 @@ private:
     build_wire_frame(std::span<const uint8_t> message);
 
     apex::core::CoreEngine& engine_;
-    const ChannelSessionMap& channel_map_;
+    uint32_t num_cores_;
     std::vector<apex::core::SessionManager*> session_mgrs_;
+    std::vector<ChannelSessionMap>* channel_maps_{nullptr};
 };
 
 } // namespace apex::gateway

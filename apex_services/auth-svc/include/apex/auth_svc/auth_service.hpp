@@ -95,6 +95,23 @@ private:
                        std::span<const uint8_t> fbs_payload,
                        const std::string& reply_topic);
 
+    // ── 에러 응답 헬퍼 [D5] ──────────────────────────────────────────────
+
+    /// LoginResponse 에러 응답 빌드 + send.
+    boost::asio::awaitable<apex::core::Result<void>> send_login_error(
+        const envelope::MetadataPrefix& meta,
+        uint16_t error);
+
+    /// LogoutResponse 에러 응답 빌드 + send.
+    boost::asio::awaitable<apex::core::Result<void>> send_logout_error(
+        const envelope::MetadataPrefix& meta,
+        uint16_t error);
+
+    /// RefreshTokenResponse 에러 응답 빌드 + send.
+    boost::asio::awaitable<apex::core::Result<void>> send_refresh_token_error(
+        const envelope::MetadataPrefix& meta,
+        uint16_t error);
+
     AuthConfig config_;
 
     // 어댑터 참조 — on_configure()에서 바인딩

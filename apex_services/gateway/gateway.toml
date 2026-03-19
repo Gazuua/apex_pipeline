@@ -59,10 +59,13 @@ port = 6381
 
 [pubsub]
 max_subscriptions_per_session = 50
+global_channels = ["pub:global:chat"]
 
 [timeouts]
 request_timeout_ms = 5000
 max_pending_per_core = 65536
+heartbeat_timeout_ticks = 300
+sweep_interval_ms = 1000
 
 # --- Rate Limiting ---
 [rate_limit.ip]

@@ -9,11 +9,15 @@ namespace apex::gateway {
 
 BroadcastFanout::BroadcastFanout(
     apex::core::CoreEngine& engine,
-    const ChannelSessionMap& channel_map,
+    uint32_t num_cores,
     std::vector<apex::core::SessionManager*> session_mgrs)
     : engine_(engine)
-    , channel_map_(channel_map)
+    , num_cores_(num_cores)
     , session_mgrs_(std::move(session_mgrs)) {}
+
+void BroadcastFanout::set_channel_maps(std::vector<ChannelSessionMap>* maps) {
+    channel_maps_ = maps;
+}
 
 void BroadcastFanout::fanout(std::string_view channel,
                              std::span<const uint8_t> message) {
@@ -47,25 +51,23 @@ void BroadcastFanout::fanout(std::string_view channel,
         return;
     }
 
-    // Room-specific channels — use ChannelSessionMap for targeted delivery.
-    auto groups = channel_map_.get_subscribers(std::string(channel));
-    if (groups.empty()) return;
+    // Room-specific channels — 모든 코어에 post, 각 코어가 로컬 맵에서 확인.
+    // per-core 맵이므로 뮤텍스 불필요 — 각 코어 스레드에서 자기 맵만 접근.
+    for (uint32_t core_id = 0; core_id < num_cores_; ++core_id) {
+        if (core_id >= session_mgrs_.size()) continue;
 
-    for (const auto& group : groups) {
-        if (group.core_id >= session_mgrs_.size()) {
-            spdlog::warn("BroadcastFanout: invalid core_id {}", group.core_id);
-            continue;
-        }
-
-        auto session_ids = group.session_ids;
-        auto core_id = group.core_id;
         auto* mgr = session_mgrs_[core_id];
+        auto* maps = channel_maps_;
 
         (void)apex::core::cross_core_post(
             engine_, core_id,
-            [mgr, session_ids = std::move(session_ids),
+            [mgr, maps, core_id, ch = std::string(channel),
              shared_data = data]() {
-                for (auto sid : session_ids) {
+                if (!maps) return;
+                auto* subs = (*maps)[core_id].get_subscribers(ch);
+                if (!subs || subs->empty()) return;
+
+                for (auto sid : *subs) {
                     auto session = mgr->find_session(sid);
                     if (!session || !session->is_open()) continue;
                     (void)session->enqueue_write_raw(*shared_data);

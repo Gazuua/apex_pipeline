@@ -11,10 +11,15 @@
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
+#include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <functional>
@@ -45,6 +50,10 @@ public:
     /// ServiceBase<Derived>가 오버라이드하여 per_core_ 바인딩 등 수행.
     virtual void internal_configure(ConfigureContext& ctx) { on_configure(ctx); }
 
+    /// [D7] Server가 internal_configure 전에 호출하여 io_context를 주입.
+    /// ConfigureContext에 io_context를 노출하지 않고 spawn()을 사용 가능하게 함.
+    virtual void bind_io_context(boost::asio::io_context&) {}
+
     /// Server가 호출하는 진입점. 프레임워크 전처리 + on_wire 호출.
     virtual void internal_wire(WireContext& ctx) { on_wire(ctx); }
 
@@ -56,6 +65,28 @@ public:
 
     /// 세션 종료 시 서비스에 통지. 리소스 정리용.
     virtual void on_session_closed(SessionId) {}
+
+    // ── D2: Kafka auto-wiring support ──────────────────────────────────
+    using KafkaHandler = std::function<
+        boost::asio::awaitable<Result<void>>(
+            shared::protocols::kafka::MetadataPrefix,
+            uint32_t,
+            std::span<const uint8_t>)>;
+    using KafkaHandlerMap = boost::unordered_flat_map<uint32_t, KafkaHandler>;
+
+    /// Kafka 핸들러 등록 여부. KafkaAdapter auto-wiring에서 사용.
+    [[nodiscard]] virtual bool has_kafka_handlers() const noexcept { return false; }
+
+    /// Kafka 핸들러 맵 접근. has_kafka_handlers() == true일 때만 유효.
+    [[nodiscard]] virtual const KafkaHandlerMap& kafka_handler_map() const noexcept {
+        static const KafkaHandlerMap empty;
+        return empty;
+    }
+
+    // ── D7: Outstanding coroutine tracking ─────────────────────────────
+
+    /// [D7] Outstanding 코루틴 수. shutdown 대기용.
+    [[nodiscard]] virtual uint32_t outstanding_coroutines() const noexcept { return 0; }
 };
 
 /// CRTP base class for defining services.
@@ -117,7 +148,13 @@ public:
     /// @note Server::run() 내부에서만 호출. 서비스 코드가 직접 호출하지 않는다.
     void internal_configure(ConfigureContext& ctx) override {
         per_core_ = &ctx.per_core_state;
+        // io_ctx_는 bind_io_context()에서 이미 바인딩됨
         static_cast<Derived*>(this)->on_configure(ctx);
+    }
+
+    /// [D7] io_context 바인딩 — Server가 internal_configure 전에 호출.
+    void bind_io_context(boost::asio::io_context& io) override {
+        io_ctx_ = &io;
     }
 
     /// Phase 2: on_wire 호출.
@@ -164,6 +201,8 @@ protected:
                 -> boost::asio::awaitable<Result<void>> {
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
                 if (!verifier.VerifyBuffer<FbsType>()) {
+                    spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})",
+                                 id, session ? session->id() : 0);
                     // 자동 error frame 전송 후 ok() 반환
                     if (session) {
                         auto frame = ErrorSender::build_error_frame(
@@ -223,30 +262,54 @@ protected:
     // internal_configure() 이후에만 유효. 그 전에 호출하면 UB.
 
     /// 요청/코루틴 수명 임시 데이터용 범프 할당자.
-    BumpAllocator& bump() { return per_core_->bump_allocator; }
+    BumpAllocator& bump() {
+        assert(per_core_ != nullptr && "bump() called before internal_configure");
+        return per_core_->bump_allocator;
+    }
 
     /// 트랜잭션 수명 데이터용 아레나 할당자.
-    ArenaAllocator& arena() { return per_core_->arena_allocator; }
+    ArenaAllocator& arena() {
+        assert(per_core_ != nullptr && "arena() called before internal_configure");
+        return per_core_->arena_allocator;
+    }
 
     /// 이 서비스가 실행 중인 코어 ID.
-    uint32_t core_id() const { return per_core_->core_id; }
+    uint32_t core_id() const {
+        assert(per_core_ != nullptr && "core_id() called before internal_configure");
+        return per_core_->core_id;
+    }
+
+    /// [D7] Tracked 코루틴 스폰. co_spawn(detached) 대신 사용.
+    /// outstanding 카운터를 관리하여 shutdown 시 완료 대기 가능.
+    template<typename F>
+    void spawn(F&& coro_factory) {
+        assert(io_ctx_ && "spawn() called before internal_configure");
+        outstanding_coros_.fetch_add(1, std::memory_order_relaxed);
+        boost::asio::co_spawn(*io_ctx_,
+            [this, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {
+                try {
+                    co_await f();
+                } catch (const std::exception& e) {
+                    spdlog::error("[{}] spawn() coroutine exception: {}", name_, e.what());
+                }
+                outstanding_coros_.fetch_sub(1, std::memory_order_release);
+            },
+            boost::asio::detached);
+    }
 
 public:
-    // ── Kafka 핸들러 접근자 (KafkaDispatchBridge용) ──────────────────────
-
-    /// Kafka 핸들러 타입.
-    using KafkaHandler = std::function<
-        boost::asio::awaitable<Result<void>>(
-            shared::protocols::kafka::MetadataPrefix,
-            uint32_t,
-            std::span<const uint8_t>)>;
+    // ── Kafka 핸들러 접근자 (D2: ServiceBaseInterface override) ──────────
 
     /// KafkaDispatchBridge가 핸들러 맵에 접근하기 위한 getter.
-    [[nodiscard]] const boost::unordered_flat_map<uint32_t, KafkaHandler>&
-    kafka_handler_map() const noexcept { return kafka_handlers_; }
+    [[nodiscard]] bool has_kafka_handlers() const noexcept override { return has_kafka_handlers_; }
+    [[nodiscard]] const KafkaHandlerMap& kafka_handler_map() const noexcept override { return kafka_handlers_; }
 
-    /// Kafka 핸들러 등록 여부.
-    [[nodiscard]] bool has_kafka_handlers() const noexcept { return has_kafka_handlers_; }
+    // ── D7: Outstanding coroutine tracking ──────────────────────────────
+
+    /// [D7] Outstanding 코루틴 수.
+    [[nodiscard]] uint32_t outstanding_coroutines() const noexcept override {
+        return outstanding_coros_.load(std::memory_order_acquire);
+    }
 
 private:
     std::string name_;
@@ -258,9 +321,11 @@ private:
     bool started_{false};
     boost::unordered_flat_set<uint32_t> registered_msg_ids_;
     PerCoreState* per_core_{nullptr};
+    boost::asio::io_context* io_ctx_{nullptr};          // D7: spawn()용
+    std::atomic<uint32_t> outstanding_coros_{0};         // D7: outstanding 코루틴 카운터
 
     // ── Kafka 디스패치 ──────────────────────────────────────────────────
-    boost::unordered_flat_map<uint32_t, KafkaHandler> kafka_handlers_;
+    KafkaHandlerMap kafka_handlers_;
     bool has_kafka_handlers_{false};
 };
 

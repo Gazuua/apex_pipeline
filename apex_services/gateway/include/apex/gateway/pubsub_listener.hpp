@@ -41,6 +41,7 @@ public:
         uint16_t port = 6379;
         std::string password;
         std::vector<std::string> initial_channels;  // Auto-subscribe on start
+        uint32_t reconnect_interval_ms = 1000;      ///< 재연결 대기 간격 (ms)
     };
 
     explicit PubSubListener(const Config& config,

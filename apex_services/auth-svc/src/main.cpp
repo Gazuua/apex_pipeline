@@ -1,6 +1,5 @@
 #include <apex/auth_svc/auth_config.hpp>
 #include <apex/auth_svc/auth_service.hpp>
-#include <apex/auth_svc/password_hasher.hpp>
 
 #include <apex/core/config.hpp>
 #include <apex/core/logging.hpp>
@@ -12,17 +11,12 @@
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
-#include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
-
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <toml++/toml.hpp>
 #include <spdlog/spdlog.h>
 
 #include <chrono>
 #include <cstdlib>
 #include <string>
-#include <thread>
 
 namespace {
 
@@ -142,83 +136,9 @@ int main(int argc, char* argv[]) {
     auto auth_config = parsed.auth;
     server.add_service<apex::auth_svc::AuthService>(std::move(auth_config));
 
-    // --- 6. Kafka consumer → KafkaDispatchBridge 와이어링 ---
-    // post_init_callback에서 서비스의 kafka_handler_map()에 접근하여
-    // KafkaDispatchBridge를 생성하고 Kafka consumer 콜백으로 연결.
-    auto bcrypt_work_factor = parsed.auth.bcrypt_work_factor;
-    server.set_post_init_callback(
-        [bcrypt_work_factor, &parsed](apex::core::Server& srv) {
-            auto& state = srv.per_core_state(0);
-
-            // AuthService는 첫 번째(유일한) 서비스
-            auto* auth_svc = dynamic_cast<apex::auth_svc::AuthService*>(
-                state.services[0].get());
-
-            // KafkaDispatchBridge 생성 — 핸들러 맵 참조
-            // shared_ptr로 관리하여 Kafka 콜백 람다에서 캡처
-            auto bridge = std::make_shared<
-                apex::shared::protocols::kafka::KafkaDispatchBridge>(
-                auth_svc->kafka_handler_map());
-
-            // Kafka consumer 콜백 설정
-            // Kafka 콜백은 동기이므로 co_spawn으로 코루틴 브릿지.
-            // payload를 복사하여 코루틴 수명 안전성 보장.
-            auto& kafka = srv.adapter<
-                apex::shared::adapters::kafka::KafkaAdapter>();
-            auto& engine = srv.core_engine();
-            kafka.set_message_callback(
-                [bridge, request_topic = parsed.auth.request_topic, &engine](
-                    std::string_view topic, int32_t /*partition*/,
-                    std::span<const uint8_t> /*key*/,
-                    std::span<const uint8_t> payload,
-                    int64_t /*offset*/) -> apex::core::Result<void> {
-                    if (topic != request_topic) {
-                        return apex::core::ok();  // 다른 토픽 무시
-                    }
-
-                    // Kafka 콜백의 payload는 콜백 반환 후 무효 → 복사 필수
-                    auto payload_copy = std::vector<uint8_t>(
-                        payload.begin(), payload.end());
-
-                    // co_spawn으로 코루틴 실행 — bridge->dispatch가 파싱+핸들러 호출 수행
-                    boost::asio::co_spawn(engine.io_context(0),
-                        [bridge, data = std::move(payload_copy)]()
-                            -> boost::asio::awaitable<void> {
-                            auto result = co_await bridge->dispatch(
-                                std::span<const uint8_t>(data));
-                            if (!result.has_value()) {
-                                spdlog::warn("[AuthService] Kafka dispatch failed: {}",
-                                    static_cast<int>(result.error()));
-                            }
-                        },
-                        boost::asio::detached);
-
-                    return apex::core::ok();
-                });
-
-            // --- 테스트 사용자 시드 (E2E) ---
-            apex::auth_svc::PasswordHasher hasher(bcrypt_work_factor);
-            auto hash = hasher.hash("password123");
-            if (!hash.empty()) {
-                auto& pg = srv.adapter<apex::shared::adapters::pg::PgAdapter>();
-                std::array<std::string, 1> params = {hash};
-                boost::asio::co_spawn(engine.io_context(0),
-                    [&pg, params]() -> boost::asio::awaitable<void> {
-                        auto result = co_await pg.execute(
-                            "UPDATE users SET password_hash = $1 WHERE password_hash = 'PENDING'",
-                            params);
-                        if (result.has_value()) {
-                            spdlog::info("[AuthService] Seeded test user passwords");
-                        } else {
-                            spdlog::warn("[AuthService] Password seed failed (may already be set)");
-                        }
-                    },
-                    boost::asio::detached);
-                std::this_thread::sleep_for(std::chrono::seconds{1});
-            }
-        });
-
-    // --- 7. Server 실행 (블로킹) ---
+    // --- 6. Server 실행 (블로킹) ---
+    // Kafka auto-wiring [D2]: kafka_route() 등록만 하면 코어가 KafkaDispatchBridge를 자동 배선.
+    // post_init_callback 수동 와이어링 제거됨.
     spdlog::info("[AuthService] Running. Press Ctrl+C to stop.");
     server.run();
 

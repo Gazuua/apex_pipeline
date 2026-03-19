@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #48. Post-E2E 코드 리뷰 (10개 관점)
+- **등급**: CRITICAL | **스코프**: core, gateway, auth-svc, chat-svc, shared | **타입**: design-debt
+- **해결**: 2026-03-19 14:58:14 | **방식**: FIXED
+- **비고**: 4그룹 병렬 리뷰(Core-API/Architecture/Safety/Sweep) → 46건 발견. Phase 2: 즉시 수정 25건. Phase A: 코어 인프라 확장 D3(server.global&lt;T&gt;) + D2(wire_services 자동 배선) + D7(spawn tracked API). Phase B: GatewayGlobals 소유권 이관, post_init_callback 완전 제거, ChannelSessionMap per-core(shared_mutex 제거), send_error 헬퍼 11개 추출. Phase C: ConsumerPayloadPool. Auto-review 5명 → CRITICAL 4 + MAJOR 5 추가 수정(보안 취약점 1건 포함). 총 ~45파일 변경, 71/71 테스트 통과. 잔여 이슈 #66~#72로 분리 등록.
+
 ### #1. apex_core 프레임워크 가이드 (API 가이드 + 내부 아키텍처)
 - **등급**: CRITICAL | **스코프**: core, docs | **타입**: docs
 - **해결**: 2026-03-19 12:47:03 | **방식**: DOCUMENTED

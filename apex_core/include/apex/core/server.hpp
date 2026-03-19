@@ -276,6 +276,22 @@ public:
     /// Total active sessions across all listeners.
     [[nodiscard]] uint32_t total_active_sessions() const noexcept;
 
+    /// [D3] Cross-core 공유 자원 등록/접근. 최초 호출 시 factory 실행, 이후 동일 T 반환.
+    /// on_wire() 단계에서 사용. Server가 수명 관리, 서비스는 raw pointer로 참조.
+    /// @note on_wire는 메인 스레드에서 순차 실행되므로 동기화 불필요.
+    template<typename T, typename Factory>
+    T& global(Factory&& factory) {
+        auto key = std::type_index(typeid(T));
+        auto it = globals_.find(key);
+        if (it == globals_.end()) {
+            auto holder = std::make_unique<TypedGlobalHolder<T>>(std::forward<Factory>(factory));
+            auto& ref = holder->value;
+            globals_.emplace(key, std::move(holder));
+            return ref;
+        }
+        return static_cast<TypedGlobalHolder<T>*>(it->second.get())->value;
+    }
+
     /// Execute func on target_core and co_await the result (coroutine).
     /// Overload without timeout uses config_.cross_core_call_timeout.
     template <typename F>
@@ -301,6 +317,18 @@ public:
     }
 
 private:
+    // [D3] Cross-core global resource holder (type-erased).
+    struct GlobalHolder {
+        virtual ~GlobalHolder() = default;
+    };
+
+    template<typename T>
+    struct TypedGlobalHolder : GlobalHolder {
+        T value;
+        template<typename Factory>
+        explicit TypedGlobalHolder(Factory&& f) : value(std::forward<Factory>(f)()) {}
+    };
+
     using ServiceFactory = std::function<
         std::unique_ptr<ServiceBaseInterface>(PerCoreState&, MessageDispatcher&)>;
 
@@ -311,6 +339,12 @@ private:
     ServerConfig config_;
     boost::asio::io_context control_io_;
     std::unique_ptr<CoreEngine> core_engine_;
+
+    // [D3] Cross-core global resources. 선언 위치 중요: per_core_ 앞.
+    // 소멸 순서에서 per_core_(서비스) → globals_ 순으로 소멸되어
+    // 서비스가 보유한 globals raw pointer가 서비스 소멸 시점까지 유효.
+    std::unordered_map<std::type_index, std::unique_ptr<GlobalHolder>> globals_;
+
     std::vector<std::unique_ptr<PerCoreState>> per_core_;
     std::vector<std::unique_ptr<ListenerBase>> listeners_;
     std::vector<ServiceFactory> service_factories_;

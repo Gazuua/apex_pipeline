@@ -8,7 +8,6 @@
 #include <apex/gateway/gateway_config_parser.hpp>
 #include <apex/gateway/gateway_service.hpp>
 #include <apex/gateway/route_table.hpp>
-#include <apex/gateway/channel_session_map.hpp>
 
 #include <apex/core/config.hpp>
 #include <apex/core/logging.hpp>
@@ -55,8 +54,6 @@ int main(int argc, char* argv[]) {
 
     // ── Immutable shared objects ─────────────────────────────────────
     auto jwt_verifier = std::make_shared<apex::gateway::JwtVerifier>(gw_config.jwt);
-    auto channel_map = std::make_shared<apex::gateway::ChannelSessionMap>(
-        gw_config.max_subscriptions_per_session);
 
     // ── Adapter configs ──────────────────────────────────────────────
     apex::shared::adapters::kafka::KafkaConfig kafka_cfg;
@@ -82,7 +79,7 @@ int main(int argc, char* argv[]) {
     // ── Server 설정 ──────────────────────────────────────────────────
     apex::core::Server server({
         .num_cores = gw_config.num_cores,
-        .heartbeat_timeout_ticks = 300,
+        .heartbeat_timeout_ticks = gw_config.heartbeat_timeout_ticks,
     });
 
     server
@@ -108,16 +105,15 @@ int main(int argc, char* argv[]) {
     //   on_start     — 기본 핸들러 등록
     //   on_session_closed — auth_states/채널 구독 정리
     auto gw_config_copy = gw_config;
-    auto* channel_map_ptr = channel_map.get();
     auto* rl_adapter_ptr = rl_redis_adapter.get();
 
     server.add_service_factory(
         [gw_config_copy, route_table, jwt_verifier,
-         channel_map_ptr, rl_adapter_ptr](apex::core::PerCoreState& /*state*/)
+         rl_adapter_ptr](apex::core::PerCoreState& /*state*/)
             -> std::unique_ptr<apex::core::ServiceBaseInterface> {
             return std::make_unique<apex::gateway::GatewayService>(
-                gw_config_copy, *jwt_verifier, nullptr,
-                route_table, channel_map_ptr, rl_adapter_ptr);
+                gw_config_copy, *jwt_verifier,
+                route_table, rl_adapter_ptr);
         });
 
     // post_init_callback 불필요 — GatewayService 라이프사이클이 모든 와이어링 수행.

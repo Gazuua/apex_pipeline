@@ -8,6 +8,7 @@ add_library(apex_shared_adapters_kafka STATIC
     src/kafka_consumer.cpp
     src/kafka_adapter.cpp
     src/kafka_sink.cpp
+    src/consumer_payload_pool.cpp
 )
 add_library(apex::shared::adapters::kafka ALIAS apex_shared_adapters_kafka)
 
@@ -20,6 +21,7 @@ target_include_directories(apex_shared_adapters_kafka
 target_link_libraries(apex_shared_adapters_kafka
     PUBLIC
         apex::shared::adapters::common
+        apex::shared::protocols::kafka   # [D2] KafkaDispatchBridge auto-wiring
         RdKafka::rdkafka        # C API
         RdKafka::rdkafka++      # C++ API
         spdlog::spdlog

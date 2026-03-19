@@ -52,6 +52,8 @@ public:
         uint32_t    max_room_members      = 100;
         uint32_t    max_message_length    = 2000;  // bytes
         uint32_t    history_page_size     = 50;
+        size_t      max_room_name_length = 100;
+        uint32_t    max_list_rooms_limit = 100;
     };
 
     explicit ChatService(Config config);
@@ -61,6 +63,9 @@ public:
 
     /// kafka_route 등록.
     void on_start() override;
+
+    /// 정리 로직.
+    void on_stop() override;
 
 private:
     // --- msg_id constants (from msg_registry.toml) ---
@@ -157,6 +162,40 @@ private:
 
     /// Get current timestamp in milliseconds.
     [[nodiscard]] static uint64_t current_timestamp_ms() noexcept;
+
+    // ── 에러 응답 헬퍼 [D5] ──────────────────────────────────────────────
+
+    /// CreateRoomResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_create_room_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
+
+    /// JoinRoomResponse 에러 (room_id 포함).
+    boost::asio::awaitable<apex::core::Result<void>> send_join_room_error(
+        const envelope::MetadataPrefix& meta, uint16_t error, uint64_t room_id);
+
+    /// LeaveRoomResponse 에러 (room_id 포함).
+    boost::asio::awaitable<apex::core::Result<void>> send_leave_room_error(
+        const envelope::MetadataPrefix& meta, uint16_t error, uint64_t room_id);
+
+    /// ListRoomsResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_list_rooms_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
+
+    /// SendMessageResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_message_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
+
+    /// WhisperResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_whisper_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
+
+    /// ChatHistoryResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_history_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
+
+    /// GlobalBroadcastResponse 에러.
+    boost::asio::awaitable<apex::core::Result<void>> send_global_broadcast_error(
+        const envelope::MetadataPrefix& meta, uint16_t error);
 
     Config config_;
     apex::shared::adapters::kafka::KafkaAdapter* kafka_{nullptr};

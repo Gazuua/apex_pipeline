@@ -12,7 +12,8 @@ enum ChatMessageError : uint16 {
     TARGET_NOT_FOUND = 4,
     TARGET_OFFLINE = 5,
     RATE_LIMITED = 6,
-    PERMISSION_DENIED = 7
+    PERMISSION_DENIED = 7,
+    INTERNAL_ERROR = 8
 }
 
 // --- Send Message (msg_id: 2011/2012) ---

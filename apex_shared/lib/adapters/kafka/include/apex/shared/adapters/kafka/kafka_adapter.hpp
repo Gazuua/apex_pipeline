@@ -4,6 +4,7 @@
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/shared/adapters/kafka/kafka_producer.hpp>
 #include <apex/shared/adapters/kafka/kafka_consumer.hpp>
+#include <apex/shared/adapters/kafka/consumer_payload_pool.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -73,6 +74,12 @@ public:
         std::string_view key,
         std::string_view payload);
 
+    /// [D2] Adapter-service 자동 배선. has_kafka_handlers() 서비스를 감지하여
+    /// KafkaDispatchBridge를 자동 생성하고 consumer 콜백에 연결.
+    void wire_services(
+        std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+        apex::core::CoreEngine& engine);
+
     /// Register Consumer message callback.
     /// Sets the same callback on each core's Consumer.
     /// Must be set before do_init() is called.
@@ -88,6 +95,10 @@ public:
     /// Config access
     [[nodiscard]] const KafkaConfig& config() const noexcept { return config_; }
 
+    /// Consumer payload pool access (for external Kafka callback users)
+    [[nodiscard]] ConsumerPayloadPool& payload_pool() noexcept { return payload_pool_; }
+    [[nodiscard]] const ConsumerPayloadPool& payload_pool() const noexcept { return payload_pool_; }
+
 private:
     /// Producer poll timer (delivery callback processing).
     /// Runs on core 0's io_context periodically.
@@ -96,6 +107,7 @@ private:
 
     KafkaConfig config_;
     MessageCallback message_cb_;
+    ConsumerPayloadPool payload_pool_;
 
     std::unique_ptr<KafkaProducer> producer_;
     std::vector<std::unique_ptr<KafkaConsumer>> consumers_;
