@@ -59,6 +59,8 @@ target_link_libraries(apex_chat_svc
 
 target_compile_features(apex_chat_svc PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_chat_svc)
+
 if(WIN32)
     target_compile_options(apex_chat_svc PUBLIC /utf-8)
     target_compile_definitions(apex_chat_svc PRIVATE _WIN32_WINNT=0x0A00)
@@ -66,6 +68,7 @@ endif()
 
 # --- Executable ---
 add_executable(chat_svc_main src/main.cpp)
+apex_set_warnings(chat_svc_main)
 target_link_libraries(chat_svc_main PRIVATE apex_chat_svc tomlplusplus::tomlplusplus)
 if(WIN32)
     target_compile_options(chat_svc_main PRIVATE /utf-8)

@@ -93,6 +93,7 @@ target_link_libraries(apex_core
 )
 
 target_compile_features(apex_core PUBLIC cxx_std_23)
+apex_set_warnings(apex_core)
 
 # io_uring backend (Linux only)
 if(APEX_USE_IO_URING)

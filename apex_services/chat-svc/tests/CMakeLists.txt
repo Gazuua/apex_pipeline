@@ -31,6 +31,7 @@ if(WIN32)
     target_compile_definitions(chat_svc_unit_tests PRIVATE _WIN32_WINNT=0x0A00)
 endif()
 
+apex_set_warnings(chat_svc_unit_tests)
 add_test(NAME chat_svc_unit_tests COMMAND chat_svc_unit_tests)
 set_tests_properties(chat_svc_unit_tests PROPERTIES TIMEOUT 30)
 
@@ -58,5 +59,6 @@ if(WIN32)
     target_compile_definitions(chat_svc_handler_tests PRIVATE _WIN32_WINNT=0x0A00)
 endif()
 
+apex_set_warnings(chat_svc_handler_tests)
 add_test(NAME chat_svc_handler_tests COMMAND chat_svc_handler_tests)
 set_tests_properties(chat_svc_handler_tests PROPERTIES TIMEOUT 30)

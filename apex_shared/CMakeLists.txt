@@ -56,6 +56,8 @@ target_link_libraries(apex_shared
 
 target_compile_features(apex_shared PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_shared)
+
 if(WIN32)
     target_compile_options(apex_shared PUBLIC /utf-8)
 endif()

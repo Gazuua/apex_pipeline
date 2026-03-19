@@ -26,6 +26,8 @@ target_link_libraries(apex_shared_rate_limit
 
 target_compile_features(apex_shared_rate_limit PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_shared_rate_limit)
+
 if(WIN32)
     target_compile_options(apex_shared_rate_limit PUBLIC /utf-8)
 endif()

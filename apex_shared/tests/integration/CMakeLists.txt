@@ -17,6 +17,7 @@ function(apex_shared_add_integration_test TEST_NAME TEST_SOURCE)
             GTest::gtest_main
     )
     target_compile_features(${TEST_NAME} PRIVATE cxx_std_23)
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
     set_tests_properties(${TEST_NAME} PROPERTIES
         TIMEOUT 60

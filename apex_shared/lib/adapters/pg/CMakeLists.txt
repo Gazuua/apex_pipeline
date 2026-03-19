@@ -25,6 +25,8 @@ target_link_libraries(apex_shared_adapters_pg
 
 target_compile_features(apex_shared_adapters_pg PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_shared_adapters_pg)
+
 if(WIN32)
     target_compile_options(apex_shared_adapters_pg PUBLIC /utf-8)
 endif()

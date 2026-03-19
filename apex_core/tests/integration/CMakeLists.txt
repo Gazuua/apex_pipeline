@@ -5,6 +5,7 @@ function(apex_add_integration_test TEST_NAME TEST_SOURCE)
             apex::core
             GTest::gtest_main
     )
+    apex_set_warnings(${TEST_NAME})
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
 

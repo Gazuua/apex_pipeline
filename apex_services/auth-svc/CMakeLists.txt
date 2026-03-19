@@ -82,6 +82,8 @@ target_link_libraries(apex_auth_svc
 
 target_compile_features(apex_auth_svc PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_auth_svc)
+
 if(WIN32)
     target_compile_options(apex_auth_svc PUBLIC /utf-8)
     target_compile_definitions(apex_auth_svc PRIVATE _WIN32_WINNT=0x0A00)
@@ -89,6 +91,7 @@ endif()
 
 # --- Executable ---
 add_executable(auth_svc_main src/main.cpp)
+apex_set_warnings(auth_svc_main)
 target_link_libraries(auth_svc_main PRIVATE apex_auth_svc tomlplusplus::tomlplusplus)
 if(WIN32)
     target_compile_options(auth_svc_main PRIVATE /utf-8)

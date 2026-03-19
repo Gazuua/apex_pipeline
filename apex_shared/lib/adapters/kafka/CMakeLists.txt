@@ -29,6 +29,8 @@ target_link_libraries(apex_shared_adapters_kafka
 
 target_compile_features(apex_shared_adapters_kafka PUBLIC cxx_std_23)
 
+apex_set_warnings(apex_shared_adapters_kafka)
+
 if(WIN32)
     target_compile_options(apex_shared_adapters_kafka PUBLIC /utf-8)
 endif()

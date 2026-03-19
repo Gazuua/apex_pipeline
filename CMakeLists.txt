@@ -15,6 +15,17 @@ option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
 enable_testing()
 
+# ── 경고 정책 ──────────────────────────────────────────
+function(apex_set_warnings target)
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /W4 /WX /external:W0)
+    else()
+        target_compile_options(${target} PRIVATE
+            -Wall -Wextra -Wpedantic -Werror
+        )
+    endif()
+endfunction()
+
 # --- Sub-projects ---
 add_subdirectory(apex_core)
 # 실제 코드 추가 시 활성화 (현재 placeholder만 존재)
