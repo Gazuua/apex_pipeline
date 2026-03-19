@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -14,19 +15,23 @@
 #include <sys/sysinfo.h>
 #endif
 
-namespace apex::bench {
+namespace apex::bench
+{
 
-struct SystemProfile {
+struct SystemProfile
+{
     uint32_t physical_cores{0};
     uint32_t logical_cores{0};
     size_t total_ram_bytes{0};
     size_t available_ram_bytes{0};
 
-    uint32_t bench_cores() const {
+    uint32_t bench_cores() const
+    {
         return std::max(1u, logical_cores > 2 ? logical_cores / 2 : logical_cores);
     }
 
-    void print() const {
+    void print() const
+    {
         std::cout << "=== System Profile ===\n"
                   << "Physical cores: " << physical_cores << '\n'
                   << "Logical cores:  " << logical_cores << '\n'
@@ -37,51 +42,61 @@ struct SystemProfile {
     }
 };
 
-inline SystemProfile detect_system_profile() {
+inline SystemProfile detect_system_profile()
+{
     SystemProfile p;
     p.logical_cores = std::thread::hardware_concurrency();
 
 #ifdef _WIN32
     DWORD len = 0;
     GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &len);
-    if (len > 0) {
+    if (len > 0)
+    {
         std::vector<uint8_t> buf(len);
-        if (GetLogicalProcessorInformationEx(RelationProcessorCore,
-                reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buf.data()), &len)) {
+        if (GetLogicalProcessorInformationEx(
+                RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buf.data()), &len))
+        {
             uint32_t count = 0;
             DWORD offset = 0;
-            while (offset < len) {
-                auto* info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(
-                    buf.data() + offset);
-                if (info->Relationship == RelationProcessorCore) ++count;
+            while (offset < len)
+            {
+                auto* info = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buf.data() + offset);
+                if (info->Relationship == RelationProcessorCore)
+                    ++count;
                 offset += info->Size;
             }
             p.physical_cores = count;
         }
     }
-    if (p.physical_cores == 0) p.physical_cores = std::max(1u, p.logical_cores / 2);
+    if (p.physical_cores == 0)
+        p.physical_cores = std::max(1u, p.logical_cores / 2);
 
     MEMORYSTATUSEX mem{};
     mem.dwLength = sizeof(mem);
-    if (GlobalMemoryStatusEx(&mem)) {
+    if (GlobalMemoryStatusEx(&mem))
+    {
         p.total_ram_bytes = static_cast<size_t>(mem.ullTotalPhys);
         p.available_ram_bytes = static_cast<size_t>(mem.ullAvailPhys);
     }
 #else
     std::ifstream cpuinfo("/proc/cpuinfo");
     std::string line;
-    while (std::getline(cpuinfo, line)) {
-        if (line.find("cpu cores") != std::string::npos) {
+    while (std::getline(cpuinfo, line))
+    {
+        if (line.find("cpu cores") != std::string::npos)
+        {
             auto pos = line.find(':');
             if (pos != std::string::npos)
                 p.physical_cores = static_cast<uint32_t>(std::stoul(line.substr(pos + 1)));
             break;
         }
     }
-    if (p.physical_cores == 0) p.physical_cores = std::max(1u, p.logical_cores / 2);
+    if (p.physical_cores == 0)
+        p.physical_cores = std::max(1u, p.logical_cores / 2);
 
-    struct sysinfo si {};
-    if (sysinfo(&si) == 0) {
+    struct sysinfo si{};
+    if (sysinfo(&si) == 0)
+    {
         p.total_ram_bytes = static_cast<size_t>(si.totalram) * si.mem_unit;
         p.available_ram_bytes = static_cast<size_t>(si.freeram + si.bufferram) * si.mem_unit;
     }

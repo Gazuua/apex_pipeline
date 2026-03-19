@@ -1,15 +1,15 @@
 #pragma once
 
+#include <apex/core/configure_context.hpp>
+#include <apex/core/core_engine.hpp>
+#include <apex/core/service_base.hpp>
+#include <apex/core/session.hpp>
+#include <apex/core/wire_context.hpp>
 #include <apex/gateway/channel_session_map.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_pipeline.hpp>
 #include <apex/gateway/message_router.hpp>
 #include <apex/gateway/pending_requests.hpp>
-#include <apex/core/configure_context.hpp>
-#include <apex/core/core_engine.hpp>
-#include <apex/core/wire_context.hpp>
-#include <apex/core/service_base.hpp>
-#include <apex/core/session.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -17,15 +17,23 @@
 #include <unordered_map>
 
 // Forward declarations to avoid pulling in heavy headers
-namespace apex::shared::adapters::kafka { class KafkaAdapter; }
-namespace apex::shared::adapters::redis { class RedisAdapter; }
-namespace apex::shared::rate_limit {
-    class RateLimitFacade;
-    class PerIpRateLimiter;
-    class RedisRateLimiter;
+namespace apex::shared::adapters::kafka
+{
+class KafkaAdapter;
 }
+namespace apex::shared::adapters::redis
+{
+class RedisAdapter;
+}
+namespace apex::shared::rate_limit
+{
+class RateLimitFacade;
+class PerIpRateLimiter;
+class RedisRateLimiter;
+} // namespace apex::shared::rate_limit
 
-namespace apex::gateway {
+namespace apex::gateway
+{
 
 // Forward declarations
 class JwtVerifier;
@@ -36,15 +44,17 @@ class BroadcastFanout;
 
 /// Gateway 시스템 메시지 ID 상수.
 /// 프레임워크가 직접 처리하는 시스템 메시지용이며, 서비스 라우팅을 거치지 않는다.
-struct system_msg_ids {
+struct system_msg_ids
+{
     static constexpr uint16_t AUTHENTICATE_SESSION = 3;
-    static constexpr uint16_t SUBSCRIBE_CHANNEL    = 4;
-    static constexpr uint16_t UNSUBSCRIBE_CHANNEL  = 5;
+    static constexpr uint16_t SUBSCRIBE_CHANNEL = 4;
+    static constexpr uint16_t UNSUBSCRIBE_CHANNEL = 5;
 };
 
 /// cross-core 글로벌 객체 — Server.global<T>()가 소유, 서비스는 raw pointer로 참조.
 /// core 0의 on_wire()에서 factory를 통해 생성, Server 소멸 시 자동 파괴.
-struct GatewayGlobals {
+struct GatewayGlobals
+{
     std::unique_ptr<ResponseDispatcher> response_dispatcher;
     std::unique_ptr<BroadcastFanout> broadcast_fanout;
     std::unique_ptr<PubSubListener> pubsub_listener;
@@ -80,12 +90,10 @@ struct GatewayGlobals {
 /// 1. Client WireHeader -> GatewayPipeline (auth/rate) -> MessageRouter (Kafka produce)
 /// 2. Kafka response -> WireHeader conversion + client delivery (ResponseDispatcher)
 /// 3. Redis Pub/Sub -> broadcast delivery
-class GatewayService
-    : public apex::core::ServiceBase<GatewayService> {
-public:
-    GatewayService(const GatewayConfig& config,
-                   const JwtVerifier& jwt_verifier,
-                   RouteTablePtr route_table,
+class GatewayService : public apex::core::ServiceBase<GatewayService>
+{
+  public:
+    GatewayService(const GatewayConfig& config, const JwtVerifier& jwt_verifier, RouteTablePtr route_table,
                    apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter);
     ~GatewayService();
 
@@ -105,16 +113,15 @@ public:
     void on_session_closed(apex::core::SessionId sid) override;
 
     /// Access per-core pending requests map (for ResponseDispatcher wiring).
-    [[nodiscard]] PendingRequestsMap& pending_requests() noexcept {
+    [[nodiscard]] PendingRequestsMap& pending_requests() noexcept
+    {
         return pending_requests_;
     }
 
-private:
+  private:
     /// Default handler: pipeline check -> Kafka produce via MessageRouter.
-    boost::asio::awaitable<apex::core::Result<void>>
-    handle_request(apex::core::SessionPtr session,
-                   uint32_t msg_id,
-                   std::span<const uint8_t> payload);
+    boost::asio::awaitable<apex::core::Result<void>> handle_request(apex::core::SessionPtr session, uint32_t msg_id,
+                                                                    std::span<const uint8_t> payload);
 
     /// cross-core 글로벌 객체 생성 (core 0의 on_wire에서 factory로 1회 호출).
     /// server.global<GatewayGlobals>(factory) 패턴용 — GatewayGlobals를 값으로 반환.

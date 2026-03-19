@@ -11,14 +11,16 @@
 
 #include <apex/core/wire_header.hpp>
 
-#include <generated/echo_generated.h>
 #include <flatbuffers/flatbuffers.h>
+#include <generated/echo_generated.h>
 
 #include <boost/asio.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -29,8 +31,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <algorithm>
-#include <atomic>
 
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
@@ -39,10 +39,11 @@ using namespace std::chrono;
 using namespace std::chrono_literals;
 
 // --- Config ---
-struct LoadTestConfig {
+struct LoadTestConfig
+{
     std::string host = "127.0.0.1";
     uint16_t port = 9000;
-    uint32_t connections = 0;  // 0 = auto
+    uint32_t connections = 0; // 0 = auto
     uint32_t duration_secs = 30;
     uint32_t payload_size = 256;
     uint32_t warmup_secs = 3;
@@ -50,16 +51,18 @@ struct LoadTestConfig {
 };
 
 // --- Per-Connection Stats ---
-struct ConnStats {
+struct ConnStats
+{
     uint64_t messages_sent = 0;
     uint64_t messages_received = 0;
     uint64_t bytes_sent = 0;
     uint64_t bytes_received = 0;
-    std::vector<uint64_t> latencies_us;  // per-message latency in microseconds
+    std::vector<uint64_t> latencies_us; // per-message latency in microseconds
 };
 
 // --- Result ---
-struct LoadTestResult {
+struct LoadTestResult
+{
     uint64_t total_sent = 0;
     uint64_t total_received = 0;
     double msg_per_sec = 0;
@@ -75,93 +78,97 @@ struct LoadTestResult {
 };
 
 // --- Build valid echo request frame ---
-static std::vector<uint8_t> build_echo_request(uint32_t payload_size) {
+static std::vector<uint8_t> build_echo_request(uint32_t payload_size)
+{
     flatbuffers::FlatBufferBuilder fbb(payload_size + 64);
     std::vector<uint8_t> payload_data(payload_size, 0xAB);
     auto data_vec = fbb.CreateVector(payload_data);
     auto req = apex::messages::CreateEchoRequest(fbb, data_vec);
     fbb.Finish(req);
 
-    WireHeader header{
-        .msg_id = 0x0001,  // EchoRequest msg_id
-        .body_size = static_cast<uint32_t>(fbb.GetSize())
-    };
+    WireHeader header{.msg_id = 0x0001, // EchoRequest msg_id
+                      .body_size = static_cast<uint32_t>(fbb.GetSize())};
     auto hdr_bytes = header.serialize();
 
     std::vector<uint8_t> frame(hdr_bytes.begin(), hdr_bytes.end());
-    frame.insert(frame.end(),
-                 fbb.GetBufferPointer(),
-                 fbb.GetBufferPointer() + fbb.GetSize());
+    frame.insert(frame.end(), fbb.GetBufferPointer(), fbb.GetBufferPointer() + fbb.GetSize());
     return frame;
 }
 
 // --- Echo Client Coroutine ---
-net::awaitable<void> run_client(
-    tcp::endpoint endpoint,
-    const std::vector<uint8_t>& send_frame,
-    ConnStats& stats,
-    std::atomic<bool>& measuring,
-    std::atomic<bool>& stop_flag)
+net::awaitable<void> run_client(tcp::endpoint endpoint, const std::vector<uint8_t>& send_frame, ConnStats& stats,
+                                std::atomic<bool>& measuring, std::atomic<bool>& stop_flag)
 {
     auto executor = co_await net::this_coro::executor;
     tcp::socket socket(executor);
 
-    try {
+    try
+    {
         co_await socket.async_connect(endpoint, net::use_awaitable);
-    } catch (...) {
+    }
+    catch (...)
+    {
         co_return;
     }
 
     // Buffer sized to fit response: header + body (at least as large as request)
     std::vector<uint8_t> recv_buf(send_frame.size() + 256);
 
-    while (!stop_flag.load(std::memory_order_acquire)) {
+    while (!stop_flag.load(std::memory_order_acquire))
+    {
         auto t0 = steady_clock::now();
 
-        try {
-            co_await net::async_write(socket,
-                net::buffer(send_frame), net::use_awaitable);
-        } catch (...) {
+        try
+        {
+            co_await net::async_write(socket, net::buffer(send_frame), net::use_awaitable);
+        }
+        catch (...)
+        {
             co_return;
         }
 
-        try {
-            co_await net::async_read(socket,
-                net::buffer(recv_buf.data(), WireHeader::SIZE),
-                net::use_awaitable);
-        } catch (...) {
+        try
+        {
+            co_await net::async_read(socket, net::buffer(recv_buf.data(), WireHeader::SIZE), net::use_awaitable);
+        }
+        catch (...)
+        {
             co_return;
         }
 
-        auto resp_hdr = WireHeader::parse(
-            std::span<const uint8_t>(recv_buf.data(), WireHeader::SIZE));
-        if (!resp_hdr) {
+        auto resp_hdr = WireHeader::parse(std::span<const uint8_t>(recv_buf.data(), WireHeader::SIZE));
+        if (!resp_hdr)
+        {
             co_return;
         }
 
-        if (resp_hdr->body_size > recv_buf.size() - WireHeader::SIZE) {
-            co_return;  // body too large for buffer
+        if (resp_hdr->body_size > recv_buf.size() - WireHeader::SIZE)
+        {
+            co_return; // body too large for buffer
         }
 
-        if (resp_hdr->body_size > 0) {
-            try {
-                co_await net::async_read(socket,
-                    net::buffer(recv_buf.data() + WireHeader::SIZE, resp_hdr->body_size),
-                    net::use_awaitable);
-            } catch (...) {
+        if (resp_hdr->body_size > 0)
+        {
+            try
+            {
+                co_await net::async_read(socket, net::buffer(recv_buf.data() + WireHeader::SIZE, resp_hdr->body_size),
+                                         net::use_awaitable);
+            }
+            catch (...)
+            {
                 co_return;
             }
         }
 
         auto t1 = steady_clock::now();
 
-        if (measuring.load(std::memory_order_acquire)) {
+        if (measuring.load(std::memory_order_acquire))
+        {
             ++stats.messages_sent;
             ++stats.messages_received;
             stats.bytes_sent += send_frame.size();
             stats.bytes_received += WireHeader::SIZE + resp_hdr->body_size;
-            stats.latencies_us.push_back(
-                static_cast<uint64_t>(duration_cast<microseconds>(t1 - t0).count()));
+            stats.latencies_us.push_back(static_cast<uint64_t>(duration_cast<microseconds>(t1 - t0).count()));
         }
     }
 
@@ -170,54 +177,77 @@ net::awaitable<void> run_client(
     socket.close(ec);
 }
 
-LoadTestConfig parse_args(int argc, char* argv[]) {
+LoadTestConfig parse_args(int argc, char* argv[])
+{
     LoadTestConfig config;
-    for (int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i)
+    {
         std::string arg = argv[i];
-        try {
-            if (arg.starts_with("--host=")) config.host = arg.substr(7);
-            else if (arg.starts_with("--port=")) {
+        try
+        {
+            if (arg.starts_with("--host="))
+                config.host = arg.substr(7);
+            else if (arg.starts_with("--port="))
+            {
                 int val = std::stoi(arg.substr(7));
-                if (val < 0 || val > 65535) throw std::out_of_range("port");
+                if (val < 0 || val > 65535)
+                    throw std::out_of_range("port");
                 config.port = static_cast<uint16_t>(val);
             }
-            else if (arg.starts_with("--connections=")) {
+            else if (arg.starts_with("--connections="))
+            {
                 auto str = arg.substr(14);
-                if (str == "auto") { config.connections = 0; }
-                else {
+                if (str == "auto")
+                {
+                    config.connections = 0;
+                }
+                else
+                {
                     int val = std::stoi(str);
-                    if (val < 0) throw std::out_of_range("connections");
+                    if (val < 0)
+                        throw std::out_of_range("connections");
                     config.connections = static_cast<uint32_t>(val);
                 }
             }
-            else if (arg.starts_with("--duration=")) {
+            else if (arg.starts_with("--duration="))
+            {
                 int val = std::stoi(arg.substr(11));
-                if (val <= 0) throw std::out_of_range("duration");
+                if (val <= 0)
+                    throw std::out_of_range("duration");
                 config.duration_secs = static_cast<uint32_t>(val);
             }
-            else if (arg.starts_with("--payload=")) {
+            else if (arg.starts_with("--payload="))
+            {
                 int val = std::stoi(arg.substr(10));
-                if (val < 0) throw std::out_of_range("payload");
+                if (val < 0)
+                    throw std::out_of_range("payload");
                 config.payload_size = static_cast<uint32_t>(val);
             }
-            else if (arg.starts_with("--warmup=")) {
+            else if (arg.starts_with("--warmup="))
+            {
                 int val = std::stoi(arg.substr(9));
-                if (val < 0) throw std::out_of_range("warmup");
+                if (val < 0)
+                    throw std::out_of_range("warmup");
                 config.warmup_secs = static_cast<uint32_t>(val);
             }
-            else if (arg == "--json") config.json_output = true;
-        } catch (const std::exception& e) {
+            else if (arg == "--json")
+                config.json_output = true;
+        }
+        catch (const std::exception& e)
+        {
             std::cerr << "Invalid argument: " << arg << " (" << e.what() << ")\n";
             std::exit(1);
         }
     }
-    if (config.connections == 0) {
+    if (config.connections == 0)
+    {
         config.connections = std::max(1u, std::thread::hardware_concurrency() * 50);
     }
     return config;
 }
 
-void print_result_text(const LoadTestResult& r) {
+void print_result_text(const LoadTestResult& r)
+{
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "\n=== Echo Load Test Results ===\n";
     std::cout << "Connections: " << r.connections << "\n";
@@ -225,14 +255,12 @@ void print_result_text(const LoadTestResult& r) {
     std::cout << "Duration: " << r.duration_secs << "s\n";
     std::cout << "Messages: " << r.total_sent << " sent, " << r.total_received << " received\n";
     std::cout << "Throughput: " << r.msg_per_sec << " msg/s, " << r.mb_per_sec << " MB/s\n";
-    std::cout << "Latency (us): avg=" << r.avg_us
-              << " p50=" << r.p50_us
-              << " p90=" << r.p90_us
-              << " p99=" << r.p99_us
+    std::cout << "Latency (us): avg=" << r.avg_us << " p50=" << r.p50_us << " p90=" << r.p90_us << " p99=" << r.p99_us
               << " p99.9=" << r.p999_us << "\n";
 }
 
-void print_result_json(const LoadTestResult& r) {
+void print_result_json(const LoadTestResult& r)
+{
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "{\n";
     std::cout << "  \"connections\": " << r.connections << ",\n";
@@ -254,18 +282,21 @@ void print_result_json(const LoadTestResult& r) {
     std::cout << "}\n";
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     auto config = parse_args(argc, argv);
 
     auto resolver_io = net::io_context{};
     tcp::resolver resolver(resolver_io);
     tcp::endpoint endpoint;
-    try {
+    try
+    {
         auto endpoints = resolver.resolve(config.host, std::to_string(config.port));
         endpoint = *endpoints.begin();
-    } catch (const boost::system::system_error& e) {
-        std::cerr << "Failed to resolve " << config.host << ":"
-                  << config.port << " — " << e.what() << "\n";
+    }
+    catch (const boost::system::system_error& e)
+    {
+        std::cerr << "Failed to resolve " << config.host << ":" << config.port << " — " << e.what() << "\n";
         return 1;
     }
 
@@ -275,41 +306,44 @@ int main(int argc, char* argv[]) {
     std::atomic<bool> measuring{false};
     std::atomic<bool> stop_flag{false};
 
-    if (!config.json_output) {
-        std::cout << "Echo Load Test: " << config.connections << " connections, "
-                  << config.payload_size << "B payload, "
-                  << config.duration_secs << "s duration\n";
+    if (!config.json_output)
+    {
+        std::cout << "Echo Load Test: " << config.connections << " connections, " << config.payload_size
+                  << "B payload, " << config.duration_secs << "s duration\n";
         std::cout << "Connecting to " << config.host << ":" << config.port << "...\n";
     }
 
     uint32_t num_threads = std::max(1u, std::thread::hardware_concurrency());
     net::io_context io_ctx;
 
-    for (uint32_t i = 0; i < config.connections; ++i) {
-        net::co_spawn(io_ctx,
-            run_client(endpoint, send_frame, all_stats[i], measuring, stop_flag),
-            net::detached);
+    for (uint32_t i = 0; i < config.connections; ++i)
+    {
+        net::co_spawn(io_ctx, run_client(endpoint, send_frame, all_stats[i], measuring, stop_flag), net::detached);
     }
 
     std::vector<std::thread> threads;
-    for (uint32_t i = 0; i < num_threads; ++i) {
+    for (uint32_t i = 0; i < num_threads; ++i)
+    {
         threads.emplace_back([&io_ctx] { io_ctx.run(); });
     }
 
     // Warmup phase
-    if (!config.json_output) {
+    if (!config.json_output)
+    {
         std::cout << "Warmup: " << config.warmup_secs << "s...\n";
     }
     std::this_thread::sleep_for(seconds(config.warmup_secs));
 
     // Pre-allocate latency storage to avoid reallocation noise in measurements
-    for (auto& s : all_stats) {
+    for (auto& s : all_stats)
+    {
         s.latencies_us.reserve(config.duration_secs * 10000);
     }
 
     // Measurement phase
     measuring.store(true, std::memory_order_release);
-    if (!config.json_output) {
+    if (!config.json_output)
+    {
         std::cout << "Measuring: " << config.duration_secs << "s...\n";
     }
     std::this_thread::sleep_for(seconds(config.duration_secs));
@@ -318,7 +352,8 @@ int main(int argc, char* argv[]) {
     // Stop
     stop_flag.store(true, std::memory_order_release);
     io_ctx.stop();
-    for (auto& t : threads) t.join();
+    for (auto& t : threads)
+        t.join();
 
     // Aggregate results
     LoadTestResult result;
@@ -328,18 +363,19 @@ int main(int argc, char* argv[]) {
 
     std::vector<uint64_t> all_latencies;
     uint64_t total_bytes = 0;
-    for (auto& s : all_stats) {
+    for (auto& s : all_stats)
+    {
         result.total_sent += s.messages_sent;
         result.total_received += s.messages_received;
         total_bytes += s.bytes_sent + s.bytes_received;
-        all_latencies.insert(all_latencies.end(),
-            s.latencies_us.begin(), s.latencies_us.end());
+        all_latencies.insert(all_latencies.end(), s.latencies_us.begin(), s.latencies_us.end());
     }
 
     result.msg_per_sec = static_cast<double>(result.total_received) / result.duration_secs;
     result.mb_per_sec = static_cast<double>(total_bytes) / (1024.0 * 1024.0) / result.duration_secs;
 
-    if (!all_latencies.empty()) {
+    if (!all_latencies.empty())
+    {
         std::sort(all_latencies.begin(), all_latencies.end());
         auto n = all_latencies.size();
         auto percentile = [&](double p) {
@@ -350,14 +386,16 @@ int main(int argc, char* argv[]) {
         result.p90_us = percentile(90);
         result.p99_us = percentile(99);
         result.p999_us = percentile(99.9);
-        result.avg_us = static_cast<double>(
-            std::accumulate(all_latencies.begin(), all_latencies.end(), uint64_t{0}))
-            / static_cast<double>(n);
+        result.avg_us = static_cast<double>(std::accumulate(all_latencies.begin(), all_latencies.end(), uint64_t{0})) /
+                        static_cast<double>(n);
     }
 
-    if (config.json_output) {
+    if (config.json_output)
+    {
         print_result_json(result);
-    } else {
+    }
+    else
+    {
         print_result_text(result);
     }
 

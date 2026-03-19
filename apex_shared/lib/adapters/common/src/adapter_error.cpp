@@ -3,15 +3,19 @@
 
 #include <sstream>
 
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 
-std::string AdapterError::to_string() const {
+std::string AdapterError::to_string() const
+{
     std::ostringstream oss;
     oss << apex::core::error_code_name(code);
-    if (native_error != 0) {
+    if (native_error != 0)
+    {
         oss << " (native=" << native_error << ")";
     }
-    if (!message.empty()) {
+    if (!message.empty())
+    {
         oss << ": " << message;
     }
     return oss.str();

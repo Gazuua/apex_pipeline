@@ -9,7 +9,8 @@
 #include <memory>
 #include <string>
 
-namespace apex::gateway {
+namespace apex::gateway
+{
 
 /// File change detector.
 /// Cross-platform implementation:
@@ -18,19 +19,17 @@ namespace apex::gateway {
 ///
 /// Initial implementation uses polling for both platforms.
 /// OS-specific optimization is lower priority.
-class FileWatcher {
-public:
+class FileWatcher
+{
+  public:
     using Callback = std::function<void(const std::string& path)>;
 
     /// @param io_ctx Timer io_context
     /// @param path File path to watch
     /// @param callback Called on change detection
     /// @param interval Polling interval (default 1s)
-    FileWatcher(boost::asio::io_context& io_ctx,
-                std::string path,
-                Callback callback,
-                std::chrono::milliseconds interval =
-                    std::chrono::milliseconds{1000});
+    FileWatcher(boost::asio::io_context& io_ctx, std::string path, Callback callback,
+                std::chrono::milliseconds interval = std::chrono::milliseconds{1000});
     ~FileWatcher();
 
     /// Start watching.
@@ -43,7 +42,7 @@ public:
     /// Useful for deterministic testing without sleep.
     void poll_now();
 
-private:
+  private:
     void schedule_check();
     void check_file();
 

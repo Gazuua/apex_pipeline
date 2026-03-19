@@ -3,13 +3,15 @@
 
 using namespace apex::core;
 
-TEST(CoreMetrics, InitialState) {
+TEST(CoreMetrics, InitialState)
+{
     CoreMetrics metrics;
     EXPECT_EQ(metrics.post_total.load(), 0u);
     EXPECT_EQ(metrics.post_failures.load(), 0u);
 }
 
-TEST(CoreMetrics, IncrementCounters) {
+TEST(CoreMetrics, IncrementCounters)
+{
     CoreMetrics metrics;
     metrics.post_total.fetch_add(1, std::memory_order_relaxed);
     metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
@@ -17,7 +19,8 @@ TEST(CoreMetrics, IncrementCounters) {
     EXPECT_EQ(metrics.post_failures.load(), 1u);
 }
 
-TEST(CoreMetrics, PostToIncrementsTotal) {
+TEST(CoreMetrics, PostToIncrementsTotal)
+{
     CoreEngineConfig config;
     config.num_cores = 2;
     config.mpsc_queue_capacity = 4;
@@ -32,10 +35,11 @@ TEST(CoreMetrics, PostToIncrementsTotal) {
     EXPECT_EQ(engine.metrics(0).post_failures.load(), 0u);
 }
 
-TEST(CoreMetrics, PostToFailureIncrementsFailures) {
+TEST(CoreMetrics, PostToFailureIncrementsFailures)
+{
     CoreEngineConfig config;
     config.num_cores = 1;
-    config.mpsc_queue_capacity = 2;  // Very small queue
+    config.mpsc_queue_capacity = 2; // Very small queue
     CoreEngine engine(config);
 
     CoreMessage msg{};
@@ -51,7 +55,8 @@ TEST(CoreMetrics, PostToFailureIncrementsFailures) {
     EXPECT_GE(engine.metrics(0).post_failures.load(), 1u);
 }
 
-TEST(CoreMetrics, MetricsAccessorBoundsCheck) {
+TEST(CoreMetrics, MetricsAccessorBoundsCheck)
+{
     CoreEngineConfig config;
     config.num_cores = 2;
     CoreEngine engine(config);

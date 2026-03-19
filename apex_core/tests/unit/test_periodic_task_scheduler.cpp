@@ -14,15 +14,14 @@ using namespace std::chrono_literals;
 
 // ScheduleExecutesMultipleTimes:
 // 50ms 인터벌 작업을 등록하고 250ms 동안 실행 — 최소 3회 이상 실행되어야 한다.
-TEST(PeriodicTaskScheduler, ScheduleExecutesMultipleTimes) {
+TEST(PeriodicTaskScheduler, ScheduleExecutesMultipleTimes)
+{
     boost::asio::io_context io_ctx;
     PeriodicTaskScheduler scheduler(io_ctx);
 
     std::atomic<int> count{0};
 
-    scheduler.schedule(50ms, [&count] {
-        count.fetch_add(1, std::memory_order_relaxed);
-    });
+    scheduler.schedule(50ms, [&count] { count.fetch_add(1, std::memory_order_relaxed); });
 
     // run_for: 250ms 동안 io_context를 실행 (Boost >= 1.77)
     io_ctx.run_for(250ms);
@@ -37,7 +36,8 @@ TEST(PeriodicTaskScheduler, ScheduleExecutesMultipleTimes) {
 // 주의: PeriodicTaskScheduler는 단일 스레드(io_context 실행 스레드) 전용이다.
 // cancel()은 반드시 io_context 스레드에서 호출해야 한다.
 // boost::asio::post로 cancel을 io_context 스레드에 디스패치하여 데이터 레이스를 방지.
-TEST(PeriodicTaskScheduler, CancelStopsExecution) {
+TEST(PeriodicTaskScheduler, CancelStopsExecution)
+{
     boost::asio::io_context io_ctx;
     PeriodicTaskScheduler scheduler(io_ctx);
 
@@ -45,15 +45,11 @@ TEST(PeriodicTaskScheduler, CancelStopsExecution) {
     std::atomic<int> count_at_cancel{0};
     std::atomic<bool> cancelled{false};
 
-    auto handle = scheduler.schedule(50ms, [&count] {
-        count.fetch_add(1, std::memory_order_relaxed);
-    });
+    auto handle = scheduler.schedule(50ms, [&count] { count.fetch_add(1, std::memory_order_relaxed); });
 
     // 별도 스레드에서 io_context 실행
     auto work = boost::asio::make_work_guard(io_ctx);
-    std::thread io_thread([&io_ctx] {
-        io_ctx.run();
-    });
+    std::thread io_thread([&io_ctx] { io_ctx.run(); });
 
     // 80ms 대기 — 50ms 인터벌이므로 최소 1회는 실행됨
     std::this_thread::sleep_for(80ms);
@@ -62,13 +58,13 @@ TEST(PeriodicTaskScheduler, CancelStopsExecution) {
     boost::asio::post(io_ctx, [&] {
         scheduler.cancel(handle);
         // 취소 시점의 카운트를 기록 (io_context 스레드에서 읽으므로 안전)
-        count_at_cancel.store(count.load(std::memory_order_relaxed),
-                              std::memory_order_release);
+        count_at_cancel.store(count.load(std::memory_order_relaxed), std::memory_order_release);
         cancelled.store(true, std::memory_order_release);
     });
 
     // cancel 완료 대기
-    while (!cancelled.load(std::memory_order_acquire)) {
+    while (!cancelled.load(std::memory_order_acquire))
+    {
         std::this_thread::sleep_for(1ms);
     }
 
@@ -89,19 +85,16 @@ TEST(PeriodicTaskScheduler, CancelStopsExecution) {
 
 // StopAllCancelsEverything:
 // 2개 작업 등록 후 즉시 stop_all() 호출 — io_context 실행 시 카운트는 0이어야 한다.
-TEST(PeriodicTaskScheduler, StopAllCancelsEverything) {
+TEST(PeriodicTaskScheduler, StopAllCancelsEverything)
+{
     boost::asio::io_context io_ctx;
     PeriodicTaskScheduler scheduler(io_ctx);
 
     std::atomic<int> count_a{0};
     std::atomic<int> count_b{0};
 
-    scheduler.schedule(50ms, [&count_a] {
-        count_a.fetch_add(1, std::memory_order_relaxed);
-    });
-    scheduler.schedule(50ms, [&count_b] {
-        count_b.fetch_add(1, std::memory_order_relaxed);
-    });
+    scheduler.schedule(50ms, [&count_a] { count_a.fetch_add(1, std::memory_order_relaxed); });
+    scheduler.schedule(50ms, [&count_b] { count_b.fetch_add(1, std::memory_order_relaxed); });
 
     // 즉시 전체 취소 — 타이머 만료 전에 취소됨
     scheduler.stop_all();

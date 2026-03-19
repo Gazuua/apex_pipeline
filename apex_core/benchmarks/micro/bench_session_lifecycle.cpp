@@ -6,12 +6,14 @@
 using namespace apex::core;
 using boost::asio::ip::tcp;
 
-static void BM_Session_Create(benchmark::State& state) {
+static void BM_Session_Create(benchmark::State& state)
+{
     boost::asio::io_context io_ctx;
     tcp::acceptor acc(io_ctx, tcp::endpoint(tcp::v4(), 0));
     auto port = acc.local_endpoint().port();
 
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         tcp::socket client(io_ctx);
         client.connect(tcp::endpoint(boost::asio::ip::address_v4::loopback(), port));
         auto server_sock = acc.accept();
@@ -25,7 +27,8 @@ static void BM_Session_Create(benchmark::State& state) {
 }
 BENCHMARK(BM_Session_Create);
 
-static void BM_SessionPtr_Copy(benchmark::State& state) {
+static void BM_SessionPtr_Copy(benchmark::State& state)
+{
     boost::asio::io_context io_ctx;
     tcp::acceptor acc(io_ctx, tcp::endpoint(tcp::v4(), 0));
     auto port = acc.local_endpoint().port();
@@ -34,7 +37,8 @@ static void BM_SessionPtr_Copy(benchmark::State& state) {
     auto server_sock = acc.accept();
 
     SessionPtr session(new Session(1, std::move(server_sock), 0, 8192));
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         auto copy = session;
         benchmark::DoNotOptimize(copy.get());
     }

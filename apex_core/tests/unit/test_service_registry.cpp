@@ -1,33 +1,49 @@
-#include <apex/core/service_registry.hpp>
 #include <apex/core/message_dispatcher.hpp>
+#include <apex/core/service_registry.hpp>
 
 #include <gtest/gtest.h>
 
-namespace {
+namespace
+{
 
 /// ServiceBaseInterface를 구현하는 테스트용 목 서비스 A.
-struct MockServiceA : apex::core::ServiceBaseInterface {
+struct MockServiceA : apex::core::ServiceBaseInterface
+{
     void start() override {}
     void stop() override {}
-    std::string_view name() const noexcept override { return "a"; }
-    bool started() const noexcept override { return false; }
+    std::string_view name() const noexcept override
+    {
+        return "a";
+    }
+    bool started() const noexcept override
+    {
+        return false;
+    }
     void bind_dispatcher(apex::core::MessageDispatcher&) override {}
 
     int value = 42;
 };
 
 /// ServiceBaseInterface를 구현하는 테스트용 목 서비스 B (A와 다른 타입).
-struct MockServiceB : apex::core::ServiceBaseInterface {
+struct MockServiceB : apex::core::ServiceBaseInterface
+{
     void start() override {}
     void stop() override {}
-    std::string_view name() const noexcept override { return "b"; }
-    bool started() const noexcept override { return false; }
+    std::string_view name() const noexcept override
+    {
+        return "b";
+    }
+    bool started() const noexcept override
+    {
+        return false;
+    }
     void bind_dispatcher(apex::core::MessageDispatcher&) override {}
 };
 
 // ── 기본 기능 테스트 ──────────────────────────────────────────────────────────
 
-TEST(ServiceRegistryTest, GetRegisteredService) {
+TEST(ServiceRegistryTest, GetRegisteredService)
+{
     apex::core::ServiceRegistry registry;
     auto svc = std::make_unique<MockServiceA>();
     svc->value = 99;
@@ -38,19 +54,22 @@ TEST(ServiceRegistryTest, GetRegisteredService) {
     EXPECT_EQ(found.value, 99);
 }
 
-TEST(ServiceRegistryTest, FindReturnsNullptrForUnregistered) {
+TEST(ServiceRegistryTest, FindReturnsNullptrForUnregistered)
+{
     apex::core::ServiceRegistry registry;
     // 미등록 타입에 대해 find<T>()가 nullptr 반환하는지 확인
     EXPECT_EQ(registry.find<MockServiceB>(), nullptr);
 }
 
-TEST(ServiceRegistryTest, GetThrowsForUnregistered) {
+TEST(ServiceRegistryTest, GetThrowsForUnregistered)
+{
     apex::core::ServiceRegistry registry;
     // 미등록 타입에 대해 get<T>()가 std::logic_error를 throw하는지 확인
     EXPECT_THROW(registry.get<MockServiceB>(), std::logic_error);
 }
 
-TEST(ServiceRegistryTest, FindReturnsPointerForRegistered) {
+TEST(ServiceRegistryTest, FindReturnsPointerForRegistered)
+{
     apex::core::ServiceRegistry registry;
     registry.register_service(std::make_unique<MockServiceA>());
     // 등록된 타입에 대해 find<T>()가 non-null 반환하는지 확인
@@ -59,7 +78,8 @@ TEST(ServiceRegistryTest, FindReturnsPointerForRegistered) {
 
 // ── 추가 기능 테스트 ──────────────────────────────────────────────────────────
 
-TEST(ServiceRegistryTest, SizeReflectsRegisteredCount) {
+TEST(ServiceRegistryTest, SizeReflectsRegisteredCount)
+{
     apex::core::ServiceRegistry registry;
     EXPECT_EQ(registry.size(), 0u);
 
@@ -70,7 +90,8 @@ TEST(ServiceRegistryTest, SizeReflectsRegisteredCount) {
     EXPECT_EQ(registry.size(), 2u);
 }
 
-TEST(ServiceRegistryTest, ForEachVisitsAllServices) {
+TEST(ServiceRegistryTest, ForEachVisitsAllServices)
+{
     apex::core::ServiceRegistry registry;
     registry.register_service(std::make_unique<MockServiceA>());
     registry.register_service(std::make_unique<MockServiceB>());
@@ -80,7 +101,8 @@ TEST(ServiceRegistryTest, ForEachVisitsAllServices) {
     EXPECT_EQ(count, 2);
 }
 
-TEST(ServiceRegistryTest, FindReturnsSamePointerAsGet) {
+TEST(ServiceRegistryTest, FindReturnsSamePointerAsGet)
+{
     apex::core::ServiceRegistry registry;
     registry.register_service(std::make_unique<MockServiceA>());
 

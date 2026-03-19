@@ -7,10 +7,12 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 
 /// 풀 통계 (기존 ConnectionPool::PoolStats 그대로)
-struct PoolStats {
+struct PoolStats
+{
     uint64_t total_acquired = 0;
     uint64_t total_released = 0;
     uint64_t total_created = 0;
@@ -19,7 +21,8 @@ struct PoolStats {
 };
 
 /// 풀 설정 (기존 ConnectionPool::PoolConfig 기본값 유지)
-struct PoolConfig {
+struct PoolConfig
+{
     std::size_t min_size = 1;
     std::size_t max_size = 8;
     std::chrono::seconds max_idle_time{60};
@@ -31,14 +34,11 @@ struct PoolConfig {
 template <typename T>
 concept PoolLike = requires(T pool) {
     typename T::Connection;
-    { pool.acquire() }
-        -> std::same_as<apex::core::Result<typename T::Connection>>;
-    { pool.release(std::declval<typename T::Connection>()) }
-        -> std::same_as<void>;
-    { pool.discard(std::declval<typename T::Connection>()) }
-        -> std::same_as<void>;
+    { pool.acquire() } -> std::same_as<apex::core::Result<typename T::Connection>>;
+    { pool.release(std::declval<typename T::Connection>()) } -> std::same_as<void>;
+    { pool.discard(std::declval<typename T::Connection>()) } -> std::same_as<void>;
     { pool.close_all() } -> std::same_as<void>;
-    { pool.stats() }     -> std::convertible_to<PoolStats>;
+    { pool.stats() } -> std::convertible_to<PoolStats>;
 };
 
 } // namespace apex::shared::adapters

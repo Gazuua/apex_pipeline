@@ -4,8 +4,9 @@
 /// 기존 코드 호환성을 위해 apex::core 네임스페이스에 using 선언을 유지한다.
 #include <apex/shared/protocols/tcp/wire_header.hpp>
 
-namespace apex::core {
-    using apex::shared::protocols::tcp::WireHeader;
-    using apex::shared::protocols::tcp::ParseError;
-    namespace wire_flags = apex::shared::protocols::tcp::wire_flags;
+namespace apex::core
+{
+using apex::shared::protocols::tcp::ParseError;
+using apex::shared::protocols::tcp::WireHeader;
+namespace wire_flags = apex::shared::protocols::tcp::wire_flags;
 } // namespace apex::core

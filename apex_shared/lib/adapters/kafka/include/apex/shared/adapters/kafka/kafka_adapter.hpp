@@ -1,10 +1,10 @@
 #pragma once
 
 #include <apex/shared/adapters/adapter_base.hpp>
-#include <apex/shared/adapters/kafka/kafka_config.hpp>
-#include <apex/shared/adapters/kafka/kafka_producer.hpp>
-#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
 #include <apex/shared/adapters/kafka/consumer_payload_pool.hpp>
+#include <apex/shared/adapters/kafka/kafka_config.hpp>
+#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
+#include <apex/shared/adapters/kafka/kafka_producer.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -16,10 +16,12 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::kafka {
+namespace apex::shared::adapters::kafka
+{
 
 /// Adapter lifecycle state.
-enum class AdapterState : uint8_t {
+enum class AdapterState : uint8_t
+{
     RUNNING,
     DRAINING,
     CLOSED
@@ -40,8 +42,9 @@ enum class AdapterState : uint8_t {
 ///   // From service:
 ///   auto& kafka = server.adapter<KafkaAdapter>();
 ///   kafka.produce("topic", key, payload);
-class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter> {
-public:
+class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
+{
+  public:
     explicit KafkaAdapter(KafkaConfig config);
     ~KafkaAdapter();
 
@@ -58,27 +61,25 @@ public:
     void do_close();
 
     /// Adapter name
-    [[nodiscard]] std::string_view do_name() const noexcept { return "kafka"; }
+    [[nodiscard]] std::string_view do_name() const noexcept
+    {
+        return "kafka";
+    }
 
     // --- Kafka API (used by services) ---
 
     /// Fire-and-forget produce.
-    [[nodiscard]] apex::core::Result<void> produce(
-        std::string_view topic,
-        std::string_view key,
-        std::span<const uint8_t> payload);
+    [[nodiscard]] apex::core::Result<void> produce(std::string_view topic, std::string_view key,
+                                                   std::span<const uint8_t> payload);
 
     /// Overload: string payload
-    [[nodiscard]] apex::core::Result<void> produce(
-        std::string_view topic,
-        std::string_view key,
-        std::string_view payload);
+    [[nodiscard]] apex::core::Result<void> produce(std::string_view topic, std::string_view key,
+                                                   std::string_view payload);
 
     /// [D2] Adapter-service 자동 배선. has_kafka_handlers() 서비스를 감지하여
     /// KafkaDispatchBridge를 자동 생성하고 consumer 콜백에 연결.
-    void wire_services(
-        std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
-        apex::core::CoreEngine& engine);
+    void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+                       apex::core::CoreEngine& engine);
 
     /// Register Consumer message callback.
     /// Sets the same callback on each core's Consumer.
@@ -86,20 +87,35 @@ public:
     void set_message_callback(MessageCallback cb);
 
     /// Producer access (for direct control)
-    [[nodiscard]] KafkaProducer& producer() noexcept { return *producer_; }
-    [[nodiscard]] const KafkaProducer& producer() const noexcept { return *producer_; }
+    [[nodiscard]] KafkaProducer& producer() noexcept
+    {
+        return *producer_;
+    }
+    [[nodiscard]] const KafkaProducer& producer() const noexcept
+    {
+        return *producer_;
+    }
 
     /// Per-core Consumer access
     [[nodiscard]] KafkaConsumer& consumer(uint32_t core_id);
 
     /// Config access
-    [[nodiscard]] const KafkaConfig& config() const noexcept { return config_; }
+    [[nodiscard]] const KafkaConfig& config() const noexcept
+    {
+        return config_;
+    }
 
     /// Consumer payload pool access (for external Kafka callback users)
-    [[nodiscard]] ConsumerPayloadPool& payload_pool() noexcept { return payload_pool_; }
-    [[nodiscard]] const ConsumerPayloadPool& payload_pool() const noexcept { return payload_pool_; }
+    [[nodiscard]] ConsumerPayloadPool& payload_pool() noexcept
+    {
+        return payload_pool_;
+    }
+    [[nodiscard]] const ConsumerPayloadPool& payload_pool() const noexcept
+    {
+        return payload_pool_;
+    }
 
-private:
+  private:
     /// Producer poll timer (delivery callback processing).
     /// Runs on core 0's io_context periodically.
     void start_producer_poll_timer(boost::asio::io_context& io_ctx);
@@ -116,7 +132,8 @@ private:
     std::unique_ptr<boost::asio::steady_timer> producer_poll_timer_;
     std::atomic<AdapterState> state_{AdapterState::RUNNING};
 
-    [[nodiscard]] bool is_running() const noexcept {
+    [[nodiscard]] bool is_running() const noexcept
+    {
         return state_.load(std::memory_order_acquire) == AdapterState::RUNNING;
     }
 };

@@ -7,13 +7,15 @@
 #include <type_traits>
 #include <vector>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Configuration for SlabAllocator auto-grow and metrics behavior.
-struct SlabAllocatorConfig {
-    bool auto_grow = false;      ///< true: allocate() grows pool on exhaustion
-    size_t grow_chunk_size = 0;  ///< 0: use initial_count as grow size
-    size_t max_total_count = 0;  ///< 0: unlimited growth
+struct SlabAllocatorConfig
+{
+    bool auto_grow = false;     ///< true: allocate() grows pool on exhaustion
+    size_t grow_chunk_size = 0; ///< 0: use initial_count as grow size
+    size_t max_total_count = 0; ///< 0: unlimited growth
 };
 
 /// Fixed-size slab memory pool for O(1) allocation/deallocation.
@@ -30,8 +32,9 @@ struct SlabAllocatorConfig {
 ///   SlabAllocator pool(sizeof(MyObject), 256, {.auto_grow = true, .max_total_count = 4096});
 ///   void* p = pool.allocate();
 ///   pool.deallocate(p);
-class SlabAllocator {
-public:
+class SlabAllocator
+{
+  public:
     /// Fixed-size constructor (backward compatible, auto_grow=false).
     SlabAllocator(size_t slot_size, size_t initial_count);
 
@@ -88,28 +91,33 @@ public:
     [[nodiscard]] std::size_t capacity() const noexcept;
 
     /// Number of double-free attempts detected (best-effort lower bound).
-    [[nodiscard]] uint64_t double_free_count() const noexcept { return double_free_count_; }
+    [[nodiscard]] uint64_t double_free_count() const noexcept
+    {
+        return double_free_count_;
+    }
 
-private:
-    struct FreeNode {
+  private:
+    struct FreeNode
+    {
         FreeNode* next;
-        uint32_t magic;  // double-free 감지용 마커
+        uint32_t magic; // double-free 감지용 마커
     };
 
     void grow(size_t count);
 
-    struct ChunkInfo {
+    struct ChunkInfo
+    {
         uint8_t* data;
-        size_t count;  // number of slots in this chunk
+        size_t count; // number of slots in this chunk
     };
 
-    std::vector<ChunkInfo> chunks_;  // all allocated memory blocks
-    FreeNode* free_list_;            // head of free-list
-    size_t slot_size_;       // aligned slot size
-    size_t total_count_;     // total slots ever created
-    size_t free_count_;      // current free slots
+    std::vector<ChunkInfo> chunks_; // all allocated memory blocks
+    FreeNode* free_list_;           // head of free-list
+    size_t slot_size_;              // aligned slot size
+    size_t total_count_;            // total slots ever created
+    size_t free_count_;             // current free slots
     SlabAllocatorConfig config_;
-    size_t initial_count_;   // grow_chunk_size=0 시 fallback
+    size_t initial_count_; // grow_chunk_size=0 시 fallback
     size_t grow_count_{0};
     size_t peak_allocated_{0};
     uint64_t double_free_count_{0};
@@ -125,46 +133,65 @@ private:
 ///   TypedSlabAllocator<Session> pool(1024);
 ///   Session* s = pool.construct(args...);
 ///   pool.destroy(s);
-template <typename T>
-class TypedSlabAllocator {
-    static_assert(alignof(T) <= alignof(std::max_align_t),
-        "TypedSlabAllocator does not support over-aligned types. "
-        "Use SlabAllocator directly with custom alignment.");
+template <typename T> class TypedSlabAllocator
+{
+    static_assert(alignof(T) <= alignof(std::max_align_t), "TypedSlabAllocator does not support over-aligned types. "
+                                                           "Use SlabAllocator directly with custom alignment.");
 
-public:
+  public:
     explicit TypedSlabAllocator(size_t initial_count)
-        : pool_(sizeof(T), initial_count) {}
+        : pool_(sizeof(T), initial_count)
+    {}
 
     TypedSlabAllocator(size_t initial_count, SlabAllocatorConfig config)
-        : pool_(sizeof(T), initial_count, config) {}
+        : pool_(sizeof(T), initial_count, config)
+    {}
 
-    template <typename... Args>
-    [[nodiscard]] T* construct(Args&&... args) {
+    template <typename... Args> [[nodiscard]] T* construct(Args&&... args)
+    {
         void* p = pool_.allocate();
-        if (!p) return nullptr;
-        try {
+        if (!p)
+            return nullptr;
+        try
+        {
             return new (p) T(std::forward<Args>(args)...);
-        } catch (...) {
+        }
+        catch (...)
+        {
             pool_.deallocate(p);
             throw;
         }
     }
 
-    void destroy(T* ptr) noexcept {
+    void destroy(T* ptr) noexcept
+    {
         static_assert(std::is_nothrow_destructible_v<T>,
-            "T destructor must be noexcept for TypedSlabAllocator::destroy");
-        if (ptr) {
+                      "T destructor must be noexcept for TypedSlabAllocator::destroy");
+        if (ptr)
+        {
             ptr->~T();
             pool_.deallocate(ptr);
         }
     }
 
-    [[nodiscard]] size_t allocated_count() const noexcept { return pool_.allocated_count(); }
-    [[nodiscard]] size_t free_count() const noexcept { return pool_.free_count(); }
-    [[nodiscard]] size_t grow_count() const noexcept { return pool_.grow_count(); }
-    [[nodiscard]] size_t peak_allocated() const noexcept { return pool_.peak_allocated(); }
+    [[nodiscard]] size_t allocated_count() const noexcept
+    {
+        return pool_.allocated_count();
+    }
+    [[nodiscard]] size_t free_count() const noexcept
+    {
+        return pool_.free_count();
+    }
+    [[nodiscard]] size_t grow_count() const noexcept
+    {
+        return pool_.grow_count();
+    }
+    [[nodiscard]] size_t peak_allocated() const noexcept
+    {
+        return pool_.peak_allocated();
+    }
 
-private:
+  private:
     SlabAllocator pool_;
 };
 

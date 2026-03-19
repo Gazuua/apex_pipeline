@@ -1,6 +1,6 @@
-#include <apex/shared/adapters/pg/pg_result.hpp>
-#include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/core/bump_allocator.hpp>
+#include <apex/shared/adapters/pg/pg_connection.hpp>
+#include <apex/shared/adapters/pg/pg_result.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <gtest/gtest.h>
@@ -11,7 +11,8 @@ using namespace apex::shared::adapters::pg;
 // PgResult tests (no PostgreSQL server needed)
 // =============================================================================
 
-TEST(PgResult, DefaultIsInvalid) {
+TEST(PgResult, DefaultIsInvalid)
+{
     PgResult result;
     EXPECT_FALSE(result.ok());
     EXPECT_FALSE(static_cast<bool>(result));
@@ -20,35 +21,41 @@ TEST(PgResult, DefaultIsInvalid) {
     EXPECT_EQ(result.affected_rows(), 0);
 }
 
-TEST(PgResult, NullResultErrorMessage) {
+TEST(PgResult, NullResultErrorMessage)
+{
     PgResult result;
     // Default result returns "no result" error message
     EXPECT_FALSE(result.error_message().empty());
 }
 
-TEST(PgResult, NullResultStatus) {
+TEST(PgResult, NullResultStatus)
+{
     PgResult result;
     EXPECT_EQ(result.status(), PGRES_FATAL_ERROR);
 }
 
-TEST(PgResult, NullResultGet) {
+TEST(PgResult, NullResultGet)
+{
     PgResult result;
     EXPECT_EQ(result.get(), nullptr);
 }
 
-TEST(PgResult, NullResultValueAndNull) {
+TEST(PgResult, NullResultValueAndNull)
+{
     PgResult result;
     // Accessing value on null result should be safe
     EXPECT_TRUE(result.value(0, 0).empty());
     EXPECT_TRUE(result.is_null(0, 0));
 }
 
-TEST(PgResult, NullResultColumnName) {
+TEST(PgResult, NullResultColumnName)
+{
     PgResult result;
     EXPECT_TRUE(result.column_name(0).empty());
 }
 
-TEST(PgResult, MoveConstruction) {
+TEST(PgResult, MoveConstruction)
+{
     PgResult r1;
     EXPECT_FALSE(static_cast<bool>(r1));
 
@@ -56,7 +63,8 @@ TEST(PgResult, MoveConstruction) {
     EXPECT_FALSE(static_cast<bool>(r2));
 }
 
-TEST(PgResult, MoveAssignment) {
+TEST(PgResult, MoveAssignment)
+{
     PgResult r1;
     PgResult r2;
 
@@ -68,14 +76,16 @@ TEST(PgResult, MoveAssignment) {
 // PgConnection tests (no PostgreSQL server needed)
 // =============================================================================
 
-TEST(PgConnection, NotConnectedByDefault) {
+TEST(PgConnection, NotConnectedByDefault)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     EXPECT_FALSE(conn.is_connected());
     EXPECT_FALSE(conn.is_valid());
 }
 
-TEST(PgConnection, CloseOnUnconnected) {
+TEST(PgConnection, CloseOnUnconnected)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     // close() on unconnected should not crash
@@ -83,15 +93,17 @@ TEST(PgConnection, CloseOnUnconnected) {
     EXPECT_FALSE(conn.is_connected());
 }
 
-TEST(PgConnection, DoubleClose) {
+TEST(PgConnection, DoubleClose)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     conn.close();
-    conn.close();  // Should not crash
+    conn.close(); // Should not crash
     EXPECT_FALSE(conn.is_connected());
 }
 
-TEST(PgConnection, MoveConstruction) {
+TEST(PgConnection, MoveConstruction)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn1(io_ctx);
     PgConnection conn2(std::move(conn1));
@@ -99,7 +111,8 @@ TEST(PgConnection, MoveConstruction) {
     // conn1 is in moved-from state -- don't use it
 }
 
-TEST(PgConnection, MoveAssignment) {
+TEST(PgConnection, MoveAssignment)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn1(io_ctx);
     PgConnection conn2(io_ctx);
@@ -107,7 +120,8 @@ TEST(PgConnection, MoveAssignment) {
     EXPECT_FALSE(conn2.is_connected());
 }
 
-TEST(PgConnection, DestructorHandlesCleanup) {
+TEST(PgConnection, DestructorHandlesCleanup)
+{
     boost::asio::io_context io_ctx;
     {
         PgConnection conn(io_ctx);
@@ -120,7 +134,8 @@ TEST(PgConnection, DestructorHandlesCleanup) {
 // Poisoned state tests
 // =============================================================================
 
-TEST(PgConnection, MarkPoisoned) {
+TEST(PgConnection, MarkPoisoned)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     EXPECT_FALSE(conn.is_poisoned());
@@ -128,7 +143,8 @@ TEST(PgConnection, MarkPoisoned) {
     EXPECT_TRUE(conn.is_poisoned());
 }
 
-TEST(PgConnection, PoisonedStateNotSetByDefault) {
+TEST(PgConnection, PoisonedStateNotSetByDefault)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx);
     EXPECT_FALSE(conn.is_poisoned());
@@ -138,7 +154,8 @@ TEST(PgConnection, PoisonedStateNotSetByDefault) {
 // BumpAllocator injection tests
 // =============================================================================
 
-TEST(PgConnection, ConstructWithBumpAllocator) {
+TEST(PgConnection, ConstructWithBumpAllocator)
+{
     boost::asio::io_context io_ctx;
     apex::core::BumpAllocator alloc(4096);
     PgConnection conn(io_ctx, &alloc);
@@ -146,14 +163,16 @@ TEST(PgConnection, ConstructWithBumpAllocator) {
     EXPECT_FALSE(conn.is_connected());
 }
 
-TEST(PgConnection, ConstructWithNullAllocator) {
+TEST(PgConnection, ConstructWithNullAllocator)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn(io_ctx, nullptr);
     // Equivalent to default constructor
     EXPECT_FALSE(conn.is_connected());
 }
 
-TEST(PgConnection, MovePreservesPoisonedState) {
+TEST(PgConnection, MovePreservesPoisonedState)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn1(io_ctx);
     conn1.mark_poisoned();
@@ -163,7 +182,8 @@ TEST(PgConnection, MovePreservesPoisonedState) {
     EXPECT_TRUE(conn2.is_poisoned());
 }
 
-TEST(PgConnection, MoveAssignmentPreservesPoisonedState) {
+TEST(PgConnection, MoveAssignmentPreservesPoisonedState)
+{
     boost::asio::io_context io_ctx;
     PgConnection conn1(io_ctx);
     conn1.mark_poisoned();

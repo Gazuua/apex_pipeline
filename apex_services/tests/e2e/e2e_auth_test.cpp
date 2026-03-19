@@ -1,17 +1,19 @@
 #include "e2e_test_fixture.hpp"
 
-#include <flatbuffers/flatbuffers.h>
 #include <chat_room_generated.h>
+#include <flatbuffers/flatbuffers.h>
 
 #include <gtest/gtest.h>
 
 #include <thread>
 
-namespace apex::e2e {
+namespace apex::e2e
+{
 
 namespace chat_fbs = apex::chat_svc::fbs;
 
-class AuthE2ETest : public E2ETestFixture {};
+class AuthE2ETest : public E2ETestFixture
+{};
 
 /// Scenario 1: Login -> JWT issue -> Authenticated request -> Response
 ///
@@ -19,7 +21,8 @@ class AuthE2ETest : public E2ETestFixture {};
 ///                -> Kafka auth.responses -> Gateway -> Client (JWT)
 ///                -> Authenticated request -> Gateway validates JWT
 ///                -> Kafka chat.requests -> Chat Service -> Response
-TEST_F(AuthE2ETest, LoginAndAuthenticatedRequest) {
+TEST_F(AuthE2ETest, LoginAndAuthenticatedRequest)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -41,19 +44,19 @@ TEST_F(AuthE2ETest, LoginAndAuthenticatedRequest) {
 
     // 4. Receive response (msg_id 2008 = ListRoomsResponse)
     auto resp = client.recv();
-    std::cerr << "[E2E-DEBUG] ListRooms recv: msg_id=" << resp.msg_id
-              << " payload_size=" << resp.payload.size() << "\n";
+    std::cerr << "[E2E-DEBUG] ListRooms recv: msg_id=" << resp.msg_id << " payload_size=" << resp.payload.size()
+              << "\n";
     EXPECT_EQ(resp.msg_id, 2008u);
 
-    auto* list_resp = flatbuffers::GetRoot<chat_fbs::ListRoomsResponse>(
-        resp.payload.data());
+    auto* list_resp = flatbuffers::GetRoot<chat_fbs::ListRoomsResponse>(resp.payload.data());
     EXPECT_EQ(list_resp->error(), chat_fbs::ChatRoomError_NONE);
 
     client.close();
 }
 
 /// Unauthenticated request -> Gateway rejects with system error
-TEST_F(AuthE2ETest, UnauthenticatedRequestRejected) {
+TEST_F(AuthE2ETest, UnauthenticatedRequestRejected)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -67,9 +70,9 @@ TEST_F(AuthE2ETest, UnauthenticatedRequestRejected) {
 
     // Gateway should return error response (ERROR_RESPONSE flag set)
     auto resp = client.recv();
-    EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
-        << "Expected error flag in response for unauthenticated request, "
-           "msg_id=" << resp.msg_id << " flags=" << static_cast<int>(resp.flags);
+    EXPECT_TRUE(resp.flags & ERROR_RESPONSE) << "Expected error flag in response for unauthenticated request, "
+                                                "msg_id="
+                                             << resp.msg_id << " flags=" << static_cast<int>(resp.flags);
 
     client.close();
 }
@@ -78,7 +81,8 @@ TEST_F(AuthE2ETest, UnauthenticatedRequestRejected) {
 ///
 /// Access Token expires -> client sends RefreshTokenRequest (msg_id 1004)
 /// -> Auth Service validates Refresh Token -> new Access Token issued
-TEST_F(AuthE2ETest, RefreshTokenRenewal) {
+TEST_F(AuthE2ETest, RefreshTokenRenewal)
+{
     TcpClient client(io_ctx_, config_);
     client.connect();
 
@@ -102,8 +106,7 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
 
         auto resp = client.recv();
         // Gateway error: JWT_EXPIRED (error flag set, msg_id echoes original)
-        EXPECT_TRUE(resp.flags & ERROR_RESPONSE)
-            << "Expected error flag for expired JWT, msg_id=" << resp.msg_id;
+        EXPECT_TRUE(resp.flags & ERROR_RESPONSE) << "Expected error flag for expired JWT, msg_id=" << resp.msg_id;
     }
 
     // 4. Refresh Token renewal (msg_id 1004 = RefreshTokenRequest)
@@ -111,7 +114,7 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
         flatbuffers::FlatBufferBuilder fbb(256);
         auto token_off = fbb.CreateString(auth.refresh_token);
         auto start = fbb.StartTable();
-        fbb.AddOffset(4, token_off);  // refresh_token field
+        fbb.AddOffset(4, token_off); // refresh_token field
         auto loc = fbb.EndTable(start);
         fbb.Finish(flatbuffers::Offset<void>(loc));
         client.send(1004, fbb.GetBufferPointer(), fbb.GetSize());
@@ -120,12 +123,12 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
         EXPECT_EQ(resp.msg_id, 1005u) << "Expected RefreshTokenResponse";
 
         // Parse new Access Token from RefreshTokenResponse
-        if (!resp.payload.empty()) {
-            auto* root = flatbuffers::GetRoot<flatbuffers::Table>(
-                resp.payload.data());
-            if (root) {
-                auto* new_token = root->GetPointer<
-                    const flatbuffers::String*>(6);  // access_token field
+        if (!resp.payload.empty())
+        {
+            auto* root = flatbuffers::GetRoot<flatbuffers::Table>(resp.payload.data());
+            if (root)
+            {
+                auto* new_token = root->GetPointer<const flatbuffers::String*>(6); // access_token field
                 ASSERT_NE(new_token, nullptr);
                 EXPECT_FALSE(new_token->str().empty());
 
@@ -138,8 +141,7 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal) {
                 client.send(2007, fbb2.GetBufferPointer(), fbb2.GetSize());
 
                 auto resp2 = client.recv();
-                EXPECT_EQ(resp2.msg_id, 2008u)
-                    << "Request with refreshed token should succeed";
+                EXPECT_EQ(resp2.msg_id, 2008u) << "Request with refreshed token should succeed";
             }
         }
     }

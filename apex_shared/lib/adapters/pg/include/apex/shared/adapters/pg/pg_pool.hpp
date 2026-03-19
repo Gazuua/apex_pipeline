@@ -1,22 +1,24 @@
 // pg_pool.hpp — self-contained (CRTP ConnectionPool inheritance removed)
 #pragma once
 
-#include <apex/shared/adapters/pool_concept.hpp>
-#include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/core/result.hpp>
-#include <boost/asio/io_context.hpp>
+#include <apex/shared/adapters/pg/pg_connection.hpp>
+#include <apex/shared/adapters/pool_concept.hpp>
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/io_context.hpp>
 #include <chrono>
 #include <deque>
 #include <memory>
 #include <string>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
-struct PgAdapterConfig;  // forward
+struct PgAdapterConfig; // forward
 
-class PgPool {
-public:
+class PgPool
+{
+  public:
     using Connection = std::unique_ptr<PgConnection>;
 
     PgPool(boost::asio::io_context& io_ctx, const PgAdapterConfig& config);
@@ -42,25 +44,23 @@ public:
     [[nodiscard]] const PoolConfig& config() const noexcept;
 
     // --- PG-specific async API (outside PoolLike concept scope) ---
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
-    create_connected();
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> create_connected();
 
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
-    acquire_connected();
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> acquire_connected();
 
     /// Retry-aware acquire: wraps acquire() with exponential backoff.
     /// Returns PoolExhausted on retry limit exceeded.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>>
-    acquire_with_retry();
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> acquire_with_retry();
 
     [[nodiscard]] const std::string& connection_string() const noexcept;
 
-private:
+  private:
     Connection do_create_connection();
     void do_destroy_connection(Connection& conn);
     bool do_validate(Connection& conn);
 
-    struct IdleEntry {
+    struct IdleEntry
+    {
         Connection conn;
         std::chrono::steady_clock::time_point returned_at;
     };

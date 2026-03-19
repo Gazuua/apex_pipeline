@@ -5,8 +5,9 @@ using namespace apex::shared::rate_limit;
 using namespace std::chrono_literals;
 
 // Helper: create a counter with known start time
-class SlidingWindowCounterTest : public ::testing::Test {
-protected:
+class SlidingWindowCounterTest : public ::testing::Test
+{
+  protected:
     using Clock = SlidingWindowCounter::Clock;
     using TimePoint = SlidingWindowCounter::TimePoint;
 
@@ -14,29 +15,35 @@ protected:
     TimePoint base_ = Clock::now();
 };
 
-TEST_F(SlidingWindowCounterTest, AllowWithinLimit) {
+TEST_F(SlidingWindowCounterTest, AllowWithinLimit)
+{
     SlidingWindowCounter counter(10, 1s);
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 10; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + std::chrono::milliseconds(i * 10)));
     }
 }
 
-TEST_F(SlidingWindowCounterTest, DenyWhenLimitReached) {
+TEST_F(SlidingWindowCounterTest, DenyWhenLimitReached)
+{
     SlidingWindowCounter counter(5, 1s);
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + std::chrono::milliseconds(i)));
     }
     // 6th request should be denied
     EXPECT_FALSE(counter.allow(base_ + 5ms));
 }
 
-TEST_F(SlidingWindowCounterTest, WindowRotation) {
+TEST_F(SlidingWindowCounterTest, WindowRotation)
+{
     SlidingWindowCounter counter(5, 1s);
 
     // Fill first window
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + std::chrono::milliseconds(i * 100)));
     }
     EXPECT_FALSE(counter.allow(base_ + 500ms));
@@ -47,11 +54,13 @@ TEST_F(SlidingWindowCounterTest, WindowRotation) {
     EXPECT_TRUE(counter.allow(t));
 }
 
-TEST_F(SlidingWindowCounterTest, SlidingWindowWeightedEstimate) {
+TEST_F(SlidingWindowCounterTest, SlidingWindowWeightedEstimate)
+{
     SlidingWindowCounter counter(100, 1s);
 
     // Fill first window with 80 requests
-    for (int i = 0; i < 80; ++i) {
+    for (int i = 0; i < 80; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + std::chrono::milliseconds(i)));
     }
 
@@ -62,10 +71,12 @@ TEST_F(SlidingWindowCounterTest, SlidingWindowWeightedEstimate) {
     EXPECT_NEAR(est, 40.0, 1.0);
 }
 
-TEST_F(SlidingWindowCounterTest, TwoWindowsPassedResetsCompletely) {
+TEST_F(SlidingWindowCounterTest, TwoWindowsPassedResetsCompletely)
+{
     SlidingWindowCounter counter(5, 1s);
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + std::chrono::milliseconds(i)));
     }
 
@@ -75,10 +86,12 @@ TEST_F(SlidingWindowCounterTest, TwoWindowsPassedResetsCompletely) {
     EXPECT_NEAR(counter.estimated_count(t + 1ms), 1.0, 0.1);
 }
 
-TEST_F(SlidingWindowCounterTest, Reset) {
+TEST_F(SlidingWindowCounterTest, Reset)
+{
     SlidingWindowCounter counter(5, 1s);
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         counter.allow(base_ + std::chrono::milliseconds(i));
     }
 
@@ -86,7 +99,8 @@ TEST_F(SlidingWindowCounterTest, Reset) {
     EXPECT_TRUE(counter.allow(base_ + 2s));
 }
 
-TEST_F(SlidingWindowCounterTest, LastAccess) {
+TEST_F(SlidingWindowCounterTest, LastAccess)
+{
     SlidingWindowCounter counter(10, 1s);
 
     auto t1 = base_ + 100ms;
@@ -98,28 +112,32 @@ TEST_F(SlidingWindowCounterTest, LastAccess) {
     EXPECT_EQ(counter.last_access(), t2);
 }
 
-TEST_F(SlidingWindowCounterTest, DeniedRequestDoesNotUpdateLastAccess) {
+TEST_F(SlidingWindowCounterTest, DeniedRequestDoesNotUpdateLastAccess)
+{
     SlidingWindowCounter counter(1, 1s);
 
     auto t1 = base_;
-    counter.allow(t1);  // allowed
+    counter.allow(t1); // allowed
     auto t2 = base_ + 100ms;
-    counter.allow(t2);  // denied
+    counter.allow(t2); // denied
     EXPECT_EQ(counter.last_access(), t1);
 }
 
-TEST_F(SlidingWindowCounterTest, ZeroLimitDeniesEverything) {
+TEST_F(SlidingWindowCounterTest, ZeroLimitDeniesEverything)
+{
     SlidingWindowCounter counter(0, 1s);
     EXPECT_FALSE(counter.allow(base_));
 }
 
-TEST_F(SlidingWindowCounterTest, BoundaryBurstPrevention) {
+TEST_F(SlidingWindowCounterTest, BoundaryBurstPrevention)
+{
     // Fixed Window의 문제: 윈도우 경계에서 2배 burst 가능.
     // Sliding Window Counter는 이를 방지한다.
     SlidingWindowCounter counter(100, 1s);
 
     // 첫 윈도우 끝부분에 100개 요청
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         EXPECT_TRUE(counter.allow(base_ + 900ms + std::chrono::microseconds(i)));
     }
 

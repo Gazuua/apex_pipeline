@@ -1,8 +1,8 @@
 #pragma once
 
+#include <apex/core/result.hpp>
 #include <apex/shared/adapters/redis/hiredis_asio_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
-#include <apex/core/result.hpp>
 
 #include <hiredis/async.h>
 
@@ -13,13 +13,15 @@
 #include <string>
 #include <string_view>
 
-namespace apex::shared::adapters::redis {
+namespace apex::shared::adapters::redis
+{
 
 /// 하나의 hiredis 비동기 커넥션을 래핑한다.
 /// HiredisAsioAdapter를 소유하여 Asio에 통합.
 /// 커맨드 발행 시 코루틴 awaitable로 결과를 반환한다.
-class RedisConnection {
-public:
+class RedisConnection
+{
+  public:
     ~RedisConnection();
 
     // Non-copyable, non-movable
@@ -30,16 +32,15 @@ public:
 
     /// 동기 커넥션 생성. io_context에서 실행.
     /// 실패 시 nullptr 반환.
-    [[nodiscard]] static std::unique_ptr<RedisConnection>
-    create(boost::asio::io_context& io_ctx, const RedisConfig& config);
+    [[nodiscard]] static std::unique_ptr<RedisConnection> create(boost::asio::io_context& io_ctx,
+                                                                 const RedisConfig& config);
 
     /// Redis 커맨드 실행 (variadic format string 기반).
     /// hiredis redisAsyncCommand의 코루틴 래퍼.
     /// 결과 redisReply*는 콜백 스코프 내에서만 유효 — 즉시 파싱해야 함.
     ///
     /// 내부: async_initiate + redisAsyncCommand callback -> completion handler
-    template <typename CompletionToken>
-    auto async_command(const char* cmd, CompletionToken&& token);
+    template <typename CompletionToken> auto async_command(const char* cmd, CompletionToken&& token);
 
     /// 커넥션 유효성 검증 (상태 플래그 기반 — 서버 없이 동작)
     [[nodiscard]] bool validate() const noexcept;
@@ -50,18 +51,19 @@ public:
     [[nodiscard]] bool is_connected() const noexcept;
 
     /// Raw hiredis async context access (for RedisMultiplexer direct command submission).
-    [[nodiscard]] redisAsyncContext* async_context() noexcept { return ac_; }
+    [[nodiscard]] redisAsyncContext* async_context() noexcept
+    {
+        return ac_;
+    }
 
     // --- Reply 파싱 유틸리티 (static) ---
 
     /// REDIS_REPLY_STRING -> std::optional<std::string>
     /// REDIS_REPLY_NIL -> std::nullopt
-    [[nodiscard]] static std::optional<std::string> parse_string_reply(
-        const redisReply* reply);
+    [[nodiscard]] static std::optional<std::string> parse_string_reply(const redisReply* reply);
 
     /// REDIS_REPLY_INTEGER -> int64_t
-    [[nodiscard]] static apex::core::Result<int64_t> parse_integer_reply(
-        const redisReply* reply);
+    [[nodiscard]] static apex::core::Result<int64_t> parse_integer_reply(const redisReply* reply);
 
     /// 에러 체크: REDIS_REPLY_ERROR -> ErrorCode::AdapterError
     [[nodiscard]] static bool is_error_reply(const redisReply* reply);
@@ -69,9 +71,8 @@ public:
     /// 에러 메시지 추출
     [[nodiscard]] static std::string get_error_message(const redisReply* reply);
 
-private:
-    RedisConnection(boost::asio::io_context& io_ctx,
-                    redisAsyncContext* ac);
+  private:
+    RedisConnection(boost::asio::io_context& io_ctx, redisAsyncContext* ac);
 
     boost::asio::io_context& io_ctx_;
     redisAsyncContext* ac_;
@@ -81,10 +82,12 @@ private:
 
 // --- Template implementations ---
 
-namespace detail {
+namespace detail
+{
 
 /// hiredis 콜백에서 Asio completion handler를 호출하는 컨텍스트.
-struct CommandContext {
+struct CommandContext
+{
     std::function<void(boost::system::error_code, redisReply*)> handler;
 };
 
@@ -93,18 +96,19 @@ void command_callback(redisAsyncContext* ac, void* reply, void* privdata);
 
 } // namespace detail
 
-template <typename CompletionToken>
-auto RedisConnection::async_command(const char* cmd, CompletionToken&& token) {
-    return boost::asio::async_initiate<CompletionToken,
-                                        void(boost::system::error_code, redisReply*)>(
+template <typename CompletionToken> auto RedisConnection::async_command(const char* cmd, CompletionToken&& token)
+{
+    return boost::asio::async_initiate<CompletionToken, void(boost::system::error_code, redisReply*)>(
         [this, cmd](auto handler) {
-            if (!connected_ || !ac_) {
+            if (!connected_ || !ac_)
+            {
                 handler(boost::asio::error::not_connected, nullptr);
                 return;
             }
             auto* ctx = new detail::CommandContext{std::move(handler)};
             int ret = redisAsyncCommand(ac_, detail::command_callback, ctx, cmd);
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 // redisAsyncCommand 실패 — 즉시 에러 반환
                 ctx->handler(boost::asio::error::connection_aborted, nullptr);
                 delete ctx;

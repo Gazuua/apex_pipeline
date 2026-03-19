@@ -6,8 +6,8 @@
 #include <apex/core/timing_wheel.hpp>
 #include <apex/core/wire_header.hpp>
 
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/intrusive_ptr.hpp>
 
 #include <cassert>
@@ -16,7 +16,8 @@
 #include <span>
 #include <vector>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// 고유 세션 식별자 (코어별 단조 증가)
 using SessionId = uint64_t;
@@ -37,9 +38,11 @@ template <typename T> class TypedSlabAllocator;
 /// @note intrusive_ptr with non-atomic refcount: per-core architecture guarantees
 /// Session objects are accessed from a single core thread only. Cross-core
 /// communication uses SessionId (uint64_t), never SessionPtr.
-class Session {
-public:
-    enum class State : uint8_t {
+class Session
+{
+  public:
+    enum class State : uint8_t
+    {
         Connected,
         Active,
         // Closing 제거 (I-2): 미사용 상태였음. graceful shutdown은 Closed로 직접 전이.
@@ -48,17 +51,20 @@ public:
 
     /// @param recv_buf_capacity Receive buffer size. When used with Server,
     ///        must be >= Server::TMP_BUF_SIZE (validated in Server constructor).
-    Session(SessionId id, boost::asio::ip::tcp::socket socket,
-            uint32_t core_id, size_t recv_buf_capacity = 8192);
+    Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t core_id, size_t recv_buf_capacity = 8192);
     ~Session();
 
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
     // --- intrusive_ptr refcount (non-atomic: per-core only) ---
-    [[nodiscard]] uint32_t refcount() const noexcept { return refcount_; }
+    [[nodiscard]] uint32_t refcount() const noexcept
+    {
+        return refcount_;
+    }
 
-    friend void intrusive_ptr_add_ref(Session* s) noexcept {
+    friend void intrusive_ptr_add_ref(Session* s) noexcept
+    {
         assert(s->refcount_ < UINT32_MAX && "Session refcount overflow");
         ++s->refcount_;
     }
@@ -73,16 +79,16 @@ public:
     /// in-flight per Session at any time. Concurrent writes to the same
     /// socket produce undefined behavior. The Server pipeline guarantees
     /// this by processing one frame at a time per session.
-    [[nodiscard]] boost::asio::awaitable<Result<void>>
-    async_send(const WireHeader& header, std::span<const uint8_t> payload);
+    [[nodiscard]] boost::asio::awaitable<Result<void>> async_send(const WireHeader& header,
+                                                                  std::span<const uint8_t> payload);
 
     /// 미리 빌드된 로우 프레임 비동기 전송.
-    [[nodiscard]] boost::asio::awaitable<Result<void>>
-    async_send_raw(std::span<const uint8_t> data);
+    [[nodiscard]] boost::asio::awaitable<Result<void>> async_send_raw(std::span<const uint8_t> data);
 
     // --- Write Queue API (v0.5) ---
 
-    struct WriteRequest {
+    struct WriteRequest
+    {
         std::vector<uint8_t> data;
     };
 
@@ -97,27 +103,42 @@ public:
     /// 세션 그레이스풀 종료.
     void close() noexcept;
 
-    [[nodiscard]] SessionId id() const noexcept { return id_; }
-    [[nodiscard]] uint32_t core_id() const noexcept { return core_id_; }
-    [[nodiscard]] State state() const noexcept { return state_; }
-    [[nodiscard]] bool is_open() const noexcept {
+    [[nodiscard]] SessionId id() const noexcept
+    {
+        return id_;
+    }
+    [[nodiscard]] uint32_t core_id() const noexcept
+    {
+        return core_id_;
+    }
+    [[nodiscard]] State state() const noexcept
+    {
+        return state_;
+    }
+    [[nodiscard]] bool is_open() const noexcept
+    {
         return state_ == State::Connected || state_ == State::Active;
     }
-    [[nodiscard]] boost::asio::ip::tcp::socket& socket() noexcept {
+    [[nodiscard]] boost::asio::ip::tcp::socket& socket() noexcept
+    {
         return socket_;
     }
-    [[nodiscard]] RingBuffer& recv_buffer() noexcept { return recv_buf_; }
+    [[nodiscard]] RingBuffer& recv_buffer() noexcept
+    {
+        return recv_buf_;
+    }
 
-private:
+  private:
     // M-1: Assert valid state transition — Closed is a terminal state
-    void set_state(State s) noexcept {
+    void set_state(State s) noexcept
+    {
         assert(state_ != State::Closed && "Cannot transition from Closed state");
         state_ = s;
     }
     friend class SessionManager;
 
-    uint32_t refcount_{0};  // non-atomic: per-core only
-    TypedSlabAllocator<Session>* pool_owner_{nullptr};  // set by SessionManager when pool-allocated
+    uint32_t refcount_{0};                             // non-atomic: per-core only
+    TypedSlabAllocator<Session>* pool_owner_{nullptr}; // set by SessionManager when pool-allocated
 
     SessionId id_;
     uint32_t core_id_;

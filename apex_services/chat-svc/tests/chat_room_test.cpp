@@ -3,107 +3,105 @@
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
-namespace {
+namespace
+{
 
 namespace fbs = apex::chat_svc::fbs;
 
-TEST(ChatRoomTest, CreateRoomRequestSchema) {
+TEST(ChatRoomTest, CreateRoomRequestSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name = fbb.CreateString("test-room");
     auto req = fbs::CreateCreateRoomRequest(fbb, name, 50);
     fbb.Finish(req);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomRequest>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomRequest>(fbb.GetBufferPointer());
     EXPECT_STREQ(parsed->room_name()->c_str(), "test-room");
     EXPECT_EQ(parsed->max_members(), 50u);
 }
 
-TEST(ChatRoomTest, CreateRoomResponseSchema) {
+TEST(ChatRoomTest, CreateRoomResponseSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name = fbb.CreateString("my-room");
-    auto resp = fbs::CreateCreateRoomResponse(fbb,
-        fbs::ChatRoomError_NONE, 42, name);
+    auto resp = fbs::CreateCreateRoomResponse(fbb, fbs::ChatRoomError_NONE, 42, name);
     fbb.Finish(resp);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomResponse>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomResponse>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->error(), fbs::ChatRoomError_NONE);
     EXPECT_EQ(parsed->room_id(), 42u);
     EXPECT_STREQ(parsed->room_name()->c_str(), "my-room");
 }
 
-TEST(ChatRoomTest, CreateRoomResponseError) {
+TEST(ChatRoomTest, CreateRoomResponseError)
+{
     flatbuffers::FlatBufferBuilder fbb(128);
-    auto resp = fbs::CreateCreateRoomResponse(fbb,
-        fbs::ChatRoomError_ROOM_NAME_EMPTY);
+    auto resp = fbs::CreateCreateRoomResponse(fbb, fbs::ChatRoomError_ROOM_NAME_EMPTY);
     fbb.Finish(resp);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomResponse>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::CreateRoomResponse>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->error(), fbs::ChatRoomError_ROOM_NAME_EMPTY);
     EXPECT_EQ(parsed->room_id(), 0u);
 }
 
-TEST(ChatRoomTest, JoinRoomRequestSchema) {
+TEST(ChatRoomTest, JoinRoomRequestSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(128);
     auto req = fbs::CreateJoinRoomRequest(fbb, 42);
     fbb.Finish(req);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::JoinRoomRequest>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::JoinRoomRequest>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->room_id(), 42u);
 }
 
-TEST(ChatRoomTest, JoinRoomResponseSchema) {
+TEST(ChatRoomTest, JoinRoomResponseSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name = fbb.CreateString("General");
-    auto resp = fbs::CreateJoinRoomResponse(fbb,
-        fbs::ChatRoomError_NONE, 42, name, 10);
+    auto resp = fbs::CreateJoinRoomResponse(fbb, fbs::ChatRoomError_NONE, 42, name, 10);
     fbb.Finish(resp);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::JoinRoomResponse>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::JoinRoomResponse>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->error(), fbs::ChatRoomError_NONE);
     EXPECT_EQ(parsed->room_id(), 42u);
     EXPECT_STREQ(parsed->room_name()->c_str(), "General");
     EXPECT_EQ(parsed->member_count(), 10u);
 }
 
-TEST(ChatRoomTest, LeaveRoomRequestSchema) {
+TEST(ChatRoomTest, LeaveRoomRequestSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(128);
     auto req = fbs::CreateLeaveRoomRequest(fbb, 42);
     fbb.Finish(req);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::LeaveRoomRequest>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::LeaveRoomRequest>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->room_id(), 42u);
 }
 
-TEST(ChatRoomTest, LeaveRoomResponseSchema) {
+TEST(ChatRoomTest, LeaveRoomResponseSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(128);
-    auto resp = fbs::CreateLeaveRoomResponse(fbb,
-        fbs::ChatRoomError_NONE, 42);
+    auto resp = fbs::CreateLeaveRoomResponse(fbb, fbs::ChatRoomError_NONE, 42);
     fbb.Finish(resp);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::LeaveRoomResponse>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::LeaveRoomResponse>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->error(), fbs::ChatRoomError_NONE);
     EXPECT_EQ(parsed->room_id(), 42u);
 }
 
-TEST(ChatRoomTest, ListRoomsRequestSchema) {
+TEST(ChatRoomTest, ListRoomsRequestSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(128);
     auto req = fbs::CreateListRoomsRequest(fbb, 20, 10);
     fbb.Finish(req);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::ListRoomsRequest>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::ListRoomsRequest>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->offset(), 20u);
     EXPECT_EQ(parsed->limit(), 10u);
 }
 
-TEST(ChatRoomTest, ListRoomsResponseSchema) {
+TEST(ChatRoomTest, ListRoomsResponseSchema)
+{
     flatbuffers::FlatBufferBuilder fbb(512);
 
     std::vector<flatbuffers::Offset<fbs::RoomInfo>> rooms;
@@ -113,12 +111,10 @@ TEST(ChatRoomTest, ListRoomsResponseSchema) {
     rooms.push_back(fbs::CreateRoomInfo(fbb, 2, name2, 10, 50, 1002));
 
     auto rooms_off = fbb.CreateVector(rooms);
-    auto resp = fbs::CreateListRoomsResponse(fbb,
-        fbs::ChatRoomError_NONE, rooms_off, 2);
+    auto resp = fbs::CreateListRoomsResponse(fbb, fbs::ChatRoomError_NONE, rooms_off, 2);
     fbb.Finish(resp);
 
-    auto* parsed = flatbuffers::GetRoot<fbs::ListRoomsResponse>(
-        fbb.GetBufferPointer());
+    auto* parsed = flatbuffers::GetRoot<fbs::ListRoomsResponse>(fbb.GetBufferPointer());
     EXPECT_EQ(parsed->error(), fbs::ChatRoomError_NONE);
     ASSERT_NE(parsed->rooms(), nullptr);
     EXPECT_EQ(parsed->rooms()->size(), 2u);
@@ -132,7 +128,8 @@ TEST(ChatRoomTest, ListRoomsResponseSchema) {
     EXPECT_EQ(room0->owner_id(), 1001u);
 }
 
-TEST(ChatRoomTest, RoomErrorEnum) {
+TEST(ChatRoomTest, RoomErrorEnum)
+{
     // Verify all error values are accessible
     EXPECT_EQ(static_cast<uint16_t>(fbs::ChatRoomError_NONE), 0);
     EXPECT_EQ(static_cast<uint16_t>(fbs::ChatRoomError_ROOM_NOT_FOUND), 1);

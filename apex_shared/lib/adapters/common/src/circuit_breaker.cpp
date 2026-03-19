@@ -1,26 +1,39 @@
 #include <apex/shared/adapters/circuit_breaker.hpp>
 
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 
 CircuitBreaker::CircuitBreaker(CircuitBreakerConfig config)
-    : config_(config) {}
+    : config_(config)
+{}
 
-CircuitState CircuitBreaker::state() const noexcept { return state_; }
-uint32_t CircuitBreaker::failure_count() const noexcept { return failure_count_; }
+CircuitState CircuitBreaker::state() const noexcept
+{
+    return state_;
+}
+uint32_t CircuitBreaker::failure_count() const noexcept
+{
+    return failure_count_;
+}
 
-void CircuitBreaker::reset() noexcept {
+void CircuitBreaker::reset() noexcept
+{
     state_ = CircuitState::CLOSED;
     failure_count_ = 0;
     half_open_calls_ = 0;
 }
 
-bool CircuitBreaker::should_allow() noexcept {
-    switch (state_) {
+bool CircuitBreaker::should_allow() noexcept
+{
+    switch (state_)
+    {
         case CircuitState::CLOSED:
             return true;
-        case CircuitState::OPEN: {
+        case CircuitState::OPEN:
+        {
             auto elapsed = std::chrono::steady_clock::now() - open_since_;
-            if (elapsed >= config_.open_duration) {
+            if (elapsed >= config_.open_duration)
+            {
                 state_ = CircuitState::HALF_OPEN;
                 half_open_calls_ = 0;
                 return true;
@@ -33,11 +46,14 @@ bool CircuitBreaker::should_allow() noexcept {
     return false;
 }
 
-void CircuitBreaker::on_success() noexcept {
-    switch (state_) {
+void CircuitBreaker::on_success() noexcept
+{
+    switch (state_)
+    {
         case CircuitState::HALF_OPEN:
             ++half_open_calls_;
-            if (half_open_calls_ >= config_.half_open_max_calls) {
+            if (half_open_calls_ >= config_.half_open_max_calls)
+            {
                 state_ = CircuitState::CLOSED;
                 failure_count_ = 0;
             }
@@ -50,11 +66,14 @@ void CircuitBreaker::on_success() noexcept {
     }
 }
 
-void CircuitBreaker::on_failure() noexcept {
-    switch (state_) {
+void CircuitBreaker::on_failure() noexcept
+{
+    switch (state_)
+    {
         case CircuitState::CLOSED:
             ++failure_count_;
-            if (failure_count_ >= config_.failure_threshold) {
+            if (failure_count_ >= config_.failure_threshold)
+            {
                 state_ = CircuitState::OPEN;
                 open_since_ = std::chrono::steady_clock::now();
             }

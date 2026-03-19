@@ -6,17 +6,20 @@
 #include <string>
 #include <string_view>
 
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 
 /// 어댑터 에러 상세 컨텍스트.
 /// ErrorCode::AdapterError와 함께 사용하여 라이브러리별 에러 정보를 전달.
-struct AdapterError {
+struct AdapterError
+{
     apex::core::ErrorCode code = apex::core::ErrorCode::AdapterError;
-    uint32_t native_error = 0;      ///< 라이브러리 원본 에러코드
-    std::string message;            ///< 사람 읽기용 상세
+    uint32_t native_error = 0; ///< 라이브러리 원본 에러코드
+    std::string message;       ///< 사람 읽기용 상세
 
     /// 에러 여부 확인
-    [[nodiscard]] bool ok() const noexcept {
+    [[nodiscard]] bool ok() const noexcept
+    {
         return code == apex::core::ErrorCode::Ok;
     }
 

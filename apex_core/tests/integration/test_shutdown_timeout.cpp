@@ -1,5 +1,5 @@
-#include <apex/core/server.hpp>
 #include <apex/core/logging.hpp>
+#include <apex/core/server.hpp>
 #include <apex/core/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
@@ -12,17 +12,21 @@
 using namespace apex::core;
 using namespace std::chrono_literals;
 
-class ShutdownTimeoutTest : public ::testing::Test {
-protected:
-    void SetUp() override {
+class ShutdownTimeoutTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
         init_logging(LogConfig{});
     }
-    void TearDown() override {
+    void TearDown() override
+    {
         shutdown_logging();
     }
 };
 
-TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout) {
+TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout)
+{
     // 세션 없이 바로 종료 — 타임아웃 전에 완료되어야 함
     Server server({
         .num_cores = 1,
@@ -43,12 +47,13 @@ TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout) {
     EXPECT_LT(elapsed, 1s);
 }
 
-TEST_F(ShutdownTimeoutTest, DrainTimeoutForcesShutdown) {
+TEST_F(ShutdownTimeoutTest, DrainTimeoutForcesShutdown)
+{
     // drain_timeout이 짧으면 강제 종료까지의 시간이 제한됨
     Server server({
         .num_cores = 1,
         .handle_signals = false,
-        .drain_timeout = 1s,  // 1초 타임아웃
+        .drain_timeout = 1s, // 1초 타임아웃
     });
     server.listen<TcpBinaryProtocol>(0);
 

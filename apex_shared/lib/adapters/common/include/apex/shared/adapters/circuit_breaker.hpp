@@ -8,31 +8,38 @@
 #include <concepts>
 #include <cstdint>
 
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 
-struct CircuitBreakerConfig {
+struct CircuitBreakerConfig
+{
     uint32_t failure_threshold = 5;
     std::chrono::milliseconds open_duration{30'000};
     uint32_t half_open_max_calls = 3;
 };
 
-enum class CircuitState : uint8_t { CLOSED, OPEN, HALF_OPEN };
+enum class CircuitState : uint8_t
+{
+    CLOSED,
+    OPEN,
+    HALF_OPEN
+};
 
-class CircuitBreaker {
-public:
+class CircuitBreaker
+{
+  public:
     explicit CircuitBreaker(CircuitBreakerConfig config);
 
     /// fn must return Task<Result<void>> (boost::asio::awaitable<apex::core::Result<void>>)
-    template<std::invocable F>
-        requires std::same_as<std::invoke_result_t<F>,
-                              boost::asio::awaitable<apex::core::Result<void>>>
+    template <std::invocable F>
+        requires std::same_as<std::invoke_result_t<F>, boost::asio::awaitable<apex::core::Result<void>>>
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> call(F&& fn);
 
     [[nodiscard]] CircuitState state() const noexcept;
     [[nodiscard]] uint32_t failure_count() const noexcept;
     void reset() noexcept;
 
-private:
+  private:
     bool should_allow() noexcept;
     void on_success() noexcept;
     void on_failure() noexcept;
@@ -45,18 +52,22 @@ private:
 };
 
 // Template implementation
-template<std::invocable F>
-    requires std::same_as<std::invoke_result_t<F>,
-                          boost::asio::awaitable<apex::core::Result<void>>>
-[[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> CircuitBreaker::call(F&& fn) {
-    if (!should_allow()) {
+template <std::invocable F>
+    requires std::same_as<std::invoke_result_t<F>, boost::asio::awaitable<apex::core::Result<void>>>
+[[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> CircuitBreaker::call(F&& fn)
+{
+    if (!should_allow())
+    {
         co_return std::unexpected(apex::core::ErrorCode::CircuitOpen);
     }
 
     auto result = co_await std::forward<F>(fn)();
-    if (result.has_value()) {
+    if (result.has_value())
+    {
         on_success();
-    } else {
+    }
+    else
+    {
         on_failure();
     }
     co_return result;

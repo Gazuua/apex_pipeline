@@ -1,30 +1,35 @@
+#include "../test_helpers.hpp"
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
-#include "../test_helpers.hpp"
 
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/use_future.hpp>
-#include <boost/asio/awaitable.hpp>
 
 #include <gtest/gtest.h>
 
 using namespace apex::core;
-using apex::test::run_coro;
 using apex::test::make_socket_pair;
-using boost::asio::ip::tcp;
+using apex::test::run_coro;
 using boost::asio::awaitable;
+using boost::asio::ip::tcp;
 
-class SessionTest : public ::testing::Test {
-protected:
-    void SetUp() override { io_ctx_.restart(); }
+class SessionTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        io_ctx_.restart();
+    }
 
     boost::asio::io_context io_ctx_;
 };
 
-TEST_F(SessionTest, InitialState) {
+TEST_F(SessionTest, InitialState)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0);
 
@@ -36,13 +41,13 @@ TEST_F(SessionTest, InitialState) {
     client.close();
 }
 
-TEST_F(SessionTest, SendFrame) {
+TEST_F(SessionTest, SendFrame)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
-    WireHeader header{.msg_id = 0x0042,
-                      .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size())};
     auto result = run_coro(io_ctx_, session->async_send(header, payload));
     EXPECT_TRUE(result.has_value());
 
@@ -57,7 +62,8 @@ TEST_F(SessionTest, SendFrame) {
     client.close();
 }
 
-TEST_F(SessionTest, SendAfterClose) {
+TEST_F(SessionTest, SendAfterClose)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -74,7 +80,8 @@ TEST_F(SessionTest, SendAfterClose) {
     client.close();
 }
 
-TEST_F(SessionTest, RecvBufferDefaultCapacity) {
+TEST_F(SessionTest, RecvBufferDefaultCapacity)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0);
 
@@ -85,7 +92,8 @@ TEST_F(SessionTest, RecvBufferDefaultCapacity) {
     client.close();
 }
 
-TEST_F(SessionTest, RecvBufferAccessible) {
+TEST_F(SessionTest, RecvBufferAccessible)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     Session session(1, std::move(server), 0, 4096);
 
@@ -95,14 +103,14 @@ TEST_F(SessionTest, RecvBufferAccessible) {
     client.close();
 }
 
-TEST_F(SessionTest, SendRawSucceeds) {
+TEST_F(SessionTest, SendRawSucceeds)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
     // Build a raw frame: WireHeader + payload
     std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
-    WireHeader header{.msg_id = 0x0077,
-                      .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0077, .body_size = static_cast<uint32_t>(payload.size())};
     auto hdr_bytes = header.serialize();
     std::vector<uint8_t> raw_frame(hdr_bytes.begin(), hdr_bytes.end());
     raw_frame.insert(raw_frame.end(), payload.begin(), payload.end());
@@ -118,7 +126,8 @@ TEST_F(SessionTest, SendRawSucceeds) {
     client.close();
 }
 
-TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
+TEST_F(SessionTest, SendRawAfterCloseReturnsFalse)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -133,7 +142,8 @@ TEST_F(SessionTest, SendRawAfterCloseReturnsFalse) {
     client.close();
 }
 
-TEST_F(SessionTest, DoubleCloseIsSafe) {
+TEST_F(SessionTest, DoubleCloseIsSafe)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -151,7 +161,8 @@ TEST_F(SessionTest, DoubleCloseIsSafe) {
 // - The OS may buffer the first send (returning success) or immediately report
 //   a connection reset (returning failure), depending on TCP stack timing.
 // - The key invariant is that the Session handles it gracefully without crash.
-TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
+TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash)
+{
     auto [server_sock, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server_sock), 0));
 
@@ -164,11 +175,11 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
 
     // Try to send from the server side -- should handle the error gracefully
     std::vector<uint8_t> payload = {0xDE, 0xAD};
-    WireHeader header{.msg_id = 0x0001,
-                      .body_size = static_cast<uint32_t>(payload.size())};
+    WireHeader header{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload.size())};
     auto result = run_coro(io_ctx_, session->async_send(header, payload));
     // Send may succeed (buffered) or fail (connection reset).
-    if (result.has_value()) {
+    if (result.has_value())
+    {
         io_ctx_.run_for(std::chrono::milliseconds(10));
         io_ctx_.restart();
         auto result2 = run_coro(io_ctx_, session->async_send(header, payload));
@@ -181,7 +192,8 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash) {
     EXPECT_FALSE(session->is_open());
 }
 
-TEST_F(SessionTest, IntrusiveRefcount) {
+TEST_F(SessionTest, IntrusiveRefcount)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     auto* raw = new Session(1, std::move(server), 0, 8192);
 
@@ -199,7 +211,8 @@ TEST_F(SessionTest, IntrusiveRefcount) {
     client.close();
 }
 
-TEST_F(SessionTest, IntrusiveMoveSemantics) {
+TEST_F(SessionTest, IntrusiveMoveSemantics)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     auto* raw = new Session(1, std::move(server), 0, 8192);
 
@@ -215,7 +228,8 @@ TEST_F(SessionTest, IntrusiveMoveSemantics) {
 
 // --- Write Queue Tests (v0.5 C-prep) ---
 
-TEST_F(SessionTest, EnqueueWriteAndReceive) {
+TEST_F(SessionTest, EnqueueWriteAndReceive)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -234,14 +248,16 @@ TEST_F(SessionTest, EnqueueWriteAndReceive) {
     client.close();
 }
 
-TEST_F(SessionTest, EnqueueWriteBufferFull) {
+TEST_F(SessionTest, EnqueueWriteBufferFull)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
     // Fill the queue to max_queue_depth_ (default: 256).
     // Don't run io_context so write_pump doesn't drain the queue.
     constexpr size_t kDefaultMaxQueueDepth = 256;
-    for (size_t i = 0; i < kDefaultMaxQueueDepth; ++i) {
+    for (size_t i = 0; i < kDefaultMaxQueueDepth; ++i)
+    {
         auto result = session->enqueue_write({0x01});
         ASSERT_TRUE(result.has_value()) << "enqueue failed at i=" << i;
     }
@@ -257,7 +273,8 @@ TEST_F(SessionTest, EnqueueWriteBufferFull) {
     client.close();
 }
 
-TEST_F(SessionTest, EnqueueWriteAfterClose) {
+TEST_F(SessionTest, EnqueueWriteAfterClose)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -271,7 +288,8 @@ TEST_F(SessionTest, EnqueueWriteAfterClose) {
     client.close();
 }
 
-TEST_F(SessionTest, EnqueueWriteRawAndReceive) {
+TEST_F(SessionTest, EnqueueWriteRawAndReceive)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 
@@ -291,7 +309,8 @@ TEST_F(SessionTest, EnqueueWriteRawAndReceive) {
     client.close();
 }
 
-TEST_F(SessionTest, EnqueueWriteFIFOOrder) {
+TEST_F(SessionTest, EnqueueWriteFIFOOrder)
+{
     auto [server, client] = make_socket_pair(io_ctx_);
     SessionPtr session(new Session(1, std::move(server), 0));
 

@@ -1,22 +1,25 @@
 #include <apex/core/ring_buffer.hpp>
-#include <gtest/gtest.h>
 #include <cstring>
+#include <gtest/gtest.h>
 
 using namespace apex::core;
 
-TEST(RingBuffer, Construction) {
+TEST(RingBuffer, Construction)
+{
     RingBuffer rb(1024);
     EXPECT_EQ(rb.capacity(), 1024u);
     EXPECT_EQ(rb.readable_size(), 0u);
     EXPECT_EQ(rb.writable_size(), 1024u);
 }
 
-TEST(RingBuffer, CapacityRoundsUp) {
+TEST(RingBuffer, CapacityRoundsUp)
+{
     RingBuffer rb(1000);
     EXPECT_EQ(rb.capacity(), 1024u);
 }
 
-TEST(RingBuffer, WriteAndRead) {
+TEST(RingBuffer, WriteAndRead)
+{
     RingBuffer rb(64);
     const uint8_t data[] = {1, 2, 3, 4, 5};
 
@@ -36,7 +39,8 @@ TEST(RingBuffer, WriteAndRead) {
     EXPECT_EQ(rb.readable_size(), 0u);
 }
 
-TEST(RingBuffer, WrapAround) {
+TEST(RingBuffer, WrapAround)
+{
     RingBuffer rb(8);
     uint8_t data4[4] = {10, 20, 30, 40};
 
@@ -53,7 +57,8 @@ TEST(RingBuffer, WrapAround) {
     std::memcpy(w.data(), data6, first);
     rb.commit_write(first);
 
-    if (first < 6) {
+    if (first < 6)
+    {
         w = rb.writable();
         std::memcpy(w.data(), data6 + first, 6 - first);
         rb.commit_write(6 - first);
@@ -64,7 +69,8 @@ TEST(RingBuffer, WrapAround) {
     EXPECT_LE(r.size(), 6u);
 }
 
-TEST(RingBuffer, Linearize_Contiguous) {
+TEST(RingBuffer, Linearize_Contiguous)
+{
     RingBuffer rb(64);
     uint8_t data[] = {1, 2, 3, 4, 5};
     auto w = rb.writable();
@@ -77,7 +83,8 @@ TEST(RingBuffer, Linearize_Contiguous) {
     EXPECT_EQ(span[4], 5);
 }
 
-TEST(RingBuffer, Linearize_WrapAround) {
+TEST(RingBuffer, Linearize_WrapAround)
+{
     RingBuffer rb(8);
 
     // Fill and consume 6 bytes to advance read/write positions
@@ -93,7 +100,8 @@ TEST(RingBuffer, Linearize_WrapAround) {
     size_t first = std::min(w.size(), size_t(4));
     std::memcpy(w.data(), data, first);
     rb.commit_write(first);
-    if (first < 4) {
+    if (first < 4)
+    {
         w = rb.writable();
         std::memcpy(w.data(), data + first, 4 - first);
         rb.commit_write(4 - first);
@@ -108,7 +116,8 @@ TEST(RingBuffer, Linearize_WrapAround) {
 }
 
 // T3: Wrap-around data integrity - verify all bytes after linearize
-TEST(RingBuffer, WrapAroundDataIntegrity) {
+TEST(RingBuffer, WrapAroundDataIntegrity)
+{
     RingBuffer rb(8);
 
     // Advance write/read positions to force wrap
@@ -124,7 +133,8 @@ TEST(RingBuffer, WrapAroundDataIntegrity) {
     size_t first = std::min(w.size(), size_t(6));
     std::memcpy(w.data(), data, first);
     rb.commit_write(first);
-    if (first < 6) {
+    if (first < 6)
+    {
         w = rb.writable();
         std::memcpy(w.data(), data + first, 6 - first);
         rb.commit_write(6 - first);
@@ -143,13 +153,15 @@ TEST(RingBuffer, WrapAroundDataIntegrity) {
     EXPECT_EQ(span[5], 60);
 }
 
-TEST(RingBuffer, Linearize_NotEnoughData) {
+TEST(RingBuffer, Linearize_NotEnoughData)
+{
     RingBuffer rb(16);
     auto span = rb.linearize(5);
     EXPECT_TRUE(span.empty());
 }
 
-TEST(RingBuffer, WritableEmptyWhenFull) {
+TEST(RingBuffer, WritableEmptyWhenFull)
+{
     RingBuffer rb(8);
     // Fill the entire buffer
     uint8_t data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
@@ -163,7 +175,8 @@ TEST(RingBuffer, WritableEmptyWhenFull) {
     EXPECT_EQ(rb.readable_size(), 8u);
 }
 
-TEST(RingBuffer, MinCapacityOneWorks) {
+TEST(RingBuffer, MinCapacityOneWorks)
+{
     RingBuffer rb(1);
     // capacity=1 rounds up to 1 (power of 2)
     EXPECT_GE(rb.capacity(), 1u);
@@ -201,7 +214,8 @@ TEST(RingBuffer, MinCapacityOneWorks) {
     rb.consume(1);
 }
 
-TEST(RingBuffer, Reset) {
+TEST(RingBuffer, Reset)
+{
     RingBuffer rb(16);
     uint8_t d[8] = {};
     auto w = rb.writable();
@@ -215,7 +229,8 @@ TEST(RingBuffer, Reset) {
 
 // --- capacity=0 boundary test ---
 
-TEST(RingBuffer, CapacityZeroRoundsUp) {
+TEST(RingBuffer, CapacityZeroRoundsUp)
+{
     // next_power_of_2(0) returns 1, but RingBuffer constructor clamps to max(1, capacity)
     // before calling next_power_of_2, so capacity=0 → 1.
     RingBuffer rb(0);
@@ -238,7 +253,8 @@ TEST(RingBuffer, CapacityZeroRoundsUp) {
 
 // --- linearize → partial consume → linearize composite test ---
 
-TEST(RingBuffer, LinearizeConsumeLinearizeComposite) {
+TEST(RingBuffer, LinearizeConsumeLinearizeComposite)
+{
     RingBuffer rb(8);
 
     // Advance positions to force wrap-around
@@ -254,7 +270,8 @@ TEST(RingBuffer, LinearizeConsumeLinearizeComposite) {
     size_t first = std::min(w.size(), size_t(6));
     std::memcpy(w.data(), data, first);
     rb.commit_write(first);
-    if (first < 6) {
+    if (first < 6)
+    {
         w = rb.writable();
         std::memcpy(w.data(), data + first, 6 - first);
         rb.commit_write(6 - first);
@@ -281,7 +298,8 @@ TEST(RingBuffer, LinearizeConsumeLinearizeComposite) {
 
 // --- write() method tests ---
 
-TEST(RingBuffer, WriteMethodBasic) {
+TEST(RingBuffer, WriteMethodBasic)
+{
     RingBuffer rb(16);
     std::vector<uint8_t> data = {1, 2, 3, 4, 5};
     EXPECT_TRUE(rb.write(data));
@@ -293,7 +311,8 @@ TEST(RingBuffer, WriteMethodBasic) {
     EXPECT_EQ(r[4], 5);
 }
 
-TEST(RingBuffer, WriteMethodWrapAround) {
+TEST(RingBuffer, WriteMethodWrapAround)
+{
     RingBuffer rb(8);
 
     // Advance to force wrap
@@ -311,12 +330,14 @@ TEST(RingBuffer, WriteMethodWrapAround) {
     // Verify via linearize
     auto span = rb.linearize(6);
     ASSERT_EQ(span.size(), 6u);
-    for (size_t i = 0; i < 6; ++i) {
+    for (size_t i = 0; i < 6; ++i)
+    {
         EXPECT_EQ(span[i], data[i]);
     }
 }
 
-TEST(RingBuffer, WriteMethodInsufficientSpace) {
+TEST(RingBuffer, WriteMethodInsufficientSpace)
+{
     RingBuffer rb(8);
 
     // Fill 6 of 8 bytes

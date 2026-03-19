@@ -1,6 +1,6 @@
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
-#include <gtest/gtest.h>
 #include <boost/asio/io_context.hpp>
+#include <gtest/gtest.h>
 #include <hiredis/hiredis.h>
 
 #include <cstring>
@@ -8,7 +8,8 @@
 using namespace apex::shared::adapters::redis;
 
 // --- TC1: 기본 생성 + 초기 상태 ---
-TEST(RedisMultiplexer, ConstructWithConfig) {
+TEST(RedisMultiplexer, ConstructWithConfig)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     config.host = "localhost";
@@ -18,7 +19,8 @@ TEST(RedisMultiplexer, ConstructWithConfig) {
 }
 
 // --- TC2: 초기 상태 세부 검증 ---
-TEST(RedisMultiplexer, InitialState) {
+TEST(RedisMultiplexer, InitialState)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     RedisMultiplexer mux(io_ctx, config);
@@ -28,7 +30,8 @@ TEST(RedisMultiplexer, InitialState) {
 }
 
 // --- TC3: reconnect 상태 전이 (서버 없음) ---
-TEST(RedisMultiplexer, ReconnectStateTransition) {
+TEST(RedisMultiplexer, ReconnectStateTransition)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     config.reconnect_max_backoff = std::chrono::milliseconds{100};
@@ -37,7 +40,8 @@ TEST(RedisMultiplexer, ReconnectStateTransition) {
 }
 
 // --- TC4: 연결 끊김 상태에서 command 거부 (connected=false 확인) ---
-TEST(RedisMultiplexer, CommandWhileDisconnectedReturnsError) {
+TEST(RedisMultiplexer, CommandWhileDisconnectedReturnsError)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     RedisMultiplexer mux(io_ctx, config);
@@ -46,7 +50,8 @@ TEST(RedisMultiplexer, CommandWhileDisconnectedReturnsError) {
 }
 
 // --- TC5: close 후 상태 확인 ---
-TEST(RedisMultiplexer, CloseResetsPendingState) {
+TEST(RedisMultiplexer, CloseResetsPendingState)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     RedisMultiplexer mux(io_ctx, config);
@@ -58,7 +63,8 @@ TEST(RedisMultiplexer, CloseResetsPendingState) {
 }
 
 // --- TC6: 다른 설정 값으로 생성 ---
-TEST(RedisMultiplexer, ConstructWithCustomConfig) {
+TEST(RedisMultiplexer, ConstructWithCustomConfig)
+{
     boost::asio::io_context io_ctx;
     RedisConfig config;
     config.host = "192.168.1.100";
@@ -78,7 +84,8 @@ TEST(RedisMultiplexer, ConstructWithCustomConfig) {
 // ==========================================================================
 
 // --- TC7: redisFormatCommand 기본 %s 파라미터 바인딩 ---
-TEST(RedisMultiplexer, FormatCommandBasicString) {
+TEST(RedisMultiplexer, FormatCommandBasicString)
+{
     char* buf = nullptr;
     int len = redisFormatCommand(&buf, "GET %s", "mykey");
     ASSERT_GT(len, 0);
@@ -92,7 +99,8 @@ TEST(RedisMultiplexer, FormatCommandBasicString) {
 }
 
 // --- TC8: redisFormatCommand %d 정수 파라미터 바인딩 ---
-TEST(RedisMultiplexer, FormatCommandIntegerParam) {
+TEST(RedisMultiplexer, FormatCommandIntegerParam)
+{
     char* buf = nullptr;
     int len = redisFormatCommand(&buf, "SETEX %s %d %s", "sess:123", 3600, "data");
     ASSERT_GT(len, 0);
@@ -107,7 +115,8 @@ TEST(RedisMultiplexer, FormatCommandIntegerParam) {
 }
 
 // --- TC9: 특수문자 이스케이핑 — 공백/개행 포함 값이 안전하게 전달됨 ---
-TEST(RedisMultiplexer, FormatCommandSpecialCharsEscaped) {
+TEST(RedisMultiplexer, FormatCommandSpecialCharsEscaped)
+{
     const char* value = "hello world\r\ninjection";
     char* buf = nullptr;
     int len = redisFormatCommand(&buf, "SET %s %s", "key", value);
@@ -122,7 +131,8 @@ TEST(RedisMultiplexer, FormatCommandSpecialCharsEscaped) {
 }
 
 // --- TC10: 빈 포맷 문자열 처리 ---
-TEST(RedisMultiplexer, FormatCommandEmptyArgs) {
+TEST(RedisMultiplexer, FormatCommandEmptyArgs)
+{
     char* buf = nullptr;
     int len = redisFormatCommand(&buf, "PING");
     ASSERT_GT(len, 0);

@@ -5,11 +5,13 @@
 
 using namespace apex::core;
 
-static void BM_RingBuffer_WriteRead(benchmark::State& state) {
+static void BM_RingBuffer_WriteRead(benchmark::State& state)
+{
     auto payload_size = static_cast<size_t>(state.range(0));
     RingBuffer rb(payload_size * 4);
     std::vector<uint8_t> data(payload_size, 0xAB);
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         rb.write(data);
         auto readable = rb.contiguous_read();
         benchmark::DoNotOptimize(readable.data());
@@ -19,14 +21,16 @@ static void BM_RingBuffer_WriteRead(benchmark::State& state) {
 }
 BENCHMARK(BM_RingBuffer_WriteRead)->Range(64, 4096);
 
-static void BM_RingBuffer_Linearize(benchmark::State& state) {
+static void BM_RingBuffer_Linearize(benchmark::State& state)
+{
     auto payload_size = static_cast<size_t>(state.range(0));
     RingBuffer rb(payload_size * 2);
     std::vector<uint8_t> data(payload_size, 0xAB);
     // Fill halfway to force wrap-around on second write
     rb.write(std::span<const uint8_t>(data.data(), payload_size / 2));
     rb.consume(payload_size / 2);
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         rb.write(data);
         auto span = rb.linearize(payload_size);
         benchmark::DoNotOptimize(span.data());

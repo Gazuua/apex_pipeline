@@ -8,9 +8,9 @@
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/periodic_task_scheduler.hpp>
+#include <apex/core/service_base.hpp>
 #include <apex/core/service_registry.hpp>
 #include <apex/core/session_manager.hpp>
-#include <apex/core/service_base.hpp>
 #include <apex/core/transport.hpp>
 
 #include <spdlog/spdlog.h>
@@ -34,15 +34,18 @@
 
 // Forward declaration — template instantiation happens at the call site
 // where the caller includes <apex/shared/adapters/adapter_base.hpp>.
-namespace apex::shared::adapters {
+namespace apex::shared::adapters
+{
 template <typename Derived> class AdapterWrapper;
 } // namespace apex::shared::adapters
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// 어댑터 다중 등록을 위한 복합 키 (type + role).
 /// 동일 타입의 어댑터를 역할(role)로 구분하여 다중 등록할 수 있다.
-struct AdapterKey {
+struct AdapterKey
+{
     std::type_index type;
     std::string role;
 
@@ -50,18 +53,20 @@ struct AdapterKey {
 };
 
 /// AdapterKey용 해시 함수.
-struct AdapterKeyHash {
-    size_t operator()(const AdapterKey& k) const {
-        return std::hash<std::type_index>{}(k.type)
-             ^ (std::hash<std::string>{}(k.role) << 1);
+struct AdapterKeyHash
+{
+    size_t operator()(const AdapterKey& k) const
+    {
+        return std::hash<std::type_index>{}(k.type) ^ (std::hash<std::string>{}(k.role) << 1);
     }
 };
 
 /// Server configuration. Fields are ordered for designated-initializer convenience.
-struct ServerConfig {
+struct ServerConfig
+{
     // Network (bind_address deferred — TcpAcceptor defaults to 0.0.0.0)
     // port 제거 — listen<P>(port, config)으로 대체
-    bool tcp_nodelay = true;  // Disable Nagle's algorithm for low-latency
+    bool tcp_nodelay = true; // Disable Nagle's algorithm for low-latency
 
     // Multicore
     uint32_t num_cores = 1;
@@ -69,24 +74,24 @@ struct ServerConfig {
     std::chrono::milliseconds tick_interval{100};
 
     // Session
-    uint32_t heartbeat_timeout_ticks = 300;  // 0 = disabled
+    uint32_t heartbeat_timeout_ticks = 300; // 0 = disabled
     size_t recv_buf_capacity = 8192;
     size_t timer_wheel_slots = 1024;
 
     // Platform I/O
-    bool reuseport = false;  // Linux: per-core SO_REUSEPORT, Windows: ignored
+    bool reuseport = false; // Linux: per-core SO_REUSEPORT, Windows: ignored
 
     // Lifecycle
     bool handle_signals = true;
-    std::chrono::seconds drain_timeout{25};  // Graceful Shutdown drain timeout
+    std::chrono::seconds drain_timeout{25}; // Graceful Shutdown drain timeout
 
     // Cross-core call
     std::chrono::milliseconds cross_core_call_timeout{5000};
 
     // Memory allocators (per-core)
-    std::size_t bump_capacity_bytes = 64 * 1024;    // 64KB
-    std::size_t arena_block_bytes = 4096;            // 4KB
-    std::size_t arena_max_bytes = 1024 * 1024;       // 1MB
+    std::size_t bump_capacity_bytes = 64 * 1024; // 64KB
+    std::size_t arena_block_bytes = 4096;        // 4KB
+    std::size_t arena_max_bytes = 1024 * 1024;   // 1MB
 };
 
 /// Per-core isolated state (shared-nothing). Each core owns its own
@@ -96,7 +101,8 @@ struct ServerConfig {
 /// Members are destroyed in reverse declaration order:
 ///   allocators → services → scheduler → registry → session_mgr
 /// services가 scheduler/registry보다 먼저 소멸되어 안전한 정리 보장.
-struct PerCoreState {
+struct PerCoreState
+{
     uint32_t core_id;
     SessionManager session_mgr;
     // Fallback dispatcher — 리스너 없는 서비스(Kafka-only)용.
@@ -116,9 +122,8 @@ struct PerCoreState {
     BumpAllocator bump_allocator;
     ArenaAllocator arena_allocator;
 
-    explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks,
-                          size_t timer_wheel_slots, size_t recv_buf_capacity,
-                          size_t bump_capacity, size_t arena_block, size_t arena_max);
+    explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks, size_t timer_wheel_slots,
+                          size_t recv_buf_capacity, size_t bump_capacity, size_t arena_block, size_t arena_max);
 };
 
 /// Multicore server — io_context-per-core architecture.
@@ -130,8 +135,9 @@ struct PerCoreState {
 ///       })
 ///       .add_service<EchoService>()
 ///       .run();   // blocks until stop() or signal
-class Server {
-public:
+class Server
+{
+  public:
     using Config = ServerConfig;
 
     explicit Server(ServerConfig config);
@@ -142,16 +148,16 @@ public:
 
     /// 프로토콜별 리스너 등록. 포트 분리.
     /// listen<P>()는 run() 전에 호출해야 한다.
-    template<Protocol P, Transport T = DefaultTransport>
-    Server& listen(uint16_t port, typename P::Config config = {}) {
+    template <Protocol P, Transport T = DefaultTransport> Server& listen(uint16_t port, typename P::Config config = {})
+    {
         std::vector<SessionManager*> mgrs;
-        for (auto& state : per_core_) {
+        for (auto& state : per_core_)
+        {
             mgrs.push_back(&state->session_mgr);
         }
         ConnectionHandlerConfig handler_config{.tcp_nodelay = config_.tcp_nodelay};
-        auto listener = std::make_unique<Listener<P, T>>(
-            port, std::move(config), *core_engine_, std::move(mgrs),
-            handler_config, config_.reuseport);
+        auto listener = std::make_unique<Listener<P, T>>(port, std::move(config), *core_engine_, std::move(mgrs),
+                                                         handler_config, config_.reuseport);
 
         // 서비스 바인딩: 기존에 등록된 서비스 팩토리는 첫 번째 listener의
         // dispatcher에 바인딩된다. 다중 프로토콜 시 서비스별 dispatcher 분리는
@@ -164,32 +170,29 @@ public:
     /// Args are copy-captured for per-core construction. Supports chaining.
     /// Note: Args are copied for each core. For move-only arguments,
     /// use add_service_factory() instead.
-    template <typename T, typename... Args>
-    Server& add_service(Args&&... args) {
+    template <typename T, typename... Args> Server& add_service(Args&&... args)
+    {
         service_factories_.push_back(
-            [args...](PerCoreState& state, MessageDispatcher& dispatcher)
-                -> std::unique_ptr<ServiceBaseInterface> {
+            [args...](PerCoreState& state, MessageDispatcher& dispatcher) -> std::unique_ptr<ServiceBaseInterface> {
                 auto svc = std::make_unique<T>(args...);
                 svc->bind_dispatcher(dispatcher);
                 return svc;
-            }
-        );
+            });
         return *this;
     }
 
     /// Register a factory that receives PerCoreState for per-core injection.
     /// Use when services need SessionManager or other per-core state.
     /// Factory signature: (PerCoreState&) -> unique_ptr<ServiceBaseInterface>
-    template <typename Factory>
-    Server& add_service_factory(Factory&& factory) {
+    template <typename Factory> Server& add_service_factory(Factory&& factory)
+    {
         service_factories_.push_back(
-            [f = std::forward<Factory>(factory)](PerCoreState& state, MessageDispatcher& dispatcher)
-                -> std::unique_ptr<ServiceBaseInterface> {
+            [f = std::forward<Factory>(factory)](
+                PerCoreState& state, MessageDispatcher& dispatcher) -> std::unique_ptr<ServiceBaseInterface> {
                 auto svc = f(state);
                 svc->bind_dispatcher(dispatcher);
                 return svc;
-            }
-        );
+            });
         return *this;
     }
 
@@ -197,10 +200,9 @@ public:
     /// 체이닝 지원. 등록 순서는 무관 — run()에서 서비스보다 먼저 초기화됨.
     /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
     ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
-    template <typename T, typename... Args>
-    Server& add_adapter(std::string role, Args&&... args) {
-        auto wrapper = std::make_unique<apex::shared::adapters::AdapterWrapper<T>>(
-            std::forward<Args>(args)...);
+    template <typename T, typename... Args> Server& add_adapter(std::string role, Args&&... args)
+    {
+        auto wrapper = std::make_unique<apex::shared::adapters::AdapterWrapper<T>>(std::forward<Args>(args)...);
         auto* raw = wrapper.get();
         AdapterKey key{std::type_index(typeid(T)), std::move(role)};
         adapter_map_[key] = raw;
@@ -214,24 +216,22 @@ public:
     ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
     /// @note role 오버로드와의 모호성 방지: 첫 번째 인자가 std::string 변환 가능하면 비활성화.
     template <typename T, typename First, typename... Rest,
-              std::enable_if_t<
-                  !std::is_convertible_v<std::decay_t<First>, std::string>, int> = 0>
-    Server& add_adapter(First&& first, Rest&&... rest) {
-        return add_adapter<T>(std::string("default"),
-                              std::forward<First>(first),
-                              std::forward<Rest>(rest)...);
+              std::enable_if_t<!std::is_convertible_v<std::decay_t<First>, std::string>, int> = 0>
+    Server& add_adapter(First&& first, Rest&&... rest)
+    {
+        return add_adapter<T>(std::string("default"), std::forward<First>(first), std::forward<Rest>(rest)...);
     }
 
     /// 어댑터 등록 (인자 없음, role = "default"). 기존 API 호환.
-    template <typename T>
-    Server& add_adapter() {
+    template <typename T> Server& add_adapter()
+    {
         return add_adapter<T>(std::string("default"));
     }
 
     /// 등록된 어댑터 접근 (타입 + 역할 기반). 미등록 시 assert 실패.
     /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
-    template <typename T>
-    T& adapter(std::string_view role = "default") const {
+    template <typename T> T& adapter(std::string_view role = "default") const
+    {
         AdapterKey key{std::type_index(typeid(T)), std::string(role)};
         auto it = adapter_map_.find(key);
         assert(it != adapter_map_.end() && "Adapter not registered");
@@ -242,16 +242,23 @@ public:
     /// but before CoreEngine starts. Use for wiring cross-cutting concerns
     /// (e.g., ResponseDispatcher) that need both service and adapter refs.
     using PostInitCallback = std::function<void(Server&)>;
-    Server& set_post_init_callback(PostInitCallback cb) {
+    Server& set_post_init_callback(PostInitCallback cb)
+    {
         post_init_cb_ = std::move(cb);
         return *this;
     }
 
     /// Access CoreEngine (available after run() enters init phase).
-    [[nodiscard]] CoreEngine& core_engine() noexcept { return *core_engine_; }
+    [[nodiscard]] CoreEngine& core_engine() noexcept
+    {
+        return *core_engine_;
+    }
 
     /// Access per-core state (for ResponseDispatcher wiring etc.)
-    [[nodiscard]] PerCoreState& per_core_state(uint32_t core_id) { return *per_core_[core_id]; }
+    [[nodiscard]] PerCoreState& per_core_state(uint32_t core_id)
+    {
+        return *per_core_[core_id];
+    }
 
     /// Blocking run. Owns all io_contexts and threads internally.
     void run();
@@ -279,11 +286,12 @@ public:
     /// [D3] Cross-core 공유 자원 등록/접근. 최초 호출 시 factory 실행, 이후 동일 T 반환.
     /// on_wire() 단계에서 사용. Server가 수명 관리, 서비스는 raw pointer로 참조.
     /// @note on_wire는 메인 스레드에서 순차 실행되므로 동기화 불필요.
-    template<typename T, typename Factory>
-    T& global(Factory&& factory) {
+    template <typename T, typename Factory> T& global(Factory&& factory)
+    {
         auto key = std::type_index(typeid(T));
         auto it = globals_.find(key);
-        if (it == globals_.end()) {
+        if (it == globals_.end())
+        {
             auto holder = std::make_unique<TypedGlobalHolder<T>>(std::forward<Factory>(factory));
             auto& ref = holder->value;
             globals_.emplace(key, std::move(holder));
@@ -294,43 +302,41 @@ public:
 
     /// Execute func on target_core and co_await the result (coroutine).
     /// Overload without timeout uses config_.cross_core_call_timeout.
-    template <typename F>
-    auto cross_core_call(uint32_t target_core, F&& func) {
-        return apex::core::cross_core_call(
-            *core_engine_, target_core, std::forward<F>(func),
-            config_.cross_core_call_timeout);
+    template <typename F> auto cross_core_call(uint32_t target_core, F&& func)
+    {
+        return apex::core::cross_core_call(*core_engine_, target_core, std::forward<F>(func),
+                                           config_.cross_core_call_timeout);
     }
 
     /// Execute func on target_core with explicit timeout.
-    template <typename F>
-    auto cross_core_call(uint32_t target_core, F&& func,
-                         std::chrono::milliseconds timeout) {
-        return apex::core::cross_core_call(
-            *core_engine_, target_core, std::forward<F>(func), timeout);
+    template <typename F> auto cross_core_call(uint32_t target_core, F&& func, std::chrono::milliseconds timeout)
+    {
+        return apex::core::cross_core_call(*core_engine_, target_core, std::forward<F>(func), timeout);
     }
 
     /// Fire-and-forget execution on target core.
-    template <typename F>
-    Result<void> cross_core_post(uint32_t target_core, F&& func) {
-        return apex::core::cross_core_post(
-            *core_engine_, target_core, std::forward<F>(func));
+    template <typename F> Result<void> cross_core_post(uint32_t target_core, F&& func)
+    {
+        return apex::core::cross_core_post(*core_engine_, target_core, std::forward<F>(func));
     }
 
-private:
+  private:
     // [D3] Cross-core global resource holder (type-erased).
-    struct GlobalHolder {
+    struct GlobalHolder
+    {
         virtual ~GlobalHolder() = default;
     };
 
-    template<typename T>
-    struct TypedGlobalHolder : GlobalHolder {
+    template <typename T> struct TypedGlobalHolder : GlobalHolder
+    {
         T value;
-        template<typename Factory>
-        explicit TypedGlobalHolder(Factory&& f) : value(std::forward<Factory>(f)()) {}
+        template <typename Factory>
+        explicit TypedGlobalHolder(Factory&& f)
+            : value(std::forward<Factory>(f)())
+        {}
     };
 
-    using ServiceFactory = std::function<
-        std::unique_ptr<ServiceBaseInterface>(PerCoreState&, MessageDispatcher&)>;
+    using ServiceFactory = std::function<std::unique_ptr<ServiceBaseInterface>(PerCoreState&, MessageDispatcher&)>;
 
     void begin_shutdown();
     void poll_shutdown();
@@ -355,10 +361,10 @@ private:
 
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
-    std::atomic<uint32_t> run_count_{0};  // I-21: prevent re-entry
+    std::atomic<uint32_t> run_count_{0}; // I-21: prevent re-entry
     std::unique_ptr<boost::asio::steady_timer> shutdown_timer_;
     std::chrono::steady_clock::time_point shutdown_deadline_;
-    std::shared_ptr<spdlog::logger> logger_;  // I-09: cached logger
+    std::shared_ptr<spdlog::logger> logger_; // I-09: cached logger
 };
 
 } // namespace apex::core

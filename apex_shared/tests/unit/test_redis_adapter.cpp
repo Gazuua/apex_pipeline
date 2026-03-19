@@ -1,7 +1,7 @@
+#include <apex/core/core_engine.hpp>
+#include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
-#include <apex/shared/adapters/adapter_base.hpp>
-#include <apex/core/core_engine.hpp>
 #include <gtest/gtest.h>
 
 using namespace apex::shared::adapters::redis;
@@ -9,19 +9,22 @@ using namespace apex::shared::adapters;
 using apex::core::CoreEngine;
 using apex::core::CoreEngineConfig;
 
-TEST(RedisAdapter, Name) {
+TEST(RedisAdapter, Name)
+{
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.name(), "redis");
 }
 
-TEST(RedisAdapter, NotReadyBeforeInit) {
+TEST(RedisAdapter, NotReadyBeforeInit)
+{
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(RedisAdapter, InitCreatesPerCoreMultiplexers) {
+TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
+{
     RedisConfig config{
         .host = "localhost",
         .port = 6379,
@@ -41,7 +44,8 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers) {
     EXPECT_NO_THROW((void)adapter.multiplexer(3));
 }
 
-TEST(RedisAdapter, DrainSetsNotReady) {
+TEST(RedisAdapter, DrainSetsNotReady)
+{
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
@@ -54,7 +58,8 @@ TEST(RedisAdapter, DrainSetsNotReady) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(RedisAdapter, CloseCallsCleanup) {
+TEST(RedisAdapter, CloseCallsCleanup)
+{
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
@@ -67,7 +72,8 @@ TEST(RedisAdapter, CloseCallsCleanup) {
     EXPECT_FALSE(adapter.is_ready());
 }
 
-TEST(RedisAdapter, TypeErasureViaWrapper) {
+TEST(RedisAdapter, TypeErasureViaWrapper)
+{
     RedisConfig config;
     auto wrapper = std::make_unique<AdapterWrapper<RedisAdapter>>(config);
     apex::core::AdapterInterface* iface = wrapper.get();
@@ -80,7 +86,8 @@ TEST(RedisAdapter, TypeErasureViaWrapper) {
     EXPECT_EQ(adapter.name(), "redis");
 }
 
-TEST(RedisAdapter, ConfigAccessible) {
+TEST(RedisAdapter, ConfigAccessible)
+{
     RedisConfig config{
         .host = "redis.local",
         .port = 6380,
@@ -90,14 +97,16 @@ TEST(RedisAdapter, ConfigAccessible) {
     EXPECT_EQ(adapter.config().port, 6380);
 }
 
-TEST(RedisAdapter, CloseWithoutInit) {
+TEST(RedisAdapter, CloseWithoutInit)
+{
     // close() without init() should not crash
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_NO_THROW(adapter.close());
 }
 
-TEST(RedisAdapter, DoubleInit) {
+TEST(RedisAdapter, DoubleInit)
+{
     // Double init — should not crash
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
@@ -110,7 +119,8 @@ TEST(RedisAdapter, DoubleInit) {
     EXPECT_NO_THROW(adapter.init(engine));
 }
 
-TEST(RedisAdapter, ActiveConnectionsInitiallyZero) {
+TEST(RedisAdapter, ActiveConnectionsInitiallyZero)
+{
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
@@ -125,14 +135,16 @@ TEST(RedisAdapter, ActiveConnectionsInitiallyZero) {
     EXPECT_LE(adapter.active_connections(), 2u);
 }
 
-TEST(RedisAdapter, DrainWithoutInit) {
+TEST(RedisAdapter, DrainWithoutInit)
+{
     // drain() without init() should not crash
     RedisConfig config;
     RedisAdapter adapter(config);
     EXPECT_NO_THROW(adapter.drain());
 }
 
-TEST(RedisAdapter, FullLifecycle) {
+TEST(RedisAdapter, FullLifecycle)
+{
     // init -> drain -> close full lifecycle
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 2, .mpsc_queue_capacity = 64};
@@ -154,7 +166,8 @@ TEST(RedisAdapter, FullLifecycle) {
     EXPECT_NO_THROW(adapter.init(engine));
 }
 
-TEST(RedisAdapter, MultiplexerInitialState) {
+TEST(RedisAdapter, MultiplexerInitialState)
+{
     RedisConfig config;
     CoreEngineConfig engine_config{.num_cores = 1, .mpsc_queue_capacity = 64};
     CoreEngine engine(engine_config);
@@ -169,7 +182,8 @@ TEST(RedisAdapter, MultiplexerInitialState) {
     EXPECT_EQ(mux.pending_count(), 0u);
 }
 
-TEST(RedisAdapter, ActiveConnectionsWithoutInit) {
+TEST(RedisAdapter, ActiveConnectionsWithoutInit)
+{
     // active_connections before init should return 0
     RedisConfig config;
     RedisAdapter adapter(config);

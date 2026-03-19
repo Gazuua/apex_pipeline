@@ -1,20 +1,24 @@
-#include <apex/core/arena_allocator.hpp>
 #include <algorithm>
+#include <apex/core/arena_allocator.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <utility>
 
-namespace apex::core {
+namespace apex::core
+{
 
 ArenaAllocator::ArenaAllocator(std::size_t block_size, std::size_t max_bytes)
     : block_size_(block_size)
     , max_bytes_(max_bytes)
-    , total_allocated_(block_size) {
+    , total_allocated_(block_size)
+{
     blocks_.push_back(make_block(block_size_));
 }
 
-ArenaAllocator::~ArenaAllocator() {
-    for (auto& block : blocks_) {
+ArenaAllocator::~ArenaAllocator()
+{
+    for (auto& block : blocks_)
+    {
         free_block(block);
     }
 }
@@ -23,13 +27,17 @@ ArenaAllocator::ArenaAllocator(ArenaAllocator&& other) noexcept
     : blocks_(std::move(other.blocks_))
     , block_size_(other.block_size_)
     , max_bytes_(other.max_bytes_)
-    , total_allocated_(other.total_allocated_) {
+    , total_allocated_(other.total_allocated_)
+{
     other.total_allocated_ = 0;
 }
 
-ArenaAllocator& ArenaAllocator::operator=(ArenaAllocator&& other) noexcept {
-    if (this != &other) {
-        for (auto& block : blocks_) free_block(block);
+ArenaAllocator& ArenaAllocator::operator=(ArenaAllocator&& other) noexcept
+{
+    if (this != &other)
+    {
+        for (auto& block : blocks_)
+            free_block(block);
         blocks_ = std::move(other.blocks_);
         block_size_ = other.block_size_;
         max_bytes_ = other.max_bytes_;
@@ -39,9 +47,12 @@ ArenaAllocator& ArenaAllocator::operator=(ArenaAllocator&& other) noexcept {
     return *this;
 }
 
-void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
-    if (size == 0) return nullptr;
-    if (align == 0 || (align & (align - 1)) != 0) return nullptr;
+void* ArenaAllocator::allocate(std::size_t size, std::size_t align)
+{
+    if (size == 0)
+        return nullptr;
+    if (align == 0 || (align & (align - 1)) != 0)
+        return nullptr;
 
     // Try current block first.
     auto& current = blocks_.back();
@@ -52,7 +63,8 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast,performance-no-int-to-ptr)
     auto* new_cursor = result + size;
 
-    if (new_cursor <= current.end) {
+    if (new_cursor <= current.end)
+    {
         current.cursor = new_cursor;
         return result;
     }
@@ -61,8 +73,9 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
     // Alignment padding is at most (align - 1) bytes.
     auto needed = size + (align > 1 ? align - 1 : 0);
     auto new_block_size = std::max(block_size_, needed);
-    if (total_allocated_ + new_block_size > max_bytes_) {
-        return nullptr;  // max_bytes limit exceeded
+    if (total_allocated_ + new_block_size > max_bytes_)
+    {
+        return nullptr; // max_bytes limit exceeded
     }
 
     blocks_.push_back(make_block(new_block_size));
@@ -78,11 +91,14 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align) {
     return result;
 }
 
-void ArenaAllocator::reset() noexcept {
-    if (blocks_.empty()) return;  // moved-from guard
+void ArenaAllocator::reset() noexcept
+{
+    if (blocks_.empty())
+        return; // moved-from guard
 
     // Keep only the first block, free the rest.
-    for (std::size_t i = 1; i < blocks_.size(); ++i) {
+    for (std::size_t i = 1; i < blocks_.size(); ++i)
+    {
         free_block(blocks_[i]);
     }
     blocks_.resize(1);
@@ -90,36 +106,45 @@ void ArenaAllocator::reset() noexcept {
     total_allocated_ = blocks_[0].size;
 }
 
-bool ArenaAllocator::owns(void* ptr) const noexcept {
+bool ArenaAllocator::owns(void* ptr) const noexcept
+{
     auto* p = static_cast<char*>(ptr);
-    for (const auto& block : blocks_) {
-        if (p >= block.base && p < block.end) return true;
+    for (const auto& block : blocks_)
+    {
+        if (p >= block.base && p < block.end)
+            return true;
     }
     return false;
 }
 
-std::size_t ArenaAllocator::used_bytes() const noexcept {
+std::size_t ArenaAllocator::used_bytes() const noexcept
+{
     std::size_t total = 0;
-    for (const auto& block : blocks_) {
+    for (const auto& block : blocks_)
+    {
         total += static_cast<std::size_t>(block.cursor - block.base);
     }
     return total;
 }
 
-std::size_t ArenaAllocator::capacity() const noexcept {
+std::size_t ArenaAllocator::capacity() const noexcept
+{
     return total_allocated_;
 }
 
-ArenaAllocator::Block ArenaAllocator::make_block(std::size_t size) {
+ArenaAllocator::Block ArenaAllocator::make_block(std::size_t size)
+{
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
     auto* base = static_cast<char*>(std::malloc(size));
-    if (base == nullptr) {
+    if (base == nullptr)
+    {
         throw std::bad_alloc();
     }
     return {base, base, base + size, size};
 }
 
-void ArenaAllocator::free_block(Block& block) {
+void ArenaAllocator::free_block(Block& block)
+{
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
     std::free(block.base);
     block.base = nullptr;

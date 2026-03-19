@@ -1,5 +1,5 @@
-#include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/auth_config.hpp>
+#include <apex/auth_svc/auth_service.hpp>
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include "../../../tests/mocks/mock_kafka_adapter.hpp"
@@ -21,29 +21,27 @@ namespace envelope = apex::shared::protocols::kafka;
 // 3. msg_id 상수 정합성
 // ============================================================
 
-namespace {
+namespace
+{
 
 // Auth msg_id constants (mirrored from auth_service.hpp msg_ids)
-namespace msg_ids {
-    constexpr uint32_t LOGIN_REQUEST = 1000;
-    constexpr uint32_t LOGIN_RESPONSE = 1001;
-    constexpr uint32_t LOGOUT_REQUEST = 1002;
-    constexpr uint32_t LOGOUT_RESPONSE = 1003;
-    constexpr uint32_t REFRESH_TOKEN_REQUEST = 1004;
-    constexpr uint32_t REFRESH_TOKEN_RESPONSE = 1005;
+namespace msg_ids
+{
+constexpr uint32_t LOGIN_REQUEST = 1000;
+constexpr uint32_t LOGIN_RESPONSE = 1001;
+constexpr uint32_t LOGOUT_REQUEST = 1002;
+constexpr uint32_t LOGOUT_RESPONSE = 1003;
+constexpr uint32_t REFRESH_TOKEN_REQUEST = 1004;
+constexpr uint32_t REFRESH_TOKEN_RESPONSE = 1005;
 } // namespace msg_ids
 
 /// Envelope 빌드 헬퍼 — RoutingHeader + MetadataPrefix + payload.
-std::vector<uint8_t> build_envelope(
-    uint32_t msg_id,
-    uint64_t corr_id,
-    uint16_t core_id,
-    uint64_t session_id,
-    std::span<const uint8_t> fbs_payload = {})
+std::vector<uint8_t> build_envelope(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+                                    std::span<const uint8_t> fbs_payload = {})
 {
     envelope::RoutingHeader rh;
     rh.header_version = envelope::RoutingHeader::CURRENT_VERSION;
-    rh.flags = 0;  // Request
+    rh.flags = 0; // Request
     rh.msg_id = msg_id;
 
     envelope::MetadataPrefix meta;
@@ -69,7 +67,8 @@ std::vector<uint8_t> build_envelope(
 
 // --- msg_id 상수 정합성 ---
 
-TEST(AuthHandlersTest, MsgIdConstants) {
+TEST(AuthHandlersTest, MsgIdConstants)
+{
     // msg_id 상수가 msg_registry.toml과 일치하는지 확인.
     EXPECT_EQ(msg_ids::LOGIN_REQUEST, 1000u);
     EXPECT_EQ(msg_ids::LOGIN_RESPONSE, 1001u);
@@ -81,7 +80,8 @@ TEST(AuthHandlersTest, MsgIdConstants) {
 
 // --- Envelope 파싱 ---
 
-TEST(AuthHandlersTest, EnvelopeParseLoginRequest) {
+TEST(AuthHandlersTest, EnvelopeParseLoginRequest)
+{
     auto env = build_envelope(msg_ids::LOGIN_REQUEST, 42, 1, 12345);
 
     ASSERT_GE(env.size(), envelope::ENVELOPE_HEADER_SIZE);
@@ -90,30 +90,30 @@ TEST(AuthHandlersTest, EnvelopeParseLoginRequest) {
     ASSERT_TRUE(rh.has_value());
     EXPECT_EQ(rh->msg_id, msg_ids::LOGIN_REQUEST);
 
-    auto meta = envelope::MetadataPrefix::parse(
-        std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
+    auto meta = envelope::MetadataPrefix::parse(std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
     ASSERT_TRUE(meta.has_value());
     EXPECT_EQ(meta->corr_id, 42u);
     EXPECT_EQ(meta->core_id, 1);
     EXPECT_EQ(meta->session_id, 12345u);
 }
 
-TEST(AuthHandlersTest, EnvelopeParseLogoutRequest) {
+TEST(AuthHandlersTest, EnvelopeParseLogoutRequest)
+{
     auto env = build_envelope(msg_ids::LOGOUT_REQUEST, 99, 3, 67890);
 
     auto rh = envelope::RoutingHeader::parse(env);
     ASSERT_TRUE(rh.has_value());
     EXPECT_EQ(rh->msg_id, msg_ids::LOGOUT_REQUEST);
 
-    auto meta = envelope::MetadataPrefix::parse(
-        std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
+    auto meta = envelope::MetadataPrefix::parse(std::span<const uint8_t>(env).subspan(envelope::RoutingHeader::SIZE));
     ASSERT_TRUE(meta.has_value());
     EXPECT_EQ(meta->corr_id, 99u);
 }
 
 // --- Envelope too small ---
 
-TEST(AuthHandlersTest, EnvelopeTooSmallRejected) {
+TEST(AuthHandlersTest, EnvelopeTooSmallRejected)
+{
     std::vector<uint8_t> small(10, 0);
     // Envelope must be at least ENVELOPE_HEADER_SIZE (48) bytes.
     EXPECT_LT(small.size(), envelope::ENVELOPE_HEADER_SIZE);
@@ -121,7 +121,8 @@ TEST(AuthHandlersTest, EnvelopeTooSmallRejected) {
 
 // --- Response Envelope 구조 검증 ---
 
-TEST(AuthHandlersTest, ResponseEnvelopeStructure) {
+TEST(AuthHandlersTest, ResponseEnvelopeStructure)
+{
     // AuthService::send_response가 만드는 응답 Envelope 구조를 재현하여 검증.
     envelope::RoutingHeader routing;
     routing.header_version = envelope::RoutingHeader::CURRENT_VERSION;
@@ -154,36 +155,36 @@ TEST(AuthHandlersTest, ResponseEnvelopeStructure) {
     EXPECT_TRUE((parsed->flags & envelope::routing_flags::DIRECTION_RESPONSE) != 0);
 
     // Verify source_id = AUTH
-    auto meta = envelope::MetadataPrefix::parse(
-        std::span<const uint8_t>(envelope_buf).subspan(envelope::RoutingHeader::SIZE));
+    auto meta =
+        envelope::MetadataPrefix::parse(std::span<const uint8_t>(envelope_buf).subspan(envelope::RoutingHeader::SIZE));
     ASSERT_TRUE(meta.has_value());
     EXPECT_EQ(meta->source_id, envelope::source_ids::AUTH);
 }
 
 // --- MockKafkaAdapter로 produce 콜백 시뮬레이션 ---
 
-TEST(AuthHandlersTest, MockKafkaMessageInjection) {
+TEST(AuthHandlersTest, MockKafkaMessageInjection)
+{
     apex::test::MockKafkaAdapter mock;
 
     // Set callback that simulates AuthService processing
     bool callback_invoked = false;
     uint32_t received_msg_id = 0;
 
-    mock.set_message_callback(
-        [&](std::string_view topic, int32_t /*partition*/,
-            std::span<const uint8_t> /*key*/,
-            std::span<const uint8_t> payload,
-            int64_t /*offset*/) -> apex::core::Result<void> {
-            callback_invoked = true;
+    mock.set_message_callback([&](std::string_view topic, int32_t /*partition*/, std::span<const uint8_t> /*key*/,
+                                  std::span<const uint8_t> payload, int64_t /*offset*/) -> apex::core::Result<void> {
+        callback_invoked = true;
 
-            if (payload.size() >= envelope::ENVELOPE_HEADER_SIZE) {
-                auto rh = envelope::RoutingHeader::parse(payload);
-                if (rh.has_value()) {
-                    received_msg_id = rh->msg_id;
-                }
+        if (payload.size() >= envelope::ENVELOPE_HEADER_SIZE)
+        {
+            auto rh = envelope::RoutingHeader::parse(payload);
+            if (rh.has_value())
+            {
+                received_msg_id = rh->msg_id;
             }
-            return apex::core::ok();
-        });
+        }
+        return apex::core::ok();
+    });
 
     // Inject login request
     auto env = build_envelope(msg_ids::LOGIN_REQUEST, 1, 0, 100);
@@ -194,22 +195,25 @@ TEST(AuthHandlersTest, MockKafkaMessageInjection) {
     EXPECT_EQ(received_msg_id, msg_ids::LOGIN_REQUEST);
 }
 
-TEST(AuthHandlersTest, MockKafkaDispatchByTopic) {
+TEST(AuthHandlersTest, MockKafkaDispatchByTopic)
+{
     apex::test::MockKafkaAdapter mock;
 
     int auth_count = 0;
     int other_count = 0;
 
-    mock.set_message_callback(
-        [&](std::string_view topic, int32_t, std::span<const uint8_t>,
-            std::span<const uint8_t>, int64_t) -> apex::core::Result<void> {
-            if (topic == "auth.requests") {
-                ++auth_count;
-            } else {
-                ++other_count;
-            }
-            return apex::core::ok();
-        });
+    mock.set_message_callback([&](std::string_view topic, int32_t, std::span<const uint8_t>, std::span<const uint8_t>,
+                                  int64_t) -> apex::core::Result<void> {
+        if (topic == "auth.requests")
+        {
+            ++auth_count;
+        }
+        else
+        {
+            ++other_count;
+        }
+        return apex::core::ok();
+    });
 
     auto env = build_envelope(msg_ids::LOGIN_REQUEST, 1, 0, 100);
 
@@ -223,7 +227,8 @@ TEST(AuthHandlersTest, MockKafkaDispatchByTopic) {
 
 // --- AuthConfig 기본값 ---
 
-TEST(AuthHandlersTest, AuthConfigDefaults) {
+TEST(AuthHandlersTest, AuthConfigDefaults)
+{
     apex::auth_svc::AuthConfig cfg;
     EXPECT_EQ(cfg.request_topic, "auth.requests");
     EXPECT_EQ(cfg.response_topic, "auth.responses");

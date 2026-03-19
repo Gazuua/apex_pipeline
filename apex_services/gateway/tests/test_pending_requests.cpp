@@ -6,7 +6,8 @@
 
 using namespace apex::gateway;
 
-TEST(PendingRequestsMap, InsertAndExtract) {
+TEST(PendingRequestsMap, InsertAndExtract)
+{
     PendingRequestsMap map(100);
     ASSERT_TRUE(map.insert(1, 1000, 42).has_value());
     EXPECT_EQ(map.size(), 1u);
@@ -19,20 +20,23 @@ TEST(PendingRequestsMap, InsertAndExtract) {
     EXPECT_EQ(map.size(), 0u);
 }
 
-TEST(PendingRequestsMap, ExtractNonExistent) {
+TEST(PendingRequestsMap, ExtractNonExistent)
+{
     PendingRequestsMap map(100);
     auto entry = map.extract(999);
     EXPECT_FALSE(entry.has_value());
 }
 
-TEST(PendingRequestsMap, CapacityLimit) {
+TEST(PendingRequestsMap, CapacityLimit)
+{
     PendingRequestsMap map(2);
     ASSERT_TRUE(map.insert(1, 100, 1).has_value());
     ASSERT_TRUE(map.insert(2, 200, 2).has_value());
-    EXPECT_FALSE(map.insert(3, 300, 3).has_value());  // Full
+    EXPECT_FALSE(map.insert(3, 300, 3).has_value()); // Full
 }
 
-TEST(PendingRequestsMap, SweepExpired) {
+TEST(PendingRequestsMap, SweepExpired)
+{
     // Inject fake time source — no sleep needed
     auto fake_now = std::chrono::steady_clock::now();
     auto now_fn = [&]() { return fake_now; };
@@ -51,7 +55,8 @@ TEST(PendingRequestsMap, SweepExpired) {
     EXPECT_EQ(map.size(), 0u);
 }
 
-TEST(PendingRequestsMap, SweepKeepsUnexpired) {
+TEST(PendingRequestsMap, SweepKeepsUnexpired)
+{
     auto fake_now = std::chrono::steady_clock::now();
     auto now_fn = [&]() { return fake_now; };
 
@@ -66,7 +71,8 @@ TEST(PendingRequestsMap, SweepKeepsUnexpired) {
     EXPECT_EQ(map.size(), 1u);
 }
 
-TEST(PendingRequestsMap, ExtractIsOneShot) {
+TEST(PendingRequestsMap, ExtractIsOneShot)
+{
     PendingRequestsMap map(100);
     ASSERT_TRUE(map.insert(1, 100, 42).has_value());
 
@@ -74,5 +80,5 @@ TEST(PendingRequestsMap, ExtractIsOneShot) {
     ASSERT_TRUE(first.has_value());
 
     auto second = map.extract(1);
-    EXPECT_FALSE(second.has_value());  // Already extracted
+    EXPECT_FALSE(second.has_value()); // Already extracted
 }

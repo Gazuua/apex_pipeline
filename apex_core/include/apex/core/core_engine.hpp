@@ -15,17 +15,20 @@
 #include <thread>
 #include <vector>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Per-core metric counters for inter-core messaging diagnostics.
 /// All counters use relaxed ordering — values are approximate but low-overhead.
-struct CoreMetrics {
+struct CoreMetrics
+{
     std::atomic<uint64_t> post_total{0};
     std::atomic<uint64_t> post_failures{0};
 };
 
 /// Trivially-copyable message for inter-core communication via MpscQueue.
-struct CoreMessage {
+struct CoreMessage
+{
     CrossCoreOp op{CrossCoreOp::Noop};
     uint32_t source_core{0};
     uintptr_t data{0};
@@ -35,9 +38,10 @@ static_assert(sizeof(CoreMessage) <= 16);
 
 /// Per-core execution context. Each core owns its own io_context and MPSC inbox.
 /// NOT thread-safe -- only accessed by the owning core thread.
-struct CoreContext {
+struct CoreContext
+{
     uint32_t core_id;
-    boost::asio::io_context io_ctx{1};  // concurrency_hint=1 (single thread)
+    boost::asio::io_context io_ctx{1}; // concurrency_hint=1 (single thread)
     std::unique_ptr<MpscQueue<CoreMessage>> inbox;
     std::unique_ptr<boost::asio::steady_timer> tick_timer;
     CoreMetrics metrics;
@@ -50,11 +54,12 @@ struct CoreContext {
 };
 
 /// Configuration for CoreEngine.
-struct CoreEngineConfig {
-    uint32_t num_cores{0};              // 0 = auto-detect (hardware_concurrency)
+struct CoreEngineConfig
+{
+    uint32_t num_cores{0}; // 0 = auto-detect (hardware_concurrency)
     size_t mpsc_queue_capacity{65536};
-    std::chrono::milliseconds tick_interval{100};  // per-core tick timer interval
-    size_t drain_batch_limit{1024};                // max messages per drain cycle
+    std::chrono::milliseconds tick_interval{100}; // per-core tick timer interval
+    size_t drain_batch_limit{1024};               // max messages per drain cycle
 };
 
 /// io_context-per-core engine. Creates N cores, each with its own
@@ -69,8 +74,9 @@ struct CoreEngineConfig {
 ///   engine.run();   // blocks until stop()
 ///   // from another thread:
 ///   engine.stop();
-class CoreEngine {
-public:
+class CoreEngine
+{
+  public:
     using MessageHandler = std::function<void(uint32_t core_id, const CoreMessage& msg)>;
     using TickCallback = std::function<void(uint32_t core_id)>;
 
@@ -124,7 +130,7 @@ public:
     /// Current core ID via thread-local. Must be called from a core thread.
     [[nodiscard]] static uint32_t current_core_id() noexcept;
 
-private:
+  private:
     void run_core(uint32_t core_id);
     void drain_inbox(uint32_t core_id);
     void start_tick_timer(uint32_t core_id);

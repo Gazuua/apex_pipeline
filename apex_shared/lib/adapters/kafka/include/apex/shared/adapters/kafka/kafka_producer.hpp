@@ -1,7 +1,7 @@
 #pragma once
 
-#include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/core/result.hpp>
+#include <apex/shared/adapters/kafka/kafka_config.hpp>
 
 #include <librdkafka/rdkafka.h>
 
@@ -13,7 +13,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::kafka {
+namespace apex::shared::adapters::kafka
+{
 
 /// Global shared Kafka Producer.
 ///
@@ -25,8 +26,9 @@ namespace apex::shared::adapters::kafka {
 ///
 /// Usage:
 ///   producer.produce("topic", key, payload);  // fire-and-forget
-class KafkaProducer {
-public:
+class KafkaProducer
+{
+  public:
     /// @param config Kafka configuration
     explicit KafkaProducer(const KafkaConfig& config);
     ~KafkaProducer();
@@ -43,16 +45,12 @@ public:
     /// @param topic Topic name
     /// @param key Message key (partitioning basis, empty allowed)
     /// @param payload Message body
-    [[nodiscard]] apex::core::Result<void> produce(
-        std::string_view topic,
-        std::string_view key,
-        std::span<const uint8_t> payload);
+    [[nodiscard]] apex::core::Result<void> produce(std::string_view topic, std::string_view key,
+                                                   std::span<const uint8_t> payload);
 
     /// Overload: string payload
-    [[nodiscard]] apex::core::Result<void> produce(
-        std::string_view topic,
-        std::string_view key,
-        std::string_view payload);
+    [[nodiscard]] apex::core::Result<void> produce(std::string_view topic, std::string_view key,
+                                                   std::string_view payload);
 
     /// Poll librdkafka internal queue (delivery callback processing).
     /// Must be called periodically for callbacks to fire.
@@ -70,31 +68,39 @@ public:
     [[nodiscard]] int32_t outq_len() const noexcept;
 
     /// Whether initialization is complete
-    [[nodiscard]] bool initialized() const noexcept { return rk_ != nullptr; }
+    [[nodiscard]] bool initialized() const noexcept
+    {
+        return rk_ != nullptr;
+    }
 
     /// Statistics: produced/failed counters
-    [[nodiscard]] uint64_t total_produced() const noexcept { return total_produced_; }
-    [[nodiscard]] uint64_t total_failed() const noexcept { return total_failed_; }
+    [[nodiscard]] uint64_t total_produced() const noexcept
+    {
+        return total_produced_;
+    }
+    [[nodiscard]] uint64_t total_failed() const noexcept
+    {
+        return total_failed_;
+    }
 
-private:
+  private:
     /// librdkafka delivery report callback (static, C callback)
-    static void delivery_report_cb(rd_kafka_t* rk,
-                                   const rd_kafka_message_t* msg,
-                                   void* opaque);
+    static void delivery_report_cb(rd_kafka_t* rk, const rd_kafka_message_t* msg, void* opaque);
 
     /// rd_kafka_topic_t cache (per topic)
     rd_kafka_topic_t* get_or_create_topic(std::string_view topic);
 
     KafkaConfig config_;
-    rd_kafka_t* rk_ = nullptr;                          ///< librdkafka handle
+    rd_kafka_t* rk_ = nullptr; ///< librdkafka handle
 
     /// Topic handle cache (rd_kafka_topic_new is relatively heavy)
-    struct TopicEntry {
+    struct TopicEntry
+    {
         std::string name;
         rd_kafka_topic_t* rkt = nullptr;
     };
     std::vector<TopicEntry> topic_cache_;
-    mutable std::mutex topic_mutex_;                    ///< Protects topic_cache_
+    mutable std::mutex topic_mutex_; ///< Protects topic_cache_
 
     // Statistics (atomic -- concurrent produce from multiple cores)
     std::atomic<uint64_t> total_produced_{0};

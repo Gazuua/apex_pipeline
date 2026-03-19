@@ -1,12 +1,12 @@
-#include <apex/shared/adapters/kafka/kafka_sink.hpp>
-#include <apex/shared/adapters/kafka/kafka_producer.hpp>
-#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
+#include <apex/shared/adapters/kafka/kafka_consumer.hpp>
+#include <apex/shared/adapters/kafka/kafka_producer.hpp>
+#include <apex/shared/adapters/kafka/kafka_sink.hpp>
 
 #include <gtest/gtest.h>
 
-#include <spdlog/spdlog.h>
 #include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 
 #include <boost/asio/io_context.hpp>
 
@@ -19,9 +19,11 @@
 
 using namespace apex::shared::adapters::kafka;
 
-class KafkaSinkIntegrationTest : public ::testing::Test {
-protected:
-    void SetUp() override {
+class KafkaSinkIntegrationTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
         config_.brokers = "localhost:9092";
         config_.consumer_group = "apex-sink-integration-test";
         config_.consume_topics = {"apex-sink-test"};
@@ -31,12 +33,12 @@ protected:
     KafkaConfig config_;
 };
 
-TEST_F(KafkaSinkIntegrationTest, SpdlogToKafkaTopic) {
+TEST_F(KafkaSinkIntegrationTest, SpdlogToKafkaTopic)
+{
     // --- Producer + KafkaSink ---
     KafkaProducer producer(config_);
     auto init_result = producer.init();
-    ASSERT_TRUE(init_result.has_value())
-        << "KafkaProducer init failed - is Kafka running on localhost:9092?";
+    ASSERT_TRUE(init_result.has_value()) << "KafkaProducer init failed - is Kafka running on localhost:9092?";
 
     auto kafka_sink = std::make_shared<KafkaSink>(producer, "apex-sink-test");
     auto logger = std::make_shared<spdlog::logger>("apex-sink-test", kafka_sink);
@@ -58,23 +60,20 @@ TEST_F(KafkaSinkIntegrationTest, SpdlogToKafkaTopic) {
     std::atomic<bool> received{false};
     std::string received_payload;
 
-    consumer.set_message_callback(
-        [&](std::string_view /*topic*/, int32_t /*partition*/,
-            std::span<const uint8_t> /*key*/,
-            std::span<const uint8_t> payload,
-            int64_t /*offset*/) {
-            std::string msg(
-                reinterpret_cast<const char*>(payload.data()), payload.size());
-            // KafkaSink formats as JSON with "msg" field
-            if (msg.find("integration-test-message") != std::string::npos) {
-                received_payload = std::move(msg);
-                received.store(true);
-            }
-        });
+    consumer.set_message_callback([&](std::string_view /*topic*/, int32_t /*partition*/,
+                                      std::span<const uint8_t> /*key*/, std::span<const uint8_t> payload,
+                                      int64_t /*offset*/) {
+        std::string msg(reinterpret_cast<const char*>(payload.data()), payload.size());
+        // KafkaSink formats as JSON with "msg" field
+        if (msg.find("integration-test-message") != std::string::npos)
+        {
+            received_payload = std::move(msg);
+            received.store(true);
+        }
+    });
 
     auto consumer_init = consumer.init();
-    ASSERT_TRUE(consumer_init.has_value())
-        << "KafkaConsumer init failed";
+    ASSERT_TRUE(consumer_init.has_value()) << "KafkaConsumer init failed";
 
     consumer.start_consuming();
 
@@ -83,9 +82,9 @@ TEST_F(KafkaSinkIntegrationTest, SpdlogToKafkaTopic) {
 
     consumer.stop_consuming();
 
-    EXPECT_TRUE(received.load())
-        << "KafkaSink message not received within 10 seconds";
-    if (received.load()) {
+    EXPECT_TRUE(received.load()) << "KafkaSink message not received within 10 seconds";
+    if (received.load())
+    {
         // Verify JSON contains the log message
         EXPECT_NE(received_payload.find("integration-test-message"), std::string::npos);
         // Verify JSON structure (should contain "level" and "msg" fields)

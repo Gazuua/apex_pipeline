@@ -1,14 +1,14 @@
+#include "../test_helpers.hpp"
 #include <apex/core/core_engine.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/core/wire_header.hpp>
-#include "../test_helpers.hpp"
 #include <gtest/gtest.h>
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/co_spawn.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/use_future.hpp>
 
 #include <atomic>
@@ -22,23 +22,29 @@ using boost::asio::awaitable;
 
 // --- Test service that records dispatched messages ---
 
-class RecordingService : public ServiceBase<RecordingService> {
-public:
-    RecordingService() : ServiceBase("recording") {}
+class RecordingService : public ServiceBase<RecordingService>
+{
+  public:
+    RecordingService()
+        : ServiceBase("recording")
+    {}
 
-    void on_start() override {
+    void on_start() override
+    {
         handle(0x0001, &RecordingService::on_echo);
         handle(0x0002, &RecordingService::on_ping);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload) {
+    awaitable<Result<void>> on_echo(SessionPtr, uint32_t msg_id, std::span<const uint8_t> payload)
+    {
         last_msg_id = msg_id;
         last_payload.assign(payload.begin(), payload.end());
         ++call_count;
         co_return ok();
     }
 
-    awaitable<Result<void>> on_ping(SessionPtr, uint32_t, std::span<const uint8_t>) {
+    awaitable<Result<void>> on_ping(SessionPtr, uint32_t, std::span<const uint8_t>)
+    {
         ++ping_count;
         co_return ok();
     }
@@ -51,7 +57,8 @@ public:
 
 // --- Pipeline: RingBuffer -> FrameCodec -> ServiceBase dispatch ---
 
-TEST(PipelineIntegration, EncodeDecodeDispatch) {
+TEST(PipelineIntegration, EncodeDecodeDispatch)
+{
     // 1. Create and start service
     auto service = std::make_unique<RecordingService>();
     service->start();
@@ -70,8 +77,7 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
 
     // 4. Dispatch to service
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
     ASSERT_TRUE(result.has_value());
 
     // 5. Verify handler received correct data
@@ -84,7 +90,8 @@ TEST(PipelineIntegration, EncodeDecodeDispatch) {
     EXPECT_EQ(buf.readable_size(), 0);
 }
 
-TEST(PipelineIntegration, MultiFramePipeline) {
+TEST(PipelineIntegration, MultiFramePipeline)
+{
     auto service = std::make_unique<RecordingService>();
     service->start();
 
@@ -102,20 +109,22 @@ TEST(PipelineIntegration, MultiFramePipeline) {
     // TQ2: Decode and dispatch all frames — verify dispatch return values
     boost::asio::io_context io_ctx;
     int frames_processed = 0;
-    while (auto frame = FrameCodec::try_decode(buf)) {
-        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,frame->header.msg_id, frame->payload));
+    while (auto frame = FrameCodec::try_decode(buf))
+    {
+        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
         EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
     }
 
     EXPECT_EQ(frames_processed, 3);
-    EXPECT_EQ(service->call_count, 2);  // msg_id 0x0001 called twice
-    EXPECT_EQ(service->ping_count, 1);  // msg_id 0x0002 called once
+    EXPECT_EQ(service->call_count, 2); // msg_id 0x0001 called twice
+    EXPECT_EQ(service->ping_count, 1); // msg_id 0x0002 called once
     EXPECT_EQ(buf.readable_size(), 0);
 }
 
-TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
+TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
+{
     auto service = std::make_unique<RecordingService>();
     service->start();
 
@@ -127,24 +136,27 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully) {
     ASSERT_TRUE(frame.has_value());
 
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr,
-        frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), apex::core::ErrorCode::HandlerNotFound);
 }
 
 // --- CoreEngine + ServiceBase integration ---
 
-TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
+TEST(PipelineIntegration, CoreEngineInterCoreDelivery)
+{
     CoreEngine engine({.num_cores = 2, .mpsc_queue_capacity = 1024});
 
     std::atomic<int> core0_received{0};
     std::atomic<int> core1_received{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
-        if (msg.op == CrossCoreOp::Custom) {
-            if (core_id == 0) ++core0_received;
-            if (core_id == 1) ++core1_received;
+        if (msg.op == CrossCoreOp::Custom)
+        {
+            if (core_id == 0)
+                ++core0_received;
+            if (core_id == 1)
+                ++core1_received;
         }
     });
 
@@ -157,9 +169,7 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     // Core 1 -> Core 0
     (void)engine.post_to(0, {.op = CrossCoreOp::Custom, .source_core = 1, .data = 3});
 
-    ASSERT_TRUE(apex::test::wait_for([&] {
-        return core0_received.load() >= 1 && core1_received.load() >= 2;
-    }));
+    ASSERT_TRUE(apex::test::wait_for([&] { return core0_received.load() >= 1 && core1_received.load() >= 2; }));
 
     EXPECT_EQ(core0_received.load(), 1);
     EXPECT_EQ(core1_received.load(), 2);
@@ -168,7 +178,8 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery) {
     t.join();
 }
 
-TEST(PipelineIntegration, WireHeaderFlagsPreserved) {
+TEST(PipelineIntegration, WireHeaderFlagsPreserved)
+{
     WireHeader h{
         .flags = static_cast<uint8_t>(wire_flags::COMPRESSED | wire_flags::REQUIRE_AUTH_CHECK),
         .msg_id = 0x0042,

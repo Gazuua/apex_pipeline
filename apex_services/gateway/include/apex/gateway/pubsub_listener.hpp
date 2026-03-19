@@ -17,7 +17,8 @@
 #include <unordered_set>
 #include <vector>
 
-namespace apex::gateway {
+namespace apex::gateway
+{
 
 /// Redis Pub/Sub dedicated listener.
 /// Manages Redis SUBSCRIBE on a dedicated thread,
@@ -27,25 +28,24 @@ namespace apex::gateway {
 /// - Gateway does not know the meaning of channel names (opaque string)
 /// - Subscribe/unsubscribe is directed by services via control messages
 /// - Global broadcast channels are auto-subscribed on startup
-class PubSubListener {
-public:
+class PubSubListener
+{
+  public:
     /// Message receive callback.
     /// @param channel Channel name
     /// @param message Message data
-    using MessageCallback = std::function<void(
-        std::string_view channel,
-        std::span<const uint8_t> message)>;
+    using MessageCallback = std::function<void(std::string_view channel, std::span<const uint8_t> message)>;
 
-    struct Config {
+    struct Config
+    {
         std::string host = "localhost";
         uint16_t port = 6379;
         std::string password;
-        std::vector<std::string> initial_channels;  // Auto-subscribe on start
-        uint32_t reconnect_interval_ms = 1000;      ///< 재연결 대기 간격 (ms)
+        std::vector<std::string> initial_channels; // Auto-subscribe on start
+        uint32_t reconnect_interval_ms = 1000;     ///< 재연결 대기 간격 (ms)
     };
 
-    explicit PubSubListener(const Config& config,
-                            MessageCallback on_message);
+    explicit PubSubListener(const Config& config, MessageCallback on_message);
     ~PubSubListener();
 
     PubSubListener(const PubSubListener&) = delete;
@@ -64,13 +64,12 @@ public:
     /// Remove channel subscription (thread-safe).
     void unsubscribe(const std::string& channel);
 
-private:
+  private:
     void run_thread();
 
     /// Apply pending subscribe/unsubscribe to the live Redis connection.
     /// Called from run_thread() when has_pending_subs_ is set.
-    void apply_pending_subscriptions(redisContext* ctx,
-                                     std::unordered_set<std::string>& active_subs);
+    void apply_pending_subscriptions(redisContext* ctx, std::unordered_set<std::string>& active_subs);
 
     Config config_;
     MessageCallback on_message_;

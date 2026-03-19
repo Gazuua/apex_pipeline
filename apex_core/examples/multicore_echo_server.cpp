@@ -17,8 +17,8 @@
 #include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
 
-#include <generated/echo_generated.h>
 #include <flatbuffers/flatbuffers.h>
+#include <generated/echo_generated.h>
 
 #include <boost/asio/awaitable.hpp>
 
@@ -30,44 +30,50 @@
 using namespace apex::core;
 using boost::asio::awaitable;
 
-class EchoService : public ServiceBase<EchoService> {
-public:
-    EchoService() : ServiceBase("echo") {}
+class EchoService : public ServiceBase<EchoService>
+{
+  public:
+    EchoService()
+        : ServiceBase("echo")
+    {}
 
-    void on_start() override {
+    void on_start() override
+    {
         route<apex::messages::EchoRequest>(0x0001, &EchoService::on_echo);
     }
 
-    awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
-                            const apex::messages::EchoRequest* req) {
-        if (!req || !req->data()) co_return ok();
+    awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id, const apex::messages::EchoRequest* req)
+    {
+        if (!req || !req->data())
+            co_return ok();
 
         flatbuffers::FlatBufferBuilder builder(256);
-        auto data_vec = builder.CreateVector(
-            req->data()->data(), req->data()->size());
+        auto data_vec = builder.CreateVector(req->data()->data(), req->data()->size());
         auto resp = apex::messages::CreateEchoResponse(builder, data_vec);
         builder.Finish(resp);
 
-        WireHeader header{
-            .msg_id = msg_id,
-            .body_size = static_cast<uint32_t>(builder.GetSize())
-        };
+        WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize())};
         // m-07: Explicitly discard [[nodiscard]] return value
         (void)co_await session->async_send(header, {builder.GetBufferPointer(), builder.GetSize()});
         co_return ok();
     }
 };
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     uint16_t port = 9000;
     uint32_t cores = 4;
-    if (argc >= 2) {
+    if (argc >= 2)
+    {
         int p = std::atoi(argv[1]);
-        if (p > 0 && p <= 65535) port = static_cast<uint16_t>(p);
+        if (p > 0 && p <= 65535)
+            port = static_cast<uint16_t>(p);
     }
-    if (argc >= 3) {
+    if (argc >= 3)
+    {
         int c = std::atoi(argv[2]);
-        if (c > 0 && c <= 256) cores = static_cast<uint32_t>(c);
+        if (c > 0 && c <= 256)
+            cores = static_cast<uint32_t>(c);
     }
 
     auto config = AppConfig::defaults();
@@ -77,18 +83,17 @@ int main(int argc, char* argv[]) {
     init_logging(config.logging);
 
     auto hw = std::thread::hardware_concurrency();
-    if (auto app = spdlog::get("app")) {
+    if (auto app = spdlog::get("app"))
+    {
         app->info("=== Apex Pipeline Multicore Echo Server v0.5 ===");
         app->info("Port: {}, Cores: {} (hardware: {})", port, cores, hw);
         app->info("Architecture: io_context-per-core (shared-nothing)");
     }
 
-    Server(config.server)
-        .listen<TcpBinaryProtocol>(port)
-        .add_service<EchoService>()
-        .run();
+    Server(config.server).listen<TcpBinaryProtocol>(port).add_service<EchoService>().run();
 
-    if (auto app = spdlog::get("app")) {
+    if (auto app = spdlog::get("app"))
+    {
         app->info("[Server] Done.");
     }
     shutdown_logging();

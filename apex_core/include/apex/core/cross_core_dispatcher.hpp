@@ -6,24 +6,25 @@
 
 #include <cstdint>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Dispatches cross-core messages by CrossCoreOp → handler lookup.
 /// Handlers are function pointers for static dispatch (no virtual, icache friendly).
 /// Thread-safe for concurrent reads after setup (register before start).
-class CrossCoreDispatcher {
-public:
+class CrossCoreDispatcher
+{
+  public:
     CrossCoreDispatcher() = default;
 
     void register_handler(CrossCoreOp op, CrossCoreHandler handler);
 
     /// Dispatch a message. No-op if handler not registered.
-    void dispatch(uint32_t core_id, uint32_t source_core,
-                  CrossCoreOp op, void* data) const;
+    void dispatch(uint32_t core_id, uint32_t source_core, CrossCoreOp op, void* data) const;
 
     [[nodiscard]] bool has_handler(CrossCoreOp op) const noexcept;
 
-private:
+  private:
     boost::unordered_flat_map<CrossCoreOp, CrossCoreHandler> handlers_;
 };
 

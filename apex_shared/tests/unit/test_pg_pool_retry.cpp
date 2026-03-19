@@ -1,6 +1,6 @@
-#include <apex/shared/adapters/pg/pg_pool.hpp>
-#include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/core/error_code.hpp>
+#include <apex/shared/adapters/pg/pg_config.hpp>
+#include <apex/shared/adapters/pg/pg_pool.hpp>
 
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -12,20 +12,22 @@
 
 using namespace apex::shared::adapters::pg;
 
-class PgPoolRetryTest : public ::testing::Test {
-protected:
+class PgPoolRetryTest : public ::testing::Test
+{
+  protected:
     boost::asio::io_context io_;
 };
 
-template<typename Fn>
-void run_coro(boost::asio::io_context& io, Fn&& fn) {
+template <typename Fn> void run_coro(boost::asio::io_context& io, Fn&& fn)
+{
     io.restart();
     boost::asio::co_spawn(io, std::forward<Fn>(fn), boost::asio::detached);
     io.run();
 }
 
 // TC1: Pool has idle connection — immediate success (no retry needed)
-TEST_F(PgPoolRetryTest, ImmediateSuccessNoRetry) {
+TEST_F(PgPoolRetryTest, ImmediateSuccessNoRetry)
+{
     PgAdapterConfig config{
         .pool_size_per_core = 2,
         .max_acquire_retries = 3,
@@ -43,9 +45,10 @@ TEST_F(PgPoolRetryTest, ImmediateSuccessNoRetry) {
 }
 
 // TC2: Pool exhausted initially, release after short delay — retry succeeds
-TEST_F(PgPoolRetryTest, RetryAfterExhaustion) {
+TEST_F(PgPoolRetryTest, RetryAfterExhaustion)
+{
     PgAdapterConfig config{
-        .pool_size_per_core = 1,  // max = 2
+        .pool_size_per_core = 1, // max = 2
         .max_acquire_retries = 3,
         .retry_backoff = std::chrono::milliseconds{50},
     };
@@ -60,7 +63,8 @@ TEST_F(PgPoolRetryTest, RetryAfterExhaustion) {
     // Schedule a release after a short delay
     boost::asio::steady_timer release_timer(io_, std::chrono::milliseconds{30});
     release_timer.async_wait([&](const boost::system::error_code& ec) {
-        if (!ec) {
+        if (!ec)
+        {
             pool.release(std::move(c1.value()));
         }
     });
@@ -78,9 +82,10 @@ TEST_F(PgPoolRetryTest, RetryAfterExhaustion) {
 }
 
 // TC3: Pool exhausted + max_retries exceeded — returns PoolExhausted
-TEST_F(PgPoolRetryTest, MaxRetriesExceededReturnsPoolExhausted) {
+TEST_F(PgPoolRetryTest, MaxRetriesExceededReturnsPoolExhausted)
+{
     PgAdapterConfig config{
-        .pool_size_per_core = 1,  // max = 2
+        .pool_size_per_core = 1, // max = 2
         .max_acquire_retries = 2,
         .retry_backoff = std::chrono::milliseconds{10},
     };
@@ -104,9 +109,10 @@ TEST_F(PgPoolRetryTest, MaxRetriesExceededReturnsPoolExhausted) {
 }
 
 // TC4: Exponential backoff timing — verify total elapsed time is reasonable
-TEST_F(PgPoolRetryTest, ExponentialBackoffTiming) {
+TEST_F(PgPoolRetryTest, ExponentialBackoffTiming)
+{
     PgAdapterConfig config{
-        .pool_size_per_core = 1,  // max = 2
+        .pool_size_per_core = 1, // max = 2
         .max_acquire_retries = 3,
         .retry_backoff = std::chrono::milliseconds{20},
     };

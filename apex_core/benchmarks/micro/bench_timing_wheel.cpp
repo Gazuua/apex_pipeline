@@ -3,12 +3,15 @@
 
 using namespace apex::core;
 
-static void BM_TimingWheel_ScheduleTick(benchmark::State& state) {
+static void BM_TimingWheel_ScheduleTick(benchmark::State& state)
+{
     auto num_entries = static_cast<size_t>(state.range(0));
     TimingWheel wheel(num_entries * 2, [](TimingWheel::EntryId) {});
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         state.PauseTiming();
-        for (size_t i = 0; i < num_entries; ++i) {
+        for (size_t i = 0; i < num_entries; ++i)
+        {
             (void)wheel.schedule(1);
         }
         state.ResumeTiming();
@@ -19,9 +22,11 @@ static void BM_TimingWheel_ScheduleTick(benchmark::State& state) {
 }
 BENCHMARK(BM_TimingWheel_ScheduleTick)->Arg(1000)->Arg(10000)->Arg(50000);
 
-static void BM_TimingWheel_ScheduleOnly(benchmark::State& state) {
+static void BM_TimingWheel_ScheduleOnly(benchmark::State& state)
+{
     TimingWheel wheel(65536, [](TimingWheel::EntryId) {});
-    for (auto _ : state) {
+    for (auto _ : state)
+    {
         auto id = wheel.schedule(100);
         benchmark::DoNotOptimize(id);
         wheel.cancel(id);

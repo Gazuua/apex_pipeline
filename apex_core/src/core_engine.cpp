@@ -11,7 +11,8 @@
 #include <stdexcept>
 #include <thread>
 
-namespace apex::core {
+namespace apex::core
+{
 
 thread_local uint32_t CoreEngine::tls_core_id_ = UINT32_MAX;
 
@@ -20,8 +21,7 @@ thread_local uint32_t CoreEngine::tls_core_id_ = UINT32_MAX;
 CoreContext::CoreContext(uint32_t id, size_t queue_capacity)
     : core_id(id)
     , inbox(std::make_unique<MpscQueue<CoreMessage>>(queue_capacity))
-{
-}
+{}
 
 CoreContext::~CoreContext() = default;
 
@@ -30,24 +30,28 @@ CoreContext::~CoreContext() = default;
 CoreEngine::CoreEngine(CoreEngineConfig config)
     : config_(config)
 {
-    if (config_.num_cores == 0) {
+    if (config_.num_cores == 0)
+    {
         auto hw = std::thread::hardware_concurrency();
         config_.num_cores = (hw > 0) ? hw : 1;
     }
 
     // Per-core drain coalescing flags
     drain_pending_ = std::make_unique<std::atomic<bool>[]>(config_.num_cores);
-    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+    for (uint32_t i = 0; i < config_.num_cores; ++i)
+    {
         drain_pending_[i].store(false, std::memory_order_relaxed);
     }
 
     cores_.reserve(config_.num_cores);
-    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+    for (uint32_t i = 0; i < config_.num_cores; ++i)
+    {
         cores_.push_back(std::make_unique<CoreContext>(i, config_.mpsc_queue_capacity));
     }
 }
 
-CoreEngine::~CoreEngine() {
+CoreEngine::~CoreEngine()
+{
     stop();
     join();
     // m-11: Drain remaining cross-core messages to prevent heap leaks.
@@ -55,29 +59,36 @@ CoreEngine::~CoreEngine() {
     drain_remaining();
 }
 
-void CoreEngine::set_message_handler(MessageHandler handler) {
+void CoreEngine::set_message_handler(MessageHandler handler)
+{
     assert(!running_.load(std::memory_order_acquire) && "set_message_handler must be called before start()");
     message_handler_ = std::move(handler);
 }
 
-void CoreEngine::set_tick_callback(TickCallback callback) {
+void CoreEngine::set_tick_callback(TickCallback callback)
+{
     assert(!running_.load(std::memory_order_acquire) && "set_tick_callback must be called before start()");
     tick_callback_ = std::move(callback);
 }
 
-void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler) {
+void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler)
+{
     assert(!running_.load(std::memory_order_acquire) && "register_cross_core_handler must be called before start()");
     cross_core_dispatcher_.register_handler(op, handler);
 }
 
-void CoreEngine::drain_remaining() {
+void CoreEngine::drain_remaining()
+{
     // I-9: Assert precondition — must be called after stop() + join()
-    assert(!running_.load(std::memory_order_relaxed) && threads_.empty()
-           && "drain_remaining() must be called after stop() + join()");
+    assert(!running_.load(std::memory_order_relaxed) && threads_.empty() &&
+           "drain_remaining() must be called after stop() + join()");
 
-    for (auto& ctx : cores_) {
-        while (auto msg = ctx->inbox->dequeue()) {
-            if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
+    for (auto& ctx : cores_)
+    {
+        while (auto msg = ctx->inbox->dequeue())
+        {
+            if (msg->op == CrossCoreOp::LegacyCrossCoreFn)
+            {
                 auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
                 delete task;
             }
@@ -85,32 +96,40 @@ void CoreEngine::drain_remaining() {
     }
 }
 
-void CoreEngine::start() {
-    if (running_.exchange(true, std::memory_order_acq_rel)) {
+void CoreEngine::start()
+{
+    if (running_.exchange(true, std::memory_order_acq_rel))
+    {
         throw std::logic_error("CoreEngine::start() called while already running");
     }
 
     // I-1: Guard against calling start() before join() has cleared threads_
-    if (!threads_.empty()) {
+    if (!threads_.empty())
+    {
         running_.store(false, std::memory_order_release);
         throw std::logic_error("CoreEngine::start() called before join()");
     }
 
     // Reset io_contexts and drain flags for re-run
-    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+    for (uint32_t i = 0; i < config_.num_cores; ++i)
+    {
         cores_[i]->io_ctx.restart();
         drain_pending_[i].store(false, std::memory_order_relaxed);
     }
 
     threads_.reserve(config_.num_cores);
-    for (uint32_t i = 0; i < config_.num_cores; ++i) {
+    for (uint32_t i = 0; i < config_.num_cores; ++i)
+    {
         threads_.emplace_back([this, i]() { run_core(i); });
     }
 }
 
-void CoreEngine::join() {
-    for (auto& t : threads_) {
-        if (t.joinable()) {
+void CoreEngine::join()
+{
+    for (auto& t : threads_)
+    {
+        if (t.joinable())
+        {
             t.join();
         }
     }
@@ -118,32 +137,39 @@ void CoreEngine::join() {
     running_.store(false, std::memory_order_release);
 }
 
-void CoreEngine::run() {
+void CoreEngine::run()
+{
     start();
     join();
 }
 
-void CoreEngine::stop() {
+void CoreEngine::stop()
+{
     running_.store(false, std::memory_order_release);
-    for (auto& ctx : cores_) {
+    for (auto& ctx : cores_)
+    {
         ctx->io_ctx.stop();
     }
 }
 
-Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
-    if (target_core >= cores_.size()) {
+Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
+{
+    if (target_core >= cores_.size())
+    {
         return error(ErrorCode::Unknown);
     }
     auto& target = *cores_[target_core];
     target.metrics.post_total.fetch_add(1, std::memory_order_relaxed);
 
     auto result = target.inbox->enqueue(msg);
-    if (!result) {
+    if (!result)
+    {
         target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
         // Rate-limited warning (max once per second per thread)
         static thread_local auto last_log = std::chrono::steady_clock::time_point{};
         auto now = std::chrono::steady_clock::now();
-        if (now - last_log > std::chrono::seconds{1}) {
+        if (now - last_log > std::chrono::seconds{1})
+        {
             spdlog::warn("cross_core_post to core {} failed: queue full", target_core);
             last_log = now;
         }
@@ -153,54 +179,67 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg) {
     return ok();
 }
 
-void CoreEngine::schedule_drain(uint32_t target_core) {
+void CoreEngine::schedule_drain(uint32_t target_core)
+{
     // Atomic coalescing: only one drain per batch. If drain is already pending,
     // the running drain_inbox will pick up the newly enqueued messages.
-    if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel)) {
+    if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel))
+    {
         boost::asio::post(cores_[target_core]->io_ctx, [this, target_core] {
             drain_inbox(target_core);
             drain_pending_[target_core].store(false, std::memory_order_release);
             // Re-check: messages may have arrived during drain
-            if (!cores_[target_core]->inbox->empty()) {
+            if (!cores_[target_core]->inbox->empty())
+            {
                 schedule_drain(target_core);
             }
         });
     }
 }
 
-void CoreEngine::broadcast(CoreMessage msg) {
-    for (uint32_t i = 0; i < cores_.size(); ++i) {
+void CoreEngine::broadcast(CoreMessage msg)
+{
+    for (uint32_t i = 0; i < cores_.size(); ++i)
+    {
         (void)post_to(i, msg);
     }
 }
 
-uint32_t CoreEngine::core_count() const noexcept {
+uint32_t CoreEngine::core_count() const noexcept
+{
     return static_cast<uint32_t>(cores_.size());
 }
 
-boost::asio::io_context& CoreEngine::io_context(uint32_t core_id) {
-    if (core_id >= cores_.size()) {
+boost::asio::io_context& CoreEngine::io_context(uint32_t core_id)
+{
+    if (core_id >= cores_.size())
+    {
         throw std::out_of_range("core_id out of range");
     }
     return cores_[core_id]->io_ctx;
 }
 
-bool CoreEngine::running() const noexcept {
+bool CoreEngine::running() const noexcept
+{
     return running_.load(std::memory_order_acquire);
 }
 
-const CoreMetrics& CoreEngine::metrics(uint32_t core_id) const {
-    if (core_id >= cores_.size()) {
+const CoreMetrics& CoreEngine::metrics(uint32_t core_id) const
+{
+    if (core_id >= cores_.size())
+    {
         throw std::out_of_range("core_id out of range");
     }
     return cores_[core_id]->metrics;
 }
 
-uint32_t CoreEngine::current_core_id() noexcept {
+uint32_t CoreEngine::current_core_id() noexcept
+{
     return tls_core_id_;
 }
 
-void CoreEngine::run_core(uint32_t core_id) {
+void CoreEngine::run_core(uint32_t core_id)
+{
     tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
@@ -214,33 +253,45 @@ void CoreEngine::run_core(uint32_t core_id) {
     ctx.io_ctx.run();
 }
 
-void CoreEngine::drain_inbox(uint32_t core_id) {
+void CoreEngine::drain_inbox(uint32_t core_id)
+{
     auto& core_ctx = *cores_[core_id];
     size_t processed = 0;
 
-    while (processed < config_.drain_batch_limit) {
+    while (processed < config_.drain_batch_limit)
+    {
         auto msg = core_ctx.inbox->dequeue();
-        if (!msg) break;
+        if (!msg)
+            break;
 
-        if (msg->op == CrossCoreOp::LegacyCrossCoreFn) {
+        if (msg->op == CrossCoreOp::LegacyCrossCoreFn)
+        {
             // Legacy closure-based compatibility (remove after full migration)
             auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
-            if (task) {
-                try {
+            if (task)
+            {
+                try
+                {
                     (*task)();
-                } catch (const std::exception& e) {
+                }
+                catch (const std::exception& e)
+                {
                     spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
-                } catch (...) {
+                }
+                catch (...)
+                {
                     spdlog::error("Core {} cross-core task unknown exception", core_id);
                 }
                 delete task;
             }
-        } else if (cross_core_dispatcher_.has_handler(msg->op)) {
+        }
+        else if (cross_core_dispatcher_.has_handler(msg->op))
+        {
             // Message passing dispatch (registered handler takes priority)
-            cross_core_dispatcher_.dispatch(
-                core_id, msg->source_core, msg->op,
-                reinterpret_cast<void*>(msg->data));
-        } else if (message_handler_) {
+            cross_core_dispatcher_.dispatch(core_id, msg->source_core, msg->op, reinterpret_cast<void*>(msg->data));
+        }
+        else if (message_handler_)
+        {
             // Fallback: unregistered op → legacy message_handler_ path
             message_handler_(core_id, *msg);
         }
@@ -252,24 +303,33 @@ void CoreEngine::drain_inbox(uint32_t core_id) {
     // No self-post needed — avoids handler accumulation under burst load.
 }
 
-void CoreEngine::start_tick_timer(uint32_t core_id) {
+void CoreEngine::start_tick_timer(uint32_t core_id)
+{
     auto& ctx = *cores_[core_id];
     ctx.tick_timer->expires_after(config_.tick_interval);
     ctx.tick_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
-        if (ec) return;  // timer cancelled or error
+        if (ec)
+            return; // timer cancelled or error
 
-        if (tick_callback_) {
-            try {
+        if (tick_callback_)
+        {
+            try
+            {
                 tick_callback_(core_id);
-            } catch (const std::exception& e) {
+            }
+            catch (const std::exception& e)
+            {
                 spdlog::error("Core {} tick_callback exception: {}", core_id, e.what());
-            } catch (...) {
+            }
+            catch (...)
+            {
                 spdlog::error("Core {} tick_callback unknown exception", core_id);
             }
         }
 
         // Re-arm the timer
-        if (running_.load(std::memory_order_acquire)) {
+        if (running_.load(std::memory_order_acquire))
+        {
             start_tick_timer(core_id);
         }
     });

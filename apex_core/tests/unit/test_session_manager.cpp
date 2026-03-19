@@ -1,5 +1,5 @@
-#include <apex/core/session_manager.hpp>
 #include "../test_helpers.hpp"
+#include <apex/core/session_manager.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -12,14 +12,19 @@ using namespace apex::core;
 using apex::test::make_socket_pair;
 using boost::asio::ip::tcp;
 
-class SessionManagerTest : public ::testing::Test {
-protected:
-    void SetUp() override { io_ctx_.restart(); }
+class SessionManagerTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        io_ctx_.restart();
+    }
 
     boost::asio::io_context io_ctx_;
 };
 
-TEST_F(SessionManagerTest, CreateAndFindSession) {
+TEST_F(SessionManagerTest, CreateAndFindSession)
+{
     SessionManager mgr(0, 300, 512);
     auto [server, client] = make_socket_pair(io_ctx_);
 
@@ -35,7 +40,8 @@ TEST_F(SessionManagerTest, CreateAndFindSession) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, RemoveSession) {
+TEST_F(SessionManagerTest, RemoveSession)
+{
     SessionManager mgr(0, 300, 512);
     auto [server, client] = make_socket_pair(io_ctx_);
 
@@ -49,14 +55,13 @@ TEST_F(SessionManagerTest, RemoveSession) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, HeartbeatTimeout) {
+TEST_F(SessionManagerTest, HeartbeatTimeout)
+{
     SessionManager mgr(0, 3, 8);
     auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
-    mgr.set_timeout_callback([&](SessionPtr s) {
-        timed_out_session = s;
-    });
+    mgr.set_timeout_callback([&](SessionPtr s) { timed_out_session = s; });
 
     auto session = mgr.create_session(std::move(server));
     auto id = session->id();
@@ -77,14 +82,13 @@ TEST_F(SessionManagerTest, HeartbeatTimeout) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, TouchResetsTimeout) {
+TEST_F(SessionManagerTest, TouchResetsTimeout)
+{
     SessionManager mgr(0, 3, 8);
     auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
-    mgr.set_timeout_callback([&](SessionPtr s) {
-        timed_out_session = s;
-    });
+    mgr.set_timeout_callback([&](SessionPtr s) { timed_out_session = s; });
 
     auto session = mgr.create_session(std::move(server));
 
@@ -107,11 +111,13 @@ TEST_F(SessionManagerTest, TouchResetsTimeout) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, MultipleSessions) {
+TEST_F(SessionManagerTest, MultipleSessions)
+{
     SessionManager mgr(0, 300, 512);
     std::vector<tcp::socket> clients;
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 5; ++i)
+    {
         auto [server, client] = make_socket_pair(io_ctx_);
         [[maybe_unused]] auto s = mgr.create_session(std::move(server));
         clients.push_back(std::move(client));
@@ -119,21 +125,22 @@ TEST_F(SessionManagerTest, MultipleSessions) {
 
     EXPECT_EQ(mgr.session_count(), 5u);
 
-    for (auto& c : clients) c.close();
+    for (auto& c : clients)
+        c.close();
 }
 
-TEST_F(SessionManagerTest, DisabledHeartbeat) {
+TEST_F(SessionManagerTest, DisabledHeartbeat)
+{
     SessionManager mgr(0, 0, 8);
     auto [server, client] = make_socket_pair(io_ctx_);
 
     SessionPtr timed_out_session;
-    mgr.set_timeout_callback([&](SessionPtr s) {
-        timed_out_session = s;
-    });
+    mgr.set_timeout_callback([&](SessionPtr s) { timed_out_session = s; });
 
     [[maybe_unused]] auto session = mgr.create_session(std::move(server));
 
-    for (int i = 0; i < 100; ++i) mgr.tick();
+    for (int i = 0; i < 100; ++i)
+        mgr.tick();
 
     EXPECT_EQ(timed_out_session, nullptr);
     EXPECT_EQ(mgr.session_count(), 1u);
@@ -141,12 +148,14 @@ TEST_F(SessionManagerTest, DisabledHeartbeat) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, ForEachVisitsAllSessions) {
+TEST_F(SessionManagerTest, ForEachVisitsAllSessions)
+{
     SessionManager mgr(0, 300, 512);
     std::vector<tcp::socket> clients;
     std::set<SessionId> expected_ids;
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         auto [server, client] = make_socket_pair(io_ctx_);
         auto s = mgr.create_session(std::move(server));
         expected_ids.insert(s->id());
@@ -154,33 +163,36 @@ TEST_F(SessionManagerTest, ForEachVisitsAllSessions) {
     }
 
     std::set<SessionId> visited_ids;
-    mgr.for_each([&](SessionPtr s) {
-        visited_ids.insert(s->id());
-    });
+    mgr.for_each([&](SessionPtr s) { visited_ids.insert(s->id()); });
 
     EXPECT_EQ(visited_ids, expected_ids);
 
-    for (auto& c : clients) c.close();
+    for (auto& c : clients)
+        c.close();
 }
 
-TEST_F(SessionManagerTest, FindNonExistentReturnsNull) {
+TEST_F(SessionManagerTest, FindNonExistentReturnsNull)
+{
     SessionManager mgr(0, 300, 512);
     EXPECT_EQ(mgr.find_session(9999), nullptr);
 }
 
-TEST_F(SessionManagerTest, RemoveNonExistentIsSafe) {
+TEST_F(SessionManagerTest, RemoveNonExistentIsSafe)
+{
     SessionManager mgr(0, 300, 512);
-    mgr.remove_session(9999);  // must not crash
+    mgr.remove_session(9999); // must not crash
     EXPECT_EQ(mgr.session_count(), 0u);
 }
 
-TEST_F(SessionManagerTest, TouchNonExistentIsSafe) {
+TEST_F(SessionManagerTest, TouchNonExistentIsSafe)
+{
     SessionManager mgr(0, 300, 512);
-    mgr.touch_session(9999);  // must not crash
+    mgr.touch_session(9999); // must not crash
     EXPECT_EQ(mgr.session_count(), 0u);
 }
 
-TEST_F(SessionManagerTest, CreateSessionTransitionsToActive) {
+TEST_F(SessionManagerTest, CreateSessionTransitionsToActive)
+{
     SessionManager mgr(0, 300, 512);
     auto [server, client] = make_socket_pair(io_ctx_);
 
@@ -193,13 +205,15 @@ TEST_F(SessionManagerTest, CreateSessionTransitionsToActive) {
     client.close();
 }
 
-TEST_F(SessionManagerTest, SlabAllocatorAllocation) {
+TEST_F(SessionManagerTest, SlabAllocatorAllocation)
+{
     // max_sessions_per_core = 2 → 3rd session falls back to heap
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
     std::vector<SessionPtr> sessions;
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         auto [server, client] = make_socket_pair(io_ctx_);
         auto s = mgr.create_session(std::move(server));
         ASSERT_NE(s, nullptr);
@@ -210,14 +224,17 @@ TEST_F(SessionManagerTest, SlabAllocatorAllocation) {
     EXPECT_EQ(mgr.session_count(), 3u);
 
     // All sessions should be functional regardless of allocation source
-    for (auto& s : sessions) {
+    for (auto& s : sessions)
+    {
         EXPECT_TRUE(s->is_open());
     }
 
-    for (auto& c : clients) c.close();
+    for (auto& c : clients)
+        c.close();
 }
 
-TEST_F(SessionManagerTest, SlabAllocatorReclaimAfterRemove) {
+TEST_F(SessionManagerTest, SlabAllocatorReclaimAfterRemove)
+{
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
 
@@ -242,10 +259,12 @@ TEST_F(SessionManagerTest, SlabAllocatorReclaimAfterRemove) {
     EXPECT_TRUE(session3->is_open());
     clients.push_back(std::move(c3));
 
-    for (auto& c : clients) c.close();
+    for (auto& c : clients)
+        c.close();
 }
 
-TEST_F(SessionManagerTest, SlabAllocatorReturnOnRefcountZero) {
+TEST_F(SessionManagerTest, SlabAllocatorReturnOnRefcountZero)
+{
     SessionManager mgr(0, 0, 8, 8192, 4);
     auto [server, client] = make_socket_pair(io_ctx_);
 
@@ -268,13 +287,15 @@ TEST_F(SessionManagerTest, SlabAllocatorReturnOnRefcountZero) {
     c2.close();
 }
 
-TEST_F(SessionManagerTest, SlabAllocatorMixedAllocationRemoval) {
+TEST_F(SessionManagerTest, SlabAllocatorMixedAllocationRemoval)
+{
     SessionManager mgr(0, 0, 8, 8192, 2);
     std::vector<tcp::socket> clients;
     std::vector<SessionPtr> sessions;
     std::vector<SessionId> ids;
 
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i)
+    {
         auto [server, client] = make_socket_pair(io_ctx_);
         auto s = mgr.create_session(std::move(server));
         ids.push_back(s->id());
@@ -283,11 +304,13 @@ TEST_F(SessionManagerTest, SlabAllocatorMixedAllocationRemoval) {
     }
 
     // Remove in reverse: heap(3rd) first, then pool(2nd, 1st)
-    for (int i = 2; i >= 0; --i) {
+    for (int i = 2; i >= 0; --i)
+    {
         sessions[static_cast<size_t>(i)].reset();
         mgr.remove_session(ids[static_cast<size_t>(i)]);
     }
     EXPECT_EQ(mgr.session_count(), 0u);
 
-    for (auto& c : clients) c.close();
+    for (auto& c : clients)
+        c.close();
 }

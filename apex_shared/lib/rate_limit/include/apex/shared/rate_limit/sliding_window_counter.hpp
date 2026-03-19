@@ -3,7 +3,8 @@
 #include <chrono>
 #include <cstdint>
 
-namespace apex::shared::rate_limit {
+namespace apex::shared::rate_limit
+{
 
 /// Sliding Window Counter for rate limiting.
 /// Tracks request counts across two adjacent windows and computes a
@@ -18,8 +19,9 @@ namespace apex::shared::rate_limit {
 ///   } else {
 ///       // Rate limit 초과
 ///   }
-class SlidingWindowCounter {
-public:
+class SlidingWindowCounter
+{
+  public:
     using Clock = std::chrono::steady_clock;
     using TimePoint = Clock::time_point;
     using Duration = Clock::duration;
@@ -43,13 +45,22 @@ public:
     void reset() noexcept;
 
     /// Last time any request was recorded (for LRU eviction).
-    [[nodiscard]] TimePoint last_access() const noexcept { return last_access_; }
+    [[nodiscard]] TimePoint last_access() const noexcept
+    {
+        return last_access_;
+    }
 
     // --- Config accessors ---
-    [[nodiscard]] uint32_t limit() const noexcept { return limit_; }
-    [[nodiscard]] Duration window_size() const noexcept { return window_size_; }
+    [[nodiscard]] uint32_t limit() const noexcept
+    {
+        return limit_;
+    }
+    [[nodiscard]] Duration window_size() const noexcept
+    {
+        return window_size_;
+    }
 
-private:
+  private:
     /// Advance window(s) if needed based on current time.
     void advance_window(TimePoint now) noexcept;
 

@@ -9,9 +9,11 @@
 
 using namespace apex::core;
 
-namespace {
+namespace
+{
 
-void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data) {
+void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data)
+{
     auto writable = buf.writable();
     ASSERT_GE(writable.size(), data.size());
     std::memcpy(writable.data(), data.data(), data.size());
@@ -19,7 +21,8 @@ void write_to_buf(RingBuffer& buf, std::span<const uint8_t> data) {
 }
 
 // Uses WireHeader::CURRENT_VERSION by default (set in WireHeader's designated initializer)
-std::vector<uint8_t> build_frame(uint32_t msg_id, std::span<const uint8_t> payload) {
+std::vector<uint8_t> build_frame(uint32_t msg_id, std::span<const uint8_t> payload)
+{
     WireHeader h{.msg_id = msg_id, .body_size = static_cast<uint32_t>(payload.size())};
     auto header_bytes = h.serialize();
     std::vector<uint8_t> frame(header_bytes.begin(), header_bytes.end());
@@ -29,14 +32,16 @@ std::vector<uint8_t> build_frame(uint32_t msg_id, std::span<const uint8_t> paylo
 
 } // anonymous namespace
 
-TEST(FrameCodec, DecodeEmptyBuffer) {
+TEST(FrameCodec, DecodeEmptyBuffer)
+{
     RingBuffer buf(4096);
     auto result = FrameCodec::try_decode(buf);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), FrameError::InsufficientData);
 }
 
-TEST(FrameCodec, DecodeIncompleteHeader) {
+TEST(FrameCodec, DecodeIncompleteHeader)
+{
     RingBuffer buf(4096);
     std::array<uint8_t, 5> partial{};
     write_to_buf(buf, partial);
@@ -46,7 +51,8 @@ TEST(FrameCodec, DecodeIncompleteHeader) {
     EXPECT_EQ(result.error(), FrameError::InsufficientData);
 }
 
-TEST(FrameCodec, DecodeCompleteFrame) {
+TEST(FrameCodec, DecodeCompleteFrame)
+{
     RingBuffer buf(4096);
     std::array<uint8_t, 4> payload{0xDE, 0xAD, 0xBE, 0xEF};
     auto frame_data = build_frame(42, payload);
@@ -63,7 +69,8 @@ TEST(FrameCodec, DecodeCompleteFrame) {
     EXPECT_EQ(result->payload[3], 0xEF);
 }
 
-TEST(FrameCodec, ConsumeFrame) {
+TEST(FrameCodec, ConsumeFrame)
+{
     RingBuffer buf(4096);
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     auto frame_data = build_frame(1, payload);
@@ -76,7 +83,8 @@ TEST(FrameCodec, ConsumeFrame) {
     EXPECT_EQ(buf.readable_size(), 0u);
 }
 
-TEST(FrameCodec, DecodeMultipleFrames) {
+TEST(FrameCodec, DecodeMultipleFrames)
+{
     RingBuffer buf(4096);
 
     std::array<uint8_t, 2> payload1{0xAA, 0xBB};
@@ -104,7 +112,8 @@ TEST(FrameCodec, DecodeMultipleFrames) {
     EXPECT_EQ(buf.readable_size(), 0u);
 }
 
-TEST(FrameCodec, DecodeHeaderPresentButBodyIncomplete) {
+TEST(FrameCodec, DecodeHeaderPresentButBodyIncomplete)
+{
     RingBuffer buf(4096);
 
     // Build a frame with body_size=100 but only write the header + partial body
@@ -121,7 +130,8 @@ TEST(FrameCodec, DecodeHeaderPresentButBodyIncomplete) {
     EXPECT_EQ(result.error(), FrameError::InsufficientData);
 }
 
-TEST(FrameCodec, DecodeZeroBodyFrame) {
+TEST(FrameCodec, DecodeZeroBodyFrame)
+{
     RingBuffer buf(4096);
     auto frame_data = build_frame(99, {});
     write_to_buf(buf, frame_data);
@@ -133,7 +143,8 @@ TEST(FrameCodec, DecodeZeroBodyFrame) {
     EXPECT_TRUE(result->payload.empty());
 }
 
-TEST(FrameCodec, EncodeToBuffer) {
+TEST(FrameCodec, EncodeToBuffer)
+{
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     WireHeader h{.msg_id = 55, .body_size = 4};
 
@@ -156,7 +167,8 @@ TEST(FrameCodec, EncodeToBuffer) {
 }
 
 // T5b: FrameCodec decode with BodyTooLarge header
-TEST(FrameCodec, DecodeBodyTooLarge) {
+TEST(FrameCodec, DecodeBodyTooLarge)
+{
     RingBuffer buf(4096);
 
     // Build a header with body_size exceeding MAX_BODY_SIZE
@@ -171,26 +183,29 @@ TEST(FrameCodec, DecodeBodyTooLarge) {
 }
 
 // T7: encode_to with body_size mismatch
-TEST(FrameCodec, EncodeToBodySizeMismatch) {
+TEST(FrameCodec, EncodeToBodySizeMismatch)
+{
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 100};  // mismatch: says 100, payload is 4
+    WireHeader h{.msg_id = 1, .body_size = 100}; // mismatch: says 100, payload is 4
 
     std::vector<uint8_t> out(256);
     auto written = FrameCodec::encode_to(out, h, payload);
-    EXPECT_EQ(written, 0u);  // should reject
+    EXPECT_EQ(written, 0u); // should reject
 }
 
 // T7b: encode() with body_size mismatch
-TEST(FrameCodec, EncodeBodySizeMismatch) {
+TEST(FrameCodec, EncodeBodySizeMismatch)
+{
     RingBuffer buf(4096);
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
-    WireHeader h{.msg_id = 1, .body_size = 10};  // mismatch
+    WireHeader h{.msg_id = 1, .body_size = 10}; // mismatch
 
     EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
-    EXPECT_EQ(buf.readable_size(), 0u);  // nothing written
+    EXPECT_EQ(buf.readable_size(), 0u); // nothing written
 }
 
-TEST(FrameCodec, EncodeWrapAround) {
+TEST(FrameCodec, EncodeWrapAround)
+{
     // Use a small RingBuffer to force wrap-around
     RingBuffer buf(64);
 
@@ -214,12 +229,14 @@ TEST(FrameCodec, EncodeWrapAround) {
     EXPECT_EQ(result->header.msg_id, 42u);
     EXPECT_EQ(result->header.body_size, 8u);
     ASSERT_EQ(result->payload.size(), 8u);
-    for (size_t i = 0; i < 8; ++i) {
+    for (size_t i = 0; i < 8; ++i)
+    {
         EXPECT_EQ(result->payload[i], payload[i]);
     }
 }
 
-TEST(FrameCodec, EncodeInsufficientSpace) {
+TEST(FrameCodec, EncodeInsufficientSpace)
+{
     // Create a small buffer and fill it almost completely
     RingBuffer buf(32);
 
@@ -234,11 +251,12 @@ TEST(FrameCodec, EncodeInsufficientSpace) {
     EXPECT_FALSE(FrameCodec::encode(buf, h, payload));
 }
 
-TEST(FrameCodec, EncodeToBufferTooSmall) {
+TEST(FrameCodec, EncodeToBufferTooSmall)
+{
     std::array<uint8_t, 4> payload{0x01, 0x02, 0x03, 0x04};
     WireHeader h{.msg_id = 1, .body_size = 4};
 
-    std::array<uint8_t, 5> small_buf{};  // Too small for header + payload
+    std::array<uint8_t, 5> small_buf{}; // Too small for header + payload
     auto written = FrameCodec::encode_to(small_buf, h, payload);
     EXPECT_EQ(written, 0u);
 }

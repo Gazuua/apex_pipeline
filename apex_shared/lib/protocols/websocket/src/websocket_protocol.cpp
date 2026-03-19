@@ -2,15 +2,17 @@
 
 #include <cstring>
 
-namespace apex::shared::protocols::websocket {
+namespace apex::shared::protocols::websocket
+{
 
-apex::core::Result<WebSocketProtocol::Frame>
-WebSocketProtocol::try_decode(apex::core::RingBuffer& buf) {
+apex::core::Result<WebSocketProtocol::Frame> WebSocketProtocol::try_decode(apex::core::RingBuffer& buf)
+{
     // MVP 구현: 4바이트 길이 접두어 (little-endian) + 페이로드.
     // Beast 완전 통합 시 이 구현을 대체할 예정.
     constexpr size_t LENGTH_PREFIX_SIZE = 4;
 
-    if (buf.readable_size() < LENGTH_PREFIX_SIZE) {
+    if (buf.readable_size() < LENGTH_PREFIX_SIZE)
+    {
         return std::unexpected(apex::core::ErrorCode::InsufficientData);
     }
 
@@ -22,29 +24,28 @@ WebSocketProtocol::try_decode(apex::core::RingBuffer& buf) {
     // 메시지 크기 검증 — Config::max_message_size 기본값과 동일.
     // TODO: Beast 통합 시 Config 인스턴스를 받아 런타임 설정 가능하게 변경.
     static const size_t max_message_size = Config{}.max_message_size;
-    if (payload_size > max_message_size) {
+    if (payload_size > max_message_size)
+    {
         return std::unexpected(apex::core::ErrorCode::InvalidMessage);
     }
 
     size_t total_size = LENGTH_PREFIX_SIZE + payload_size;
-    if (buf.readable_size() < total_size) {
+    if (buf.readable_size() < total_size)
+    {
         return std::unexpected(apex::core::ErrorCode::InsufficientData);
     }
 
     // 페이로드 추출 (복사 — Frame이 vector 소유)
     auto frame_span = buf.linearize(total_size);
     Frame frame;
-    frame.payload.assign(
-        frame_span.data() + LENGTH_PREFIX_SIZE,
-        frame_span.data() + total_size);
+    frame.payload.assign(frame_span.data() + LENGTH_PREFIX_SIZE, frame_span.data() + total_size);
     frame.is_binary = true;
     frame.is_text = false;
 
     return frame;
 }
 
-void WebSocketProtocol::consume_frame(
-    apex::core::RingBuffer& buf, const Frame& frame)
+void WebSocketProtocol::consume_frame(apex::core::RingBuffer& buf, const Frame& frame)
 {
     constexpr size_t LENGTH_PREFIX_SIZE = 4;
     buf.consume(LENGTH_PREFIX_SIZE + frame.payload.size());

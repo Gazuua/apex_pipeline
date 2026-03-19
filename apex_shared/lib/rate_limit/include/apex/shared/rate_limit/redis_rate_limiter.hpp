@@ -10,18 +10,21 @@
 #include <string>
 #include <string_view>
 
-namespace apex::shared::rate_limit {
+namespace apex::shared::rate_limit
+{
 
 /// Result of a rate limit check.
-struct RateLimitResult {
+struct RateLimitResult
+{
     bool allowed;
     uint32_t estimated_count;
-    uint32_t retry_after_ms;  ///< 0 if allowed, else suggested wait time
+    uint32_t retry_after_ms; ///< 0 if allowed, else suggested wait time
 };
 
-struct RedisRateLimiterConfig {
-    uint32_t default_limit = 100;            ///< 기본 한도 (per window)
-    std::chrono::seconds window_size{60};    ///< 윈도우 크기
+struct RedisRateLimiterConfig
+{
+    uint32_t default_limit = 100;         ///< 기본 한도 (per window)
+    std::chrono::seconds window_size{60}; ///< 윈도우 크기
 };
 
 /// Redis-based rate limiter using Lua scripting for atomic check+increment.
@@ -40,17 +43,17 @@ struct RedisRateLimiterConfig {
 ///
 ///   // Per-Endpoint with override limit
 ///   auto result = co_await limiter.check_endpoint(user_id, msg_id, now_ms, 50);
-class RedisRateLimiter {
-public:
-    RedisRateLimiter(RedisRateLimiterConfig config,
-                     adapters::redis::RedisMultiplexer& multiplexer);
+class RedisRateLimiter
+{
+  public:
+    RedisRateLimiter(RedisRateLimiterConfig config, adapters::redis::RedisMultiplexer& multiplexer);
 
     /// Check per-user rate limit.
     /// @param user_id User identifier.
     /// @param now_ms Current time in milliseconds since epoch.
     /// @return RateLimitResult via coroutine.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RateLimitResult>>
-    check_user(uint64_t user_id, uint64_t now_ms);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<RateLimitResult>> check_user(uint64_t user_id,
+                                                                                         uint64_t now_ms);
 
     /// Check per-endpoint rate limit.
     /// @param user_id User identifier.
@@ -59,14 +62,16 @@ public:
     /// @param limit_override Optional per-endpoint limit override (0 = use default).
     /// @return RateLimitResult via coroutine.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<RateLimitResult>>
-    check_endpoint(uint64_t user_id, uint32_t msg_id, uint64_t now_ms,
-                   uint32_t limit_override = 0);
+    check_endpoint(uint64_t user_id, uint32_t msg_id, uint64_t now_ms, uint32_t limit_override = 0);
 
     /// Update configuration at runtime (TOML hot-reload).
     void update_config(RedisRateLimiterConfig config) noexcept;
 
     /// Get the loaded Lua script SHA1 hash (for EVALSHA).
-    [[nodiscard]] std::string_view script_sha() const noexcept { return script_sha_; }
+    [[nodiscard]] std::string_view script_sha() const noexcept
+    {
+        return script_sha_;
+    }
 
     /// Load the Lua script into Redis (SCRIPT LOAD). Must be called once
     /// after connection is established.
@@ -130,11 +135,10 @@ redis.call('PEXPIRE', cur_key, window_ms * 2)
 return {1, math.floor(estimate), 0}
 )lua";
 
-private:
+  private:
     /// Execute the sliding window Lua script.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<RateLimitResult>>
-    execute_lua(std::string_view cur_key, std::string_view prev_key,
-                uint32_t limit, uint64_t now_ms);
+    execute_lua(std::string_view cur_key, std::string_view prev_key, uint32_t limit, uint64_t now_ms);
 
     RedisRateLimiterConfig config_;
     adapters::redis::RedisMultiplexer& multiplexer_;

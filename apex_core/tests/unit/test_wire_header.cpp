@@ -4,11 +4,13 @@
 
 using namespace apex::core;
 
-TEST(WireHeader, SizeIs12Bytes) {
+TEST(WireHeader, SizeIs12Bytes)
+{
     EXPECT_EQ(WireHeader::SIZE, 12u);
 }
 
-TEST(WireHeader, DefaultValues) {
+TEST(WireHeader, DefaultValues)
+{
     WireHeader h;
     EXPECT_EQ(h.version, 2u);
     EXPECT_EQ(h.flags, 0u);
@@ -17,7 +19,8 @@ TEST(WireHeader, DefaultValues) {
     EXPECT_EQ(h.reserved, 0u);
 }
 
-TEST(WireHeader, SerializeAndParse) {
+TEST(WireHeader, SerializeAndParse)
+{
     WireHeader h;
     h.version = 2;
     h.flags = wire_flags::COMPRESSED;
@@ -36,7 +39,8 @@ TEST(WireHeader, SerializeAndParse) {
     EXPECT_EQ(result->reserved, h.reserved);
 }
 
-TEST(WireHeader, BigEndianByteOrder) {
+TEST(WireHeader, BigEndianByteOrder)
+{
     WireHeader h;
     h.flags = 0x12;
     h.msg_id = 0x01020304;
@@ -60,14 +64,16 @@ TEST(WireHeader, BigEndianByteOrder) {
     EXPECT_EQ(bytes[9], 0x08);
 }
 
-TEST(WireHeader, ParseInsufficientData) {
+TEST(WireHeader, ParseInsufficientData)
+{
     std::array<uint8_t, 5> data{};
     auto result = WireHeader::parse(data);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::InsufficientData);
 }
 
-TEST(WireHeader, ParseBodyTooLarge) {
+TEST(WireHeader, ParseBodyTooLarge)
+{
     WireHeader h;
     h.body_size = WireHeader::MAX_BODY_SIZE + 1;
 
@@ -79,13 +85,15 @@ TEST(WireHeader, ParseBodyTooLarge) {
     EXPECT_EQ(result.error(), ParseError::BodyTooLarge);
 }
 
-TEST(WireHeader, FrameSize) {
+TEST(WireHeader, FrameSize)
+{
     WireHeader h;
     h.body_size = 256;
-    EXPECT_EQ(h.frame_size(), 268u);  // 12 + 256 = 268
+    EXPECT_EQ(h.frame_size(), 268u); // 12 + 256 = 268
 }
 
-TEST(WireHeader, ZeroBodySize) {
+TEST(WireHeader, ZeroBodySize)
+{
     WireHeader h;
     h.msg_id = 100;
     h.body_size = 0;
@@ -97,34 +105,38 @@ TEST(WireHeader, ZeroBodySize) {
     EXPECT_EQ(result->msg_id, 100u);
 }
 
-TEST(WireHeader, ParseUnsupportedVersion) {
+TEST(WireHeader, ParseUnsupportedVersion)
+{
     WireHeader h;
     auto bytes = h.serialize();
-    bytes[0] = 0;  // version 0
+    bytes[0] = 0; // version 0
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
 }
 
-TEST(WireHeader, ParseV1Rejected) {
+TEST(WireHeader, ParseV1Rejected)
+{
     WireHeader h;
     auto bytes = h.serialize();
-    bytes[0] = 1;  // old v1 version
+    bytes[0] = 1; // old v1 version
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
 }
 
-TEST(WireHeader, ParseFutureVersion) {
+TEST(WireHeader, ParseFutureVersion)
+{
     WireHeader h;
     auto bytes = h.serialize();
-    bytes[0] = 99;  // far-future version
+    bytes[0] = 99; // far-future version
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
 }
 
-TEST(WireHeader, MaxValidBodySize) {
+TEST(WireHeader, MaxValidBodySize)
+{
     WireHeader h;
     h.body_size = WireHeader::MAX_BODY_SIZE;
 
@@ -134,7 +146,8 @@ TEST(WireHeader, MaxValidBodySize) {
     EXPECT_EQ(result->body_size, WireHeader::MAX_BODY_SIZE);
 }
 
-TEST(WireHeader, LargeMsgId) {
+TEST(WireHeader, LargeMsgId)
+{
     WireHeader h;
     h.msg_id = 0xDEADBEEF;
     auto bytes = h.serialize();

@@ -6,18 +6,21 @@ using namespace apex::shared::protocols::kafka;
 
 // === RoutingHeader Tests ===
 
-TEST(RoutingHeader, SizeIs8Bytes) {
+TEST(RoutingHeader, SizeIs8Bytes)
+{
     EXPECT_EQ(RoutingHeader::SIZE, 8u);
 }
 
-TEST(RoutingHeader, DefaultValues) {
+TEST(RoutingHeader, DefaultValues)
+{
     RoutingHeader h;
     EXPECT_EQ(h.header_version, RoutingHeader::CURRENT_VERSION);
     EXPECT_EQ(h.flags, 0u);
     EXPECT_EQ(h.msg_id, 0u);
 }
 
-TEST(RoutingHeader, SerializeAndParse) {
+TEST(RoutingHeader, SerializeAndParse)
+{
     RoutingHeader h;
     h.flags = routing_flags::DIRECTION_RESPONSE | routing_flags::PRIORITY_HIGH;
     h.msg_id = 0xDEADBEEF;
@@ -31,7 +34,8 @@ TEST(RoutingHeader, SerializeAndParse) {
     EXPECT_EQ(result->msg_id, h.msg_id);
 }
 
-TEST(RoutingHeader, BigEndianByteOrder) {
+TEST(RoutingHeader, BigEndianByteOrder)
+{
     RoutingHeader h;
     h.header_version = 1;
     h.flags = 0x1234;
@@ -54,45 +58,49 @@ TEST(RoutingHeader, BigEndianByteOrder) {
     EXPECT_EQ(bytes[7], 0xDD);
 }
 
-TEST(RoutingHeader, ParseInsufficientData) {
+TEST(RoutingHeader, ParseInsufficientData)
+{
     std::array<uint8_t, 4> data{};
     auto result = RoutingHeader::parse(data);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::InsufficientData);
 }
 
-TEST(RoutingHeader, ParseUnsupportedVersion) {
+TEST(RoutingHeader, ParseUnsupportedVersion)
+{
     RoutingHeader h;
     auto bytes = h.serialize();
     bytes[0] = 0x00;
-    bytes[1] = 0x99;  // version 153
+    bytes[1] = 0x99; // version 153
     auto result = RoutingHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::UnsupportedVersion);
 }
 
-TEST(RoutingHeader, DeliveryFlags) {
+TEST(RoutingHeader, DeliveryFlags)
+{
     RoutingHeader h;
     h.flags = routing_flags::DELIVERY_CHANNEL;
-    EXPECT_EQ(h.flags & routing_flags::DELIVERY_MASK,
-              routing_flags::DELIVERY_CHANNEL);
+    EXPECT_EQ(h.flags & routing_flags::DELIVERY_MASK, routing_flags::DELIVERY_CHANNEL);
 
     h.flags = routing_flags::DELIVERY_BROADCAST;
-    EXPECT_EQ(h.flags & routing_flags::DELIVERY_MASK,
-              routing_flags::DELIVERY_BROADCAST);
+    EXPECT_EQ(h.flags & routing_flags::DELIVERY_MASK, routing_flags::DELIVERY_BROADCAST);
 }
 
 // === MetadataPrefix Tests ===
 
-TEST(MetadataPrefix, SizeIs40Bytes) {
+TEST(MetadataPrefix, SizeIs40Bytes)
+{
     EXPECT_EQ(MetadataPrefix::SIZE, 40u);
 }
 
-TEST(MetadataPrefix, EnvelopeHeaderSizeIs48) {
+TEST(MetadataPrefix, EnvelopeHeaderSizeIs48)
+{
     EXPECT_EQ(ENVELOPE_HEADER_SIZE, 48u);
 }
 
-TEST(MetadataPrefix, DefaultValues) {
+TEST(MetadataPrefix, DefaultValues)
+{
     MetadataPrefix m;
     EXPECT_EQ(m.meta_version, MetadataPrefix::CURRENT_VERSION);
     EXPECT_EQ(m.core_id, 0u);
@@ -103,7 +111,8 @@ TEST(MetadataPrefix, DefaultValues) {
     EXPECT_EQ(m.timestamp, 0u);
 }
 
-TEST(MetadataPrefix, SerializeAndParse) {
+TEST(MetadataPrefix, SerializeAndParse)
+{
     MetadataPrefix m;
     m.core_id = 7;
     m.corr_id = 0x0123456789ABCDEFull;
@@ -125,24 +134,30 @@ TEST(MetadataPrefix, SerializeAndParse) {
     EXPECT_EQ(result->timestamp, 1710547200000ull);
 }
 
-TEST(MetadataPrefix, ParseInsufficientData) {
+TEST(MetadataPrefix, ParseInsufficientData)
+{
     std::array<uint8_t, 16> data{};
     auto result = MetadataPrefix::parse(data);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::InsufficientData);
 }
 
-TEST(MetadataPrefix, ParseUnsupportedVersion) {
+TEST(MetadataPrefix, ParseUnsupportedVersion)
+{
     MetadataPrefix m;
     auto bytes = m.serialize();
     // 버전 바이트를 99로 변경
-    bytes[0] = 0x00; bytes[1] = 0x00; bytes[2] = 0x00; bytes[3] = 0x63;
+    bytes[0] = 0x00;
+    bytes[1] = 0x00;
+    bytes[2] = 0x00;
+    bytes[3] = 0x63;
     auto result = MetadataPrefix::parse(bytes);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::UnsupportedVersion);
 }
 
-TEST(MetadataPrefix, SourceIds) {
+TEST(MetadataPrefix, SourceIds)
+{
     EXPECT_EQ(source_ids::GATEWAY, 0u);
     EXPECT_EQ(source_ids::AUTH, 1u);
     EXPECT_EQ(source_ids::CHAT, 2u);
@@ -150,12 +165,14 @@ TEST(MetadataPrefix, SourceIds) {
 
 // === ReplyTopicHeader Tests ===
 
-TEST(ReplyTopicHeader, SerializeEmpty) {
+TEST(ReplyTopicHeader, SerializeEmpty)
+{
     auto bytes = ReplyTopicHeader::serialize("");
     EXPECT_TRUE(bytes.empty());
 }
 
-TEST(ReplyTopicHeader, SerializeAndParse) {
+TEST(ReplyTopicHeader, SerializeAndParse)
+{
     std::string topic = "auth.responses";
     auto bytes = ReplyTopicHeader::serialize(topic);
     ASSERT_FALSE(bytes.empty());
@@ -167,26 +184,29 @@ TEST(ReplyTopicHeader, SerializeAndParse) {
     EXPECT_EQ(result->second, bytes.size());
 }
 
-TEST(ReplyTopicHeader, ParseInsufficientData_TooShort) {
+TEST(ReplyTopicHeader, ParseInsufficientData_TooShort)
+{
     std::array<uint8_t, 1> data{};
     auto result = ReplyTopicHeader::parse(data);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::InsufficientData);
 }
 
-TEST(ReplyTopicHeader, ParseInsufficientData_TopicTruncated) {
+TEST(ReplyTopicHeader, ParseInsufficientData_TopicTruncated)
+{
     // 헤더에 길이 10을 기록하지만 실제 데이터는 3바이트만 제공
     std::vector<uint8_t> data(sizeof(uint16_t) + 3);
     // big-endian으로 길이 10 기록
     data[0] = 0x00;
-    data[1] = 0x0A;  // length = 10
+    data[1] = 0x0A; // length = 10
     // 나머지 3바이트만 있으므로 파싱 실패해야 함
     auto result = ReplyTopicHeader::parse(data);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), EnvelopeError::InsufficientData);
 }
 
-TEST(ReplyTopicHeader, SerializeOverflowReturnsEmpty) {
+TEST(ReplyTopicHeader, SerializeOverflowReturnsEmpty)
+{
     // uint16_t max = 65535. 그보다 큰 topic은 빈 벡터 반환해야 함
     // 실제로 65536바이트 문자열을 만들어서 테스트
     std::string oversized_topic(65536, 'A');
@@ -194,7 +214,8 @@ TEST(ReplyTopicHeader, SerializeOverflowReturnsEmpty) {
     EXPECT_TRUE(bytes.empty());
 }
 
-TEST(ReplyTopicHeader, SerializeMaxValidLength) {
+TEST(ReplyTopicHeader, SerializeMaxValidLength)
+{
     // uint16_t max = 65535 — 이 길이는 유효해야 함
     std::string max_topic(65535, 'B');
     auto bytes = ReplyTopicHeader::serialize(max_topic);
@@ -204,13 +225,15 @@ TEST(ReplyTopicHeader, SerializeMaxValidLength) {
 
 // === extract_reply_topic Tests ===
 
-TEST(ExtractReplyTopic, NoFlag) {
+TEST(ExtractReplyTopic, NoFlag)
+{
     // HAS_REPLY_TOPIC 플래그 없으면 빈 문자열 반환
     auto topic = extract_reply_topic(0, {});
     EXPECT_TRUE(topic.empty());
 }
 
-TEST(ExtractReplyTopic, WithReplyTopic) {
+TEST(ExtractReplyTopic, WithReplyTopic)
+{
     RoutingHeader rh;
     rh.msg_id = 100;
     MetadataPrefix mp;
@@ -219,12 +242,12 @@ TEST(ExtractReplyTopic, WithReplyTopic) {
     std::string reply_topic = "chat.responses";
     auto envelope = build_full_envelope(rh, mp, reply_topic, {});
 
-    auto extracted = extract_reply_topic(
-        routing_flags::HAS_REPLY_TOPIC, envelope);
+    auto extracted = extract_reply_topic(routing_flags::HAS_REPLY_TOPIC, envelope);
     EXPECT_EQ(extracted, reply_topic);
 }
 
-TEST(ExtractReplyTopic, InsufficientDataReturnsEmpty) {
+TEST(ExtractReplyTopic, InsufficientDataReturnsEmpty)
+{
     // HAS_REPLY_TOPIC 플래그 있지만 데이터가 부족하면 빈 문자열
     std::vector<uint8_t> short_data(ENVELOPE_HEADER_SIZE);
     auto topic = extract_reply_topic(routing_flags::HAS_REPLY_TOPIC, short_data);
@@ -233,10 +256,11 @@ TEST(ExtractReplyTopic, InsufficientDataReturnsEmpty) {
 
 // === build_full_envelope Tests ===
 
-TEST(BuildFullEnvelope, WithoutReplyTopic) {
+TEST(BuildFullEnvelope, WithoutReplyTopic)
+{
     RoutingHeader rh;
     rh.msg_id = 42;
-    rh.flags = routing_flags::HAS_REPLY_TOPIC;  // 일부러 설정해도 빈 topic이면 해제되어야 함
+    rh.flags = routing_flags::HAS_REPLY_TOPIC; // 일부러 설정해도 빈 topic이면 해제되어야 함
 
     MetadataPrefix mp;
     std::vector<uint8_t> payload{0x01, 0x02, 0x03};
@@ -253,7 +277,8 @@ TEST(BuildFullEnvelope, WithoutReplyTopic) {
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
 }
 
-TEST(BuildFullEnvelope, WithReplyTopic) {
+TEST(BuildFullEnvelope, WithReplyTopic)
+{
     RoutingHeader rh;
     rh.msg_id = 42;
 
@@ -280,34 +305,38 @@ TEST(BuildFullEnvelope, WithReplyTopic) {
 
 // === envelope_payload_offset 엣지케이스 Tests ===
 
-TEST(EnvelopePayloadOffset, NoReplyTopicFlag) {
+TEST(EnvelopePayloadOffset, NoReplyTopicFlag)
+{
     // HAS_REPLY_TOPIC 플래그 없으면 ENVELOPE_HEADER_SIZE 반환
     std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + 10, 0);
     auto offset = envelope_payload_offset(0, data);
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
 }
 
-TEST(EnvelopePayloadOffset, HasReplyTopicFlagButParseFails) {
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagButParseFails)
+{
     // HAS_REPLY_TOPIC 플래그 있지만 reply_topic 데이터가 부족하여 parse 실패 시
     // offset은 ENVELOPE_HEADER_SIZE 그대로 반환 (fallback)
-    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + 1, 0);  // uint16_t 파싱 불가 (1바이트만)
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + 1, 0); // uint16_t 파싱 불가 (1바이트만)
     auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
 }
 
-TEST(EnvelopePayloadOffset, HasReplyTopicFlagButDataTooShort) {
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagButDataTooShort)
+{
     // HAS_REPLY_TOPIC 플래그 있지만 data가 ENVELOPE_HEADER_SIZE + sizeof(uint16_t) 미만
-    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE, 0);  // 딱 헤더 크기만
+    std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE, 0); // 딱 헤더 크기만
     auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
 }
 
-TEST(EnvelopePayloadOffset, HasReplyTopicFlagTruncatedTopic) {
+TEST(EnvelopePayloadOffset, HasReplyTopicFlagTruncatedTopic)
+{
     // HAS_REPLY_TOPIC 플래그, uint16_t 파싱 가능하지만 topic 데이터 부족
     std::vector<uint8_t> data(ENVELOPE_HEADER_SIZE + sizeof(uint16_t) + 2, 0);
     // big-endian 길이 = 10 기록 (실제 데이터는 2바이트만)
     data[ENVELOPE_HEADER_SIZE] = 0x00;
-    data[ENVELOPE_HEADER_SIZE + 1] = 0x0A;  // length = 10
+    data[ENVELOPE_HEADER_SIZE + 1] = 0x0A; // length = 10
     auto offset = envelope_payload_offset(routing_flags::HAS_REPLY_TOPIC, data);
     // parse 실패하므로 ENVELOPE_HEADER_SIZE 반환
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);

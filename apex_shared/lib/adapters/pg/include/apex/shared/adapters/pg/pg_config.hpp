@@ -5,11 +5,13 @@
 #include <cstdint>
 #include <string>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
 /// PostgreSQL adapter configuration.
 /// Default connection string points to PgBouncer (port 6432).
-struct PgAdapterConfig {
+struct PgAdapterConfig
+{
     std::string connection_string = "host=localhost port=6432 dbname=apex user=apex";
     size_t pool_size_per_core = 2;
     std::chrono::seconds max_idle_time{120};
@@ -17,7 +19,7 @@ struct PgAdapterConfig {
 
     // acquire_with_retry settings
     uint32_t max_acquire_retries = 3;
-    std::chrono::milliseconds retry_backoff{100};  ///< initial backoff (exponential)
+    std::chrono::milliseconds retry_backoff{100}; ///< initial backoff (exponential)
 };
 
 } // namespace apex::shared::adapters::pg

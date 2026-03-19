@@ -1,14 +1,15 @@
 #pragma once
 
+#include <apex/core/result.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/shared/adapters/pg/pg_pool.hpp>
-#include <apex/core/result.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <span>
 #include <string>
 #include <string_view>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
 /// RAII transaction guard. Marks connection as poisoned if destroyed without
 /// explicit commit() or rollback().
@@ -20,8 +21,9 @@ namespace apex::shared::adapters::pg {
 ///   // If commit() is not called before destruction, conn is marked poisoned.
 ///
 /// Thread safety: NOT thread-safe. Same as PgConnection.
-class PgTransaction {
-public:
+class PgTransaction
+{
+  public:
     PgTransaction(PgConnection& conn, PgPool& pool);
     ~PgTransaction();
 
@@ -33,13 +35,11 @@ public:
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> begin();
 
     /// Execute a SQL statement within this transaction.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    execute(std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> execute(std::string_view sql);
 
     /// Execute a parameterized SQL statement within this transaction.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    execute_params(std::string_view sql,
-                   std::span<const std::string> params);
+    execute_params(std::string_view sql, std::span<const std::string> params);
 
     /// Commit the transaction. Marks as finished on success.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> commit();
@@ -47,7 +47,7 @@ public:
     /// Rollback the transaction. Always marks as finished.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> rollback();
 
-private:
+  private:
     PgConnection& conn_;
     PgPool& pool_;
     bool begun_{false};

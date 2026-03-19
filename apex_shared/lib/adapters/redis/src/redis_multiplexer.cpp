@@ -1,5 +1,5 @@
-#include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 #include <apex/shared/adapters/redis/redis_connection.hpp>
+#include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -12,60 +12,68 @@
 
 #include <string>
 
+namespace apex::shared::adapters::redis
+{
 
-namespace apex::shared::adapters::redis {
+RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config)
+    : io_ctx_(io_ctx)
+    , config_(config)
+    , slab_(64, {.auto_grow = true, .max_total_count = config_.max_pending_commands})
+{}
 
-RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx,
-                                   const RedisConfig& config)
-    : io_ctx_(io_ctx), config_(config),
-      slab_(64, {.auto_grow = true, .max_total_count = config_.max_pending_commands}) {}
-
-void RedisMultiplexer::connect() {
+void RedisMultiplexer::connect()
+{
     // Establish the initial connection.  redisAsyncConnect is non-blocking;
     // the TCP handshake completes once the io_context event loop runs.
     conn_ = RedisConnection::create(io_ctx_, config_);
-    if (conn_ && conn_->is_connected()) {
-        if (!config_.password.empty()) {
+    if (conn_ && conn_->is_connected())
+    {
+        if (!config_.password.empty())
+        {
             // AUTH must run asynchronously after the event loop starts.
-            boost::asio::co_spawn(io_ctx_, [this]() -> boost::asio::awaitable<void> {
-                auto result = co_await authenticate(*conn_);
-                if (!result.has_value()) {
-                    spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting",
-                                 config_.host, config_.port);
-                    conn_.reset();
-                    on_disconnect();
-                }
-            }, boost::asio::detached);
+            boost::asio::co_spawn(
+                io_ctx_,
+                [this]() -> boost::asio::awaitable<void> {
+                    auto result = co_await authenticate(*conn_);
+                    if (!result.has_value())
+                    {
+                        spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host,
+                                     config_.port);
+                        conn_.reset();
+                        on_disconnect();
+                    }
+                },
+                boost::asio::detached);
         }
-    } else {
-        spdlog::warn("RedisMultiplexer: initial connect failed ({}:{}), starting reconnect",
-                     config_.host, config_.port);
-        conn_.reset();  // Ensure null on failure
+    }
+    else
+    {
+        spdlog::warn("RedisMultiplexer: initial connect failed ({}:{}), starting reconnect", config_.host,
+                     config_.port);
+        conn_.reset(); // Ensure null on failure
         reconnecting_ = true;
         boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
     }
 }
 
-RedisMultiplexer::~RedisMultiplexer() {
+RedisMultiplexer::~RedisMultiplexer()
+{
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 }
 
-boost::asio::awaitable<apex::core::Result<RedisReply>>
-RedisMultiplexer::command(std::string_view cmd) {
-    if (!conn_ || !conn_->is_connected()) {
+boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command(std::string_view cmd)
+{
+    if (!conn_ || !conn_->is_connected())
+    {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     auto seq = next_sequence_++;
-    auto* pending = slab_.construct(
-        boost::asio::steady_timer(io_ctx_,
-            std::chrono::steady_clock::time_point::max()),
-        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
-        std::unexpected(apex::core::ErrorCode::Timeout),
-        seq,
-        false
-    );
-    if (!pending) {
+    auto* pending = slab_.construct(boost::asio::steady_timer(io_ctx_, std::chrono::steady_clock::time_point::max()),
+                                    boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+                                    std::unexpected(apex::core::ErrorCode::Timeout), seq, false);
+    if (!pending)
+    {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -73,10 +81,9 @@ RedisMultiplexer::command(std::string_view cmd) {
 
     // Submit async command to hiredis
     std::string cmd_str(cmd);
-    int ret = redisAsyncCommand(conn_->async_context(),
-                                &RedisMultiplexer::static_on_reply,
-                                this, cmd_str.c_str());
-    if (ret != REDIS_OK) {
+    int ret = redisAsyncCommand(conn_->async_context(), &RedisMultiplexer::static_on_reply, this, cmd_str.c_str());
+    if (ret != REDIS_OK)
+    {
         pending_.pop_back();
         slab_.destroy(pending);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -86,7 +93,8 @@ RedisMultiplexer::command(std::string_view cmd) {
     // Capture raw pointer; the slab owns the object, so it stays valid
     // until explicitly destroyed.
     pending->timeout.async_wait([pending](boost::system::error_code ec) {
-        if (!ec) {
+        if (!ec)
+        {
             pending->timed_out = true;
             pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
             pending->resolver.cancel();
@@ -95,8 +103,7 @@ RedisMultiplexer::command(std::string_view cmd) {
 
     // Wait for reply (hiredis callback cancels resolver to resume)
     boost::system::error_code ec;
-    co_await pending->resolver.async_wait(
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    co_await pending->resolver.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     pending->timeout.cancel();
 
@@ -108,38 +115,37 @@ RedisMultiplexer::command(std::string_view cmd) {
     co_return std::move(result);
 }
 
-boost::asio::awaitable<apex::core::Result<RedisReply>>
-RedisMultiplexer::submit_formatted_command(const char* cmd, int len) {
-    if (!conn_ || !conn_->is_connected()) {
+boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::submit_formatted_command(const char* cmd,
+                                                                                                  int len)
+{
+    if (!conn_ || !conn_->is_connected())
+    {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     auto seq = next_sequence_++;
-    auto* pending = slab_.construct(
-        boost::asio::steady_timer(io_ctx_,
-            std::chrono::steady_clock::time_point::max()),
-        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
-        std::unexpected(apex::core::ErrorCode::Timeout),
-        seq,
-        false
-    );
-    if (!pending) {
+    auto* pending = slab_.construct(boost::asio::steady_timer(io_ctx_, std::chrono::steady_clock::time_point::max()),
+                                    boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+                                    std::unexpected(apex::core::ErrorCode::Timeout), seq, false);
+    if (!pending)
+    {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     pending_.push_back(pending);
 
-    int ret = redisAsyncFormattedCommand(conn_->async_context(),
-                                         &RedisMultiplexer::static_on_reply,
-                                         this, cmd, static_cast<size_t>(len));
-    if (ret != REDIS_OK) {
+    int ret = redisAsyncFormattedCommand(conn_->async_context(), &RedisMultiplexer::static_on_reply, this, cmd,
+                                         static_cast<size_t>(len));
+    if (ret != REDIS_OK)
+    {
         pending_.pop_back();
         slab_.destroy(pending);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     pending->timeout.async_wait([pending](boost::system::error_code ec) {
-        if (!ec) {
+        if (!ec)
+        {
             pending->timed_out = true;
             pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
             pending->resolver.cancel();
@@ -147,8 +153,7 @@ RedisMultiplexer::submit_formatted_command(const char* cmd, int len) {
     });
 
     boost::system::error_code ec;
-    co_await pending->resolver.async_wait(
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    co_await pending->resolver.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     pending->timeout.cancel();
 
@@ -159,23 +164,27 @@ RedisMultiplexer::submit_formatted_command(const char* cmd, int len) {
 }
 
 boost::asio::awaitable<apex::core::Result<std::vector<RedisReply>>>
-RedisMultiplexer::pipeline(std::span<const std::string> commands) {
+RedisMultiplexer::pipeline(std::span<const std::string> commands)
+{
     std::vector<RedisReply> results;
     results.reserve(commands.size());
 
-    for (const auto& cmd : commands) {
+    for (const auto& cmd : commands)
+    {
         // Format each command via hiredis for safe transmission.
         // pipeline() will be updated to accept parameterized commands in a
         // future revision; for now, treat each string as a pre-formatted
         // command (same as the deprecated command(string_view)).
         char* buf = nullptr;
         int len = redisFormatCommand(&buf, cmd.c_str());
-        if (len < 0 || !buf) {
+        if (len < 0 || !buf)
+        {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
         auto result = co_await submit_formatted_command(buf, len);
         redisFreeCommand(buf);
-        if (!result.has_value()) {
+        if (!result.has_value())
+        {
             co_return std::unexpected(result.error());
         }
         results.push_back(std::move(*result));
@@ -185,12 +194,13 @@ RedisMultiplexer::pipeline(std::span<const std::string> commands) {
 }
 
 // hiredis callback — FIFO matching
-void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
-                                        void* reply, void* privdata) {
+void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, void* privdata)
+{
     auto* self = static_cast<RedisMultiplexer*>(privdata);
     auto* r = static_cast<redisReply*>(reply);
 
-    if (self->pending_.empty()) return;
+    if (self->pending_.empty())
+        return;
 
     auto* front = self->pending_.front();
     self->pending_.pop_front();
@@ -200,24 +210,30 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/,
     // and extracted the result. The PendingCommand is still alive in the slab
     // (release_pending was called but only removes from deque if present).
     // We must destroy it here since the coroutine won't do it.
-    if (front->timed_out) {
+    if (front->timed_out)
+    {
         self->slab_.destroy(front);
         return;
     }
 
-    if (r && r->type != REDIS_REPLY_ERROR) {
+    if (r && r->type != REDIS_REPLY_ERROR)
+    {
         front->result = RedisReply{r};
-    } else {
+    }
+    else
+    {
         front->result = std::unexpected(apex::core::ErrorCode::AdapterError);
     }
-    front->resolver.cancel();  // Resume coroutine
+    front->resolver.cancel(); // Resume coroutine
 }
 
-void RedisMultiplexer::on_disconnect() {
+void RedisMultiplexer::on_disconnect()
+{
     // 재진입 방어: authenticate() co_await 중 disconnect 발생 시
     // on_disconnect()가 다시 호출될 수 있다. 이미 reconnect_loop가
     // 실행 중이면 이중 spawn을 방지한다.
-    if (reconnecting_) return;
+    if (reconnecting_)
+        return;
 
     reconnecting_ = true;
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
@@ -225,39 +241,37 @@ void RedisMultiplexer::on_disconnect() {
     boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
 }
 
-boost::asio::awaitable<apex::core::Result<void>>
-RedisMultiplexer::authenticate(RedisConnection& conn) {
-    if (config_.password.empty()) co_return apex::core::Result<void>{};
+boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(RedisConnection& conn)
+{
+    if (config_.password.empty())
+        co_return apex::core::Result<void>{};
 
     // Use redisAsyncCommand directly (same pattern as command()) to bypass
     // command()'s reconnecting_ guard and avoid async_command's
     // std::function copy-constructibility requirement.
     auto seq = next_sequence_++;
-    auto* pending = slab_.construct(
-        boost::asio::steady_timer(io_ctx_,
-            std::chrono::steady_clock::time_point::max()),
-        boost::asio::steady_timer(io_ctx_, config_.command_timeout),
-        std::unexpected(apex::core::ErrorCode::Timeout),
-        seq,
-        false
-    );
-    if (!pending) {
+    auto* pending = slab_.construct(boost::asio::steady_timer(io_ctx_, std::chrono::steady_clock::time_point::max()),
+                                    boost::asio::steady_timer(io_ctx_, config_.command_timeout),
+                                    std::unexpected(apex::core::ErrorCode::Timeout), seq, false);
+    if (!pending)
+    {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     pending_.push_back(pending);
 
-    int ret = redisAsyncCommand(conn.async_context(),
-                                &RedisMultiplexer::static_on_reply,
-                                this, "AUTH %s", config_.password.c_str());
-    if (ret != REDIS_OK) {
+    int ret = redisAsyncCommand(conn.async_context(), &RedisMultiplexer::static_on_reply, this, "AUTH %s",
+                                config_.password.c_str());
+    if (ret != REDIS_OK)
+    {
         pending_.pop_back();
         slab_.destroy(pending);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     pending->timeout.async_wait([pending](boost::system::error_code ec) {
-        if (!ec) {
+        if (!ec)
+        {
             pending->timed_out = true;
             pending->result = std::unexpected(apex::core::ErrorCode::Timeout);
             pending->resolver.cancel();
@@ -265,15 +279,15 @@ RedisMultiplexer::authenticate(RedisConnection& conn) {
     });
 
     boost::system::error_code ec;
-    co_await pending->resolver.async_wait(
-        boost::asio::redirect_error(boost::asio::use_awaitable, ec));
+    co_await pending->resolver.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, ec));
 
     pending->timeout.cancel();
 
     auto result = std::move(pending->result);
     release_pending(pending);
 
-    if (!result.has_value()) {
+    if (!result.has_value())
+    {
         spdlog::warn("Redis AUTH failed");
         conn.disconnect();
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -284,20 +298,23 @@ RedisMultiplexer::authenticate(RedisConnection& conn) {
     co_return apex::core::Result<void>{};
 }
 
-boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
+boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
+{
     auto backoff = std::chrono::milliseconds{100};
     const auto max_backoff = config_.reconnect_max_backoff;
 
-    while (reconnecting_) {
+    while (reconnecting_)
+    {
         ++reconnect_attempts_;
-        spdlog::info("Redis reconnect attempt {} (backoff {}ms)",
-                     reconnect_attempts_, backoff.count());
+        spdlog::info("Redis reconnect attempt {} (backoff {}ms)", reconnect_attempts_, backoff.count());
 
         conn_ = RedisConnection::create(io_ctx_, config_);
-        if (conn_ && conn_->is_connected()) {
+        if (conn_ && conn_->is_connected())
+        {
             // AUTH (password set => authenticate)
             auto auth = co_await authenticate(*conn_);
-            if (!auth.has_value()) {
+            if (!auth.has_value())
+            {
                 conn_.reset();
                 // backoff then retry
                 boost::asio::steady_timer timer(io_ctx_, backoff);
@@ -307,8 +324,7 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
             }
             reconnecting_ = false;
             reconnect_attempts_ = 0;
-            spdlog::info("Redis reconnected successfully{}",
-                         config_.password.empty() ? "" : " (authenticated)");
+            spdlog::info("Redis reconnected successfully{}", config_.password.empty() ? "" : " (authenticated)");
             co_return;
         }
 
@@ -331,8 +347,10 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop() {
 //
 // This keeps FIFO deque ordering intact and prevents use-after-free:
 // neither side destroys the object while the other still references it.
-void RedisMultiplexer::release_pending(PendingCommand* cmd) {
-    if (cmd->timed_out) {
+void RedisMultiplexer::release_pending(PendingCommand* cmd)
+{
+    if (cmd->timed_out)
+    {
         // Timed-out command: the hiredis callback has NOT yet fired.
         // The PendingCommand must stay in the deque for FIFO ordering
         // and alive in the slab. static_on_reply() will pop it from
@@ -345,19 +363,24 @@ void RedisMultiplexer::release_pending(PendingCommand* cmd) {
     slab_.destroy(cmd);
 }
 
-void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error) {
+void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error)
+{
     // Move to local to avoid iterator invalidation if cancel()
     // triggers posted handlers synchronously.
     auto local = std::move(pending_);
-    for (auto* cmd : local) {
+    for (auto* cmd : local)
+    {
         cmd->result = std::unexpected(error);
-        if (cmd->timed_out) {
+        if (cmd->timed_out)
+        {
             // Already timed out: the coroutine has resumed and called
             // release_pending (which returned early). hiredis won't fire
             // further callbacks after disconnect, so we must destroy here
             // to avoid a leak.
             slab_.destroy(cmd);
-        } else {
+        }
+        else
+        {
             // Not timed out: the coroutine is still suspended on
             // resolver.async_wait. cancel() posts a completion handler
             // that resumes the coroutine, which then calls release_pending
@@ -368,23 +391,28 @@ void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error) {
     }
 }
 
-bool RedisMultiplexer::connected() const noexcept {
+bool RedisMultiplexer::connected() const noexcept
+{
     return conn_ && conn_->is_connected() && !reconnecting_;
 }
 
-std::size_t RedisMultiplexer::pending_count() const noexcept {
+std::size_t RedisMultiplexer::pending_count() const noexcept
+{
     return pending_.size();
 }
 
-uint32_t RedisMultiplexer::reconnect_attempts() const noexcept {
+uint32_t RedisMultiplexer::reconnect_attempts() const noexcept
+{
     return reconnect_attempts_;
 }
 
-boost::asio::awaitable<void> RedisMultiplexer::close() {
+boost::asio::awaitable<void> RedisMultiplexer::close()
+{
     reconnecting_ = false;
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 
-    if (conn_) {
+    if (conn_)
+    {
         conn_->disconnect();
         conn_.reset();
     }

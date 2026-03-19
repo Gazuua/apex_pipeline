@@ -11,25 +11,23 @@
 #include <cstdint>
 #include <functional>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// 코어별 세션 매니저.
 /// NOT thread-safe — 단일 코어(io_context-per-core) 전용.
-class SessionManager {
-public:
-    explicit SessionManager(uint32_t core_id,
-                            uint32_t heartbeat_timeout_ticks = 300,
-                            size_t timer_wheel_slots = 1024,
-                            size_t recv_buf_capacity = 8192,
-                            size_t max_sessions_per_core = 1024);
+class SessionManager
+{
+  public:
+    explicit SessionManager(uint32_t core_id, uint32_t heartbeat_timeout_ticks = 300, size_t timer_wheel_slots = 1024,
+                            size_t recv_buf_capacity = 8192, size_t max_sessions_per_core = 1024);
 
     ~SessionManager();
 
     SessionManager(const SessionManager&) = delete;
     SessionManager& operator=(const SessionManager&) = delete;
 
-    [[nodiscard]] SessionPtr create_session(
-        boost::asio::ip::tcp::socket socket);
+    [[nodiscard]] SessionPtr create_session(boost::asio::ip::tcp::socket socket);
 
     void remove_session(SessionId id);
 
@@ -65,9 +63,12 @@ public:
     void for_each(std::function<void(SessionPtr)> fn) const;
 
     [[nodiscard]] size_t session_count() const noexcept;
-    [[nodiscard]] uint32_t core_id() const noexcept { return core_id_; }
+    [[nodiscard]] uint32_t core_id() const noexcept
+    {
+        return core_id_;
+    }
 
-private:
+  private:
     /// WARNING: Invokes timeout_callback_ which must NOT re-enter tick()
     /// or mutate timer/session maps — iterator invalidation hazard.
     void on_timer_expire(TimingWheel::EntryId entry_id);

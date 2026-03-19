@@ -1,10 +1,10 @@
 #pragma once
 
-#include <apex/shared/adapters/pg/pg_config.hpp>
-#include <apex/shared/adapters/pg/pg_result.hpp>
-#include <apex/shared/adapters/adapter_error.hpp>
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/result.hpp>
+#include <apex/shared/adapters/adapter_error.hpp>
+#include <apex/shared/adapters/pg/pg_config.hpp>
+#include <apex/shared/adapters/pg/pg_result.hpp>
 
 #include <libpq-fe.h>
 
@@ -18,7 +18,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::adapters::pg {
+namespace apex::shared::adapters::pg
+{
 
 /// libpq async connection integrated with Boost.Asio event loop.
 ///
@@ -32,10 +33,10 @@ namespace apex::shared::adapters::pg {
 ///   auto result = co_await conn.query_async("SELECT ...");
 ///
 /// Thread safety: NOT thread-safe. Per-core PgPool ensures single-thread access.
-class PgConnection {
-public:
-    explicit PgConnection(boost::asio::io_context& io_ctx,
-                          apex::core::BumpAllocator* request_alloc = nullptr);
+class PgConnection
+{
+  public:
+    explicit PgConnection(boost::asio::io_context& io_ctx, apex::core::BumpAllocator* request_alloc = nullptr);
     ~PgConnection();
 
     // Non-copyable, movable
@@ -47,13 +48,11 @@ public:
     /// Async connection establishment.
     /// PQconnectStart -> PQsocket -> Asio assign -> PQconnectPoll loop.
     /// @param conninfo libpq connection string (e.g., "host=localhost port=6432 dbname=apex")
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
-    connect_async(std::string_view conninfo);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> connect_async(std::string_view conninfo);
 
     /// Async query execution (no parameters).
     /// PQsendQuery -> Asio readable -> PQconsumeInput -> PQgetResult.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    query_async(std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> query_async(std::string_view sql);
 
     /// Async parameterized query execution.
     /// PQsendQueryParams -> Asio readable -> PQconsumeInput -> PQgetResult.
@@ -64,8 +63,7 @@ public:
 
     /// Async command execution (INSERT/UPDATE/DELETE with no result rows).
     /// Internally calls query_async() and returns affected_rows.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>>
-    execute_async(std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>> execute_async(std::string_view sql);
 
     /// Async parameterized command execution.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<int>>
@@ -73,8 +71,8 @@ public:
 
     /// Async prepared statement creation.
     /// PQsendPrepare -> Asio readable -> PQconsumeInput -> PQgetResult.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
-    prepare_async(std::string_view name, std::string_view sql);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> prepare_async(std::string_view name,
+                                                                                 std::string_view sql);
 
     /// Async prepared statement execution.
     /// PQsendQueryPrepared -> Asio readable -> PQconsumeInput -> PQgetResult.
@@ -92,17 +90,21 @@ public:
 
     /// Poisoned state — connection should not be returned to pool.
     /// Set when an unfinished transaction is detected on destruction.
-    void mark_poisoned() noexcept { poisoned_ = true; }
-    [[nodiscard]] bool is_poisoned() const noexcept { return poisoned_; }
+    void mark_poisoned() noexcept
+    {
+        poisoned_ = true;
+    }
+    [[nodiscard]] bool is_poisoned() const noexcept
+    {
+        return poisoned_;
+    }
 
-private:
+  private:
     /// PQconnectPoll loop (internal to connect_async)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
-    poll_connect();
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> poll_connect();
 
     /// Query result collection loop (internal to query_async/execute_async)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
-    collect_result();
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> collect_result();
 
     /// Release Asio socket without closing the fd (libpq owns the socket)
     void release_socket() noexcept;

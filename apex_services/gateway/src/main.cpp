@@ -12,21 +12,23 @@
 #include <apex/core/config.hpp>
 #include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
-#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
-#include <apex/shared/protocols/websocket/websocket_protocol.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
+#include <apex/shared/protocols/websocket/websocket_protocol.hpp>
 
 #include <spdlog/spdlog.h>
 
 #include <cstdlib>
 #include <memory>
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
     // ── Config 파싱 ──────────────────────────────────────────────────
     std::string config_path = "gateway.toml";
-    if (argc > 1) {
+    if (argc > 1)
+    {
         config_path = argv[1];
     }
 
@@ -37,7 +39,8 @@ int main(int argc, char* argv[]) {
     spdlog::info("Apex Gateway starting...");
 
     auto config_result = apex::gateway::parse_gateway_config(config_path);
-    if (!config_result) {
+    if (!config_result)
+    {
         spdlog::error("Failed to parse config: {}", config_path);
         return EXIT_FAILURE;
     }
@@ -45,12 +48,12 @@ int main(int argc, char* argv[]) {
 
     // ── RouteTable 빌드 ──────────────────────────────────────────────
     auto route_table_result = apex::gateway::RouteTable::build(gw_config.routes);
-    if (!route_table_result) {
+    if (!route_table_result)
+    {
         spdlog::error("Failed to build route table");
         return EXIT_FAILURE;
     }
-    auto route_table = std::make_shared<const apex::gateway::RouteTable>(
-        std::move(*route_table_result));
+    auto route_table = std::make_shared<const apex::gateway::RouteTable>(std::move(*route_table_result));
 
     // ── Immutable shared objects ─────────────────────────────────────
     auto jwt_verifier = std::make_shared<apex::gateway::JwtVerifier>(gw_config.jwt);
@@ -73,8 +76,7 @@ int main(int argc, char* argv[]) {
     redis_rl_cfg.host = gw_config.redis_ratelimit_host;
     redis_rl_cfg.port = gw_config.redis_ratelimit_port;
     redis_rl_cfg.password = gw_config.redis_ratelimit_password;
-    auto rl_redis_adapter = std::make_unique<
-        apex::shared::adapters::redis::RedisAdapter>(redis_rl_cfg);
+    auto rl_redis_adapter = std::make_unique<apex::shared::adapters::redis::RedisAdapter>(redis_rl_cfg);
 
     // ── Server 설정 ──────────────────────────────────────────────────
     apex::core::Server server({
@@ -82,19 +84,16 @@ int main(int argc, char* argv[]) {
         .heartbeat_timeout_ticks = gw_config.heartbeat_timeout_ticks,
     });
 
-    server
-        .listen<apex::shared::protocols::websocket::WebSocketProtocol>(
-            gw_config.ws_port);
+    server.listen<apex::shared::protocols::websocket::WebSocketProtocol>(gw_config.ws_port);
 
-    if (gw_config.tcp_port > 0) {
-        server.listen<apex::shared::protocols::tcp::TcpBinaryProtocol>(
-            gw_config.tcp_port);
+    if (gw_config.tcp_port > 0)
+    {
+        server.listen<apex::shared::protocols::tcp::TcpBinaryProtocol>(gw_config.tcp_port);
         spdlog::info("TCP Binary listener on port {}", gw_config.tcp_port);
     }
 
     // 어댑터 등록 (role 기반 다중 등록)
-    server
-        .add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(kafka_cfg)
+    server.add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(kafka_cfg)
         .add_adapter<apex::shared::adapters::redis::RedisAdapter>("auth", redis_auth_cfg);
 
     // ── GatewayService per-core 팩토리 ───────────────────────────────
@@ -109,11 +108,9 @@ int main(int argc, char* argv[]) {
 
     server.add_service_factory(
         [gw_config_copy, route_table, jwt_verifier,
-         rl_adapter_ptr](apex::core::PerCoreState& /*state*/)
-            -> std::unique_ptr<apex::core::ServiceBaseInterface> {
-            return std::make_unique<apex::gateway::GatewayService>(
-                gw_config_copy, *jwt_verifier,
-                route_table, rl_adapter_ptr);
+         rl_adapter_ptr](apex::core::PerCoreState& /*state*/) -> std::unique_ptr<apex::core::ServiceBaseInterface> {
+            return std::make_unique<apex::gateway::GatewayService>(gw_config_copy, *jwt_verifier, route_table,
+                                                                   rl_adapter_ptr);
         });
 
     // post_init_callback 불필요 — GatewayService 라이프사이클이 모든 와이어링 수행.

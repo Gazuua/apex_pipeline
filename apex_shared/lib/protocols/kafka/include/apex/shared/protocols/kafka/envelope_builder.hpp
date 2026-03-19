@@ -9,7 +9,8 @@
 #include <string_view>
 #include <vector>
 
-namespace apex::shared::protocols::kafka {
+namespace apex::shared::protocols::kafka
+{
 
 /// Kafka Envelope를 빌더 패턴으로 구성하는 클래스.
 ///
@@ -26,8 +27,9 @@ namespace apex::shared::protocols::kafka {
 ///       .reply_topic("chat.responses")
 ///       .payload(data)
 ///       .build();
-class EnvelopeBuilder {
-public:
+class EnvelopeBuilder
+{
+  public:
     EnvelopeBuilder() = default;
 
     /// RoutingHeader 파라미터 설정.
@@ -42,9 +44,8 @@ public:
     /// @param source_id  소스 서비스 ID (source_ids::GATEWAY 등)
     /// @param session_id 세션 ID
     /// @param user_id    사용자 ID (JWT에서 추출)
-    EnvelopeBuilder& metadata(uint16_t core_id, uint64_t corr_id,
-                               uint16_t source_id, uint64_t session_id,
-                               uint64_t user_id);
+    EnvelopeBuilder& metadata(uint16_t core_id, uint64_t corr_id, uint16_t source_id, uint64_t session_id,
+                              uint64_t user_id);
 
     /// Reply-To 토픽 설정. 비어있으면 ReplyTopic 섹션이 생략됨.
     EnvelopeBuilder& reply_topic(std::string_view topic);
@@ -66,7 +67,7 @@ public:
     /// 내부적으로 build_full_envelope()과 동일한 로직을 사용한다.
     [[nodiscard]] std::vector<uint8_t> build();
 
-private:
+  private:
     /// 총 직렬화 크기를 계산한다.
     [[nodiscard]] size_t total_size() const noexcept;
 

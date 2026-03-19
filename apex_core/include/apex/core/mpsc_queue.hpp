@@ -12,7 +12,8 @@
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/result.hpp>
 
-namespace apex::core {
+namespace apex::core
+{
 
 /// Lock-free bounded MPSC (Multi-Producer, Single-Consumer) queue.
 /// Designed for inter-core communication in shared-nothing architecture.
@@ -53,8 +54,9 @@ namespace apex::core {
 /// flag, plus CAS-based tail advancement.
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-class alignas(64) MpscQueue {
-public:
+class alignas(64) MpscQueue
+{
+  public:
     /// Constructs a queue with the given maximum capacity.
     /// @param capacity Must be > 0. Rounded up to next power of 2 internally.
     explicit MpscQueue(size_t capacity);
@@ -84,14 +86,15 @@ public:
     /// Thread-safe. Approximate check.
     [[nodiscard]] bool empty() const noexcept;
 
-private:
+  private:
     // NOTE: Adjacent slots may share a cache line when T is small.
     // For CoreMessage (~16 bytes), sizeof(Slot) ≈ 17-24 bytes, meaning
     // ~3-4 slots fit in one 64-byte cache line. This is acceptable because
     // the current drain_interval (>15ms) makes producer-consumer contention
     // rare. If sub-millisecond drain intervals are ever needed, consider
     // alignas(64) padding per slot (at the cost of 3-4x memory).
-    struct Slot {
+    struct Slot
+    {
         std::atomic<bool> ready{false};
         T data;
     };
@@ -104,11 +107,10 @@ private:
     // producer CAS가 이 필드들의 캐시라인을 무효화하지 않도록 함.
     // capacity_/mask_를 slots_ 앞에 선언하여 초기화 리스트 순서와 일치시킴.
     alignas(64) size_t capacity_;
-    size_t mask_;  // capacity_ - 1 (power of 2)
+    size_t mask_; // capacity_ - 1 (power of 2)
     Slot* slots_;
 
-    static_assert(sizeof(size_t) >= 8,
-        "MpscQueue requires 64-bit size_t to prevent index overflow");
+    static_assert(sizeof(size_t) >= 8, "MpscQueue requires 64-bit size_t to prevent index overflow");
 
     // Consumer-only — 별도 캐시라인.
     alignas(64) std::atomic<size_t> tail_{0};
@@ -122,7 +124,8 @@ MpscQueue<T>::MpscQueue(size_t capacity)
     : capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
     , mask_(capacity_ - 1)
 {
-    if (capacity_ == 0) {
+    if (capacity_ == 0)
+    {
         throw std::overflow_error("MpscQueue capacity overflow in next_power_of_2");
     }
     slots_ = new Slot[capacity_];
@@ -130,7 +133,8 @@ MpscQueue<T>::MpscQueue(size_t capacity)
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-MpscQueue<T>::~MpscQueue() {
+MpscQueue<T>::~MpscQueue()
+{
     // Note: items may legitimately remain during shutdown (e.g., backpressure
     // tests, graceful shutdown with pending cross-core messages). This is not
     // an error — trivially_copyable items need no destructor cleanup.
@@ -139,16 +143,19 @@ MpscQueue<T>::~MpscQueue() {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-Result<void> MpscQueue<T>::enqueue(const T& item) {
+Result<void> MpscQueue<T>::enqueue(const T& item)
+{
     size_t head = head_.load(std::memory_order_relaxed);
     size_t tail = tail_.load(std::memory_order_acquire);
-    for (;;) {
-        if (head - tail >= capacity_) {
+    for (;;)
+    {
+        if (head - tail >= capacity_)
+        {
             return error(ErrorCode::BufferFull);
         }
 
-        if (head_.compare_exchange_weak(head, head + 1,
-                std::memory_order_acq_rel, std::memory_order_relaxed)) {
+        if (head_.compare_exchange_weak(head, head + 1, std::memory_order_acq_rel, std::memory_order_relaxed))
+        {
             Slot& slot = slots_[head & mask_];
             slot.data = item;
             slot.ready.store(true, std::memory_order_release);
@@ -163,10 +170,12 @@ Result<void> MpscQueue<T>::enqueue(const T& item) {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-std::optional<T> MpscQueue<T>::dequeue() {
+std::optional<T> MpscQueue<T>::dequeue()
+{
     size_t tail = tail_.load(std::memory_order_relaxed);
     Slot& slot = slots_[tail & mask_];
-    if (!slot.ready.load(std::memory_order_acquire)) {
+    if (!slot.ready.load(std::memory_order_acquire))
+    {
         return std::nullopt;
     }
     T item = slot.data;
@@ -177,19 +186,22 @@ std::optional<T> MpscQueue<T>::dequeue() {
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-size_t MpscQueue<T>::size_approx() const noexcept {
+size_t MpscQueue<T>::size_approx() const noexcept
+{
     return head_.load(std::memory_order_relaxed) - tail_.load(std::memory_order_relaxed);
 }
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-size_t MpscQueue<T>::capacity() const noexcept {
+size_t MpscQueue<T>::capacity() const noexcept
+{
     return capacity_;
 }
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-bool MpscQueue<T>::empty() const noexcept {
+bool MpscQueue<T>::empty() const noexcept
+{
     return head_.load(std::memory_order_relaxed) == tail_.load(std::memory_order_relaxed);
 }
 

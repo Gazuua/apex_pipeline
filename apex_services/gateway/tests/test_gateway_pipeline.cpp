@@ -1,7 +1,7 @@
-#include <apex/gateway/gateway_pipeline.hpp>
-#include <apex/gateway/gateway_config.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
+#include <apex/gateway/gateway_config.hpp>
+#include <apex/gateway/gateway_pipeline.hpp>
 
 #include <gtest/gtest.h>
 
@@ -18,7 +18,8 @@
 // RS256 비대칭 키 사용 — JwtVerifier는 public key 파일 경로 기반.
 // ============================================================
 
-namespace {
+namespace
+{
 
 // Minimal 2048-bit RSA public key for testing only (matches test_jwt_verifier.cpp).
 constexpr const char* kTestPublicKey = R"(-----BEGIN PUBLIC KEY-----
@@ -34,12 +35,14 @@ Tvggab4jP8CatHP54rBx1P/LBTFVid7saTS2URyRizsF0VUekO7CULdV6NO5oR5J
 
 /// Helper: create a JwtConfig + JwtVerifier with RS256 test public key file.
 /// Returns {config, verifier, temp_key_path} tuple.
-struct PipelineTestContext {
+struct PipelineTestContext
+{
     apex::gateway::GatewayConfig gw_config;
     std::string temp_key_path;
     std::unique_ptr<apex::gateway::JwtVerifier> verifier;
 
-    PipelineTestContext() {
+    PipelineTestContext()
+    {
         temp_key_path = ::testing::TempDir() + "pipeline_test_rs256_pub.pem";
         std::ofstream ofs(temp_key_path);
         ofs << kTestPublicKey;
@@ -51,14 +54,16 @@ struct PipelineTestContext {
         verifier = std::make_unique<apex::gateway::JwtVerifier>(gw_config.jwt);
     }
 
-    ~PipelineTestContext() {
+    ~PipelineTestContext()
+    {
         std::remove(temp_key_path.c_str());
     }
 };
 
 // --- Per-IP rate limit 동기 테스트 ---
 
-TEST(GatewayPipelineTest, NullRateLimiterAllowsAll) {
+TEST(GatewayPipelineTest, NullRateLimiterAllowsAll)
+{
     // Rate limiter가 nullptr이면 모든 요청 허용.
     PipelineTestContext ctx;
 
@@ -68,13 +73,15 @@ TEST(GatewayPipelineTest, NullRateLimiterAllowsAll) {
     EXPECT_TRUE(result.has_value());
 }
 
-TEST(GatewayPipelineTest, NullRateLimiterMultipleIps) {
+TEST(GatewayPipelineTest, NullRateLimiterMultipleIps)
+{
     PipelineTestContext ctx;
 
     apex::gateway::GatewayPipeline pipeline(ctx.gw_config, *ctx.verifier, nullptr, nullptr);
 
     // Multiple different IPs should all pass
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 100; ++i)
+    {
         auto ip = "10.0.0." + std::to_string(i);
         auto result = pipeline.check_ip_rate_limit(ip);
         EXPECT_TRUE(result.has_value()) << "Failed for IP: " << ip;
@@ -83,14 +90,16 @@ TEST(GatewayPipelineTest, NullRateLimiterMultipleIps) {
 
 // --- AuthState 기본값 ---
 
-TEST(GatewayPipelineTest, AuthStateDefaults) {
+TEST(GatewayPipelineTest, AuthStateDefaults)
+{
     apex::gateway::AuthState state;
     EXPECT_FALSE(state.authenticated);
     EXPECT_EQ(state.user_id, 0u);
     EXPECT_TRUE(state.jti.empty());
 }
 
-TEST(GatewayPipelineTest, AuthStateModification) {
+TEST(GatewayPipelineTest, AuthStateModification)
+{
     apex::gateway::AuthState state;
     state.authenticated = true;
     state.user_id = 42;
@@ -103,7 +112,8 @@ TEST(GatewayPipelineTest, AuthStateModification) {
 
 // --- RateLimiter 교체 ---
 
-TEST(GatewayPipelineTest, SetRateLimiterToNull) {
+TEST(GatewayPipelineTest, SetRateLimiterToNull)
+{
     PipelineTestContext ctx;
 
     apex::gateway::GatewayPipeline pipeline(ctx.gw_config, *ctx.verifier, nullptr, nullptr);
@@ -117,7 +127,8 @@ TEST(GatewayPipelineTest, SetRateLimiterToNull) {
 
 // --- Pipeline construction ---
 
-TEST(GatewayPipelineTest, ConstructionWithNullBlacklist) {
+TEST(GatewayPipelineTest, ConstructionWithNullBlacklist)
+{
     PipelineTestContext ctx;
 
     // blacklist null, rate_limiter null — should construct fine
@@ -128,7 +139,8 @@ TEST(GatewayPipelineTest, ConstructionWithNullBlacklist) {
 
 // --- GatewayConfig 기본값 ---
 
-TEST(GatewayConfigTest, DefaultValues) {
+TEST(GatewayConfigTest, DefaultValues)
+{
     apex::gateway::GatewayConfig cfg;
     EXPECT_EQ(cfg.ws_port, 8443);
     EXPECT_EQ(cfg.num_cores, 1u);
@@ -138,7 +150,8 @@ TEST(GatewayConfigTest, DefaultValues) {
     EXPECT_EQ(cfg.kafka_response_topic, "gateway.responses");
 }
 
-TEST(GatewayConfigTest, RateLimitDefaults) {
+TEST(GatewayConfigTest, RateLimitDefaults)
+{
     apex::gateway::RateLimitConfig rl;
     EXPECT_EQ(rl.ip.total_limit, 1000u);
     EXPECT_EQ(rl.ip.window_size_seconds, 60u);
@@ -148,7 +161,8 @@ TEST(GatewayConfigTest, RateLimitDefaults) {
 
 // --- AuthConfig 기본값 ---
 
-TEST(GatewayConfigTest, JwtConfigDefaults) {
+TEST(GatewayConfigTest, JwtConfigDefaults)
+{
     apex::gateway::JwtConfig jwt;
     EXPECT_EQ(jwt.algorithm, "RS256");
     EXPECT_EQ(jwt.issuer, "apex-auth");
@@ -157,12 +171,14 @@ TEST(GatewayConfigTest, JwtConfigDefaults) {
     EXPECT_TRUE(jwt.sensitive_msg_ids.empty());
 }
 
-TEST(GatewayConfigTest, AuthExemptDefaults) {
+TEST(GatewayConfigTest, AuthExemptDefaults)
+{
     apex::gateway::GatewayConfig cfg;
     EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.empty());
 }
 
-TEST(GatewayConfigTest, AuthExemptMsgIds) {
+TEST(GatewayConfigTest, AuthExemptMsgIds)
+{
     apex::gateway::GatewayConfig cfg;
     cfg.auth.auth_exempt_msg_ids.insert(1000);
     cfg.auth.auth_exempt_msg_ids.insert(1002);
