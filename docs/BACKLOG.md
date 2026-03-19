@@ -43,7 +43,7 @@
 - **스코프**: tools, infra
 - **타입**: infra
 - **연관**: #7, #9
-- **설명**: 현재 GCC/Clang 경고 확인은 CI push 후에만 가능 (왕복 10-15분). Docker CI 이미지(`ghcr.io/gazuua/apex-pipeline-ci`) 기반 로컬 리눅스 빌드 스크립트 구축: ① `queue-lock.sh`에 `build-linux` 서브커맨드 추가 (빌드 락 연동, MSVC/Docker 동시 빌드 방지) ② MSYS bash 경로 이스케이프 (`//workspace`) 자동 처리 ③ debug/asan/tsan 프리셋 지원 ④ vcpkg 캐시 마운트 (매번 재빌드 방지). GCC 경고 수정 사이클을 1-2분으로 단축.
+- **설명**: 현재 GCC/Clang 경고 확인은 CI push 후에만 가능 (왕복 10-15분). Docker CI 이미지(`ghcr.io/gazuua/apex-pipeline-ci`) 기반 로컬 리눅스 빌드 스크립트 구축: ① `queue-lock.sh`에 `build-linux` 서브커맨드 추가 (빌드 락 연동, MSVC/Docker 동시 빌드 방지) ② MSYS bash 경로 이스케이프 (`//workspace`) 자동 처리 ③ debug/asan/tsan 프리셋 지원 ④ vcpkg 캐시 마운트 (매번 재빌드 방지). GCC 경고 수정 사이클을 1-2분으로 단축. **트러블슈팅 노트**: Docker Desktop WSL2 엔진이 C++ 전체 빌드 중 500 Internal Server Error + 좀비 컨테이너 발생. 추정 원인: WSL2 VM 메모리 부족으로 OOM. 해결 방향: `.wslconfig`에 메모리 제한 설정 + `cmake --build` `-j` 병렬도 조절 + `wsl --shutdown`으로 복구.
 
 ---
 

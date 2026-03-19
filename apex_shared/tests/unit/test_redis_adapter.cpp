@@ -28,6 +28,7 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
     RedisConfig config{
         .host = "localhost",
         .port = 6379,
+        .password = {},
     };
 
     CoreEngineConfig engine_config{.num_cores = 4, .mpsc_queue_capacity = 64};
@@ -91,6 +92,7 @@ TEST(RedisAdapter, ConfigAccessible)
     RedisConfig config{
         .host = "redis.local",
         .port = 6380,
+        .password = {},
     };
     RedisAdapter adapter(config);
     EXPECT_EQ(adapter.config().host, "redis.local");
