@@ -223,6 +223,7 @@ jobs:
           E2E_GATEWAY_HOST: "127.0.0.1"
           E2E_GATEWAY_TCP_PORT: "8443"
           E2E_STARTUP_TIMEOUT: "60"
+          E2E_KAFKA_INIT_WAIT: "30"
 
       - name: Service logs (debug)
         if: always()
