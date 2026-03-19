@@ -81,7 +81,8 @@ boost::asio::awaitable<void> TcpAcceptor::accept_loop()
             if (ec == boost::asio::error::operation_aborted)
                 break;
             backoff_timer_.expires_after(std::chrono::milliseconds(100));
-            auto [ec_timer] = co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+            [[maybe_unused]] auto [ec_timer] =
+                co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
             continue;
         }
 

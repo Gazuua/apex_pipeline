@@ -289,25 +289,14 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     // internal_configure() 이후에만 유효. 그 전에 호출하면 UB.
 
     /// 요청/코루틴 수명 임시 데이터용 범프 할당자.
-    BumpAllocator& bump()
-    {
-        assert(per_core_ != nullptr && "bump() called before internal_configure");
-        return per_core_->bump_allocator;
-    }
+    /// @note 정의는 server.hpp에 위치 (PerCoreState complete type 필요).
+    BumpAllocator& bump();
 
     /// 트랜잭션 수명 데이터용 아레나 할당자.
-    ArenaAllocator& arena()
-    {
-        assert(per_core_ != nullptr && "arena() called before internal_configure");
-        return per_core_->arena_allocator;
-    }
+    ArenaAllocator& arena();
 
     /// 이 서비스가 실행 중인 코어 ID.
-    uint32_t core_id() const
-    {
-        assert(per_core_ != nullptr && "core_id() called before internal_configure");
-        return per_core_->core_id;
-    }
+    uint32_t core_id() const;
 
     /// [D7] Tracked 코루틴 스폰. co_spawn(detached) 대신 사용.
     /// outstanding 카운터를 관리하여 shutdown 시 완료 대기 가능.

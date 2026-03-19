@@ -367,4 +367,27 @@ class Server
     std::shared_ptr<spdlog::logger> logger_; // I-09: cached logger
 };
 
+// ── ServiceBase per-core 접근자 out-of-line 정의 ──────────────────────────
+// PerCoreState complete type이 필요하므로 service_base.hpp가 아닌 여기서 정의.
+template <typename Derived>
+inline BumpAllocator& ServiceBase<Derived>::bump()
+{
+    assert(per_core_ != nullptr && "bump() called before internal_configure");
+    return per_core_->bump_allocator;
+}
+
+template <typename Derived>
+inline ArenaAllocator& ServiceBase<Derived>::arena()
+{
+    assert(per_core_ != nullptr && "arena() called before internal_configure");
+    return per_core_->arena_allocator;
+}
+
+template <typename Derived>
+inline uint32_t ServiceBase<Derived>::core_id() const
+{
+    assert(per_core_ != nullptr && "core_id() called before internal_configure");
+    return per_core_->core_id;
+}
+
 } // namespace apex::core

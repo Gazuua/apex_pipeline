@@ -57,6 +57,12 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 설계 원칙
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
 
+### 경고 정책 (Zero Warning)
+- **MSVC, GCC, Clang 3개 컴파일러 모두 경고 0건 필수** — `-Werror`/`/WX`가 CI에서 강제되므로 경고가 곧 빌드 실패
+- **새 코드 작성 시 경고 발생 금지** — 로컬 빌드(`/W4 /WX`)에서 먼저 확인, CI(GCC `-Wall -Wextra -Wpedantic -Werror`)에서 최종 검증
+- **경고 억제는 최후의 수단** — 코드 수정으로 해결 우선. 불가피한 경우(의도적 `alignas` 패딩, 외부 라이브러리 코드 등)만 `cmake/ApexWarnings.cmake`에 명시적 비활성화 + 사유 주석
+- **새 타겟 추가 시 `apex_set_warnings()` 필수** — `cmake/ApexWarnings.cmake`에 정의된 공통 경고 함수를 모든 타겟에 적용. 외부 C 라이브러리(`apex_bcrypt` 등), INTERFACE 라이브러리 제외
+
 ### 프레임워크 가이드 유지보수
 - **갱신 트리거**: 코어 인터페이스 변경 시 `docs/apex_core/apex_core_guide.md` 동시 갱신 필수
   - ServiceBase 훅 추가/삭제/시그니처 변경

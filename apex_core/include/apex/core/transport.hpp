@@ -95,7 +95,7 @@ struct MockTransport
         return Socket(ctx);
     }
 
-    static boost::asio::awaitable<Result<void>> async_accept(boost::asio::ip::tcp::acceptor& acc, Socket& sock)
+    static boost::asio::awaitable<Result<void>> async_accept(boost::asio::ip::tcp::acceptor& /*acc*/, Socket& /*sock*/)
     {
         co_return ok();
     }
