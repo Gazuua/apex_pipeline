@@ -176,3 +176,66 @@ jobs:
 
       - name: Test
         run: ctest --preset ${{ matrix.preset }} -LE e2e
+
+  # ── E2E integration tests ─────────────────────
+  e2e:
+    permissions:
+      contents: read
+    needs: [changes, build]
+    if: >-
+      always() &&
+      needs.changes.outputs.source == 'true' &&
+      needs.build.result == 'success'
+    name: e2e
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download service binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: service-binaries
+          path: build/Linux/debug/bin
+
+      - name: Make binaries executable
+        run: chmod +x build/Linux/debug/bin/*
+
+      - name: Build service Docker images (runtime only, builder skipped)
+        run: |
+          docker build -f apex_infra/docker/gateway.Dockerfile \
+            --target runtime \
+            --build-arg PREBUILT_BIN=build/Linux/debug/bin/apex_gateway \
+            -t apex-gateway:e2e .
+          docker build -f apex_infra/docker/auth-svc.Dockerfile \
+            --target runtime \
+            --build-arg PREBUILT_BIN=build/Linux/debug/bin/auth_svc_main \
+            -t apex-auth-svc:e2e .
+          docker build -f apex_infra/docker/chat-svc.Dockerfile \
+            --target runtime \
+            --build-arg PREBUILT_BIN=build/Linux/debug/bin/chat_svc_main \
+            -t apex-chat-svc:e2e .
+
+      - name: Start E2E infrastructure
+        run: |
+          docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait --timeout 120
+
+      - name: Run E2E tests
+        run: |
+          build/Linux/debug/bin/apex_e2e_tests --gtest_output=xml:e2e-results.xml
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
+          E2E_STARTUP_TIMEOUT: "60"
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f apex_infra/docker/docker-compose.e2e.yml down -v
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e-results.xml
+          retention-days: 7
