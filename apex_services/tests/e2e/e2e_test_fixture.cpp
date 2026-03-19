@@ -6,9 +6,12 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -47,10 +50,28 @@ ChildProcess E2EEnvironment::launch_service(const std::string& name,
     // Launch the service EXE directly (not via cmd.exe wrapper) so that
     // TerminateProcess kills the actual service, not a cmd.exe shell.
     // I/O redirection is done via STARTUPINFO file handles.
-    std::string log_file_path = name + "_e2e.log";
+
+    // service name 매핑 (프로세스명 → TOML service_name)
+    auto svc_name = name;
+    std::transform(svc_name.begin(), svc_name.end(), svc_name.begin(), ::tolower);
+    if (svc_name == "authservice") svc_name = "auth-svc";
+    else if (svc_name == "chatservice") svc_name = "chat-svc";
+
+    // 날짜 접두사
+    auto now = std::chrono::system_clock::now();
+    auto tt = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+    localtime_s(&tm, &tt);
+    char date_buf[9];
+    std::strftime(date_buf, sizeof(date_buf), "%Y%m%d", &tm);
+
+    std::string log_dir = "logs/" + svc_name;
     if (!config_.project_root.empty()) {
-        log_file_path = config_.project_root + "/" + log_file_path;
+        log_dir = config_.project_root + "/" + log_dir;
     }
+    std::filesystem::create_directories(log_dir);
+
+    std::string log_file_path = log_dir + "/" + std::string(date_buf) + "_e2e.log";
 
     SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(sa);

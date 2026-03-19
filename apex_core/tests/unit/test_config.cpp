@@ -56,21 +56,19 @@ TEST_F(ConfigTest, FromFileLoadsLoggingSection) {
 [logging]
 level = "debug"
 framework_level = "warn"
+service_name = "test-svc"
 
 [logging.file]
 enabled = true
-path = "/var/log/apex.log"
-max_size_mb = 50
+path = "/var/log/apex"
 )");
     auto config = AppConfig::from_file(path);
     EXPECT_EQ(config.logging.level, "debug");
     EXPECT_EQ(config.logging.framework_level, "warn");
+    EXPECT_EQ(config.logging.service_name, "test-svc");
     EXPECT_TRUE(config.logging.file.enabled);
-    EXPECT_EQ(config.logging.file.path, "/var/log/apex.log");
-    EXPECT_EQ(config.logging.file.max_size_mb, 50);
-    // 누락 필드는 기본값
-    EXPECT_EQ(config.logging.file.max_files, 3);
-    EXPECT_TRUE(config.logging.file.json);
+    EXPECT_EQ(config.logging.file.path, "/var/log/apex");
+    EXPECT_FALSE(config.logging.file.json);
 }
 
 TEST_F(ConfigTest, MissingFieldsUseDefaults) {
@@ -135,13 +133,39 @@ tick_interval_ms = -1
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }
 
-TEST_F(ConfigTest, NegativeMaxSizeMbThrows) {
-    auto path = write_toml("neg_maxsize.toml", R"(
-[logging.file]
-max_size_mb = -1
+TEST_F(ConfigTest, ServiceNameDefaultEmpty) {
+    auto path = write_toml("no_svc.toml", R"(
+[logging]
+level = "info"
 )");
-    // negative value fails checked_narrow<size_t>
-    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.logging.service_name.empty());
+}
+
+TEST_F(ConfigTest, AsyncQueueSizeParsed) {
+    auto path = write_toml("async.toml", R"(
+[logging.async]
+queue_size = 16384
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_EQ(config.logging.async.queue_size, 16384);
+}
+
+TEST_F(ConfigTest, AsyncQueueSizeDefaultIs8192) {
+    auto path = write_toml("no_async.toml", "");
+    auto config = AppConfig::from_file(path);
+    EXPECT_EQ(config.logging.async.queue_size, 8192);
+}
+
+TEST_F(ConfigTest, DeprecatedFieldsIgnored) {
+    auto path = write_toml("deprecated.toml", R"(
+[logging.file]
+enabled = true
+max_size_mb = 100
+max_files = 3
+)");
+    // deprecated 필드는 무시 — 에러 없이 파싱 성공
+    EXPECT_NO_THROW(AppConfig::from_file(path));
 }
 
 TEST_F(ConfigTest, DrainTimeoutNegativeThrows) {

@@ -1,5 +1,11 @@
 # Auth Service Configuration
 
+[logging]
+service_name = "auth-svc"
+
+[logging.file]
+enabled = true
+
 [jwt]
 private_key_file = "keys/auth_rs256.pem"
 public_key_file = "keys/auth_rs256_pub.pem"

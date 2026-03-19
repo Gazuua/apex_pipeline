@@ -2,6 +2,8 @@
 #include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/password_hasher.hpp>
 
+#include <apex/core/config.hpp>
+#include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
@@ -104,14 +106,17 @@ ParsedConfig parse_config(const std::string& path) {
 } // anonymous namespace
 
 int main(int argc, char* argv[]) {
-    spdlog::set_level(spdlog::level::info);
-    spdlog::info("Auth Service starting...");
-
     // --- 1. Config path (default: auth_svc.toml) ---
     std::string config_path = "auth_svc.toml";
     if (argc > 1) {
         config_path = argv[1];
     }
+
+    // 로깅 초기화 (TOML의 [logging] 섹션 사용)
+    auto app_config = apex::core::AppConfig::from_file(config_path);
+    apex::core::init_logging(app_config.logging);
+
+    spdlog::info("Auth Service starting...");
 
     // --- 2. Parse TOML config ---
     ParsedConfig parsed;
