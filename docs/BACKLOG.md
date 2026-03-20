@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 109
+다음 발번: 112
 
 ---
 
@@ -17,6 +17,24 @@
 - **연관**: #106 (HISTORY)
 - **설명**: SPSC mesh 전환 후 Release 빌드 벤치마크 실행. SpscQueue vs MpscQueue throughput/latency 비교, cross-core latency/message-passing 측정. analysis.json 작성 + generate_benchmark_report.py로 보고서 생성.
 
+
+### #109. 벤치마크 빌드 큐잉 시스템 강제
+- **등급**: MAJOR
+- **스코프**: tools
+- **타입**: infra
+- **설명**: 벤치마크 시작-종료 시에도 `queue-lock.sh`를 통한 빌드 큐잉을 코드 레벨에서 강제. 벤치마크와 빌드가 동시에 돌면 CPU 경합으로 결과가 왜곡되므로, PreToolUse hook 또는 벤치마크 스크립트 자체에서 lock 획득을 필수화.
+
+### #110. 주요 작업 종류·흐름 정의 및 강제
+- **등급**: MAJOR
+- **스코프**: tools, docs
+- **타입**: infra
+- **설명**: 로드맵 개발 작업, 백로그 작업, 단순 문서 작업, 오토 리뷰 작업 등 주요 작업 종류와 각각의 흐름(착수→설계→구현→리뷰→머지)을 명확하게 정의. 정의된 순서를 에이전트가 일관성 있게 따르도록 hook·스킬·지침으로 강제하는 방법 논의 및 실현.
+
+### #111. 주요 지침 문서 정리
+- **등급**: MAJOR
+- **스코프**: docs
+- **타입**: docs
+- **설명**: CLAUDE.md 계층(루트, apex_core, docs, apex_tools 등)의 불필요한 지침 제거, 중복된 지침 제거, 지침의 정확도를 유지하면서도 내용 단순화. 지침이 길어질수록 에이전트 준수율이 떨어지므로 최소한의 핵심만 유지.
 
 ---
 
