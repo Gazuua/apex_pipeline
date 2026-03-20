@@ -4,13 +4,18 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 106
+다음 발번: 107
 
 ---
 
 ## NOW
 
-(항목 없음 — v0.6 마일스톤 전환 시 IN VIEW 재평가)
+### #106. CrossCoreDispatcher MPSC→SPSC all-to-all mesh 리팩토링
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: perf
+- **연관**: #20
+- **설명**: 현재 코어 간 통신이 MpscQueue(N:1) 기반. SPSC all-to-all mesh(1:1 × N²) 구조로 전환하면 CAS contention 제거 + cache line bouncing 감소로 크로스코어 레이턴시 개선 가능. 코어 프레임워크 추상화가 잘 되어있고(CrossCoreDispatcher, cross_core_post_msg) 서비스 수가 적어 mesh 규모가 작으므로 구현 비용 합리적. 벤치마크(bench_mpsc_queue) 대비 측정 필요.
 
 ---
 
