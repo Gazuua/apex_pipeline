@@ -1,6 +1,7 @@
 #pragma once
 
 #include <apex/core/error_code.hpp>
+#include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/result.hpp>
 #include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
@@ -31,8 +32,8 @@ class KafkaDispatchBridge
 {
   public:
     /// 핸들러 함수 시그니처 — ServiceBase::KafkaHandler와 동일.
-    using Handler = std::function<boost::asio::awaitable<apex::core::Result<void>>(MetadataPrefix, uint32_t,
-                                                                                   std::span<const uint8_t>)>;
+    using Handler = std::function<boost::asio::awaitable<apex::core::Result<void>>(apex::core::KafkaMessageMeta,
+                                                                                   uint32_t, std::span<const uint8_t>)>;
 
     /// 핸들러 맵 타입 — msg_id → Handler.
     using HandlerMap = boost::unordered_flat_map<uint32_t, Handler>;

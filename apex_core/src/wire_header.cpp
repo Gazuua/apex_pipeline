@@ -1,4 +1,4 @@
-#include <apex/shared/protocols/tcp/wire_header.hpp>
+#include <apex/core/wire_header.hpp>
 
 #include <bit>
 
@@ -6,7 +6,7 @@
 #include <cstdlib> // _byteswap_ushort, _byteswap_ulong
 #endif
 
-namespace apex::shared::protocols::tcp
+namespace apex::core
 {
 
 static_assert(std::endian::native == std::endian::little, "WireHeader assumes little-endian host (x86/x64)");
@@ -101,4 +101,4 @@ std::array<uint8_t, WireHeader::SIZE> WireHeader::serialize() const
     return buf;
 }
 
-} // namespace apex::shared::protocols::tcp
+} // namespace apex::core

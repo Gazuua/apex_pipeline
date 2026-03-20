@@ -171,7 +171,7 @@ std::vector<uint8_t> ChatService::build_pubsub_payload(uint32_t msg_id, std::spa
 // Room Management Handlers
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(const envelope::MetadataPrefix& meta,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(const apex::core::KafkaMessageMeta& meta,
                                                                              uint32_t /*msg_id*/,
                                                                              const fbs::CreateRoomRequest* req)
 {
@@ -236,8 +236,9 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>>
-ChatService::on_join_room(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/, const fbs::JoinRoomRequest* req)
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(const apex::core::KafkaMessageMeta& meta,
+                                                                           uint32_t /*msg_id*/,
+                                                                           const fbs::JoinRoomRequest* req)
 {
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
@@ -304,8 +305,9 @@ ChatService::on_join_room(const envelope::MetadataPrefix& meta, uint32_t /*msg_i
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>>
-ChatService::on_leave_room(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/, const fbs::LeaveRoomRequest* req)
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(const apex::core::KafkaMessageMeta& meta,
+                                                                            uint32_t /*msg_id*/,
+                                                                            const fbs::LeaveRoomRequest* req)
 {
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
@@ -342,8 +344,9 @@ ChatService::on_leave_room(const envelope::MetadataPrefix& meta, uint32_t /*msg_
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>>
-ChatService::on_list_rooms(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/, const fbs::ListRoomsRequest* req)
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(const apex::core::KafkaMessageMeta& meta,
+                                                                            uint32_t /*msg_id*/,
+                                                                            const fbs::ListRoomsRequest* req)
 {
     auto offset = req->offset();
     auto limit = std::min(req->limit(), config_.max_list_rooms_limit);
@@ -425,7 +428,7 @@ ChatService::on_list_rooms(const envelope::MetadataPrefix& meta, uint32_t /*msg_
 // Message Send + Redis Pub/Sub Broadcast
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(const envelope::MetadataPrefix& meta,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(const apex::core::KafkaMessageMeta& meta,
                                                                               uint32_t /*msg_id*/,
                                                                               const fbs::SendMessageRequest* req)
 {
@@ -513,7 +516,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
 // ============================================================
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::on_whisper(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/, const fbs::WhisperRequest* req)
+ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_id*/, const fbs::WhisperRequest* req)
 {
     auto target_user_id = req->target_user_id();
     auto content = req->content();
@@ -588,7 +591,7 @@ ChatService::on_whisper(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*
 // Chat History
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(const envelope::MetadataPrefix& meta,
+boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(const apex::core::KafkaMessageMeta& meta,
                                                                               uint32_t /*msg_id*/,
                                                                               const fbs::ChatHistoryRequest* req)
 {
@@ -691,7 +694,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
 // ============================================================
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::on_global_broadcast(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/,
+ChatService::on_global_broadcast(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_id*/,
                                  const fbs::GlobalBroadcastRequest* req)
 {
     auto content = req->content();
@@ -747,7 +750,7 @@ ChatService::on_global_broadcast(const envelope::MetadataPrefix& meta, uint32_t 
 // ============================================================
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::send_create_room_error(const envelope::MetadataPrefix& meta, uint16_t error)
+ChatService::send_create_room_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateCreateRoomResponse(fbb, static_cast<fbs::ChatRoomError>(error));
@@ -757,8 +760,8 @@ ChatService::send_create_room_error(const envelope::MetadataPrefix& meta, uint16
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::send_join_room_error(const envelope::MetadataPrefix& meta,
-                                                                                   uint16_t error, uint64_t room_id)
+boost::asio::awaitable<apex::core::Result<void>>
+ChatService::send_join_room_error(const apex::core::KafkaMessageMeta& meta, uint16_t error, uint64_t room_id)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateJoinRoomResponse(fbb, static_cast<fbs::ChatRoomError>(error), room_id);
@@ -769,7 +772,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::send_join_room_err
 }
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::send_leave_room_error(const envelope::MetadataPrefix& meta, uint16_t error, uint64_t room_id)
+ChatService::send_leave_room_error(const apex::core::KafkaMessageMeta& meta, uint16_t error, uint64_t room_id)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateLeaveRoomResponse(fbb, static_cast<fbs::ChatRoomError>(error), room_id);
@@ -780,7 +783,7 @@ ChatService::send_leave_room_error(const envelope::MetadataPrefix& meta, uint16_
 }
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::send_list_rooms_error(const envelope::MetadataPrefix& meta, uint16_t error)
+ChatService::send_list_rooms_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateListRoomsResponse(fbb, static_cast<fbs::ChatRoomError>(error));
@@ -790,8 +793,8 @@ ChatService::send_list_rooms_error(const envelope::MetadataPrefix& meta, uint16_
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::send_message_error(const envelope::MetadataPrefix& meta,
-                                                                                 uint16_t error)
+boost::asio::awaitable<apex::core::Result<void>>
+ChatService::send_message_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateSendMessageResponse(fbb, static_cast<fbs::ChatMessageError>(error));
@@ -801,8 +804,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::send_message_error
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::send_whisper_error(const envelope::MetadataPrefix& meta,
-                                                                                 uint16_t error)
+boost::asio::awaitable<apex::core::Result<void>>
+ChatService::send_whisper_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateWhisperResponse(fbb, static_cast<fbs::ChatMessageError>(error));
@@ -812,8 +815,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::send_whisper_error
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> ChatService::send_history_error(const envelope::MetadataPrefix& meta,
-                                                                                 uint16_t error)
+boost::asio::awaitable<apex::core::Result<void>>
+ChatService::send_history_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateChatHistoryResponse(fbb, static_cast<fbs::ChatMessageError>(error));
@@ -824,7 +827,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::send_history_error
 }
 
 boost::asio::awaitable<apex::core::Result<void>>
-ChatService::send_global_broadcast_error(const envelope::MetadataPrefix& meta, uint16_t error)
+ChatService::send_global_broadcast_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
     auto resp = fbs::CreateGlobalBroadcastResponse(fbb, static_cast<fbs::ChatMessageError>(error));

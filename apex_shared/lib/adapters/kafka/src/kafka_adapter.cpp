@@ -2,8 +2,6 @@
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
 
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <spdlog/spdlog.h>
 
 #include <cassert>
@@ -180,17 +178,14 @@ void KafkaAdapter::wire_services(std::vector<std::unique_ptr<apex::core::Service
             // Kafka 콜백의 payload는 콜백 반환 후 무효 → 풀에서 버퍼 획득 후 복사
             auto pooled_buf = payload_pool_.acquire(payload);
 
-            // co_spawn으로 코루틴 실행 — bridge->dispatch가 파싱+핸들러 호출 수행
-            boost::asio::co_spawn(
-                engine.io_context(0),
-                [bridge, buf = std::move(pooled_buf)]() -> boost::asio::awaitable<void> {
-                    auto result = co_await bridge->dispatch(buf->span());
-                    if (!result.has_value())
-                    {
-                        spdlog::warn("[KafkaAdapter] auto-wired dispatch failed: {}", static_cast<int>(result.error()));
-                    }
-                },
-                boost::asio::detached);
+            // spawn_tracked로 코루틴 실행 — bridge->dispatch가 파싱+핸들러 호출 수행
+            engine.spawn_tracked(0, [bridge, buf = std::move(pooled_buf)]() -> boost::asio::awaitable<void> {
+                auto result = co_await bridge->dispatch(buf->span());
+                if (!result.has_value())
+                {
+                    spdlog::warn("[KafkaAdapter] auto-wired dispatch failed: {}", static_cast<int>(result.error()));
+                }
+            });
 
             return apex::core::ok();
         });

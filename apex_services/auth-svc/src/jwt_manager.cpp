@@ -1,3 +1,4 @@
+#include <apex/auth_svc/auth_error.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/auth_svc/jwt_manager.hpp>
 
@@ -121,7 +122,7 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(std::stri
     catch (const jwt::error::token_verification_exception& e)
     {
         spdlog::debug("[JwtManager] Token verification failed: {}", e.what());
-        return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const std::exception& e)
     {

@@ -1,5 +1,7 @@
 #include <apex/gateway/jwt_verifier.hpp>
 
+#include <apex/gateway/gateway_error.hpp>
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -74,17 +76,17 @@ apex::core::Result<JwtClaims> JwtVerifier::verify(std::string_view token) const
     catch (const jwt::error::token_verification_exception& e)
     {
         spdlog::debug("JWT verification failed: {}", e.what());
-        return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const jwt::error::claim_not_present_exception& e)
     {
         spdlog::debug("JWT missing claim: {}", e.what());
-        return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const std::exception& e)
     {
         spdlog::warn("JWT unexpected error: {}", e.what());
-        return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 }
 

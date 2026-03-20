@@ -4,16 +4,18 @@
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/configure_context.hpp>
 #include <apex/core/error_sender.hpp>
+#include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_context.hpp>
-#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
@@ -75,8 +77,8 @@ class ServiceBaseInterface
     virtual void on_session_closed(SessionId) {}
 
     // ── D2: Kafka auto-wiring support ──────────────────────────────────
-    using KafkaHandler = std::function<boost::asio::awaitable<Result<void>>(shared::protocols::kafka::MetadataPrefix,
-                                                                            uint32_t, std::span<const uint8_t>)>;
+    using KafkaHandler =
+        std::function<boost::asio::awaitable<Result<void>>(KafkaMessageMeta, uint32_t, std::span<const uint8_t>)>;
     using KafkaHandlerMap = boost::unordered_flat_map<uint32_t, KafkaHandler>;
 
     /// Kafka 핸들러 등록 여부. KafkaAdapter auto-wiring에서 사용.
@@ -233,7 +235,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 if (!verifier.VerifyBuffer<FbsType>())
                 {
                     spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})", id,
-                                 session ? session->id() : 0);
+                                 session ? session->id() : make_session_id(0));
                     // 자동 error frame 전송 후 ok() 반환
                     if (session)
                     {
@@ -267,12 +269,12 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     /// KafkaDispatchBridge가 수신한 Kafka 메시지를 msg_id 기반으로 라우팅할 때 사용.
     /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
     template <typename FbsType>
-    void kafka_route(uint32_t msg_id, boost::asio::awaitable<Result<void>> (Derived::*method)(
-                                          const shared::protocols::kafka::MetadataPrefix&, uint32_t, const FbsType*))
+    void kafka_route(uint32_t msg_id, boost::asio::awaitable<Result<void>> (Derived::*method)(const KafkaMessageMeta&,
+                                                                                              uint32_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
         kafka_handlers_[msg_id] = [self,
-                                   method](shared::protocols::kafka::MetadataPrefix meta, uint32_t id,
+                                   method](KafkaMessageMeta meta, uint32_t id,
                                            std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
             flatbuffers::Verifier verifier(payload.data(), payload.size());
             if (!verifier.VerifyBuffer<FbsType>())
@@ -315,9 +317,23 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 {
                     spdlog::error("[{}] spawn() coroutine exception: {}", name_, e.what());
                 }
-                outstanding_coros_.fetch_sub(1, std::memory_order_release);
+                outstanding_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
             boost::asio::detached);
+    }
+
+    /// io_context에 작업 게시. io_context 직접 접근 대신 사용.
+    template <typename F> void post(F&& fn)
+    {
+        assert(io_ctx_ && "post() called before internal_configure");
+        boost::asio::post(*io_ctx_, std::forward<F>(fn));
+    }
+
+    /// io_context의 executor 반환. timer 등에 필요.
+    [[nodiscard]] boost::asio::any_io_executor get_executor() noexcept
+    {
+        assert(io_ctx_ && "get_executor() called before internal_configure");
+        return io_ctx_->get_executor();
     }
 
   public:

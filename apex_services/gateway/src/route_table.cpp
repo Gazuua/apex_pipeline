@@ -1,5 +1,7 @@
 #include <apex/gateway/route_table.hpp>
 
+#include <apex/gateway/gateway_error.hpp>
+
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -16,7 +18,7 @@ apex::core::Result<RouteTable> RouteTable::build(std::vector<RouteEntry> routes)
         if (r.range_begin > r.range_end)
         {
             spdlog::error("Invalid route: begin({}) > end({})", r.range_begin, r.range_end);
-            return apex::core::error(apex::core::ErrorCode::ConfigParseFailed);
+            return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
         table.entries_.push_back(Entry{
             .range_begin = r.range_begin,
@@ -57,7 +59,7 @@ apex::core::Result<void> RouteTable::validate() const
         {
             spdlog::error("Route overlap: [{}, {}] and [{}, {}]", entries_[i - 1].range_begin,
                           entries_[i - 1].range_end, entries_[i].range_begin, entries_[i].range_end);
-            return apex::core::error(apex::core::ErrorCode::ConfigParseFailed);
+            return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
     }
     return apex::core::ok();

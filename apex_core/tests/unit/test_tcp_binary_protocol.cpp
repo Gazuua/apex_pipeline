@@ -42,8 +42,8 @@ TEST_F(TcpBinaryProtocolTest, DecodeMatchesFrameCodec)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->header.msg_id, 0x0042);
     EXPECT_EQ(result->header.body_size, 4u);
-    EXPECT_EQ(result->payload.size(), 4u);
-    EXPECT_EQ(result->payload[0], 0xDE);
+    EXPECT_EQ(result->payload().size(), 4u);
+    EXPECT_EQ(result->payload()[0], 0xDE);
 }
 
 TEST_F(TcpBinaryProtocolTest, ConsumeFrameAdvancesBuffer)
@@ -74,9 +74,9 @@ TEST_F(TcpBinaryProtocolTest, SatisfiesProtocolConcept)
     static_assert(Protocol<TcpBinaryProtocol>);
 }
 
-TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesSharedFrame)
+TEST_F(TcpBinaryProtocolTest, FrameTypeMatchesCoreFrame)
 {
-    static_assert(std::is_same_v<TcpBinaryProtocol::Frame, apex::shared::protocols::tcp::Frame>);
+    static_assert(std::is_same_v<TcpBinaryProtocol::Frame, apex::core::Frame>);
 }
 
 TEST_F(TcpBinaryProtocolTest, PartialBodyReturnsInsufficientData)
@@ -127,16 +127,16 @@ TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle)
     auto result1 = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_TRUE(result1.has_value());
     EXPECT_EQ(result1->header.msg_id, 0x0001);
-    ASSERT_EQ(result1->payload.size(), 1u);
-    EXPECT_EQ(result1->payload[0], 0xAA);
+    ASSERT_EQ(result1->payload().size(), 1u);
+    EXPECT_EQ(result1->payload()[0], 0xAA);
     TcpBinaryProtocol::consume_frame(buf_, *result1);
 
     // 두 번째 decode+consume
     auto result2 = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_TRUE(result2.has_value());
     EXPECT_EQ(result2->header.msg_id, 0x0002);
-    ASSERT_EQ(result2->payload.size(), 1u);
-    EXPECT_EQ(result2->payload[0], 0xBB);
+    ASSERT_EQ(result2->payload().size(), 1u);
+    EXPECT_EQ(result2->payload()[0], 0xBB);
     TcpBinaryProtocol::consume_frame(buf_, *result2);
 
     // 모든 프레임 소비 후 버퍼 비어있는지 명시 검증
@@ -157,7 +157,7 @@ TEST_F(TcpBinaryProtocolTest, ZeroBodySizeDecodesSuccessfully)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->header.msg_id, 0x0042);
     EXPECT_EQ(result->header.body_size, 0u);
-    EXPECT_TRUE(result->payload.empty());
+    EXPECT_TRUE(result->payload().empty());
 
     TcpBinaryProtocol::consume_frame(buf_, *result);
     EXPECT_EQ(buf_.readable_size(), 0u);

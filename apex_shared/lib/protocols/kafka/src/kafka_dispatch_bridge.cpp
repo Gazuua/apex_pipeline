@@ -53,8 +53,19 @@ boost::asio::awaitable<apex::core::Result<void>> KafkaDispatchBridge::dispatch(s
         co_return apex::core::error(apex::core::ErrorCode::HandlerNotFound);
     }
 
+    // MetadataPrefix → KafkaMessageMeta 변환
+    apex::core::KafkaMessageMeta meta{
+        .meta_version = metadata.meta_version,
+        .core_id = metadata.core_id,
+        .corr_id = metadata.corr_id,
+        .source_id = metadata.source_id,
+        .session_id = metadata.session_id,
+        .user_id = metadata.user_id,
+        .timestamp = metadata.timestamp,
+    };
+
     // 핸들러 디스패치
-    co_return co_await it->second(metadata, routing.msg_id, payload);
+    co_return co_await it->second(meta, routing.msg_id, payload);
 }
 
 bool KafkaDispatchBridge::has_handler(uint32_t msg_id) const noexcept

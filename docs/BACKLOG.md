@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 100
+다음 발번: 104
 
 ---
 
@@ -16,25 +16,12 @@
 
 ## IN VIEW
 
-### #66. wire_services() co_spawn(detached) → spawn() tracked API 전환
-- **등급**: MAJOR
-- **스코프**: shared, core
-- **타입**: design-debt
-- **연관**: #48
-- **설명**: `KafkaAdapter::wire_services()`에서 `co_spawn(detached)`를 직접 호출하여 D7 outstanding 코루틴 추적을 우회. shutdown 시 Kafka dispatch 코루틴이 미완료 상태로 CoreEngine이 중단될 수 있음. spawn() tracked API를 사용하도록 변경 필요. wire_services()가 서비스의 spawn()을 호출할 수 있는 경로 설계 필요 (현재 spawn은 protected).
-
 ### #67. server.global&lt;T&gt;() / ConsumerPayloadPool / wire_services() 단위 테스트
 - **등급**: MAJOR
 - **스코프**: core, shared
 - **타입**: test
 - **연관**: #48
 - **설명**: D3/D6/D2 신규 API에 대한 단위 테스트 부재. server.global&lt;T&gt;()의 타입 소거 + 중복 호출, ConsumerPayloadPool의 thread-safe acquire/release + 풀 고갈 fallback, wire_services()의 서비스 자동 감지 등 검증 필요.
-
-### #3. Protocol concept Frame 내부 구조 미제약
-- **등급**: CRITICAL
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: Protocol concept이 Frame 내부 구조를 명시적으로 요구하지 않음. accessor 메서드 요구 또는 Frame trait 도입 필요.
 
 ### #5. gateway.toml 시크릿 운영 환경 관리
 - **등급**: MAJOR
@@ -75,13 +62,6 @@
 - **스코프**: core, infra
 - **타입**: infra
 - **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
-
-### #56. 서비스 레이어 가드레일 — 코어 인터페이스 캡슐화 + 원칙 위반 방지
-- **등급**: MAJOR
-- **스코프**: core, shared
-- **타입**: design-debt
-- **연관**: #1
-- **설명**: 서비스 코드가 shared-nothing 원칙을 깨거나 프레임워크 우회 코드를 작성하는 것을 설계 레벨에서 방지. 방향: ① io_context 직접 접근 차단 — 캡슐화 인터페이스 제공 ② 인터페이스 갭 → 코어 확장 ③ 힙 할당은 가이드(금지 아님). #1과 연계.
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
@@ -151,24 +131,30 @@
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
-### #89. core → shared 역방향 의존 해소 (forwarding header + kafka_envelope)
-- **등급**: CRITICAL
-- **스코프**: core, shared
-- **타입**: design-debt
-- **설명**: `wire_header.hpp`, `frame_codec.hpp`, `tcp_binary_protocol.hpp` 3개 forwarding header + `service_base.hpp`의 `kafka_envelope.hpp` 직접 include로 core가 shared에 물리적으로 의존. "core는 concept만 정의" 원칙 위반. 두 방향: (A) WireHeader/FrameCodec을 core로 복원, (B) forwarding header 제거 + 사용 지점에서 shared를 직접 include.
-
-### #90. ErrorCode에 Gateway 전용 에러 코드 혼입
+### #100. Blacklist fail-open 보안 정책 재검토
 - **등급**: MAJOR
-- **스코프**: core, gateway
-- **타입**: design-debt
-- **연관**: #89
-- **설명**: `ErrorCode` enum에 Gateway 전용 에러(100-199 범위)가 포함. 새 서비스 추가 시마다 core를 수정해야 함. 서비스별 에러는 각 서비스 모듈에서 자체 enum으로 관리하도록 분리.
+- **스코프**: gateway
+- **타입**: security
+- **연관**: #5, #8
+- **설명**: GatewayPipeline::authenticate()에서 Redis 장애 시 blacklist 체크를 fail-open(허용)으로 처리. Rate limit fail-open은 합리적이나, blacklist는 보안 사고(토큰 탈취/강제 로그아웃) 대응이므로 fail-close 또는 설정 가능(`config_.auth.blacklist_fail_open`)으로 전환 검토 필요.
 
-### #91. SessionId 강타입 부재 (uint64_t typedef)
+### #101. ErrorSender::build_error_frame service_error_code 라운드트립 테스트
 - **등급**: MAJOR
 - **스코프**: core
+- **타입**: test
+- **설명**: `build_error_frame`의 `service_error_code` 파라미터가 0이 아닌 값일 때 FlatBuffers 직렬화/역직렬화 라운드트립 검증 테스트 부재. 스키마 변경 직후이므로 직렬화 정합성 단위 테스트 필요.
+
+### #102. GatewayPipeline 에러 흐름 단위 테스트
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: test
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
+
+### #103. KafkaMessageMeta.session_id SessionId 강타입화
+- **등급**: MINOR
+- **스코프**: core, shared
 - **타입**: design-debt
-- **설명**: `using SessionId = uint64_t`로 정의되어 corr_id, user_id와 암묵적 변환 가능. `enum class SessionId : uint64_t {}` 형태로 강타입화하여 컴파일 타임 타입 안전성 확보.
+- **설명**: `KafkaMessageMeta.session_id`가 `uint64_t`로 남아있어 core 내에서 같은 개념에 두 타입이 공존. `SessionId`로 변경하고 `KafkaDispatchBridge::dispatch()`에서 `make_session_id()` 변환 수행.
 
 ---
 

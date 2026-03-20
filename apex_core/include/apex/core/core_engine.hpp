@@ -5,8 +5,13 @@
 #include <apex/core/mpsc_queue.hpp>
 #include <apex/core/result.hpp>
 
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
+
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdint>
@@ -130,6 +135,38 @@ class CoreEngine
     /// Current core ID via thread-local. Must be called from a core thread.
     [[nodiscard]] static uint32_t current_core_id() noexcept;
 
+    /// [D7] Tracked 인프라 코루틴 스폰. 서비스 코루틴과 별도 추적.
+    /// shutdown 시 완료 대기 (서비스 코루틴 이후).
+    template <typename F> void spawn_tracked(uint32_t core_id, F&& coro_factory)
+    {
+        assert(core_id < core_count() && "Invalid core_id for spawn_tracked");
+        outstanding_infra_coros_.fetch_add(1, std::memory_order_acq_rel);
+        boost::asio::co_spawn(
+            io_context(core_id),
+            [this, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {
+                try
+                {
+                    co_await f();
+                }
+                catch (const std::exception& e)
+                {
+                    spdlog::error("[CoreEngine] spawn_tracked coroutine exception: {}", e.what());
+                }
+                catch (...)
+                {
+                    spdlog::error("[CoreEngine] spawn_tracked coroutine unknown exception");
+                }
+                outstanding_infra_coros_.fetch_sub(1, std::memory_order_acq_rel);
+            },
+            boost::asio::detached);
+    }
+
+    /// Outstanding 인프라 코루틴 수.
+    [[nodiscard]] uint32_t outstanding_infra_coroutines() const noexcept
+    {
+        return outstanding_infra_coros_.load(std::memory_order_acquire);
+    }
+
   private:
     void run_core(uint32_t core_id);
     void drain_inbox(uint32_t core_id);
@@ -142,6 +179,7 @@ class CoreEngine
     MessageHandler message_handler_;
     TickCallback tick_callback_;
     std::atomic<bool> running_{false};
+    std::atomic<uint32_t> outstanding_infra_coros_{0};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;
     CrossCoreDispatcher cross_core_dispatcher_;
     static thread_local uint32_t tls_core_id_;

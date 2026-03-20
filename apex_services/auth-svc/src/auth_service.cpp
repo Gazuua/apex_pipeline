@@ -108,7 +108,7 @@ void AuthService::on_stop()
 // Handler: Login
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const envelope::MetadataPrefix& meta,
+boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const apex::core::KafkaMessageMeta& meta,
                                                                        uint32_t /*msg_id*/,
                                                                        const apex::auth_svc::schemas::LoginRequest* req)
 {
@@ -248,7 +248,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const env
 // ============================================================
 
 boost::asio::awaitable<apex::core::Result<void>>
-AuthService::on_logout(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/,
+AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_id*/,
                        const apex::auth_svc::schemas::LogoutRequest* req)
 {
     if (!req->access_token())
@@ -315,7 +315,7 @@ AuthService::on_logout(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/
 // ============================================================
 
 boost::asio::awaitable<apex::core::Result<void>>
-AuthService::on_refresh_token(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*/,
+AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_id*/,
                               const apex::shared::schemas::RefreshTokenRequest* req)
 {
     namespace rt_schemas = apex::shared::schemas;
@@ -548,7 +548,7 @@ void AuthService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core
 // Error Response Helpers [D5]
 // ============================================================
 
-boost::asio::awaitable<apex::core::Result<void>> AuthService::send_login_error(const envelope::MetadataPrefix& meta,
+boost::asio::awaitable<apex::core::Result<void>> AuthService::send_login_error(const apex::core::KafkaMessageMeta& meta,
                                                                                uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(128);
@@ -560,8 +560,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::send_login_error(c
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> AuthService::send_logout_error(const envelope::MetadataPrefix& meta,
-                                                                                uint16_t error)
+boost::asio::awaitable<apex::core::Result<void>>
+AuthService::send_logout_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     flatbuffers::FlatBufferBuilder fbb(64);
     auto resp =
@@ -573,7 +573,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::send_logout_error(
 }
 
 boost::asio::awaitable<apex::core::Result<void>>
-AuthService::send_refresh_token_error(const envelope::MetadataPrefix& meta, uint16_t error)
+AuthService::send_refresh_token_error(const apex::core::KafkaMessageMeta& meta, uint16_t error)
 {
     namespace rt_schemas = apex::shared::schemas;
     flatbuffers::FlatBufferBuilder fbb(128);

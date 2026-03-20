@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.5.2 | **최종 갱신**: 2026-03-19
+**버전**: v0.5.8.1 | **최종 갱신**: 2026-03-20
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: 이 문서에는 현재 코드에 아직 구현되지 않은 "의도된 설계"가 포함되어 있다.
@@ -662,10 +662,13 @@ ctx.scheduler.cancel(handle);
 session->enqueue_write(std::vector<uint8_t> data);   // write queue 적재
 session->enqueue_write_raw(std::span<const uint8_t>); // raw 데이터 적재
 session->close();                                      // graceful 종료
-session->id();                                         // SessionId
+session->id();                                         // SessionId (enum class)
 session->core_id();                                    // 소속 코어
 session->is_open();                                    // 연결 상태
 ```
+
+**SessionId 강타입**: `enum class SessionId : uint64_t {}` — `corr_id`, `user_id` 등과의 암묵적 변환 차단.
+변환 헬퍼: `make_session_id(uint64_t)`, `to_underlying(SessionId)`. `std::hash`, `fmt::formatter` 특수화 제공.
 
 ### Result\<T\>
 
@@ -676,6 +679,50 @@ error(ErrorCode::SomeError);    // 실패
 ```
 
 모든 핸들러 반환 타입: `awaitable<Result<void>>`.
+
+#### ErrorCode 체계
+
+| 범위 | 용도 | 예시 |
+|------|------|------|
+| 0 | 성공 | `Ok` |
+| 1-98 | 프레임워크 공통 에러 | `InvalidMessage`, `Timeout`, `HandlerNotFound` |
+| 99 | 서비스별 에러 sentinel | `ServiceError` |
+| 1000-1999 | 애플리케이션 에러 | `AppError` |
+| 2000+ | 어댑터 에러 | `AdapterError`, `PoolExhausted`, `CircuitOpen` |
+
+#### ServiceError sentinel 패턴
+
+`ErrorCode::ServiceError`(= 99)는 "에러 상세는 서비스별 코드에 있다"는 표지판이다.
+각 서비스는 자체 에러 enum을 정의하고, 에러 프레임의 `service_error_code` 필드로 전달한다.
+
+```cpp
+// 서비스별 에러 enum 정의 (uint16_t 기반)
+enum class GatewayError : uint16_t { RouteNotFound = 5, ServiceTimeout = 6, ... };
+enum class AuthError    : uint16_t { JwtVerifyFailed = 1, ... };
+
+// 서비스 내부 result 타입 (선택적)
+using GatewayResult = std::expected<void, GatewayError>;
+
+// 에러 프레임 빌드 — ErrorCode::ServiceError + service_error_code 조합
+session->enqueue_write(
+    ErrorSender::build_error_frame(
+        msg_id,
+        ErrorCode::ServiceError,       // 공통 에러 코드
+        "",                             // 메시지 (선택)
+        static_cast<uint16_t>(GatewayError::RouteNotFound)  // 서비스별 코드
+    ));
+```
+
+ErrorResponse FlatBuffers 스키마:
+```
+table ErrorResponse {
+    code:uint16;               // ErrorCode (99 = ServiceError)
+    message:string;            // 에러 메시지 (nullable)
+    service_error_code:uint16; // 서비스별 에러 코드 (code=99일 때 유효)
+}
+```
+
+클라이언트는 `code == 99`이면 `service_error_code`를 확인하여 서비스별 에러를 판별한다.
 
 ### spawn() `[D7]`
 
@@ -691,6 +738,43 @@ spawn([this]() -> awaitable<void> {
 ```
 
 `co_spawn(io_context, ..., detached)` 직접 호출 금지 — io_context가 서비스에 노출되지 않음 (§8 #4).
+
+### post() / get_executor()
+
+io_context가 서비스에 직접 노출되지 않으므로, 다음 두 메서드로 대체한다:
+
+```cpp
+// io_context에 작업을 안전하게 포스트
+post([this]() { cleanup_expired(); });
+
+// executor 접근 — timer 생성 등에 사용
+boost::asio::steady_timer timer(get_executor());
+timer.expires_after(std::chrono::seconds{5});
+co_await timer.async_wait(boost::asio::use_awaitable);
+```
+
+`post(callable)` — 현재 코어의 io_context에 작업을 게시한다.
+`get_executor()` — `boost::asio::any_io_executor`를 반환한다. 타이머, resolver 등 executor가 필요한 Asio 객체 생성에 사용.
+
+둘 다 `on_configure` 이후(internal_configure에서 io_context 바인딩 완료)부터 사용 가능.
+
+### spawn_tracked() — 인프라 코루틴
+
+`CoreEngine::spawn_tracked(core_id, coro_factory)`는 어댑터 레벨의 인프라 코루틴을 추적한다. 서비스의 `spawn()`과 별도로 관리된다.
+
+```cpp
+// KafkaAdapter 내부에서 사용 — 서비스 코드에서는 직접 호출하지 않음
+engine.spawn_tracked(0, [bridge, buf]() -> awaitable<void> {
+    co_await bridge->dispatch(buf->span());
+});
+
+engine.outstanding_infra_coroutines();  // 미완료 인프라 코루틴 수
+```
+
+| API | 대상 | 추적 | 호출자 |
+|-----|------|------|--------|
+| `spawn()` | 서비스 코루틴 | `outstanding_coros_` (서비스별) | 서비스 코드 |
+| `spawn_tracked()` | 인프라 코루틴 | `outstanding_infra_coros_` (엔진 전역) | 어댑터/프레임워크 |
 
 ---
 
@@ -777,8 +861,14 @@ co_await timer.async_wait(boost::asio::use_awaitable);
 // ⚠️ error() 반환 시 dispatch가 에러 프레임을 자동 전송함
 // 대부분의 경우 직접 에러 응답을 보내고 ok()를 반환하는 게 올바른 패턴
 
-// ✅ GOOD — 직접 에러 응답 + ok() 반환
+// ✅ GOOD — 프레임워크 에러: ErrorCode만 사용
 session->enqueue_write(ErrorSender::build_error_frame(msg_id, ErrorCode::InvalidMessage));
+co_return ok();
+
+// ✅ GOOD — 서비스별 에러: ServiceError + service_error_code 조합
+session->enqueue_write(ErrorSender::build_error_frame(
+    msg_id, ErrorCode::ServiceError, "",
+    static_cast<uint16_t>(GatewayError::RouteNotFound)));
 co_return ok();
 ```
 
@@ -901,7 +991,7 @@ add_subdirectory(my-svc)
 ```
 Server
  ├── GlobalResourceRegistry [D3]      ← server.global<T>() 자원 소유
- ├── CoreEngine                       ← 스레드 풀, MPSC inbox 드레인
+ ├── CoreEngine                       ← 스레드 풀, MPSC inbox 드레인, spawn_tracked
  │    └── PerCoreState[] (코어별 독립)
  │         ├── SessionManager         ← intrusive_ptr<Session> 소유
  │         ├── ServiceRegistry [D1]   ← 타입 기반 서비스 조회
@@ -932,6 +1022,23 @@ Server::run()
  └── 10. CoreEngine::run()             ← 코어 스레드 시작
 ```
 
+### §10.2.1 CoreEngine::spawn_tracked()
+
+어댑터/인프라 수준에서 코루틴을 실행할 때 사용. ServiceBase::spawn()과는 독립적인 추적 체계.
+
+```cpp
+// 어댑터 내부에서 — 예: KafkaAdapter 메시지 콜백
+engine.spawn_tracked(0, [bridge, buf = std::move(pooled_buf)]()
+    -> boost::asio::awaitable<void> {
+    co_await bridge->dispatch(buf->span());
+});
+```
+
+- `core_id`로 대상 io_context를 내부에서 결정 (io_context 직접 전달 금지)
+- `outstanding_infra_coros_` atomic 카운터로 인프라 코루틴 수 추적
+- 예외 발생 시 `spdlog::error`로 로깅 후 카운터 감소 (코루틴 누수 방지)
+- **서비스 코드에서 직접 사용하지 않음** — 서비스는 `spawn()` 사용 (§7)
+
 ### §10.3 TCP 요청 처리 흐름
 
 ```
@@ -955,7 +1062,7 @@ Client → TCP → Session(recv_buffer)
 KafkaAdapter (consumer 스레드)
   → set_message_callback
   → [D6] consumer 메모리 풀에서 payload 복사
-  → [D7] spawn() → KafkaDispatchBridge::dispatch(payload)
+  → [D7] spawn_tracked() → KafkaDispatchBridge::dispatch(payload)
   → MetadataPrefix 파싱 → kafka_handler_map[msg_id] → Handler 코루틴
 
 [응답 — Kafka-only 서비스]
@@ -980,6 +1087,8 @@ KafkaAdapter (consumer) → ResponseDispatcher → cross_core_post(session.core_
 | 에러 핸들링 | `design-decisions.md` § 에러 핸들링 | std::expected<T, ErrorCode> |
 | 설정 관리 | `design-decisions.md` § 설정 관리 | TOML + hot-reload |
 | Protocol concept | `design-rationale.md` § Protocol concept | try_decode/consume_frame 의존성 역전 |
+| FrameType concept | `protocol.hpp` | Frame 타입에 `payload()` accessor 요구. Protocol concept이 FrameType을 포함 |
+| ServiceError sentinel | `error_code.hpp`, `error_response.fbs` | 서비스별 에러 코드 분리 — ErrorCode 범위 오염 방지 |
 
 상세: `docs/apex_core/design-decisions.md`, `docs/apex_core/design-rationale.md`
 
@@ -1061,10 +1170,13 @@ class AuthService : public ServiceBase<AuthService> {
     }
 
 private:
-    // 에러 응답 헬퍼 [D5] — 서비스가 자체 작성
-    void send_error(uint32_t msg_id, const MetadataPrefix& meta, uint8_t error_code) {
-        flatbuffers::FlatBufferBuilder fbb(128);
-        // ... 에러 응답 빌드 + send_response ...
+    // 에러 응답 헬퍼 — ServiceError sentinel + 서비스별 에러 코드
+    void send_error(uint32_t msg_id, const MetadataPrefix& meta, AuthError err) {
+        auto frame = ErrorSender::build_error_frame(
+            msg_id, ErrorCode::ServiceError, "",
+            static_cast<uint16_t>(err));
+        send_response(msg_id, meta.corr_id, meta.core_id,
+                      meta.session_id, frame, {});
     }
 };
 ```

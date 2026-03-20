@@ -44,7 +44,7 @@ static void BM_FramePipeline(benchmark::State& state)
             continue;
 
         // Dispatch (synchronous since handler is trivial)
-        boost::asio::co_spawn(io_ctx, dispatcher.dispatch(nullptr, frame->header.msg_id, frame->payload),
+        boost::asio::co_spawn(io_ctx, dispatcher.dispatch(nullptr, frame->header.msg_id, frame->payload()),
                               boost::asio::detached);
         io_ctx.run();
         io_ctx.restart();

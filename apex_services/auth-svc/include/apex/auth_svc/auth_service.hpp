@@ -4,9 +4,9 @@
 #include <apex/auth_svc/jwt_manager.hpp>
 #include <apex/auth_svc/password_hasher.hpp>
 #include <apex/auth_svc/session_store.hpp>
+#include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/service_base.hpp>
-#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <boost/asio/awaitable.hpp>
 
@@ -42,8 +42,6 @@ class RefreshTokenRequest;
 
 namespace apex::auth_svc
 {
-
-namespace envelope = apex::shared::protocols::kafka;
 
 /// Auth Service -- Kafka-based authentication request/response handler.
 ///
@@ -83,16 +81,17 @@ class AuthService : public apex::core::ServiceBase<AuthService>
     // current_meta_ 제거 — 메타데이터가 핸들러 파라미터로 직접 전달됨.
 
     /// Login 요청 처리.
-    boost::asio::awaitable<apex::core::Result<void>> on_login(const envelope::MetadataPrefix& meta, uint32_t msg_id,
+    boost::asio::awaitable<apex::core::Result<void>> on_login(const apex::core::KafkaMessageMeta& meta, uint32_t msg_id,
                                                               const apex::auth_svc::schemas::LoginRequest* req);
 
     /// Logout 요청 처리.
-    boost::asio::awaitable<apex::core::Result<void>> on_logout(const envelope::MetadataPrefix& meta, uint32_t msg_id,
+    boost::asio::awaitable<apex::core::Result<void>> on_logout(const apex::core::KafkaMessageMeta& meta,
+                                                               uint32_t msg_id,
                                                                const apex::auth_svc::schemas::LogoutRequest* req);
 
     /// Refresh Token 요청 처리.
     boost::asio::awaitable<apex::core::Result<void>>
-    on_refresh_token(const envelope::MetadataPrefix& meta, uint32_t msg_id,
+    on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t msg_id,
                      const apex::shared::schemas::RefreshTokenRequest* req);
 
     /// Kafka 응답 Envelope 빌드 + produce.
@@ -103,15 +102,15 @@ class AuthService : public apex::core::ServiceBase<AuthService>
     // ── 에러 응답 헬퍼 [D5] ──────────────────────────────────────────────
 
     /// LoginResponse 에러 응답 빌드 + send.
-    boost::asio::awaitable<apex::core::Result<void>> send_login_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_login_error(const apex::core::KafkaMessageMeta& meta,
                                                                       uint16_t error);
 
     /// LogoutResponse 에러 응답 빌드 + send.
-    boost::asio::awaitable<apex::core::Result<void>> send_logout_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_logout_error(const apex::core::KafkaMessageMeta& meta,
                                                                        uint16_t error);
 
     /// RefreshTokenResponse 에러 응답 빌드 + send.
-    boost::asio::awaitable<apex::core::Result<void>> send_refresh_token_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_refresh_token_error(const apex::core::KafkaMessageMeta& meta,
                                                                               uint16_t error);
 
     AuthConfig config_;

@@ -8,7 +8,8 @@
 namespace apex::core
 {
 
-std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, ErrorCode code, std::string_view message)
+std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, ErrorCode code, std::string_view message,
+                                                    uint16_t service_error_code)
 {
     flatbuffers::FlatBufferBuilder builder(128);
 
@@ -16,7 +17,8 @@ std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, Er
     // 조건 분기 시 기본 초기화(0) Offset → 수신측 nullptr deref 위험.
     auto msg_offset = builder.CreateString(message.data(), message.size());
 
-    auto resp = apex::messages::CreateErrorResponse(builder, static_cast<uint16_t>(code), msg_offset);
+    auto resp =
+        apex::messages::CreateErrorResponse(builder, static_cast<uint16_t>(code), msg_offset, service_error_code);
     builder.Finish(resp);
 
     auto payload_data = builder.GetBufferPointer();

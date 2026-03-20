@@ -61,7 +61,7 @@ static void run_echo_server(tcp::acceptor& acceptor)
         {
             // Echo: send back the same frame
             std::vector<uint8_t> response(frame->header.frame_size());
-            (void)FrameCodec::encode_to(response, frame->header, frame->payload);
+            (void)FrameCodec::encode_to(response, frame->header, frame->payload());
             boost::asio::write(sock, boost::asio::buffer(response), ec);
             if (ec)
                 return;

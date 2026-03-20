@@ -1,4 +1,5 @@
 #include <apex/gateway/gateway_config_parser.hpp>
+#include <apex/gateway/gateway_error.hpp>
 
 #include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
@@ -253,7 +254,7 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
     catch (const toml::parse_error& e)
     {
         spdlog::error("Gateway config parse error: {}", e.what());
-        return apex::core::error(apex::core::ErrorCode::ConfigParseFailed);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <apex/core/frame_codec.hpp>
 #include <apex/core/protocol.hpp>
-#include <apex/shared/protocols/tcp/frame_codec.hpp>
 
 namespace apex::shared::protocols::tcp
 {
@@ -15,21 +15,21 @@ struct TcpBinaryProtocol
         uint32_t max_frame_size = 64 * 1024;
     };
 
-    using Frame = ::apex::shared::protocols::tcp::Frame;
+    using Frame = ::apex::core::Frame;
 
     [[nodiscard]] static apex::core::Result<Frame> try_decode(apex::core::RingBuffer& buf)
     {
-        auto result = FrameCodec::try_decode(buf);
+        auto result = apex::core::FrameCodec::try_decode(buf);
         if (result.has_value())
             return std::move(*result);
         // FrameError -> ErrorCode 변환
         switch (result.error())
         {
-            case FrameError::InsufficientData:
+            case apex::core::FrameError::InsufficientData:
                 return std::unexpected(apex::core::ErrorCode::InsufficientData);
-            case FrameError::HeaderParseError:
+            case apex::core::FrameError::HeaderParseError:
                 return std::unexpected(apex::core::ErrorCode::InvalidMessage);
-            case FrameError::BodyTooLarge:
+            case apex::core::FrameError::BodyTooLarge:
                 return std::unexpected(apex::core::ErrorCode::InvalidMessage);
         }
         return std::unexpected(apex::core::ErrorCode::Unknown);
@@ -37,7 +37,7 @@ struct TcpBinaryProtocol
 
     static void consume_frame(apex::core::RingBuffer& buf, const Frame& frame)
     {
-        FrameCodec::consume_frame(buf, frame);
+        apex::core::FrameCodec::consume_frame(buf, frame);
     }
 };
 

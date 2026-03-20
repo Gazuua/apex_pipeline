@@ -153,12 +153,12 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
             {
                 // TCP-style frame (header + payload)
                 msg_id = frame.header.msg_id;
-                payload_span = frame.payload;
+                payload_span = frame.payload();
             }
             else
             {
                 // WebSocket-style frame (payload only, msg_id in first 4 bytes)
-                const auto& raw = frame.payload;
+                const auto& raw = frame.payload();
                 if (raw.size() < sizeof(uint32_t))
                 {
                     if (logger_)
@@ -176,8 +176,10 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
 
             P::consume_frame(recv_buf, frame);
 
-            if (!result.has_value())
+            if (!result.has_value() && result.error() != ErrorCode::ServiceError)
             {
+                // ServiceError는 핸들러가 이미 에러 프레임을 클라이언트에 전송한 경우.
+                // 그 외 에러만 connection_handler에서 프레임을 보낸다.
                 auto error_frame = ErrorSender::build_error_frame(msg_id, result.error());
                 (void)co_await session->async_send_raw(error_frame);
             }

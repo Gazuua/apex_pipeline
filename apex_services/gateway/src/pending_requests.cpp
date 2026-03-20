@@ -1,5 +1,7 @@
 #include <apex/gateway/pending_requests.hpp>
 
+#include <apex/gateway/gateway_error.hpp>
+
 #include <spdlog/spdlog.h>
 
 namespace apex::gateway
@@ -17,7 +19,7 @@ apex::core::Result<void> PendingRequestsMap::insert(uint64_t corr_id, apex::core
     if (map_.size() >= max_entries_)
     {
         spdlog::warn("PendingRequestsMap full ({}/{})", map_.size(), max_entries_);
-        return apex::core::error(apex::core::ErrorCode::PendingMapFull);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 
     map_.emplace(corr_id, PendingEntry{

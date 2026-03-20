@@ -5,6 +5,7 @@ file_identifier "AERR";
 table ErrorResponse {
     code:uint16;
     message:string;
+    service_error_code:uint16;
 }
 
 root_type ErrorResponse;

@@ -31,7 +31,7 @@ class SessionWriteQueueRegressionTest : public ::testing::Test
 TEST_F(SessionWriteQueueRegressionTest, MixedEnqueueOrder)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     std::vector<uint8_t> msg1 = {0x01, 0x01};
     std::vector<uint8_t> msg2 = {0x02, 0x02};
@@ -60,7 +60,7 @@ TEST_F(SessionWriteQueueRegressionTest, MixedEnqueueOrder)
 TEST_F(SessionWriteQueueRegressionTest, EnqueueEmptyData)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     // 빈 벡터 enqueue
     auto result = session->enqueue_write({});
@@ -84,7 +84,7 @@ TEST_F(SessionWriteQueueRegressionTest, EnqueueEmptyData)
 TEST_F(SessionWriteQueueRegressionTest, BulkEnqueueDrains)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     constexpr size_t count = 100;
     for (size_t i = 0; i < count; ++i)
@@ -111,7 +111,7 @@ TEST_F(SessionWriteQueueRegressionTest, BulkEnqueueDrains)
 TEST_F(SessionWriteQueueRegressionTest, EnqueueWireHeaderFrame)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     // WireHeader + payload를 enqueue_write로 전송 가능한지 확인
     std::vector<uint8_t> payload = {0xCA, 0xFE};
@@ -147,7 +147,7 @@ TEST_F(SessionWriteQueueRegressionTest, EnqueueWireHeaderFrame)
 TEST_F(SessionWriteQueueRegressionTest, EnqueueAfterCloseReturnsError)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     session->close();
     ASSERT_FALSE(session->is_open());

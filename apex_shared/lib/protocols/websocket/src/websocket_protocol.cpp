@@ -38,7 +38,7 @@ apex::core::Result<WebSocketProtocol::Frame> WebSocketProtocol::try_decode(apex:
     // 페이로드 추출 (복사 — Frame이 vector 소유)
     auto frame_span = buf.linearize(total_size);
     Frame frame;
-    frame.payload.assign(frame_span.data() + LENGTH_PREFIX_SIZE, frame_span.data() + total_size);
+    frame.payload_data.assign(frame_span.data() + LENGTH_PREFIX_SIZE, frame_span.data() + total_size);
     frame.is_binary = true;
     frame.is_text = false;
 
@@ -48,7 +48,7 @@ apex::core::Result<WebSocketProtocol::Frame> WebSocketProtocol::try_decode(apex:
 void WebSocketProtocol::consume_frame(apex::core::RingBuffer& buf, const Frame& frame)
 {
     constexpr size_t LENGTH_PREFIX_SIZE = 4;
-    buf.consume(LENGTH_PREFIX_SIZE + frame.payload.size());
+    buf.consume(LENGTH_PREFIX_SIZE + frame.payload_data.size());
 }
 
 } // namespace apex::shared::protocols::websocket

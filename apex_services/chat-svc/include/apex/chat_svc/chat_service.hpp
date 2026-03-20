@@ -1,8 +1,8 @@
 #pragma once
 
+#include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/service_base.hpp>
-#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <boost/asio/awaitable.hpp>
 
@@ -41,8 +41,6 @@ struct GlobalBroadcastRequest;
 
 namespace apex::chat_svc
 {
-
-namespace envelope = apex::shared::protocols::kafka;
 
 /// Global broadcast channel name (Redis Pub/Sub).
 inline constexpr std::string_view GLOBAL_CHAT_CHANNEL = "pub:global:chat";
@@ -120,30 +118,31 @@ class ChatService : public apex::core::ServiceBase<ChatService>
     // --- Handlers (awaitable coroutines, MetadataPrefix 인자로 직접 수신) ---
 
     // Room management
-    boost::asio::awaitable<apex::core::Result<void>> on_create_room(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> on_create_room(const apex::core::KafkaMessageMeta& meta,
                                                                     uint32_t msg_id, const fbs::CreateRoomRequest* req);
-    boost::asio::awaitable<apex::core::Result<void>> on_join_room(const envelope::MetadataPrefix& meta, uint32_t msg_id,
-                                                                  const fbs::JoinRoomRequest* req);
-    boost::asio::awaitable<apex::core::Result<void>> on_leave_room(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> on_join_room(const apex::core::KafkaMessageMeta& meta,
+                                                                  uint32_t msg_id, const fbs::JoinRoomRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_leave_room(const apex::core::KafkaMessageMeta& meta,
                                                                    uint32_t msg_id, const fbs::LeaveRoomRequest* req);
-    boost::asio::awaitable<apex::core::Result<void>> on_list_rooms(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> on_list_rooms(const apex::core::KafkaMessageMeta& meta,
                                                                    uint32_t msg_id, const fbs::ListRoomsRequest* req);
 
     // Message send
     boost::asio::awaitable<apex::core::Result<void>>
-    on_send_message(const envelope::MetadataPrefix& meta, uint32_t msg_id, const fbs::SendMessageRequest* req);
+    on_send_message(const apex::core::KafkaMessageMeta& meta, uint32_t msg_id, const fbs::SendMessageRequest* req);
 
     // Whisper (1:1)
-    boost::asio::awaitable<apex::core::Result<void>> on_whisper(const envelope::MetadataPrefix& meta, uint32_t msg_id,
-                                                                const fbs::WhisperRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_whisper(const apex::core::KafkaMessageMeta& meta,
+                                                                uint32_t msg_id, const fbs::WhisperRequest* req);
 
     // History
     boost::asio::awaitable<apex::core::Result<void>>
-    on_chat_history(const envelope::MetadataPrefix& meta, uint32_t msg_id, const fbs::ChatHistoryRequest* req);
+    on_chat_history(const apex::core::KafkaMessageMeta& meta, uint32_t msg_id, const fbs::ChatHistoryRequest* req);
 
     // Global broadcast
-    boost::asio::awaitable<apex::core::Result<void>>
-    on_global_broadcast(const envelope::MetadataPrefix& meta, uint32_t msg_id, const fbs::GlobalBroadcastRequest* req);
+    boost::asio::awaitable<apex::core::Result<void>> on_global_broadcast(const apex::core::KafkaMessageMeta& meta,
+                                                                         uint32_t msg_id,
+                                                                         const fbs::GlobalBroadcastRequest* req);
 
     // --- Helpers ---
 
@@ -166,36 +165,36 @@ class ChatService : public apex::core::ServiceBase<ChatService>
     // ── 에러 응답 헬퍼 [D5] ──────────────────────────────────────────────
 
     /// CreateRoomResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_create_room_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_create_room_error(const apex::core::KafkaMessageMeta& meta,
                                                                             uint16_t error);
 
     /// JoinRoomResponse 에러 (room_id 포함).
-    boost::asio::awaitable<apex::core::Result<void>> send_join_room_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_join_room_error(const apex::core::KafkaMessageMeta& meta,
                                                                           uint16_t error, uint64_t room_id);
 
     /// LeaveRoomResponse 에러 (room_id 포함).
-    boost::asio::awaitable<apex::core::Result<void>> send_leave_room_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_leave_room_error(const apex::core::KafkaMessageMeta& meta,
                                                                            uint16_t error, uint64_t room_id);
 
     /// ListRoomsResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_list_rooms_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_list_rooms_error(const apex::core::KafkaMessageMeta& meta,
                                                                            uint16_t error);
 
     /// SendMessageResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_message_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_message_error(const apex::core::KafkaMessageMeta& meta,
                                                                         uint16_t error);
 
     /// WhisperResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_whisper_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_whisper_error(const apex::core::KafkaMessageMeta& meta,
                                                                         uint16_t error);
 
     /// ChatHistoryResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_history_error(const envelope::MetadataPrefix& meta,
+    boost::asio::awaitable<apex::core::Result<void>> send_history_error(const apex::core::KafkaMessageMeta& meta,
                                                                         uint16_t error);
 
     /// GlobalBroadcastResponse 에러.
-    boost::asio::awaitable<apex::core::Result<void>> send_global_broadcast_error(const envelope::MetadataPrefix& meta,
-                                                                                 uint16_t error);
+    boost::asio::awaitable<apex::core::Result<void>>
+    send_global_broadcast_error(const apex::core::KafkaMessageMeta& meta, uint16_t error);
 
     Config config_;
     apex::shared::adapters::kafka::KafkaAdapter* kafka_{nullptr};

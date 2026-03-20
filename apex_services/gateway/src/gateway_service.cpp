@@ -21,6 +21,7 @@
 #include <apex/core/error_sender.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/gateway/gateway_error.hpp>
 #include <flatbuffers/flatbuffers.h>
 
 #include <stdexcept>
@@ -355,8 +356,9 @@ void GatewayService::schedule_sweep(apex::core::WireContext& ctx)
             auto session = session_mgr->find_session(entry.session_id);
             if (session && session->is_open())
             {
-                auto frame = apex::core::ErrorSender::build_error_frame(entry.original_msg_id,
-                                                                        apex::core::ErrorCode::ServiceTimeout);
+                auto frame = apex::core::ErrorSender::build_error_frame(
+                    entry.original_msg_id, apex::core::ErrorCode::ServiceError, "",
+                    static_cast<uint16_t>(GatewayError::ServiceTimeout));
                 (void)session->enqueue_write(std::move(frame));
             }
         });
@@ -393,9 +395,8 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     auto pipeline_result = co_await pipeline_->process(session, header, state, remote_ip);
     if (!pipeline_result)
     {
-        logger_->error("handle_request: pipeline failed for msg_id={}, error={}", msg_id,
-                       static_cast<int>(pipeline_result.error()));
-        co_return std::unexpected(pipeline_result.error());
+        // Pipeline already sent error frame to client — don't propagate to connection_handler
+        co_return apex::core::ok();
     }
 
     // 5. Route to Kafka via MessageRouter
@@ -405,18 +406,23 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     auto pending_result = pending_requests_.insert(corr_id, session->id(), msg_id);
     if (!pending_result)
     {
-        co_return std::unexpected(pending_result.error());
+        auto frame = apex::core::ErrorSender::build_error_frame(msg_id, apex::core::ErrorCode::ServiceError, "",
+                                                                static_cast<uint16_t>(GatewayError::PendingMapFull));
+        (void)session->enqueue_write(std::move(frame));
+        co_return apex::core::ok();
     }
 
     // 7. Produce to Kafka
     auto route_result = router_->route(session, header, payload, state.user_id, corr_id);
     if (!route_result)
     {
-        logger_->error("handle_request: route failed for msg_id={}, error={}", msg_id,
-                       static_cast<int>(route_result.error()));
+        logger_->error("handle_request: route failed for msg_id={}", msg_id);
         // Remove pending entry on failure
         (void)pending_requests_.extract(corr_id);
-        co_return std::unexpected(route_result.error());
+        auto frame = apex::core::ErrorSender::build_error_frame(msg_id, apex::core::ErrorCode::ServiceError, "",
+                                                                static_cast<uint16_t>(GatewayError::RouteNotFound));
+        (void)session->enqueue_write(std::move(frame));
+        co_return apex::core::ok();
     }
     logger_->info("handle_request: msg_id={} routed successfully (corr_id={})", msg_id, corr_id);
 

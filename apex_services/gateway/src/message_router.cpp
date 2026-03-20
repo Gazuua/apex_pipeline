@@ -1,5 +1,7 @@
 #include <apex/gateway/message_router.hpp>
 
+#include <apex/gateway/gateway_error.hpp>
+
 #include <spdlog/spdlog.h>
 
 #include <chrono>
@@ -27,14 +29,15 @@ apex::core::Result<void> MessageRouter::route(apex::core::SessionPtr session, co
     if (!topic)
     {
         spdlog::warn("No route for msg_id: {}", header.msg_id);
-        return apex::core::error(apex::core::ErrorCode::RouteNotFound);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 
-    // 2. Serialize Kafka Envelope
-    auto envelope = build_envelope(header, payload, session->id(), user_id, corr_id, core_id_);
+    // 2. Serialize Kafka Envelope (wire boundary: SessionId → uint64_t)
+    auto envelope =
+        build_envelope(header, payload, apex::core::to_underlying(session->id()), user_id, corr_id, core_id_);
 
     // 3. Kafka produce (session_id as key for partition distribution)
-    auto session_key = std::to_string(session->id());
+    auto session_key = std::to_string(apex::core::to_underlying(session->id()));
     return kafka_.produce(*topic, session_key, std::span<const uint8_t>(envelope));
 }
 
