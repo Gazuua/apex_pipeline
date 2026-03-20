@@ -4,13 +4,24 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 107
+다음 발번: 109
 
 ---
 
 ## NOW
 
-(없음)
+### #107. v0.5.10.0 벤치마크 실행 및 보고서 작성
+- **등급**: MAJOR
+- **스코프**: core, tools
+- **타입**: perf
+- **연관**: #106 (HISTORY)
+- **설명**: SPSC mesh 전환 후 Release 빌드 벤치마크 실행. SpscQueue vs MpscQueue throughput/latency 비교, cross-core latency/message-passing 측정. analysis.json 작성 + generate_benchmark_report.py로 보고서 생성.
+
+### #108. 브랜치 핸드오프 시스템 테스트
+- **등급**: MAJOR
+- **스코프**: tools
+- **타입**: infra
+- **설명**: branch-handoff.sh의 전체 워크플로우 실전 테스트. 멀티 워크스페이스 환경에서 Tier 1/2/3 알림, 게이트 체크(check --gate), backlog-check, ack/대응 흐름이 정상 작동하는지 검증. 발견된 버그·개선점은 즉시 수정.
 
 ---
 
