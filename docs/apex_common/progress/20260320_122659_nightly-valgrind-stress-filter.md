@@ -1,6 +1,6 @@
 # v0.5.8.4 Nightly Valgrind 스트레스 테스트 필터 수정
 
-**PR**: (예정)
+**PR**: #53
 **백로그**: BACKLOG-99 후속
 **브랜치**: bugfix/nightly-valgrind-stress-filter
 
