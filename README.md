@@ -3,7 +3,7 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
-## 현재 상태 — v0.5.9.0
+## 현재 상태 — v0.5.10.0
 
 ### 완료
 
@@ -163,11 +163,18 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 보안: bcrypt 해시 로그 노출 제거, Docker non-root 실행 전환 (3 서비스)
   - 버전 불일치 통일 (vcpkg.json, CMakeLists.txt → 0.5.9)
 
+- **v0.5.10.0 — SPSC All-to-All Mesh**
+  - CoreEngine MPSC inbox → SPSC all-to-all mesh 전환 (N×(N-1) 전용 큐)
+  - CAS contention 제거 + cache line bouncing 감소로 크로스코어 레이턴시 개선
+  - co_post_to() awaitable API 추가 (backpressure 지원)
+  - post_to() 동기 API (SPSC for core threads, asio::post fallback for non-core)
+  - BroadcastFanout asio::post 기반 마이그레이션
+
 ## 아키텍처
 
 ### Per-core 싱글 스레드 모델
 
-각 코어가 독립 `io_context`에서 실행되는 락 프리 설계. 코어 간 통신은 `cross_core_post_msg`(MPSC 큐 기반)로 안전하게 처리.
+각 코어가 독립 `io_context`에서 실행되는 락 프리 설계. 코어 간 통신은 SPSC all-to-all mesh(코어 쌍별 전용 큐)로 CAS-free 전달.
 
 ### 3계층 메모리 아키텍처
 

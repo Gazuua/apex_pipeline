@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #106. CrossCoreDispatcher MPSC→SPSC all-to-all mesh 리팩토링
+- **등급**: MAJOR | **스코프**: core | **타입**: perf
+- **해결**: 2026-03-20 21:30:00 | **방식**: FIXED | **커밋**: 134ce1e
+- **비고**: —
+
 ### #23. TOCTOU: join_room SCARD→SADD 경합
 - **등급**: MAJOR | **스코프**: chat-svc | **타입**: bug
 - **해결**: 2026-03-20 18:13:49 | **방식**: DUPLICATE
