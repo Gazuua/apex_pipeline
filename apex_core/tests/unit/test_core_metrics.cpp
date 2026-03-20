@@ -1,7 +1,18 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/core_engine.hpp>
+
+#include "../test_helpers.hpp"
+
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
+
 #include <gtest/gtest.h>
+
+#include <atomic>
+#include <chrono>
+#include <thread>
 
 using namespace apex::core;
 
@@ -25,7 +36,7 @@ TEST(CoreMetrics, PostToIncrementsTotal)
 {
     CoreEngineConfig config;
     config.num_cores = 2;
-    config.mpsc_queue_capacity = 4;
+    config.spsc_queue_capacity = 4;
     CoreEngine engine(config);
 
     CoreMessage msg{};
@@ -39,22 +50,40 @@ TEST(CoreMetrics, PostToIncrementsTotal)
 
 TEST(CoreMetrics, PostToFailureIncrementsFailures)
 {
+    // SPSC mesh requires 2+ cores for queue-full to occur.
+    // Must call from core thread to use SPSC path.
     CoreEngineConfig config;
-    config.num_cores = 1;
-    config.mpsc_queue_capacity = 2; // Very small queue
+    config.num_cores = 2;
+    config.spsc_queue_capacity = 2; // Very small queue
     CoreEngine engine(config);
 
-    CoreMessage msg{};
-    // Fill the queue
-    (void)engine.post_to(0, msg);
-    (void)engine.post_to(0, msg);
+    engine.start();
 
-    // Next post should fail — queue full
-    auto r = engine.post_to(0, msg);
-    EXPECT_FALSE(r.has_value());
+    std::atomic<bool> done{false};
+    boost::asio::co_spawn(
+        engine.io_context(0),
+        [&]() -> boost::asio::awaitable<void> {
+            CoreMessage msg{};
+            // Fill the SPSC queue (core 0 → core 1)
+            (void)engine.post_to(1, msg);
+            (void)engine.post_to(1, msg);
 
-    EXPECT_GE(engine.metrics(0).post_total.load(), 3u);
-    EXPECT_GE(engine.metrics(0).post_failures.load(), 1u);
+            // Next post should fail — queue full
+            auto r = engine.post_to(1, msg);
+            EXPECT_FALSE(r.has_value());
+            done.store(true, std::memory_order_release);
+            co_return;
+        },
+        boost::asio::detached);
+
+    // Wait for coroutine to complete
+    ASSERT_TRUE(apex::test::wait_for([&] { return done.load(std::memory_order_acquire); }));
+
+    EXPECT_GE(engine.metrics(1).post_total.load(), 3u);
+    EXPECT_GE(engine.metrics(1).post_failures.load(), 1u);
+
+    engine.stop();
+    engine.join();
 }
 
 TEST(CoreMetrics, MetricsAccessorBoundsCheck)

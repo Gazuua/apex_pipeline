@@ -18,7 +18,7 @@ struct ServerConfig
 
     // Multicore
     uint32_t num_cores = 1;
-    size_t mpsc_queue_capacity = 65536;
+    size_t spsc_queue_capacity = 1024;
     std::chrono::milliseconds tick_interval{100};
 
     // Session

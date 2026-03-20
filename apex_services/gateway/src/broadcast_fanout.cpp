@@ -2,7 +2,10 @@
 
 #include <apex/gateway/broadcast_fanout.hpp>
 
-#include <apex/core/cross_core_call.hpp>
+#include <apex/core/core_engine.hpp>
+
+#include <boost/asio/post.hpp>
+
 #include <spdlog/spdlog.h>
 
 #include <cstring>
@@ -42,7 +45,8 @@ void BroadcastFanout::fanout(std::string_view channel, std::span<const uint8_t> 
         for (uint32_t core_id = 0; core_id < session_mgrs_.size(); ++core_id)
         {
             auto* mgr = session_mgrs_[core_id];
-            (void)apex::core::cross_core_post(engine_, core_id, [mgr, shared_data = data]() {
+            // asio::post 직접 사용 (비코어 스레드 — Redis PubSub callback)
+            boost::asio::post(engine_.io_context(core_id), [mgr, shared_data = data]() {
                 mgr->for_each([&shared_data](apex::core::SessionPtr session) {
                     if (session && session->is_open())
                     {
@@ -64,22 +68,23 @@ void BroadcastFanout::fanout(std::string_view channel, std::span<const uint8_t> 
         auto* mgr = session_mgrs_[core_id];
         auto* maps = channel_maps_;
 
-        (void)apex::core::cross_core_post(engine_, core_id,
-                                          [mgr, maps, core_id, ch = std::string(channel), shared_data = data]() {
-                                              if (!maps)
-                                                  return;
-                                              auto* subs = (*maps)[core_id].get_subscribers(ch);
-                                              if (!subs || subs->empty())
-                                                  return;
+        // asio::post 직접 사용 (비코어 스레드 — Redis PubSub callback)
+        boost::asio::post(engine_.io_context(core_id),
+                          [mgr, maps, core_id, ch = std::string(channel), shared_data = data]() {
+                              if (!maps)
+                                  return;
+                              auto* subs = (*maps)[core_id].get_subscribers(ch);
+                              if (!subs || subs->empty())
+                                  return;
 
-                                              for (auto sid : *subs)
-                                              {
-                                                  auto session = mgr->find_session(sid);
-                                                  if (!session || !session->is_open())
-                                                      continue;
-                                                  (void)session->enqueue_write_raw(*shared_data);
-                                              }
-                                          });
+                              for (auto sid : *subs)
+                              {
+                                  auto session = mgr->find_session(sid);
+                                  if (!session || !session->is_open())
+                                      continue;
+                                  (void)session->enqueue_write_raw(*shared_data);
+                              }
+                          });
     }
 }
 

@@ -23,6 +23,7 @@ enum class ErrorCode : uint16_t
     FlatBuffersVerifyFailed = 7,
     CrossCoreTimeout = 8,
     CrossCoreQueueFull = 9,
+    CrossCoreFuncException = 17, // cross_core_call target func threw exception
     UnsupportedProtocolVersion = 10,
     HandlerException = 11, // dispatch handler threw exception
     SendFailed = 12,       // async_send network write failure
@@ -70,6 +71,8 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept
             return "CrossCoreTimeout";
         case ErrorCode::CrossCoreQueueFull:
             return "CrossCoreQueueFull";
+        case ErrorCode::CrossCoreFuncException:
+            return "CrossCoreFuncException";
         case ErrorCode::UnsupportedProtocolVersion:
             return "UnsupportedProtocolVersion";
         case ErrorCode::HandlerException:

@@ -167,7 +167,7 @@ private:
 struct ServerConfig {
     bool tcp_nodelay = true;                          // Nagle 비활성화 (저지연)
     uint32_t num_cores = 1;                           // io_context 수 (0 = hardware_concurrency)
-    size_t mpsc_queue_capacity = 65536;               // 코어 간 MPSC 큐 크기
+    size_t spsc_queue_capacity = 1024;                 // 코어 간 SPSC 큐 크기 (per-pair)
     std::chrono::milliseconds tick_interval{100};     // CoreEngine tick 주기
     uint32_t heartbeat_timeout_ticks = 300;           // 하트비트 미수신 시 세션 종료 (0=비활성)
     size_t recv_buf_capacity = 8192;                  // per-session 수신 버퍼 크기
@@ -368,7 +368,7 @@ Signal (SIGINT/SIGTERM)
     4. Service stop (on_stop() 호출, per-session 상태 정리)
     5. [D7] Outstanding 코루틴 drain 대기 (drain_timeout 내, 10ms 폴링)
     6. CoreEngine stop → join → drain_remaining
-       (코어 스레드 종료 후 잔여 MPSC 메시지 소비)
+       (코어 스레드 종료 후 잔여 SPSC 메시지 소비)
     7. Adapter close (flush + 커넥션 정리) + [D3] Globals clear
     → control_io_.stop() → run() 반환
 ```
@@ -613,7 +613,7 @@ Kafka consumer 스레드는 코어 외부이므로 per-core allocator(`bump`/`ar
 
 ## §7. 유틸리티
 
-### cross_core_call / cross_core_post
+### cross_core_call / cross_core_post (레거시)
 
 ```cpp
 // 요청-응답 (코루틴, 타임아웃)
@@ -621,21 +621,37 @@ auto result = co_await server.cross_core_call(target_core, [&]{
     return some_value;  // 타겟 코어에서 실행
 });
 
-// Fire-and-forget (비코루틴)
-server.cross_core_post(target_core, [=]{
+// Fire-and-forget (awaitable, v0.5.10.0+)
+co_await server.cross_core_post(target_core, [=]{
     // 타겟 코어에서 실행 — 값 캡처만 사용
 });
 ```
 
 **주의**: `cross_core_call`의 func는 **값 캡처만** (참조 캡처 시 타임아웃 레이스에서 dangling). `cross_core_post`도 동일.
 
-**per-core 복제 + 동기화 패턴 `[D4]`**: shared-nothing 원칙에 따라, 공유 데이터는 각 코어에 복제하고 변경 시 `cross_core_post()`로 전파한다. shared_mutex 사용 금지.
+### post_to / co_post_to (v0.5.10.0+)
+
+SPSC all-to-all mesh 기반 크로스코어 메시지 전달 API:
+
+- **`post_to(core_id, CoreMessage)`** — 동기 전달. 코어 스레드에서는 SPSC 큐 직접 enqueue, 비코어 스레드(Kafka consumer 등)에서는 asio::post fallback
+- **`co_post_to(core_id, CoreMessage)`** — awaitable. 큐가 full이면 비동기 대기 후 재시도 (backpressure)
+- **`cross_core_post_msg`**, **`broadcast_cross_core`** — co_post_to 기반으로 awaitable 전환
+
+```cpp
+// 메시지 기반 크로스코어 전달 (awaitable)
+co_await cross_core_post_msg(engine, source_core, target_core, op, data);
+
+// 전 코어 브로드캐스트 (awaitable)
+co_await broadcast_cross_core(engine, source_core, op, shared_payload);
+```
+
+**per-core 복제 + 동기화 패턴 `[D4]`**: shared-nothing 원칙에 따라, 공유 데이터는 각 코어에 복제하고 변경 시 크로스코어 메시지로 전파한다. shared_mutex 사용 금지.
 
 ```cpp
 // 구독 추가 시 모든 코어에 전파
 for (uint32_t i = 0; i < server.core_count(); ++i) {
     if (i == core_id()) continue;
-    server.cross_core_post(i, [channel, session_id]{
+    co_await server.cross_core_post(i, [channel, session_id]{
         // 타겟 코어의 로컬 구독 맵에 추가
     });
 }
@@ -806,9 +822,9 @@ awaitable<Result<void>> handler(SessionPtr s, uint32_t id, const MyReq* req) {
 std::shared_mutex mtx_;
 std::unordered_map<std::string, SessionId> channel_map_;
 
-// ✅ GOOD — per-core 복제 + cross_core_post 전파
+// ✅ GOOD — per-core 복제 + co_await cross_core_post 전파
 boost::unordered_flat_map<std::string, SessionId> local_channel_map_;  // per-core
-// 변경 시 cross_core_post()로 다른 코어에 전파 (§7)
+// 변경 시 co_await cross_core_post()로 다른 코어에 전파 (§7)
 ```
 
 shared-nothing 원칙에 따라 서비스 코드 내 뮤텍스는 금지.
@@ -990,7 +1006,7 @@ add_subdirectory(my-svc)
 ```
 Server
  ├── GlobalResourceRegistry [D3]      ← server.global<T>() 자원 소유
- ├── CoreEngine                       ← 스레드 풀, MPSC inbox 드레인, spawn_tracked
+ ├── CoreEngine                       ← 스레드 풀, SPSC mesh 드레인, spawn_tracked
  │    └── PerCoreState[] (코어별 독립)
  │         ├── SessionManager         ← intrusive_ptr<Session> 소유
  │         ├── ServiceRegistry [D1]   ← 타입 기반 서비스 조회
@@ -1068,7 +1084,7 @@ KafkaAdapter (consumer 스레드)
 Handler → send_response() → KafkaAdapter::produce(response_topic, envelope)
 
 [응답 — Gateway 경유]
-KafkaAdapter (consumer) → ResponseDispatcher → cross_core_post(session.core_id)
+KafkaAdapter (consumer) → ResponseDispatcher → asio::post(session.core_id)
   → session->enqueue_write(response) → Client
 ```
 
@@ -1078,7 +1094,7 @@ KafkaAdapter (consumer) → ResponseDispatcher → cross_core_post(session.core_
 |------|------|------|
 | io_context-per-core | `design-decisions.md` § 이벤트 루프 | shared-nothing 아키텍처 근거 |
 | CRTP ServiceBase | `design-decisions.md` § 모듈 정체성 | 정적 다형성 선택 이유 |
-| MPSC 코어 간 통신 | `design-decisions.md` § 이벤트 루프 | 코어당 수신 큐 1개 설계 |
+| SPSC All-to-All Mesh 코어 간 통신 | `design-decisions.md` § 이벤트 루프 | 코어 쌍별 전용 SPSC 큐 (MPSC→SPSC 전환, v0.5.10.0) |
 | 비동기 I/O 통합 | `design-decisions.md` § 비동기 I/O | Kafka/Redis/PG fd를 Asio에 등록 |
 | shared-nothing 범위 | `design-decisions.md` § 성능 철학 | 외부 라이브러리 스레드 예외 |
 | 코루틴 lifetime | `design-rationale.md` § 코루틴 수명 | intrusive_ptr 캡처, 수명 보장 |

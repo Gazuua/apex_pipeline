@@ -14,7 +14,7 @@ using namespace apex::core;
 TEST(DrainTick, PostTriggersImmediateDrain)
 {
     CoreEngine engine({.num_cores = 2,
-                       .mpsc_queue_capacity = 64,
+                       .spsc_queue_capacity = 64,
                        .tick_interval = std::chrono::milliseconds(1000),
                        .drain_batch_limit = 1024});
 
@@ -43,7 +43,7 @@ TEST(DrainTick, PostTriggersImmediateDrain)
 TEST(DrainTick, TickCallbackFiresIndependently)
 {
     CoreEngine engine({.num_cores = 1,
-                       .mpsc_queue_capacity = 64,
+                       .spsc_queue_capacity = 64,
                        .tick_interval = std::chrono::milliseconds(50),
                        .drain_batch_limit = 1024});
 
@@ -62,7 +62,7 @@ TEST(DrainTick, TickCallbackFiresIndependently)
 TEST(DrainTick, BatchLimitPreventsStarvation)
 {
     CoreEngine engine({.num_cores = 2,
-                       .mpsc_queue_capacity = 4096,
+                       .spsc_queue_capacity = 4096,
                        .tick_interval = std::chrono::milliseconds(1000),
                        .drain_batch_limit = 10});
 

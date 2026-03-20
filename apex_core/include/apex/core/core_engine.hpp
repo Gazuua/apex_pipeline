@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include <apex/core/core_message.hpp>
 #include <apex/core/cross_core_dispatcher.hpp>
 #include <apex/core/cross_core_op.hpp>
-#include <apex/core/mpsc_queue.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/spsc_mesh.hpp>
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -33,27 +34,16 @@ struct CoreMetrics
     std::atomic<uint64_t> post_failures{0};
 };
 
-/// Trivially-copyable message for inter-core communication via MpscQueue.
-struct CoreMessage
-{
-    CrossCoreOp op{CrossCoreOp::Noop};
-    uint32_t source_core{0};
-    uintptr_t data{0};
-};
-static_assert(std::is_trivially_copyable_v<CoreMessage>);
-static_assert(sizeof(CoreMessage) <= 16);
-
-/// Per-core execution context. Each core owns its own io_context and MPSC inbox.
+/// Per-core execution context. Each core owns its own io_context.
 /// NOT thread-safe -- only accessed by the owning core thread.
 struct CoreContext
 {
     uint32_t core_id;
     boost::asio::io_context io_ctx{1}; // concurrency_hint=1 (single thread)
-    std::unique_ptr<MpscQueue<CoreMessage>> inbox;
     std::unique_ptr<boost::asio::steady_timer> tick_timer;
     CoreMetrics metrics;
 
-    CoreContext(uint32_t id, size_t queue_capacity);
+    explicit CoreContext(uint32_t id);
     ~CoreContext();
 
     CoreContext(const CoreContext&) = delete;
@@ -64,13 +54,13 @@ struct CoreContext
 struct CoreEngineConfig
 {
     uint32_t num_cores{0}; // 0 = auto-detect (hardware_concurrency)
-    size_t mpsc_queue_capacity{65536};
+    size_t spsc_queue_capacity{1024};
     std::chrono::milliseconds tick_interval{100}; // per-core tick timer interval
     size_t drain_batch_limit{1024};               // max messages per drain cycle
 };
 
 /// io_context-per-core engine. Creates N cores, each with its own
-/// io_context + thread + MPSC inbox. Provides inter-core messaging.
+/// io_context + thread + SPSC mesh. Provides inter-core messaging.
 ///
 /// Drain is event-driven: post_to() triggers immediate drain via post().
 /// Tick is independent: periodic timer for heartbeat/timing wheel.
@@ -102,31 +92,33 @@ class CoreEngine
     /// Register a cross-core message handler by op code. Must be called before start().
     void register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler);
 
-    /// Drain remaining messages from all inboxes, cleaning up heap pointers
-    /// for LegacyCrossCoreFn messages. Call after stop() + join().
+    /// Drain remaining messages, cleaning up heap pointers. Call after stop() + join().
     void drain_remaining();
 
     /// Start all core threads (non-blocking).
-    /// Must call join() before destruction.
     void start();
 
     /// Wait for all core threads to finish (blocking).
-    /// Call stop() first to signal threads to exit.
     void join();
 
     /// Start all core threads and block until stop() is called.
-    /// Equivalent to start() + join().
     void run();
 
     /// Signal all cores to stop. Thread-safe.
     void stop();
 
-    /// Post a message to a specific core's MPSC inbox. Thread-safe.
-    /// Triggers immediate event-driven drain on the target core.
-    /// @return ErrorCode::CrossCoreQueueFull if target core's queue is full.
+    /// Post a message to a specific core. Thread-safe.
+    /// From core thread: uses SPSC mesh (fast path).
+    /// From non-core thread: uses asio::post (fallback).
+    /// @return ErrorCode::CrossCoreQueueFull if SPSC queue is full.
     [[nodiscard]] Result<void> post_to(uint32_t target_core, CoreMessage msg);
 
-    /// Broadcast a message to all cores. Thread-safe. Best-effort.
+    /// Awaitable post — core thread only, with backpressure.
+    /// Suspends if SPSC queue is full, resumes when space available.
+    [[nodiscard]] boost::asio::awaitable<void> co_post_to(uint32_t target_core, CoreMessage msg);
+
+    /// Broadcast a message to all cores via asio::post. Thread-safe. Best-effort.
+    /// LegacyCrossCoreFn is NOT supported (assert).
     void broadcast(CoreMessage msg);
 
     [[nodiscard]] uint32_t core_count() const noexcept;
@@ -134,11 +126,10 @@ class CoreEngine
     [[nodiscard]] bool running() const noexcept;
     [[nodiscard]] const CoreMetrics& metrics(uint32_t core_id) const;
 
-    /// Current core ID via thread-local. Must be called from a core thread.
+    /// Current core ID via thread-local. Returns UINT32_MAX if not on a core thread.
     [[nodiscard]] static uint32_t current_core_id() noexcept;
 
-    /// [D7] Tracked 인프라 코루틴 스폰. 서비스 코루틴과 별도 추적.
-    /// shutdown 시 완료 대기 (서비스 코루틴 이후).
+    /// [D7] Tracked 인프라 코루틴 스폰.
     template <typename F> void spawn_tracked(uint32_t core_id, F&& coro_factory)
     {
         assert(core_id < core_count() && "Invalid core_id for spawn_tracked");
@@ -163,7 +154,6 @@ class CoreEngine
             boost::asio::detached);
     }
 
-    /// Outstanding 인프라 코루틴 수.
     [[nodiscard]] uint32_t outstanding_infra_coroutines() const noexcept
     {
         return outstanding_infra_coros_.load(std::memory_order_acquire);
@@ -174,6 +164,7 @@ class CoreEngine
     void drain_inbox(uint32_t core_id);
     void start_tick_timer(uint32_t core_id);
     void schedule_drain(uint32_t target_core);
+    void dispatch_message(uint32_t core_id, const CoreMessage& msg);
 
     CoreEngineConfig config_;
     std::vector<std::unique_ptr<CoreContext>> cores_;
@@ -183,6 +174,7 @@ class CoreEngine
     std::atomic<bool> running_{false};
     std::atomic<uint32_t> outstanding_infra_coros_{0};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;
+    std::unique_ptr<SpscMesh> mesh_;
     CrossCoreDispatcher cross_core_dispatcher_;
     static thread_local uint32_t tls_core_id_;
 };

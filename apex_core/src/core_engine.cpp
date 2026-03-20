@@ -20,9 +20,8 @@ thread_local uint32_t CoreEngine::tls_core_id_ = UINT32_MAX;
 
 // --- CoreContext ---
 
-CoreContext::CoreContext(uint32_t id, size_t queue_capacity)
+CoreContext::CoreContext(uint32_t id)
     : core_id(id)
-    , inbox(std::make_unique<MpscQueue<CoreMessage>>(queue_capacity))
 {}
 
 CoreContext::~CoreContext() = default;
@@ -48,7 +47,18 @@ CoreEngine::CoreEngine(CoreEngineConfig config)
     cores_.reserve(config_.num_cores);
     for (uint32_t i = 0; i < config_.num_cores; ++i)
     {
-        cores_.push_back(std::make_unique<CoreContext>(i, config_.mpsc_queue_capacity));
+        cores_.push_back(std::make_unique<CoreContext>(i));
+    }
+
+    // SpscMesh: N>=2 일 때만 생성 (단일 코어는 자기 자신에게 보낼 수 없음)
+    if (config_.num_cores > 1)
+    {
+        std::vector<boost::asio::io_context*> io_ptrs;
+        io_ptrs.reserve(config_.num_cores);
+        for (auto& ctx : cores_)
+            io_ptrs.push_back(&ctx->io_ctx);
+
+        mesh_ = std::make_unique<SpscMesh>(config_.num_cores, config_.spsc_queue_capacity, io_ptrs);
     }
 }
 
@@ -56,8 +66,6 @@ CoreEngine::~CoreEngine()
 {
     stop();
     join();
-    // m-11: Drain remaining cross-core messages to prevent heap leaks.
-    // After join(), no threads are running so drain_remaining() is safe.
     drain_remaining();
 }
 
@@ -81,21 +89,11 @@ void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler ha
 
 void CoreEngine::drain_remaining()
 {
-    // I-9: Assert precondition — must be called after stop() + join()
     assert(!running_.load(std::memory_order_relaxed) && threads_.empty() &&
            "drain_remaining() must be called after stop() + join()");
 
-    for (auto& ctx : cores_)
-    {
-        while (auto msg = ctx->inbox->dequeue())
-        {
-            if (msg->op == CrossCoreOp::LegacyCrossCoreFn)
-            {
-                auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
-                delete task;
-            }
-        }
-    }
+    if (mesh_)
+        mesh_->shutdown();
 }
 
 void CoreEngine::start()
@@ -105,7 +103,6 @@ void CoreEngine::start()
         throw std::logic_error("CoreEngine::start() called while already running");
     }
 
-    // I-1: Guard against calling start() before join() has cleared threads_
     if (!threads_.empty())
     {
         running_.store(false, std::memory_order_release);
@@ -158,42 +155,79 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
 {
     if (target_core >= cores_.size())
     {
+        // No dedicated InvalidCoreId error code — adding one requires schema changes
+        // across error_code.hpp, FlatBuffers ErrorResponse, etc. ErrorCode::Unknown is
+        // acceptable here; callers already handle Unknown as a generic failure.
         return error(ErrorCode::Unknown);
     }
     auto& target = *cores_[target_core];
     target.metrics.post_total.fetch_add(1, std::memory_order_relaxed);
 
-    auto result = target.inbox->enqueue(msg);
-    if (!result)
+    auto src = tls_core_id_;
+    if (mesh_ && src != UINT32_MAX && src != target_core)
     {
-        target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
-        // Rate-limited warning (max once per second per thread)
-        static thread_local auto last_log = std::chrono::steady_clock::time_point{};
-        auto now = std::chrono::steady_clock::now();
-        if (now - last_log > std::chrono::seconds{1})
+        // Core thread → SPSC mesh (fast path, no CAS)
+        if (!mesh_->queue(src, target_core).try_enqueue(msg))
         {
-            spdlog::warn("cross_core_post to core {} failed: queue full", target_core);
-            last_log = now;
+            target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
+            static thread_local auto last_log = std::chrono::steady_clock::time_point{};
+            auto now = std::chrono::steady_clock::now();
+            if (now - last_log > std::chrono::seconds{1})
+            {
+                spdlog::warn("cross_core_post to core {} failed: SPSC queue full", target_core);
+                last_log = now;
+            }
+            return error(ErrorCode::CrossCoreQueueFull);
         }
-        return error(ErrorCode::CrossCoreQueueFull);
+        schedule_drain(target_core);
+        return ok();
     }
-    schedule_drain(target_core);
+
+    // Non-core thread, self-post, or single-core → asio::post fallback
+    boost::asio::post(target.io_ctx, [this, target_core, msg] { dispatch_message(target_core, msg); });
     return ok();
+}
+
+boost::asio::awaitable<void> CoreEngine::co_post_to(uint32_t target_core, CoreMessage msg)
+{
+    if (target_core >= cores_.size())
+    {
+        throw std::out_of_range("co_post_to: target_core out of range");
+    }
+    auto src = tls_core_id_;
+    assert(src != UINT32_MAX && "co_post_to must be called from a core thread");
+    if (src == target_core)
+    {
+        throw std::logic_error("co_post_to: cannot post to self");
+    }
+    assert(mesh_ && "co_post_to requires SPSC mesh (num_cores >= 2)");
+
+    cores_[target_core]->metrics.post_total.fetch_add(1, std::memory_order_relaxed);
+
+    co_await mesh_->queue(src, target_core).enqueue(msg);
+    schedule_drain(target_core);
 }
 
 void CoreEngine::schedule_drain(uint32_t target_core)
 {
-    // Atomic coalescing: only one drain per batch. If drain is already pending,
-    // the running drain_inbox will pick up the newly enqueued messages.
     if (!drain_pending_[target_core].exchange(true, std::memory_order_acq_rel))
     {
         boost::asio::post(cores_[target_core]->io_ctx, [this, target_core] {
             drain_inbox(target_core);
             drain_pending_[target_core].store(false, std::memory_order_release);
             // Re-check: messages may have arrived during drain
-            if (!cores_[target_core]->inbox->empty())
+            if (mesh_)
             {
-                schedule_drain(target_core);
+                for (uint32_t src = 0; src < core_count(); ++src)
+                {
+                    if (src == target_core)
+                        continue;
+                    if (!mesh_->queue(src, target_core).empty())
+                    {
+                        schedule_drain(target_core);
+                        return;
+                    }
+                }
             }
         });
     }
@@ -201,9 +235,44 @@ void CoreEngine::schedule_drain(uint32_t target_core)
 
 void CoreEngine::broadcast(CoreMessage msg)
 {
+    assert(msg.op != CrossCoreOp::LegacyCrossCoreFn &&
+           "broadcast() cannot be used with LegacyCrossCoreFn (raw pointer ownership)");
+
     for (uint32_t i = 0; i < cores_.size(); ++i)
     {
-        (void)post_to(i, msg);
+        boost::asio::post(cores_[i]->io_ctx, [this, i, msg] { dispatch_message(i, msg); });
+    }
+}
+
+void CoreEngine::dispatch_message(uint32_t core_id, const CoreMessage& msg)
+{
+    if (msg.op == CrossCoreOp::LegacyCrossCoreFn)
+    {
+        auto* task = reinterpret_cast<std::function<void()>*>(msg.data);
+        if (task)
+        {
+            try
+            {
+                (*task)();
+            }
+            catch (const std::exception& e)
+            {
+                spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
+            }
+            catch (...)
+            {
+                spdlog::error("Core {} cross-core task unknown exception", core_id);
+            }
+            delete task;
+        }
+    }
+    else if (cross_core_dispatcher_.has_handler(msg.op))
+    {
+        cross_core_dispatcher_.dispatch(core_id, msg.source_core, msg.op, reinterpret_cast<void*>(msg.data));
+    }
+    else if (message_handler_)
+    {
+        message_handler_(core_id, msg);
     }
 }
 
@@ -245,11 +314,9 @@ void CoreEngine::run_core(uint32_t core_id)
     tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
-    // Independent tick timer (heartbeat, timing wheel, etc.)
     ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
     start_tick_timer(core_id);
 
-    // Work guard keeps io_context alive even when no pending work
     auto work_guard = boost::asio::make_work_guard(ctx.io_ctx);
 
     ctx.io_ctx.run();
@@ -257,52 +324,13 @@ void CoreEngine::run_core(uint32_t core_id)
 
 void CoreEngine::drain_inbox(uint32_t core_id)
 {
-    auto& core_ctx = *cores_[core_id];
-    size_t processed = 0;
-
-    while (processed < config_.drain_batch_limit)
+    if (mesh_)
     {
-        auto msg = core_ctx.inbox->dequeue();
-        if (!msg)
-            break;
-
-        if (msg->op == CrossCoreOp::LegacyCrossCoreFn)
-        {
-            // Legacy closure-based compatibility (remove after full migration)
-            auto* task = reinterpret_cast<std::function<void()>*>(msg->data);
-            if (task)
-            {
-                try
-                {
-                    (*task)();
-                }
-                catch (const std::exception& e)
-                {
-                    spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
-                }
-                catch (...)
-                {
-                    spdlog::error("Core {} cross-core task unknown exception", core_id);
-                }
-                delete task;
-            }
-        }
-        else if (cross_core_dispatcher_.has_handler(msg->op))
-        {
-            // Message passing dispatch (registered handler takes priority)
-            cross_core_dispatcher_.dispatch(core_id, msg->source_core, msg->op, reinterpret_cast<void*>(msg->data));
-        }
-        else if (message_handler_)
-        {
-            // Fallback: unregistered op → legacy message_handler_ path
-            message_handler_(core_id, *msg);
-        }
-        ++processed;
+        mesh_->drain_all_for(core_id,
+                             std::function<void(uint32_t, const CoreMessage&)>{
+                                 [this](uint32_t cid, const CoreMessage& msg) { dispatch_message(cid, msg); }},
+                             config_.drain_batch_limit);
     }
-
-    // If batch limit reached, yield to io_context (timers, IO) then continue.
-    // The schedule_drain lambda's post-drain re-check will pick up remaining messages.
-    // No self-post needed — avoids handler accumulation under burst load.
 }
 
 void CoreEngine::start_tick_timer(uint32_t core_id)
@@ -311,7 +339,7 @@ void CoreEngine::start_tick_timer(uint32_t core_id)
     ctx.tick_timer->expires_after(config_.tick_interval);
     ctx.tick_timer->async_wait([this, core_id](const boost::system::error_code& ec) {
         if (ec)
-            return; // timer cancelled or error
+            return;
 
         if (tick_callback_)
         {
@@ -329,7 +357,6 @@ void CoreEngine::start_tick_timer(uint32_t core_id)
             }
         }
 
-        // Re-arm the timer
         if (running_.load(std::memory_order_acquire))
         {
             start_tick_timer(core_id);

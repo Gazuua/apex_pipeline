@@ -41,7 +41,7 @@ TEST(AdapterBase, ReadyAfterInit)
 {
     MockAdapter adapter;
     apex::core::CoreEngineConfig config{.num_cores = 1,
-                                        .mpsc_queue_capacity = 64,
+                                        .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
                                         .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(config);
@@ -54,7 +54,7 @@ TEST(AdapterBase, NotReadyAfterDrain)
 {
     MockAdapter adapter;
     apex::core::CoreEngineConfig config{.num_cores = 1,
-                                        .mpsc_queue_capacity = 64,
+                                        .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
                                         .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(config);
@@ -94,7 +94,7 @@ TEST(AdapterWrapper, LifecycleDelegation)
 
     // init delegation
     apex::core::CoreEngineConfig config{.num_cores = 1,
-                                        .mpsc_queue_capacity = 64,
+                                        .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
                                         .drain_batch_limit = 1024};
     apex::core::CoreEngine engine(config);

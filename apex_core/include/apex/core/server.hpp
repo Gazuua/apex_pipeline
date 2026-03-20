@@ -286,10 +286,10 @@ class Server
         return apex::core::cross_core_call(*core_engine_, target_core, std::forward<F>(func), timeout);
     }
 
-    /// Fire-and-forget execution on target core.
-    template <typename F> Result<void> cross_core_post(uint32_t target_core, F&& func)
+    /// Fire-and-forget execution on target core. Awaitable, core thread only.
+    template <typename F> boost::asio::awaitable<void> cross_core_post(uint32_t target_core, F&& func)
     {
-        return apex::core::cross_core_post(*core_engine_, target_core, std::forward<F>(func));
+        co_await apex::core::cross_core_post(*core_engine_, target_core, std::forward<F>(func));
     }
 
   private:
