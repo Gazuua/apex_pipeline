@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #108. 브랜치 핸드오프 시스템 테스트
+- **등급**: MAJOR | **스코프**: tools | **타입**: infra
+- **해결**: 2026-03-21 00:35:49 | **방식**: FIXED | **커밋**: 7ca7d96
+- **비고**: 버그 4건 수정 + hook 기반 강제화 3종 구현 + CLAUDE.md 지침 정리
+
 ### #106. CrossCoreDispatcher MPSC→SPSC all-to-all mesh 리팩토링
 - **등급**: MAJOR | **스코프**: core | **타입**: perf
 - **해결**: 2026-03-20 21:30:00 | **방식**: FIXED | **커밋**: 134ce1e

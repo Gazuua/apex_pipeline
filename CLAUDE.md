@@ -56,18 +56,11 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
 
 ### 브랜치 인수인계 (Branch Handoff)
-- **인수인계 도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"` — 브랜치 간 파일 기반 소통 시스템
-- **착수 전 필수 체크** (브랜치 생성 전 반드시 실행):
-  1. `backlog-check` — 타 에이전트가 동일/관련 백로그를 착수했는지 확인
-  2. `check` — 미처리 핸드오프 알림 확인 (로컬 파일 기반)
-  3. 위 2개 중 하나라도 충돌 가능성이 있으면 알림 내용 확인 후 ack 또는 대응 결정 후 착수
-- **Tier 1 (사전 알림, 필수)**: 브랜치 생성 시 **반드시** `notify start` 실행. 예외 없음. 탐색적 작업이라도 실행
-- **Tier 2 (중간 알림, 필수)**: 설계 문서 또는 구현 계획 확정 시 **반드시** `notify design` 실행. 방향 변경 시 재발행
-- **Tier 3 (사후 알림, 필수)**: 머지 완료 시 **반드시** `notify merge` 실행
-- **게이트 체크포인트 (전부 차단)**: 설계 완료(`check --gate design`), 구현 계획 완료(`check --gate plan`), 구현 시작(`check --gate implement`), 빌드 전(`check --gate build`), 머지 전(`check --gate merge`) — 스코프 필터: `check --gate merge --scopes core`
-- **게이트 차단 시**: 에이전트가 자율적으로 payload 확인 → 영향 판단 → 필요 시 설계/계획 수정 → ack 후 재확인 (유저 개입 불필요)
-- **ack 필수**: 대응 선언(`--action`) 없이 무시 금지. 가능한 action: `no-impact`, `will-rebase`, `rebased`, `design-adjusted`, `deferred`
-- **백로그 연동**: 백로그 착수 시 자동으로 `backlog-status/`에 등록. 타 에이전트는 `backlog-check`으로 중복 착수 방지
+- **도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"`
+- **착수 전**: `backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
+- **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
+- **게이트**: 주요 단계 전 `check --gate <design|plan|implement|build>` 실행
+- **ack**: 알림 수신 시 `ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
 
 ### 설계 원칙
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
