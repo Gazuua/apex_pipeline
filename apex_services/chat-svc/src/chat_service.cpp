@@ -31,15 +31,15 @@ namespace envelope = apex::shared::protocols::kafka;
 namespace
 {
 
-/// Safe uint64 parsing from string_view. Returns 0 on failure (logs warning).
-uint64_t safe_parse_u64(std::string_view sv, std::string_view context = "") noexcept
+/// Safe uint64 parsing from string_view. Returns Result<uint64_t> on failure (logs warning).
+apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_view context = "") noexcept
 {
     uint64_t value = 0;
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (ec != std::errc{})
     {
         spdlog::warn("[ChatService] Failed to parse uint64 '{}' (context: {})", sv, context);
-        return 0;
+        return std::unexpected(apex::core::ErrorCode::InvalidMessage);
     }
     return value;
 }
@@ -206,12 +206,13 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_INTERNAL_ERROR);
     }
 
-    auto room_id = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
-    if (room_id == 0)
+    auto room_id_result = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
+    if (!room_id_result.has_value())
     {
         spdlog::error("[ChatService] PG returned invalid room_id for create_room");
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_INTERNAL_ERROR);
     }
+    auto room_id = *room_id_result;
 
     // 3. Redis SADD -- add owner as first member
     auto core_id = apex::core::CoreEngine::current_core_id();
@@ -261,7 +262,10 @@ ChatService::on_join_room(const envelope::MetadataPrefix& meta, uint32_t /*msg_i
     }
 
     auto room_name_sv = room_result->value(0, 0);
-    auto max_members = static_cast<uint32_t>(safe_parse_u64(room_result->value(0, 1), "join_room.max_members"));
+    auto max_members_result = safe_parse_u64(room_result->value(0, 1), "join_room.max_members");
+    if (!max_members_result.has_value())
+        co_return std::unexpected(max_members_result.error());
+    auto max_members = static_cast<uint32_t>(*max_members_result);
 
     // 2. SISMEMBER -- already in room?
     auto is_member =
@@ -352,7 +356,10 @@ ChatService::on_list_rooms(const envelope::MetadataPrefix& meta, uint32_t /*msg_
     uint32_t total_count = 0;
     if (count_result.has_value() && count_result->row_count() > 0)
     {
-        total_count = static_cast<uint32_t>(safe_parse_u64(count_result->value(0, 0), "list_rooms.total_count"));
+        auto total_count_result = safe_parse_u64(count_result->value(0, 0), "list_rooms.total_count");
+        if (!total_count_result.has_value())
+            co_return std::unexpected(total_count_result.error());
+        total_count = static_cast<uint32_t>(*total_count_result);
     }
 
     // 2. PG: Get rooms page
@@ -379,10 +386,19 @@ ChatService::on_list_rooms(const envelope::MetadataPrefix& meta, uint32_t /*msg_
 
     for (int i = 0; i < pg_res.row_count(); ++i)
     {
-        auto rid = safe_parse_u64(pg_res.value(i, 0), "list_rooms.room_id");
+        auto rid_result = safe_parse_u64(pg_res.value(i, 0), "list_rooms.room_id");
+        if (!rid_result.has_value())
+            continue;
+        auto rid = *rid_result;
         auto rname = pg_res.value(i, 1);
-        auto rmax = static_cast<uint32_t>(safe_parse_u64(pg_res.value(i, 2), "list_rooms.max_members"));
-        auto rowner = safe_parse_u64(pg_res.value(i, 3), "list_rooms.owner_id");
+        auto rmax_result = safe_parse_u64(pg_res.value(i, 2), "list_rooms.max_members");
+        if (!rmax_result.has_value())
+            continue;
+        auto rmax = static_cast<uint32_t>(*rmax_result);
+        auto rowner_result = safe_parse_u64(pg_res.value(i, 3), "list_rooms.owner_id");
+        if (!rowner_result.has_value())
+            continue;
+        auto rowner = *rowner_result;
 
         // Redis SCARD for real-time member count
         auto members_key = std::format("chat:room:{}:members", rid);
@@ -538,7 +554,10 @@ ChatService::on_whisper(const envelope::MetadataPrefix& meta, uint32_t /*msg_id*
     }
 
     // Parse target session_id from Redis value
-    auto target_session_id = safe_parse_u64(session_result->str, "whisper.target_session_id");
+    auto target_session_id_result = safe_parse_u64(session_result->str, "whisper.target_session_id");
+    if (!target_session_id_result.has_value())
+        co_return std::unexpected(target_session_id_result.error());
+    auto target_session_id = *target_session_id_result;
 
     // 3. Build WhisperMessage FBS and send to target via Kafka unicast
     {
@@ -639,11 +658,20 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
 
     for (int i = 0; i < actual_count; ++i)
     {
-        auto mid = safe_parse_u64(pg_res.value(i, 0), "history.message_id");
-        auto sid = safe_parse_u64(pg_res.value(i, 1), "history.sender_id");
+        auto mid_result = safe_parse_u64(pg_res.value(i, 0), "history.message_id");
+        if (!mid_result.has_value())
+            continue;
+        auto mid = *mid_result;
+        auto sid_result = safe_parse_u64(pg_res.value(i, 1), "history.sender_id");
+        if (!sid_result.has_value())
+            continue;
+        auto sid = *sid_result;
         auto sname = pg_res.value(i, 2);
         auto mcontent = pg_res.value(i, 3);
-        auto mts = safe_parse_u64(pg_res.value(i, 4), "history.timestamp");
+        auto mts_result = safe_parse_u64(pg_res.value(i, 4), "history.timestamp");
+        if (!mts_result.has_value())
+            continue;
+        auto mts = *mts_result;
 
         auto sname_off = fbb.CreateString(sname.data(), sname.size());
         auto content_off = fbb.CreateString(mcontent.data(), mcontent.size());
@@ -683,7 +711,7 @@ ChatService::on_global_broadcast(const envelope::MetadataPrefix& meta, uint32_t 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
     // 2. Build GlobalChatMessage FBS
-    auto global_channel = std::string("pub:global:chat");
+    auto global_channel = std::string(GLOBAL_CHAT_CHANNEL);
     {
         flatbuffers::FlatBufferBuilder fbb_pub(512);
         auto sender_name_off = fbb_pub.CreateString(std::to_string(sender_id));

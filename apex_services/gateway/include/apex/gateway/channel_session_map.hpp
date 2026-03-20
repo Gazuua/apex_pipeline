@@ -3,9 +3,10 @@
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <cstdint>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -47,9 +48,9 @@ class ChannelSessionMap
   private:
     uint32_t max_subscriptions_per_session_;
     // 뮤텍스 제거 — per-core이므로 해당 코어 스레드에서만 접근
-    std::unordered_map<std::string, std::vector<apex::core::SessionId>> channel_to_sessions_;
+    boost::unordered_flat_map<std::string, std::vector<apex::core::SessionId>> channel_to_sessions_;
     // Reverse index: remove from all channels on session close
-    std::unordered_map<apex::core::SessionId, std::unordered_set<std::string>> session_to_channels_;
+    boost::unordered_flat_map<apex::core::SessionId, std::unordered_set<std::string>> session_to_channels_;
 };
 
 } // namespace apex::gateway

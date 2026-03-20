@@ -1,10 +1,6 @@
 #pragma once
 
-// TODO(I-01): config.hpp includes server.hpp solely for the ServerConfig definition.
-// This pulls in the entire framework header chain (~15 headers). Ideally, ServerConfig
-// should be defined in a lightweight header (e.g., server_config.hpp) and included here.
-// server.hpp is NOT owned by this agent — deferred to a future refactor.
-#include <apex/core/server.hpp>
+#include <apex/core/server_config.hpp>
 #include <string>
 
 namespace apex::core

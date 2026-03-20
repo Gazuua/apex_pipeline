@@ -26,7 +26,7 @@ CRTP 정적 다형성으로 런타임 오버헤드를 최소화한다.
 | CoreEngine | io_context-per-core 멀티코어 엔진 |
 | MessageDispatcher | O(1) 메시지 디스패치 (코루틴 핸들러) |
 | ServiceBase | CRTP 서비스 베이스 클래스 |
-| WireHeader | 10바이트 고정 헤더 (big-endian) |
+| WireHeader | 12바이트 고정 헤더 v2 (big-endian) |
 | FrameCodec | RingBuffer 기반 프레임 코덱 |
 | CrossCoreDispatcher | 코어 간 메시지 패싱 (op 기반 handler dispatch) |
 | SharedPayload | 코어 간 immutable 데이터 공유 (atomic refcount) |
@@ -37,8 +37,8 @@ CRTP 정적 다형성으로 런타임 오버헤드를 최소화한다.
 
 | 이름 | 설명 |
 |------|------|
-| ProtocolBase | CRTP 프로토콜 추상화 |
-| TcpBinaryProtocol | FrameCodec 래핑 구현체 |
+| Protocol concept | C++20 concept 기반 프로토콜 추상화 (core 정의, shared 구현) |
+| TcpBinaryProtocol | FrameCodec 래핑 구현체 (apex_shared에 위치) |
 | Session / SessionManager | TCP 세션 관리 + 하트비트 (intrusive_ptr, SlabAllocator 할당) |
 | TcpAcceptor | 코루틴 accept loop |
 | Server | 최상위 통합 (ServerConfig 기반) |
@@ -56,9 +56,9 @@ build.bat release  # 릴리스 빌드
 
 ## 의존성
 
-**현재 사용 중**: benchmark, boost-asio, boost-unordered, flatbuffers, gtest, hiredis, libpq, librdkafka, redis-plus-plus, spdlog, tomlplusplus
+**현재 사용 중**: benchmark, boost-asio, boost-beast, boost-unordered, flatbuffers, gtest, hiredis, jwt-cpp, libpq, librdkafka, openssl, redis-plus-plus, spdlog, tomlplusplus
 
-**향후 추가 예정**: boost-beast (v0.5.1.0), prometheus-cpp (v0.6.1.0), jwt-cpp (v0.5.3.0)
+**향후 추가 예정**: prometheus-cpp (v0.6.1.0)
 
 ## 문서
 

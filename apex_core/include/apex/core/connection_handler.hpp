@@ -166,7 +166,9 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
                     session->close();
                     co_return;
                 }
-                std::memcpy(&msg_id, raw.data(), sizeof(uint32_t));
+                uint32_t raw_id = 0;
+                std::memcpy(&raw_id, raw.data(), sizeof(uint32_t));
+                msg_id = ntohl(raw_id); // big-endian → host (TCP WireHeader와 통일)
                 payload_span = std::span<const uint8_t>(raw.data() + sizeof(uint32_t), raw.size() - sizeof(uint32_t));
             }
 

@@ -44,6 +44,9 @@ namespace apex::chat_svc
 
 namespace envelope = apex::shared::protocols::kafka;
 
+/// Global broadcast channel name (Redis Pub/Sub).
+inline constexpr std::string_view GLOBAL_CHAT_CHANNEL = "pub:global:chat";
+
 /// Chat Service -- Server+ServiceBase 패턴, kafka_route 기반.
 ///
 /// Kafka envelope metadata(MetadataPrefix)를 핸들러 인자로 직접 전달.

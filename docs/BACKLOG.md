@@ -42,47 +42,6 @@
 - **연관**: #48
 - **설명**: D3/D6/D2 신규 API에 대한 단위 테스트 부재. server.global&lt;T&gt;()의 타입 소거 + 중복 호출, ConsumerPayloadPool의 thread-safe acquire/release + 풀 고갈 fallback, wire_services()의 서비스 자동 감지 등 검증 필요.
 
-### #68. GatewayService set_default_handler() 캡슐화 우회 해소
-- **등급**: MAJOR
-- **스코프**: gateway
-- **타입**: design-debt
-- **연관**: #48
-- **설명**: GatewayService가 `dispatcher().set_default_handler(lambda)` 형태로 ServiceBase의 set_default_handler(member_function_pointer) 패턴을 우회. 시스템 메시지 분기 로직을 멤버 함수로 이동하면 가이드 §4.1 패턴과 일치.
-
-### #69. 프레임워크 가이드 Shutdown 시퀀스 갱신
-- **등급**: MAJOR
-- **스코프**: docs
-- **타입**: docs
-- **연관**: #48
-- **설명**: `docs/apex_core/apex_core_guide.md` §3 Shutdown 시퀀스가 실제 `finalize_shutdown()` 구현과 불일치 (Listener stop, Scheduler stop, Adapter drain/close 분리 미반영). 코드 기준으로 갱신 필요.
-
-### #70. 프레임워크 가이드 코드 예시 ServiceRegistry API 수정
-- **등급**: MINOR
-- **스코프**: docs
-- **타입**: docs
-- **연관**: #48
-- **설명**: 가이드에서 `ctx.local_registry.get<T>()`를 포인터 반환으로 사용하지만 실제 API는 참조 반환 + 미등록 시 예외. `find<T>()` 사용으로 변경 필요.
-
-### #71. PubSubListener mutex 예외 가이드 명시
-- **등급**: MINOR
-- **스코프**: docs, gateway
-- **타입**: docs
-- **연관**: #48
-- **설명**: 가이드 §8 #2 "모든 뮤텍스 금지" 원칙에 외부 라이브러리 스레드(hiredis) 예외 조항 명시 필요. PubSubListener는 dedicated Redis 스레드와 서비스 스레드 간 채널 목록 공유에 mutex 사용이 불가피.
-
-### #72. safe_parse_u64 Result&lt;uint64_t&gt; 반환 개선
-- **등급**: MINOR
-- **스코프**: chat-svc
-- **타입**: design-debt
-- **연관**: #48
-- **설명**: `safe_parse_u64`가 실패 시 0을 반환하는 설계. 0이 유효값인 맥락에서 조용한 실패 가능. `Result<uint64_t>` 반환으로 변경하면 호출부 에러 핸들링 강제 가능.
-
-### #2. RedisMultiplexer cancel_all_pending UAF
-- **등급**: CRITICAL
-- **스코프**: shared
-- **타입**: bug
-- **설명**: `cancel_all_pending()`에서 timed_out 경로와 async_wait 경로 간 UAF 가능. `redis_multiplexer.cpp` 361-366 주석 참조.
-
 ### #3. Protocol concept Frame 내부 구조 미제약
 - **등급**: CRITICAL
 - **스코프**: core
@@ -141,20 +100,6 @@
 - **스코프**: tools, docs
 - **타입**: infra
 - **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
-
-### #10. CircuitBreaker HALF_OPEN 코루틴 인터리빙
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #11
-- **설명**: should_allow() 비원자적. 어댑터 통합 시점에 수정.
-
-### #11. CircuitBreaker::call() Result<void> 타입 제한
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #10
-- **설명**: Result<T> 제네릭 확장 필요.
 
 ### #13. Listener<P> 단위 테스트 부재
 - **등급**: MAJOR
@@ -236,38 +181,6 @@
 - **스코프**: core
 - **타입**: design-debt
 - **설명**: `using SessionId = uint64_t`로 정의되어 corr_id, user_id와 암묵적 변환 가능. `enum class SessionId : uint64_t {}` 형태로 강타입화하여 컴파일 타임 타입 안전성 확보.
-
-### #92. WebSocket msg_id 바이트오더 미지정
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **연관**: #3
-- **설명**: `connection_handler.hpp`의 WebSocket msg_id 추출이 `memcpy`로 host byte order 사용. TCP(WireHeader)는 big-endian. 프로토콜 간 바이트오더 불일치. 명시적 문서화 또는 big-endian 통일 필요.
-
-### #93. config.hpp → server.hpp 순환 include 비용
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: `config.hpp`가 `server.hpp`를 include하여 전체 프레임워크 헤더 체인(~15개)이 끌려옴. `ServerConfig`를 별도 경량 헤더(`server_config.hpp`)로 분리하면 컴파일 의존성 대폭 감소. 파일에 `TODO(I-01)` 주석 존재.
-
-### #94. outstanding_coros_ fetch_add 메모리 오더 비대칭
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: `spawn()`에서 `fetch_add(1, relaxed)` 사용. shutdown 시 `load(acquire)`와 쌍이 맞지 않아 이론적으로 카운터 미반영 가능. 단일 코어 스레드 호출 보장이면 문서화, 아니면 `acq_rel`로 변경.
-
-### #95. apex_core/README.md 전면 갱신 (WireHeader 크기, 의존성, 프로토콜 위치)
-- **등급**: MAJOR
-- **스코프**: docs
-- **타입**: docs
-- **연관**: #47
-- **설명**: WireHeader 10→12바이트, "향후 추가 예정" 항목(beast, jwt-cpp 이미 추가), TcpBinaryProtocol 위치(core→shared 이동) 등 v0.5.0.0 이전 정보 잔존. #47 README 리뉴얼과 함께 처리.
-
-### #96. post_init_callback 문서 vs 코드 괴리
-- **등급**: MAJOR
-- **스코프**: core, docs
-- **타입**: design-debt
-- **설명**: Apex_Pipeline.md v0.5.6.0에 "post_init_callback 완전 제거" 기재, 실제 코드에 `set_post_init_callback` API + 3개 서비스 main.cpp에서 사용 중. 문서 수정 또는 실제 제거 중 선택 필요.
 
 ---
 
@@ -375,9 +288,9 @@
 - **타입**: perf
 - **설명**: 벤치마크에서 병목 확인 시 도입.
 
-### #97. 서비스 레이어 코드 위생 일괄 정리
+### #97. 서비스 레이어 코드 위생 일괄 정리 (잔여 2건)
 - **등급**: MINOR
 - **스코프**: gateway, auth-svc, chat-svc
 - **타입**: design-debt
-- **설명**: Post-E2E 핸드오프 리뷰에서 발견된 MINOR 이슈 묶음: ① `ParsedConfig` 익명 구조체 Auth/Chat 중복 ② `std::unordered_map` 5곳 `boost::unordered_flat_map` 미사용 ③ `response_topic` 기본값 불일치 ④ `pub:global:chat` 문자열 3곳 산재 ⑤ `BroadcastFanout` per-broadcast 힙 할당 ⑥ `drain_batch_limit` TOML 미파싱 ⑦ `Session::max_queue_depth_` 256 하드코딩 ⑧ Gateway `on_start` default handler 65줄 인라인 람다 분리.
+- **설명**: Post-E2E 핸드오프 리뷰 발견 MINOR 이슈 잔여분. ① `ParsedConfig` 익명 구조체 Auth/Chat 중복 ⑦ `Session::max_queue_depth_` 256 하드코딩. (완료: ②④⑧, WONTFIX: ③ 불일치 미존재 ⑤ shared_ptr 의도적 설계 ⑥ 파라미터 이미 제거됨)
 
