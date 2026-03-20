@@ -77,7 +77,7 @@ class SessionManager
     uint32_t heartbeat_timeout_ticks_;
     size_t recv_buf_capacity_;
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
-    SessionId next_id_{1};
+    uint64_t next_id_{1};
 
     TypedSlabAllocator<Session> session_pool_;
     boost::unordered_flat_map<SessionId, SessionPtr> sessions_;

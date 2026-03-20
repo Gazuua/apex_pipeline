@@ -30,11 +30,12 @@ apex::core::Result<void> MessageRouter::route(apex::core::SessionPtr session, co
         return apex::core::error(apex::core::ErrorCode::RouteNotFound);
     }
 
-    // 2. Serialize Kafka Envelope
-    auto envelope = build_envelope(header, payload, session->id(), user_id, corr_id, core_id_);
+    // 2. Serialize Kafka Envelope (wire boundary: SessionId → uint64_t)
+    auto envelope =
+        build_envelope(header, payload, apex::core::to_underlying(session->id()), user_id, corr_id, core_id_);
 
     // 3. Kafka produce (session_id as key for partition distribution)
-    auto session_key = std::to_string(session->id());
+    auto session_key = std::to_string(apex::core::to_underlying(session->id()));
     return kafka_.produce(*topic, session_key, std::span<const uint8_t>(envelope));
 }
 

@@ -174,20 +174,20 @@ TEST_F(SessionManagerTest, ForEachVisitsAllSessions)
 TEST_F(SessionManagerTest, FindNonExistentReturnsNull)
 {
     SessionManager mgr(0, 300, 512);
-    EXPECT_EQ(mgr.find_session(9999), nullptr);
+    EXPECT_EQ(mgr.find_session(make_session_id(9999)), nullptr);
 }
 
 TEST_F(SessionManagerTest, RemoveNonExistentIsSafe)
 {
     SessionManager mgr(0, 300, 512);
-    mgr.remove_session(9999); // must not crash
+    mgr.remove_session(make_session_id(9999)); // must not crash
     EXPECT_EQ(mgr.session_count(), 0u);
 }
 
 TEST_F(SessionManagerTest, TouchNonExistentIsSafe)
 {
     SessionManager mgr(0, 300, 512);
-    mgr.touch_session(9999); // must not crash
+    mgr.touch_session(make_session_id(9999)); // must not crash
     EXPECT_EQ(mgr.session_count(), 0u);
 }
 

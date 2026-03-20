@@ -233,7 +233,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 if (!verifier.VerifyBuffer<FbsType>())
                 {
                     spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})", id,
-                                 session ? session->id() : 0);
+                                 session ? session->id() : make_session_id(0));
                     // 자동 error frame 전송 후 ok() 반환
                     if (session)
                     {

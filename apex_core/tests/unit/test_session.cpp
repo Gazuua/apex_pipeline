@@ -31,9 +31,9 @@ class SessionTest : public ::testing::Test
 TEST_F(SessionTest, InitialState)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    Session session(1, std::move(server), 0);
+    Session session(make_session_id(1), std::move(server), 0);
 
-    EXPECT_EQ(session.id(), 1u);
+    EXPECT_EQ(session.id(), make_session_id(1));
     EXPECT_EQ(session.core_id(), 0u);
     EXPECT_EQ(session.state(), Session::State::Connected);
     EXPECT_TRUE(session.is_open());
@@ -44,7 +44,7 @@ TEST_F(SessionTest, InitialState)
 TEST_F(SessionTest, SendFrame)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
     WireHeader header{.msg_id = 0x0042, .body_size = static_cast<uint32_t>(payload.size()), .reserved = {}};
@@ -65,7 +65,7 @@ TEST_F(SessionTest, SendFrame)
 TEST_F(SessionTest, SendAfterClose)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -83,7 +83,7 @@ TEST_F(SessionTest, SendAfterClose)
 TEST_F(SessionTest, RecvBufferDefaultCapacity)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    Session session(1, std::move(server), 0);
+    Session session(make_session_id(1), std::move(server), 0);
 
     // Default recv_buf_capacity is 8192 (see session.hpp constructor default)
     EXPECT_EQ(session.recv_buffer().capacity(), 8192u);
@@ -95,7 +95,7 @@ TEST_F(SessionTest, RecvBufferDefaultCapacity)
 TEST_F(SessionTest, RecvBufferAccessible)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    Session session(1, std::move(server), 0, 4096);
+    Session session(make_session_id(1), std::move(server), 0, 4096);
 
     EXPECT_EQ(session.recv_buffer().capacity(), 4096u);
     EXPECT_EQ(session.recv_buffer().readable_size(), 0u);
@@ -106,7 +106,7 @@ TEST_F(SessionTest, RecvBufferAccessible)
 TEST_F(SessionTest, SendRawSucceeds)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     // Build a raw frame: WireHeader + payload
     std::vector<uint8_t> payload = {0xCA, 0xFE, 0xBA, 0xBE};
@@ -129,7 +129,7 @@ TEST_F(SessionTest, SendRawSucceeds)
 TEST_F(SessionTest, SendRawAfterCloseReturnsFalse)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -145,7 +145,7 @@ TEST_F(SessionTest, SendRawAfterCloseReturnsFalse)
 TEST_F(SessionTest, DoubleCloseIsSafe)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -164,7 +164,7 @@ TEST_F(SessionTest, DoubleCloseIsSafe)
 TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash)
 {
     auto [server_sock, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server_sock), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server_sock), 0));
 
     // Close the client side first to simulate peer disconnect
     client.close();
@@ -195,7 +195,7 @@ TEST_F(SessionTest, SendAfterPeerDisconnect_DoesNotCrash)
 TEST_F(SessionTest, IntrusiveRefcount)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto* raw = new Session(1, std::move(server), 0, 8192);
+    auto* raw = new Session(make_session_id(1), std::move(server), 0, 8192);
 
     EXPECT_EQ(raw->refcount(), 0u);
 
@@ -214,7 +214,7 @@ TEST_F(SessionTest, IntrusiveRefcount)
 TEST_F(SessionTest, IntrusiveMoveSemantics)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    auto* raw = new Session(1, std::move(server), 0, 8192);
+    auto* raw = new Session(make_session_id(1), std::move(server), 0, 8192);
 
     SessionPtr p1(raw);
     EXPECT_EQ(raw->refcount(), 1u);
@@ -231,7 +231,7 @@ TEST_F(SessionTest, IntrusiveMoveSemantics)
 TEST_F(SessionTest, EnqueueWriteAndReceive)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     std::vector<uint8_t> data = {0xDE, 0xAD, 0xBE, 0xEF};
     auto result = session->enqueue_write(data);
@@ -251,7 +251,7 @@ TEST_F(SessionTest, EnqueueWriteAndReceive)
 TEST_F(SessionTest, EnqueueWriteBufferFull)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     // Fill the queue to max_queue_depth_ (default: 256).
     // Don't run io_context so write_pump doesn't drain the queue.
@@ -276,7 +276,7 @@ TEST_F(SessionTest, EnqueueWriteBufferFull)
 TEST_F(SessionTest, EnqueueWriteAfterClose)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     session->close();
     EXPECT_EQ(session->state(), Session::State::Closed);
@@ -291,7 +291,7 @@ TEST_F(SessionTest, EnqueueWriteAfterClose)
 TEST_F(SessionTest, EnqueueWriteRawAndReceive)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     std::vector<uint8_t> data = {0xCA, 0xFE, 0xBA, 0xBE};
     std::span<const uint8_t> data_span(data);
@@ -312,7 +312,7 @@ TEST_F(SessionTest, EnqueueWriteRawAndReceive)
 TEST_F(SessionTest, EnqueueWriteFIFOOrder)
 {
     auto [server, client] = make_socket_pair(io_ctx_);
-    SessionPtr session(new Session(1, std::move(server), 0));
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
 
     // Enqueue 3 messages with distinct patterns
     std::vector<uint8_t> msg1 = {0x01, 0x01, 0x01, 0x01};

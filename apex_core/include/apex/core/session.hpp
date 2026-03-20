@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cstdint>
 #include <deque>
+#include <ostream>
 #include <span>
 #include <vector>
 
@@ -20,7 +21,26 @@ namespace apex::core
 {
 
 /// 고유 세션 식별자 (코어별 단조 증가)
-using SessionId = uint64_t;
+enum class SessionId : uint64_t
+{
+};
+
+/// SessionId 생성 헬퍼
+constexpr SessionId make_session_id(uint64_t v) noexcept
+{
+    return static_cast<SessionId>(v);
+}
+
+/// SessionId → uint64_t 변환
+constexpr uint64_t to_underlying(SessionId id) noexcept
+{
+    return static_cast<uint64_t>(id);
+}
+
+inline std::ostream& operator<<(std::ostream& os, SessionId id)
+{
+    return os << to_underlying(id);
+}
 
 /// Forward declarations for SlabAllocator integration (Tier 2 Task 2)
 template <typename T> class TypedSlabAllocator;
@@ -37,7 +57,7 @@ template <typename T> class TypedSlabAllocator;
 ///
 /// @note intrusive_ptr with non-atomic refcount: per-core architecture guarantees
 /// Session objects are accessed from a single core thread only. Cross-core
-/// communication uses SessionId (uint64_t), never SessionPtr.
+/// communication uses SessionId (enum class), never SessionPtr.
 class Session
 {
   public:
@@ -161,3 +181,21 @@ class Session
 using SessionPtr = boost::intrusive_ptr<Session>;
 
 } // namespace apex::core
+
+template <> struct std::hash<apex::core::SessionId>
+{
+    std::size_t operator()(apex::core::SessionId id) const noexcept
+    {
+        return std::hash<uint64_t>{}(apex::core::to_underlying(id));
+    }
+};
+
+#include <fmt/format.h>
+
+template <> struct fmt::formatter<apex::core::SessionId> : fmt::formatter<uint64_t>
+{
+    auto format(apex::core::SessionId id, fmt::format_context& ctx) const
+    {
+        return fmt::formatter<uint64_t>::format(apex::core::to_underlying(id), ctx);
+    }
+};

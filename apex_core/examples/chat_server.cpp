@@ -49,7 +49,7 @@ class ChatService : public ServiceBase<ChatService>
 
         flatbuffers::FlatBufferBuilder builder(256);
         auto content = builder.CreateString(msg->content()->str());
-        auto broadcast = apex::messages::CreateChatMessage(builder, sender->id(), content);
+        auto broadcast = apex::messages::CreateChatMessage(builder, to_underlying(sender->id()), content);
         builder.Finish(broadcast);
 
         WireHeader header{.msg_id = msg_id, .body_size = static_cast<uint32_t>(builder.GetSize()), .reserved = {}};

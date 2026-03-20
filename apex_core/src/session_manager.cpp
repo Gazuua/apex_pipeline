@@ -18,7 +18,7 @@ SessionManager::~SessionManager() = default;
 
 SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
 {
-    SessionId id = next_id_++;
+    SessionId id = make_session_id(next_id_++);
     Session* raw = session_pool_.construct(id, std::move(socket), core_id_, recv_buf_capacity_);
     if (raw)
     {

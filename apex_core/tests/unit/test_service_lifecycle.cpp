@@ -212,7 +212,7 @@ TEST(ServiceLifecycle, DefaultHooksAreNoOp)
     svc->internal_wire(wire_ctx);
 
     // on_session_closed 기본 구현은 no-op
-    svc->on_session_closed(12345);
+    svc->on_session_closed(make_session_id(12345));
 }
 
 TEST(ServiceLifecycle, LifecycleOrderTracking)
@@ -233,8 +233,8 @@ TEST(ServiceLifecycle, LifecycleOrderTracking)
     svc->internal_configure(cfg_ctx);
     svc->internal_wire(wire_ctx);
     svc->start();
-    svc->on_session_closed(100);
-    svc->on_session_closed(200);
+    svc->on_session_closed(make_session_id(100));
+    svc->on_session_closed(make_session_id(200));
     svc->stop();
 
     ASSERT_EQ(svc->order.size(), 6u);
@@ -246,8 +246,8 @@ TEST(ServiceLifecycle, LifecycleOrderTracking)
     EXPECT_EQ(svc->order[5], "on_stop");
 
     ASSERT_EQ(svc->closed_sessions.size(), 2u);
-    EXPECT_EQ(svc->closed_sessions[0], 100u);
-    EXPECT_EQ(svc->closed_sessions[1], 200u);
+    EXPECT_EQ(svc->closed_sessions[0], make_session_id(100));
+    EXPECT_EQ(svc->closed_sessions[1], make_session_id(200));
 }
 
 TEST(ServiceLifecycle, InternalConfigureBindsPerCoreState)
@@ -272,12 +272,12 @@ TEST(ServiceLifecycle, OnSessionClosedReceivesCorrectSessionId)
     // on_session_closed가 올바른 SessionId를 전달받는지 확인
     auto svc = std::make_unique<TrackerService>();
 
-    svc->on_session_closed(42);
-    svc->on_session_closed(UINT64_MAX);
+    svc->on_session_closed(make_session_id(42));
+    svc->on_session_closed(make_session_id(UINT64_MAX));
 
     ASSERT_EQ(svc->closed_sessions.size(), 2u);
-    EXPECT_EQ(svc->closed_sessions[0], 42u);
-    EXPECT_EQ(svc->closed_sessions[1], UINT64_MAX);
+    EXPECT_EQ(svc->closed_sessions[0], make_session_id(42));
+    EXPECT_EQ(svc->closed_sessions[1], make_session_id(UINT64_MAX));
 }
 
 TEST(ServiceLifecycle, BackwardCompatStartStop)
