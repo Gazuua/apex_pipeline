@@ -16,25 +16,12 @@
 
 ## IN VIEW
 
-### #66. wire_services() co_spawn(detached) → spawn() tracked API 전환
-- **등급**: MAJOR
-- **스코프**: shared, core
-- **타입**: design-debt
-- **연관**: #48
-- **설명**: `KafkaAdapter::wire_services()`에서 `co_spawn(detached)`를 직접 호출하여 D7 outstanding 코루틴 추적을 우회. shutdown 시 Kafka dispatch 코루틴이 미완료 상태로 CoreEngine이 중단될 수 있음. spawn() tracked API를 사용하도록 변경 필요. wire_services()가 서비스의 spawn()을 호출할 수 있는 경로 설계 필요 (현재 spawn은 protected).
-
 ### #67. server.global&lt;T&gt;() / ConsumerPayloadPool / wire_services() 단위 테스트
 - **등급**: MAJOR
 - **스코프**: core, shared
 - **타입**: test
 - **연관**: #48
 - **설명**: D3/D6/D2 신규 API에 대한 단위 테스트 부재. server.global&lt;T&gt;()의 타입 소거 + 중복 호출, ConsumerPayloadPool의 thread-safe acquire/release + 풀 고갈 fallback, wire_services()의 서비스 자동 감지 등 검증 필요.
-
-### #3. Protocol concept Frame 내부 구조 미제약
-- **등급**: CRITICAL
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: Protocol concept이 Frame 내부 구조를 명시적으로 요구하지 않음. accessor 메서드 요구 또는 Frame trait 도입 필요.
 
 ### #5. gateway.toml 시크릿 운영 환경 관리
 - **등급**: MAJOR
@@ -75,13 +62,6 @@
 - **스코프**: core, infra
 - **타입**: infra
 - **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
-
-### #56. 서비스 레이어 가드레일 — 코어 인터페이스 캡슐화 + 원칙 위반 방지
-- **등급**: MAJOR
-- **스코프**: core, shared
-- **타입**: design-debt
-- **연관**: #1
-- **설명**: 서비스 코드가 shared-nothing 원칙을 깨거나 프레임워크 우회 코드를 작성하는 것을 설계 레벨에서 방지. 방향: ① io_context 직접 접근 차단 — 캡슐화 인터페이스 제공 ② 인터페이스 갭 → 코어 확장 ③ 힙 할당은 가이드(금지 아님). #1과 연계.
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
@@ -150,25 +130,6 @@
 - **타입**: infra
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
-
-### #89. core → shared 역방향 의존 해소 (forwarding header + kafka_envelope)
-- **등급**: CRITICAL
-- **스코프**: core, shared
-- **타입**: design-debt
-- **설명**: `wire_header.hpp`, `frame_codec.hpp`, `tcp_binary_protocol.hpp` 3개 forwarding header + `service_base.hpp`의 `kafka_envelope.hpp` 직접 include로 core가 shared에 물리적으로 의존. "core는 concept만 정의" 원칙 위반. 두 방향: (A) WireHeader/FrameCodec을 core로 복원, (B) forwarding header 제거 + 사용 지점에서 shared를 직접 include.
-
-### #90. ErrorCode에 Gateway 전용 에러 코드 혼입
-- **등급**: MAJOR
-- **스코프**: core, gateway
-- **타입**: design-debt
-- **연관**: #89
-- **설명**: `ErrorCode` enum에 Gateway 전용 에러(100-199 범위)가 포함. 새 서비스 추가 시마다 core를 수정해야 함. 서비스별 에러는 각 서비스 모듈에서 자체 enum으로 관리하도록 분리.
-
-### #91. SessionId 강타입 부재 (uint64_t typedef)
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: `using SessionId = uint64_t`로 정의되어 corr_id, user_id와 암묵적 변환 가능. `enum class SessionId : uint64_t {}` 형태로 강타입화하여 컴파일 타임 타입 안전성 확보.
 
 ---
 

@@ -15,6 +15,36 @@
 - **해결**: 2026-03-20 10:26:12 | **방식**: FIXED
 - **비고**: `access_token_ttl_sec` 30→10초, RefreshTokenRenewal sleep 31→11초, TcpClient recv 기본 타임아웃 10→30초. ci.yml E2E에서 `--gtest_filter` 제거하여 11개 전체 테스트 실행.
 
+### #91. SessionId 강타입 부재 (uint64_t typedef)
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: ff22aa0
+- **비고**: `using SessionId = uint64_t` → `enum class SessionId : uint64_t {}` 강타입화 + hash + fmt::formatter 구현
+
+### #89. core → shared 역방향 의존 해소 (forwarding header + kafka_envelope)
+- **등급**: CRITICAL | **스코프**: core, shared | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: ea83a9b
+- **비고**: forwarding header 제거 + FrameType concept 도입으로 core→shared 역방향 의존 해소
+
+### #3. Protocol concept Frame 내부 구조 미제약
+- **등급**: CRITICAL | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: ea83a9b
+- **비고**: FrameType concept 도입으로 Frame 내부 구조(msg_id, payload 등) 명시적 제약 추가
+
+### #66. wire_services() co_spawn(detached) → spawn() tracked API 전환
+- **등급**: MAJOR | **스코프**: shared, core | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: 0344eda
+- **비고**: CoreEngine spawn_tracked API 도입, co_spawn(detached) 우회 제거
+
+### #56. 서비스 레이어 가드레일 — 코어 인터페이스 캡슐화 + 원칙 위반 방지
+- **등급**: MAJOR | **스코프**: core, shared | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: 0344eda
+- **비고**: ServiceBase io_context 캡슐화로 서비스 레이어에서 직접 접근 차단
+
+### #90. ErrorCode에 Gateway 전용 에러 코드 혼입
+- **등급**: MAJOR | **스코프**: core, gateway | **타입**: design-debt
+- **해결**: 2026-03-20 13:13:31 | **방식**: FIXED | **커밋**: 0ad23d8
+- **비고**: Gateway 전용 에러 코드를 서비스별 자체 enum으로 분리, core ErrorCode에서 제거
+
 ### #2. RedisMultiplexer cancel_all_pending UAF
 - **등급**: CRITICAL | **스코프**: shared | **타입**: bug
 - **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
