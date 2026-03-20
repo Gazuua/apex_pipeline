@@ -419,7 +419,7 @@ Tier 상세:
 | v0.5.8.2 | 소 | Nightly Valgrind 수정 + CI E2E 안정화: valgrind-unit `include(CTest)` + 자체 빌드(DartConfiguration.tcl 생성), valgrind-e2e `gateway_e2e_valgrind.toml`(request_timeout 30s) + 타임아웃 확대 + 3-job 병렬 구조. CI E2E `access_token_ttl_sec` 30→10초 + sleep 31→11초 + recv 기본 타임아웃 10→30초 + `--gtest_filter` 제거(11개 전체 실행) + ServiceRecoveryAfterTimeout flush 루프 제거(boost::asio SO_RCVTIMEO 비호환). 71/71 유닛 + 11/11 E2E + CI 전체 통과 | PR #50 |
 | v0.5.8.3 | 소 | Nightly Valgrind 후속 수정: valgrind-unit `MemoryCheckCommand` 절대 경로(`/usr/bin/valgrind`)로 변경, valgrind-e2e `request_timeout_ms` 30s→120s + TCP 대기 300s + Kafka rebalance 60s + gtest_filter 확대(ServiceTimeout/RoomMessageBroadcast/GlobalBroadcast 추가 제외). 잔존 E2E 6개 + Stress 10개 실행 | PR #52 |
 | v0.5.8.4 | 소 | Nightly Valgrind 스트레스 테스트 필터 수정: gtest_filter fixture 이름 오류(`StressInfraTest` → `E2EStressInfraFixture` 등) 교정 + Valgrind 감속 하 실패 5개 테스트 추가 제외(MassTimeouts/HalfOpenConnection/DisconnectDuringResponse/ConcurrentRoomJoinLeave). 잔존 Stress 6개 실행 | PR #53 |
-| v0.5.9.0 | 중 | Tier 3 아키텍처 정비: SessionId 강타입화(enum class + hash + formatter), core→shared 역방향 의존 해소(forwarding header 제거 + FrameType concept), CoreEngine spawn_tracked + ServiceBase io_context 캡슐화(post/get_executor), ErrorCode 서비스 에러 분리(ServiceError sentinel + GatewayError/AuthError enum). 백로그 6건 해결(CRITICAL 2 + MAJOR 4). 71/71 유닛 통과 | |
+| v0.5.9.0 | 중 | Tier 3 아키텍처 정비: SessionId 강타입화(enum class + hash + formatter), core→shared 역방향 의존 해소(forwarding header 제거 + FrameType concept), CoreEngine spawn_tracked + ServiceBase io_context 캡슐화(post/get_executor), ErrorCode 서비스 에러 분리(ServiceError sentinel + GatewayError/AuthError enum). 백로그 6건 해결(CRITICAL 2 + MAJOR 4). 전체 소스 MIT License 저작권 헤더 추가(336파일). branch-handoff.sh 멀티 에이전트 인수인계 시스템. Full Auto-Review v0.5.9.0(37건: CRITICAL 1 connection_handler async_write UB + MAJOR 14 + MINOR 22, 13건 수정). 71/71 유닛 통과 | |
 
 ### 활성 로드맵
 
@@ -445,7 +445,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.8.2 Nightly Valgrind 수정 + CI E2E 타이밍 안정화
          v0.5.8.3 Nightly Valgrind 후속 수정 (valgrind-unit 경로 + valgrind-e2e 타임아웃/필터)
          v0.5.8.4 Nightly Valgrind 스트레스 필터 수정 (fixture 이름 교정 + 5개 추가 제외)
-         v0.5.9.0 Tier 3 아키텍처 정비 (SessionId 강타입, core→shared 의존 해소, ErrorCode 분리, spawn_tracked)
+         v0.5.9.0 Tier 3 아키텍처 정비 + 저작권 헤더 + Full Auto-Review (37건 발견, 13건 수정)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

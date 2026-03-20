@@ -57,7 +57,11 @@ uint64_t MessageRouter::generate_corr_id() noexcept
 {
     // per-core so no atomic needed
     // Upper 16 bits: core_id, lower 48 bits: monotonic counter
-    return (static_cast<uint64_t>(core_id_) << 48) | (++corr_counter_);
+    // Mask to 48 bits to prevent overflow from corrupting the core_id portion.
+    // At 1M req/s per core, wrap-around takes ~8.9 years — safe for practical use.
+    ++corr_counter_;
+    constexpr uint64_t kCounterMask = (1ULL << 48) - 1;
+    return (static_cast<uint64_t>(core_id_) << 48) | (corr_counter_ & kCounterMask);
 }
 
 std::vector<uint8_t> MessageRouter::build_envelope(const apex::core::WireHeader& header,

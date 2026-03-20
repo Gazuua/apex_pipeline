@@ -182,8 +182,10 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
             {
                 // ServiceError는 핸들러가 이미 에러 프레임을 클라이언트에 전송한 경우.
                 // 그 외 에러만 connection_handler에서 프레임을 보낸다.
+                // enqueue_write_raw 사용 — async_send_raw는 write_pump와 동시 실행 시
+                // 같은 소켓에 concurrent async_write가 발생하여 UB.
                 auto error_frame = ErrorSender::build_error_frame(msg_id, result.error());
-                (void)co_await session->async_send_raw(error_frame);
+                (void)session->enqueue_write_raw(error_frame);
             }
 
             if (!session->is_open())

@@ -41,13 +41,6 @@ bool PasswordHasher::verify(std::string_view password, std::string_view stored_h
 {
     // apex_bcrypt_checkpw: 0 = match
     int ret = apex_bcrypt_checkpw(std::string(password).c_str(), std::string(stored_hash).c_str());
-    if (ret != 0)
-    {
-        // Debug: compute hash with same salt and compare
-        char computed[BCRYPT_HASHSIZE];
-        apex_bcrypt_hashpw(std::string(password).c_str(), std::string(stored_hash).c_str(), computed);
-        spdlog::error("[PasswordHasher] verify failed: stored='{}' computed='{}'", stored_hash, computed);
-    }
     return ret == 0;
 }
 

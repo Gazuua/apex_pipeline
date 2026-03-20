@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #23. TOCTOU: join_room SCARD→SADD 경합
+- **등급**: MAJOR | **스코프**: chat-svc | **타입**: bug
+- **해결**: 2026-03-20 18:13:49 | **방식**: DUPLICATE
+- **비고**: #105와 중복. #105(IN VIEW)에 통합.
+
 ### #99. Nightly Valgrind 첫 실행 결과 확인
 - **등급**: MAJOR | **스코프**: ci | **타입**: infra
 - **해결**: 2026-03-20 10:26:12 | **방식**: FIXED

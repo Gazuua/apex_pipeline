@@ -133,6 +133,17 @@ Result<void> Session::enqueue_write_raw(std::span<const uint8_t> data)
     return enqueue_write(std::move(copy));
 }
 
+// Thread-safety invariant (implicit strand):
+// write_pump runs on the owning core's single-threaded io_context.
+// Between co_await points, no other coroutine can interleave.
+// The critical sequence "while-condition check -> pump_running_ = false"
+// executes without any co_await, so enqueue_write() cannot observe
+// pump_running_ == true with an empty queue simultaneously.
+// If enqueue_write() is called during co_await async_write, it sees
+// pump_running_ == true and simply appends to write_queue_, which
+// the resumed write_pump will process in the next iteration.
+// WARNING: Do NOT add co_await between the while-condition check and
+// pump_running_ = false, as it would break this invariant.
 awaitable<void> Session::write_pump()
 {
     while (!write_queue_.empty() && is_open())

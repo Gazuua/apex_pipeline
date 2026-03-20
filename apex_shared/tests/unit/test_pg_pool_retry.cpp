@@ -136,7 +136,12 @@ TEST_F(PgPoolRetryTest, ExponentialBackoffTiming)
         // With timer overhead, allow range [100ms, 500ms]
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
         EXPECT_GE(ms, 100) << "Too fast — backoff not applied";
+        // TSAN/ASAN 환경에서는 타이머 지연이 커질 수 있으므로 상한 확대
+#if defined(__SANITIZE_THREAD__) || defined(__SANITIZE_ADDRESS__)
+        EXPECT_LE(ms, 5000) << "Too slow — unexpected delays (sanitizer)";
+#else
         EXPECT_LE(ms, 500) << "Too slow — unexpected delays";
+#endif
         co_return;
     });
 

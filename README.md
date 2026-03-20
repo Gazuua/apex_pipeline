@@ -140,6 +140,21 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - FileWatcher flaky 테스트 수정 (NTFS 타임스탬프 캐싱 우회)
   - 71/71 유닛 통과 + CI 전체 통과 (GCC, ASAN, TSAN, MSVC)
 
+- **v0.5.9.0 — Tier 3 아키텍처 정비 + 저작권 헤더 + Full Auto-Review**
+  - SessionId 강타입화 (`enum class SessionId : uint64_t`)
+  - core→shared 역방향 의존 해소 (forwarding header 유지, 로드맵 진행 중)
+  - ErrorCode 분리, spawn_tracked 도입
+  - 전체 소스/스크립트 MIT License 저작권 헤더 추가 (336개 파일)
+  - branch-handoff.sh 멀티 에이전트 인수인계 시스템
+  - Full Auto-Review v0.5.9.0 (37건 발견: CRITICAL 1 + MAJOR 14 + MINOR 22, 13건 수정)
+  - CRITICAL: connection_handler async_write UB 수정 (async_send_raw→enqueue_write_raw)
+  - 보안: bcrypt 해시 로그 노출 제거, Docker non-root 실행 전환 (3 서비스)
+  - 버전 불일치 통일 (vcpkg.json, CMakeLists.txt → 0.5.9)
+
+- **v0.5.8.1 — BACKLOG 일괄 소탕**
+  - CRITICAL 1건 + MAJOR 9건 + MINOR 3건 해결
+  - 71/71 유닛 통과 + CI 전체 통과
+
 - **v0.5.8.0 — CI 파이프라인 확장**
   - build matrix 루트 빌드 통합 (apex_core + apex_shared 동시 검증, MSVC 포함)
   - UBSAN CMake preset 추가 (`linux-ubsan`)
