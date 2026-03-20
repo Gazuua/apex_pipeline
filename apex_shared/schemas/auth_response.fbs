@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 // v0.5 최소 메시지 셋. 후속 설계 종속 금지.
 
 namespace apex.shared.schemas;

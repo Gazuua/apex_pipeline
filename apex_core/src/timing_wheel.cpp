@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <algorithm>
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/timing_wheel.hpp>

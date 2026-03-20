@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/gateway/config_reloader.hpp>
 
 #include <spdlog/spdlog.h>

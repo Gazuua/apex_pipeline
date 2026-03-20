@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 /// echo_loadtest — E2E echo server load tester
 ///
 /// Usage: echo_loadtest [options]

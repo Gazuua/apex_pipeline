@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/result.hpp>
 #include <apex/shared/adapters/pool_concept.hpp>
 #include <gtest/gtest.h>

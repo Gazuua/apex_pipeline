@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "../test_helpers.hpp"
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>

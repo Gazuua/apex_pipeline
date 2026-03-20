@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 set -euo pipefail
 
 # 테스트용 임시 디렉토리 사용

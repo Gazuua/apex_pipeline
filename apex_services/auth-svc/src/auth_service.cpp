@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/core/server.hpp>

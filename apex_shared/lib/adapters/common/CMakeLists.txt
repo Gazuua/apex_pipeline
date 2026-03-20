@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared/lib/adapters/common/CMakeLists.txt
 add_library(apex_shared_adapters_common STATIC
     src/adapter_error.cpp

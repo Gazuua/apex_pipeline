@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/shared/rate_limit/redis_rate_limiter.hpp>
 #include <gtest/gtest.h>
 

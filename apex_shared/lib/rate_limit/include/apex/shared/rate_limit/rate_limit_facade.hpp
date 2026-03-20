@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 #include <apex/shared/rate_limit/endpoint_rate_config.hpp>

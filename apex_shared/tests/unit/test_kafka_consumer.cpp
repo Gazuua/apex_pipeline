@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/error_code.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
 #include <apex/shared/adapters/kafka/kafka_consumer.hpp>

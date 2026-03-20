@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 find_package(benchmark CONFIG QUIET)
 if(NOT benchmark_FOUND)
     message(STATUS "Google Benchmark not found — benchmarks will not be built")

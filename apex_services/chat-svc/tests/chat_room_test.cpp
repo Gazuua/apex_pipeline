@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <chat_room_generated.h>
 
 #include <flatbuffers/flatbuffers.h>

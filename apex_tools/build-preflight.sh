@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # ── Build pre-flight checks (sourced by build.sh scripts) ──────────
 # Usage: source "path/to/apex_tools/build-preflight.sh"
 

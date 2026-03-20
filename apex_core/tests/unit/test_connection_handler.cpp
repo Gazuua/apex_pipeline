@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/connection_handler.hpp>
 #include <apex/core/error_code.hpp>
 #include <apex/core/frame_codec.hpp>

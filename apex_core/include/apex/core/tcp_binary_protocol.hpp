@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 /// Forwarding header — 실제 구현은 apex_shared/lib/protocols/tcp/로 이동됨.

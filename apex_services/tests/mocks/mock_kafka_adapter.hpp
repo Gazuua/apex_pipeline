@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 /// Mock KafkaAdapter — produce/consume 기록, 큐 기반 테스트용.

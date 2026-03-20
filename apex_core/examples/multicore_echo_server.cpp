@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 /// Apex Pipeline - Multicore Echo Server Example (v0.5)
 ///
 /// Demonstrates the io_context-per-core (shared-nothing) architecture.

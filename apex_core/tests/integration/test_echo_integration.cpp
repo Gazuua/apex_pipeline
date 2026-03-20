@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/service_base.hpp>

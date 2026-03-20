@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 /// Mock PgPool — query 기록 + 미리 설정된 결과 반환.

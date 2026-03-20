@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 #include <apex/auth_svc/auth_config.hpp>

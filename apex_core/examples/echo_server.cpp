@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 /// Apex Pipeline - Echo Server Example (v0.5)
 ///
 /// Minimal echo server using Server::run() blocking model.

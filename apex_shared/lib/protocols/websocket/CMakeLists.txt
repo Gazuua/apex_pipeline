@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared protocols/websocket — WebSocketProtocol (MVP)
 
 add_library(apex_protocols_websocket STATIC

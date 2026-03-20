@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_services — MSA services
 add_subdirectory(gateway)
 add_subdirectory(auth-svc)

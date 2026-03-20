@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared protocols/tcp — TcpBinaryProtocol
 #
 # INTERFACE library: 헤더만 제공.

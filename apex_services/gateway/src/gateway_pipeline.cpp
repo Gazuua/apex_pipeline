@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/gateway/gateway_pipeline.hpp>
 
 #include <apex/core/error_code.hpp>

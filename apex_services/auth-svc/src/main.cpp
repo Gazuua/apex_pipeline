@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/auth_svc/auth_config.hpp>
 #include <apex/auth_svc/auth_service.hpp>
 

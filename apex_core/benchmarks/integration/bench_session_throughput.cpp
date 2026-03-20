@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "../bench_helpers.hpp"
 
 #include <apex/core/session.hpp>

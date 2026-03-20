@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "../test_helpers.hpp"
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/service_base.hpp>

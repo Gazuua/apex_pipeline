@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/gateway/broadcast_fanout.hpp>
 
 #include <apex/core/cross_core_call.hpp>

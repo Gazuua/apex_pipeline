@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/shared/adapters/redis/hiredis_asio_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/redis/redis_connection.hpp>

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/server.hpp>
 #include <apex/core/tcp_binary_protocol.hpp>
 

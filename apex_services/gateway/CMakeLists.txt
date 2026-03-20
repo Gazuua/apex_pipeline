@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_services/gateway — Gateway MVP (v0.5.2.0)
 
 add_executable(apex_gateway

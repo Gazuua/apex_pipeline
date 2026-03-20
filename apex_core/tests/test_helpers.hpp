@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 /// 공용 테스트 헬퍼 -- run_coro, make_socket_pair

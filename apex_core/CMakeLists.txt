@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 cmake_minimum_required(VERSION 3.25...3.30)
 
 # Standalone build (apex_core 단독) vs subdirectory (모노레포에서 포함)

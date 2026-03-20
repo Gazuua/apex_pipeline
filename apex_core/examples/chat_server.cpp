@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 /// Apex Pipeline - Chat Server Example (v0.5)
 ///
 /// 단일 코어 브로드캐스트 시연.

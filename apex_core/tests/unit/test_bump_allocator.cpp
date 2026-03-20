@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/core_allocator.hpp>
 #include <cstdint>

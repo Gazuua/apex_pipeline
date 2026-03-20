@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/shared/adapters/pg/pg_result.hpp>
 
