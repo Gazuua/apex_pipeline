@@ -41,6 +41,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **커밋 메시지에서 백로그 번호는 `BACKLOG-N` 형식** — `#N` 금지 (GitHub PR/Issue 자동 링크 충돌)
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
+- **새 브랜치 생성 전 최신화 필수**: `git fetch origin main && git pull origin main` 실행 후 최신 main 기반으로 브랜치 생성
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
@@ -53,6 +54,16 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
+
+### 브랜치 인수인계 (Branch Handoff)
+- **인수인계 도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"` — 브랜치 간 파일 기반 소통 시스템
+- **Tier 1 (사전 알림)**: 명확한 작업 목적으로 브랜치 생성 시 `notify start` 실행. 탐색적 작업은 Tier 2로 직행
+- **Tier 2 (중간 알림)**: 설계 문서 또는 구현 계획 확정 시 `notify design` 실행. 방향 변경 시 재발행 가능
+- **Tier 3 (사후 알림)**: 머지 완료 시 `notify merge` 실행
+- **게이트 체크포인트 (전부 차단)**: 설계 완료(`--gate design`), 구현 계획 완료(`--gate plan`), 구현 시작(`--gate implement`), 빌드 전(`--gate build`), 머지 전(`--gate merge`)
+- **게이트 차단 시**: 에이전트가 자율적으로 payload 확인 → 영향 판단 → 필요 시 설계/계획 수정 → ack 후 재확인 (유저 개입 불필요)
+- **ack 필수**: 대응 선언(`--action`) 없이 무시 금지. 가능한 action: `no-impact`, `will-rebase`, `rebased`, `design-adjusted`, `deferred`
+- **백로그 연동**: 백로그 착수 시 자동으로 `backlog-status/`에 등록. 타 에이전트는 `backlog-check`으로 중복 착수 방지
 
 ### 설계 원칙
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
