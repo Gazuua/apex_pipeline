@@ -69,6 +69,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
 
+### 저작권 헤더
+- **새 소스/스크립트 파일 생성 시 저작권 헤더 필수**: 첫 줄에 `// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.` (스크립트는 shebang 다음 줄에 `#` 주석으로)
+
 ### 포맷팅
 - **빌드 전 clang-format 필수** — 코드 변경 후 빌드 전에 `find apex_core apex_shared apex_services \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) ! -name '*_generated.h' | xargs clang-format -i` 실행. CI `format-check`에서 불일치 시 빌드 실패
 
