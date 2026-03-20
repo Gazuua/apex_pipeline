@@ -13,8 +13,9 @@
 
 #include <spdlog/spdlog.h>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <memory>
-#include <unordered_map>
 
 // Forward declarations to avoid pulling in heavy headers
 namespace apex::shared::adapters::kafka
@@ -123,6 +124,21 @@ class GatewayService : public apex::core::ServiceBase<GatewayService>
     boost::asio::awaitable<apex::core::Result<void>> handle_request(apex::core::SessionPtr session, uint32_t msg_id,
                                                                     std::span<const uint8_t> payload);
 
+    /// System message: JWT 바인딩 (AUTHENTICATE_SESSION).
+    apex::core::Result<void> handle_authenticate_session(apex::core::SessionPtr session,
+                                                         std::span<const uint8_t> payload);
+
+    /// System message: 채널 구독 (SUBSCRIBE_CHANNEL).
+    apex::core::Result<void> handle_subscribe_channel(apex::core::SessionPtr session, std::span<const uint8_t> payload);
+
+    /// System message: 채널 구독 해제 (UNSUBSCRIBE_CHANNEL).
+    apex::core::Result<void> handle_unsubscribe_channel(apex::core::SessionPtr session,
+                                                        std::span<const uint8_t> payload);
+
+    /// Default handler: 시스템 메시지 분기 + 서비스 메시지 라우팅.
+    boost::asio::awaitable<apex::core::Result<void>> on_default_message(apex::core::SessionPtr session, uint32_t msg_id,
+                                                                        std::span<const uint8_t> payload);
+
     /// cross-core 글로벌 객체 생성 (core 0의 on_wire에서 factory로 1회 호출).
     /// server.global<GatewayGlobals>(factory) 패턴용 — GatewayGlobals를 값으로 반환.
     GatewayGlobals create_globals(apex::core::WireContext& ctx);
@@ -146,7 +162,7 @@ class GatewayService : public apex::core::ServiceBase<GatewayService>
     PendingRequestsMap pending_requests_;
 
     // Per-session auth state (session_id -> AuthState)
-    std::unordered_map<apex::core::SessionId, AuthState> auth_states_;
+    boost::unordered_flat_map<apex::core::SessionId, AuthState> auth_states_;
 
     PubSubListener* pubsub_listener_{nullptr};
 

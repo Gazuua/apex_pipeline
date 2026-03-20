@@ -109,92 +109,98 @@ void GatewayService::on_wire(apex::core::WireContext& ctx)
 // ── Phase 3: 핸들러 등록 ────────────────────────────────────────────────
 void GatewayService::on_start()
 {
-    // Default handler — routes all messages.
-    // System messages (e.g., AuthenticateSession) are handled inline;
-    // service messages go through pipeline + Kafka routing.
-    dispatcher().set_default_handler(
-        [this](apex::core::SessionPtr session, uint32_t msg_id,
-               std::span<const uint8_t> payload) -> boost::asio::awaitable<apex::core::Result<void>> {
-            // System message: AuthenticateSession
-            // Client sends JWT token after login; bind it to the session.
-            if (msg_id == system_msg_ids::AUTHENTICATE_SESSION)
-            {
-                if (payload.size() >= sizeof(flatbuffers::uoffset_t))
-                {
-                    flatbuffers::Verifier verifier(payload.data(), payload.size());
-                    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-                    {
-                        verifier.EndTable();
-                        auto* token = root->GetPointer<const flatbuffers::String*>(4);
-                        if (token && verifier.VerifyString(token) && token->size() > 0)
-                        {
-                            auto& state = auth_states_[session->id()];
-                            state.token = token->str();
-                            logger_->info("JWT bound to session {}", session->id());
-                        }
-                    }
-                }
-                co_return apex::core::ok();
-            }
+    set_default_handler(&GatewayService::on_default_message);
+}
 
-            // System message: SubscribeChannel
-            // Client subscribes to a Redis Pub/Sub channel for broadcast delivery.
-            // Gateway is channel-name-agnostic (no domain knowledge).
-            // per-core 맵만 수정 — cross_core_post 불필요 (세션은 per-core).
-            if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL)
-            {
-                if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
-                {
-                    flatbuffers::Verifier verifier(payload.data(), payload.size());
-                    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-                    {
-                        verifier.EndTable();
-                        auto* ch = root->GetPointer<const flatbuffers::String*>(4);
-                        if (ch && verifier.VerifyString(ch) && ch->size() > 0)
-                        {
-                            auto result =
-                                globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
-                            if (result)
-                            {
-                                if (pubsub_listener_)
-                                {
-                                    pubsub_listener_->subscribe(ch->str());
-                                }
-                                logger_->info("Session {} subscribed to '{}'", session->id(), ch->str());
-                            }
-                        }
-                    }
-                }
-                co_return apex::core::ok();
-            }
+boost::asio::awaitable<apex::core::Result<void>>
+GatewayService::on_default_message(apex::core::SessionPtr session, uint32_t msg_id, std::span<const uint8_t> payload)
+{
+    if (msg_id == system_msg_ids::AUTHENTICATE_SESSION)
+        co_return handle_authenticate_session(session, payload);
 
-            // System message: UnsubscribeChannel
-            // per-core 맵만 수정 — cross_core_post 불필요.
-            if (msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL)
-            {
-                if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
-                {
-                    flatbuffers::Verifier verifier(payload.data(), payload.size());
-                    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-                    if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-                    {
-                        verifier.EndTable();
-                        auto* ch = root->GetPointer<const flatbuffers::String*>(4);
-                        if (ch && verifier.VerifyString(ch) && ch->size() > 0)
-                        {
-                            globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
-                            logger_->info("Session {} unsubscribed from '{}'", session->id(), ch->str());
-                        }
-                    }
-                }
-                co_return apex::core::ok();
-            }
+    if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL)
+        co_return handle_subscribe_channel(session, payload);
 
-            // Service messages — pipeline + Kafka routing
-            co_return co_await handle_request(std::move(session), msg_id, payload);
-        });
+    if (msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL)
+        co_return handle_unsubscribe_channel(session, payload);
+
+    co_return co_await handle_request(std::move(session), msg_id, payload);
+}
+
+apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core::SessionPtr session,
+                                                                     std::span<const uint8_t> payload)
+{
+    // Client sends JWT token after login; bind it to the session.
+    if (payload.size() >= sizeof(flatbuffers::uoffset_t))
+    {
+        flatbuffers::Verifier verifier(payload.data(), payload.size());
+        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+        {
+            verifier.EndTable();
+            auto* token = root->GetPointer<const flatbuffers::String*>(4);
+            if (token && verifier.VerifyString(token) && token->size() > 0)
+            {
+                auto& state = auth_states_[session->id()];
+                state.token = token->str();
+                logger_->info("JWT bound to session {}", session->id());
+            }
+        }
+    }
+    return apex::core::ok();
+}
+
+apex::core::Result<void> GatewayService::handle_subscribe_channel(apex::core::SessionPtr session,
+                                                                  std::span<const uint8_t> payload)
+{
+    // Client subscribes to a Redis Pub/Sub channel for broadcast delivery.
+    // Gateway is channel-name-agnostic (no domain knowledge).
+    // per-core 맵만 수정 — cross_core_post 불필요 (세션은 per-core).
+    if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
+    {
+        flatbuffers::Verifier verifier(payload.data(), payload.size());
+        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+        {
+            verifier.EndTable();
+            auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+            if (ch && verifier.VerifyString(ch) && ch->size() > 0)
+            {
+                auto result = globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
+                if (result)
+                {
+                    if (pubsub_listener_)
+                    {
+                        pubsub_listener_->subscribe(ch->str());
+                    }
+                    logger_->info("Session {} subscribed to '{}'", session->id(), ch->str());
+                }
+            }
+        }
+    }
+    return apex::core::ok();
+}
+
+apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::SessionPtr session,
+                                                                    std::span<const uint8_t> payload)
+{
+    // per-core 맵만 수정 — cross_core_post 불필요.
+    if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
+    {
+        flatbuffers::Verifier verifier(payload.data(), payload.size());
+        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+        {
+            verifier.EndTable();
+            auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+            if (ch && verifier.VerifyString(ch) && ch->size() > 0)
+            {
+                globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
+                logger_->info("Session {} unsubscribed from '{}'", session->id(), ch->str());
+            }
+        }
+    }
+    return apex::core::ok();
 }
 
 void GatewayService::on_stop()

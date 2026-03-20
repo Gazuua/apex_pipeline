@@ -205,6 +205,10 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
     auto* front = self->pending_.front();
     self->pending_.pop_front();
 
+    // cancel_all_pending()가 이미 소유권을 가져간 경우 — 이중 해제 방지
+    if (front->cancelled)
+        return;
+
     // Step 2 of 2-step ownership transfer (see release_pending):
     // If this command already timed out, the coroutine has already resumed
     // and extracted the result. The PendingCommand is still alive in the slab
@@ -365,27 +369,22 @@ void RedisMultiplexer::release_pending(PendingCommand* cmd)
 
 void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error)
 {
-    // Move to local to avoid iterator invalidation if cancel()
-    // triggers posted handlers synchronously.
     auto local = std::move(pending_);
     for (auto* cmd : local)
     {
         cmd->result = std::unexpected(error);
+        cmd->cancelled = true; // 소유권 표시 — static_on_reply 이중 해제 방지
+
         if (cmd->timed_out)
         {
-            // Already timed out: the coroutine has resumed and called
-            // release_pending (which returned early). hiredis won't fire
-            // further callbacks after disconnect, so we must destroy here
-            // to avoid a leak.
+            // 이미 타임아웃됨 — 코루틴은 재개 완료. hiredis는 disconnect 후 콜백 안 함.
+            // cancel_all_pending이 유일한 소유자이므로 안전하게 해제.
             slab_.destroy(cmd);
         }
         else
         {
-            // Not timed out: the coroutine is still suspended on
-            // resolver.async_wait. cancel() posts a completion handler
-            // that resumes the coroutine, which then calls release_pending
-            // → slab_.destroy. Destroying here would cause UAF when the
-            // coroutine resumes and accesses the PendingCommand.
+            // 코루틴이 resolver.async_wait에 대기 중.
+            // cancel()이 completion handler를 post → 코루틴 재개 → release_pending에서 해제.
             cmd->resolver.cancel();
         }
     }

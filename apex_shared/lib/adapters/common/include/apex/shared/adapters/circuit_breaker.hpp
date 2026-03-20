@@ -7,9 +7,15 @@
 #include <chrono>
 #include <concepts>
 #include <cstdint>
+#include <type_traits>
 
 namespace apex::shared::adapters
 {
+
+/// CircuitBreaker::call()이 받을 수 있는 callable의 반환 타입 제약.
+/// F()는 반드시 awaitable<Result<T>>를 반환해야 한다.
+template <typename F>
+concept CircuitCallable = std::invocable<F> && requires { typename std::invoke_result_t<F>::value_type; };
 
 struct CircuitBreakerConfig
 {
@@ -30,10 +36,7 @@ class CircuitBreaker
   public:
     explicit CircuitBreaker(CircuitBreakerConfig config);
 
-    /// fn must return Task<Result<void>> (boost::asio::awaitable<apex::core::Result<void>>)
-    template <std::invocable F>
-        requires std::same_as<std::invoke_result_t<F>, boost::asio::awaitable<apex::core::Result<void>>>
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> call(F&& fn);
+    template <CircuitCallable F> [[nodiscard]] std::invoke_result_t<F> call(F&& fn);
 
     [[nodiscard]] CircuitState state() const noexcept;
     [[nodiscard]] uint32_t failure_count() const noexcept;
@@ -52,9 +55,7 @@ class CircuitBreaker
 };
 
 // Template implementation
-template <std::invocable F>
-    requires std::same_as<std::invoke_result_t<F>, boost::asio::awaitable<apex::core::Result<void>>>
-[[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> CircuitBreaker::call(F&& fn)
+template <CircuitCallable F> [[nodiscard]] std::invoke_result_t<F> CircuitBreaker::call(F&& fn)
 {
     if (!should_allow())
     {

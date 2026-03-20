@@ -303,7 +303,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     template <typename F> void spawn(F&& coro_factory)
     {
         assert(io_ctx_ && "spawn() called before internal_configure");
-        outstanding_coros_.fetch_add(1, std::memory_order_relaxed);
+        outstanding_coros_.fetch_add(1, std::memory_order_acq_rel);
         boost::asio::co_spawn(
             *io_ctx_,
             [this, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {

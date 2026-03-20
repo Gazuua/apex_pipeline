@@ -3,11 +3,12 @@
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 
+#include <boost/unordered/unordered_flat_map.hpp>
+
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
-#include <unordered_map>
 
 namespace apex::gateway
 {
@@ -55,7 +56,7 @@ class PendingRequestsMap
     }
 
   private:
-    std::unordered_map<uint64_t, PendingEntry> map_;
+    boost::unordered_flat_map<uint64_t, PendingEntry> map_;
     size_t max_entries_;
     std::chrono::milliseconds timeout_;
     NowFn now_fn_;

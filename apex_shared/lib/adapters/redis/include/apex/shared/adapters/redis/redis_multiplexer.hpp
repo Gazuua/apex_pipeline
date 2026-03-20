@@ -118,6 +118,7 @@ class RedisMultiplexer
         apex::core::Result<RedisReply> result;
         uint64_t sequence;
         bool timed_out{false};
+        bool cancelled{false}; // cancel_all_pending()에서 소유권 이전 완료 플래그
     };
 
     /// hiredis callback — static trampoline to on_reply
