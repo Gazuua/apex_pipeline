@@ -16,8 +16,9 @@ namespace apex::core
 
 void intrusive_ptr_release(Session* s) noexcept
 {
-    assert(s->refcount_ > 0 && "Session refcount underflow");
-    if (--s->refcount_ == 0)
+    auto prev = s->refcount_.fetch_sub(1, std::memory_order_acq_rel);
+    assert(prev > 0 && "Session refcount underflow");
+    if (prev == 1)
     {
         if (s->pool_owner_ != nullptr)
         {

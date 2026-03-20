@@ -13,6 +13,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <fmt/format.h>
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <deque>
@@ -80,16 +81,18 @@ class Session
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
-    // --- intrusive_ptr refcount (non-atomic: per-core only) ---
+    // --- intrusive_ptr refcount (atomic for safe cross-thread shutdown) ---
+    // Per-core 설계지만 shutdown 시 io_context 소멸 경로에서 cross-thread release 발생 가능.
+    // relaxed ordering으로 단일 코어 hot path 성능 영향 최소화.
     [[nodiscard]] uint32_t refcount() const noexcept
     {
-        return refcount_;
+        return refcount_.load(std::memory_order_relaxed);
     }
 
     friend void intrusive_ptr_add_ref(Session* s) noexcept
     {
-        assert(s->refcount_ < UINT32_MAX && "Session refcount overflow");
-        ++s->refcount_;
+        [[maybe_unused]] auto prev = s->refcount_.fetch_add(1, std::memory_order_relaxed);
+        assert(prev < UINT32_MAX && "Session refcount overflow");
     }
 
     friend void intrusive_ptr_release(Session* s) noexcept;
@@ -160,7 +163,7 @@ class Session
     }
     friend class SessionManager;
 
-    uint32_t refcount_{0};                             // non-atomic: per-core only
+    std::atomic<uint32_t> refcount_{0};                // atomic for safe cross-thread shutdown
     TypedSlabAllocator<Session>* pool_owner_{nullptr}; // set by SessionManager when pool-allocated
 
     SessionId id_;
