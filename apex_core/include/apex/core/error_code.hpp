@@ -11,7 +11,7 @@ enum class ErrorCode : uint16_t
 {
     Ok = 0,
 
-    // Framework errors (1-98)
+    // Framework errors (1-98) — 프레임워크 공통 에러
     Unknown = 1,
     InvalidMessage = 2,
     HandlerNotFound = 3,
@@ -29,8 +29,11 @@ enum class ErrorCode : uint16_t
     HandshakeFailed = 15,  // TLS handshake 실패
     ParseFailed = 16,      // Envelope 파싱 실패
 
-    // 서비스별 에러 sentinel
+    // 서비스별 에러 sentinel — 핸들러가 에러 프레임을 직접 전송 완료했음을 의미.
+    // connection_handler는 이 코드를 받으면 추가 에러 프레임을 보내지 않는다.
+    // 실제 서비스 에러 코드는 ErrorResponse.service_error_code 필드로 전달.
     ServiceError = 99,
+    // 100-999: 예약 (향후 프레임워크 확장)
 
     // Application errors (1000-1999)
     AppError = 1000,

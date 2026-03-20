@@ -9,6 +9,7 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/intrusive_ptr.hpp>
+#include <fmt/format.h>
 
 #include <cassert>
 #include <cstdint>
@@ -189,8 +190,6 @@ template <> struct std::hash<apex::core::SessionId>
         return std::hash<uint64_t>{}(apex::core::to_underlying(id));
     }
 };
-
-#include <fmt/format.h>
 
 template <> struct fmt::formatter<apex::core::SessionId> : fmt::formatter<uint64_t>
 {

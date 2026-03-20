@@ -317,7 +317,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 {
                     spdlog::error("[{}] spawn() coroutine exception: {}", name_, e.what());
                 }
-                outstanding_coros_.fetch_sub(1, std::memory_order_release);
+                outstanding_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
             boost::asio::detached);
     }

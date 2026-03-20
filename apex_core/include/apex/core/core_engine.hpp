@@ -152,6 +152,10 @@ class CoreEngine
                 {
                     spdlog::error("[CoreEngine] spawn_tracked coroutine exception: {}", e.what());
                 }
+                catch (...)
+                {
+                    spdlog::error("[CoreEngine] spawn_tracked coroutine unknown exception");
+                }
                 outstanding_infra_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
             boost::asio::detached);

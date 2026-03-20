@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 100
+다음 발번: 104
 
 ---
 
@@ -130,6 +130,31 @@
 - **타입**: infra
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
+
+### #100. Blacklist fail-open 보안 정책 재검토
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: security
+- **연관**: #5, #8
+- **설명**: GatewayPipeline::authenticate()에서 Redis 장애 시 blacklist 체크를 fail-open(허용)으로 처리. Rate limit fail-open은 합리적이나, blacklist는 보안 사고(토큰 탈취/강제 로그아웃) 대응이므로 fail-close 또는 설정 가능(`config_.auth.blacklist_fail_open`)으로 전환 검토 필요.
+
+### #101. ErrorSender::build_error_frame service_error_code 라운드트립 테스트
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: test
+- **설명**: `build_error_frame`의 `service_error_code` 파라미터가 0이 아닌 값일 때 FlatBuffers 직렬화/역직렬화 라운드트립 검증 테스트 부재. 스키마 변경 직후이므로 직렬화 정합성 단위 테스트 필요.
+
+### #102. GatewayPipeline 에러 흐름 단위 테스트
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: test
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
+
+### #103. KafkaMessageMeta.session_id SessionId 강타입화
+- **등급**: MINOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **설명**: `KafkaMessageMeta.session_id`가 `uint64_t`로 남아있어 core 내에서 같은 개념에 두 타입이 공존. `SessionId`로 변경하고 `KafkaDispatchBridge::dispatch()`에서 `make_session_id()` 변환 수행.
 
 ---
 
