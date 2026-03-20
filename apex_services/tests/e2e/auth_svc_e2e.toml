@@ -10,7 +10,7 @@ enabled = true
 private_key_file = "apex_services/tests/keys/test_rs256.pem"
 public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
 issuer = "apex-auth"
-access_token_ttl_sec = 30      # E2E용 — TSAN/ASAN 빌드에서도 Kafka 왕복 여유 확보
+access_token_ttl_sec = 10      # E2E용 — RefreshTokenRenewal 대기 시간 최소화 (CI 안정성)
 
 [kafka]
 brokers = "localhost:9092"

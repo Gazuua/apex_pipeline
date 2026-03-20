@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(apex-pipeline
-    VERSION 0.5.7
+    VERSION 0.5.8
     LANGUAGES C CXX
     DESCRIPTION "Apex Pipeline - High-performance real-time server monorepo"
 )
@@ -14,6 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
 enable_testing()
+include(CTest)
 
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/ApexWarnings.cmake)
 

@@ -222,8 +222,7 @@ jobs:
       - name: Run E2E tests
         run: |
           artifacts/tests/e2e/apex_e2e_tests \
-            --gtest_output=xml:e2e-results.xml \
-            --gtest_filter=-AuthE2ETest.RefreshTokenRenewal:TimeoutE2ETest.ServiceRecoveryAfterTimeout
+            --gtest_output=xml:e2e-results.xml
         env:
           E2E_GATEWAY_HOST: "127.0.0.1"
           E2E_GATEWAY_TCP_PORT: "8443"

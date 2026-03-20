@@ -108,7 +108,7 @@ class E2ETestFixture : public ::testing::Test
             uint8_t flags{0};
             std::vector<uint8_t> payload;
         };
-        Response recv(std::chrono::seconds timeout = std::chrono::seconds{10});
+        Response recv(std::chrono::seconds timeout = std::chrono::seconds{30});
 
         /// Close connection
         void close();

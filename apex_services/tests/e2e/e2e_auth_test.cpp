@@ -92,9 +92,9 @@ TEST_F(AuthE2ETest, RefreshTokenRenewal)
     ASSERT_FALSE(auth.refresh_token.empty());
 
     // 2. Wait for Access Token to expire
-    //    auth_svc_e2e.toml: access_token_ttl_sec=30, gateway clock_skew=0
+    //    auth_svc_e2e.toml: access_token_ttl_sec=10, gateway clock_skew=0
     //    Sleep TTL + 1s margin to guarantee expiry
-    std::this_thread::sleep_for(std::chrono::seconds{31});
+    std::this_thread::sleep_for(std::chrono::seconds{11});
 
     // 3. Try authenticated request with expired token -> JWT_EXPIRED
     authenticate(client, auth.access_token);
