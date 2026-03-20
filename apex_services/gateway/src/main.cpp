@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 // NOMINMAX must precede any Windows header to prevent min/max macro
 // conflicts with std::numeric_limits in FlatBuffers headers.

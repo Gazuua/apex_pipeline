@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 # 세션 시작 시 프로젝트 컨텍스트를 stdout으로 출력
 # SessionStart 훅에서 호출 — Claude가 자동으로 프로젝트 상황을 파악하게 함

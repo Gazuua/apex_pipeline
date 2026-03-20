@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 // pg_pool.hpp — self-contained (CRTP ConnectionPool inheritance removed)
 #pragma once

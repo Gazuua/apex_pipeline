@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 function(apex_add_integration_test TEST_NAME TEST_SOURCE)
     add_executable(${TEST_NAME} ${TEST_SOURCE})

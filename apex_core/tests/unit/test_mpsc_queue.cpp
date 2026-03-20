@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/mpsc_queue.hpp>
 #include <apex/core/result.hpp>

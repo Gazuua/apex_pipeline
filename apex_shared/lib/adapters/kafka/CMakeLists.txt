@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 # apex_shared/lib/adapters/kafka/CMakeLists.txt
 find_package(RdKafka CONFIG REQUIRED)

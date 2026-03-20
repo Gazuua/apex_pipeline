@@ -1,4 +1,4 @@
-// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/configure_context.hpp>
 #include <apex/core/detail/math_utils.hpp>

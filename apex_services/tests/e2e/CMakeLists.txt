@@ -1,4 +1,4 @@
-# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 # apex_services/tests/e2e — E2E integration tests
 # Requires: Docker-based infrastructure (services running in containers)
