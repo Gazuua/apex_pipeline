@@ -43,6 +43,7 @@ endfunction()
 
 # --- Micro benchmarks ---
 apex_add_benchmark(bench_mpsc_queue    micro/bench_mpsc_queue.cpp)
+apex_add_benchmark(bench_spsc_queue    micro/bench_spsc_queue.cpp)
 apex_add_benchmark(bench_ring_buffer   micro/bench_ring_buffer.cpp)
 apex_add_benchmark(bench_frame_codec   micro/bench_frame_codec.cpp)
 apex_add_benchmark(bench_dispatcher    micro/bench_dispatcher.cpp)
