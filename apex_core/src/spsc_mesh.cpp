@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
-#include <apex/core/spsc_mesh.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_dispatcher.hpp>
+#include <apex/core/spsc_mesh.hpp>
 
 #include <spdlog/spdlog.h>
 

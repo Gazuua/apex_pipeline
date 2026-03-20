@@ -53,7 +53,10 @@ class SpscMesh
     /// Shutdown: cancel all waiting producers, drain remaining LegacyCrossCoreFn.
     void shutdown();
 
-    [[nodiscard]] uint32_t core_count() const noexcept { return num_cores_; }
+    [[nodiscard]] uint32_t core_count() const noexcept
+    {
+        return num_cores_;
+    }
 
   private:
     uint32_t num_cores_;

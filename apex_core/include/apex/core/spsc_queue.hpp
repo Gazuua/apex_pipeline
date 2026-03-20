@@ -156,8 +156,7 @@ boost::asio::awaitable<void> SpscQueue<T>::enqueue(const T& item)
         co_return;
 
     // Queue full → suspend via async_initiate
-    co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable),
-                                         void(boost::system::error_code)>(
+    co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable), void(boost::system::error_code)>(
         [this, &item](auto handler) {
             // Set waiting flag FIRST (release)
             producer_waiting_.store(true, std::memory_order_release);

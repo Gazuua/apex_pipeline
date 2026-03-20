@@ -148,8 +148,7 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
 
 /// Fire-and-forget closure execution on target core. Awaitable, core thread only.
 /// For non-core threads, use asio::post(engine.io_context(core_id), callback) directly.
-template <typename F>
-boost::asio::awaitable<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func)
+template <typename F> boost::asio::awaitable<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func)
 {
     auto* task = new std::function<void()>(std::forward<F>(func));
     CoreMessage msg;
@@ -168,8 +167,8 @@ boost::asio::awaitable<void> cross_core_post(CoreEngine& engine, uint32_t target
 
 /// Zero-allocation fire-and-forget message passing via CrossCoreOp.
 /// Awaitable, core thread only.
-inline boost::asio::awaitable<void> cross_core_post_msg(CoreEngine& engine, uint32_t source_core,
-                                                        uint32_t target_core, CrossCoreOp op, void* data = nullptr)
+inline boost::asio::awaitable<void> cross_core_post_msg(CoreEngine& engine, uint32_t source_core, uint32_t target_core,
+                                                        CrossCoreOp op, void* data = nullptr)
 {
     assert(source_core < engine.core_count() && "invalid source_core");
     CoreMessage msg{.op = op, .source_core = source_core, .data = reinterpret_cast<uintptr_t>(data)};

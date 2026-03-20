@@ -234,8 +234,7 @@ TEST_F(CrossCoreCallTest, FuncExceptionResultsInTimeout)
         server_->core_io_context(0),
         [this, &promise]() -> boost::asio::awaitable<void> {
             auto result = co_await server_->cross_core_call(
-                1, []() -> int { throw std::runtime_error("intentional test exception"); },
-                100ms);
+                1, []() -> int { throw std::runtime_error("intentional test exception"); }, 100ms);
             EXPECT_FALSE(result.has_value());
             promise.set_value(result.error());
         },
@@ -280,7 +279,10 @@ TEST(BroadcastTest, BroadcastToAllCores)
         explicit BroadcastData(std::atomic<int>* c)
             : counter(c)
         {}
-        ~BroadcastData() override { counter->store(1, std::memory_order_release); }
+        ~BroadcastData() override
+        {
+            counter->store(1, std::memory_order_release);
+        }
     };
 
     // broadcast_cross_core is awaitable — call from core thread

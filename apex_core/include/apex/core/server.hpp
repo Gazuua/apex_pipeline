@@ -287,8 +287,7 @@ class Server
     }
 
     /// Fire-and-forget execution on target core. Awaitable, core thread only.
-    template <typename F>
-    boost::asio::awaitable<void> cross_core_post(uint32_t target_core, F&& func)
+    template <typename F> boost::asio::awaitable<void> cross_core_post(uint32_t target_core, F&& func)
     {
         co_await apex::core::cross_core_post(*core_engine_, target_core, std::forward<F>(func));
     }

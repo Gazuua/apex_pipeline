@@ -69,23 +69,22 @@ void BroadcastFanout::fanout(std::string_view channel, std::span<const uint8_t> 
         auto* maps = channel_maps_;
 
         // asio::post 직접 사용 (비코어 스레드 — Redis PubSub callback)
-        boost::asio::post(
-            engine_.io_context(core_id),
-            [mgr, maps, core_id, ch = std::string(channel), shared_data = data]() {
-                if (!maps)
-                    return;
-                auto* subs = (*maps)[core_id].get_subscribers(ch);
-                if (!subs || subs->empty())
-                    return;
+        boost::asio::post(engine_.io_context(core_id),
+                          [mgr, maps, core_id, ch = std::string(channel), shared_data = data]() {
+                              if (!maps)
+                                  return;
+                              auto* subs = (*maps)[core_id].get_subscribers(ch);
+                              if (!subs || subs->empty())
+                                  return;
 
-                for (auto sid : *subs)
-                {
-                    auto session = mgr->find_session(sid);
-                    if (!session || !session->is_open())
-                        continue;
-                    (void)session->enqueue_write_raw(*shared_data);
-                }
-            });
+                              for (auto sid : *subs)
+                              {
+                                  auto session = mgr->find_session(sid);
+                                  if (!session || !session->is_open())
+                                      continue;
+                                  (void)session->enqueue_write_raw(*shared_data);
+                              }
+                          });
     }
 }
 

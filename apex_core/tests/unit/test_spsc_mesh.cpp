@@ -1,8 +1,8 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
-#include <apex/core/spsc_mesh.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_dispatcher.hpp>
+#include <apex/core/spsc_mesh.hpp>
 
 #include <gtest/gtest.h>
 
@@ -94,9 +94,7 @@ TEST_F(SpscMeshTest, Shutdown_CleansLegacyClosures)
     // Verify no leak — ASAN catches if not deleted
     auto* task = new std::function<void()>([] {});
 
-    CoreMessage msg{.op = CrossCoreOp::LegacyCrossCoreFn,
-                    .source_core = 0,
-                    .data = reinterpret_cast<uintptr_t>(task)};
+    CoreMessage msg{.op = CrossCoreOp::LegacyCrossCoreFn, .source_core = 0, .data = reinterpret_cast<uintptr_t>(task)};
     mesh_->queue(0, 1).try_enqueue(msg);
 
     mesh_->shutdown();
@@ -106,15 +104,14 @@ TEST_F(SpscMeshTest, Shutdown_CleansLegacyClosures)
 TEST_F(SpscMeshTest, DrainAllFor_DispatchesRegisteredOp)
 {
     std::atomic<int> received_value{0};
-    dispatcher_.register_handler(static_cast<CrossCoreOp>(0x0100),
-                                 +[](uint32_t /*core_id*/, uint32_t /*source_core*/, void* data) {
-                                     auto* val = reinterpret_cast<std::atomic<int>*>(data);
-                                     val->store(42, std::memory_order_relaxed);
-                                 });
+    dispatcher_.register_handler(
+        static_cast<CrossCoreOp>(0x0100), +[](uint32_t /*core_id*/, uint32_t /*source_core*/, void* data) {
+            auto* val = reinterpret_cast<std::atomic<int>*>(data);
+            val->store(42, std::memory_order_relaxed);
+        });
 
-    CoreMessage msg{.op = static_cast<CrossCoreOp>(0x0100),
-                    .source_core = 0,
-                    .data = reinterpret_cast<uintptr_t>(&received_value)};
+    CoreMessage msg{
+        .op = static_cast<CrossCoreOp>(0x0100), .source_core = 0, .data = reinterpret_cast<uintptr_t>(&received_value)};
     mesh_->queue(0, 1).try_enqueue(msg);
 
     (void)mesh_->drain_all_for(1, dispatcher_, nullptr, 1024);

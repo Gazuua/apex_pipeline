@@ -319,9 +319,11 @@ void CoreEngine::drain_inbox(uint32_t core_id)
     {
         mesh_->drain_all_for(
             core_id, cross_core_dispatcher_,
-            message_handler_ ? std::function<void(uint32_t, const CoreMessage&)>{
-                                   [this](uint32_t cid, const CoreMessage& msg) { message_handler_(cid, msg); }}
-                             : std::function<void(uint32_t, const CoreMessage&)>{},
+            message_handler_
+                ? std::function<void(uint32_t, const CoreMessage&)>{[this](uint32_t cid, const CoreMessage& msg) {
+                      message_handler_(cid, msg);
+                  }}
+                : std::function<void(uint32_t, const CoreMessage&)>{},
             config_.drain_batch_limit);
     }
 }
