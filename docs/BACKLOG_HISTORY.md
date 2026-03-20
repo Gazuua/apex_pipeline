@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #99. Nightly Valgrind 첫 실행 결과 확인
+- **등급**: MAJOR | **스코프**: ci | **타입**: infra
+- **해결**: 2026-03-20 10:26:12 | **방식**: FIXED
+- **비고**: valgrind-unit: `include(CTest)` 추가로 DartConfiguration.tcl 생성 + 자체 빌드(아티팩트 의존 제거). valgrind-e2e: `gateway_e2e_valgrind.toml`(request_timeout 30s) + E2E 타임아웃 확대 + Kafka rebalance 30s 대기 + 스트레스 연결/메시지 축소. 3-job 병렬 구조(valgrind-unit, build, valgrind-e2e).
+
+### #98. CI E2E 타이밍 민감 테스트 안정화
+- **등급**: MAJOR | **스코프**: ci, e2e | **타입**: test
+- **해결**: 2026-03-20 10:26:12 | **방식**: FIXED
+- **비고**: `access_token_ttl_sec` 30→10초, RefreshTokenRenewal sleep 31→11초, TcpClient recv 기본 타임아웃 10→30초. ci.yml E2E에서 `--gtest_filter` 제거하여 11개 전체 테스트 실행.
+
 ### #2. RedisMultiplexer cancel_all_pending UAF
 - **등급**: CRITICAL | **스코프**: shared | **타입**: bug
 - **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
