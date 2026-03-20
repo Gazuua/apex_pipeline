@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/core_message.hpp>
 #include <apex/core/cross_core_dispatcher.hpp>
 #include <apex/core/cross_core_op.hpp>
 #include <apex/core/mpsc_queue.hpp>
@@ -32,16 +33,6 @@ struct CoreMetrics
     std::atomic<uint64_t> post_total{0};
     std::atomic<uint64_t> post_failures{0};
 };
-
-/// Trivially-copyable message for inter-core communication via MpscQueue.
-struct CoreMessage
-{
-    CrossCoreOp op{CrossCoreOp::Noop};
-    uint32_t source_core{0};
-    uintptr_t data{0};
-};
-static_assert(std::is_trivially_copyable_v<CoreMessage>);
-static_assert(sizeof(CoreMessage) <= 16);
 
 /// Per-core execution context. Each core owns its own io_context and MPSC inbox.
 /// NOT thread-safe -- only accessed by the owning core thread.
