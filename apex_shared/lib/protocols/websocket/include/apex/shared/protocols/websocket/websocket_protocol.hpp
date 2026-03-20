@@ -4,6 +4,7 @@
 #include <apex/core/ring_buffer.hpp>
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -31,9 +32,14 @@ struct WebSocketProtocol
 
     struct Frame
     {
-        std::vector<uint8_t> payload;
+        std::vector<uint8_t> payload_data;
         bool is_text = false;
         bool is_binary = true;
+
+        [[nodiscard]] std::span<const uint8_t> payload() const noexcept
+        {
+            return {payload_data.data(), payload_data.size()};
+        }
     };
 
     /// RingBuffer에서 WebSocket 메시지 추출 (MVP: 길이-접두어 방식).

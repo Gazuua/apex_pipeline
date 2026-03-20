@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include <apex/shared/protocols/tcp/wire_header.hpp>
+#include <apex/core/wire_header.hpp>
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -27,9 +27,9 @@ namespace apex::e2e
 {
 
 // Re-export wire_flags for test assertions (e.g. ERROR_RESPONSE)
-using namespace apex::shared::protocols::tcp::wire_flags;
+using namespace apex::core::wire_flags;
 
-using WireHeader = apex::shared::protocols::tcp::WireHeader;
+using WireHeader = apex::core::WireHeader;
 
 /// Read an integer from environment variable, returning default_val if unset.
 /// Centralized to avoid default-value drift across stress test files.

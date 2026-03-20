@@ -62,11 +62,11 @@ TEST(FrameCodec, DecodeCompleteFrame)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->header.msg_id, 42u);
     EXPECT_EQ(result->header.body_size, 4u);
-    ASSERT_EQ(result->payload.size(), 4u);
-    EXPECT_EQ(result->payload[0], 0xDE);
-    EXPECT_EQ(result->payload[1], 0xAD);
-    EXPECT_EQ(result->payload[2], 0xBE);
-    EXPECT_EQ(result->payload[3], 0xEF);
+    ASSERT_EQ(result->payload().size(), 4u);
+    EXPECT_EQ(result->payload()[0], 0xDE);
+    EXPECT_EQ(result->payload()[1], 0xAD);
+    EXPECT_EQ(result->payload()[2], 0xBE);
+    EXPECT_EQ(result->payload()[3], 0xEF);
 }
 
 TEST(FrameCodec, ConsumeFrame)
@@ -140,7 +140,7 @@ TEST(FrameCodec, DecodeZeroBodyFrame)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->header.msg_id, 99u);
     EXPECT_EQ(result->header.body_size, 0u);
-    EXPECT_TRUE(result->payload.empty());
+    EXPECT_TRUE(result->payload().empty());
 }
 
 TEST(FrameCodec, EncodeToBuffer)
@@ -228,10 +228,10 @@ TEST(FrameCodec, EncodeWrapAround)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->header.msg_id, 42u);
     EXPECT_EQ(result->header.body_size, 8u);
-    ASSERT_EQ(result->payload.size(), 8u);
+    ASSERT_EQ(result->payload().size(), 8u);
     for (size_t i = 0; i < 8; ++i)
     {
-        EXPECT_EQ(result->payload[i], payload[i]);
+        EXPECT_EQ(result->payload()[i], payload[i]);
     }
 }
 

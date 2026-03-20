@@ -4,11 +4,11 @@
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/configure_context.hpp>
 #include <apex/core/error_sender.hpp>
+#include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_context.hpp>
-#include <apex/shared/protocols/kafka/kafka_envelope.hpp>
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -75,8 +75,8 @@ class ServiceBaseInterface
     virtual void on_session_closed(SessionId) {}
 
     // ── D2: Kafka auto-wiring support ──────────────────────────────────
-    using KafkaHandler = std::function<boost::asio::awaitable<Result<void>>(shared::protocols::kafka::MetadataPrefix,
-                                                                            uint32_t, std::span<const uint8_t>)>;
+    using KafkaHandler =
+        std::function<boost::asio::awaitable<Result<void>>(KafkaMessageMeta, uint32_t, std::span<const uint8_t>)>;
     using KafkaHandlerMap = boost::unordered_flat_map<uint32_t, KafkaHandler>;
 
     /// Kafka 핸들러 등록 여부. KafkaAdapter auto-wiring에서 사용.
@@ -267,12 +267,12 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     /// KafkaDispatchBridge가 수신한 Kafka 메시지를 msg_id 기반으로 라우팅할 때 사용.
     /// @note FlatBuffers 메시지 포인터(const T*)는 co_await 시점까지만 유효합니다.
     template <typename FbsType>
-    void kafka_route(uint32_t msg_id, boost::asio::awaitable<Result<void>> (Derived::*method)(
-                                          const shared::protocols::kafka::MetadataPrefix&, uint32_t, const FbsType*))
+    void kafka_route(uint32_t msg_id, boost::asio::awaitable<Result<void>> (Derived::*method)(const KafkaMessageMeta&,
+                                                                                              uint32_t, const FbsType*))
     {
         auto* self = static_cast<Derived*>(this);
         kafka_handlers_[msg_id] = [self,
-                                   method](shared::protocols::kafka::MetadataPrefix meta, uint32_t id,
+                                   method](KafkaMessageMeta meta, uint32_t id,
                                            std::span<const uint8_t> payload) -> boost::asio::awaitable<Result<void>> {
             flatbuffers::Verifier verifier(payload.data(), payload.size());
             if (!verifier.VerifyBuffer<FbsType>())

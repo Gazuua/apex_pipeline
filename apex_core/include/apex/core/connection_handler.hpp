@@ -153,12 +153,12 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
             {
                 // TCP-style frame (header + payload)
                 msg_id = frame.header.msg_id;
-                payload_span = frame.payload;
+                payload_span = frame.payload();
             }
             else
             {
                 // WebSocket-style frame (payload only, msg_id in first 4 bytes)
-                const auto& raw = frame.payload;
+                const auto& raw = frame.payload();
                 if (raw.size() < sizeof(uint32_t))
                 {
                     if (logger_)

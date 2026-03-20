@@ -73,11 +73,11 @@ TEST(PipelineIntegration, EncodeDecodeDispatch)
     auto frame = FrameCodec::try_decode(buf);
     ASSERT_TRUE(frame.has_value());
     EXPECT_EQ(frame->header.msg_id, 0x0001);
-    EXPECT_EQ(frame->payload.size(), 6);
+    EXPECT_EQ(frame->payload().size(), 6);
 
     // 4. Dispatch to service
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload()));
     ASSERT_TRUE(result.has_value());
 
     // 5. Verify handler received correct data
@@ -111,7 +111,7 @@ TEST(PipelineIntegration, MultiFramePipeline)
     int frames_processed = 0;
     while (auto frame = FrameCodec::try_decode(buf))
     {
-        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
+        auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload()));
         EXPECT_TRUE(result.has_value());
         FrameCodec::consume_frame(buf, *frame);
         ++frames_processed;
@@ -136,7 +136,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
     ASSERT_TRUE(frame.has_value());
 
     boost::asio::io_context io_ctx;
-    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload));
+    auto result = run_coro(io_ctx, service->dispatcher().dispatch(nullptr, frame->header.msg_id, frame->payload()));
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), apex::core::ErrorCode::HandlerNotFound);
 }
