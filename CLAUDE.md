@@ -41,6 +41,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **커밋 메시지에서 백로그 번호는 `BACKLOG-N` 형식** — `#N` 금지 (GitHub PR/Issue 자동 링크 충돌)
 - **초기 설정** (클론 후 1회): `git config core.hooksPath apex_tools/git-hooks`
 - **main 직접 커밋 절대 금지** (pre-commit hook 강제) — feature/* 또는 bugfix/* 에서 작업
+- **새 브랜치 생성 전 최신화 필수**: `git fetch origin main && git pull origin main` 실행 후 최신 main 기반으로 브랜치 생성
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
