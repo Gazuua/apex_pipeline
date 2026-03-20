@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #pragma once
 
 /// Mock RedisMultiplexer — command 기록 + 미리 설정된 응답 반환.

@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_services/chat-svc -- Chat Service (v0.5.3.1)
 
 find_package(spdlog CONFIG REQUIRED)

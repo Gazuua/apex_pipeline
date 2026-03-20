@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 find_package(GTest CONFIG REQUIRED)
 find_package(flatbuffers CONFIG REQUIRED)
 

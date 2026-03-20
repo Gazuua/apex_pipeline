@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/core_allocator.hpp>
 #include <cstdint>

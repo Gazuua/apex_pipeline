@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/core_engine.hpp>
 #include <gtest/gtest.h>
 

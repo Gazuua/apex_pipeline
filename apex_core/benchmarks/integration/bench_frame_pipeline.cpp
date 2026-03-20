@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "../bench_helpers.hpp"
 
 #include <apex/core/frame_codec.hpp>

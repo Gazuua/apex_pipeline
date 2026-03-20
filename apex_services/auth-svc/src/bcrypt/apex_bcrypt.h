@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 /*
  * Minimal bcrypt interface for password hashing.
  * Uses OpenSSL's libcrypto for the Blowfish cipher.

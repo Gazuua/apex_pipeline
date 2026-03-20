@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex-auto-review 플러그인 자동 설정 스크립트
 # SessionStart 훅에서 호출 — idempotent (이미 설치 시 즉시 종료)
 #

@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared/lib/rate_limit/CMakeLists.txt
 add_library(apex_shared_rate_limit STATIC
     src/sliding_window_counter.cpp

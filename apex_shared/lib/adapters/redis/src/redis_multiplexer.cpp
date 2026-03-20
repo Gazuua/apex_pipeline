@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/shared/adapters/redis/redis_connection.hpp>
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 

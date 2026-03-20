@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/auth_svc/auth_error.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/auth_svc/jwt_manager.hpp>

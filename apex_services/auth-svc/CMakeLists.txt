@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_services/auth-svc -- Auth Service (v0.5.3.0)
 
 find_package(OpenSSL REQUIRED)

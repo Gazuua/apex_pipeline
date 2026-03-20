@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/error_code.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
 #include <gtest/gtest.h>

@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared protocols/kafka — Kafka Envelope (RoutingHeader + MetadataPrefix)
 
 add_library(apex_protocols_kafka STATIC

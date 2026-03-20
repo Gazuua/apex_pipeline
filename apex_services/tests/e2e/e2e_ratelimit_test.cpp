@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "e2e_test_fixture.hpp"
 
 #include <chat_room_generated.h>

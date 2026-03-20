@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <gtest/gtest.h>

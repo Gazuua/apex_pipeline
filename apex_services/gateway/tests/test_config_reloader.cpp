@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/gateway/config_reloader.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_config_parser.hpp>

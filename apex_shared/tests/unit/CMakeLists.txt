@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 find_package(GTest CONFIG REQUIRED)
 
 function(apex_shared_add_unit_test TEST_NAME TEST_SOURCE)

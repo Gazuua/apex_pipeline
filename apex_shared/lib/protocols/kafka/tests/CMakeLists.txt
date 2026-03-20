@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 find_package(GTest CONFIG REQUIRED)
 
 add_executable(test_envelope_builder test_envelope_builder.cpp)

@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # apex_shared — 공유 FlatBuffers 스키마 + C++ 유틸 라이브러리
 
 find_package(flatbuffers CONFIG REQUIRED)

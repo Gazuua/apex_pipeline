@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 // apex_shared/lib/adapters/common/src/adapter_error.cpp
 #include <apex/shared/adapters/adapter_error.hpp>
 

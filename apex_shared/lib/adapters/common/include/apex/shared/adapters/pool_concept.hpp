@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 // apex_shared/lib/adapters/common/include/apex/shared/adapters/pool_concept.hpp
 #pragma once
 

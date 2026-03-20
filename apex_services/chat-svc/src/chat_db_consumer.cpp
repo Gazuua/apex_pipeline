@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include "chat_db_consumer.hpp"
 
 #include <chat_message_generated.h>

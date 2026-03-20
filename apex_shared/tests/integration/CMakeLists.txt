@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 option(APEX_BUILD_INTEGRATION_TESTS "Build integration tests (requires docker-compose)" OFF)
 
 if(NOT APEX_BUILD_INTEGRATION_TESTS)

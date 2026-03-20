@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # Each test file is added as components are implemented
 
 function(apex_add_unit_test TEST_NAME TEST_SOURCE)

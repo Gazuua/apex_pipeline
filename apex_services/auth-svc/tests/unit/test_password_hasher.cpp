@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/auth_svc/password_hasher.hpp>
 
 #include <gtest/gtest.h>

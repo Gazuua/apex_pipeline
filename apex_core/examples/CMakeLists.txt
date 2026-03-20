@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # Output directory: bin/{variant}/ (debug, release, asan, tsan)
 if(APEX_BUILD_VARIANT)
     set(_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/${APEX_BUILD_VARIANT}")

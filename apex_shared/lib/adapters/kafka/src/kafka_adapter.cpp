@@ -1,3 +1,5 @@
+// Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 #include <apex/core/service_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>

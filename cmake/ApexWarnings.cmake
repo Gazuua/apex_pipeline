@@ -1,3 +1,5 @@
+# Copyright (c) 2025-2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
 # ── 경고 정책 ──────────────────────────────────────────
 # 모든 프로젝트 타겟에 적용하는 공통 경고 함수.
 # 루트 CMakeLists.txt와 apex_core/CMakeLists.txt 양쪽에서 include.
