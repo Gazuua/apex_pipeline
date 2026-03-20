@@ -10,10 +10,12 @@
 #include <apex/core/session.hpp>
 #include <apex/core/wire_context.hpp>
 
+#include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
@@ -318,6 +320,20 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 outstanding_coros_.fetch_sub(1, std::memory_order_release);
             },
             boost::asio::detached);
+    }
+
+    /// io_context에 작업 게시. io_context 직접 접근 대신 사용.
+    template <typename F> void post(F&& fn)
+    {
+        assert(io_ctx_ && "post() called before internal_configure");
+        boost::asio::post(*io_ctx_, std::forward<F>(fn));
+    }
+
+    /// io_context의 executor 반환. timer 등에 필요.
+    [[nodiscard]] boost::asio::any_io_executor get_executor() noexcept
+    {
+        assert(io_ctx_ && "get_executor() called before internal_configure");
+        return io_ctx_->get_executor();
     }
 
   public:
