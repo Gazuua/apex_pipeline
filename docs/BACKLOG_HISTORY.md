@@ -5,6 +5,71 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #2. RedisMultiplexer cancel_all_pending UAF
+- **등급**: CRITICAL | **스코프**: shared | **타입**: bug
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `cancelled` 플래그 + `static_on_reply()` early-return 가드 추가로 timed_out 경로-async_wait 경로 간 UAF 방지
+
+### #10. CircuitBreaker HALF_OPEN 코루틴 인터리빙
+- **등급**: MAJOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: OPEN→HALF_OPEN 전환 시 `half_open_calls_ = 1` 초기화 + check-then-increment 패턴으로 코루틴 인터리빙 방어
+
+### #11. CircuitBreaker::call() Result<void> 타입 제한
+- **등급**: MAJOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `CircuitCallable` concept 도입 + `call()` 반환 타입 `std::invoke_result_t<F>` 제네릭화
+
+### #68. GatewayService set_default_handler() 캡슐화 우회 해소
+- **등급**: MAJOR | **스코프**: gateway | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: 83줄 인라인 람다 → `set_default_handler(&GatewayService::on_default_message)` + 멤버 함수 3개 추출 (`handle_authenticate_session`, `handle_subscribe_channel`, `handle_unsubscribe_channel`)
+
+### #69. 프레임워크 가이드 Shutdown 시퀀스 갱신
+- **등급**: MAJOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-20 10:30:35 | **방식**: DOCUMENTED
+- **비고**: §3 Shutdown 시퀀스를 `finalize_shutdown()` 실제 구현 기준 7단계로 갱신 (Listener stop, Scheduler stop, Adapter drain/close 분리 반영)
+
+### #70. 프레임워크 가이드 코드 예시 ServiceRegistry API 수정
+- **등급**: MINOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-20 10:30:35 | **방식**: DOCUMENTED
+- **비고**: §4.1 `ctx.local_registry.get<T>()` → `ctx.local_registry.find<T>()` 변경 + API 주석 추가
+
+### #71. PubSubListener mutex 예외 가이드 명시
+- **등급**: MINOR | **스코프**: docs, gateway | **타입**: docs
+- **해결**: 2026-03-20 10:30:35 | **방식**: DOCUMENTED
+- **비고**: §8 #2 금지 원칙에 hiredis dedicated-thread 패턴 예외 조항 추가
+
+### #72. safe_parse_u64 Result<uint64_t> 반환 개선
+- **등급**: MINOR | **스코프**: chat-svc | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `safe_parse_u64` 반환 `Result<uint64_t>`로 변경, 호출부 10곳 에러 핸들링 패턴(early return/continue) 적용
+
+### #92. WebSocket msg_id 바이트오더 미지정
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `connection_handler.hpp` WebSocket msg_id 추출에 `ntohl()` 적용, TCP WireHeader와 big-endian 통일
+
+### #93. config.hpp → server.hpp 순환 include 비용
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `ServerConfig`를 `server_config.hpp`로 분리, `config.hpp`와 `server.hpp` 모두 경량 헤더 참조로 전환
+
+### #94. outstanding_coros_ fetch_add 메모리 오더 비대칭
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: FIXED
+- **비고**: `fetch_add(1, relaxed)` → `fetch_add(1, acq_rel)` 변경, `fetch_sub(1, release)` + `load(acquire)`와 대칭
+
+### #95. apex_core/README.md 전면 갱신 (WireHeader 크기, 의존성, 프로토콜 위치)
+- **등급**: MAJOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-20 10:30:35 | **방식**: DOCUMENTED
+- **비고**: WireHeader 10→12바이트 v2, ProtocolBase → Protocol concept, TcpBinaryProtocol apex_shared 위치 반영, 의존성 목록 현행화
+
+### #96. post_init_callback 문서 vs 코드 괴리
+- **등급**: MAJOR | **스코프**: core, docs | **타입**: design-debt
+- **해결**: 2026-03-20 10:30:35 | **방식**: DOCUMENTED
+- **비고**: Apex_Pipeline.md v0.5.6.0 "post_init_callback 완전 제거" → "서비스 사용 제거 (프레임워크 API 유지)" 정정. 실제 3개 서비스 main.cpp은 이미 사용 해제 상태
+
 ### #7. Linux CI 파이프라인 확장 (E2E + UBSAN + Valgrind)
 - **등급**: MAJOR | **스코프**: ci, infra | **타입**: infra
 - **해결**: 2026-03-19 22:46:48 | **방식**: FIXED
