@@ -56,26 +56,18 @@ TEST_F(TimeoutE2ETest, ServiceTimeout)
 /// late-arriving Kafka responses on the same Gateway consumer.
 TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout)
 {
-    // Fresh connection — isolates from any residual responses in previous sessions
+    // Allow Gateway to clean up pending request map from previous ServiceTimeout test.
+    // Without this, the new session may inherit timing artifacts on CI.
+    std::this_thread::sleep_for(std::chrono::seconds{2});
+
+    // Fresh connection — no stale data possible on a new TCP session, so no flush needed.
+    // (Previous flush loop using recv(1s) was incompatible with boost::asio::read() +
+    //  SO_RCVTIMEO: EAGAIN retries caused a 30s hang → Broken pipe.)
     TcpClient client(io_ctx_, config_);
     client.connect();
 
     auto auth = login(client, "alice@apex.dev", "password123");
     authenticate(client, auth.access_token);
-
-    // Flush any stale responses that arrived before our request
-    // (e.g., previous test's late Kafka responses dispatched to this new session)
-    for (int i = 0; i < 3; ++i)
-    {
-        try
-        {
-            (void)client.recv(std::chrono::seconds{1});
-        }
-        catch (...)
-        {
-            break; // No more stale data — timeout is expected
-        }
-    }
 
     // Normal request -> should succeed
     {
@@ -85,7 +77,8 @@ TEST_F(TimeoutE2ETest, ServiceRecoveryAfterTimeout)
         client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
 
         auto resp = client.recv();
-        EXPECT_EQ(resp.msg_id, 2008u) << "Normal request should succeed, got msg_id=" << resp.msg_id;
+        EXPECT_EQ(resp.msg_id, 2008u) << "Normal request should succeed after timeout recovery, got msg_id="
+                                      << resp.msg_id;
     }
 
     client.close();
