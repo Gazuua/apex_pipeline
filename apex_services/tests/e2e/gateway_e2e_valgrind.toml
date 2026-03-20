@@ -1,0 +1,75 @@
+# Gateway E2E Test Configuration — Valgrind
+# gateway_e2e.toml 기반, Valgrind 하 서비스 느림을 수용하도록 타임아웃 확대
+
+[logging]
+service_name = "gateway"
+
+[logging.file]
+enabled = true
+
+[server]
+ws_port = 8444
+tcp_port = 8443
+num_cores = 1
+
+[kafka]
+brokers = "localhost:9092"
+consumer_group = "gateway-e2e"
+response_topic = "gateway.responses"
+
+[redis.auth]
+host = "localhost"
+port = 6380
+
+[redis.pubsub]
+host = "localhost"
+port = 6383
+
+[redis.ratelimit]
+host = "localhost"
+port = 6381
+
+[jwt]
+public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"
+algorithm = "RS256"
+issuer = "apex-auth"
+clock_skew_seconds = 0
+
+[auth.exempt]
+LoginRequest = 1000
+LogoutRequest = 1002
+RefreshTokenRequest = 1004
+
+# Auth Service routes: msg_id 1000-1099
+[[routes]]
+range_begin = 1000
+range_end = 1099
+kafka_topic = "auth.requests"
+
+# Chat Service routes: msg_id 2000-2999
+[[routes]]
+range_begin = 2000
+range_end = 2999
+kafka_topic = "chat.requests"
+
+[pubsub]
+max_subscriptions_per_session = 50
+global_channels = ["pub:global:chat"]
+
+[rate_limit.ip]
+total_limit = 30
+window_size_seconds = 2
+
+[rate_limit.user]
+default_limit = 10
+window_size_seconds = 3
+
+[rate_limit.endpoint]
+default_limit = 60
+window_size_seconds = 3
+
+[rate_limit.endpoint.overrides]
+2001 = 5
+
+[timeouts]
+request_timeout_ms = 30000    # Valgrind용 — bcrypt + Kafka 라운드트립 수용 (기본 5000ms → 30000ms)

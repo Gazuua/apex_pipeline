@@ -14,6 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(APEX_USE_IO_URING "Enable io_uring backend for Boost.Asio" OFF)
 
 enable_testing()
+include(CTest)
 
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/ApexWarnings.cmake)
 
