@@ -53,7 +53,7 @@ jobs:
         run: |
           ctest --test-dir build/Linux/debug \
             -LE "e2e|e2e_stress" \
-            --overwrite MemoryCheckCommand=valgrind \
+            --overwrite MemoryCheckCommand=/usr/bin/valgrind \
             --overwrite "MemoryCheckCommandOptions=--tool=memcheck --leak-check=full --error-exitcode=1" \
             -T MemCheck \
             --output-on-failure
@@ -143,14 +143,20 @@ jobs:
             build/Linux/debug/chat-svc/chat_svc_main \
             apex_services/tests/e2e/chat_svc_e2e.toml > /tmp/chat.log 2>&1 &
 
-          # Valgrind 하에서는 기동이 느리므로 Gateway TCP 포트 대기 (최대 180초)
-          timeout 180 bash -c 'until nc -z 127.0.0.1 8443 2>/dev/null; do sleep 2; done'
-          sleep 30  # Kafka consumer rebalance 추가 대기 (Valgrind 하 확대)
+          # Valgrind 하에서는 기동이 느리므로 Gateway TCP 포트 대기 (최대 300초)
+          timeout 300 bash -c 'until nc -z 127.0.0.1 8443 2>/dev/null; do sleep 2; done'
+          sleep 60  # Kafka consumer rebalance 추가 대기 (Valgrind 하 확대)
 
+      # Valgrind 제외 테스트:
+      #   RefreshTokenRenewal — 토큰 TTL 타이밍 의존
+      #   ServiceRecoveryAfterTimeout — boost::asio SO_RCVTIMEO 비호환
+      #   ServiceTimeout — recv(15s) vs Gateway request_timeout(120s), Valgrind에서 타임아웃 테스트 무의미
+      #   RoomMessageBroadcast — PubSub 메시지 순서 비결정적 (Valgrind 감속 하)
+      #   GlobalBroadcast — 하드코딩 recv(5s)가 Valgrind 10-20x 감속에서 부족
       - name: Run E2E tests
         run: |
           build/Linux/debug/tests/e2e/apex_e2e_tests \
-            --gtest_filter=-AuthE2ETest.RefreshTokenRenewal:TimeoutE2ETest.ServiceRecoveryAfterTimeout
+            --gtest_filter=-AuthE2ETest.RefreshTokenRenewal:TimeoutE2ETest.ServiceRecoveryAfterTimeout:TimeoutE2ETest.ServiceTimeout:ChatE2ETest.RoomMessageBroadcast:ChatE2ETest.GlobalBroadcast
         env:
           E2E_GATEWAY_HOST: "127.0.0.1"
           E2E_GATEWAY_TCP_PORT: "8443"
