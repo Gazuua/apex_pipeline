@@ -128,12 +128,13 @@ parse_args() {
         case "$1" in
             --backlog)       ARGS_BACKLOG="$2"; shift 2 ;;
             --scopes)        ARGS_SCOPES="$2"; shift 2 ;;
-            --summary)       ARGS_SUMMARY="$2"; shift 2 ;;
+            --summary|--description) ARGS_SUMMARY="$2"; shift 2 ;;
             --payload-file)  ARGS_PAYLOAD_FILE="$2"; shift 2 ;;
             --id)            ARGS_ID="$2"; shift 2 ;;
             --action)        ARGS_ACTION="$2"; shift 2 ;;
             --reason)        ARGS_REASON="$2"; shift 2 ;;
             --gate)          ARGS_GATE="$2"; shift 2 ;;
+            --*)             echo "[handoff] WARNING: unknown option '$1' (ignored)" >&2; shift 2 ;;
             *)               shift ;;
         esac
     done
@@ -180,9 +181,13 @@ do_notify_start() {
         } > "$HANDOFF_DIR/backlog-status/${BRANCH_ID}.yml"
     fi
 
-    # index에 추가
+    # index에 추가 — BACKLOG-N 중복 방지
     local summary_text="$ARGS_SUMMARY"
-    if [[ -n "$ARGS_BACKLOG" ]]; then summary_text="BACKLOG-${ARGS_BACKLOG} $summary_text"; fi
+    if [[ -n "$ARGS_BACKLOG" ]]; then
+        if [[ "$summary_text" != *"BACKLOG-${ARGS_BACKLOG}"* ]]; then
+            summary_text="BACKLOG-${ARGS_BACKLOG} $summary_text"
+        fi
+    fi
 
     local new_id
     new_id=$(append_index "tier1" "$BRANCH_ID" "$ARGS_SCOPES" "$summary_text")
@@ -316,8 +321,8 @@ do_check() {
             continue
         fi
 
-        # 스코프 필터링
-        if [[ -n "${ARGS_SCOPES:-}" ]]; then
+        # 스코프 필터링 — 빈 스코프 알림은 "전체 스코프"로 간주하여 항상 매칭
+        if [[ -n "${ARGS_SCOPES:-}" && -n "$scopes" ]]; then
             local match=false
             IFS=',' read -ra filter_scopes <<< "$ARGS_SCOPES"
             IFS=',' read -ra notif_scopes <<< "$scopes"

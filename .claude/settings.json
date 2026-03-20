@@ -21,6 +21,11 @@
             "type": "command",
             "command": "bash .claude/hooks/validate-merge.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/validate-handoff.sh",
+            "timeout": 10
           }
         ]
       }
