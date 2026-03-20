@@ -1,11 +1,10 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.8.1 | **최종 갱신**: 2026-03-20
+**버전**: v0.5.9.0 | **최종 갱신**: 2026-03-20
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
-> **설계 결정 D1-D7**: 이 문서에는 현재 코드에 아직 구현되지 않은 "의도된 설계"가 포함되어 있다.
-> 해당 항목에는 `[D*]` 태그가 붙어 있으며, 코드 구현은 #48 에이전트가 담당한다.
-> 구현 전까지는 현재 코드와 가이드 사이에 차이가 있을 수 있다.
+> **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
+> D1(per-core ServiceRegistry)만 미구현 — 현재 global registry로 동작.
 
 ---
 
@@ -141,7 +140,7 @@ public:
     }
 
     boost::asio::awaitable<apex::core::Result<void>>
-    on_event(const apex::shared::protocols::kafka::MetadataPrefix& meta,
+    on_event(const apex::core::KafkaMessageMeta& meta,
              uint32_t msg_id, const MyEvent* evt) {
         // meta.corr_id, meta.session_id 등 사용 가능
         co_return apex::core::ok();
@@ -278,7 +277,7 @@ if (auto kafka = tbl["kafka"]; kafka) {
 
 `kafka_route<T>()`를 1개 이상 등록한 서비스가 있으면, 코어가 `has_kafka_handlers()` 를 감지하여 KafkaDispatchBridge를 자동 생성한다. 서비스 개발자는 핸들러 등록만 하면 된다.
 
-> **현재 코드**: Auth/Chat은 `post_init_callback`에서 수동 배선. `[D2]` 구현 후 이 보일러플레이트는 제거된다.
+> **구현 완료** (v0.5.6.0): `wire_services()`가 자동 배선 수행. 각 서비스 main.cpp에서 `post_init_callback` 수동 와이어링이 제거되었다.
 
 ---
 
@@ -438,16 +437,16 @@ awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
 ```cpp
 template <typename FbsType>
 void kafka_route(uint32_t msg_id,
-    awaitable<Result<void>> (Derived::*method)(const MetadataPrefix&, uint32_t, const FbsType*));
+    awaitable<Result<void>> (Derived::*method)(const KafkaMessageMeta&, uint32_t, const FbsType*));
 ```
 
-MetadataPrefix 필드: `corr_id`, `core_id`, `session_id`, `user_id`, `source_id`.
+KafkaMessageMeta 필드: `meta_version`, `core_id`, `corr_id`, `source_id`, `session_id`, `user_id`, `timestamp`.
 
 ```cpp
 void on_start() override {
     kafka_route<LoginRequest>(1000, &AuthService::on_login);
 }
-awaitable<Result<void>> on_login(const MetadataPrefix& meta, uint32_t msg_id,
+awaitable<Result<void>> on_login(const KafkaMessageMeta& meta, uint32_t msg_id,
                                   const LoginRequest* req) {
     // meta.corr_id로 응답 상관관계, meta.session_id로 클라이언트 식별
     co_return ok();
@@ -826,7 +825,7 @@ void on_configure(ConfigureContext& ctx) override {
 
 // ✅ GOOD — on_wire에서 서비스 접근
 void on_wire(WireContext& ctx) override {
-    auto* other = ctx.local_registry.get<OtherService>();  // [D1]
+    auto* other = ctx.local_registry.find<OtherService>();  // [D1]
 }
 ```
 
@@ -1063,7 +1062,7 @@ KafkaAdapter (consumer 스레드)
   → set_message_callback
   → [D6] consumer 메모리 풀에서 payload 복사
   → [D7] spawn_tracked() → KafkaDispatchBridge::dispatch(payload)
-  → MetadataPrefix 파싱 → kafka_handler_map[msg_id] → Handler 코루틴
+  → KafkaMessageMeta 파싱 → kafka_handler_map[msg_id] → Handler 코루틴
 
 [응답 — Kafka-only 서비스]
 Handler → send_response() → KafkaAdapter::produce(response_topic, envelope)
@@ -1157,7 +1156,7 @@ class AuthService : public ServiceBase<AuthService> {
     }
 
     awaitable<Result<void>> on_login(
-        const MetadataPrefix& meta, uint32_t msg_id, const LoginRequest* req) {
+        const KafkaMessageMeta& meta, uint32_t msg_id, const LoginRequest* req) {
         auto email = req->email()->str();  // co_await 전 복사!
         auto pw = req->password()->str();
 
@@ -1171,7 +1170,7 @@ class AuthService : public ServiceBase<AuthService> {
 
 private:
     // 에러 응답 헬퍼 — ServiceError sentinel + 서비스별 에러 코드
-    void send_error(uint32_t msg_id, const MetadataPrefix& meta, AuthError err) {
+    void send_error(uint32_t msg_id, const KafkaMessageMeta& meta, AuthError err) {
         auto frame = ErrorSender::build_error_frame(
             msg_id, ErrorCode::ServiceError, "",
             static_cast<uint16_t>(err));

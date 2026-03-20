@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 104
+다음 발번: 106
 
 ---
 
@@ -156,6 +156,19 @@
 - **타입**: design-debt
 - **설명**: `KafkaMessageMeta.session_id`가 `uint64_t`로 남아있어 core 내에서 같은 개념에 두 타입이 공존. `SessionId`로 변경하고 `KafkaDispatchBridge::dispatch()`에서 `make_session_id()` 변환 수행.
 
+### #104. TSAN suppressions 범위 좁히기
+- **등급**: MINOR
+- **스코프**: core, infra
+- **타입**: infra
+- **설명**: `tsan_suppressions.txt`의 `race:boost::asio::detail::*`가 Boost.Asio 전체 내부 레이스를 억제하여 실제 사용 패턴 레이스까지 가릴 수 있음. 구체적 함수명으로 범위를 좁혀야 한다 (예: `race:boost::asio::detail::scheduler::do_run_one`). TSAN 빌드 활성화 후 false positive를 개별 확인하여 정밀 suppression으로 교체.
+
+### #105. Chat join_room SCARD/SADD TOCTOU 레이스
+- **등급**: MAJOR
+- **스코프**: chat-svc
+- **타입**: bug
+- **연관**: #23 (DUPLICATE → 히스토리)
+- **설명**: `ChatService::on_join_room`에서 SCARD로 인원 확인 후 SADD로 추가하는 패턴이 atomic하지 않음. 동시 접속 시 `max_members` 초과 가능. Redis MULTI/EXEC 트랜잭션 또는 Lua 스크립트로 원자적 처리 필요.
+
 ---
 
 ## DEFERRED
@@ -184,11 +197,6 @@
 - **타입**: design-debt
 - **설명**: 현재 write_pump만 사용하여 미트리거. API 확장 시 동기화 필요.
 
-### #23. TOCTOU: join_room SCARD→SADD 경합
-- **등급**: MAJOR
-- **스코프**: chat-svc
-- **타입**: bug
-- **설명**: Redis Lua script 원자적 처리 필요하나 어댑터 Lua 지원 미구현. 발생 빈도 극히 낮음.
 
 ### #24. 어댑터 상태 관리 불일치
 - **등급**: MINOR

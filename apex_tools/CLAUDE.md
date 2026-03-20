@@ -21,6 +21,7 @@ rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
 ## auto-review
 
 - 메인이 auto-review 필요 여부를 자체 판단하여 실행한다 (유저에게 묻지 않음)
+- **BACKLOG_HISTORY 사전 확인 필수**: 리뷰 시작 전 `docs/BACKLOG_HISTORY.md`를 확인하여, 이미 처리된 이력이 있는 이슈는 보고하지 않는다. 중복 보고는 노이즈일 뿐이다
 - **스킬 수정 후 캐시 삭제 필수**: 프롬프트, 에이전트 정의 등 auto-review 스킬을 수정하면 플러그인 캐시를 삭제해야 변경사항이 반영됨
   ```bash
   rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/

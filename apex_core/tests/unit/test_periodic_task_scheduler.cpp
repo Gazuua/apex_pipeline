@@ -107,3 +107,52 @@ TEST(PeriodicTaskScheduler, StopAllCancelsEverything)
     EXPECT_EQ(count_a.load(), 0);
     EXPECT_EQ(count_b.load(), 0);
 }
+
+// CancelNonexistentHandle:
+// 존재하지 않는 핸들을 cancel하면 안전하게 무시되어야 한다.
+TEST(PeriodicTaskScheduler, CancelNonexistentHandle)
+{
+    boost::asio::io_context io_ctx;
+    PeriodicTaskScheduler scheduler(io_ctx);
+
+    // 한 번도 schedule하지 않은 핸들
+    TaskHandle bogus_handle = 9999;
+    scheduler.cancel(bogus_handle); // should not crash or throw
+}
+
+// DoubleCancelSafe:
+// 동일 핸들을 두 번 cancel해도 UB가 발생하지 않아야 한다.
+TEST(PeriodicTaskScheduler, DoubleCancelSafe)
+{
+    boost::asio::io_context io_ctx;
+    PeriodicTaskScheduler scheduler(io_ctx);
+
+    std::atomic<int> count{0};
+    auto h = scheduler.schedule(50ms, [&count] { count.fetch_add(1, std::memory_order_relaxed); });
+
+    scheduler.cancel(h);
+    scheduler.cancel(h); // double cancel — should not crash
+
+    io_ctx.run_for(200ms);
+    EXPECT_EQ(count.load(), 0);
+}
+
+// ScheduleAfterStopAll:
+// stop_all 후에도 새 작업을 schedule할 수 있어야 한다.
+TEST(PeriodicTaskScheduler, ScheduleAfterStopAll)
+{
+    boost::asio::io_context io_ctx;
+    PeriodicTaskScheduler scheduler(io_ctx);
+
+    std::atomic<int> count{0};
+    scheduler.schedule(50ms, [&count] { count.fetch_add(1, std::memory_order_relaxed); });
+    scheduler.stop_all();
+
+    // stop_all 후 새 작업 등록
+    std::atomic<int> count2{0};
+    scheduler.schedule(50ms, [&count2] { count2.fetch_add(1, std::memory_order_relaxed); });
+
+    io_ctx.run_for(250ms);
+    EXPECT_EQ(count.load(), 0);
+    EXPECT_GE(count2.load(), 3);
+}
