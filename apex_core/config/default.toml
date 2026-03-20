@@ -4,7 +4,7 @@
 [server]
 port = 9000
 num_cores = 0              # 0 = auto (hardware_concurrency). AppConfig::defaults()는 1 반환 (테스트 안정성용)
-mpsc_queue_capacity = 65536
+spsc_queue_capacity = 1024
 tick_interval_ms = 100
 heartbeat_timeout_ticks = 300
 recv_buf_capacity = 8192

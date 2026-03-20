@@ -148,7 +148,7 @@ TEST(PipelineIntegration, UnknownMessageIdHandledGracefully)
 TEST(PipelineIntegration, CoreEngineInterCoreDelivery)
 {
     CoreEngine engine({.num_cores = 2,
-                       .mpsc_queue_capacity = 1024,
+                       .spsc_queue_capacity = 1024,
                        .tick_interval = std::chrono::milliseconds{100},
                        .drain_batch_limit = 1024});
 

@@ -48,7 +48,7 @@ Server::Server(ServerConfig config)
     // CoreEngine
     CoreEngineConfig engine_config{
         .num_cores = config_.num_cores,
-        .mpsc_queue_capacity = config_.mpsc_queue_capacity,
+        .spsc_queue_capacity = config_.spsc_queue_capacity,
         .tick_interval = config_.tick_interval,
         .drain_batch_limit = 1024,
     };
