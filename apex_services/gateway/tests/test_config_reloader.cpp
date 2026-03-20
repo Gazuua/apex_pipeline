@@ -148,7 +148,7 @@ TEST_F(ConfigReloaderTest, ParseInvalidConfigFails)
 
     auto cfg = apex::gateway::parse_gateway_config(config_path_);
     EXPECT_FALSE(cfg.has_value());
-    EXPECT_EQ(cfg.error(), apex::core::ErrorCode::ConfigParseFailed);
+    EXPECT_EQ(cfg.error(), apex::core::ErrorCode::ServiceError);
 }
 
 TEST_F(ConfigReloaderTest, ParseNonExistentFileFails)

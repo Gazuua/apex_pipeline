@@ -93,7 +93,7 @@ TEST(ChannelSessionMap, SubscriptionLimitExceeded)
     // 4th channel should fail
     auto result = map.subscribe("ch4", make_session_id(100));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), apex::core::ErrorCode::SubscriptionLimitExceeded);
+    EXPECT_EQ(result.error(), apex::core::ErrorCode::ServiceError);
 
     // Re-subscribing to an already-subscribed channel should still succeed
     ASSERT_TRUE(map.subscribe("ch1", make_session_id(100)).has_value());

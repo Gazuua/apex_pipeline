@@ -1,6 +1,8 @@
 #include <apex/gateway/gateway_pipeline.hpp>
 
 #include <apex/core/error_code.hpp>
+#include <apex/core/error_sender.hpp>
+#include <apex/gateway/gateway_error.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -19,18 +21,27 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
                                                                           const apex::core::WireHeader& header,
                                                                           AuthState& state, std::string_view remote_ip)
 {
+    // Helper: send service error frame directly to client
+    auto send_error = [&](GatewayError gw_err) {
+        auto frame = apex::core::ErrorSender::build_error_frame(header.msg_id, apex::core::ErrorCode::ServiceError, "",
+                                                                static_cast<uint16_t>(gw_err));
+        (void)session->enqueue_write(std::move(frame));
+    };
+
     // Layer 1: Per-IP rate limit (local memory, no I/O)
     auto ip_result = check_ip_rate_limit(remote_ip);
     if (!ip_result)
     {
-        co_return std::unexpected(ip_result.error());
+        send_error(ip_result.error());
+        co_return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 
     // JWT authentication
     auto auth_result = co_await authenticate(session, header, state);
     if (!auth_result)
     {
-        co_return std::unexpected(auth_result.error());
+        send_error(auth_result.error());
+        co_return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 
     // Layer 2: Per-User rate limit (Redis) -- only for authenticated users
@@ -39,35 +50,37 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
         auto user_result = co_await check_user_rate_limit(state.user_id);
         if (!user_result)
         {
-            co_return std::unexpected(user_result.error());
+            send_error(user_result.error());
+            co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
 
         // Layer 3: Per-Endpoint rate limit (Redis)
         auto ep_result = co_await check_endpoint_rate_limit(state.user_id, header.msg_id);
         if (!ep_result)
         {
-            co_return std::unexpected(ep_result.error());
+            send_error(ep_result.error());
+            co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
     }
 
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::authenticate(apex::core::SessionPtr /*session*/,
-                                                                               const apex::core::WireHeader& header,
-                                                                               AuthState& state)
+boost::asio::awaitable<GatewayResult> GatewayPipeline::authenticate(apex::core::SessionPtr /*session*/,
+                                                                    const apex::core::WireHeader& header,
+                                                                    AuthState& state)
 {
     // 1. Config-based whitelist: skip auth for exempt msg_ids (deny-by-default)
     if (config_.auth.auth_exempt_msg_ids.contains(header.msg_id))
     {
-        co_return apex::core::ok();
+        co_return GatewayResult{};
     }
 
     // 2. Token must be present (set by handshake/login response handler)
     if (state.token.empty())
     {
         spdlog::debug("authenticate: no JWT token for msg_id={}", header.msg_id);
-        co_return apex::core::error(apex::core::ErrorCode::JwtVerifyFailed);
+        co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
     }
 
     // 3. JWT signature + expiry verification (local, zero network cost)
@@ -76,7 +89,7 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::authenticate(a
     {
         spdlog::debug("authenticate: JWT verify failed for msg_id={}, error={}", header.msg_id,
                       static_cast<uint16_t>(claims_result.error()));
-        co_return std::unexpected(claims_result.error());
+        co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
     }
 
     // 4. Blacklist check for sensitive msg_ids (Redis, cold path)
@@ -86,7 +99,7 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::authenticate(a
         if (bl_result && *bl_result)
         {
             spdlog::info("authenticate: blacklisted JWT jti={} for msg_id={}", claims_result->jti, header.msg_id);
-            co_return apex::core::error(apex::core::ErrorCode::JwtBlacklisted);
+            co_return GatewayResult{std::unexpected(GatewayError::JwtBlacklisted)};
         }
         // Redis error on blacklist check — fail-open for resilience
         if (!bl_result)
@@ -102,33 +115,33 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::authenticate(a
     state.user_id = claims_result->user_id;
     state.jti = claims_result->jti;
 
-    co_return apex::core::ok();
+    co_return GatewayResult{};
 }
 
-apex::core::Result<void> GatewayPipeline::check_ip_rate_limit(std::string_view remote_ip)
+GatewayResult GatewayPipeline::check_ip_rate_limit(std::string_view remote_ip)
 {
     auto* limiter = rate_limiter_.load(std::memory_order_acquire);
     if (!limiter)
     {
-        return apex::core::ok(); // Rate limiting disabled
+        return {}; // Rate limiting disabled
     }
 
     auto now = apex::shared::rate_limit::SlidingWindowCounter::Clock::now();
     if (!limiter->check_ip(remote_ip, now))
     {
         spdlog::debug("Per-IP rate limit exceeded: {}", remote_ip);
-        return apex::core::error(apex::core::ErrorCode::RateLimitedIp);
+        return std::unexpected(GatewayError::RateLimitedIp);
     }
 
-    return apex::core::ok();
+    return {};
 }
 
-boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::check_user_rate_limit(uint64_t user_id)
+boost::asio::awaitable<GatewayResult> GatewayPipeline::check_user_rate_limit(uint64_t user_id)
 {
     auto* limiter = rate_limiter_.load(std::memory_order_acquire);
     if (!limiter)
     {
-        co_return apex::core::ok();
+        co_return GatewayResult{};
     }
 
     auto result = co_await limiter->check_user(user_id, now_ms());
@@ -136,25 +149,24 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::check_user_rat
     {
         // Redis error -- log but don't block (fail-open for resilience)
         spdlog::warn("Per-User rate limit check failed (Redis error), allowing: user_id={}", user_id);
-        co_return apex::core::ok();
+        co_return GatewayResult{};
     }
 
     if (!result->allowed)
     {
         spdlog::debug("Per-User rate limit exceeded: user_id={}, retry_after={}ms", user_id, result->retry_after_ms);
-        co_return apex::core::error(apex::core::ErrorCode::RateLimitedUser);
+        co_return GatewayResult{std::unexpected(GatewayError::RateLimitedUser)};
     }
 
-    co_return apex::core::ok();
+    co_return GatewayResult{};
 }
 
-boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::check_endpoint_rate_limit(uint64_t user_id,
-                                                                                            uint32_t msg_id)
+boost::asio::awaitable<GatewayResult> GatewayPipeline::check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id)
 {
     auto* limiter = rate_limiter_.load(std::memory_order_acquire);
     if (!limiter)
     {
-        co_return apex::core::ok();
+        co_return GatewayResult{};
     }
 
     auto result = co_await limiter->check_endpoint(user_id, msg_id, now_ms());
@@ -164,7 +176,7 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::check_endpoint
         spdlog::warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
                      "user_id={}, msg_id={}",
                      user_id, msg_id);
-        co_return apex::core::ok();
+        co_return GatewayResult{};
     }
 
     if (!result->allowed)
@@ -172,10 +184,10 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::check_endpoint
         spdlog::debug("Per-Endpoint rate limit exceeded: user_id={}, msg_id={}, "
                       "retry_after={}ms",
                       user_id, msg_id, result->retry_after_ms);
-        co_return apex::core::error(apex::core::ErrorCode::RateLimitedEndpoint);
+        co_return GatewayResult{std::unexpected(GatewayError::RateLimitedEndpoint)};
     }
 
-    co_return apex::core::ok();
+    co_return GatewayResult{};
 }
 
 void GatewayPipeline::set_rate_limiter(apex::shared::rate_limit::RateLimitFacade* limiter) noexcept

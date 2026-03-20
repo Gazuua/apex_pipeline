@@ -1,6 +1,7 @@
 #include <apex/gateway/channel_session_map.hpp>
 
 #include <apex/core/error_code.hpp>
+#include <apex/gateway/gateway_error.hpp>
 
 #include <algorithm>
 
@@ -18,7 +19,7 @@ apex::core::Result<void> ChannelSessionMap::subscribe(const std::string& channel
     if (max_subscriptions_per_session_ > 0 && channels.size() >= max_subscriptions_per_session_ &&
         !channels.contains(channel))
     {
-        return apex::core::error(apex::core::ErrorCode::SubscriptionLimitExceeded);
+        return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 
     auto& sessions = channel_to_sessions_[channel];

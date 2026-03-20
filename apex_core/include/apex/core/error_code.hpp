@@ -11,7 +11,7 @@ enum class ErrorCode : uint16_t
 {
     Ok = 0,
 
-    // Framework errors (1-999)
+    // Framework errors (1-98)
     Unknown = 1,
     InvalidMessage = 2,
     HandlerNotFound = 3,
@@ -29,18 +29,8 @@ enum class ErrorCode : uint16_t
     HandshakeFailed = 15,  // TLS handshake 실패
     ParseFailed = 16,      // Envelope 파싱 실패
 
-    // Gateway errors (100-199)
-    ConfigParseFailed = 100,         // TOML config 파싱 실패
-    JwtVerifyFailed = 101,           // JWT 시그니처 검증 실패
-    JwtExpired = 102,                // JWT 만료
-    JwtBlacklisted = 103,            // JWT 블랙리스트
-    RouteNotFound = 104,             // msg_id에 대한 라우팅 규칙 없음
-    ServiceTimeout = 105,            // 서비스 응답 타임아웃
-    PendingMapFull = 106,            // Pending requests map 포화
-    RateLimitedIp = 107,             // Per-IP rate limit 초과
-    RateLimitedUser = 108,           // Per-User rate limit 초과
-    RateLimitedEndpoint = 109,       // Per-Endpoint rate limit 초과
-    SubscriptionLimitExceeded = 110, // Per-session 구독 상한 초과
+    // 서비스별 에러 sentinel
+    ServiceError = 99,
 
     // Application errors (1000-1999)
     AppError = 1000,
@@ -89,28 +79,8 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept
             return "HandshakeFailed";
         case ErrorCode::ParseFailed:
             return "ParseFailed";
-        case ErrorCode::ConfigParseFailed:
-            return "ConfigParseFailed";
-        case ErrorCode::JwtVerifyFailed:
-            return "JwtVerifyFailed";
-        case ErrorCode::JwtExpired:
-            return "JwtExpired";
-        case ErrorCode::JwtBlacklisted:
-            return "JwtBlacklisted";
-        case ErrorCode::RouteNotFound:
-            return "RouteNotFound";
-        case ErrorCode::ServiceTimeout:
-            return "ServiceTimeout";
-        case ErrorCode::PendingMapFull:
-            return "PendingMapFull";
-        case ErrorCode::RateLimitedIp:
-            return "RateLimitedIp";
-        case ErrorCode::RateLimitedUser:
-            return "RateLimitedUser";
-        case ErrorCode::RateLimitedEndpoint:
-            return "RateLimitedEndpoint";
-        case ErrorCode::SubscriptionLimitExceeded:
-            return "SubscriptionLimitExceeded";
+        case ErrorCode::ServiceError:
+            return "ServiceError";
         case ErrorCode::AppError:
             return "AppError";
         case ErrorCode::AdapterError:

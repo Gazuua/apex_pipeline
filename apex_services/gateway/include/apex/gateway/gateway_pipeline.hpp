@@ -4,6 +4,7 @@
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/gateway_config.hpp>
+#include <apex/gateway/gateway_error.hpp>
 #include <apex/gateway/jwt_blacklist.hpp>
 #include <apex/gateway/jwt_verifier.hpp>
 #include <apex/shared/rate_limit/rate_limit_facade.hpp>
@@ -43,11 +44,13 @@ class GatewayPipeline
 
     /// Full pipeline check for a request.
     /// Runs rate limiting (Per-IP, Per-User, Per-Endpoint) and authentication.
+    /// On failure, sends error frame directly to client and returns ServiceError.
+    /// Caller should return ok() when this returns error (error frame already sent).
     /// @param session Request session.
     /// @param header Client WireHeader.
     /// @param state Per-session auth state (modified on successful auth).
     /// @param remote_ip Client IP address string (caller resolves from socket).
-    /// @return Ok if request should proceed, error code otherwise.
+    /// @return Ok if request should proceed, ServiceError if denied (frame already sent).
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> process(apex::core::SessionPtr session,
                                                                            const apex::core::WireHeader& header,
                                                                            AuthState& state,
@@ -55,28 +58,27 @@ class GatewayPipeline
 
     /// Authentication check only (called for every message).
     /// Login requests (system msg_id range) skip authentication.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
+    [[nodiscard]] boost::asio::awaitable<GatewayResult>
     authenticate(apex::core::SessionPtr session, const apex::core::WireHeader& header, AuthState& state);
 
     /// Per-IP rate limit check (Layer 1, local memory, no I/O).
     /// Called before JWT verification.
     /// @param remote_ip Client IP address.
-    /// @return Ok if allowed, RateLimitedIp if denied.
-    [[nodiscard]] apex::core::Result<void> check_ip_rate_limit(std::string_view remote_ip);
+    /// @return Ok if allowed, GatewayError::RateLimitedIp if denied.
+    [[nodiscard]] GatewayResult check_ip_rate_limit(std::string_view remote_ip);
 
     /// Per-User rate limit check (Layer 2, Redis).
     /// Called after JWT verification.
     /// @param user_id Authenticated user ID.
-    /// @return Ok if allowed, RateLimitedUser if denied.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> check_user_rate_limit(uint64_t user_id);
+    /// @return Ok if allowed, GatewayError::RateLimitedUser if denied.
+    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_user_rate_limit(uint64_t user_id);
 
     /// Per-Endpoint rate limit check (Layer 3, Redis).
     /// Called before msg_id routing.
     /// @param user_id Authenticated user ID.
     /// @param msg_id Message type ID.
-    /// @return Ok if allowed, RateLimitedEndpoint if denied.
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> check_endpoint_rate_limit(uint64_t user_id,
-                                                                                             uint32_t msg_id);
+    /// @return Ok if allowed, GatewayError::RateLimitedEndpoint if denied.
+    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id);
 
     /// Update rate limiter reference (for hot-reload / lazy init).
     void set_rate_limiter(apex::shared::rate_limit::RateLimitFacade* limiter) noexcept;
