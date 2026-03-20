@@ -28,6 +28,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/handoff-probe.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
