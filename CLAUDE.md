@@ -59,7 +59,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"`
 - **착수 전**: `backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
 - **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
-- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 머지 시점은 hook이 미ack 알림 자동 차단
+- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 소스 파일(`.cpp/.hpp/.h`) 편집 시 미ack 알림이 있으면 차단, 머지 시점도 hook이 자동 차단
 - **ack**: 알림 수신 시 `ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
 
 ### 설계 원칙

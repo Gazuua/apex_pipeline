@@ -19,16 +19,24 @@ index watermark 비교 기반 2단 probe. 변경 감지(~1ms)와 full check(~100
 ## 동작
 
 ```
-tool call (Edit/Write/Bash)
+tool call (Edit/Write)
   │
   ├─ tail -1 index → 마지막 ID 추출
   ├─ cat watermarks/{BRANCH_ID} → 저장된 ID
   │
   ├─ 같으면 → exit 0 (0 토큰, ~1ms)
   └─ 다르면 → branch-handoff.sh check 실행
-              → 알림 있으면 stderr 출력 (~150 토큰, 1회)
-              → watermark 갱신 (이후 중복 출력 없음)
+       │
+       ├─ 미ack 없음 → watermark 갱신 + exit 0
+       └─ 미ack 있음 → 파일 확장자 판별
+            ├─ 소스 파일 (.cpp/.hpp/.h 등) → exit 2 (차단, watermark 미갱신)
+            └─ 비소스 파일 (.md 등)         → 경고만 + watermark 갱신
+
+tool call (Bash) — validate-handoff.sh 내장 probe
+  동일한 watermark 비교, 경고만 (차단 없음)
 ```
+
+소스 파일 차단 시 watermark를 갱신하지 않으므로, ack할 때까지 반복 차단된다.
 
 ## 비용
 
@@ -39,6 +47,5 @@ tool call (Edit/Write/Bash)
 
 ## 안 바꾸는 것
 
-- 기존 gate 정책 (머지 시점 차단)
+- 머지 시점 차단 (validate-handoff.sh gate)
 - SessionStart hook
-- 차단 동작 없음 (경고만)
