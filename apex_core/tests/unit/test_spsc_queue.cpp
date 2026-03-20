@@ -270,4 +270,31 @@ TEST_F(SpscQueueTest, CancelWaitingProducer)
     EXPECT_TRUE(caught_abort);
 }
 
+TEST_F(SpscQueueTest, DrainEmpty_ReturnsZero)
+{
+    SpscQueue<int> q(8, io_ctx_);
+    std::array<int, 8> batch{};
+    size_t count = q.drain(batch);
+    EXPECT_EQ(count, 0u);
+    EXPECT_TRUE(q.empty());
+}
+
+TEST_F(SpscQueueTest, DrainPartial_BatchSmallerThanQueueSize)
+{
+    SpscQueue<int> q(8, io_ctx_);
+    for (int i = 0; i < 6; ++i)
+        q.try_enqueue(i * 10);
+
+    // Drain with batch size 3 — should only drain 3 items
+    std::array<int, 3> batch{};
+    size_t count = q.drain(batch);
+    EXPECT_EQ(count, 3u);
+    EXPECT_EQ(q.size_approx(), 3u);
+
+    // Verify first 3 items drained in FIFO order
+    EXPECT_EQ(batch[0], 0);
+    EXPECT_EQ(batch[1], 10);
+    EXPECT_EQ(batch[2], 20);
+}
+
 } // namespace apex::core

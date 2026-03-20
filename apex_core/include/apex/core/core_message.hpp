@@ -10,7 +10,9 @@
 namespace apex::core
 {
 
-/// Trivially-copyable message for inter-core communication via SpscQueue/MpscQueue.
+/// Trivially-copyable message for inter-core communication via SPSC mesh.
+/// When op == LegacyCrossCoreFn, `data` is an owning raw pointer to
+/// std::function<void()>* — exclusive ownership, must be delete'd after invoke.
 struct CoreMessage
 {
     CrossCoreOp op{CrossCoreOp::Noop};

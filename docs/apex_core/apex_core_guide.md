@@ -621,8 +621,8 @@ auto result = co_await server.cross_core_call(target_core, [&]{
     return some_value;  // 타겟 코어에서 실행
 });
 
-// Fire-and-forget (비코루틴)
-server.cross_core_post(target_core, [=]{
+// Fire-and-forget (awaitable, v0.5.10.0+)
+co_await server.cross_core_post(target_core, [=]{
     // 타겟 코어에서 실행 — 값 캡처만 사용
 });
 ```
@@ -651,7 +651,7 @@ co_await broadcast_cross_core(engine, source_core, op, shared_payload);
 // 구독 추가 시 모든 코어에 전파
 for (uint32_t i = 0; i < server.core_count(); ++i) {
     if (i == core_id()) continue;
-    server.cross_core_post(i, [channel, session_id]{
+    co_await server.cross_core_post(i, [channel, session_id]{
         // 타겟 코어의 로컬 구독 맵에 추가
     });
 }
@@ -822,9 +822,9 @@ awaitable<Result<void>> handler(SessionPtr s, uint32_t id, const MyReq* req) {
 std::shared_mutex mtx_;
 std::unordered_map<std::string, SessionId> channel_map_;
 
-// ✅ GOOD — per-core 복제 + cross_core_post 전파
+// ✅ GOOD — per-core 복제 + co_await cross_core_post 전파
 boost::unordered_flat_map<std::string, SessionId> local_channel_map_;  // per-core
-// 변경 시 cross_core_post()로 다른 코어에 전파 (§7)
+// 변경 시 co_await cross_core_post()로 다른 코어에 전파 (§7)
 ```
 
 shared-nothing 원칙에 따라 서비스 코드 내 뮤텍스는 금지.

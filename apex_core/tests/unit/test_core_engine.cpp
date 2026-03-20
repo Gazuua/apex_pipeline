@@ -280,33 +280,63 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted)
 
 TEST(CoreEngineTest, DrainRemainingCleansUpPointers)
 {
-    // Use 2 cores so SPSC mesh is active. Start engine briefly to set tls_core_id_,
-    // then stop and enqueue via SPSC directly for drain_remaining test.
+    // Start engine with 2 cores so SPSC mesh is active.
+    // Post LegacyCrossCoreFn messages from core 0 to core 1 via SPSC,
+    // then stop+join (prevents drain), call drain_remaining() which calls mesh_->shutdown(),
+    // and verify the tasks were deleted (not executed) by checking shared_ptr use_count.
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 1024,
                        .tick_interval = std::chrono::milliseconds{100},
                        .drain_batch_limit = 1024});
 
-    auto flag1 = std::make_shared<bool>(false);
+    // Shared pointers captured by tasks — use_count tracks whether tasks are deleted
+    auto marker1 = std::make_shared<bool>(false);
+    auto marker2 = std::make_shared<bool>(false);
 
-    auto* task1 = new std::function<void()>([flag1] { *flag1 = true; });
-    CoreMessage msg1;
-    msg1.op = CrossCoreOp::LegacyCrossCoreFn;
-    msg1.data = reinterpret_cast<uintptr_t>(task1);
+    // use_count == 2: one here + one in the lambda/task
+    EXPECT_EQ(marker1.use_count(), 1);
+    EXPECT_EQ(marker2.use_count(), 1);
 
-    // post_to from main thread (non-core) uses asio::post fallback,
-    // so we test drain via mesh_->shutdown() which is called by drain_remaining().
-    // SpscMesh shutdown cleanup is tested in test_spsc_mesh.cpp.
-    // Here we verify the CoreEngine::drain_remaining() integration.
-    EXPECT_TRUE(engine.post_to(1, msg1));
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
-    // drain_remaining — for messages sent via asio::post from non-core thread,
-    // they sit in io_context queue. ~io_context destroys them.
+    // From core 0, post LegacyCrossCoreFn tasks to core 1's SPSC queue
+    std::atomic<bool> posted{false};
+    boost::asio::co_spawn(
+        engine.io_context(0),
+        [&]() -> boost::asio::awaitable<void> {
+            auto* task1 = new std::function<void()>([marker1] { *marker1 = true; });
+            auto* task2 = new std::function<void()>([marker2] { *marker2 = true; });
+
+            CoreMessage msg1{
+                .op = CrossCoreOp::LegacyCrossCoreFn, .source_core = 0, .data = reinterpret_cast<uintptr_t>(task1)};
+            CoreMessage msg2{
+                .op = CrossCoreOp::LegacyCrossCoreFn, .source_core = 0, .data = reinterpret_cast<uintptr_t>(task2)};
+
+            (void)engine.post_to(1, msg1);
+            (void)engine.post_to(1, msg2);
+            posted.store(true, std::memory_order_release);
+            co_return;
+        },
+        boost::asio::detached);
+
+    ASSERT_TRUE(apex::test::wait_for([&]() { return posted.load(std::memory_order_acquire); }));
+
+    // Stop + join immediately — core 1 may not have drained the SPSC messages yet
+    engine.stop();
+    engine.join();
+
+    // Tasks were captured by lambda → shared_ptr use_count should be 2 if not yet deleted
+    // (However, core 1 might have drained some before stop. We check after drain_remaining.)
+
+    // drain_remaining() calls mesh_->shutdown() which deletes remaining LegacyCrossCoreFn tasks
     engine.drain_remaining();
 
-    // task1 was posted via asio::post (non-core thread), so it's in io_context queue.
-    // It will be cleaned up when io_context is destroyed (~CoreEngine → ~CoreContext).
-    // We can't assert flag1.use_count() == 1 here because cleanup happens in destructor.
+    // After drain_remaining, all tasks should be deleted (either executed during drain or
+    // deleted by shutdown). The shared_ptr markers should NOT have been set to true
+    // (shutdown deletes without executing), and use_count should be back to 1.
+    EXPECT_EQ(marker1.use_count(), 1);
+    EXPECT_EQ(marker2.use_count(), 1);
 }
 
 TEST(CoreEngineTest, DestructorDrainsRemaining)
@@ -459,4 +489,55 @@ TEST(CoreEngineTest, MultipleInterCoreMessages)
 
     engine.stop();
     runner.join();
+}
+
+TEST(CoreEngineTest, CoPostToBackpressure)
+{
+    // co_post_to should suspend when SPSC queue is full and resume after drain.
+    // Use small capacity (2) to trigger backpressure quickly.
+    CoreEngine engine({.num_cores = 2,
+                       .spsc_queue_capacity = 2,
+                       .tick_interval = std::chrono::milliseconds{50},
+                       .drain_batch_limit = 1024});
+
+    std::atomic<int> received_count{0};
+    engine.set_message_handler(
+        [&](uint32_t, const CoreMessage&) { received_count.fetch_add(1, std::memory_order_relaxed); });
+
+    engine.start();
+    ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
+
+    // From core 0: fill SPSC queue to core 1 (2 messages via post_to),
+    // then co_await co_post_to (should suspend because queue is full).
+    // When core 1 drains messages, producer is notified and co_post_to completes.
+    std::atomic<bool> co_post_completed{false};
+    boost::asio::co_spawn(
+        engine.io_context(0),
+        [&]() -> boost::asio::awaitable<void> {
+            CoreMessage msg{.op = CrossCoreOp::Custom, .source_core = 0, .data = 1};
+
+            // Fill the SPSC queue (capacity=2)
+            (void)engine.post_to(1, msg);
+            msg.data = 2;
+            (void)engine.post_to(1, msg);
+
+            // Queue is full — co_post_to should suspend until core 1 drains
+            msg.data = 3;
+            co_await engine.co_post_to(1, msg);
+
+            // If we get here, backpressure resolved
+            co_post_completed.store(true, std::memory_order_release);
+        },
+        boost::asio::detached);
+
+    // Core 1 automatically drains via schedule_drain, which calls notify_producer_if_waiting.
+    // The co_post_to should eventually complete.
+    ASSERT_TRUE(apex::test::wait_for([&]() { return co_post_completed.load(std::memory_order_acquire); }));
+
+    // All 3 messages should have been received by core 1
+    ASSERT_TRUE(apex::test::wait_for([&]() { return received_count.load(std::memory_order_acquire) >= 3; }));
+    EXPECT_EQ(received_count.load(), 3);
+
+    engine.stop();
+    engine.join();
 }

@@ -425,6 +425,8 @@ inline boost::asio::awaitable<void> broadcast_cross_core(
 | 테스트 코드 | `asio::post()` 또는 코루틴 테스트 헬퍼 사용 |
 | `cross_core_call()` | 내부 `post_to()` co_await 전환 |
 
+**구현 노트 (v0.5.10.0)**: 실제 구현에서 `post_to()`는 동기 `Result<void>`로 유지하여 비코어 스레드(테스트, 어댑터 콜백) 호환성을 확보했다. awaitable 경로는 별도 `co_post_to()`로 분리. 고수준 API(`cross_core_post_msg`, `cross_core_post`, `broadcast_cross_core`)는 설계대로 awaitable로 전환되었다.
+
 ## 7. 벤치마크 및 테스트
 
 ### 단위 테스트

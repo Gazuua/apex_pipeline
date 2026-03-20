@@ -155,6 +155,9 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
 {
     if (target_core >= cores_.size())
     {
+        // No dedicated InvalidCoreId error code — adding one requires schema changes
+        // across error_code.hpp, FlatBuffers ErrorResponse, etc. ErrorCode::Unknown is
+        // acceptable here; callers already handle Unknown as a generic failure.
         return error(ErrorCode::Unknown);
     }
     auto& target = *cores_[target_core];
@@ -187,10 +190,16 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
 
 boost::asio::awaitable<void> CoreEngine::co_post_to(uint32_t target_core, CoreMessage msg)
 {
-    assert(target_core < cores_.size() && "target_core out of range");
+    if (target_core >= cores_.size())
+    {
+        throw std::out_of_range("co_post_to: target_core out of range");
+    }
     auto src = tls_core_id_;
     assert(src != UINT32_MAX && "co_post_to must be called from a core thread");
-    assert(src != target_core && "cannot co_post_to self");
+    if (src == target_core)
+    {
+        throw std::logic_error("co_post_to: cannot post to self");
+    }
     assert(mesh_ && "co_post_to requires SPSC mesh (num_cores >= 2)");
 
     cores_[target_core]->metrics.post_total.fetch_add(1, std::memory_order_relaxed);
@@ -317,14 +326,10 @@ void CoreEngine::drain_inbox(uint32_t core_id)
 {
     if (mesh_)
     {
-        mesh_->drain_all_for(
-            core_id, cross_core_dispatcher_,
-            message_handler_
-                ? std::function<void(uint32_t, const CoreMessage&)>{[this](uint32_t cid, const CoreMessage& msg) {
-                      message_handler_(cid, msg);
-                  }}
-                : std::function<void(uint32_t, const CoreMessage&)>{},
-            config_.drain_batch_limit);
+        mesh_->drain_all_for(core_id,
+                             std::function<void(uint32_t, const CoreMessage&)>{
+                                 [this](uint32_t cid, const CoreMessage& msg) { dispatch_message(cid, msg); }},
+                             config_.drain_batch_limit);
     }
 }
 

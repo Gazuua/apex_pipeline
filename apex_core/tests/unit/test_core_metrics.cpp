@@ -2,6 +2,8 @@
 
 #include <apex/core/core_engine.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -75,12 +77,7 @@ TEST(CoreMetrics, PostToFailureIncrementsFailures)
         boost::asio::detached);
 
     // Wait for coroutine to complete
-    auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (!done.load(std::memory_order_acquire) && std::chrono::steady_clock::now() < deadline)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    EXPECT_TRUE(done.load());
+    ASSERT_TRUE(apex::test::wait_for([&] { return done.load(std::memory_order_acquire); }));
 
     EXPECT_GE(engine.metrics(1).post_total.load(), 3u);
     EXPECT_GE(engine.metrics(1).post_failures.load(), 1u);

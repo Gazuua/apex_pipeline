@@ -225,7 +225,7 @@ TEST(CoreEngineTest, TlsCoreId)
     engine.join();
 }
 
-TEST_F(CrossCoreCallTest, FuncExceptionResultsInTimeout)
+TEST_F(CrossCoreCallTest, FuncExceptionReturnsCrossCoreFuncException)
 {
     std::promise<ErrorCode> promise;
     auto future = promise.get_future();
@@ -241,7 +241,7 @@ TEST_F(CrossCoreCallTest, FuncExceptionResultsInTimeout)
         boost::asio::detached);
 
     ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
-    EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+    EXPECT_EQ(future.get(), ErrorCode::CrossCoreFuncException);
 }
 
 TEST(CrossCorePostMsgTest, InvalidTargetReturnsError)

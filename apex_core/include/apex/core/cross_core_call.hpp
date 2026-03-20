@@ -32,8 +32,8 @@ namespace apex::core
 /// @pre R must be nothrow-destructible and thread-safe to destroy.
 template <typename F>
     requires(!std::is_void_v<std::invoke_result_t<F>>)
-auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
-                     std::chrono::milliseconds timeout = std::chrono::milliseconds{5000})
+[[nodiscard]] auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
+                                   std::chrono::milliseconds timeout = std::chrono::milliseconds{5000})
     -> boost::asio::awaitable<Result<std::invoke_result_t<F>>>
 {
     using R = std::invoke_result_t<F>;
@@ -56,12 +56,24 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         {
             return;
         }
-        auto r = std::invoke(std::move(f));
-        state->result.emplace(std::move(r));
-        int expected = 0;
-        if (state->status.compare_exchange_strong(expected, 1))
+        try
         {
-            boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            auto r = std::invoke(std::move(f));
+            state->result.emplace(std::move(r));
+            int expected = 0;
+            if (state->status.compare_exchange_strong(expected, 1))
+            {
+                boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            }
+        }
+        catch (...)
+        {
+            // func threw — signal error state (3) so caller doesn't wait until timeout
+            int expected = 0;
+            if (state->status.compare_exchange_strong(expected, 3))
+            {
+                boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            }
         }
     });
 
@@ -87,6 +99,11 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         co_return apex::core::error(ErrorCode::CrossCoreTimeout);
     }
 
+    if (state->status.load(std::memory_order_acquire) == 3)
+    {
+        co_return apex::core::error(ErrorCode::CrossCoreFuncException);
+    }
+
     assert(state->result.has_value() && "cross_core_call: result must be set before CAS(1)");
     co_return std::move(*state->result);
 }
@@ -94,8 +111,8 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
 /// Execute void func on target_core and co_await completion.
 template <typename F>
     requires std::is_void_v<std::invoke_result_t<F>>
-auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
-                     std::chrono::milliseconds timeout = std::chrono::milliseconds{5000})
+[[nodiscard]] auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
+                                   std::chrono::milliseconds timeout = std::chrono::milliseconds{5000})
     -> boost::asio::awaitable<Result<void>>
 {
     struct State
@@ -113,11 +130,23 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         {
             return;
         }
-        std::invoke(std::move(f));
-        int expected = 0;
-        if (state->status.compare_exchange_strong(expected, 1))
+        try
         {
-            boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            std::invoke(std::move(f));
+            int expected = 0;
+            if (state->status.compare_exchange_strong(expected, 1))
+            {
+                boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            }
+        }
+        catch (...)
+        {
+            // func threw — signal error state (3) so caller doesn't wait until timeout
+            int expected = 0;
+            if (state->status.compare_exchange_strong(expected, 3))
+            {
+                boost::asio::post(timer->get_executor(), [timer] { timer->cancel(); });
+            }
         }
     });
 
@@ -143,12 +172,18 @@ auto cross_core_call(CoreEngine& engine, uint32_t target_core, F func,
         co_return apex::core::error(ErrorCode::CrossCoreTimeout);
     }
 
+    if (state->status.load(std::memory_order_acquire) == 3)
+    {
+        co_return apex::core::error(ErrorCode::CrossCoreFuncException);
+    }
+
     co_return apex::core::ok();
 }
 
 /// Fire-and-forget closure execution on target core. Awaitable, core thread only.
 /// For non-core threads, use asio::post(engine.io_context(core_id), callback) directly.
-template <typename F> boost::asio::awaitable<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func)
+template <typename F>
+[[nodiscard]] boost::asio::awaitable<void> cross_core_post(CoreEngine& engine, uint32_t target_core, F&& func)
 {
     auto* task = new std::function<void()>(std::forward<F>(func));
     CoreMessage msg;
@@ -167,8 +202,9 @@ template <typename F> boost::asio::awaitable<void> cross_core_post(CoreEngine& e
 
 /// Zero-allocation fire-and-forget message passing via CrossCoreOp.
 /// Awaitable, core thread only.
-inline boost::asio::awaitable<void> cross_core_post_msg(CoreEngine& engine, uint32_t source_core, uint32_t target_core,
-                                                        CrossCoreOp op, void* data = nullptr)
+[[nodiscard]] inline boost::asio::awaitable<void> cross_core_post_msg(CoreEngine& engine, uint32_t source_core,
+                                                                      uint32_t target_core, CrossCoreOp op,
+                                                                      void* data = nullptr)
 {
     assert(source_core < engine.core_count() && "invalid source_core");
     CoreMessage msg{.op = op, .source_core = source_core, .data = reinterpret_cast<uintptr_t>(data)};
@@ -176,8 +212,8 @@ inline boost::asio::awaitable<void> cross_core_post_msg(CoreEngine& engine, uint
 }
 
 /// Broadcast a shared payload to all cores except source. Awaitable, core thread only.
-inline boost::asio::awaitable<void> broadcast_cross_core(CoreEngine& engine, uint32_t source_core, CrossCoreOp op,
-                                                         SharedPayload* payload)
+[[nodiscard]] inline boost::asio::awaitable<void> broadcast_cross_core(CoreEngine& engine, uint32_t source_core,
+                                                                       CrossCoreOp op, SharedPayload* payload)
 {
     assert(payload != nullptr && "broadcast_cross_core: payload must not be null");
 
@@ -188,12 +224,30 @@ inline boost::asio::awaitable<void> broadcast_cross_core(CoreEngine& engine, uin
     }
 
     assert(payload->refcount() > 0 && "broadcast_cross_core: refcount must be set before calling");
-    for (uint32_t i = 0; i < engine.core_count(); ++i)
+
+    const uint32_t total_receivers = engine.core_count() - 1; // excluding source_core
+    uint32_t delivered = 0;
+    try
     {
-        if (i == source_core)
-            continue;
-        CoreMessage msg{.op = op, .source_core = source_core, .data = reinterpret_cast<uintptr_t>(payload)};
-        co_await engine.co_post_to(i, msg);
+        for (uint32_t i = 0; i < engine.core_count(); ++i)
+        {
+            if (i == source_core)
+                continue;
+            CoreMessage msg{.op = op, .source_core = source_core, .data = reinterpret_cast<uintptr_t>(payload)};
+            co_await engine.co_post_to(i, msg);
+            ++delivered;
+        }
+    }
+    catch (...)
+    {
+        // Release refcount for each undelivered core to prevent SharedPayload leak.
+        // Already-delivered cores will release() normally on consumption.
+        const uint32_t undelivered = total_receivers - delivered;
+        for (uint32_t j = 0; j < undelivered; ++j)
+        {
+            payload->release();
+        }
+        throw;
     }
 }
 

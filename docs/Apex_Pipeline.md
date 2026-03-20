@@ -110,7 +110,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Idempotency Key** | 전 서비스 | 중복 요청 자동 감지, 멱등성 보장 |
 | **Kafka Consumer Offset 관리** | Logic Service | 수동 커밋으로 "처리 완료 후에만" 오프셋 전진 |
 | **Connection Draining** | Gateway 롤링 업데이트 시 | 기존 커넥션 유지 + 신규 커넥션만 새 Pod로 |
-| **Backpressure** | SPSC 큐 | max_capacity 초과 시 enqueue 거부 (`ErrorCode::BufferFull`). co_post_to() awaitable로 비동기 대기 지원. 80% 슬로우다운/429 응답은 Gateway 구현 시 추가 예정 |
+| **Backpressure** | SPSC 큐 | max_capacity 초과 시 enqueue 거부 (`ErrorCode::CrossCoreQueueFull`). co_post_to() awaitable로 비동기 대기 지원. 80% 슬로우다운/429 응답은 Gateway 구현 시 추가 예정 |
 
 ---
 

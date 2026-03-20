@@ -115,7 +115,7 @@ class CoreEngine
 
     /// Awaitable post — core thread only, with backpressure.
     /// Suspends if SPSC queue is full, resumes when space available.
-    boost::asio::awaitable<void> co_post_to(uint32_t target_core, CoreMessage msg);
+    [[nodiscard]] boost::asio::awaitable<void> co_post_to(uint32_t target_core, CoreMessage msg);
 
     /// Broadcast a message to all cores via asio::post. Thread-safe. Best-effort.
     /// LegacyCrossCoreFn is NOT supported (assert).

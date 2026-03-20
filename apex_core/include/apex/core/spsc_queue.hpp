@@ -107,9 +107,9 @@ class alignas(64) SpscQueue
     size_t mask_;
     std::unique_ptr<Slot[]> slots_;
 
-    // Await backpressure
+    // Await backpressure — separate cache line for cross-thread atomic
     boost::asio::io_context& producer_io_;
-    std::atomic<bool> producer_waiting_{false};
+    alignas(64) std::atomic<bool> producer_waiting_{false};
     std::move_only_function<void(boost::system::error_code)> pending_handler_;
 };
 
@@ -255,7 +255,9 @@ template <typename T>
     requires std::is_trivially_copyable_v<T>
 size_t SpscQueue<T>::size_approx() const noexcept
 {
-    return published_.load(std::memory_order_relaxed) - consumed_.load(std::memory_order_relaxed);
+    auto pub = published_.load(std::memory_order_relaxed);
+    auto con = consumed_.load(std::memory_order_relaxed);
+    return (pub >= con) ? (pub - con) : 0;
 }
 
 template <typename T>

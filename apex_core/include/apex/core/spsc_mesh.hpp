@@ -11,8 +11,6 @@
 
 #include <boost/asio/io_context.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 #include <cstdint>
 #include <functional>
@@ -44,9 +42,16 @@ class SpscMesh
     /// Access the SPSC queue from src to dst. src != dst required (assert).
     [[nodiscard]] SpscQueue<CoreMessage>& queue(uint32_t src, uint32_t dst);
 
-    /// Drain all incoming queues for dst_core. Dispatches messages via dispatcher.
+    /// Drain all incoming queues for dst_core. ALL messages (including LegacyCrossCoreFn)
+    /// are dispatched through the single dispatch callback — no inline handling.
+    /// Uses rotating start index to prevent starvation of higher-numbered sources.
     /// Also notifies waiting producers after drain.
     /// @return Total messages processed.
+    size_t drain_all_for(uint32_t dst_core, const std::function<void(uint32_t, const CoreMessage&)>& dispatch,
+                         size_t batch_limit);
+
+    /// Backward-compatible overload: builds a unified dispatch from dispatcher + legacy_handler.
+    /// LegacyCrossCoreFn messages are handled inline; registered ops go to dispatcher; rest to legacy_handler.
     size_t drain_all_for(uint32_t dst_core, const CrossCoreDispatcher& dispatcher,
                          const std::function<void(uint32_t, const CoreMessage&)>& legacy_handler, size_t batch_limit);
 
@@ -61,6 +66,7 @@ class SpscMesh
   private:
     uint32_t num_cores_;
     std::vector<std::unique_ptr<SpscQueue<CoreMessage>>> queues_; // [src * N + dst]
+    std::vector<uint32_t> drain_rotate_;                          // per-destination rotating start index
 };
 
 } // namespace apex::core
