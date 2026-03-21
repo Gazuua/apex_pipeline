@@ -698,34 +698,33 @@ def _bm_table_html(benchmarks, title=''):
             err_msg = b.get('error_message', 'error')
             rows += f'<tr><td>{esc(name)}</td><td colspan="4" style="color:var(--danger);text-align:center;">{esc(err_msg)}</td></tr>\n'
         else:
-            ips = b.get('items_per_second', 0)
             bn = b['name']
 
-            # Highlight rows where "our choice" outperforms the alternative
-            highlight = False
-
-            # Queue: SPSC beats MPSC
-            if 'SpscQueue' in bn:
-                highlight = True
-            # Allocators: custom allocators beat malloc/make_shared
-            elif any(x in bn for x in ['SlabAllocator', 'BumpAllocator', 'ArenaAllocator']):
-                highlight = True
-            # Session: intrusive_ptr beats shared_ptr
-            elif 'SessionPtr_Copy' in bn:
-                highlight = True
-            # Buffer: RingBuffer beats naive
-            elif 'RingBuffer_WriteRead' in bn or 'RingBuffer_Linearize' in bn:
-                highlight = True
-            # Serialization: FlatBuffers Read beats heap Read (zero-copy advantage)
-            elif 'FlatBuffers_Read' in bn:
-                highlight = True
-            # Dispatcher: flat_map iteration beats std at scale
-            elif 'FlatMap_SessionIterate' in bn:
-                highlight = True
-            # Architecture: Per-core outperforming Shared (above 0.7M plateau)
-            elif 'PerCore' in bn and ips > 700000:
-                highlight = True
-
+            # Manually curated: only rows with clear performance advantage
+            _GREEN = (
+                # Queue: SPSC 1P1C/Backpressure beats MPSC (NOT ConcurrentThroughput)
+                'SpscQueue_Throughput/',  # trailing / excludes ConcurrentThroughput
+                'SpscQueue_Latency',
+                'SpscQueue_Backpressure',
+                # Allocators: Bump/Slab beat malloc 10-17x
+                'BumpAllocator_Alloc',
+                'SlabAllocator_AllocDealloc',
+                # Buffer: zero-copy RingBuffer beats naive 2.5-4.5x
+                'RingBuffer_WriteRead',
+                # Serialization: FlatBuffers Read beats heap 19-32x
+                'FlatBuffers_Read',
+                # Session: intrusive_ptr beats shared_ptr 2.9x
+                'SessionPtr_Copy',
+                # Dispatcher: flat_map iteration at 10K (cache locality)
+                'FlatMap_SessionIterate/10000',
+                # Architecture: Per-core 2+ workers (Shared 정체선 초과)
+                'PerCore_Stateful/2',
+                'PerCore_Stateful/3',
+                'PerCore_Stateful/4',
+                'PerCore_Stateful/8',
+                'PerCore_Stateful/16',
+            )
+            highlight = any(g in bn for g in _GREEN)
             row_style = " style='color:#34D399;font-weight:bold;'" if highlight else ''
 
             rows += (f'<tr><td{row_style}>{esc(name)}</td>'
