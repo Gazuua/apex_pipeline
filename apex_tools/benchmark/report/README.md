@@ -1,29 +1,25 @@
 # Benchmark Report Generator
 
 Apex Core 벤치마크 결과를 시각화하여 PDF 보고서로 생성하는 도구.
+**버전 간 성능 비교 + 7개 방법론 비교** 체계.
 
 ## 구조
 
 ```
 apex_tools/benchmark/report/
-├── generate_benchmark_report.py   ← 보고서 템플릿 (레이아웃/디자인/차트)
+├── generate_benchmark_report.py   ← 보고서 생성 스크립트
 ├── requirements.txt               ← Python 의존성
 └── README.md                      ← 이 문서
 
-apex_core/benchmark_results/
-├── release/*.json                 ← Release 벤치마크 데이터
-├── debug/*.json                   ← Debug 벤치마크 데이터
+docs/apex_core/benchmark/
+├── v0.5.10.0/                     ← 버전별 벤치마크 데이터
+│   ├── *.json                     ← Google Benchmark JSON (13개)
+│   └── metadata.json              ← 시스템 정보, 커밋, 날짜
 ├── analysis.json                  ← 섹션별 분석 코멘터리
 └── report/
-    ├── benchmark_report.pdf       ← 생성된 PDF (9페이지)
-    └── charts/*.png               ← 생성된 차트 이미지
+    ├── benchmark_report.pdf       ← 생성된 PDF (~10페이지)
+    └── charts/*.png               ← 생성된 차트 이미지 (14개)
 ```
-
-**핵심 원칙: 템플릿과 분석의 분리**
-
-- `generate_benchmark_report.py`는 **레이아웃/디자인/차트 생성** 전용 — 디자인 변경 요청이 없는 한 수정하지 않는다
-- `analysis.json`은 **섹션별 분석 텍스트** — 벤치마크를 새로 돌릴 때마다 데이터에 맞게 새로 작성한다
-- 벤치마크 JSON 데이터는 Google Benchmark가 자동 생성한다
 
 ## 사용법
 
@@ -38,53 +34,59 @@ pip install -r apex_tools/benchmark/report/requirements.txt
 ### 보고서 생성
 
 ```bash
-# 분석 코멘터리 포함 (전체 보고서)
+# 버전 비교 보고서 (baseline + current)
 python apex_tools/benchmark/report/generate_benchmark_report.py \
-    --release=apex_core/benchmark_results/release \
-    --debug=apex_core/benchmark_results/debug \
-    --analysis=apex_core/benchmark_results/analysis.json \
-    --output=apex_core/benchmark_results/report
+    --data-dir=docs/apex_core/benchmark \
+    --baseline=v0.5.9.0 \
+    --current=v0.5.10.0 \
+    --analysis=docs/apex_core/benchmark/analysis.json \
+    --output=docs/apex_core/benchmark/report
 
-# 분석 없이 데이터+차트만 (--analysis 생략)
+# 단독 보고서 (첫 벤치마크, baseline 없음)
 python apex_tools/benchmark/report/generate_benchmark_report.py \
-    --release=apex_core/benchmark_results/release \
-    --debug=apex_core/benchmark_results/debug \
-    --output=apex_core/benchmark_results/report
+    --data-dir=docs/apex_core/benchmark \
+    --current=v0.5.10.0 \
+    --analysis=docs/apex_core/benchmark/analysis.json \
+    --output=docs/apex_core/benchmark/report
 ```
 
 ### 출력물
 
-- `report/benchmark_report.pdf` — 9페이지 PDF 보고서
-- `report/charts/*.png` — 7개 차트 이미지 (PDF에 포함됨)
+- `report/benchmark_report.pdf` — ~10페이지 PDF 보고서
+- `report/charts/*.png` — 14개 차트 이미지 (PDF에 포함됨)
 
 ## PDF 보고서 구성
 
-| 페이지 | 섹션 | 내용 |
-|--------|------|------|
-| 1 | 표지 | 시스템 정보 (코어, 캐시, 메모리, 빌드 환경) |
-| 2 | MpscQueue | Lock-free MPSC 큐 성능 |
-| 3 | RingBuffer | Zero-copy 수신 버퍼 처리량 |
-| 4 | FrameCodec | 프레임 인코딩/디코딩 |
-| 5 | MessageDispatcher | 핸들러 조회 (Release vs Debug) |
-| 6 | SlabPool | O(1) 슬랩 메모리 풀 vs malloc |
-| 7 | TimingWheel + Session | 타임아웃 관리 + 세션 생성/복사 |
-| 8 | Integration | 코어 간 RTT, 처리량, 파이프라인 |
-| 9 | 종합 비교 | Release/Debug 전체 비율 + CPU/IO 분류 |
+| 페이지 | 섹션 | 버전 비교 | 방법론 비교 |
+|--------|------|-----------|------------|
+| 1 | 표지 | 시스템 정보, 버전 비교 헤더 | 핵심 변화 요약 |
+| 2 | 큐 성능 | SPSC & MPSC 버전 비교 | SPSC vs MPSC |
+| 3 | 메모리 할당기 | Slab/Bump/Arena 버전 비교 | 3종 vs malloc vs make_shared |
+| 4 | 프레임 처리 | FrameCodec 버전 비교 | 페이로드 크기별 스케일링 |
+| 5 | 직렬화 | FlatBuffers/HeapAlloc 버전 비교 | FlatBuffers vs new+memcpy |
+| 6 | 디스패처 | MessageDispatcher 버전 비교 | flat_map vs unordered_map |
+| 7 | 세션 & 타이머 | SessionLifecycle+TimingWheel | intrusive_ptr vs shared_ptr |
+| 8 | 버퍼 | RingBuffer 버전 비교 | zero-copy vs naive memcpy |
+| 9 | 통합 | Cross-core RTT/처리량/Pipeline | — |
+| 10 | 종합 요약 | 전 컴포넌트 Δ% overview | 방법론 비교 핵심 수치 |
 
-각 섹션은 **데이터 테이블 → 분석 코멘터리 → 시각화 차트** 순서로 구성된다.
+각 섹션은 **데이터 테이블 → 버전 비교 차트 → 방법론 비교 차트 → 분석 코멘터리** 순서로 구성된다.
 
 ## analysis.json 형식
 
 ```json
 {
-  "mpsc_queue": "분석 텍스트 (HTML 태그 허용: <b>, <br/>)",
-  "ring_buffer": "...",
-  "frame_codec": "...",
-  "dispatcher": "...",
-  "slab_pool": "...",
-  "timing_session": "...",
-  "integration": "...",
-  "overview": "..."
+  "queue": "큐 분석 (HTML 태그 허용: <b>, <br/>)",
+  "allocators": "메모리 할당기 분석...",
+  "frame_codec": "프레임 코덱 분석...",
+  "serialization": "직렬화 비교 분석...",
+  "dispatcher": "디스패처 분석...",
+  "session_timer": "세션 & 타이머 분석...",
+  "ring_buffer": "링 버퍼 분석...",
+  "integration": "통합 벤치마크 분석...",
+  "overview": "종합 요약...",
+  "version_summary": "버전 변화 요약...",
+  "methodology_summary": "방법론 비교 요약..."
 }
 ```
 

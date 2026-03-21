@@ -11,7 +11,7 @@ static void BM_CrossCore_PostThroughput(benchmark::State& state)
 {
     CoreEngineConfig config{.num_cores = 2,
                             .spsc_queue_capacity = 65536,
-                            .tick_interval = std::chrono::milliseconds{100},
+                            .tick_interval = std::chrono::milliseconds{1},
                             .drain_batch_limit = 1024};
     CoreEngine engine(config);
 

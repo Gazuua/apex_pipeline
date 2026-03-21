@@ -48,7 +48,8 @@ apex_add_benchmark(bench_ring_buffer   micro/bench_ring_buffer.cpp)
 apex_add_benchmark(bench_frame_codec   micro/bench_frame_codec.cpp)
 apex_add_benchmark(bench_dispatcher    micro/bench_dispatcher.cpp)
 apex_add_benchmark(bench_timing_wheel  micro/bench_timing_wheel.cpp)
-apex_add_benchmark(bench_slab_allocator micro/bench_slab_allocator.cpp)
+apex_add_benchmark(bench_allocators    micro/bench_allocators.cpp)
+apex_add_benchmark(bench_serialization   micro/bench_serialization.cpp)
 apex_add_benchmark(bench_session_lifecycle micro/bench_session_lifecycle.cpp)
 
 # --- Integration benchmarks ---
@@ -56,3 +57,4 @@ apex_add_benchmark(bench_cross_core_latency       integration/bench_cross_core_l
 apex_add_benchmark(bench_frame_pipeline            integration/bench_frame_pipeline.cpp)
 apex_add_benchmark(bench_session_throughput         integration/bench_session_throughput.cpp)
 apex_add_benchmark(bench_cross_core_message_passing integration/bench_cross_core_message_passing.cpp)
+apex_add_benchmark(bench_architecture_comparison     integration/bench_architecture_comparison.cpp)

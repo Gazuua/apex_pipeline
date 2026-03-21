@@ -4,6 +4,7 @@
 #include <atomic>
 #include <benchmark/benchmark.h>
 #include <chrono>
+#include <semaphore>
 
 using namespace apex::core;
 
@@ -12,12 +13,13 @@ static void BM_CrossCore_Latency(benchmark::State& state)
 {
     CoreEngineConfig config{.num_cores = 2,
                             .spsc_queue_capacity = 65536,
-                            .tick_interval = std::chrono::milliseconds{100},
+                            .tick_interval = std::chrono::milliseconds{1},
                             .drain_batch_limit = 1024};
     CoreEngine engine(config);
 
     std::atomic<uint64_t> pong_count{0};
     std::atomic<uint64_t> total_rtt_ns{0};
+    std::binary_semaphore pong_ready{0};
 
     engine.set_message_handler([&](uint32_t core_id, const CoreMessage& msg) {
         if (msg.op == CrossCoreOp::Custom)
@@ -35,6 +37,7 @@ static void BM_CrossCore_Latency(benchmark::State& state)
                 auto sent = static_cast<int64_t>(msg.data);
                 total_rtt_ns.fetch_add(static_cast<uint64_t>(now - sent), std::memory_order_relaxed);
                 pong_count.fetch_add(1, std::memory_order_release);
+                pong_ready.release();
             }
         }
     });
@@ -47,11 +50,7 @@ static void BM_CrossCore_Latency(benchmark::State& state)
         CoreMessage ping{.op = CrossCoreOp::Custom, .source_core = 0, .data = static_cast<uintptr_t>(now)};
         (void)engine.post_to(1, ping);
 
-        auto expected = pong_count.load(std::memory_order_acquire) + 1;
-        while (pong_count.load(std::memory_order_acquire) < expected)
-        {
-            std::this_thread::yield();
-        }
+        pong_ready.acquire(); // properly blocks until handler signals
     }
 
     auto count = pong_count.load();
