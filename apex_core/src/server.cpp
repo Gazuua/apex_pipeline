@@ -93,6 +93,14 @@ Server::~Server()
             }
         }
     }
+
+    // UAF 방지: core_engine_ 을 per_core_ 보다 먼저 파괴.
+    // io_context::~io_context()가 미완료 코루틴 프레임을 파괴할 때
+    // intrusive_ptr<Session>이 해제되므로, Session slab 메모리(per_core_ 소유)가
+    // 아직 유효한 상태에서 io_context가 정리되어야 한다.
+    // 멤버 선언 순서상 per_core_ 가 core_engine_ 뒤에 있어 암묵적 파괴에서는
+    // per_core_ 가 먼저 소멸되므로, 명시적 reset으로 순서를 보장한다.
+    core_engine_.reset();
 }
 
 void Server::run()
