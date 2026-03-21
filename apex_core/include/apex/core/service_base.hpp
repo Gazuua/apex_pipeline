@@ -395,10 +395,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     }
 
   private:
-    uint32_t core_id_for_log() const noexcept
-    {
-        return per_core_ ? per_core_->core_id : UINT32_MAX;
-    }
+    uint32_t core_id_for_log() const noexcept;
 
     std::string name_;
     // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
