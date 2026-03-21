@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #105. Chat join_room SCARD/SADD TOCTOU 레이스
+- **등급**: MAJOR | **스코프**: chat-svc | **타입**: bug
+- **해결**: 2026-03-21 16:54:51 | **방식**: FIXED | **커밋**: 3b7f2ef
+- **비고**: Redis Lua 스크립트로 SISMEMBER+SCARD+조건SADD 원자적 처리. 기존 5단계 비원자적 호출을 단일 EVAL로 통합.
+
+### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
+- **등급**: MAJOR | **스코프**: core, infra | **타입**: infra
+- **해결**: 2026-03-21 16:54:51 | **방식**: FIXED | **커밋**: aedeb8e
+- **비고**: APEX_ASSERT 매크로(source_location 기반) + 크래시 시그널 핸들러(SIGABRT/SIGSEGV/SIGFPE/SIGBUS) 도입. Windows SEH 지원. sanitizer 빌드 자동 감지하여 no-op.
+
 ### #109. 벤치마크 빌드 큐잉 시스템 강제
 - **등급**: MAJOR | **스코프**: tools | **타입**: infra
 - **해결**: 2026-03-21 15:43:39 | **방식**: FIXED
