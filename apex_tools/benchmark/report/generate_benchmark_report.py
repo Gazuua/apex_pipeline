@@ -719,8 +719,14 @@ def _bm_table_html(benchmarks, title=''):
             tp_style = ''
             if ips > 100e6:
                 tp_style = " style='color:#34D399;font-weight:bold;'"
-            elif 0 < ips < 10e6:
-                tp_style = " style='color:#F59E0B;font-weight:bold;'"
+
+            # Per-core architecture rows: green when outperforming (>0.7M, above Shared plateau)
+            is_percore = 'PerCore' in b['name']
+            is_shared = 'Shared' in b['name']
+            if is_percore and ips > 700000:
+                tp_style = " style='color:#34D399;font-weight:bold;'"
+            elif is_shared and 0 < ips < 800000:
+                tp_style = " style='color:#F59E0B;'"
 
             rows += (f'<tr><td>{esc(name)}</td>'
                      f'<td{cpu_style}>{cpu}</td>'
