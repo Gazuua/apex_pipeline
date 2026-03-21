@@ -320,16 +320,12 @@ void CoreEngine::run_core(uint32_t core_id)
     tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
-    log::info(core_id, "core thread started");
-
     ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
     start_tick_timer(core_id);
 
     auto work_guard = boost::asio::make_work_guard(ctx.io_ctx);
 
     ctx.io_ctx.run();
-
-    log::info(core_id, "core thread exiting");
 }
 
 void CoreEngine::drain_inbox(uint32_t core_id)
