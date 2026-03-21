@@ -45,10 +45,13 @@ apex_add_unit_test(test_flatbuffers_dispatch test_flatbuffers_dispatch.cpp)
 # 네트워크 / 프로토콜 테스트
 apex_add_unit_test(test_tcp_acceptor test_tcp_acceptor.cpp)
 apex_add_unit_test(test_tcp_binary_protocol test_tcp_binary_protocol.cpp)
+target_link_libraries(test_tcp_binary_protocol PRIVATE apex::shared::protocols::tcp)
 
 # 멀티코어 / 서버 통합 테스트
 apex_add_unit_test(test_server_multicore test_server_multicore.cpp)
+target_link_libraries(test_server_multicore PRIVATE apex::shared::protocols::tcp)
 apex_add_unit_test(test_cross_core_call test_cross_core_call.cpp)
+target_link_libraries(test_cross_core_call PRIVATE apex::shared::protocols::tcp)
 apex_add_unit_test(test_drain_tick test_drain_tick.cpp)
 
 # Phase 5: Config, Logging
@@ -59,12 +62,14 @@ apex_add_unit_test(test_logging test_logging.cpp)
 apex_add_unit_test(test_connection_handler test_connection_handler.cpp)
 apex_add_unit_test(test_session_write_queue test_session_write_queue.cpp)
 apex_add_unit_test(test_server_error_paths test_server_error_paths.cpp)
+target_link_libraries(test_server_error_paths PRIVATE apex::shared::protocols::tcp)
 
 # v0.6 선행: 서비스 레이어 오버홀
 apex_add_unit_test(test_service_registry test_service_registry.cpp)
 apex_add_unit_test(test_periodic_task_scheduler test_periodic_task_scheduler.cpp)
 apex_add_unit_test(test_service_lifecycle test_service_lifecycle.cpp)
 apex_add_unit_test(test_listener_lifecycle test_listener_lifecycle.cpp)
+target_link_libraries(test_listener_lifecycle PRIVATE apex::shared::protocols::tcp)
 
 # Server global / adapter wire / error sender 테스트
 apex_add_unit_test(test_server_global test_server_global.cpp)

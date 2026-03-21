@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/server.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 
@@ -13,6 +13,7 @@
 #include <thread>
 
 using namespace apex::core;
+using apex::shared::protocols::tcp::TcpBinaryProtocol;
 using namespace std::chrono_literals;
 
 /// Server 에러 경로 단위 테스트.

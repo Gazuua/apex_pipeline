@@ -2,8 +2,9 @@
 
 #pragma once
 
-/// Forwarding header — 실제 구현은 apex_shared/lib/protocols/tcp/로 이동됨.
-/// 기존 코드 호환성을 위해 apex::core 네임스페이스에 using 선언을 유지한다.
+/// @deprecated 이 포워딩 헤더는 폐기 예정. 직접
+/// #include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp> 를 사용하라.
+/// apex_core → apex_shared 역방향 의존 제거 (#116).
 #include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 namespace apex::core

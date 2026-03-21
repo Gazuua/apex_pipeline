@@ -14,9 +14,11 @@ endfunction()
 apex_add_integration_test(test_pipeline_integration test_pipeline_integration.cpp)
 apex_add_integration_test(test_echo_integration test_echo_integration.cpp)
 apex_add_integration_test(test_server_e2e test_server_e2e.cpp)
+target_link_libraries(test_server_e2e PRIVATE apex::shared::protocols::tcp)
 
 # Phase 5: Graceful Shutdown
 apex_add_integration_test(test_shutdown_timeout test_shutdown_timeout.cpp)
+target_link_libraries(test_shutdown_timeout PRIVATE apex::shared::protocols::tcp)
 
 # 통합 테스트 타임아웃
 set_tests_properties(test_server_e2e PROPERTIES TIMEOUT 60)

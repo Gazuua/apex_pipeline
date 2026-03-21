@@ -84,9 +84,6 @@ target_include_directories(apex_core
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-        # Forwarding headers → shared/protocols include paths
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../apex_shared/lib/protocols/tcp/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../apex_shared/lib/protocols/kafka/include>
         $<INSTALL_INTERFACE:include>
 )
 
