@@ -121,8 +121,27 @@ LONG WINAPI unhandled_exception_filter(EXCEPTION_POINTERS* info) noexcept
 
 } // anonymous namespace
 
+/// Detect sanitizer builds. Sanitizers (ASAN, TSAN, MSAN) install their own
+/// signal handlers; overwriting them causes false positives or missed detections.
+static bool is_sanitizer_active() noexcept
+{
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+    return true;
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(memory_sanitizer)
+    return true;
+#endif
+#endif
+    return false;
+}
+
 void install_crash_handlers()
 {
+    // Sanitizers use their own signal handlers (especially SIGSEGV for shadow memory).
+    // Installing ours would interfere with ASAN/TSAN/MSAN detection mechanisms.
+    if (is_sanitizer_active())
+        return;
+
     // Cache logger pointer to bypass spdlog registry mutex in signal handler
     g_cached_logger.store(spdlog::default_logger_raw(), std::memory_order_release);
 
@@ -144,6 +163,9 @@ void install_crash_handlers()
 
 void uninstall_crash_handlers()
 {
+    if (is_sanitizer_active())
+        return;
+
     g_cached_logger.store(nullptr, std::memory_order_release);
 
     std::signal(SIGABRT, SIG_DFL);
