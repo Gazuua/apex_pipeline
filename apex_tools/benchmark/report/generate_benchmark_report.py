@@ -698,7 +698,27 @@ def _bm_table_html(benchmarks, title=''):
             err_msg = b.get('error_message', 'error')
             rows += f'<tr><td>{esc(name)}</td><td colspan="4" style="color:var(--danger);text-align:center;">{esc(err_msg)}</td></tr>\n'
         else:
-            rows += f'<tr><td>{esc(name)}</td><td>{cpu}</td><td>{real}</td><td>{iters}</td><td>{tp}</td></tr>\n'
+            # Conditional coloring for cpu_time cell
+            cpu_ns = b['cpu_time']
+            cpu_style = ''
+            if cpu_ns < 10:
+                cpu_style = " style='color:#34D399;font-weight:bold;'"
+            elif cpu_ns > 100000:
+                cpu_style = " style='color:#F59E0B;font-weight:bold;'"
+
+            # Conditional coloring for throughput cell
+            ips = b.get('items_per_second', 0)
+            tp_style = ''
+            if ips > 100e6:
+                tp_style = " style='color:#34D399;font-weight:bold;'"
+            elif 0 < ips < 10e6:
+                tp_style = " style='color:#F59E0B;font-weight:bold;'"
+
+            rows += (f'<tr><td>{esc(name)}</td>'
+                     f'<td{cpu_style}>{cpu}</td>'
+                     f'<td>{real}</td>'
+                     f'<td>{iters}</td>'
+                     f'<td{tp_style}>{tp}</td></tr>\n')
 
     return f'''{header}
 <table class="data-table">
@@ -922,9 +942,20 @@ def _section_summary(cur, base, has_baseline, an, method_table_rows, summary_del
     if method_table_rows:
         rows_html = ''
         for row in method_table_rows:
+            # Color ratio values: >2x green, <1x red, 1-2x default
+            ratio_str = row[3]
+            ratio_style = ''
+            try:
+                ratio_val = float(ratio_str.replace('x', ''))
+                if ratio_val > 2.0:
+                    ratio_style = " style='color:#34D399;font-weight:bold;'"
+                elif ratio_val < 1.0:
+                    ratio_style = " style='color:#EF4444;font-weight:bold;'"
+            except (ValueError, AttributeError):
+                pass
             rows_html += f'''<tr>
   <td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td>
-  <td><span class="ratio-badge">{row[3]}</span></td>
+  <td><span class="ratio-badge"{ratio_style}>{row[3]}</span></td>
 </tr>\n'''
         method_html = f'''
 <h3 class="sub-header">Methodology Comparison Highlights</h3>

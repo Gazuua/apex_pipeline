@@ -434,12 +434,12 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>SpscQueue_Throughput/1024</td><td>9.9 ns</td><td>10.1 ns</td><td>112,000,000</td><td>101.0M items/s</td></tr>
-<tr><td>SpscQueue_Throughput/4096</td><td>9.5 ns</td><td>10.2 ns</td><td>64,000,000</td><td>105.0M items/s</td></tr>
-<tr><td>SpscQueue_Throughput/32768</td><td>9.2 ns</td><td>9.7 ns</td><td>74,666,667</td><td>108.6M items/s</td></tr>
+<tr><td>SpscQueue_Throughput/1024</td><td style='color:#34D399;font-weight:bold;'>9.9 ns</td><td>10.1 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>101.0M items/s</td></tr>
+<tr><td>SpscQueue_Throughput/4096</td><td style='color:#34D399;font-weight:bold;'>9.5 ns</td><td>10.2 ns</td><td>64,000,000</td><td style='color:#34D399;font-weight:bold;'>105.0M items/s</td></tr>
+<tr><td>SpscQueue_Throughput/32768</td><td style='color:#34D399;font-weight:bold;'>9.2 ns</td><td>9.7 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>108.6M items/s</td></tr>
 <tr><td>SpscQueue_Throughput/65536</td><td>11.9 ns</td><td>12.3 ns</td><td>74,666,667</td><td>83.8M items/s</td></tr>
-<tr><td>SpscQueue_Latency</td><td>7.8 ns</td><td>8.0 ns</td><td>89,600,000</td><td>127.4M items/s</td></tr>
-<tr><td>SpscQueue_Backpressure</td><td>3.2 ns</td><td>3.2 ns</td><td>186,666,667</td><td>-</td></tr>
+<tr><td>SpscQueue_Latency</td><td style='color:#34D399;font-weight:bold;'>7.8 ns</td><td>8.0 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>127.4M items/s</td></tr>
+<tr><td>SpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td>3.2 ns</td><td>186,666,667</td><td>-</td></tr>
 <tr><td>SpscQueue_ConcurrentThroughput</td><td>46.2 ns</td><td>48.7 ns</td><td>17,920,000</td><td>21.6M items/s</td></tr>
 
 </tbody>
@@ -453,12 +453,12 @@ body {
 <tr><td>MpscQueue_1P1C/32768</td><td>13.6 ns</td><td>13.5 ns</td><td>44,800,000</td><td>73.5M items/s</td></tr>
 <tr><td>MpscQueue_1P1C/65536</td><td>15.3 ns</td><td>15.7 ns</td><td>56,000,000</td><td>65.2M items/s</td></tr>
 <tr><td>MpscQueue_2P1C</td><td>31.1 ns</td><td>38.4 ns</td><td>20,070,400</td><td>46.7M items/s</td></tr>
-<tr><td>MpscQueue_Backpressure</td><td>5.9 ns</td><td>6.4 ns</td><td>112,000,000</td><td>-</td></tr>
+<tr><td>MpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>5.9 ns</td><td>6.4 ns</td><td>112,000,000</td><td>-</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>SPSC vs MPSC 큐 비교</b>가 이번 v0.5.10.0의 핵심이다. SPSC(wait-free)는 1P1C 시나리오에서 MPSC(lock-free) 대비 <b>일관되게 빠르다</b>. CAS 루프가 없는 wait-free 구현이 단일 생산자-소비자 경로에서 성능 우위를 가져온다.<br/><br/>N코어 환경에서 N×(N-1) SPSC mesh는 단일 MPSC 대비 경합 없는 전용 채널을 제공하여, 코어 수 증가에 따른 선형 확장이 가능한 아키텍처. MPSC의 2P1C 시나리오에서 발생하는 CAS 경합이 SPSC mesh에서는 원천 차단된다.</div>
+  <div class="analysis-box"><b>SPSC vs MPSC 큐 비교</b>가 이번 v0.5.10.0의 핵심이다. <span style='color:#34D399;font-weight:bold;'>SPSC(wait-free)</span>는 1P1C 시나리오에서 <span style='color:#F59E0B;font-weight:bold;'>MPSC(lock-free)</span> 대비 <span style='color:#34D399;font-weight:bold;'>일관되게 빠르다</span>. <span style='color:#EF4444;'>CAS 루프</span>가 없는 wait-free 구현이 단일 생산자-소비자 경로에서 성능 우위를 가져온다.<br/><br/>N코어 환경에서 <span style='color:#34D399;font-weight:bold;'>N×(N-1) SPSC mesh</span>는 단일 MPSC 대비 <span style='color:#34D399;'>경합 없는 전용 채널</span>을 제공하여, 코어 수 증가에 따른 <span style='color:#34D399;font-weight:bold;'>선형 확장</span>이 가능한 아키텍처. <span style='color:#F59E0B;'>MPSC</span>의 2P1C 시나리오에서 발생하는 <span style='color:#EF4444;font-weight:bold;'>CAS 경합</span>이 SPSC mesh에서는 <span style='color:#34D399;'>원천 차단</span>된다.</div>
 
   <h3 class="sub-header">SPSC vs MPSC Methodology</h3>
   <div class="chart-container" id="chart-queue-methodology" style="height:480px;"></div>
@@ -480,13 +480,13 @@ body {
 <tr><td>SlabAllocator_AllocDealloc/64</td><td>11.1 ns</td><td>14.3 ns</td><td>74,666,667</td><td>90.2M items/s</td></tr>
 <tr><td>SlabAllocator_AllocDealloc/256</td><td>11.2 ns</td><td>12.0 ns</td><td>56,000,000</td><td>89.6M items/s</td></tr>
 <tr><td>SlabAllocator_AllocDealloc/1024</td><td>10.0 ns</td><td>10.6 ns</td><td>74,666,667</td><td>99.6M items/s</td></tr>
-<tr><td>Malloc_AllocFree/64</td><td>120.0 ns</td><td>122.2 ns</td><td>5,600,000</td><td>8.3M items/s</td></tr>
-<tr><td>Malloc_AllocFree/256</td><td>119.6 ns</td><td>121.9 ns</td><td>6,400,000</td><td>8.4M items/s</td></tr>
-<tr><td>Malloc_AllocFree/1024</td><td>122.1 ns</td><td>122.2 ns</td><td>6,400,000</td><td>8.2M items/s</td></tr>
-<tr><td>MakeShared_AllocDealloc</td><td>153.5 ns</td><td>167.6 ns</td><td>4,480,000</td><td>6.5M items/s</td></tr>
+<tr><td>Malloc_AllocFree/64</td><td>120.0 ns</td><td>122.2 ns</td><td>5,600,000</td><td style='color:#F59E0B;font-weight:bold;'>8.3M items/s</td></tr>
+<tr><td>Malloc_AllocFree/256</td><td>119.6 ns</td><td>121.9 ns</td><td>6,400,000</td><td style='color:#F59E0B;font-weight:bold;'>8.4M items/s</td></tr>
+<tr><td>Malloc_AllocFree/1024</td><td>122.1 ns</td><td>122.2 ns</td><td>6,400,000</td><td style='color:#F59E0B;font-weight:bold;'>8.2M items/s</td></tr>
+<tr><td>MakeShared_AllocDealloc</td><td>153.5 ns</td><td>167.6 ns</td><td>4,480,000</td><td style='color:#F59E0B;font-weight:bold;'>6.5M items/s</td></tr>
 <tr><td>BumpAllocator_Alloc/64</td><td>10.0 ns</td><td>10.7 ns</td><td>56,000,000</td><td>99.6M items/s</td></tr>
-<tr><td>BumpAllocator_Alloc/256</td><td>7.1 ns</td><td>7.3 ns</td><td>89,600,000</td><td>139.9M items/s</td></tr>
-<tr><td>BumpAllocator_Alloc/1024</td><td>7.3 ns</td><td>7.3 ns</td><td>100,000,000</td><td>136.2M items/s</td></tr>
+<tr><td>BumpAllocator_Alloc/256</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.3 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
+<tr><td>BumpAllocator_Alloc/1024</td><td style='color:#34D399;font-weight:bold;'>7.3 ns</td><td>7.3 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>136.2M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/64</td><td>14.6 ns</td><td>16.9 ns</td><td>64,000,000</td><td>68.3M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/256</td><td>19.9 ns</td><td>26.3 ns</td><td>34,461,538</td><td>50.1M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/1024</td><td>20.4 ns</td><td>24.2 ns</td><td>34,461,538</td><td>49.0M items/s</td></tr>
@@ -494,7 +494,7 @@ body {
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>커스텀 할당기 3종</b>이 모두 시스템 할당기보다 10배 이상 빠르다. <b>BumpAllocator</b>가 <b>7~10ns</b>로 가장 빠르며(monotonic 할당, 개별 dealloc 없음), <b>SlabAllocator</b>가 <b>10~11ns</b>(alloc+dealloc 쌍), <b>ArenaAllocator</b>가 <b>15~20ns</b>(블록 체이닝 오버헤드).<br/><br/>malloc은 <b>120ns</b>, make_shared는 <b>154ns</b>로 커스텀 할당기 대비 10~20배 느리다. make_shared의 추가 비용은 atomic ref-count 초기화와 control block 할당. Bump의 batch reset 패턴은 요청 처리 단위(per-request arena)에 이상적이며, Slab은 Session/Buffer 풀에, Arena는 파서/빌더 임시 할당에 각각 적합.</div>
+  <div class="analysis-box"><b>커스텀 할당기 3종</b>이 모두 시스템 할당기보다 <span style='color:#34D399;font-weight:bold;'>10배 이상 빠르다</span>. <span style='color:#F59E0B;font-weight:bold;'>BumpAllocator</span>가 <span style='color:#34D399;font-weight:bold;'>7~10ns</span>로 가장 빠르며(monotonic 할당, 개별 dealloc 없음), <span style='color:#F59E0B;font-weight:bold;'>SlabAllocator</span>가 <span style='color:#34D399;font-weight:bold;'>10~11ns</span>(alloc+dealloc 쌍), <span style='color:#F59E0B;font-weight:bold;'>ArenaAllocator</span>가 <span style='color:#34D399;font-weight:bold;'>15~20ns</span>(블록 체이닝 오버헤드).<br/><br/><span style='color:#F59E0B;'>malloc</span>은 <span style='color:#EF4444;font-weight:bold;'>120ns</span>, <span style='color:#F59E0B;'>make_shared</span>는 <span style='color:#EF4444;font-weight:bold;'>154ns</span>로 커스텀 할당기 대비 <span style='color:#EF4444;'>10~20배 느리다</span>. make_shared의 추가 비용은 <span style='color:#EF4444;'>atomic ref-count 초기화와 control block 할당</span>. Bump의 batch reset 패턴은 요청 처리 단위(per-request arena)에 이상적이며, Slab은 Session/Buffer 풀에, Arena는 파서/빌더 임시 할당에 각각 적합.</div>
 
   <h3 class="sub-header">5 Allocators Comparison</h3>
   <div class="chart-container" id="chart-allocators-methodology" style="height:500px;"></div>
@@ -525,7 +525,7 @@ body {
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>FrameCodec</b>의 Encode/Decode 처리량은 페이로드 크기에 비례하여 증가한다. 64B 소형 메시지에서는 고정 비용(헤더 직렬화, CRC 계산)이 지배적이며, 16KB 대형 메시지에서 <b>Encode 26.9 GB/s, Decode 22.6 GB/s</b>를 달성한다.<br/><br/>Encode가 Decode보다 일관되게 빠른 이유: Decode 시 헤더 파싱 + 무결성 검증 오버헤드. 실 서비스에서 평균 메시지 크기(~512B)에서 <b>Encode 7.2 GB/s, Decode 4.3 GB/s</b>로, 10Gbps NIC 대역폭을 충분히 활용 가능.</div>
+  <div class="analysis-box"><b><span style='color:#F59E0B;font-weight:bold;'>FrameCodec</span></b>의 Encode/Decode 처리량은 페이로드 크기에 비례하여 증가한다. 64B 소형 메시지에서는 <span style='color:#94A3B8;'>고정 비용(헤더 직렬화, CRC 계산)</span>이 지배적이며, 16KB 대형 메시지에서 <span style='color:#34D399;font-weight:bold;'>Encode 26.9 GB/s, Decode 22.6 GB/s</span>를 달성한다.<br/><br/>Encode가 Decode보다 일관되게 빠른 이유: Decode 시 <span style='color:#EF4444;'>헤더 파싱 + 무결성 검증 오버헤드</span>. 실 서비스에서 평균 메시지 크기(~512B)에서 <span style='color:#34D399;font-weight:bold;'>Encode 7.2 GB/s, Decode 4.3 GB/s</span>로, <span style='color:#34D399;'>10Gbps NIC 대역폭을 충분히 활용 가능</span>.</div>
 
   <h3 class="sub-header">Encode vs Decode Throughput Scaling</h3>
   <div class="chart-container" id="chart-frame-scaling" style="height:480px;"></div>
@@ -550,9 +550,9 @@ body {
 <tr><td>HeapAlloc_Build/64</td><td>62.5 ns</td><td>61.9 ns</td><td>10,000,000</td><td>1.0 GB/s</td></tr>
 <tr><td>HeapAlloc_Build/512</td><td>68.4 ns</td><td>68.2 ns</td><td>11,200,000</td><td>7.5 GB/s</td></tr>
 <tr><td>HeapAlloc_Build/4096</td><td>128.3 ns</td><td>126.1 ns</td><td>5,600,000</td><td>31.9 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/64</td><td>3.4 ns</td><td>3.5 ns</td><td>172,307,692</td><td>18.6 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/512</td><td>3.5 ns</td><td>3.5 ns</td><td>213,333,333</td><td>145.6 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/4096</td><td>3.6 ns</td><td>3.7 ns</td><td>203,636,364</td><td>1135.8 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/64</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td>3.5 ns</td><td>172,307,692</td><td>18.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/512</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td>3.5 ns</td><td>213,333,333</td><td>145.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/4096</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td>3.7 ns</td><td>203,636,364</td><td>1135.8 GB/s</td></tr>
 <tr><td>HeapAlloc_Read/64</td><td>64.2 ns</td><td>64.2 ns</td><td>11,200,000</td><td>997.3 MB/s</td></tr>
 <tr><td>HeapAlloc_Read/512</td><td>68.4 ns</td><td>69.7 ns</td><td>11,200,000</td><td>7.5 GB/s</td></tr>
 <tr><td>HeapAlloc_Read/4096</td><td>114.4 ns</td><td>115.7 ns</td><td>5,600,000</td><td>35.8 GB/s</td></tr>
@@ -560,7 +560,7 @@ body {
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>FlatBuffers vs new+memcpy</b> 빌드 성능 비교. <b>HeapAlloc이 빌드 시 2~2.5배 빠르다</b> — 64B 기준 HeapAlloc <b>98ns</b> vs FlatBuffers <b>243ns</b>. FlatBuffers의 빌드 오버헤드는 vtable 구성, 필드 정렬, builder 내부 버퍼 관리 때문이다.<br/><br/>그러나 FlatBuffers의 핵심 장점은 <b>읽기 측 zero-copy 역직렬화</b>이다. 수신 측에서 deserialization 없이 직접 접근하므로, 1회 빌드 + N회 읽기 패턴에서 FlatBuffers가 유리하다. 서버 프레임워크에서 라우팅/디스패치 경로는 읽기 빈도가 압도적이므로 FlatBuffers 선택이 올바르다.</div>
+  <div class="analysis-box"><b><span style='color:#F59E0B;font-weight:bold;'>FlatBuffers</span> vs <span style='color:#F59E0B;font-weight:bold;'>new+memcpy</span></b> 빌드 성능 비교. <span style='color:#34D399;font-weight:bold;'>HeapAlloc이 빌드 시 2~2.5배 빠르다</span> — 64B 기준 HeapAlloc <span style='color:#34D399;font-weight:bold;'>98ns</span> vs FlatBuffers <span style='color:#EF4444;font-weight:bold;'>243ns</span>. FlatBuffers의 빌드 오버헤드는 <span style='color:#EF4444;'>vtable 구성, 필드 정렬, builder 내부 버퍼 관리</span> 때문이다.<br/><br/>그러나 FlatBuffers의 핵심 장점은 <span style='color:#34D399;font-weight:bold;'>읽기 측 zero-copy 역직렬화</span>이다. 수신 측에서 deserialization 없이 직접 접근하므로, 1회 빌드 + N회 읽기 패턴에서 <span style='color:#34D399;'>FlatBuffers가 유리</span>하다. 서버 프레임워크에서 라우팅/디스패치 경로는 읽기 빈도가 압도적이므로 <span style='color:#34D399;font-weight:bold;'>FlatBuffers 선택이 올바르다</span>.</div>
 
   <h3 class="sub-header">Build vs Read Comparison</h3>
   <div class="chart-row">
@@ -586,28 +586,28 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Dispatcher_Lookup/10</td><td>5.5 ns</td><td>5.4 ns</td><td>100,000,000</td><td>182.9M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/100</td><td>5.8 ns</td><td>5.8 ns</td><td>100,000,000</td><td>173.0M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/1000</td><td>5.2 ns</td><td>5.1 ns</td><td>100,000,000</td><td>193.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100</td><td>5.2 ns</td><td>5.4 ns</td><td>100,000,000</td><td>193.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/1000</td><td>7.1 ns</td><td>7.1 ns</td><td>74,666,667</td><td>140.5M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/10000</td><td>7.1 ns</td><td>7.5 ns</td><td>89,600,000</td><td>139.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100000</td><td>4.3 ns</td><td>4.4 ns</td><td>133,802,667</td><td>231.4M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100</td><td>7.5 ns</td><td>7.4 ns</td><td>100,000,000</td><td>133.3M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/1000</td><td>6.0 ns</td><td>6.0 ns</td><td>112,000,000</td><td>166.7M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/10000</td><td>3.8 ns</td><td>3.7 ns</td><td>186,666,667</td><td>265.5M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100000</td><td>3.9 ns</td><td>3.8 ns</td><td>186,666,667</td><td>259.7M items/s</td></tr>
-<tr><td>FlatMap_SessionIterate/100</td><td>180.0 ns</td><td>188.2 ns</td><td>3,733,333</td><td>555.7M items/s</td></tr>
-<tr><td>FlatMap_SessionIterate/1000</td><td>2.8 us</td><td>2.9 us</td><td>235,789</td><td>350.9M items/s</td></tr>
-<tr><td>FlatMap_SessionIterate/10000</td><td>26.2 us</td><td>25.6 us</td><td>28,000</td><td>381.3M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/100</td><td>114.7 ns</td><td>114.6 ns</td><td>6,400,000</td><td>871.5M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/1000</td><td>3.0 us</td><td>3.0 us</td><td>224,000</td><td>333.4M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/10000</td><td>66.3 us</td><td>66.7 us</td><td>8,960</td><td>150.9M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/10</td><td style='color:#34D399;font-weight:bold;'>5.5 ns</td><td>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>182.9M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/100</td><td style='color:#34D399;font-weight:bold;'>5.8 ns</td><td>5.8 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>173.0M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/1000</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td>5.1 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.1 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>140.5M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.5 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>4.3 ns</td><td>4.4 ns</td><td>133,802,667</td><td style='color:#34D399;font-weight:bold;'>231.4M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>7.5 ns</td><td>7.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>133.3M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>6.0 ns</td><td>6.0 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>166.7M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>3.8 ns</td><td>3.7 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>265.5M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>3.9 ns</td><td>3.8 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>259.7M items/s</td></tr>
+<tr><td>FlatMap_SessionIterate/100</td><td>180.0 ns</td><td>188.2 ns</td><td>3,733,333</td><td style='color:#34D399;font-weight:bold;'>555.7M items/s</td></tr>
+<tr><td>FlatMap_SessionIterate/1000</td><td>2.8 us</td><td>2.9 us</td><td>235,789</td><td style='color:#34D399;font-weight:bold;'>350.9M items/s</td></tr>
+<tr><td>FlatMap_SessionIterate/10000</td><td>26.2 us</td><td>25.6 us</td><td>28,000</td><td style='color:#34D399;font-weight:bold;'>381.3M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/100</td><td>114.7 ns</td><td>114.6 ns</td><td>6,400,000</td><td style='color:#34D399;font-weight:bold;'>871.5M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/1000</td><td>3.0 us</td><td>3.0 us</td><td>224,000</td><td style='color:#34D399;font-weight:bold;'>333.4M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/10000</td><td>66.3 us</td><td>66.7 us</td><td>8,960</td><td style='color:#34D399;font-weight:bold;'>150.9M items/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>boost::unordered_flat_map이 대규모 순회에서 std::unordered_map 대비 2.5배 빠르다</b> — 10K 세션 iterate: flat_map <b>26ms</b> vs std <b>66ms</b>.<br/><br/>flat_map은 open addressing 방식으로 데이터가 연속된 메모리에 저장되어 CPU 캐시 히트율이 높다. 반면 std::unordered_map은 node-based(포인터 체이닝)라 캐시 미스가 빈번하다. 조회(find)는 둘 다 O(1)로 비슷하지만, <b>전체 세션 순회(브로드캐스트, 상태 점검 등)에서 캐시 지역성 차이가 극적으로 드러난다</b>.<br/><br/>Apex Core는 SessionManager, MessageDispatcher, CrossCoreDispatcher, KafkaHandlerMap 등 4곳에서 flat_map을 사용하며, 특히 SessionManager의 세션 전체 순회 시 이 성능 차이가 실질적 영향을 미친다.</div>
+  <div class="analysis-box"><b><span style='color:#F59E0B;font-weight:bold;'>boost::unordered_flat_map</span>이 대규모 순회에서 <span style='color:#F59E0B;font-weight:bold;'>std::unordered_map</span> 대비 <span style='color:#34D399;font-weight:bold;'>2.5배 빠르다</span></b> — 10K 세션 iterate: flat_map <span style='color:#34D399;font-weight:bold;'>26ms</span> vs std <span style='color:#EF4444;font-weight:bold;'>66ms</span>.<br/><br/><span style='color:#F59E0B;'>flat_map</span>은 open addressing 방식으로 데이터가 연속된 메모리에 저장되어 <span style='color:#34D399;'>CPU 캐시 히트율이 높다</span>. 반면 <span style='color:#F59E0B;'>std::unordered_map</span>은 node-based(포인터 체이닝)라 <span style='color:#EF4444;'>캐시 미스가 빈번</span>하다. 조회(find)는 둘 다 O(1)로 비슷하지만, <span style='color:#34D399;font-weight:bold;'>전체 세션 순회(브로드캐스트, 상태 점검 등)에서 캐시 지역성 차이가 극적으로 드러난다</span>.<br/><br/>Apex Core는 <span style='color:#F59E0B;'>SessionManager, MessageDispatcher, CrossCoreDispatcher, KafkaHandlerMap</span> 등 4곳에서 flat_map을 사용하며, 특히 SessionManager의 세션 전체 순회 시 이 성능 차이가 실질적 영향을 미친다.</div>
 
   <h3 class="sub-header">flat_map vs std::unordered_map — 세션 순회 (Iteration)</h3>
   <div class="chart-container" id="chart-dispatcher-iteration" style="height:480px;"></div>
@@ -630,9 +630,9 @@ body {
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
 <tr><td>TimingWheel_ScheduleTick/1000</td><td>64.1 us</td><td>66.6 us</td><td>10,000</td><td>15.6M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/10000</td><td>725.4 us</td><td>733.3 us</td><td>1,120</td><td>13.8M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/50000</td><td>3.65 ms</td><td>3.91 ms</td><td>154</td><td>13.7M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleOnly</td><td>159.0 ns</td><td>174.7 ns</td><td>7,466,667</td><td>6.3M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/10000</td><td style='color:#F59E0B;font-weight:bold;'>725.4 us</td><td>733.3 us</td><td>1,120</td><td>13.8M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/50000</td><td style='color:#F59E0B;font-weight:bold;'>3.65 ms</td><td>3.91 ms</td><td>154</td><td>13.7M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleOnly</td><td>159.0 ns</td><td>174.7 ns</td><td>7,466,667</td><td style='color:#F59E0B;font-weight:bold;'>6.3M items/s</td></tr>
 
 </tbody>
 </table>
@@ -640,14 +640,14 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Session_Create</td><td>443.3 us</td><td>444.1 us</td><td>1,445</td><td>2,256 items/s</td></tr>
-<tr><td>SessionPtr_Copy</td><td>6.3 ns</td><td>6.3 ns</td><td>112,000,000</td><td>159.3M items/s</td></tr>
+<tr><td>Session_Create</td><td style='color:#F59E0B;font-weight:bold;'>443.3 us</td><td>444.1 us</td><td>1,445</td><td style='color:#F59E0B;font-weight:bold;'>2,256 items/s</td></tr>
+<tr><td>SessionPtr_Copy</td><td style='color:#34D399;font-weight:bold;'>6.3 ns</td><td>6.3 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>159.3M items/s</td></tr>
 <tr><td>SharedPtr_Copy</td><td>18.0 ns</td><td>20.4 ns</td><td>37,333,333</td><td>55.6M items/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>intrusive_ptr vs shared_ptr</b>: SessionPtr(intrusive_ptr) 복사가 <b>6.3ns</b>로 shared_ptr <b>18ns</b> 대비 <b>2.9배 빠르다</b>. intrusive_ptr는 non-atomic increment(per-core 단일 스레드 보장)이고, shared_ptr는 atomic increment가 필수. 세션 참조가 핫패스에서 빈번하므로 intrusive_ptr 선택이 성능에 크게 기여.<br/><br/><b>TimingWheel</b>은 O(1) 타임아웃 관리로, 1K 배치에서 <b>27M items/s</b>를 처리. Session Create는 <b>443µs</b>로 TCP 소켓+버퍼 초기화를 포함하지만, 커넥션 수립 시 1회만 발생하므로 핫패스 영향 없음.</div>
+  <div class="analysis-box"><b><span style='color:#F59E0B;font-weight:bold;'>intrusive_ptr</span> vs <span style='color:#F59E0B;font-weight:bold;'>shared_ptr</span></b>: SessionPtr(intrusive_ptr) 복사가 <span style='color:#34D399;font-weight:bold;'>6.3ns</span>로 shared_ptr <span style='color:#EF4444;font-weight:bold;'>18ns</span> 대비 <span style='color:#34D399;font-weight:bold;'>2.9배 빠르다</span>. intrusive_ptr는 <span style='color:#34D399;'>non-atomic increment</span>(per-core 단일 스레드 보장)이고, shared_ptr는 <span style='color:#EF4444;'>atomic increment가 필수</span>. 세션 참조가 핫패스에서 빈번하므로 intrusive_ptr 선택이 성능에 크게 기여.<br/><br/><span style='color:#F59E0B;font-weight:bold;'>TimingWheel</span>은 O(1) 타임아웃 관리로, 1K 배치에서 <span style='color:#34D399;font-weight:bold;'>27M items/s</span>를 처리. Session Create는 <span style='color:#94A3B8;'>443µs</span>로 TCP 소켓+버퍼 초기화를 포함하지만, <span style='color:#94A3B8;font-size:0.9em;'>커넥션 수립 시 1회만 발생하므로 핫패스 영향 없음</span>.</div>
 
   
 </div>
@@ -676,7 +676,7 @@ body {
 </tbody>
 </table>
 
-  <div class="analysis-box"><b>zero-copy RingBuffer vs naive memcpy</b>: RingBuffer가 모든 크기에서 <b>2.5~4.5배 빠르다</b>. 64B: RingBuffer <b>35ns</b> vs naive <b>156ns</b>, 4KB: <b>103ns</b> vs <b>251ns</b>.<br/><br/>naive 방식은 매번 힙 할당+해제(new/delete)가 추가되므로 오버헤드가 크다. RingBuffer는 미리 할당된 순환 버퍼에서 포인터만 이동하므로 할당 비용 제로. Linearize(래핑 경계 처리)에서도 <b>31~44ns</b>로 naive 대비 빠르며, 대부분의 경우 contiguous read로 memcpy 없이 직접 접근.</div>
+  <div class="analysis-box"><b><span style='color:#34D399;font-weight:bold;'>zero-copy RingBuffer</span> vs <span style='color:#F59E0B;font-weight:bold;'>naive memcpy</span></b>: RingBuffer가 모든 크기에서 <span style='color:#34D399;font-weight:bold;'>2.5~4.5배 빠르다</span>. 64B: RingBuffer <span style='color:#34D399;font-weight:bold;'>35ns</span> vs naive <span style='color:#EF4444;font-weight:bold;'>156ns</span>, 4KB: <span style='color:#34D399;font-weight:bold;'>103ns</span> vs <span style='color:#EF4444;font-weight:bold;'>251ns</span>.<br/><br/><span style='color:#F59E0B;'>naive</span> 방식은 매번 <span style='color:#EF4444;'>힙 할당+해제(new/delete)가 추가</span>되므로 오버헤드가 크다. RingBuffer는 미리 할당된 순환 버퍼에서 <span style='color:#34D399;'>포인터만 이동하므로 할당 비용 제로</span>. Linearize(래핑 경계 처리)에서도 <span style='color:#34D399;font-weight:bold;'>31~44ns</span>로 naive 대비 빠르며, 대부분의 경우 <span style='color:#34D399;'>contiguous read로 memcpy 없이 직접 접근</span>.</div>
 
   <h3 class="sub-header">Zero-copy vs Naive memcpy (Throughput GB/s)</h3>
   <div class="chart-container" id="chart-buffer-methodology" style="height:480px;"></div>
@@ -703,15 +703,15 @@ body {
 </tr>
 <tr>
   <td>Slab vs malloc (64B)</td><td>Slab: 11.1 ns</td><td>malloc: 120.0 ns</td>
-  <td><span class="ratio-badge">10.8x</span></td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>10.8x</span></td>
 </tr>
 <tr>
   <td>intrusive_ptr vs shared_ptr</td><td>intrusive: 6.3 ns</td><td>shared: 18.0 ns</td>
-  <td><span class="ratio-badge">2.9x</span></td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>2.9x</span></td>
 </tr>
 <tr>
   <td>Zero-copy vs Naive (512B)</td><td>ZeroCopy: 12.6 GB/s</td><td>Naive: 3.2 GB/s</td>
-  <td><span class="ratio-badge">3.9x</span></td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>3.9x</span></td>
 </tr>
 <tr>
   <td>FlatBuffers vs Heap Build (512B)</td><td>FB: 105.0 ns</td><td>Heap: 68.4 ns</td>
@@ -719,14 +719,14 @@ body {
 </tr>
 <tr>
   <td>FlatBuffers vs Heap Read (512B)</td><td>FB: 3.5 ns</td><td>Heap: 68.4 ns</td>
-  <td><span class="ratio-badge">19.4x</span></td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>19.4x</span></td>
 </tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box analysis-box-alt">v0.5.10.0의 핵심: <b>SPSC mesh 전환 + 커스텀 할당기 3종 + zero-copy 설계</b>가 프레임워크 성능의 근간.<br/><br/>방법론 비교 요약: SPSC가 MPSC보다 빠르고, 커스텀 할당기가 malloc보다 10배 이상 빠르고, intrusive_ptr가 shared_ptr보다 3배 빠르고, RingBuffer가 naive 버퍼보다 3~5배 빠르다. FlatBuffers는 빌드 비용이 있지만 읽기 측 zero-copy 이점이 더 크다.</div>
-  <div class="analysis-box"><b>7개 방법론 비교 핵심 수치:</b><br/>① SPSC vs MPSC — wait-free가 lock-free보다 빠름<br/>② 커스텀 할당기 vs malloc — Bump 7ns, Slab 11ns, Arena 20ns vs malloc 120ns (<b>10~17x</b>)<br/>③ flat_map vs std::unordered_map — 대규모 순회에서 flat_map <b>2.5x</b> 빠름 (캐시 지역성)<br/>④ intrusive_ptr vs shared_ptr — <b>2.9x</b> (non-atomic vs atomic refcount)<br/>⑤ zero-copy vs naive — <b>2.5~4.5x</b> (RingBuffer vs new+memcpy)<br/>⑥ FrameCodec 스케일링 — 페이로드 비례 처리량 증가<br/>⑦ FlatBuffers vs heap — 빌드 2.5x 느리나 <b>읽기는 19~32x 빠름</b> (zero-copy 역직렬화)</div>
+  <div class="analysis-box analysis-box-alt">v0.5.10.0의 핵심: <b><span style='color:#34D399;font-weight:bold;'>SPSC mesh 전환</span> + <span style='color:#34D399;font-weight:bold;'>커스텀 할당기 3종</span> + <span style='color:#34D399;font-weight:bold;'>zero-copy 설계</span></b>가 프레임워크 성능의 근간.<br/><br/>방법론 비교 요약: <span style='color:#F59E0B;font-weight:bold;'>SPSC</span>가 <span style='color:#F59E0B;'>MPSC</span>보다 빠르고, 커스텀 할당기가 <span style='color:#F59E0B;'>malloc</span>보다 <span style='color:#34D399;font-weight:bold;'>10배 이상</span> 빠르고, <span style='color:#F59E0B;font-weight:bold;'>intrusive_ptr</span>가 <span style='color:#F59E0B;'>shared_ptr</span>보다 <span style='color:#34D399;font-weight:bold;'>3배</span> 빠르고, <span style='color:#F59E0B;font-weight:bold;'>RingBuffer</span>가 naive 버퍼보다 <span style='color:#34D399;font-weight:bold;'>3~5배</span> 빠르다. <span style='color:#F59E0B;font-weight:bold;'>FlatBuffers</span>는 <span style='color:#EF4444;'>빌드 비용</span>이 있지만 <span style='color:#34D399;font-weight:bold;'>읽기 측 zero-copy 이점이 더 크다</span>.</div>
+  <div class="analysis-box"><b>7개 방법론 비교 핵심 수치:</b><br/>① <span style='color:#F59E0B;font-weight:bold;'>SPSC</span> vs <span style='color:#F59E0B;'>MPSC</span> — <span style='color:#34D399;'>wait-free</span>가 lock-free보다 빠름<br/>② 커스텀 할당기 vs <span style='color:#F59E0B;'>malloc</span> — <span style='color:#34D399;font-weight:bold;'>Bump 7ns, Slab 11ns, Arena 20ns</span> vs <span style='color:#EF4444;'>malloc 120ns</span> (<span style='color:#34D399;font-weight:bold;'>10~17x</span>)<br/>③ <span style='color:#F59E0B;font-weight:bold;'>flat_map</span> vs <span style='color:#F59E0B;'>std::unordered_map</span> — 대규모 순회에서 flat_map <span style='color:#34D399;font-weight:bold;'>2.5x</span> 빠름 (캐시 지역성)<br/>④ <span style='color:#F59E0B;font-weight:bold;'>intrusive_ptr</span> vs <span style='color:#F59E0B;'>shared_ptr</span> — <span style='color:#34D399;font-weight:bold;'>2.9x</span> (<span style='color:#34D399;'>non-atomic</span> vs <span style='color:#EF4444;'>atomic</span> refcount)<br/>⑤ <span style='color:#34D399;font-weight:bold;'>zero-copy</span> vs <span style='color:#F59E0B;'>naive</span> — <span style='color:#34D399;font-weight:bold;'>2.5~4.5x</span> (RingBuffer vs new+memcpy)<br/>⑥ <span style='color:#F59E0B;font-weight:bold;'>FrameCodec</span> 스케일링 — <span style='color:#34D399;'>페이로드 비례 처리량 증가</span><br/>⑦ <span style='color:#F59E0B;font-weight:bold;'>FlatBuffers</span> vs heap — <span style='color:#EF4444;'>빌드 2.5x 느리나</span> <span style='color:#34D399;font-weight:bold;'>읽기는 19~32x 빠름</span> (zero-copy 역직렬화)</div>
 </div>
 
 
@@ -760,7 +760,7 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>CrossCore_PostThroughput/real_time</td><td>1.0 us</td><td>1.0 us</td><td>723,986</td><td>976,114 items/s</td></tr>
+<tr><td>CrossCore_PostThroughput/real_time</td><td>1.0 us</td><td>1.0 us</td><td>723,986</td><td style='color:#F59E0B;font-weight:bold;'>976,114 items/s</td></tr>
 
 </tbody>
 </table>
@@ -788,18 +788,18 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>PerCore_Stateful/1/real_time</td><td>99.61 ms</td><td>97.73 ms</td><td>8</td><td>511,614 items/s</td></tr>
-<tr><td>PerCore_Stateful/2/real_time</td><td>109.38 ms</td><td>110.95 ms</td><td>6</td><td>901,329 items/s</td></tr>
-<tr><td>PerCore_Stateful/3/real_time</td><td>114.58 ms</td><td>120.58 ms</td><td>6</td><td>1.2M items/s</td></tr>
-<tr><td>PerCore_Stateful/4/real_time</td><td>119.79 ms</td><td>128.05 ms</td><td>6</td><td>1.6M items/s</td></tr>
-<tr><td>PerCore_Stateful/8/real_time</td><td>152.34 ms</td><td>202.73 ms</td><td>4</td><td>2.0M items/s</td></tr>
-<tr><td>PerCore_Stateful/16/real_time</td><td>164.06 ms</td><td>379.24 ms</td><td>2</td><td>2.1M items/s</td></tr>
-<tr><td>Shared_Stateful/1/real_time</td><td>91.52 ms</td><td>93.69 ms</td><td>7</td><td>533,682 items/s</td></tr>
-<tr><td>Shared_Stateful/2/real_time</td><td>156.25 ms</td><td>155.38 ms</td><td>4</td><td>643,593 items/s</td></tr>
-<tr><td>Shared_Stateful/3/real_time</td><td>208.33 ms</td><td>208.99 ms</td><td>3</td><td>717,737 items/s</td></tr>
-<tr><td>Shared_Stateful/4/real_time</td><td>270.83 ms</td><td>269.30 ms</td><td>3</td><td>742,663 items/s</td></tr>
-<tr><td>Shared_Stateful/8/real_time</td><td>460.94 ms</td><td>519.12 ms</td><td>2</td><td>770,540 items/s</td></tr>
-<tr><td>Shared_Stateful/16/real_time</td><td>906.25 ms</td><td>1035.57 ms</td><td>1</td><td>772,519 items/s</td></tr>
+<tr><td>PerCore_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>99.61 ms</td><td>97.73 ms</td><td>8</td><td style='color:#F59E0B;font-weight:bold;'>511,614 items/s</td></tr>
+<tr><td>PerCore_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>109.38 ms</td><td>110.95 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>901,329 items/s</td></tr>
+<tr><td>PerCore_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>114.58 ms</td><td>120.58 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.2M items/s</td></tr>
+<tr><td>PerCore_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>119.79 ms</td><td>128.05 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.6M items/s</td></tr>
+<tr><td>PerCore_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>152.34 ms</td><td>202.73 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>2.0M items/s</td></tr>
+<tr><td>PerCore_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>164.06 ms</td><td>379.24 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>2.1M items/s</td></tr>
+<tr><td>Shared_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>91.52 ms</td><td>93.69 ms</td><td>7</td><td style='color:#F59E0B;font-weight:bold;'>533,682 items/s</td></tr>
+<tr><td>Shared_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>156.25 ms</td><td>155.38 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>643,593 items/s</td></tr>
+<tr><td>Shared_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>208.33 ms</td><td>208.99 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>717,737 items/s</td></tr>
+<tr><td>Shared_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>270.83 ms</td><td>269.30 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>742,663 items/s</td></tr>
+<tr><td>Shared_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>460.94 ms</td><td>519.12 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>770,540 items/s</td></tr>
+<tr><td>Shared_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>906.25 ms</td><td>1035.57 ms</td><td>1</td><td style='color:#F59E0B;font-weight:bold;'>772,519 items/s</td></tr>
 
 </tbody>
 </table>
