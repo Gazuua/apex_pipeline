@@ -61,7 +61,7 @@ ServerConfig parse_server(const toml::table& root)
     cfg.num_cores = checked_narrow<uint32_t>(get_or<int64_t>(*tbl, "num_cores", cfg.num_cores), "num_cores");
     // I-20: Use int64_t default to avoid narrowing conversion warning
     cfg.spsc_queue_capacity =
-        checked_narrow<size_t>(get_or<int64_t>(*tbl, "spsc_queue_capacity", int64_t{65536}), "spsc_queue_capacity");
+        checked_narrow<size_t>(get_or<int64_t>(*tbl, "spsc_queue_capacity", int64_t{1024}), "spsc_queue_capacity");
     {
         auto tick_ms = get_or<int64_t>(*tbl, "tick_interval_ms", cfg.tick_interval.count());
         if (tick_ms < 0)

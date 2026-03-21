@@ -188,7 +188,17 @@ RedisMultiplexer::pipeline(std::span<const std::string> commands)
         {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
+        struct FreeGuard
+        {
+            char* p;
+            ~FreeGuard()
+            {
+                if (p)
+                    redisFreeCommand(p);
+            }
+        } guard{buf};
         auto result = co_await submit_formatted_command(buf, len);
+        guard.p = nullptr; // ownership transferred, release guard
         redisFreeCommand(buf);
         if (!result.has_value())
         {

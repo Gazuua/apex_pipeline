@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 # Apex Pipeline -- E2E Kafka topic initialization
 # Usage: docker compose exec kafka bash /init-kafka.sh
 

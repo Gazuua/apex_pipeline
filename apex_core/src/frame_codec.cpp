@@ -50,6 +50,10 @@ std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
     // NOTE: 이 linearize()는 hdr_span을 무효화할 수 있지만,
     // 이미 hdr_buf에 복사했으므로 안전하다.
     auto frame_span = buf.linearize(total);
+    if (frame_span.empty())
+    {
+        return std::unexpected(FrameError::InsufficientData);
+    }
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 
     return Frame{header, payload};

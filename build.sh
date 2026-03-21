@@ -29,4 +29,4 @@ cmake --preset "$PRESET"
 cp "$BUILD_DIR/compile_commands.json" compile_commands.json 2>/dev/null || true
 
 cmake --build "$BUILD_DIR"
-ctest --preset "$PRESET" --output-on-failure
+ctest --preset "$PRESET" --output-on-failure -LE e2e

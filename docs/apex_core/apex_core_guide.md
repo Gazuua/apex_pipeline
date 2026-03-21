@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.9.0 | **최종 갱신**: 2026-03-20
+**버전**: v0.5.10.0 | **최종 갱신**: 2026-03-21
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
@@ -171,6 +171,7 @@ struct ServerConfig {
     std::chrono::milliseconds tick_interval{100};     // CoreEngine tick 주기
     uint32_t heartbeat_timeout_ticks = 300;           // 하트비트 미수신 시 세션 종료 (0=비활성)
     size_t recv_buf_capacity = 8192;                  // per-session 수신 버퍼 크기
+    size_t session_max_queue_depth = 256;             // per-session write queue depth 제한
     size_t timer_wheel_slots = 1024;                  // TimingWheel 슬롯 수
     bool reuseport = false;                           // Linux: per-core SO_REUSEPORT
     bool handle_signals = true;                       // SIGINT/SIGTERM 자동 처리
