@@ -23,7 +23,7 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # ── Path filter (Docker / Source 변경 감지) ────
