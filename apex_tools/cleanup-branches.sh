@@ -19,7 +19,7 @@ set -euo pipefail
 # ============================================================================
 
 # ── 보호 브랜치 (절대 삭제 금지) ──
-PROTECTED_BRANCHES=("main" "master")
+PROTECTED_BRANCHES=("main" "master" "gh-pages")
 
 is_protected() {
     local branch="$1"
