@@ -71,6 +71,8 @@ auto-review가 지속적으로 발견하는 버그성 이슈를 깔끔하게 소
 
 `branch-handoff.sh status`로 전체 점유 현황을 확인한 뒤, 번들 내 백로그가 다른 에이전트에 점유되어 있으면 해당 항목을 드롭하고 나머지로 재구성한다.
 
+> **제약**: `backlog-check`는 단일 ID만 조회 가능하므로, 복수 백로그 번들의 점유 확인은 `status` 출력의 "Backlog items in progress" 섹션으로 수행한다.
+
 브랜치명은 `feature/fsd-backlog-<타임스탬프>`. `notify start --skip-design`으로 바로 implementing 상태에 진입한다.
 
 ## Phase 3: 구현 & 드롭 처리
