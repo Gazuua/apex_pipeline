@@ -1009,6 +1009,9 @@ def _section_integration(cur, base, has_baseline, an, integration_data):
     <div class="section-title">Integration — End-to-end Pipeline</div>
   </div>
 
+  <h3 class="sub-header">Throughput Scaling — Per-core vs Shared io_context</h3>
+  <div class="chart-container" id="chart-integration-scaling" style="height:480px;"></div>
+
   {latency_html}
 
   <h3 class="sub-header">Cross-core Message Throughput</h3>
@@ -2347,6 +2350,46 @@ function deltaColor(pct, isTime) {{
 }})();
 
 // =====================================================
+// =====================================================
+// Integration: Throughput Scaling — Per-core vs Shared
+// =====================================================
+(function() {{
+  var arch = D.architecture_comparison || {{}};
+  var bms = arch.benchmarks || [];
+  if (!bms.length) return;
+
+  var labels = [], pcIps = [], shIps = [];
+  bms.forEach(function(b) {{
+    var ips = (b.items_per_second || 0) / 1e6;
+    var m = b.name.match(/\\/(\\d+)/);
+    var w = m ? m[1] : '?';
+    if (b.name.indexOf('PerCore') >= 0) {{
+      labels.push(w + ' workers');
+      pcIps.push(ips);
+    }} else {{
+      shIps.push(ips);
+    }}
+  }});
+  if (!labels.length) return;
+
+  Plotly.newPlot('chart-integration-scaling', [
+    {{ x: labels, y: pcIps, name: 'Per-core io_context',
+       type: 'scatter', mode: 'lines+markers',
+       line: {{ color: C.improve, width: 3 }},
+       marker: {{ size: 9, color: C.improve }},
+       hovertemplate: '%{{x}}<br>%{{y:.2f}}M msg/s<extra>Per-core</extra>' }},
+    {{ x: labels, y: shIps, name: 'Shared io_context (64-shard)',
+       type: 'scatter', mode: 'lines+markers',
+       line: {{ color: C.warning, width: 3, dash: 'dash' }},
+       marker: {{ size: 9, color: C.warning }},
+       hovertemplate: '%{{x}}<br>%{{y:.2f}}M msg/s<extra>Shared</extra>' }},
+  ], mergeLayout({{
+    title: {{ text: 'Per-core vs Shared io_context — Throughput Scaling', font: {{ size: 16 }} }},
+    yaxis: {{ title: 'Throughput (M msg/s)', rangemode: 'tozero' }},
+    legend: {{ orientation: 'h', y: 1.12, x: 0.5, xanchor: 'center' }},
+  }}), {{ responsive: true }});
+}})();
+
 // Sidebar active state tracking
 // =====================================================
 (function() {{

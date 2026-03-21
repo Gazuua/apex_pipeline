@@ -54,7 +54,7 @@ Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용
 </tbody>
 </table>
 
-> 📊 [**인터랙티브 벤치마크 보고서**](docs/apex_core/benchmark/architecture_comparison.html) · [전체 벤치마크 보고서](docs/apex_core/benchmark/report/benchmark_report.html)
+> 📊 [**인터랙티브 벤치마크 보고서**](https://htmlpreview.github.io/?https://github.com/Gazuua/apex_pipeline/blob/main/docs/apex_core/benchmark/architecture_comparison.html) · [전체 벤치마크 보고서](https://htmlpreview.github.io/?https://github.com/Gazuua/apex_pipeline/blob/main/docs/apex_core/benchmark/report/benchmark_report.html)
 
 <details>
 <summary>💡 <b>왜 Per-core가 선형 확장하고, Shared는 정체하는가?</b></summary>
