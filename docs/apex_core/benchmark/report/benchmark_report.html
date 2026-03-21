@@ -436,10 +436,10 @@ body {
 <tbody>
 <tr><td>SpscQueue_Throughput/1024</td><td style='color:#34D399;font-weight:bold;'>9.9 ns</td><td>10.1 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>101.0M items/s</td></tr>
 <tr><td>SpscQueue_Throughput/4096</td><td style='color:#34D399;font-weight:bold;'>9.5 ns</td><td>10.2 ns</td><td>64,000,000</td><td style='color:#34D399;font-weight:bold;'>105.0M items/s</td></tr>
-<tr><td>SpscQueue_Throughput/32768</td><td style='color:#34D399;font-weight:bold;'>9.2 ns</td><td>9.7 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>108.6M items/s</td></tr>
+<tr><td>SpscQueue_Throughput/32768</td><td style='color:#34D399;font-weight:bold;'>9.2 ns</td><td style='color:#34D399;font-weight:bold;'>9.7 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>108.6M items/s</td></tr>
 <tr><td>SpscQueue_Throughput/65536</td><td>11.9 ns</td><td>12.3 ns</td><td>74,666,667</td><td>83.8M items/s</td></tr>
-<tr><td>SpscQueue_Latency</td><td style='color:#34D399;font-weight:bold;'>7.8 ns</td><td>8.0 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>127.4M items/s</td></tr>
-<tr><td>SpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td>3.2 ns</td><td>186,666,667</td><td>-</td></tr>
+<tr><td>SpscQueue_Latency</td><td style='color:#34D399;font-weight:bold;'>7.8 ns</td><td style='color:#34D399;font-weight:bold;'>8.0 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>127.4M items/s</td></tr>
+<tr><td>SpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td>186,666,667</td><td>-</td></tr>
 <tr><td>SpscQueue_ConcurrentThroughput</td><td>46.2 ns</td><td>48.7 ns</td><td>17,920,000</td><td>21.6M items/s</td></tr>
 
 </tbody>
@@ -453,7 +453,7 @@ body {
 <tr><td>MpscQueue_1P1C/32768</td><td>13.6 ns</td><td>13.5 ns</td><td>44,800,000</td><td>73.5M items/s</td></tr>
 <tr><td>MpscQueue_1P1C/65536</td><td>15.3 ns</td><td>15.7 ns</td><td>56,000,000</td><td>65.2M items/s</td></tr>
 <tr><td>MpscQueue_2P1C</td><td>31.1 ns</td><td>38.4 ns</td><td>20,070,400</td><td>46.7M items/s</td></tr>
-<tr><td>MpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>5.9 ns</td><td>6.4 ns</td><td>112,000,000</td><td>-</td></tr>
+<tr><td>MpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>5.9 ns</td><td style='color:#34D399;font-weight:bold;'>6.4 ns</td><td>112,000,000</td><td>-</td></tr>
 
 </tbody>
 </table>
@@ -485,8 +485,8 @@ body {
 <tr><td>Malloc_AllocFree/1024</td><td>122.1 ns</td><td>122.2 ns</td><td>6,400,000</td><td style='color:#F59E0B;font-weight:bold;'>8.2M items/s</td></tr>
 <tr><td>MakeShared_AllocDealloc</td><td>153.5 ns</td><td>167.6 ns</td><td>4,480,000</td><td style='color:#F59E0B;font-weight:bold;'>6.5M items/s</td></tr>
 <tr><td>BumpAllocator_Alloc/64</td><td>10.0 ns</td><td>10.7 ns</td><td>56,000,000</td><td>99.6M items/s</td></tr>
-<tr><td>BumpAllocator_Alloc/256</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.3 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
-<tr><td>BumpAllocator_Alloc/1024</td><td style='color:#34D399;font-weight:bold;'>7.3 ns</td><td>7.3 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>136.2M items/s</td></tr>
+<tr><td>BumpAllocator_Alloc/256</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td style='color:#34D399;font-weight:bold;'>7.3 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
+<tr><td>BumpAllocator_Alloc/1024</td><td style='color:#34D399;font-weight:bold;'>7.3 ns</td><td style='color:#34D399;font-weight:bold;'>7.3 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>136.2M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/64</td><td>14.6 ns</td><td>16.9 ns</td><td>64,000,000</td><td>68.3M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/256</td><td>19.9 ns</td><td>26.3 ns</td><td>34,461,538</td><td>50.1M items/s</td></tr>
 <tr><td>ArenaAllocator_Alloc/1024</td><td>20.4 ns</td><td>24.2 ns</td><td>34,461,538</td><td>49.0M items/s</td></tr>
@@ -550,9 +550,9 @@ body {
 <tr><td>HeapAlloc_Build/64</td><td>62.5 ns</td><td>61.9 ns</td><td>10,000,000</td><td>1.0 GB/s</td></tr>
 <tr><td>HeapAlloc_Build/512</td><td>68.4 ns</td><td>68.2 ns</td><td>11,200,000</td><td>7.5 GB/s</td></tr>
 <tr><td>HeapAlloc_Build/4096</td><td>128.3 ns</td><td>126.1 ns</td><td>5,600,000</td><td>31.9 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/64</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td>3.5 ns</td><td>172,307,692</td><td>18.6 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/512</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td>3.5 ns</td><td>213,333,333</td><td>145.6 GB/s</td></tr>
-<tr><td>FlatBuffers_Read/4096</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td>3.7 ns</td><td>203,636,364</td><td>1135.8 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/64</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td>172,307,692</td><td>18.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/512</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td>213,333,333</td><td>145.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Read/4096</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>3.7 ns</td><td>203,636,364</td><td>1135.8 GB/s</td></tr>
 <tr><td>HeapAlloc_Read/64</td><td>64.2 ns</td><td>64.2 ns</td><td>11,200,000</td><td>997.3 MB/s</td></tr>
 <tr><td>HeapAlloc_Read/512</td><td>68.4 ns</td><td>69.7 ns</td><td>11,200,000</td><td>7.5 GB/s</td></tr>
 <tr><td>HeapAlloc_Read/4096</td><td>114.4 ns</td><td>115.7 ns</td><td>5,600,000</td><td>35.8 GB/s</td></tr>
@@ -586,17 +586,17 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Dispatcher_Lookup/10</td><td style='color:#34D399;font-weight:bold;'>5.5 ns</td><td>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>182.9M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/100</td><td style='color:#34D399;font-weight:bold;'>5.8 ns</td><td>5.8 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>173.0M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/1000</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td>5.1 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.1 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>140.5M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>7.5 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>4.3 ns</td><td>4.4 ns</td><td>133,802,667</td><td style='color:#34D399;font-weight:bold;'>231.4M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>7.5 ns</td><td>7.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>133.3M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>6.0 ns</td><td>6.0 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>166.7M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>3.8 ns</td><td>3.7 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>265.5M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>3.9 ns</td><td>3.8 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>259.7M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/10</td><td style='color:#34D399;font-weight:bold;'>5.5 ns</td><td style='color:#34D399;font-weight:bold;'>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>182.9M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/100</td><td style='color:#34D399;font-weight:bold;'>5.8 ns</td><td style='color:#34D399;font-weight:bold;'>5.8 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>173.0M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/1000</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td style='color:#34D399;font-weight:bold;'>5.1 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td style='color:#34D399;font-weight:bold;'>5.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td>74,666,667</td><td style='color:#34D399;font-weight:bold;'>140.5M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>7.1 ns</td><td style='color:#34D399;font-weight:bold;'>7.5 ns</td><td>89,600,000</td><td style='color:#34D399;font-weight:bold;'>139.9M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>4.3 ns</td><td style='color:#34D399;font-weight:bold;'>4.4 ns</td><td>133,802,667</td><td style='color:#34D399;font-weight:bold;'>231.4M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100</td><td style='color:#34D399;font-weight:bold;'>7.5 ns</td><td style='color:#34D399;font-weight:bold;'>7.4 ns</td><td>100,000,000</td><td style='color:#34D399;font-weight:bold;'>133.3M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/1000</td><td style='color:#34D399;font-weight:bold;'>6.0 ns</td><td style='color:#34D399;font-weight:bold;'>6.0 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>166.7M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/10000</td><td style='color:#34D399;font-weight:bold;'>3.8 ns</td><td style='color:#34D399;font-weight:bold;'>3.7 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>265.5M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100000</td><td style='color:#34D399;font-weight:bold;'>3.9 ns</td><td style='color:#34D399;font-weight:bold;'>3.8 ns</td><td>186,666,667</td><td style='color:#34D399;font-weight:bold;'>259.7M items/s</td></tr>
 <tr><td>FlatMap_SessionIterate/100</td><td>180.0 ns</td><td>188.2 ns</td><td>3,733,333</td><td style='color:#34D399;font-weight:bold;'>555.7M items/s</td></tr>
 <tr><td>FlatMap_SessionIterate/1000</td><td>2.8 us</td><td>2.9 us</td><td>235,789</td><td style='color:#34D399;font-weight:bold;'>350.9M items/s</td></tr>
 <tr><td>FlatMap_SessionIterate/10000</td><td>26.2 us</td><td>25.6 us</td><td>28,000</td><td style='color:#34D399;font-weight:bold;'>381.3M items/s</td></tr>
@@ -630,8 +630,8 @@ body {
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
 <tr><td>TimingWheel_ScheduleTick/1000</td><td>64.1 us</td><td>66.6 us</td><td>10,000</td><td>15.6M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/10000</td><td style='color:#F59E0B;font-weight:bold;'>725.4 us</td><td>733.3 us</td><td>1,120</td><td>13.8M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/50000</td><td style='color:#F59E0B;font-weight:bold;'>3.65 ms</td><td>3.91 ms</td><td>154</td><td>13.7M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/10000</td><td style='color:#F59E0B;font-weight:bold;'>725.4 us</td><td style='color:#F59E0B;font-weight:bold;'>733.3 us</td><td>1,120</td><td>13.8M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/50000</td><td style='color:#F59E0B;font-weight:bold;'>3.65 ms</td><td style='color:#F59E0B;font-weight:bold;'>3.91 ms</td><td>154</td><td>13.7M items/s</td></tr>
 <tr><td>TimingWheel_ScheduleOnly</td><td>159.0 ns</td><td>174.7 ns</td><td>7,466,667</td><td style='color:#F59E0B;font-weight:bold;'>6.3M items/s</td></tr>
 
 </tbody>
@@ -640,8 +640,8 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Session_Create</td><td style='color:#F59E0B;font-weight:bold;'>443.3 us</td><td>444.1 us</td><td>1,445</td><td style='color:#F59E0B;font-weight:bold;'>2,256 items/s</td></tr>
-<tr><td>SessionPtr_Copy</td><td style='color:#34D399;font-weight:bold;'>6.3 ns</td><td>6.3 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>159.3M items/s</td></tr>
+<tr><td>Session_Create</td><td style='color:#F59E0B;font-weight:bold;'>443.3 us</td><td style='color:#F59E0B;font-weight:bold;'>444.1 us</td><td>1,445</td><td style='color:#F59E0B;font-weight:bold;'>2,256 items/s</td></tr>
+<tr><td>SessionPtr_Copy</td><td style='color:#34D399;font-weight:bold;'>6.3 ns</td><td style='color:#34D399;font-weight:bold;'>6.3 ns</td><td>112,000,000</td><td style='color:#34D399;font-weight:bold;'>159.3M items/s</td></tr>
 <tr><td>SharedPtr_Copy</td><td>18.0 ns</td><td>20.4 ns</td><td>37,333,333</td><td>55.6M items/s</td></tr>
 
 </tbody>
@@ -741,15 +741,15 @@ body {
 
   
 <h3 class="sub-header">Cross-core Latency (RTT)</h3>
-<div class="chart-container" id="chart-integration-rtt" style="height:350px;"></div>
+<div class="chart-container" id="chart-integration-rtt" style="height:450px;"></div>
 
   <h3 class="sub-header">Cross-core Message Throughput</h3>
-  <div class="chart-container" id="chart-integration-throughput" style="height:350px;"></div>
+  <div class="chart-container" id="chart-integration-throughput" style="height:450px;"></div>
 
   <h3 class="sub-header">Frame Pipeline & Session Echo Throughput</h3>
-  <div class="chart-container" id="chart-integration-pipeline" style="height:380px;"></div>
+  <div class="chart-container" id="chart-integration-pipeline" style="height:450px;"></div>
 
-  <div class="analysis-box">이 섹션은 <b>Apex Core 프레임워크의 실전 성능</b>을 end-to-end로 검증한다. 개별 컴포넌트 벤치마크가 '부품의 성능'을 측정한다면, 통합 벤치마크는 '조립된 엔진의 성능'을 보여준다.<br/><br/><b>코어 간 통신 (Cross-core RTT ~17µs)</b>: SPSC mesh를 통한 코어 0↔코어 1 ping-pong 왕복 지연. 이 수치에는 io_context::post() 비용, SPSC 큐 enqueue/dequeue, 코루틴 재개, 스레드 스케줄링이 모두 포함된다. 순수 SPSC 큐 연산(~10ns)과의 차이가 곧 프레임워크 오버헤드이며, 이는 <b>~17µs 중 대부분이 OS 스레드 스케줄링과 io_context 이벤트 루프 비용</b>임을 의미한다.<br/><br/><b>Frame Pipeline (6~7µs/msg, 4KB 기준 0.6 GB/s)</b>: 클라이언트 메시지가 서버에 도착하여 처리되기까지의 전체 경로 — WireHeader 파싱 → RingBuffer에서 프레임 추출 → FlatBuffers 페이로드 역직렬화 → MessageDispatcher 핸들러 조회 → 핸들러 실행. 각 단계가 나노초 수준이므로 전체 파이프라인도 마이크로초 수준에서 완료된다.<br/><br/><b>Session Echo (8~9µs/msg, 4KB 기준 444 MB/s)</b>: TCP 소켓 I/O를 포함한 진정한 end-to-end. Pipeline 대비 느린 이유는 TCP loopback 소켓 전송/수신 비용이 추가되기 때문이며, 이것이 <b>실 서비스에서 I/O가 CPU 처리보다 지배적인 병목</b>임을 증명한다. 프레임워크의 CPU-side 처리(파이프라인)는 이미 충분히 빨라서, 성능 향상의 다음 레버는 I/O 최적화(io_uring, DPDK 등)에 있다.<br/><br/>Apex Core의 per-core 아키텍처(shared-nothing)는 이 모든 단계에서 lock-free 경로를 보장한다. 코어 간 통신만 SPSC 큐를 거치고, 나머지 모든 처리는 해당 코어의 전용 io_context에서 단일 스레드로 실행되므로 mutex 없이 동작한다. 코어 수가 증가하면 처리량이 선형으로 확장되는 구조이며, 이는 전통적인 단일 io_context + 스레드 풀 모델의 lock contention 문제를 원천 회피한다.<br/><br/><b>아키텍처 비교 — Per-core vs Shared io_context</b>: 현실적 서버 워크로드(세션 맵 조회 + 상태 읽기/수정)에서 Per-core 아키텍처의 <b>선형 확장성</b>을 검증했다. 각 핸들러는 unordered_map에서 세션을 조회하고 상태를 읽고 수정하는 — 실제 서비스에서 매 메시지마다 수행하는 작업을 시뮬레이션한다.<br/><br/><b>핵심 결과 — Per-core는 워커 수에 비례하여 처리량이 선형 증가하고, Shared는 최적화해도 정체된다:</b><br/><br/>• 1워커: Per-core 0.51M vs Shared 0.53M — <b>동일</b> (경합 없는 기준선)<br/>• 2워커: Per-core <span style='color:#34D399;font-weight:bold;'>0.90M</span> vs Shared 0.64M — <span style='color:#34D399;font-weight:bold;'>1.4배 ⚡</span><br/>• 3워커: Per-core <span style='color:#34D399;font-weight:bold;'>1.24M</span> vs Shared 0.72M — <span style='color:#34D399;font-weight:bold;'>1.7배 ⚡</span><br/>• 4워커: Per-core <span style='color:#34D399;font-weight:bold;'>1.56M</span> vs Shared 0.74M — <span style='color:#34D399;font-weight:bold;'>2.1배 ⚡</span><br/><br/>Per-core의 자체 확장률이 선형에 근접한다: 1워커 대비 2워커 <span style='color:#34D399;font-weight:bold;'>1.76x</span>, 3워커 <span style='color:#34D399;font-weight:bold;'>2.43x</span>, 4워커 <span style='color:#34D399;font-weight:bold;'>3.06x</span> — <b>77~88% 효율</b>로 이상적 선형 확장에 근접한다.<br/><br/><b style='color:#34D399;'>Per-core 선형 확장의 원리:</b> 각 워커가 자기 세션 맵을 소유하고 <span style='color:#34D399;'>독립된 io_context</span>에서 post + run을 실행한다. 워커 간 공유 상태가 없으므로 <span style='color:#34D399;'>lock이 불필요</span>하고 캐시 라인 경합도 발생하지 않는다. 워커를 추가할 때마다 처리량이 순증한다.<br/><br/><b style='color:#F59E0B;'>Shared 모델은 최적화해도 정체된다:</b> Shared 측에는 <span style='color:#F59E0B;'>64-shard 파티셔닝</span>을 적용하여 세션 맵 mutex 경합을 최소화했다 — 이는 전통적 서버 아키텍처에서 숙련된 엔지니어가 적용하는 표준 최적화이다. 그러나 <span style='color:#EF4444;font-weight:bold;'>처리량은 여전히 0.77M에서 정체</span>된다. 원인: 세션 맵 lock을 샤딩해도, <span style='color:#EF4444;'>단일 io_context의 내부 핸들러 큐 경합</span>이 근본적 병목으로 남기 때문이다.<br/><br/><b>결론 — 이것이 Per-core 아키텍처를 채용한 근본적 이유이다:</b> 락 최적화(샤딩, reader-writer lock 등)만으로는 한계가 있고, <span style='color:#34D399;font-weight:bold;'>io_context 자체를 워커별로 분리</span>해야 진정한 선형 확장이 가능하다.<br/><br/><span style='color:#94A3B8;font-size:0.9em;'>※ 테스트 PC는 4물리 코어(i5-9300H) 기준입니다. 물리 코어가 더 많은 프로덕션 서버에서는 4워커 이상에서도 선형 확장이 유지됩니다.</span></div>
+  <div class="analysis-box">이 섹션은 <b>Apex Core 프레임워크의 실전 성능</b>을 end-to-end로 검증한다. 개별 컴포넌트 벤치마크가 '부품의 성능'을 측정한다면, 통합 벤치마크는 <span style='color:#34D399;font-weight:bold;'>'조립된 엔진의 성능'</span>을 보여준다.<br/><br/><b>코어 간 통신 (Cross-core RTT <span style='color:#34D399;'>~17µs</span>)</b>: <span style='color:#F59E0B;'>SPSC mesh</span>를 통한 코어 0↔코어 1 ping-pong 왕복 지연. 이 수치에는 <span style='color:#94A3B8;'>io_context::post() 비용, SPSC 큐 enqueue/dequeue, 코루틴 재개, 스레드 스케줄링</span>이 모두 포함된다. 순수 SPSC 큐 연산(<span style='color:#34D399;'>~10ns</span>)과의 차이가 곧 프레임워크 오버헤드이며, 이는 <span style='color:#F59E0B;'>~17µs 중 대부분이 OS 스레드 스케줄링과 io_context 이벤트 루프 비용</span>임을 의미한다.<br/><br/><b>Frame Pipeline (<span style='color:#34D399;font-weight:bold;'>6~7µs/msg</span>, 4KB 기준 <span style='color:#34D399;font-weight:bold;'>0.6 GB/s</span>)</b>: 클라이언트 메시지가 서버에 도착하여 처리되기까지의 전체 경로 — <span style='color:#F59E0B;'>WireHeader 파싱 → RingBuffer 프레임 추출 → FlatBuffers 역직렬화 → MessageDispatcher 핸들러 조회 → 핸들러 실행</span>. 각 단계가 나노초 수준이므로 전체 파이프라인도 <span style='color:#34D399;'>마이크로초 수준</span>에서 완료된다.<br/><br/><b>Session Echo (<span style='color:#34D399;font-weight:bold;'>8~9µs/msg</span>, 4KB 기준 <span style='color:#34D399;font-weight:bold;'>444 MB/s</span>)</b>: TCP 소켓 I/O를 포함한 진정한 end-to-end. Pipeline 대비 느린 이유는 <span style='color:#EF4444;'>TCP loopback 소켓 전송/수신 비용</span>이 추가되기 때문이며, 이것이 <b>실 서비스에서 <span style='color:#EF4444;'>I/O가 CPU 처리보다 지배적인 병목</span></b>임을 증명한다. 프레임워크의 CPU-side 처리는 이미 충분히 빨라서, 성능 향상의 다음 레버는 <span style='color:#F59E0B;font-weight:bold;'>I/O 최적화(io_uring, DPDK 등)</span>에 있다.<br/><br/><span style='color:#34D399;font-weight:bold;'>Apex Core의 per-core 아키텍처(shared-nothing)</span>는 이 모든 단계에서 <span style='color:#34D399;'>lock-free 경로를 보장</span>한다. 코어 간 통신만 SPSC 큐를 거치고, 나머지 모든 처리는 해당 코어의 <span style='color:#34D399;'>전용 io_context</span>에서 단일 스레드로 실행되므로 <span style='color:#34D399;font-weight:bold;'>mutex 없이 동작</span>한다. 워커 수가 증가하면 처리량이 <span style='color:#34D399;font-weight:bold;'>선형으로 확장</span>되는 구조이며, 이는 전통적인 <span style='color:#F59E0B;'>단일 io_context + 스레드 풀</span> 모델의 <span style='color:#EF4444;'>lock contention 문제를 원천 회피</span>한다.<br/><br/><b>아키텍처 비교 — Per-core vs Shared io_context</b>: 현실적 서버 워크로드(세션 맵 조회 + 상태 읽기/수정)에서 Per-core 아키텍처의 <b>선형 확장성</b>을 검증했다. 각 핸들러는 unordered_map에서 세션을 조회하고 상태를 읽고 수정하는 — 실제 서비스에서 매 메시지마다 수행하는 작업을 시뮬레이션한다.<br/><br/><b>핵심 결과 — Per-core는 워커 수에 비례하여 처리량이 선형 증가하고, Shared는 최적화해도 정체된다:</b><br/><br/>• 1워커: Per-core 0.51M vs Shared 0.53M — <b>동일</b> (경합 없는 기준선)<br/>• 2워커: Per-core <span style='color:#34D399;font-weight:bold;'>0.90M</span> vs Shared 0.64M — <span style='color:#34D399;font-weight:bold;'>1.4배 ⚡</span><br/>• 3워커: Per-core <span style='color:#34D399;font-weight:bold;'>1.24M</span> vs Shared 0.72M — <span style='color:#34D399;font-weight:bold;'>1.7배 ⚡</span><br/>• 4워커: Per-core <span style='color:#34D399;font-weight:bold;'>1.56M</span> vs Shared 0.74M — <span style='color:#34D399;font-weight:bold;'>2.1배 ⚡</span><br/><br/>Per-core의 자체 확장률이 선형에 근접한다: 1워커 대비 2워커 <span style='color:#34D399;font-weight:bold;'>1.76x</span>, 3워커 <span style='color:#34D399;font-weight:bold;'>2.43x</span>, 4워커 <span style='color:#34D399;font-weight:bold;'>3.06x</span> — <b>77~88% 효율</b>로 이상적 선형 확장에 근접한다.<br/><br/><b style='color:#34D399;'>Per-core 선형 확장의 원리:</b> 각 워커가 자기 세션 맵을 소유하고 <span style='color:#34D399;'>독립된 io_context</span>에서 post + run을 실행한다. 워커 간 공유 상태가 없으므로 <span style='color:#34D399;'>lock이 불필요</span>하고 캐시 라인 경합도 발생하지 않는다. 워커를 추가할 때마다 처리량이 순증한다.<br/><br/><b style='color:#F59E0B;'>Shared 모델은 최적화해도 정체된다:</b> Shared 측에는 <span style='color:#F59E0B;'>64-shard 파티셔닝</span>을 적용하여 세션 맵 mutex 경합을 최소화했다 — 이는 전통적 서버 아키텍처에서 숙련된 엔지니어가 적용하는 표준 최적화이다. 그러나 <span style='color:#EF4444;font-weight:bold;'>처리량은 여전히 0.77M에서 정체</span>된다. 원인: 세션 맵 lock을 샤딩해도, <span style='color:#EF4444;'>단일 io_context의 내부 핸들러 큐 경합</span>이 근본적 병목으로 남기 때문이다.<br/><br/><b>결론 — 이것이 Per-core 아키텍처를 채용한 근본적 이유이다:</b> 락 최적화(샤딩, reader-writer lock 등)만으로는 한계가 있고, <span style='color:#34D399;font-weight:bold;'>io_context 자체를 워커별로 분리</span>해야 진정한 선형 확장이 가능하다.<br/><br/><span style='color:#94A3B8;font-size:0.9em;'>※ 테스트 PC는 4물리 코어(i5-9300H) 기준입니다. 물리 코어가 더 많은 프로덕션 서버에서는 4워커 이상에서도 선형 확장이 유지됩니다.</span></div>
 
   <h3 class="sub-header">Cross-core Latency</h3>
 <table class="data-table">
@@ -791,18 +791,18 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>PerCore_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>99.61 ms</td><td>97.73 ms</td><td>8</td><td style='color:#F59E0B;font-weight:bold;'>511,614 items/s</td></tr>
-<tr><td>PerCore_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>109.38 ms</td><td>110.95 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>901,329 items/s</td></tr>
-<tr><td>PerCore_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>114.58 ms</td><td>120.58 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.2M items/s</td></tr>
-<tr><td>PerCore_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>119.79 ms</td><td>128.05 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.6M items/s</td></tr>
-<tr><td>PerCore_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>152.34 ms</td><td>202.73 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>2.0M items/s</td></tr>
-<tr><td>PerCore_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>164.06 ms</td><td>379.24 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>2.1M items/s</td></tr>
-<tr><td>Shared_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>91.52 ms</td><td>93.69 ms</td><td>7</td><td style='color:#F59E0B;font-weight:bold;'>533,682 items/s</td></tr>
-<tr><td>Shared_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>156.25 ms</td><td>155.38 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>643,593 items/s</td></tr>
-<tr><td>Shared_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>208.33 ms</td><td>208.99 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>717,737 items/s</td></tr>
-<tr><td>Shared_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>270.83 ms</td><td>269.30 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>742,663 items/s</td></tr>
-<tr><td>Shared_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>460.94 ms</td><td>519.12 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>770,540 items/s</td></tr>
-<tr><td>Shared_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>906.25 ms</td><td>1035.57 ms</td><td>1</td><td style='color:#F59E0B;font-weight:bold;'>772,519 items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>99.61 ms</td><td style='color:#F59E0B;font-weight:bold;'>97.73 ms</td><td>8</td><td style='color:#F59E0B;font-weight:bold;'>511,614 items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>109.38 ms</td><td style='color:#F59E0B;font-weight:bold;'>110.95 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>901,329 items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>114.58 ms</td><td style='color:#F59E0B;font-weight:bold;'>120.58 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.2M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>119.79 ms</td><td style='color:#F59E0B;font-weight:bold;'>128.05 ms</td><td>6</td><td style='color:#F59E0B;font-weight:bold;'>1.6M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>152.34 ms</td><td style='color:#F59E0B;font-weight:bold;'>202.73 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>2.0M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>164.06 ms</td><td style='color:#F59E0B;font-weight:bold;'>379.24 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>2.1M items/s</td></tr>
+<tr><td>Shared_Stateful/1/real_time</td><td style='color:#F59E0B;font-weight:bold;'>91.52 ms</td><td style='color:#F59E0B;font-weight:bold;'>93.69 ms</td><td>7</td><td style='color:#F59E0B;font-weight:bold;'>533,682 items/s</td></tr>
+<tr><td>Shared_Stateful/2/real_time</td><td style='color:#F59E0B;font-weight:bold;'>156.25 ms</td><td style='color:#F59E0B;font-weight:bold;'>155.38 ms</td><td>4</td><td style='color:#F59E0B;font-weight:bold;'>643,593 items/s</td></tr>
+<tr><td>Shared_Stateful/3/real_time</td><td style='color:#F59E0B;font-weight:bold;'>208.33 ms</td><td style='color:#F59E0B;font-weight:bold;'>208.99 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>717,737 items/s</td></tr>
+<tr><td>Shared_Stateful/4/real_time</td><td style='color:#F59E0B;font-weight:bold;'>270.83 ms</td><td style='color:#F59E0B;font-weight:bold;'>269.30 ms</td><td>3</td><td style='color:#F59E0B;font-weight:bold;'>742,663 items/s</td></tr>
+<tr><td>Shared_Stateful/8/real_time</td><td style='color:#F59E0B;font-weight:bold;'>460.94 ms</td><td style='color:#F59E0B;font-weight:bold;'>519.12 ms</td><td>2</td><td style='color:#F59E0B;font-weight:bold;'>770,540 items/s</td></tr>
+<tr><td>Shared_Stateful/16/real_time</td><td style='color:#F59E0B;font-weight:bold;'>906.25 ms</td><td style='color:#F59E0B;font-weight:bold;'>1035.57 ms</td><td>1</td><td style='color:#F59E0B;font-weight:bold;'>772,519 items/s</td></tr>
 
 </tbody>
 </table>

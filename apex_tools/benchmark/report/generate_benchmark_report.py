@@ -706,6 +706,14 @@ def _bm_table_html(benchmarks, title=''):
             elif cpu_ns > 100000:
                 cpu_style = " style='color:#F59E0B;font-weight:bold;'"
 
+            # Conditional coloring for real_time cell
+            real_ns = b['real_time']
+            real_style = ''
+            if real_ns < 10:
+                real_style = " style='color:#34D399;font-weight:bold;'"
+            elif real_ns > 100000:
+                real_style = " style='color:#F59E0B;font-weight:bold;'"
+
             # Conditional coloring for throughput cell
             ips = b.get('items_per_second', 0)
             tp_style = ''
@@ -714,9 +722,14 @@ def _bm_table_html(benchmarks, title=''):
             elif 0 < ips < 10e6:
                 tp_style = " style='color:#F59E0B;font-weight:bold;'"
 
-            rows += (f'<tr><td>{esc(name)}</td>'
+            # Per-core rows get green name highlight
+            name_style = ''
+            if 'PerCore' in b['name']:
+                name_style = " style='color:#34D399;font-weight:bold;'"
+
+            rows += (f'<tr><td{name_style}>{esc(name)}</td>'
                      f'<td{cpu_style}>{cpu}</td>'
-                     f'<td>{real}</td>'
+                     f'<td{real_style}>{real}</td>'
                      f'<td>{iters}</td>'
                      f'<td{tp_style}>{tp}</td></tr>\n')
 
@@ -998,7 +1011,7 @@ def _section_integration(cur, base, has_baseline, an, integration_data):
         val = lat_data.get('value_us', 0)
         latency_html = f'''
 <h3 class="sub-header">Cross-core Latency (RTT)</h3>
-<div class="chart-container" id="chart-integration-rtt" style="height:350px;"></div>'''
+<div class="chart-container" id="chart-integration-rtt" style="height:450px;"></div>'''
     else:
         latency_html = '<div class="error-card">Cross-core RTT: No data available</div>'
 
@@ -1015,10 +1028,10 @@ def _section_integration(cur, base, has_baseline, an, integration_data):
   {latency_html}
 
   <h3 class="sub-header">Cross-core Message Throughput</h3>
-  <div class="chart-container" id="chart-integration-throughput" style="height:350px;"></div>
+  <div class="chart-container" id="chart-integration-throughput" style="height:450px;"></div>
 
   <h3 class="sub-header">Frame Pipeline & Session Echo Throughput</h3>
-  <div class="chart-container" id="chart-integration-pipeline" style="height:380px;"></div>
+  <div class="chart-container" id="chart-integration-pipeline" style="height:450px;"></div>
 
   {_analysis_html(an, 'integration')}
 
