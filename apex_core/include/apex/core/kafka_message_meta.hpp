@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/core/session_id.hpp>
+
 #include <cstdint>
 
 namespace apex::core
@@ -15,7 +17,7 @@ struct KafkaMessageMeta
     uint16_t core_id{0};
     uint64_t corr_id{0};
     uint16_t source_id{0};
-    uint64_t session_id{0};
+    SessionId session_id{};
     uint64_t user_id{0};
     uint64_t timestamp{0};
 };

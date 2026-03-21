@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #103. KafkaMessageMeta.session_id SessionId 강타입화
+- **등급**: MINOR | **스코프**: core, shared | **타입**: design-debt
+- **해결**: 2026-03-21 17:39:51 | **방식**: FIXED
+- **비고**: SessionId를 session_id.hpp로 분리. KafkaMessageMeta.session_id를 SessionId 강타입으로 변경. KafkaDispatchBridge에서 make_session_id() 변환. 서비스 send_response 시그니처 SessionId 전파.
+
+### #97. 서비스 레이어 코드 위생 일괄 정리 (잔여 2건)
+- **등급**: MINOR | **스코프**: gateway, auth-svc, chat-svc | **타입**: design-debt
+- **해결**: 2026-03-21 17:39:51 | **방식**: FIXED
+- **비고**: ⑦ Session::max_queue_depth_ 256 하드코딩 → ServerConfig.session_max_queue_depth 설정화 (ServerConfig→SessionManager→Session 전파). ① ParsedConfig 중복은 WONTFIX (Auth/Chat 구조 상이 — 공통화 시 오히려 복잡도 증가).
+
 ### #105. Chat join_room SCARD/SADD TOCTOU 레이스
 - **등급**: MAJOR | **스코프**: chat-svc | **타입**: bug
 - **해결**: 2026-03-21 16:54:51 | **방식**: FIXED | **커밋**: 3b7f2ef

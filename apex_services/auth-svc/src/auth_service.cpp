@@ -521,22 +521,23 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
 // Response Builder (EnvelopeBuilder 사용)
 // ============================================================
 
-void AuthService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+void AuthService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, apex::core::SessionId session_id,
                                 std::span<const uint8_t> fbs_payload, const std::string& reply_topic)
 {
     // EnvelopeBuilder 사용 — 힙 할당 (Auth 서비스는 bump 컨텍스트 불필요)
     // timestamp는 EnvelopeBuilder가 자동 설정 (epoch ms)
-    auto envelope_buf = envelope::EnvelopeBuilder{}
-                            .routing(msg_id, envelope::routing_flags::DIRECTION_RESPONSE)
-                            .metadata(core_id, corr_id, envelope::source_ids::AUTH, session_id, 0)
-                            .payload(fbs_payload)
-                            .build();
+    auto envelope_buf =
+        envelope::EnvelopeBuilder{}
+            .routing(msg_id, envelope::routing_flags::DIRECTION_RESPONSE)
+            .metadata(core_id, corr_id, envelope::source_ids::AUTH, apex::core::to_underlying(session_id), 0)
+            .payload(fbs_payload)
+            .build();
 
     // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
     const auto& target_topic = reply_topic.empty() ? config_.response_topic : reply_topic;
 
     // Use session_id as Kafka key (design doc section 7.1)
-    auto key = std::to_string(session_id);
+    auto key = std::to_string(apex::core::to_underlying(session_id));
     auto result = kafka_->produce(target_topic, key, std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value())

@@ -98,7 +98,7 @@ class AuthService : public apex::core::ServiceBase<AuthService>
 
     /// Kafka 응답 Envelope 빌드 + produce.
     /// EnvelopeBuilder를 사용하여 build() (힙 할당 — Auth 서비스에는 bump 컨텍스트 불필요).
-    void send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    void send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, apex::core::SessionId session_id,
                        std::span<const uint8_t> fbs_payload, const std::string& reply_topic);
 
     // ── 에러 응답 헬퍼 [D5] ──────────────────────────────────────────────

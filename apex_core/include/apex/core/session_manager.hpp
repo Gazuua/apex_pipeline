@@ -22,7 +22,8 @@ class SessionManager
 {
   public:
     explicit SessionManager(uint32_t core_id, uint32_t heartbeat_timeout_ticks = 300, size_t timer_wheel_slots = 1024,
-                            size_t recv_buf_capacity = 8192, size_t max_sessions_per_core = 1024);
+                            size_t recv_buf_capacity = 8192, size_t max_queue_depth = 256,
+                            size_t max_sessions_per_core = 1024);
 
     ~SessionManager();
 
@@ -78,6 +79,7 @@ class SessionManager
     uint32_t core_id_;
     uint32_t heartbeat_timeout_ticks_;
     size_t recv_buf_capacity_;
+    size_t max_queue_depth_;
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     uint64_t next_id_{1};
 

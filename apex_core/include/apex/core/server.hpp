@@ -95,7 +95,8 @@ struct PerCoreState
     ArenaAllocator arena_allocator;
 
     explicit PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks, size_t timer_wheel_slots,
-                          size_t recv_buf_capacity, size_t bump_capacity, size_t arena_block, size_t arena_max);
+                          size_t recv_buf_capacity, size_t max_queue_depth, size_t bump_capacity, size_t arena_block,
+                          size_t arena_max);
 };
 
 /// Multicore server — io_context-per-core architecture.

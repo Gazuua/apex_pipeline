@@ -166,11 +166,6 @@
 - **타입**: test
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
 
-### #103. KafkaMessageMeta.session_id SessionId 강타입화
-- **등급**: MINOR
-- **스코프**: core, shared
-- **타입**: design-debt
-- **설명**: `KafkaMessageMeta.session_id`가 `uint64_t`로 남아있어 core 내에서 같은 개념에 두 타입이 공존. `SessionId`로 변경하고 `KafkaDispatchBridge::dispatch()`에서 `make_session_id()` 변환 수행.
 
 ### #104. TSAN suppressions 범위 좁히기
 - **등급**: MINOR
@@ -280,9 +275,4 @@
 - **타입**: perf
 - **설명**: 벤치마크에서 병목 확인 시 도입.
 
-### #97. 서비스 레이어 코드 위생 일괄 정리 (잔여 2건)
-- **등급**: MINOR
-- **스코프**: gateway, auth-svc, chat-svc
-- **타입**: design-debt
-- **설명**: Post-E2E 핸드오프 리뷰 발견 MINOR 이슈 잔여분. ① `ParsedConfig` 익명 구조체 Auth/Chat 중복 ⑦ `Session::max_queue_depth_` 256 하드코딩. (완료: ②④⑧, WONTFIX: ③ 불일치 미존재 ⑤ shared_ptr 의도적 설계 ⑥ 파라미터 이미 제거됨)
 

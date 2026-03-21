@@ -24,6 +24,7 @@ struct ServerConfig
     // Session
     uint32_t heartbeat_timeout_ticks = 300; // 0 = disabled
     size_t recv_buf_capacity = 8192;
+    size_t session_max_queue_depth = 256; // Per-session write queue depth limit
     size_t timer_wheel_slots = 1024;
 
     // Platform I/O

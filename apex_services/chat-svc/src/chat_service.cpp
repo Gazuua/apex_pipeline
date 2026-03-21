@@ -121,7 +121,7 @@ uint64_t ChatService::current_timestamp_ms() noexcept
             .count());
 }
 
-void ChatService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+void ChatService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, apex::core::SessionId session_id,
                                 std::span<const uint8_t> fbs_payload, const std::string& reply_topic)
 {
     send_response_with_flags(msg_id, envelope::routing_flags::DIRECTION_RESPONSE, corr_id, core_id, session_id,
@@ -129,20 +129,21 @@ void ChatService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core
 }
 
 void ChatService::send_response_with_flags(uint32_t msg_id, uint16_t flags, uint64_t corr_id, uint16_t core_id,
-                                           uint64_t session_id, std::span<const uint8_t> fbs_payload,
+                                           apex::core::SessionId session_id, std::span<const uint8_t> fbs_payload,
                                            const std::string& reply_topic)
 {
-    auto envelope_buf = envelope::EnvelopeBuilder{}
-                            .routing(msg_id, flags)
-                            .metadata(core_id, corr_id, envelope::source_ids::CHAT, session_id, 0)
-                            .payload(fbs_payload)
-                            .build();
+    auto envelope_buf =
+        envelope::EnvelopeBuilder{}
+            .routing(msg_id, flags)
+            .metadata(core_id, corr_id, envelope::source_ids::CHAT, apex::core::to_underlying(session_id), 0)
+            .payload(fbs_payload)
+            .build();
 
     // Reply-To: reply_topic이 있으면 그쪽으로 응답, 없으면 fallback
     const auto& target_topic = reply_topic.empty() ? config_.response_topic : reply_topic;
 
     // Use session_id as Kafka key (design doc section 7.1)
-    auto key = std::to_string(session_id);
+    auto key = std::to_string(apex::core::to_underlying(session_id));
     auto result = kafka_->produce(target_topic, key, std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value())
@@ -572,7 +573,7 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
     auto target_session_id_result = safe_parse_u64(session_result->str, "whisper.target_session_id");
     if (!target_session_id_result.has_value())
         co_return std::unexpected(target_session_id_result.error());
-    auto target_session_id = *target_session_id_result;
+    auto target_session_id = apex::core::make_session_id(*target_session_id_result);
 
     // 3. Build WhisperMessage FBS and send to target via Kafka unicast
     {

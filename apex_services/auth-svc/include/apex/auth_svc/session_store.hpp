@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/session_id.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 
 #include <boost/asio/awaitable.hpp>
@@ -37,8 +38,8 @@ class SessionStore
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> remove(uint64_t user_id);
 
     /// Store session:user:{uid} -> session_id mapping (for cross-service session lookup)
-    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> set_user_session_id(uint64_t user_id,
-                                                                                       uint64_t session_id);
+    [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
+    set_user_session_id(uint64_t user_id, apex::core::SessionId session_id);
 
     /// Remove session:user:{uid} mapping
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> remove_user_session_id(uint64_t user_id);
