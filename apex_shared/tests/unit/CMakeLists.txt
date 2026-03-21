@@ -48,6 +48,7 @@ apex_shared_add_kafka_test(test_kafka_producer test_kafka_producer.cpp)
 apex_shared_add_kafka_test(test_kafka_consumer test_kafka_consumer.cpp)
 apex_shared_add_kafka_test(test_kafka_adapter test_kafka_adapter.cpp)
 apex_shared_add_kafka_test(test_kafka_sink test_kafka_sink.cpp)
+apex_shared_add_kafka_test(test_consumer_payload_pool test_consumer_payload_pool.cpp)
 
 # --- Redis adapter tests ---
 function(apex_shared_add_redis_test TEST_NAME TEST_SOURCE)
@@ -96,6 +97,17 @@ target_link_libraries(test_kafka_envelope
 apex_set_warnings(test_kafka_envelope)
 add_test(NAME test_kafka_envelope COMMAND test_kafka_envelope)
 set_tests_properties(test_kafka_envelope PROPERTIES TIMEOUT 30)
+
+# --- WebSocket protocol tests ---
+add_executable(test_websocket_protocol test_websocket_protocol.cpp)
+target_link_libraries(test_websocket_protocol
+    PRIVATE
+        apex::shared::protocols::websocket
+        GTest::gtest_main
+)
+apex_set_warnings(test_websocket_protocol)
+add_test(NAME test_websocket_protocol COMMAND test_websocket_protocol)
+set_tests_properties(test_websocket_protocol PROPERTIES TIMEOUT 30)
 
 # --- Rate Limiting tests ---
 function(apex_shared_add_rate_limit_test TEST_NAME TEST_SOURCE)

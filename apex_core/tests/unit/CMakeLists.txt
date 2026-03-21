@@ -64,6 +64,12 @@ apex_add_unit_test(test_server_error_paths test_server_error_paths.cpp)
 apex_add_unit_test(test_service_registry test_service_registry.cpp)
 apex_add_unit_test(test_periodic_task_scheduler test_periodic_task_scheduler.cpp)
 apex_add_unit_test(test_service_lifecycle test_service_lifecycle.cpp)
+apex_add_unit_test(test_listener_lifecycle test_listener_lifecycle.cpp)
+
+# Server global / adapter wire / error sender 테스트
+apex_add_unit_test(test_server_global test_server_global.cpp)
+apex_add_unit_test(test_wire_services test_wire_services.cpp)
+apex_add_unit_test(test_error_sender_service_code test_error_sender_service_code.cpp)
 
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
@@ -113,5 +119,9 @@ set_tests_properties(
     test_service_registry
     test_periodic_task_scheduler
     test_service_lifecycle
+    test_listener_lifecycle
+    test_server_global
+    test_wire_services
+    test_error_sender_service_code
     PROPERTIES TIMEOUT 30
 )
