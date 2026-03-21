@@ -50,19 +50,6 @@
 - **타입**: infra
 - **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
 
-### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
-- **등급**: MAJOR
-- **스코프**: docs
-- **타입**: docs
-- **설명**: 공개 임박 시점에서 프로젝트 첫인상 역할. 프로젝트 소개, 아키텍처 개요, 퀵스타트, 빌드 가이드 포함 리뉴얼. README는 진입점 + 링크 허브 역할.
-
-### #64. 서비스 테스트 작성 가이드
-- **등급**: MAJOR
-- **스코프**: core, docs
-- **타입**: docs
-- **연관**: #1
-- **설명**: 유닛 테스트(GTest + Mock 어댑터) + E2E 테스트 패턴을 다루는 별도 가이드. 프레임워크 가이드(#1)에서 분리된 스코프.
-
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
 - **스코프**: auth-svc, chat-svc
@@ -139,12 +126,6 @@
 - **타입**: infra
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
-
-### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
-- **등급**: MINOR
-- **스코프**: docs
-- **타입**: docs
-- **설명**: `docs/CLAUDE.md` 백로그 운영 규칙 80줄이 루트 `CLAUDE.md`와 부분 중복. 중복 제거 또는 역할 분리 명확화.
 
 ### #120. CircuitBreaker HALF_OPEN 성공 카운트 추적 부재
 - **등급**: MINOR
