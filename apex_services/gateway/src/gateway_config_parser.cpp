@@ -130,6 +130,9 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
             cfg.sweep_interval_ms = static_cast<uint32_t>(timeouts["sweep_interval_ms"].value_or(int64_t{1000}));
         }
 
+        // [auth] — blacklist fail-open 정책
+        cfg.auth.blacklist_fail_open = tbl["auth"]["blacklist_fail_open"].value_or(false);
+
         // [auth.exempt] — 인증 면제 msg_id 화이트리스트 (deny-by-default)
         if (auto auth_exempt = tbl["auth"]["exempt"]; auth_exempt)
         {
