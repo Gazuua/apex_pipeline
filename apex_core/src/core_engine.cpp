@@ -5,6 +5,8 @@
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 
+#include <apex/core/log_helpers.hpp>
+
 #include <spdlog/spdlog.h>
 
 #include <cassert>
@@ -155,9 +157,6 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
 {
     if (target_core >= cores_.size())
     {
-        // No dedicated InvalidCoreId error code — adding one requires schema changes
-        // across error_code.hpp, FlatBuffers ErrorResponse, etc. ErrorCode::Unknown is
-        // acceptable here; callers already handle Unknown as a generic failure.
         return error(ErrorCode::Unknown);
     }
     auto& target = *cores_[target_core];
@@ -167,6 +166,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
     if (mesh_ && src != UINT32_MAX && src != target_core)
     {
         // Core thread → SPSC mesh (fast path, no CAS)
+        log::trace(src, "post_to core={} op={}", target_core, static_cast<uint32_t>(msg.op));
         if (!mesh_->queue(src, target_core).try_enqueue(msg))
         {
             target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
@@ -174,7 +174,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
             auto now = std::chrono::steady_clock::now();
             if (now - last_log > std::chrono::seconds{1})
             {
-                spdlog::warn("cross_core_post to core {} failed: SPSC queue full", target_core);
+                log::warn(src, "post_to core={} failed: SPSC queue full", target_core);
                 last_log = now;
             }
             return error(ErrorCode::CrossCoreQueueFull);
@@ -184,6 +184,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
     }
 
     // Non-core thread, self-post, or single-core → asio::post fallback
+    log::trace(src != UINT32_MAX ? src : target_core, "post_to core={} via asio::post fallback", target_core);
     boost::asio::post(target.io_ctx, [this, target_core, msg] { dispatch_message(target_core, msg); });
     return ok();
 }
@@ -246,6 +247,8 @@ void CoreEngine::broadcast(CoreMessage msg)
 
 void CoreEngine::dispatch_message(uint32_t core_id, const CoreMessage& msg)
 {
+    log::trace(core_id, "dispatch_message op={} from_core={}", static_cast<uint32_t>(msg.op), msg.source_core);
+
     if (msg.op == CrossCoreOp::LegacyCrossCoreFn)
     {
         auto* task = reinterpret_cast<std::function<void()>*>(msg.data);
@@ -257,11 +260,11 @@ void CoreEngine::dispatch_message(uint32_t core_id, const CoreMessage& msg)
             }
             catch (const std::exception& e)
             {
-                spdlog::error("Core {} cross-core task exception: {}", core_id, e.what());
+                log::error(core_id, "cross-core task exception: {}", e.what());
             }
             catch (...)
             {
-                spdlog::error("Core {} cross-core task unknown exception", core_id);
+                log::error(core_id, "cross-core task unknown exception");
             }
             delete task;
         }
@@ -314,12 +317,16 @@ void CoreEngine::run_core(uint32_t core_id)
     tls_core_id_ = core_id;
     auto& ctx = *cores_[core_id];
 
+    log::info(core_id, "core thread started");
+
     ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);
     start_tick_timer(core_id);
 
     auto work_guard = boost::asio::make_work_guard(ctx.io_ctx);
 
     ctx.io_ctx.run();
+
+    log::info(core_id, "core thread exiting");
 }
 
 void CoreEngine::drain_inbox(uint32_t core_id)
@@ -349,11 +356,11 @@ void CoreEngine::start_tick_timer(uint32_t core_id)
             }
             catch (const std::exception& e)
             {
-                spdlog::error("Core {} tick_callback exception: {}", core_id, e.what());
+                log::error(core_id, "tick_callback exception: {}", e.what());
             }
             catch (...)
             {
-                spdlog::error("Core {} tick_callback unknown exception", core_id);
+                log::error(core_id, "tick_callback unknown exception");
             }
         }
 

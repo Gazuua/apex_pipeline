@@ -122,11 +122,14 @@ void Server::run()
         state->services.clear();
     }
 
+    spdlog::info("[Server] starting with {} cores", config_.num_cores);
+
     // 어댑터 초기화 — 서비스보다 먼저 (어댑터는 서비스의 인프라 의존성)
     for (auto& adapter : adapters_)
     {
         adapter->init(*core_engine_);
     }
+    spdlog::debug("[Server] adapters initialized ({})", adapters_.size());
 
     // PeriodicTaskScheduler 초기화 — per-core io_context 기반
     for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id)
@@ -154,6 +157,7 @@ void Server::run()
         }
     }
 
+    spdlog::debug("[Server] Phase 1: on_configure");
     // ── Phase 1: on_configure — 어댑터/설정 접근 단계 ──────────────────
     // 서비스가 어댑터, 설정, per-core 상태를 받아 초기화한다.
     // 다른 서비스에 접근 불가 (ServiceRegistry 미제공).
@@ -170,6 +174,7 @@ void Server::run()
         }
     }
 
+    spdlog::debug("[Server] Phase 2: on_wire");
     // ── Phase 2: on_wire — 서비스 간 와이어링 단계 ─────────────────────
     // 모든 코어의 서비스 인스턴스가 생성 완료. 코어 스레드 시작 전이므로
     // ServiceRegistryView를 통한 전 코어 읽기 접근이 데이터 레이스 없이 안전.
@@ -194,6 +199,7 @@ void Server::run()
         }
     }
 
+    spdlog::debug("[Server] Phase 3: on_start");
     // ── Phase 3: on_start — 서비스 시작 ────────────────────────────────
     for (auto& state : per_core_)
     {
@@ -254,6 +260,7 @@ void Server::run()
         }
     });
 
+    spdlog::debug("[Server] starting CoreEngine");
     // Start CoreEngine (non-blocking)
     core_engine_->start();
 
@@ -265,6 +272,8 @@ void Server::run()
     // listeners) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
     running_.store(true, std::memory_order_release);
+    spdlog::info("[Server] ready — {} cores, {} listeners, {} adapters", config_.num_cores, listeners_.size(),
+                 adapters_.size());
 
     // Work guard keeps control_io_ alive until shutdown completes.
     auto work = boost::asio::make_work_guard(control_io_);
@@ -301,6 +310,7 @@ void Server::stop()
 
 void Server::begin_shutdown()
 {
+    spdlog::info("[Server] shutdown initiated, drain_timeout={}s", config_.drain_timeout.count());
     shutdown_deadline_ = std::chrono::steady_clock::now() + config_.drain_timeout;
 
     // close() is posted to core threads. Since each core runs a single-threaded
@@ -355,6 +365,7 @@ void Server::poll_shutdown()
 
 void Server::finalize_shutdown()
 {
+    spdlog::debug("[Server] finalize_shutdown");
     shutdown_timer_.reset();
 
     // 1. Stop listeners completely

@@ -2,6 +2,8 @@
 
 #include <apex/core/session_manager.hpp>
 
+#include <apex/core/log_helpers.hpp>
+
 #include <spdlog/spdlog.h>
 
 namespace apex::core
@@ -31,7 +33,7 @@ SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
     {
         // SlabAllocator exhausted → heap fallback
         raw = new Session(id, std::move(socket), core_id_, recv_buf_capacity_, max_queue_depth_);
-        spdlog::warn("Session SlabAllocator exhausted, heap fallback (core {})", core_id_);
+        log::warn(core_id_, "session SlabAllocator exhausted, heap fallback");
     }
     SessionPtr session(raw);
     session->set_state(Session::State::Active);
@@ -45,6 +47,7 @@ SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
         session->timer_entry_id_ = timer_id; // I-07: embedded in Session
     }
 
+    log::info(core_id_, "session created id={} total={}", id, sessions_.size());
     return session;
 }
 
@@ -53,6 +56,8 @@ void SessionManager::remove_session(SessionId id)
     auto it = sessions_.find(id);
     if (it == sessions_.end())
         return;
+
+    log::debug(core_id_, "session removing id={}", id);
 
     auto& session = it->second;
     session->close();
@@ -149,6 +154,8 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id)
     if (session_it == sessions_.end())
         return;
 
+    log::info(core_id_, "session timeout id={}", session_id);
+
     auto session = session_it->second;
     session->timer_entry_id_ = 0; // I-07: clear embedded timer ID
 
@@ -174,11 +181,11 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id)
         }
         catch (const std::exception& e)
         {
-            spdlog::error("Timeout callback exception for session {}: {}", session_id, e.what());
+            log::error(core_id_, "timeout callback exception for session {}: {}", session_id, e.what());
         }
         catch (...)
         {
-            spdlog::error("Timeout callback unknown exception for session {}", session_id);
+            log::error(core_id_, "timeout callback unknown exception for session {}", session_id);
         }
     }
 

@@ -133,21 +133,22 @@ class CoreEngine
     template <typename F> void spawn_tracked(uint32_t core_id, F&& coro_factory)
     {
         assert(core_id < core_count() && "Invalid core_id for spawn_tracked");
+        spdlog::debug("[core={}] spawn_tracked infra coroutine", core_id);
         outstanding_infra_coros_.fetch_add(1, std::memory_order_acq_rel);
         boost::asio::co_spawn(
             io_context(core_id),
-            [this, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {
+            [this, core_id, f = std::forward<F>(coro_factory)]() -> boost::asio::awaitable<void> {
                 try
                 {
                     co_await f();
                 }
                 catch (const std::exception& e)
                 {
-                    spdlog::error("[CoreEngine] spawn_tracked coroutine exception: {}", e.what());
+                    spdlog::error("[core={}] spawn_tracked coroutine exception: {}", core_id, e.what());
                 }
                 catch (...)
                 {
-                    spdlog::error("[CoreEngine] spawn_tracked coroutine unknown exception");
+                    spdlog::error("[core={}] spawn_tracked coroutine unknown exception", core_id);
                 }
                 outstanding_infra_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },

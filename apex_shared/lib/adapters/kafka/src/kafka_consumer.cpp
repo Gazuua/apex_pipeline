@@ -154,6 +154,7 @@ void KafkaConsumer::poll_messages()
 
     // Non-blocking batch poll
     const int max_batch = config_.consumer_max_batch;
+    int consumed_count = 0;
     for (int i = 0; i < max_batch; ++i)
     {
         rd_kafka_message_t* msg = rd_kafka_consumer_poll(rk_, 0);
@@ -206,12 +207,19 @@ void KafkaConsumer::poll_messages()
                 }
             }
             ++total_consumed_;
+            ++consumed_count;
         }
         else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF)
         {
             spdlog::warn("KafkaConsumer[core={}] poll error: {}", core_id_, rd_kafka_message_errstr(msg));
         }
         rd_kafka_message_destroy(msg);
+    }
+
+    if (consumed_count > 0)
+    {
+        spdlog::trace("[kafka_consumer] poll_messages: core={}, batch_size={}, consumed={}", core_id_, max_batch,
+                      consumed_count);
     }
 }
 

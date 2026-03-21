@@ -79,6 +79,8 @@ apex::core::Result<void> KafkaProducer::init()
 apex::core::Result<void> KafkaProducer::produce(std::string_view topic, std::string_view key,
                                                 std::span<const uint8_t> payload)
 {
+    spdlog::trace("[kafka_producer] produce: topic={}, partition=UA, payload_size={}", topic, payload.size());
+
     if (!rk_)
     {
         return std::unexpected(apex::core::ErrorCode::AdapterError);
