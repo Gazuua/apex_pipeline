@@ -22,6 +22,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # CI_IMAGE_TAG is read from .github/ci-image-tag by the changes job
 
 jobs:
   # ── Path filter (Docker / Source 변경 감지) ────
