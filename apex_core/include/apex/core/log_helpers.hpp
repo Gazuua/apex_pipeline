@@ -1,4 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+//
+// Standalone logging helpers for framework-internal code.
 
 #pragma once
 
