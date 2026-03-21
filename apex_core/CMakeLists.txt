@@ -61,6 +61,7 @@ add_library(apex_core STATIC
     src/ring_buffer.cpp
     src/timing_wheel.cpp
     src/core_engine.cpp
+    src/crash_handler.cpp
     src/cross_core_dispatcher.cpp
     src/spsc_mesh.cpp
     src/message_dispatcher.cpp

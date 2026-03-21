@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/configure_context.hpp>
+#include <apex/core/crash_handler.hpp>
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/wire_context.hpp>
@@ -101,6 +102,10 @@ void Server::run()
     }
 
     stopping_.store(false, std::memory_order_relaxed); // run() init, single thread
+
+    // Install crash signal handlers (SIGABRT, SIGSEGV, etc.) for diagnostics.
+    // Independent of handle_signals — crash handlers are always active.
+    install_crash_handlers();
 
     // I-09: Cache spdlog logger for hot-path use (avoid mutex per call)
     logger_ = spdlog::get("apex");
