@@ -24,6 +24,7 @@ consume_topics = ["chat.requests"]
 # docker-compose: redis-chat = 6382
 host = "localhost"
 port = 6382
+password = "${REDIS_CHAT_PASSWORD:-dev_redis_pass}"
 db = 0
 
 [redis_pubsub]
@@ -31,8 +32,9 @@ db = 0
 # docker-compose: redis-pubsub = 6383
 host = "localhost"
 port = 6383
+password = "${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}"
 db = 0
 
 [pg]
-connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=apex_pass"
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=${PG_SERVICE_PASSWORD:-apex_pass}"
 pool_size_per_core = 2
