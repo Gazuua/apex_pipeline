@@ -2,11 +2,12 @@
 
 ## 문서 규칙
 
-> 핵심 규칙은 루트 `CLAUDE.md` § 문서/프로세스 규칙에도 기재됨. 아래는 상세 설명.
+> 루트 `CLAUDE.md` § 문서/프로세스 규칙은 파일명·백로그 포인터만 보유. 경로·작성·리뷰·백로그 운영 규칙의 단일 권위 출처는 이 파일.
 
 - **필수 작성**: 계획서(`plans/`), 완료 기록(`progress/`), 리뷰 보고서(`review/`)
 - **작성 타이밍**: plans → 구현 전, review → 리뷰 완료 후, progress → CI 통과 후 merge 전
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
+- **progress 문서**: 작업 결과 요약 필수 — 빈 껍데기 금지
 
 - 리뷰·progress 문서에서 발견된 TODO/백로그 → `docs/BACKLOG.md`에 추가
 - 원본 문서(review/progress)에 TODO·백로그·향후 과제 섹션 잔류 금지 — 발견 즉시 `docs/BACKLOG.md`로 이전 후 원본에서 제거

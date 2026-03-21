@@ -20,27 +20,27 @@
 - **등급**: MAJOR
 - **스코프**: tools, docs
 - **타입**: infra
-- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
+- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **[FSD 분석 2026-03-22]** 5종 도구 각각 동작 정의·threshold·예외 처리에 설계 판단 필요. 기계적 자동화 불가.
 
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
 - **스코프**: auth-svc, chat-svc
 - **타입**: test
-- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족.
+- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족. **[FSD 분석 2026-03-22]** 테스트 대상 비즈니스 로직 선정, mock 전략, 커버리지 목표에 설계 판단 필요.
 
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #123
-- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버. **[FSD 분석 2026-03-22]** 코루틴 + Redis/Kafka/RateLimit mock 인프라 구축이 선행 필요. 테스트 인프라 설계 판단 포함.
 
 ### #123. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #102
-- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가.
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가. **[FSD 분석 2026-03-22]** #102 인프라 구축에 의존. 단독 자동화 불가.
 
 ### #124. jwt_blacklist is_valid_jti 입력 검증 테스트
 - **등급**: MAJOR
@@ -65,7 +65,7 @@
 - **스코프**: infra
 - **타입**: infra
 - **연관**: #49
-- **설명**: CI 빌드 잡에서 `ghcr.io/gazuua/apex-pipeline-ci:latest`를 사용하여 빌드 간 재현성 미보장. sha 태그 또는 digest 기반 pinning으로 전환. Docker 이미지 빌드 시 이미 `sha-${{ github.sha }}` 태그를 생성하고 있으므로 참조만 변경하면 됨.
+- **설명**: CI 빌드 잡에서 `ghcr.io/gazuua/apex-pipeline-ci:latest`를 사용하여 빌드 간 재현성 미보장. sha 태그 또는 digest 기반 pinning으로 전환. Docker 이미지 빌드 시 이미 `sha-${{ github.sha }}` 태그를 생성하고 있으므로 참조만 변경하면 됨. **[FSD 분석 2026-03-22]** :latest 제거 시 build cache-from 전략 재설계 필요 (현재 :latest를 캐시 소스로 사용). 단순 참조 변경이 아님.
 
 ### #121. ci.Dockerfile non-root 실행 + .dockerignore 서비스 빌드 호환
 - **등급**: MAJOR

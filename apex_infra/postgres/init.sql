@@ -1,10 +1,10 @@
--- Apex Pipeline: 서비스별 스키마 초기화
+-- Apex Pipeline: PostgreSQL 초기화
 -- docker-entrypoint-initdb.d에 마운트되어 최초 기동 시 자동 실행
-
-CREATE SCHEMA IF NOT EXISTS auth_schema;
-CREATE SCHEMA IF NOT EXISTS chat_schema;
-CREATE SCHEMA IF NOT EXISTS match_schema;
-
+--
+-- 서비스별 스키마는 각 서비스의 마이그레이션 스크립트가 생성한다.
+--   auth-svc → auth_svc (001_create_schema_and_role.sql)
+--   chat-svc → chat_svc (001_create_schema.sql)
+--
 -- 향후 서비스별 DB 유저 분리 시 권한 부여 예시:
--- GRANT USAGE ON SCHEMA auth_schema TO auth_user;
--- GRANT ALL ON ALL TABLES IN SCHEMA auth_schema TO auth_user;
+-- GRANT USAGE ON SCHEMA auth_svc TO auth_user;
+-- GRANT ALL ON ALL TABLES IN SCHEMA auth_svc TO auth_user;

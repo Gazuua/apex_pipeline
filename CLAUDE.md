@@ -124,13 +124,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
 ### 문서/프로세스 규칙
-- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙(분류 체계, 템플릿, 우선순위, 히스토리): `docs/CLAUDE.md` § 백로그 운영
-- **문서 경로**: `docs/{project}/plans/`, `progress/`, `review/` — 공통은 `docs/apex_common/`
+- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
-- **review 문서**: 리뷰 항목 상세 포함 필수 — 헤더/통계만 있는 빈 껍데기 금지
-- **progress 문서**: 작업 결과 요약 필수
-- **TODO/백로그 분리**: review·progress 문서에 TODO·백로그·향후 과제 잔류 금지 — 발견 즉시 `docs/BACKLOG.md`로 이전
-- 상세 규칙: `docs/CLAUDE.md` 참조
+- 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
 
 ### 에이전트 작업
 - **서브에이전트는 작업 전 관련 CLAUDE.md를 직접 읽는다** — 메인이 발췌할 필요 없이 서브에이전트가 해당 영역의 CLAUDE.md를 직접 Read하여 규칙 파악
