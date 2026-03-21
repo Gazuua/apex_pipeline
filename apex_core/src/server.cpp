@@ -417,7 +417,7 @@ void Server::finalize_shutdown()
 
     // 5. CoreEngine stop + join + drain
     // Order matters: stop() signals threads, join() waits for exit,
-    // drain_remaining() cleans up leftover MPSC messages.
+    // drain_remaining() cleans up leftover SPSC messages.
     // CoreEngine must stop before adapter close -- pending completion handlers
     // on core threads may reference adapter resources (e.g. KafkaConsumer).
     core_engine_->stop();

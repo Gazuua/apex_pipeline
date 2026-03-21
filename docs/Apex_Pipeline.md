@@ -104,7 +104,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Circuit Breaker** | 외부 서비스 호출 | 연속 실패 시 빠른 실패 반환, 연쇄 장애 차단 |
 | **Dead Letter Queue** | Kafka Consumer | 처리 실패 메시지를 DLQ 토픽으로 격리, 유실 방지 |
 | **Retry + Exponential Backoff** | 모든 외부 호출 | 일시적 실패 자동 재시도, 부하 폭주 방지 |
-| **Graceful Shutdown** | 전 서비스 | SIGTERM → acceptor 중지 → 코어별 세션 close(코어 스레드에 비동기 post) → 세션 drain 폴링(active_sessions==0 대기, 1ms 주기) → **어댑터 drain (새 요청 거부, is_ready=false)** → 서비스 on_stop() → CoreEngine stop → CoreEngine join → drain_remaining(잔여 SPSC 메시지 소비) → **어댑터 close (Kafka flush, Redis/PG 풀 close_all)** → shutdown_logging() → 종료. 핵심: 어댑터 close는 CoreEngine 종료 이후 수행 (코어 스레드 완전 종료 후 안전하게 리소스 정리). drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, v0.2.0.0에서 구현. shutdown 후 로깅 시도는 spdlog::get() null 체크로 방어 |
+| **Graceful Shutdown** | 전 서비스 | SIGTERM → Listener stop(acceptor 중지, 코어별 세션 close) → **어댑터 drain (새 요청 거부, is_ready=false)** → **Scheduler stop_all (주기 태스크 중지)** → 서비스 on_stop() → outstanding 코루틴 drain 대기 → CoreEngine stop → CoreEngine join → drain_remaining(잔여 SPSC 메시지 소비) → **어댑터 close (Kafka flush, Redis/PG 풀 close_all)** → globals clear → shutdown_logging() → 종료. 핵심: 어댑터 drain은 서비스 stop **이전** 수행, 어댑터 close는 CoreEngine 종료 **이후** 수행. drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, v0.2.0.0에서 구현. shutdown 후 로깅 시도는 spdlog::get() null 체크로 방어 |
 | **Health Check** | K8s Liveness/Readiness | 비정상 Pod 자동 재시작 |
 | **Rate Limiting** | Gateway | 3계층: Per-IP Sliding Window (TimingWheel) / Per-User Redis / Per-Endpoint Config |
 | **Idempotency Key** | 전 서비스 | 중복 요청 자동 감지, 멱등성 보장 |
@@ -249,7 +249,7 @@ public:
         // FlatBuffers zero-copy 읽기 + 응답 빌드 + 비동기 전송
         flatbuffers::FlatBufferBuilder builder(256);
         // ... 응답 빌드 ...
-        co_await session->enqueue_write(header, payload);
+        session->enqueue_write(apex::core::build_frame(msg_id + 1, builder));
         co_return ok();
     }
 };
@@ -257,11 +257,12 @@ public:
 int main() {
     // Server::run()이 io_context/스레드를 내부 소유 (프레임워크 모델)
     // 코어별 독립 EchoService 인스턴스 자동 생성 (shared-nothing)
-    Server config{.num_cores = 4};
-    config.add_service<EchoService>();
-    config.listen<TcpBinaryProtocol>(9000);   // TCP 바이너리 프로토콜
-    // config.listen<WebSocketProtocol>(9001); // WebSocket (v0.5.1+ Beast 통합 후)
-    config.run();  // SIGINT/SIGTERM으로 graceful shutdown
+    Server server({.num_cores = 4});
+    server
+        .add_service<EchoService>()
+        .listen<TcpBinaryProtocol>(9000)   // TCP 바이너리 프로토콜
+        // .listen<WebSocketProtocol>(9001) // WebSocket (v0.5.1+ Beast 통합 후)
+        .run();  // SIGINT/SIGTERM으로 graceful shutdown
 }
 ```
 
@@ -309,7 +310,7 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 | API | 방식 | 용도 |
 |-----|------|------|
 | `cross_core_call<R>(core_id, F)` | awaitable RPC | 다른 코어에서 함수 실행 후 결과 반환 (타임아웃 지원, 레거시) |
-| `cross_core_post(core_id, F)` | fire-and-forget | 다른 코어에 비동기 작업 전달 (레거시) |
+| `cross_core_post(core_id, F)` | fire-and-forget (awaitable) | 다른 코어에 비동기 작업 전달 (레거시) |
 | `post_to(core_id, CoreMessage)` | sync | SPSC mesh 직접 전달 (코어 스레드), asio::post fallback (비코어 스레드) |
 | `co_post_to(core_id, CoreMessage)` | awaitable | SPSC mesh 전달 + backpressure 대기 (큐 full 시 비동기 재시도) |
 | `cross_core_post_msg(engine, src, dst, op, data)` | awaitable | co_post_to 기반 message passing 제로할당 전달 |
@@ -532,7 +533,7 @@ v1.0.0.0 포함 항목:
 - [x] v0.1 코어 프레임워크 기초 (상세는 완료 이력 참조)
 
 #### v0.2: 개발 인프라
-- [x] CI/CD (GitHub Actions — 빌드+단위 테스트, concurrency로 중복 실행 자동 취소)
+- [x] CI/CD (GitHub Actions — 빌드+단위 테스트, 모든 CI run 완전 병렬 실행)
 - [x] TOML 설정 로딩 (toml++)
 - [x] spdlog 기본 통합 (ConsoleSink + FileSink, TOML 설정 연동)
 - [x] Graceful Shutdown drain 타임아웃 (TOML 설정 가능)
