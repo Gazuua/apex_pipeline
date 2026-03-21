@@ -42,6 +42,18 @@ TEST(JwtBlacklist, ValidExactly128Chars)
     EXPECT_TRUE(is_valid_jti(jti));
 }
 
+TEST(JwtBlacklist, ValidHyphenOnly)
+{
+    // Pure hyphens are valid per char filter (hex + hyphen)
+    EXPECT_TRUE(is_valid_jti("-"));
+    EXPECT_TRUE(is_valid_jti("---"));
+}
+
+TEST(JwtBlacklist, ValidAllDigits)
+{
+    EXPECT_TRUE(is_valid_jti("0123456789"));
+}
+
 // --- Invalid inputs ---
 
 TEST(JwtBlacklist, RejectEmpty)
