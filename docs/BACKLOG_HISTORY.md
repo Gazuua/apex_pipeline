@@ -5,6 +5,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
+- **등급**: MINOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-21 22:16:17 | **방식**: FIXED | **커밋**: 33effad
+- **비고**: 루트 CLAUDE.md 백로그 인라인 요약을 순수 포인터로 축소, docs/CLAUDE.md에 단일 권위 출처 명시
+
+### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
+- **등급**: MAJOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-21 22:16:17 | **방식**: FIXED | **커밋**: 8e9df05
+- **비고**: 버전 히스토리 최신순 정렬, shared-nothing 아키텍처 설명 보강, 빌드 섹션(Windows/Linux + CMake presets) 및 인프라 섹션(Docker Compose + Dockerfile 위치) 신설
+
+### #64. 서비스 테스트 작성 가이드
+- **등급**: MAJOR | **스코프**: core, docs | **타입**: docs
+- **해결**: 2026-03-21 22:16:17 | **방식**: FIXED | **커밋**: 68fb047
+- **비고**: docs/apex_common/test_guide.md 신설. 유닛 테스트(GTest + Mock 어댑터 + 코루틴 헬퍼) + E2E 테스트(Docker fixture + TcpClient) 패턴 문서화
+
 ### #116. apex_core → apex_shared 역방향 의존 제거 (포워딩 헤더 + CMake include path)
 - **등급**: MAJOR | **스코프**: core, shared | **타입**: design-debt
 - **해결**: 2026-03-21 22:06:58 | **방식**: FIXED | **커밋**: 93a79b5
