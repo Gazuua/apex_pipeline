@@ -157,6 +157,9 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
 {
     if (target_core >= cores_.size())
     {
+        // No dedicated InvalidCoreId error code — adding one requires schema changes
+        // across error_code.hpp, FlatBuffers ErrorResponse, etc. ErrorCode::Unknown is
+        // acceptable here; callers already handle Unknown as a generic failure.
         return error(ErrorCode::Unknown);
     }
     auto& target = *cores_[target_core];

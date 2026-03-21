@@ -65,7 +65,10 @@ RedisMultiplexer::~RedisMultiplexer()
 
 boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command(std::string_view cmd)
 {
-    spdlog::debug("[redis_multiplexer] command: {}", cmd);
+    // Log only the command verb (e.g. "SET", "GET") — never the full string,
+    // which may contain passwords, tokens, or other sensitive values.
+    auto verb_end = cmd.find(' ');
+    spdlog::debug("[redis_multiplexer] command: {}", cmd.substr(0, verb_end));
 
     if (!conn_ || !conn_->is_connected())
     {

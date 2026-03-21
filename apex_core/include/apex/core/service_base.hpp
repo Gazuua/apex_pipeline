@@ -346,21 +346,21 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     template <typename... Args> void log_##level_name(fmt::format_string<Args...> fmt, Args&&... args)                 \
     {                                                                                                                  \
         if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}] {}", core_id_for_log_(), name_,                    \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}] {}", core_id_for_log(), name_,                     \
                         fmt::format(fmt, std::forward<Args>(args)...));                                                \
     }                                                                                                                  \
     template <typename... Args>                                                                                        \
     void log_##level_name(const SessionPtr& session, fmt::format_string<Args...> fmt, Args&&... args)                  \
     {                                                                                                                  \
         if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}] {}", core_id_for_log_(), name_,           \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}] {}", core_id_for_log(), name_,            \
                         session ? session->id() : make_session_id(0), fmt::format(fmt, std::forward<Args>(args)...));  \
     }                                                                                                                  \
     template <typename... Args>                                                                                        \
     void log_##level_name(const SessionPtr& session, uint32_t msg_id, fmt::format_string<Args...> fmt, Args&&... args) \
     {                                                                                                                  \
         if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}][msg=0x{:04X}] {}", core_id_for_log_(),    \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}][msg=0x{:04X}] {}", core_id_for_log(),     \
                         name_, session ? session->id() : make_session_id(0), msg_id,                                   \
                         fmt::format(fmt, std::forward<Args>(args)...));                                                \
     }
@@ -395,7 +395,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     }
 
   private:
-    uint32_t core_id_for_log_() const noexcept
+    uint32_t core_id_for_log() const noexcept
     {
         return per_core_ ? per_core_->core_id : UINT32_MAX;
     }
