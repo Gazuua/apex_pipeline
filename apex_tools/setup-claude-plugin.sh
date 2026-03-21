@@ -29,7 +29,13 @@ const knownFile = path.join(pluginsDir, 'known_marketplaces.json');
 const settingsFile = path.join(claudeDir, 'settings.json');
 
 // 워크스페이스 경로 (셸에서 전달)
-const workspace = path.resolve('${WORKSPACE}'.replace(/\\\\$/,''));
+// MSYS/Git Bash pwd는 '/d/...' 형태를 반환 → Node path.resolve()가
+// 'D:\\d\\...'로 오해석하므로 드라이브 문자 변환 필요
+let _ws = '${WORKSPACE}'.replace(/\\\\$/,'');
+if (process.platform === 'win32' && /^\\/[a-zA-Z]\\//.test(_ws)) {
+  _ws = _ws[1].toUpperCase() + ':' + _ws.slice(2);
+}
+const workspace = path.resolve(_ws);
 const pluginPath = path.join(workspace, 'apex_tools', 'claude-plugin');
 const marketplacePath = path.join(workspace, 'apex_tools');
 
