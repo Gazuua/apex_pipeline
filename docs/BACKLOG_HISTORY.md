@@ -5,6 +5,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #49. Docker 이미지 버전 감사 + pgbouncer 교체
+- **등급**: MAJOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-21 22:32:22 | **방식**: FIXED
+- **비고**: edoburu/pgbouncer:1.23.1 → bitnami/pgbouncer:1.23.1 (환경변수 기반). redis:7-alpine → 7.4.2-alpine, postgres:16-alpine → 16.8-alpine. dev + e2e compose 양쪽 적용
+
+### #122. CI Docker :latest → immutable 태그 전환
+- **등급**: MAJOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-21 22:32:22 | **방식**: FIXED
+- **비고**: .github/ci-image-tag 파일 기반 sha 태그 고정. ci.yml/nightly.yml/서비스 Dockerfile 전환. docker-build.yml 자동 갱신 ([skip ci])
+
+### #121. ci.Dockerfile non-root 실행 + .dockerignore 서비스 빌드 호환
+- **등급**: MAJOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-21 22:32:22 | **방식**: FIXED
+- **비고**: .dockerignore whitelist 확장 (소스 디렉토리 + CMakePresets.json). non-root ci.Dockerfile은 WONTFIX — CI 빌드 이미지 root 실행이 업계 표준, GitHub Actions 호환성 문제
+
 ### #120. CircuitBreaker HALF_OPEN 성공 카운트 추적 부재
 - **등급**: MINOR | **스코프**: shared | **타입**: design-debt
 - **해결**: 2026-03-21 22:16:52 | **방식**: FIXED
