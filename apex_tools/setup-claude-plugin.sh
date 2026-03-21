@@ -33,6 +33,13 @@ const workspace = path.resolve('${WORKSPACE}'.replace(/\\\\$/,''));
 const pluginPath = path.join(workspace, 'apex_tools', 'claude-plugin');
 const marketplacePath = path.join(workspace, 'apex_tools');
 
+// plugin.json에서 실제 버전 읽기
+let pluginVersion = '1.0.0';
+try {
+  const pj = JSON.parse(fs.readFileSync(path.join(pluginPath, '.claude-plugin', 'plugin.json'), 'utf8'));
+  if (pj.version) pluginVersion = pj.version;
+} catch {}
+
 // --- 빠른 체크: 이미 설치됐으면 즉시 종료 ---
 try {
   const installed = JSON.parse(fs.readFileSync(installedFile, 'utf8'));
@@ -76,7 +83,7 @@ if (!installed.plugins[PLUGIN_ID]) {
   installed.plugins[PLUGIN_ID] = [{
     scope: 'project',
     installPath: pluginPath,
-    version: '1.0.0',
+    version: pluginVersion,
     installedAt: now,
     lastUpdated: now
   }];
