@@ -127,11 +127,11 @@
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
-### #120. CircuitBreaker HALF_OPEN 성공 카운트 추적 부재
+### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
 - **등급**: MINOR
-- **스코프**: shared
-- **타입**: design-debt
-- **설명**: HALF_OPEN 상태에서 `on_success()`는 `half_open_calls_ >= config_.half_open_max_calls`일 때만 CLOSED로 전이하지만, `half_open_calls_`는 "허용된 호출 수"이지 "성공한 호출 수"가 아니다. 2번 성공 후 3번째 실패 시 성공이 모두 무시되고 OPEN으로 돌아감. 연속 성공 카운트가 필요하면 별도 `success_count_` 필드 도입 필요. 의도된 동작이라면 주석 보강.
+- **스코프**: docs
+- **타입**: docs
+- **설명**: `docs/CLAUDE.md` 백로그 운영 규칙 80줄이 루트 `CLAUDE.md`와 부분 중복. 중복 제거 또는 역할 분리 명확화.
 
 ---
 

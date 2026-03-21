@@ -17,12 +17,17 @@ uint32_t CircuitBreaker::failure_count() const noexcept
 {
     return failure_count_;
 }
+uint32_t CircuitBreaker::half_open_successes() const noexcept
+{
+    return half_open_successes_;
+}
 
 void CircuitBreaker::reset() noexcept
 {
     state_ = CircuitState::CLOSED;
     failure_count_ = 0;
     half_open_calls_ = 0;
+    half_open_successes_ = 0;
 }
 
 bool CircuitBreaker::should_allow() noexcept
@@ -37,7 +42,8 @@ bool CircuitBreaker::should_allow() noexcept
             if (elapsed >= config_.open_duration)
             {
                 state_ = CircuitState::HALF_OPEN;
-                half_open_calls_ = 1; // 이 호출 자체를 첫 번째로 카운팅
+                half_open_calls_ = 1;     // 이 호출 자체를 첫 번째로 카운팅
+                half_open_successes_ = 0; // 성공 카운터 초기화
                 return true;
             }
             return false;
@@ -56,11 +62,14 @@ void CircuitBreaker::on_success() noexcept
     switch (state_)
     {
         case CircuitState::HALF_OPEN:
-            // half_open_calls_는 should_allow()에서 이미 증가됨
-            if (half_open_calls_ >= config_.half_open_max_calls)
+            // 성공 카운터로 CLOSED 전이 판단 — half_open_calls_와 분리하여
+            // "허용된 호출 수"와 "성공 횟수"의 의미를 명확히 구분한다.
+            ++half_open_successes_;
+            if (half_open_successes_ >= config_.half_open_max_calls)
             {
                 state_ = CircuitState::CLOSED;
                 failure_count_ = 0;
+                half_open_successes_ = 0;
             }
             break;
         case CircuitState::CLOSED:

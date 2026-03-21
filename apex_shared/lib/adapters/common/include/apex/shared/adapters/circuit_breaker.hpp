@@ -42,6 +42,7 @@ class CircuitBreaker
 
     [[nodiscard]] CircuitState state() const noexcept;
     [[nodiscard]] uint32_t failure_count() const noexcept;
+    [[nodiscard]] uint32_t half_open_successes() const noexcept;
     void reset() noexcept;
 
   private:
@@ -52,7 +53,8 @@ class CircuitBreaker
     CircuitBreakerConfig config_;
     CircuitState state_ = CircuitState::CLOSED;
     uint32_t failure_count_ = 0;
-    uint32_t half_open_calls_ = 0;
+    uint32_t half_open_calls_ = 0;     // 허용된 시험 호출 수 (rate limiting)
+    uint32_t half_open_successes_ = 0; // 연속 성공 수 (CLOSED 전이 기준)
     std::chrono::steady_clock::time_point open_since_;
 };
 
