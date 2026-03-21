@@ -82,7 +82,7 @@ auto-review가 지속적으로 발견하는 버그성 이슈를 깔끔하게 소
 | 시점 | 상황 | 처리 |
 |------|------|------|
 | Phase 1 (선별) | 코드 분석 결과 설계 결정 필요 | 백로그 설명란에 분석 결과 추가, 번들에서 제외 |
-| Phase 3 (구현 중) | 파보니까 예상보다 복잡 | 이미 한 수정이 있으면 revert, 백로그 설명란에 사유 추가 |
+| Phase 3 (구현 중) | 파보니까 예상보다 복잡 | 해당 항목의 변경만 revert (항목별 커밋 분리 또는 수동 revert), 백로그 설명란에 사유 추가 |
 
 ### 백로그 메모 형식
 
@@ -98,7 +98,7 @@ auto-review가 지속적으로 발견하는 버그성 이슈를 깔끔하게 소
   클라이언트 측 에러 핸들링 호환성 검토가 선행되어야 함.
 ```
 
-다음 실행 시 이 태그가 있으면 "이미 분석했고 자동화 불가 판정을 받은 항목"이라는 힌트가 된다.
+다음 실행 시 이 태그가 있는 항목은 코드 분석 없이 즉시 스킵한다 (상황이 변했다고 판단되면 재분석 가능).
 
 ## 스킬 프롬프트 구조
 
@@ -115,7 +115,7 @@ auto-review가 지속적으로 발견하는 버그성 이슈를 깔끔하게 소
 - 번들 0개면 다음 섹션 스캔 계속, 끝까지 없으면 브랜치 생성 없이 종료
 - 번들 확정 후 기존 워크플로우 진입 (착수→구현→검증→리뷰→문서→머지 전부 기존 지침 따름)
 - 브랜치명: `feature/fsd-backlog-<타임스탬프>`
-- 커밋 메시지: `fix(스코프): BACKLOG-N,M,... 백로그 소탕` 형태
+- 커밋 메시지: `<타입>(스코프): BACKLOG-N,M,... 백로그 소탕` 형태 (타입은 번들 내 항목 성격에 맞게 선택: bug→fix, test→test, docs→docs 등)
 
 ### 2. 핸드오프 사용 가이드
 
@@ -131,9 +131,9 @@ git checkout -b feature/fsd-backlog-<타임스탬프>
 # 3. 착수 선언 (--summary 필수, 비우면 hook이 차단)
 branch-handoff.sh notify start \
   --skip-design \
-  --backlogs "BACKLOG-N,M" \
+  --backlog "N,M" \
   --scopes "core,shared" \
-  --summary "BACKLOG-N,M 백로그 소탕"
+  --summary "BACKLOG-N,M 백로그 소탕"   # --backlog는 숫자만, 접두사는 스크립트가 자동 추가
 
 # 4. (구현 ~ 머지까지 기존 워크플로우)
 
@@ -156,7 +156,7 @@ branch-handoff.sh notify merge \
   FSD Backlog Sweep — 완료
 ═══════════════════════════════════════
 
-  브랜치: feature/fsd-backlog-20260321
+  브랜치: feature/fsd-backlog-20260321_235653
   PR: #87 (squash merged)
 
   ✅ 해결: BACKLOG-26, BACKLOG-29, BACKLOG-63
