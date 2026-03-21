@@ -4,13 +4,18 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 126
+다음 발번: 127
 
 ---
 
 ## NOW
 
-(없음)
+### #126. apex-agent: Hook/자동화 시스템 Go 백엔드 재작성
+- **등급**: CRITICAL
+- **스코프**: tools, infra
+- **타입**: infra
+- **연관**: #50
+- **설명**: 현재 11개 bash 스크립트(~2,080줄)로 구성된 에이전트 hook/자동화 시스템을 Go 단일 바이너리로 재작성. 동기: ① MSYS 경로 버그 반복(#89,#90) ② grep+sed YAML 파싱 fragile ③ 60+ 분기 상태머신의 bash 디버깅 한계 ④ 테스트 불가 ⑤ 스크립트 수 증가 부담. Go 선택 근거: 콜드 스타트 ~10ms(hook 5초 타임아웃 충분), 단일 바이너리(런타임 무의존), `filepath`/`encoding/json`/`gopkg.in/yaml.v3`로 fragile 패턴 해소, 이 도메인(DevOps 오케스트레이션) 표준 언어. 장기적으로 데몬 모드(소켓 IPC, 인메모리 캐시, 이벤트 기반 반응) + SQLite 상태 저장소로 확장하여 코어 프레임워크와 쌍벽을 이루는 에이전트 자동화 백엔드 구축 가능. 대안 언어(Deno/TS 2순위) 및 마이그레이션 전략 포함 상세 논의: `docs/apex_tools/plans/20260322_015226_apex_agent_go_backend.md`
 
 ---
 
@@ -134,6 +139,7 @@
 - **등급**: MINOR
 - **스코프**: tools
 - **타입**: infra
+- **연관**: #126
 - **설명**: 독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지.
 
 ### #24. 어댑터 상태 관리 불일치
