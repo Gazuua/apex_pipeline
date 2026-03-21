@@ -5,6 +5,31 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #67. server.global<T>() / ConsumerPayloadPool / wire_services() 단위 테스트
+- **등급**: MAJOR | **스코프**: core, shared | **타입**: test
+- **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93
+- **비고**: server.global<T>() 4 TC, ConsumerPayloadPool 7 TC, wire_services() 2 TC. Batch B 코어/공유 테스트 소탕 일괄 작업.
+
+### #101. ErrorSender::build_error_frame service_error_code 라운드트립 테스트
+- **등급**: MAJOR | **스코프**: core | **타입**: test
+- **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93
+- **비고**: service_error_code 0 및 비0 값 FlatBuffers 직렬화/역직렬화 라운드트립 4 TC.
+
+### #13. Listener<P> 단위 테스트 부재
+- **등급**: MAJOR | **스코프**: core | **타입**: test
+- **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93
+- **비고**: start/drain/stop 라이프사이클, per-core handler 동기화, acceptor 관리 7 TC.
+
+### #14. WebSocketProtocol 테스트 부재
+- **등급**: MAJOR | **스코프**: shared | **타입**: test
+- **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93
+- **비고**: try_decode/consume_frame 7 TC. 정상/불완전/멀티프레임 시나리오.
+
+### #16. PgTransaction begun_ 경로 unit test
+- **등급**: MAJOR | **스코프**: shared | **타입**: test
+- **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93
+- **비고**: MockPgConn 기반 13 TC. pool_ 미사용 멤버 제거 + finished_ 가드 추가 (auto-review 발견).
+
 ### #103. KafkaMessageMeta.session_id SessionId 강타입화
 - **등급**: MINOR | **스코프**: core, shared | **타입**: design-debt
 - **해결**: 2026-03-21 17:39:51 | **방식**: FIXED

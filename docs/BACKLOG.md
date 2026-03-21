@@ -37,13 +37,6 @@
 - **연관**: #107 (HISTORY)
 - **설명**: 고코어 환경(16코어+ 서버)에서 Per-core vs Shared 아키텍처 비교 재측정. 4코어 노트북에서 관측된 2.1x 차이가 코어 수에 비례하여 확대되는지 검증. 벤치마크 보고서 버전 비교 기능(--baseline/--current) 활용.
 
-### #67. server.global&lt;T&gt;() / ConsumerPayloadPool / wire_services() 단위 테스트
-- **등급**: MAJOR
-- **스코프**: core, shared
-- **타입**: test
-- **연관**: #48
-- **설명**: D3/D6/D2 신규 API에 대한 단위 테스트 부재. server.global&lt;T&gt;()의 타입 소거 + 중복 호출, ConsumerPayloadPool의 thread-safe acquire/release + 풀 고갈 fallback, wire_services()의 서비스 자동 감지 등 검증 필요.
-
 ### #5. gateway.toml 시크릿 운영 환경 관리
 - **등급**: MAJOR
 - **스코프**: infra, gateway
@@ -84,24 +77,6 @@
 - **스코프**: tools, docs
 - **타입**: infra
 - **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`.
-
-### #13. Listener<P> 단위 테스트 부재
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: test
-- **설명**: start/drain/stop, per-core handler 동기화, acceptor 관리 단위 테스트 없음.
-
-### #14. WebSocketProtocol 테스트 부재
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: test
-- **설명**: try_decode(), consume_frame() 단위 테스트 미작성.
-
-### #16. PgTransaction begun_ 경로 unit test
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: test
-- **설명**: MockPgConnection 필요.
 
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
@@ -153,12 +128,6 @@
 - **타입**: security
 - **연관**: #5, #8
 - **설명**: GatewayPipeline::authenticate()에서 Redis 장애 시 blacklist 체크를 fail-open(허용)으로 처리. Rate limit fail-open은 합리적이나, blacklist는 보안 사고(토큰 탈취/강제 로그아웃) 대응이므로 fail-close 또는 설정 가능(`config_.auth.blacklist_fail_open`)으로 전환 검토 필요.
-
-### #101. ErrorSender::build_error_frame service_error_code 라운드트립 테스트
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: test
-- **설명**: `build_error_frame`의 `service_error_code` 파라미터가 0이 아닌 값일 때 FlatBuffers 직렬화/역직렬화 라운드트립 검증 테스트 부재. 스키마 변경 직후이므로 직렬화 정합성 단위 테스트 필요.
 
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
