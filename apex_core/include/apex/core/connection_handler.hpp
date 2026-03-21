@@ -68,7 +68,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
     /// Number of currently active read_loop coroutines.
     [[nodiscard]] uint32_t active_sessions() const noexcept
     {
-        return active_sessions_.load(std::memory_order_acquire);
+        return active_sessions_->load(std::memory_order_acquire);
     }
 
   private:
@@ -76,13 +76,13 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
     {
         struct ActiveSessionGuard
         {
-            std::atomic<uint32_t>& counter;
+            std::shared_ptr<std::atomic<uint32_t>> counter;
             ~ActiveSessionGuard()
             {
-                counter.fetch_sub(1, std::memory_order_release);
+                counter->fetch_sub(1, std::memory_order_release);
             }
         };
-        active_sessions_.fetch_add(1, std::memory_order_relaxed);
+        active_sessions_->fetch_add(1, std::memory_order_relaxed);
         ActiveSessionGuard guard{active_sessions_};
 
         while (session->is_open())
@@ -197,7 +197,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
     MessageDispatcher& dispatcher_;
     ConnectionHandlerConfig config_;
     std::shared_ptr<spdlog::logger> logger_; // Cached to survive spdlog::shutdown()
-    std::atomic<uint32_t> active_sessions_{0};
+    std::shared_ptr<std::atomic<uint32_t>> active_sessions_ = std::make_shared<std::atomic<uint32_t>>(0);
 };
 
 } // namespace apex::core
