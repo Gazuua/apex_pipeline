@@ -510,6 +510,7 @@ do_backlog_check() {
 # === Status ===
 do_status() {
     echo "=== Branch Handoff Status ==="
+    echo "Storage: ${HANDOFF_DIR}"
     echo ""
 
     local prev_nullglob

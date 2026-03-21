@@ -88,6 +88,9 @@ fi
 
 _MY_BRANCH_ID=$(basename "${WORKSPACE}" | sed 's/apex_pipeline_//')
 
+echo "--- Handoff Storage ---"
+echo "Path: ${HANDOFF_DIR}"
+
 if [[ -d "${HANDOFF_DIR}/active" ]]; then
     _active_lines=""
     _prev_nullglob=$(shopt -p nullglob 2>/dev/null || true)
