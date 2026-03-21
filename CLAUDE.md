@@ -5,6 +5,32 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 + MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL).
 
+## 워크플로우
+
+모든 작업은 아래 7단계 중 해당하는 단계를 순서대로 밟는다. 착수 시 스킵 조건을 평가하여 체크리스트(TaskCreate)를 생성한다.
+
+| # | 단계 | 핵심 행위 | 산출물 |
+|---|------|-----------|--------|
+| ① | **착수** | 브랜치 생성, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
+| ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
+| ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
+| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정 | 빌드+CI 성공 |
+| ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
+| ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
+| ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
+
+**스킵 조건:**
+
+| 단계 | 스킵 가능 조건 |
+|------|---------------|
+| ② 설계 | 변경이 단순하고 설계 판단이 불필요 (오타 수정, 1파일 이하 기계적 변경, 문서 전용) |
+| ③ 구현 | 문서 전용 작업 |
+| ④ 검증 | 문서 전용 작업 (코드 변경 없음) |
+| ⑤ 리뷰 | 문서 전용 작업, 또는 변경 범위가 극히 작아 리뷰 ROI가 없는 경우 |
+| ①⑥⑦ | **스킵 불가** — 모든 작업에 필수 |
+
+기존 hook 4개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프). 상세: `settings.json` + `.claude/hooks/`.
+
 ## 모노레포 구조
 
 `apex_core/`(코어), `apex_shared/`(공유 라이브러리+어댑터), `apex_services/`(MSA), `apex_infra/`(Docker/K8s), `apex_tools/`(CLI/스크립트/auto-review), `docs/`(전체 문서 중앙 집중)
@@ -13,12 +39,10 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug` (bash 셸). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합
 - 개별 타겟 빌드: `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug --target apex_core`
-- **`build.bat` 직접 호출 금지** (PreToolUse hook이 차단)
-- **`cmake`, `ninja` 등 빌드 도구 직접 호출 금지** (PreToolUse hook이 차단)
+- `build.bat`, `cmake`, `ninja` 등 직접 호출 시 PreToolUse hook이 차단
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
 - **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
 - **빌드 오류 책임**: 빌드 실패는 작업 프로세스 내에서 해결. auto-review와 별개 — 작업 완료+빌드 성공 확인 후 리뷰 진입
-- 상세 (의존성, MSVC 주의사항, 빌드 변형) → `apex_core/CLAUDE.md`
 
 ## clangd
 
@@ -67,7 +91,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **Gateway 서비스 독립성**: Gateway는 개별 서비스의 도메인 지식에 절대 의존 금지. 서비스 추가/변경 시 Gateway 코드가 바뀌면 MSA 위반이며 Gateway가 SPOF화됨. Gateway는 범용 인프라(session, channel 등)만 보유
 
 ### 저작권 헤더
-- **새 소스/스크립트 파일 생성 시 저작권 헤더 필수**: 첫 줄에 `// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.` (스크립트는 shebang 다음 줄에 `#` 주석으로)
+- **새 소스/스크립트 파일 생성 시 MIT 저작권 헤더 필수** — `// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.` (스크립트는 shebang 다음 줄 `#` 주석)
 
 ### 포맷팅
 - **빌드 전 clang-format 필수** — 코드 변경 후 빌드 전에 `find apex_core apex_shared apex_services \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) ! -name '*_generated.h' | xargs clang-format -i` 실행. CI `format-check`에서 불일치 시 빌드 실패
