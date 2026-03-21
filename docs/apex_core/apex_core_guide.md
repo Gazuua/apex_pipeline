@@ -384,6 +384,19 @@ Signal (SIGINT/SIGTERM)
 - 어댑터 raw pointer null 리셋 (dangling 방지)
 - cross-core 자원 참조 null 리셋
 
+### 소멸자 파괴 순서 (v0.5.10.2+)
+
+`finalize_shutdown()`이 미호출된 비정상 경로(예외 등)에서도 UAF가 발생하지 않도록, `~Server()`가 io_context 의존성 역순으로 명시적 파괴한다. C++ 멤버 선언 역순 소멸(RAII)에 의존하지 않는다.
+
+```
+~Server()
+  1. listeners_.clear()      — acceptor 소켓 정리 (io_context에 등록됨)
+  2. scheduler.reset()        — per-core 타이머 정리 (io_context에 등록됨)
+  3. core_engine_.reset()     — io_context 소유. ~io_context()가 미완료 코루틴을
+                                파괴하며 intrusive_ptr<Session> 해제.
+                                per_core_의 slab 메모리가 유효한 상태에서 실행됨.
+```
+
 ---
 
 ## §4. 핸들러 & 메시지

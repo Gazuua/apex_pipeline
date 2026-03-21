@@ -186,9 +186,13 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Chat Service | `apex_infra/docker/chat-svc.Dockerfile` |
 | CI 빌드 | `apex_infra/docker/ci.Dockerfile` |
 
-## 현재 상태 — v0.5.10.0
+## 현재 상태 — v0.5.10.2
 
 ### 완료
+
+- **v0.5.10.2 — Session UAF 소멸 순서 수정**
+  - Server::~Server()에 명시적 파괴 순서 추가 (listeners → schedulers → core_engine)
+  - 미완료 코루틴의 intrusive_ptr\<Session\> UAF 방지
 
 - **v0.5.10.0 — SPSC All-to-All Mesh**
   - CoreEngine MPSC inbox → SPSC all-to-all mesh 전환 (N×(N-1) 전용 큐)
