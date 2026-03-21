@@ -76,7 +76,7 @@ TEST(ErrorSenderServiceCode, AllFieldsCombined)
 
     // WireHeader round-trip
     EXPECT_EQ(header.msg_id, msg_id);
-    EXPECT_TRUE(header.flags & wire_flags::ERROR_RESPONSE);
+    EXPECT_EQ(header.flags, wire_flags::ERROR_RESPONSE);
 
     // ErrorResponse round-trip
     EXPECT_EQ(resp->code(), static_cast<uint16_t>(code));

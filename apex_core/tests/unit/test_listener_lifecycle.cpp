@@ -69,7 +69,7 @@ TEST_F(ListenerLifecycleTest, StartBindsPort)
     t.join();
 }
 
-TEST_F(ListenerLifecycleTest, DoubleStartSafe)
+TEST_F(ListenerLifecycleTest, BasicLifecycle_StartAndStop)
 {
     // Create, run, stop without crash -- basic lifecycle sanity
     Server server(make_config(1));
@@ -154,7 +154,7 @@ TEST_F(ListenerLifecycleTest, ActiveSessionsTracking)
     t.join();
 }
 
-TEST_F(ListenerLifecycleTest, DispatcherPerCore)
+TEST_F(ListenerLifecycleTest, MultiCore_CoreCountMatchesConfig)
 {
     // 2-core server with listener -- core_count() must reflect configuration
     Server server(make_config(2));

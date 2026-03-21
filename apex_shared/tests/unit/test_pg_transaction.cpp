@@ -3,16 +3,13 @@
 #include "mock_pg_connection.hpp"
 
 #include <apex/core/error_code.hpp>
-#include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_transaction.hpp>
 
 #include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/use_future.hpp>
 
 #include <gtest/gtest.h>
-
-#include <optional>
 
 using namespace apex::shared::adapters::pg;
 using apex::core::ErrorCode;
@@ -20,15 +17,14 @@ using MockTxn = PgTransactionT<mock::MockPgConn>;
 
 // ---------------------------------------------------------------------------
 // Coroutine runner helper — runs an awaitable synchronously on io_context.
+// use_future 기반: 코루틴 내부 예외가 future로 전파되어 진단 가능.
 // ---------------------------------------------------------------------------
 template <typename T> T run_coro(boost::asio::io_context& io, boost::asio::awaitable<T> aw)
 {
-    std::optional<T> result;
-    boost::asio::co_spawn(
-        io, [&]() -> boost::asio::awaitable<void> { result.emplace(co_await std::move(aw)); }, boost::asio::detached);
+    auto future = boost::asio::co_spawn(io, std::move(aw), boost::asio::use_future);
     io.run();
     io.restart();
-    return std::move(*result);
+    return future.get();
 }
 
 // ---------------------------------------------------------------------------
@@ -37,16 +33,8 @@ template <typename T> T run_coro(boost::asio::io_context& io, boost::asio::await
 class PgTransactionTest : public ::testing::Test
 {
   protected:
-    void SetUp() override
-    {
-        pg_config_.connection_string = "";
-        pool_.emplace(io_, pg_config_);
-    }
-
     boost::asio::io_context io_;
     mock::MockPgConn conn_;
-    PgAdapterConfig pg_config_;
-    std::optional<PgPool> pool_;
 };
 
 // ---------------------------------------------------------------------------
@@ -59,7 +47,7 @@ TEST_F(PgTransactionTest, BeginSuccess_SetsBegun)
     conn_.enqueue_success(); // execute
     conn_.enqueue_success(); // COMMIT
 
-    MockTxn txn(conn_, *pool_);
+    MockTxn txn(conn_);
 
     auto begin_res = run_coro(io_, txn.begin());
     ASSERT_TRUE(begin_res.has_value());
@@ -83,7 +71,7 @@ TEST_F(PgTransactionTest, BeginSuccess_SetsBegun)
 // ---------------------------------------------------------------------------
 TEST_F(PgTransactionTest, CommitWithoutBegin_ReturnsError)
 {
-    MockTxn txn(conn_, *pool_);
+    MockTxn txn(conn_);
     auto res = run_coro(io_, txn.commit());
     ASSERT_FALSE(res.has_value());
     EXPECT_EQ(res.error(), ErrorCode::AdapterError);
@@ -94,7 +82,7 @@ TEST_F(PgTransactionTest, CommitWithoutBegin_ReturnsError)
 // ---------------------------------------------------------------------------
 TEST_F(PgTransactionTest, RollbackWithoutBegin_ReturnsError)
 {
-    MockTxn txn(conn_, *pool_);
+    MockTxn txn(conn_);
     auto res = run_coro(io_, txn.rollback());
     ASSERT_FALSE(res.has_value());
     EXPECT_EQ(res.error(), ErrorCode::AdapterError);
@@ -109,7 +97,7 @@ TEST_F(PgTransactionTest, CommitSuccess_SetsFinished)
     conn_.enqueue_success(); // COMMIT
 
     {
-        MockTxn txn(conn_, *pool_);
+        MockTxn txn(conn_);
         auto begin_res = run_coro(io_, txn.begin());
         ASSERT_TRUE(begin_res.has_value());
 
@@ -128,7 +116,7 @@ TEST_F(PgTransactionTest, RollbackAlwaysSetsFinished)
     conn_.enqueue_success(); // BEGIN
 
     {
-        MockTxn txn(conn_, *pool_);
+        MockTxn txn(conn_);
         auto begin_res = run_coro(io_, txn.begin());
         ASSERT_TRUE(begin_res.has_value());
 
@@ -148,7 +136,7 @@ TEST_F(PgTransactionTest, DestructorPoisons_UnfinishedTxn)
     conn_.enqueue_success(); // BEGIN
 
     {
-        MockTxn txn(conn_, *pool_);
+        MockTxn txn(conn_);
         auto begin_res = run_coro(io_, txn.begin());
         ASSERT_TRUE(begin_res.has_value());
         // No commit or rollback — destructor should poison
@@ -162,23 +150,21 @@ TEST_F(PgTransactionTest, DestructorPoisons_UnfinishedTxn)
 TEST_F(PgTransactionTest, DestructorSafe_NotBegun)
 {
     {
-        MockTxn txn(conn_, *pool_);
+        MockTxn txn(conn_);
         // No begin() — destructor should NOT poison
     }
     EXPECT_FALSE(conn_.is_poisoned());
 }
 
 // ---------------------------------------------------------------------------
-// TC8: commit 후 execute → AdapterError (begun_ true but finished_ true이므로
-//      execute는 begun_ 체크만 하므로 통과 — characterization test)
+// TC8: commit 후 execute → AdapterError (finished_ 상태에서 쿼리 차단)
 // ---------------------------------------------------------------------------
 TEST_F(PgTransactionTest, ExecuteAfterCommit_ReturnsError)
 {
     conn_.enqueue_success(); // BEGIN
     conn_.enqueue_success(); // COMMIT
-    conn_.enqueue_success(); // would-be execute result
 
-    MockTxn txn(conn_, *pool_);
+    MockTxn txn(conn_);
 
     auto begin_res = run_coro(io_, txn.begin());
     ASSERT_TRUE(begin_res.has_value());
@@ -186,10 +172,94 @@ TEST_F(PgTransactionTest, ExecuteAfterCommit_ReturnsError)
     auto commit_res = run_coro(io_, txn.commit());
     ASSERT_TRUE(commit_res.has_value());
 
-    // Characterization: current impl allows execute after commit because
-    // execute() only checks begun_, not finished_. This documents the
-    // current behavior rather than prescribing what "should" happen.
+    // finished_ == true → execute must return AdapterError
     auto exec_res = run_coro(io_, txn.execute("SELECT 1"));
-    // The query goes through because begun_ is true
-    EXPECT_TRUE(exec_res.has_value());
+    ASSERT_FALSE(exec_res.has_value());
+    EXPECT_EQ(exec_res.error(), ErrorCode::AdapterError);
+}
+
+// ---------------------------------------------------------------------------
+// TC9: execute() 미시작 상태 호출 → AdapterError
+// ---------------------------------------------------------------------------
+TEST_F(PgTransactionTest, ExecuteWithoutBegin_ReturnsError)
+{
+    MockTxn txn(conn_);
+    auto res = run_coro(io_, txn.execute("SELECT 1"));
+    ASSERT_FALSE(res.has_value());
+    EXPECT_EQ(res.error(), ErrorCode::AdapterError);
+}
+
+// ---------------------------------------------------------------------------
+// TC10: execute_params() 미시작 상태 → AdapterError
+// ---------------------------------------------------------------------------
+TEST_F(PgTransactionTest, ExecuteParamsWithoutBegin_ReturnsError)
+{
+    MockTxn txn(conn_);
+    std::vector<std::string> params = {"value1"};
+    auto res = run_coro(io_, txn.execute_params("SELECT $1", params));
+    ASSERT_FALSE(res.has_value());
+    EXPECT_EQ(res.error(), ErrorCode::AdapterError);
+}
+
+// ---------------------------------------------------------------------------
+// TC11: execute_params() 정상 경로 — begin → execute_params → commit
+// ---------------------------------------------------------------------------
+TEST_F(PgTransactionTest, ExecuteParamsSuccess)
+{
+    conn_.enqueue_success(); // BEGIN
+    conn_.enqueue_success(); // execute_params
+    conn_.enqueue_success(); // COMMIT
+
+    MockTxn txn(conn_);
+
+    auto begin_res = run_coro(io_, txn.begin());
+    ASSERT_TRUE(begin_res.has_value());
+
+    std::vector<std::string> params = {"42", "hello"};
+    auto exec_res = run_coro(io_, txn.execute_params("INSERT INTO t VALUES ($1, $2)", params));
+    ASSERT_TRUE(exec_res.has_value());
+
+    auto commit_res = run_coro(io_, txn.commit());
+    ASSERT_TRUE(commit_res.has_value());
+
+    ASSERT_EQ(conn_.queries().size(), 3u);
+    EXPECT_EQ(conn_.queries()[0], "BEGIN");
+    EXPECT_EQ(conn_.queries()[1], "INSERT INTO t VALUES ($1, $2)");
+    EXPECT_EQ(conn_.queries()[2], "COMMIT");
+}
+
+// ---------------------------------------------------------------------------
+// TC12: begin() 실패 → begun_ false 유지 → 소멸자 poison 없음
+// ---------------------------------------------------------------------------
+TEST_F(PgTransactionTest, BeginFailure_DoesNotSetBegun)
+{
+    // result_queue_ 비어 있음 → begin 실패
+    {
+        MockTxn txn(conn_);
+        auto begin_res = run_coro(io_, txn.begin());
+        ASSERT_FALSE(begin_res.has_value());
+        EXPECT_EQ(begin_res.error(), ErrorCode::AdapterError);
+    }
+    // begun_ false이므로 소멸자가 poison 안 함
+    EXPECT_FALSE(conn_.is_poisoned());
+}
+
+// ---------------------------------------------------------------------------
+// TC13: commit() 실패 → finished_ false 유지 → 소멸자가 poison
+// ---------------------------------------------------------------------------
+TEST_F(PgTransactionTest, CommitFailure_DestuctorPoisons)
+{
+    conn_.enqueue_success(); // BEGIN
+    // COMMIT용 결과 없음 → commit 실패
+
+    {
+        MockTxn txn(conn_);
+        auto begin_res = run_coro(io_, txn.begin());
+        ASSERT_TRUE(begin_res.has_value());
+
+        auto commit_res = run_coro(io_, txn.commit());
+        ASSERT_FALSE(commit_res.has_value());
+    }
+    // commit 실패 → finished_ false → 소멸자가 poison
+    EXPECT_TRUE(conn_.is_poisoned());
 }

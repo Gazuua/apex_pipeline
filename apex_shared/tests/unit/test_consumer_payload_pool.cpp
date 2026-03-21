@@ -128,6 +128,18 @@ TEST(ConsumerPayloadPool, PayloadDataIntegrity)
     EXPECT_EQ(std::vector<uint8_t>(sp.begin(), sp.end()), original);
 }
 
+TEST(ConsumerPayloadPool, EmptyPayload_AcquireSucceeds)
+{
+    ConsumerPayloadPool pool(4, 256, 8);
+
+    std::vector<uint8_t> empty;
+    auto ptr = pool.acquire(empty);
+    ASSERT_NE(ptr, nullptr);
+    EXPECT_TRUE(ptr->data.empty());
+    EXPECT_EQ(ptr->span().size(), 0u);
+    EXPECT_EQ(pool.in_use_count(), 1u);
+}
+
 TEST(ConsumerPayloadPool, ReleaseOrderIndependent)
 {
     constexpr size_t INITIAL = 4;

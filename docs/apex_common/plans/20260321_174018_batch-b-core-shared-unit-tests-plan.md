@@ -4,6 +4,8 @@
 
 **Goal:** 5개 백로그(#67, #101, #13, #14, #16) 단위 테스트 갭 해소 — 38개 테스트 케이스 추가.
 
+**작성일**: 2026-03-21 17:40:18
+
 **Architecture:** 각 태스크는 독립적 테스트 파일 1개 생성 + CMake 등록. Task 0(PgTransaction 템플릿 리팩터링)만 프로덕션 코드 변경이며 Task 7의 선행 조건. 나머지는 전부 병렬 실행 가능.
 
 **Tech Stack:** C++23, GTest, Boost.Asio coroutines, FlatBuffers

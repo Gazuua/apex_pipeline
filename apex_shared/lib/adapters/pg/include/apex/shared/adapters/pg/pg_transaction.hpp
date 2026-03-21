@@ -4,7 +4,6 @@
 
 #include <apex/core/result.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
-#include <apex/shared/adapters/pg/pg_pool.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <span>
 #include <string>
@@ -22,7 +21,8 @@ namespace apex::shared::adapters::pg
 ///   - void mark_poisoned() noexcept
 ///
 /// Usage:
-///   PgTransaction txn(conn, pool);
+///   PgTransaction txn(conn);
+///   co_await txn.begin();
 ///   co_await txn.execute("INSERT INTO ...");
 ///   co_await txn.commit();
 ///   // If commit() is not called before destruction, conn is marked poisoned.
@@ -31,9 +31,8 @@ namespace apex::shared::adapters::pg
 template <typename Conn> class PgTransactionT
 {
   public:
-    PgTransactionT(Conn& conn, PgPool& pool)
+    explicit PgTransactionT(Conn& conn)
         : conn_(conn)
-        , pool_(pool)
     {}
 
     ~PgTransactionT()
@@ -62,7 +61,7 @@ template <typename Conn> class PgTransactionT
     /// Execute a SQL statement within this transaction.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>> execute(std::string_view sql)
     {
-        if (!begun_)
+        if (!begun_ || finished_)
         {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
@@ -73,7 +72,7 @@ template <typename Conn> class PgTransactionT
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<PgResult>>
     execute_params(std::string_view sql, std::span<const std::string> params)
     {
-        if (!begun_)
+        if (!begun_ || finished_)
         {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
@@ -83,7 +82,7 @@ template <typename Conn> class PgTransactionT
     /// Commit the transaction. Marks as finished on success.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> commit()
     {
-        if (!begun_)
+        if (!begun_ || finished_)
         {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
@@ -98,7 +97,7 @@ template <typename Conn> class PgTransactionT
     /// Rollback the transaction. Always marks as finished.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> rollback()
     {
-        if (!begun_)
+        if (!begun_ || finished_)
         {
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
@@ -109,7 +108,6 @@ template <typename Conn> class PgTransactionT
 
   private:
     Conn& conn_;
-    PgPool& pool_;
     bool begun_{false};
     bool finished_{false};
 };

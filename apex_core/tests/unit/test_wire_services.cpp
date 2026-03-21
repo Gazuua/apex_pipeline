@@ -70,7 +70,7 @@ TEST(WireServices, DefaultImplementation_NoOp)
     EXPECT_TRUE(services.empty());
 }
 
-TEST(WireServices, CustomAdapter_ModifiesServices)
+TEST(WireServices, CustomAdapter_OverrideCalled)
 {
     WiringAdapter adapter;
     CoreEngine engine({.num_cores = 1});
