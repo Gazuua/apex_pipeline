@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 115
+다음 발번: 116
 
 ---
 
@@ -128,6 +128,12 @@
 - **타입**: test
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
 
+
+### #115. TcpAcceptor.StopPreventsNewAccepts CI flaky 테스트
+- **등급**: MINOR
+- **스코프**: core
+- **타입**: test
+- **설명**: `test_tcp_acceptor.cpp:107` — `stop()` 호출 후 `connect()` 시도 시 stop 완료 전 accept가 이미 처리되는 타이밍 레이스. CI(linux-gcc)에서 간헐 실패 (`accept_count == 1`, expected 0). stop 후 accept loop 완전 종료 대기 또는 테스트 타이밍 보정 필요.
 
 ### #104. TSAN suppressions 범위 좁히기
 - **등급**: MINOR
