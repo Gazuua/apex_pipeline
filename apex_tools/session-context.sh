@@ -53,7 +53,6 @@ if [[ -n "$CURRENT_BRANCH" && "$CURRENT_BRANCH" != "main" ]]; then
     else
         echo "Registered: ${BRANCH_ID}"
         grep '^backlog:' "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" 2>/dev/null | sed 's/^/  /'
-        local _status
         _status=$(grep '^status:' "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" 2>/dev/null | awk '{print $2}')
         echo "  status: ${_status}"
         case "$_status" in
