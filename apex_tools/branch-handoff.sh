@@ -327,7 +327,7 @@ do_notify_merge() {
     # scopes는 active 파일에서 추출
     local scopes=""
     if [[ -f "$HANDOFF_DIR/active/${BRANCH_ID}.yml" ]]; then
-        scopes=$(grep '^  - ' "$HANDOFF_DIR/active/${BRANCH_ID}.yml" | sed 's/  - //' | paste -sd',' -)
+        scopes=$(grep '^  - ' "$HANDOFF_DIR/active/${BRANCH_ID}.yml" | sed 's/  - //' | paste -sd',' - || echo "")
     fi
     if [[ -z "$scopes" ]]; then scopes="unknown"; fi
 
