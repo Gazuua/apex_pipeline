@@ -126,9 +126,12 @@ services:
       POSTGRES_DB: apex
       POSTGRES_USER: apex
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apex}
+      POSTGRES_AUTH_ROLE_PASSWORD: ${POSTGRES_AUTH_ROLE_PASSWORD:-auth_secret_change_me}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/000_init.sql:ro
+      - ../apex_services/auth-svc/migrations/001_create_schema_and_role.sh:/docker-entrypoint-initdb.d/001_create_schema_and_role.sh:ro
+      - ../apex_services/auth-svc/migrations/001_create_schema_and_role.sql:/docker-entrypoint-initdb.d/001_create_schema_and_role.sql:ro
     networks:
       - apex-net
     healthcheck:
