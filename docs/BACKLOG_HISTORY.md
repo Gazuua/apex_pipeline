@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #109. 벤치마크 빌드 큐잉 시스템 강제
+- **등급**: MAJOR | **스코프**: tools | **타입**: infra
+- **해결**: 2026-03-21 15:43:39 | **방식**: FIXED
+- **비고**: queue-lock.sh에 benchmark 서브커맨드 추가 (build 채널 공유, per-execution lock). validate-build.sh hook에 bench_* 직접 실행 차단. 벤치마크 README 워크플로우 queue-lock 경유로 갱신.
+
 ### #107. v0.5.10.0 벤치마크 실행 및 보고서 작성
 - **등급**: MAJOR | **스코프**: core, tools | **타입**: perf
 - **해결**: 2026-03-21 14:37:49 | **방식**: FIXED | **커밋**: 4c8e5ee
