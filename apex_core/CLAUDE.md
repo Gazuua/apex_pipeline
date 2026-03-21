@@ -27,22 +27,23 @@
 
 - **구조/실행 가이드**: `apex_core/benchmarks/README.md` 참조 (벤치마크 목록, 실행 방법, JSON 출력 옵션)
 - **순차 실행 필수** — 병렬 실행 시 CPU 경합으로 결과 오염. 절대 동시에 돌리지 않는다
-- **백그라운드 서브에이전트 1개**에서 11개를 순차 실행 (Bash 타임아웃 회피)
-- **Release 빌드**(`release` 프리셋)로 측정 — Debug는 참고용
-- 결과 JSON 저장: `apex_core/benchmark_results/`
+- **Release 빌드**(`release` 프리셋)로 측정 — 총 13개 벤치마크 실행 파일
+- 결과 JSON 저장: `apex_core/benchmark_results/` (임시) → `docs/apex_core/benchmark/{version}/` (git 추적)
 
 ## 벤치마크 보고서 생성
 
 - **도구 가이드**: `apex_tools/benchmark/report/README.md` 참조
-- **템플릿/분석 분리 구조**:
-  - `apex_tools/benchmark/report/generate_benchmark_report.py` — 레이아웃/디자인/차트 템플릿 (**수정하지 않는다**)
-  - `apex_core/benchmark_results/analysis.json` — 섹션별 분석 텍스트 (매번 새로 작성)
-  - `apex_core/benchmark_results/{release,debug}/*.json` — 벤치마크 데이터
+- **버전 비교 + 방법론 비교 체계**:
+  - `apex_tools/benchmark/report/generate_benchmark_report.py` — 보고서 생성 스크립트
+  - `docs/apex_core/benchmark/analysis.json` — 섹션별 분석 텍스트 (매번 새로 작성)
+  - `docs/apex_core/benchmark/{version}/*.json` — 벤치마크 데이터 (버전별 디렉토리)
 - **에이전트 워크플로우**:
-  1. Release/Debug 벤치마크 11개 순차 실행 → JSON 저장
-  2. 결과 데이터를 분석하여 `analysis.json` 작성 (8개 섹션)
-  3. 스크립트 실행: `python generate_benchmark_report.py --release=... --debug=... --analysis=... --output=...`
+  1. Release 빌드 후 벤치마크 13개 순차 실행 → JSON 저장
+  2. `docs/apex_core/benchmark/{version}/`으로 복사 + `metadata.json` 생성
+  3. 결과 데이터를 분석하여 `analysis.json` 작성 (11개 섹션)
+  4. 스크립트 실행: `python generate_benchmark_report.py --data-dir=docs/apex_core/benchmark --baseline=v0.5.9.0 --current=v0.5.10.0 --analysis=... --output=...`
+  5. baseline 생략 시 단독 보고서 (비교 없이 절대값만)
 - **analysis.json 작성 규칙**:
   - 한글 베이스 + 영어 기술 용어 혼용, HTML 태그 사용 (`<b>`, `<br/>`)
   - 각 섹션 3~10줄 — 핵심 수치 강조 + 아키텍처 맥락에서의 의미 해석
-  - 8개 키: `mpsc_queue`, `ring_buffer`, `frame_codec`, `dispatcher`, `slab_pool`, `timing_session`, `integration`, `overview`
+  - 11개 키: `queue`, `allocators`, `frame_codec`, `serialization`, `dispatcher`, `session_timer`, `ring_buffer`, `integration`, `overview`, `version_summary`, `methodology_summary`

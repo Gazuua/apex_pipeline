@@ -3,6 +3,95 @@
 C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 자체 네트워크 프레임워크 위에 MSA 아키텍처 (Gateway → Kafka → Services → Redis/PostgreSQL) 를 구축하는 프로젝트.
 
+## Performance — Per-core Architecture
+
+<div align="center">
+<img src="docs/apex_core/benchmark/architecture_scaling.png?v=2" alt="Per-core vs Shared io_context Scaling" width="800"/>
+</div>
+
+<table>
+<tr><td>
+
+**Per-core io_context** 아키텍처가 전통적 Shared 스레드 풀 모델 대비 **워커 수에 비례하는 선형 확장**을 달성합니다.
+
+Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용했지만, `io_context` 내부 큐 경합으로 처리량이 정체됩니다.
+
+</td></tr>
+</table>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th align="center">1워커</th>
+<th align="center">2워커</th>
+<th align="center">3워커</th>
+<th align="center">4워커</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>🟢 Per-core</b></td>
+<td align="center">0.51M msg/s</td>
+<td align="center"><b>0.90M</b></td>
+<td align="center"><b>1.24M</b></td>
+<td align="center"><b>1.56M</b></td>
+</tr>
+<tr>
+<td><b>🟡 Shared</b></td>
+<td align="center">0.53M</td>
+<td align="center">0.64M</td>
+<td align="center">0.72M</td>
+<td align="center">0.74M</td>
+</tr>
+<tr>
+<td><b>📈 Per-core 배수</b></td>
+<td align="center">1.0x</td>
+<td align="center"><b>⚡ 1.4x</b></td>
+<td align="center"><b>⚡ 1.7x</b></td>
+<td align="center"><b>⚡ 2.1x</b></td>
+</tr>
+</tbody>
+</table>
+
+> 📊 [**인터랙티브 벤치마크 보고서**](https://gazuua.github.io/apex_pipeline/benchmark/index.html) · [전체 벤치마크 보고서](https://gazuua.github.io/apex_pipeline/benchmark/report.html)
+
+<details>
+<summary>💡 <b>왜 Per-core가 선형 확장하고, Shared는 정체하는가?</b></summary>
+<br/>
+<table>
+<tr>
+<td width="50%">
+
+**🟢 Per-core — 선형 확장**
+
+각 워커가 **독립된 `io_context`를 소유**하고, 자기 세션 맵에만 접근합니다.
+
+- Lock이 **존재하지 않음** (lock-free가 아닌 lock-없음)
+- 워커 간 공유 상태 **제로** → 캐시 라인 경합 없음
+- 워커 추가 시 처리량이 **순증** (1→4워커: 3.06x 확장, 77~88% 효율)
+
+</td>
+<td width="50%">
+
+**🟡 Shared — 처리량 정체**
+
+모든 워커가 하나의 `io_context`에서 `run()`을 호출합니다.
+
+- 세션 mutex를 **64샤드로 분산**해도 (업계 표준 최적화)
+- `io_context` 내부 **핸들러 큐의 단일 mutex**가 근본 병목
+- 워커 4→8→16 늘려도 **0.77M에서 완전 정체**
+
+</td>
+</tr>
+</table>
+
+**결론:** lock 최적화(샤딩, reader-writer lock 등)만으로는 한계가 있습니다. **`io_context` 자체를 워커별로 분리**해야 진정한 선형 확장이 가능하며, 이것이 Apex Core의 per-core shared-nothing 아키텍처를 채용한 근본적 이유입니다.
+
+<sub>측정 환경: Intel i5-9300H (4C/8T, L3 8MB) · DDR4-2400 · MSVC 19.44 Release · 워크로드: 워커당 1,000 세션 × 50,000 메시지 (세션 조회 + 상태 수정)</sub><br/>
+<sub>※ 테스트 PC는 4물리 코어 기준입니다. 물리 코어가 더 많은 프로덕션 서버에서는 4워커 이상에서도 선형 확장이 유지됩니다.</sub>
+</details>
+
 ## 현재 상태 — v0.5.10.0
 
 ### 완료

@@ -1,0 +1,20 @@
+{
+  "version": "v0.5.10.0",
+  "commit": "324d243",
+  "date": "2026-03-21T02:02:37+09:00",
+  "host_name": "DESKTOP-LS4B0FN",
+  "cpu_name": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz (4.10GHz)",
+  "physical_cores": 4,
+  "logical_cores": 8,
+  "mhz_per_cpu": 2400,
+  "max_boost_mhz": 4100,
+  "caches": {
+    "l1d": "32 KB",
+    "l2": "256 KB",
+    "l3": "8 MB"
+  },
+  "total_ram_mb": 12168,
+  "ram_speed_mhz": 2400,
+  "compiler": "MSVC 19.44",
+  "build_type": "Release"
+}

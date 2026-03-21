@@ -47,3 +47,19 @@ static void BM_SessionPtr_Copy(benchmark::State& state)
     state.SetItemsProcessed(state.iterations());
 }
 BENCHMARK(BM_SessionPtr_Copy);
+
+// ---------------------------------------------------------------------------
+// std::shared_ptr copy — atomic refcount overhead comparison
+// ---------------------------------------------------------------------------
+
+static void BM_SharedPtr_Copy(benchmark::State& state)
+{
+    auto sp = std::make_shared<int>(42);
+    for (auto _ : state)
+    {
+        auto copy = sp;
+        benchmark::DoNotOptimize(copy);
+    }
+    state.SetItemsProcessed(state.iterations());
+}
+BENCHMARK(BM_SharedPtr_Copy);

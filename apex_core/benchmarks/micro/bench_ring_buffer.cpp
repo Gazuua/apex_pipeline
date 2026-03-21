@@ -41,3 +41,24 @@ static void BM_RingBuffer_Linearize(benchmark::State& state)
     state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(payload_size));
 }
 BENCHMARK(BM_RingBuffer_Linearize)->Range(64, 4096);
+
+// ---------------------------------------------------------------------------
+// Naive buffer: allocate + copy + deallocate per iteration (baseline)
+// ---------------------------------------------------------------------------
+
+static void BM_NaiveBuffer_CopyWrite(benchmark::State& state)
+{
+    const auto sz = static_cast<size_t>(state.range(0));
+    std::vector<uint8_t> src(sz, 0xAB);
+
+    for (auto _ : state)
+    {
+        auto* buf = new uint8_t[sz];
+        std::memcpy(buf, src.data(), sz);
+        benchmark::DoNotOptimize(buf);
+        benchmark::ClobberMemory();
+        delete[] buf;
+    }
+    state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(sz));
+}
+BENCHMARK(BM_NaiveBuffer_CopyWrite)->Arg(64)->Arg(512)->Arg(4096);

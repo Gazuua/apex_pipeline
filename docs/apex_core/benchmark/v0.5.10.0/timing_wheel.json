@@ -1,0 +1,104 @@
+{
+  "context": {
+    "date": "2026-03-21T02:03:27+09:00",
+    "host_name": "DESKTOP-LS4B0FN",
+    "executable": "D:\\.workspace\\apex_pipeline_branch_01\\apex_core\\bin\\release\\bench_timing_wheel.exe",
+    "num_cpus": 8,
+    "mhz_per_cpu": 2400,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 262144,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 8388608,
+        "num_sharing": 8
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "8",
+    "physical_cores": "4",
+    "total_ram_mb": "12168"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_TimingWheel_ScheduleTick/1000",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_TimingWheel_ScheduleTick/1000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 10000,
+      "real_time": 6.6615070021362044e+04,
+      "cpu_time": 6.4062500000000000e+04,
+      "time_unit": "ns",
+      "items_per_second": 1.5609756097560976e+07
+    },
+    {
+      "name": "BM_TimingWheel_ScheduleTick/10000",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_TimingWheel_ScheduleTick/10000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 1120,
+      "real_time": 7.3329857146485930e+05,
+      "cpu_time": 7.2544642857142852e+05,
+      "time_unit": "ns",
+      "items_per_second": 1.3784615384615384e+07
+    },
+    {
+      "name": "BM_TimingWheel_ScheduleTick/50000",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_TimingWheel_ScheduleTick/50000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 154,
+      "real_time": 3.9121344148456538e+06,
+      "cpu_time": 3.6525974025974027e+06,
+      "time_unit": "ns",
+      "items_per_second": 1.3688888888888888e+07
+    },
+    {
+      "name": "BM_TimingWheel_ScheduleOnly",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_TimingWheel_ScheduleOnly",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 7466667,
+      "real_time": 1.7473106809222659e+02,
+      "cpu_time": 1.5904017147142090e+02,
+      "time_unit": "ns",
+      "items_per_second": 6.2877195789473681e+06
+    }
+  ]
+}
