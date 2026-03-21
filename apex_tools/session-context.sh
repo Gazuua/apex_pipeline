@@ -64,29 +64,47 @@ if [[ -n "$CURRENT_BRANCH" && "$CURRENT_BRANCH" != "main" ]]; then
     fi
 fi
 
-# 활성 백로그 현황 (다른 브랜치에서 진행 중인 항목)
-HANDOFF_DIR_CTX=""
-if [[ -n "${LOCALAPPDATA:-}" ]]; then
-    HANDOFF_DIR_CTX="${LOCALAPPDATA}/apex-branch-handoff"
-else
-    HANDOFF_DIR_CTX="${XDG_DATA_HOME:-$HOME/.local/share}/apex-branch-handoff"
+# 다른 브랜치 활성 작업 현황
+# HANDOFF_DIR은 위 핸드오프 블록에서 이미 설정됨. main일 때는 여기서 설정.
+if [[ -z "${HANDOFF_DIR:-}" ]]; then
+    if [[ -n "${LOCALAPPDATA:-}" ]]; then
+        HANDOFF_DIR="${LOCALAPPDATA}/apex-branch-handoff"
+    else
+        HANDOFF_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/apex-branch-handoff"
+    fi
+    HANDOFF_DIR="${APEX_HANDOFF_DIR:-$HANDOFF_DIR}"
 fi
-HANDOFF_DIR_CTX="${APEX_HANDOFF_DIR:-$HANDOFF_DIR_CTX}"
 
-if [[ -d "${HANDOFF_DIR_CTX}/backlog-status" ]]; then
-    _active_items=""
+_MY_BRANCH_ID=$(basename "${WORKSPACE}" | sed 's/apex_pipeline_//')
+
+if [[ -d "${HANDOFF_DIR}/active" ]]; then
+    _active_lines=""
     _prev_nullglob=$(shopt -p nullglob 2>/dev/null || true)
     shopt -s nullglob
-    for f in "${HANDOFF_DIR_CTX}/backlog-status/"*.yml; do
-        _bl_id=$(grep '^backlog:' "$f" 2>/dev/null | awk '{print $2}' || echo "")
-        _bl_branch=$(grep '^branch:' "$f" 2>/dev/null | awk '{print $2}' || echo "")
-        [[ -n "$_bl_id" ]] && _active_items="${_active_items}  BACKLOG-${_bl_id} → ${_bl_branch}\n"
+    for f in "${HANDOFF_DIR}/active/"*.yml; do
+        _br=$(grep '^branch:' "$f" 2>/dev/null | awk '{print $2}' || echo "")
+        # 자기 자신은 스킵
+        [[ "$_br" == "$_MY_BRANCH_ID" ]] && continue
+
+        _status=$(grep '^status:' "$f" 2>/dev/null | awk '{print $2}' || echo "")
+        _scopes=$(grep '^  - ' "$f" 2>/dev/null | sed 's/  - //' | paste -sd',' - || echo "")
+        _summary=$(grep '^summary:' "$f" 2>/dev/null | sed 's/summary: *"//' | sed 's/"$//' || echo "")
+        _backlog=$(grep '^backlog:' "$f" 2>/dev/null | awk '{print $2}' || echo "")
+
+        _bl_label=""
+        [[ -n "$_backlog" ]] && _bl_label="BACKLOG-${_backlog} "
+
+        if [[ -n "$_scopes" ]]; then
+            _active_lines="${_active_lines}  ${_br} [${_scopes}] ${_bl_label}— ${_summary}\n"
+        else
+            _active_lines="${_active_lines}  ${_br} [착수 단계] ${_bl_label}— 설계 알림 수신 시 자동 통보\n"
+        fi
     done
     eval "$_prev_nullglob" 2>/dev/null || true
 
-    if [[ -n "$_active_items" ]]; then
-        echo "--- Active Backlogs (다른 브랜치 진행 중) ---"
-        echo -e "$_active_items"
+    if [[ -n "$_active_lines" ]]; then
+        echo "--- Other Active Branches ---"
+        echo -e "$_active_lines"
     fi
 fi
 
