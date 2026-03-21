@@ -117,6 +117,7 @@ LOCK="$(pwd)/apex_tools/queue-lock.sh"
 "$LOCK" benchmark apex_core/bin/release/bench_cross_core_message_passing.exe
 "$LOCK" benchmark apex_core/bin/release/bench_frame_pipeline.exe
 "$LOCK" benchmark apex_core/bin/release/bench_session_throughput.exe
+"$LOCK" benchmark apex_core/bin/release/bench_architecture_comparison.exe
 ```
 
 | 벤치마크 | 측정 대상 |
@@ -125,6 +126,7 @@ LOCK="$(pwd)/apex_tools/queue-lock.sh"
 | `bench_cross_core_message_passing` | 코어 간 메시지 처리량 |
 | `bench_frame_pipeline` | encode → ring buffer → decode → dispatch 전체 경로 |
 | `bench_session_throughput` | 세션 기반 메시지 처리량 |
+| `bench_architecture_comparison` | Per-core vs Shared 아키텍처 비교 |
 
 ### E2E 부하 테스트
 
@@ -214,6 +216,11 @@ for bench in mpsc_queue spsc_queue allocators ring_buffer frame_codec \
         --benchmark_format=json \
         --benchmark_out=apex_core/benchmark_results/${bench}.json
 done
+
+# architecture_comparison은 별도 실행 (Per-core vs Shared 비교, 장시간 소요)
+"$LOCK" benchmark apex_core/bin/release/bench_architecture_comparison.exe \
+    --benchmark_format=json \
+    --benchmark_out=apex_core/benchmark_results/architecture_comparison.json
 
 # 3. 버전 디렉토리로 복사 + metadata.json 생성
 mkdir -p docs/apex_core/benchmark/${VERSION}
