@@ -698,41 +698,25 @@ def _bm_table_html(benchmarks, title=''):
             err_msg = b.get('error_message', 'error')
             rows += f'<tr><td>{esc(name)}</td><td colspan="4" style="color:var(--danger);text-align:center;">{esc(err_msg)}</td></tr>\n'
         else:
-            # Conditional coloring for cpu_time cell
-            cpu_ns = b['cpu_time']
-            cpu_style = ''
-            if cpu_ns < 10:
-                cpu_style = " style='color:#34D399;font-weight:bold;'"
-            elif cpu_ns > 100000:
-                cpu_style = " style='color:#F59E0B;font-weight:bold;'"
-
-            # Conditional coloring for real_time cell
-            real_ns = b['real_time']
-            real_style = ''
-            if real_ns < 10:
-                real_style = " style='color:#34D399;font-weight:bold;'"
-            elif real_ns > 100000:
-                real_style = " style='color:#F59E0B;font-weight:bold;'"
-
-            # Conditional coloring for throughput cell
             ips = b.get('items_per_second', 0)
-            tp_style = ''
-            if ips > 100e6:
-                tp_style = " style='color:#34D399;font-weight:bold;'"
+            cpu_ns = b['cpu_time']
 
-            # Per-core architecture rows: green when outperforming (>0.7M, above Shared plateau)
-            is_percore = 'PerCore' in b['name']
-            is_shared = 'Shared' in b['name']
-            if is_percore and ips > 700000:
-                tp_style = " style='color:#34D399;font-weight:bold;'"
-            elif is_shared and 0 < ips < 800000:
-                tp_style = " style='color:#F59E0B;'"
+            # Highlight entire row green for standout performance
+            highlight_row = False
+            if cpu_ns < 10:  # sub-10ns operations
+                highlight_row = True
+            elif ips > 100e6:  # >100M items/s
+                highlight_row = True
+            elif 'PerCore' in b['name'] and ips > 700000:  # Per-core outperforming Shared
+                highlight_row = True
 
-            rows += (f'<tr><td>{esc(name)}</td>'
-                     f'<td{cpu_style}>{cpu}</td>'
-                     f'<td{real_style}>{real}</td>'
-                     f'<td>{iters}</td>'
-                     f'<td{tp_style}>{tp}</td></tr>\n')
+            row_style = " style='color:#34D399;font-weight:bold;'" if highlight_row else ''
+
+            rows += (f'<tr><td{row_style}>{esc(name)}</td>'
+                     f'<td{row_style}>{cpu}</td>'
+                     f'<td{row_style}>{real}</td>'
+                     f'<td{row_style}>{iters}</td>'
+                     f'<td{row_style}>{tp}</td></tr>\n')
 
     return f'''{header}
 <table class="data-table">
