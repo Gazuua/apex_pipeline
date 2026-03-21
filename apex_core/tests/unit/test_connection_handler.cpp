@@ -152,8 +152,9 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData)
         // 헤더만 전송 (10바이트)
         boost::asio::write(client, boost::asio::buffer(full_frame.data(), WireHeader::SIZE));
 
-        // 잠시 대기 — dispatch가 호출되지 않아야 함
-        std::this_thread::sleep_for(50ms);
+        // 부재 증명: 헤더만 전송된 상태에서 dispatch가 호출되지 않아야 함.
+        // TSAN/ASAN 환경에서는 timeout_multiplier로 대기 시간을 스케일링.
+        std::this_thread::sleep_for(50ms * apex::test::timeout_multiplier());
         EXPECT_EQ(dispatch_count.load(), 0);
         EXPECT_GE(handler.active_sessions(), 1u);
 

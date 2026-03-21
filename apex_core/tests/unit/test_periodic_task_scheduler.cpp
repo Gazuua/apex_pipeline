@@ -2,6 +2,8 @@
 
 #include <apex/core/periodic_task_scheduler.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 
@@ -53,8 +55,9 @@ TEST(PeriodicTaskScheduler, CancelStopsExecution)
     auto work = boost::asio::make_work_guard(io_ctx);
     std::thread io_thread([&io_ctx] { io_ctx.run(); });
 
-    // 80ms 대기 — 50ms 인터벌이므로 최소 1회는 실행됨
-    std::this_thread::sleep_for(80ms);
+    // 50ms 인터벌이므로 최소 1회 실행될 때까지 이벤트 대기 (BACKLOG-119).
+    // 고정 sleep_for 대신 wait_for 폴링으로 TSAN/ASAN 환경에서도 안정.
+    auto count_reached = apex::test::wait_for([&] { return count.load(std::memory_order_relaxed) >= 1; });
 
     // cancel을 io_context 스레드에 post — 스케줄러는 단일 스레드 전용
     boost::asio::post(io_ctx, [&] {
@@ -70,11 +73,13 @@ TEST(PeriodicTaskScheduler, CancelStopsExecution)
         std::this_thread::sleep_for(1ms);
     }
 
-    // 취소 시점에 1회 이상 실행되었음을 확인
+    // wait_for가 타임아웃 없이 1회 이상 실행을 확인했으므로 검증
+    EXPECT_TRUE(count_reached);
     EXPECT_GE(count_at_cancel.load(), 1);
 
-    // 추가로 100ms 대기 — 취소 이후 추가 실행 없어야 함
-    std::this_thread::sleep_for(100ms);
+    // 부재 증명: 취소 이후 추가 실행 없어야 함 (BACKLOG-119).
+    // TSAN/ASAN 환경에서는 timeout_multiplier로 스케일링.
+    std::this_thread::sleep_for(100ms * apex::test::timeout_multiplier());
     int count_after_wait = count.load(std::memory_order_acquire);
 
     work.reset();
