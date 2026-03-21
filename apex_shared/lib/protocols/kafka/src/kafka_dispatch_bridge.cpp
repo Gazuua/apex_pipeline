@@ -55,13 +55,13 @@ boost::asio::awaitable<apex::core::Result<void>> KafkaDispatchBridge::dispatch(s
         co_return apex::core::error(apex::core::ErrorCode::HandlerNotFound);
     }
 
-    // MetadataPrefix → KafkaMessageMeta 변환
+    // MetadataPrefix → KafkaMessageMeta 변환 (session_id: uint64_t → SessionId 강타입)
     apex::core::KafkaMessageMeta meta{
         .meta_version = metadata.meta_version,
         .core_id = metadata.core_id,
         .corr_id = metadata.corr_id,
         .source_id = metadata.source_id,
-        .session_id = metadata.session_id,
+        .session_id = apex::core::make_session_id(metadata.session_id),
         .user_id = metadata.user_id,
         .timestamp = metadata.timestamp,
     };

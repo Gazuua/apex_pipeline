@@ -33,11 +33,13 @@ void intrusive_ptr_release(Session* s) noexcept
 
 using boost::asio::awaitable;
 
-Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t core_id, size_t recv_buf_capacity)
+Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t core_id, size_t recv_buf_capacity,
+                 size_t max_queue_depth)
     : id_(id)
     , core_id_(core_id)
     , socket_(std::move(socket))
     , recv_buf_(recv_buf_capacity)
+    , max_queue_depth_(max_queue_depth)
 {}
 
 // M-2: Simplified — close() already checks Closed state and is idempotent

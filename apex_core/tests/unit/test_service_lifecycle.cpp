@@ -197,7 +197,7 @@ TEST(ServiceLifecycle, DefaultHooksAreNoOp)
     // PerCoreState 생성 (heartbeat 0 = disabled)
     PerCoreState pcs(/*id=*/0, /*heartbeat_timeout_ticks=*/0,
                      /*timer_wheel_slots=*/64, /*recv_buf_capacity=*/4096,
-                     /*bump_capacity=*/4096, /*arena_block=*/1024, /*arena_max=*/4096);
+                     /*max_queue_depth=*/256, /*bump_capacity=*/4096, /*arena_block=*/1024, /*arena_max=*/4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), // 테스트에서 server는 접근하지 않음
                                 0, pcs);
@@ -222,7 +222,7 @@ TEST(ServiceLifecycle, LifecycleOrderTracking)
     // 라이프사이클 훅이 올바른 순서로 호출되는지 확인
     auto svc = std::make_unique<TrackerService>();
 
-    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    PerCoreState pcs(0, 0, 64, 4096, 256, 4096, 1024, 4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
@@ -257,7 +257,7 @@ TEST(ServiceLifecycle, InternalConfigureBindsPerCoreState)
     // internal_configure 후 per-core 접근자가 올바르게 동작하는지 확인
     auto svc = std::make_unique<ConfigAwareService>();
 
-    PerCoreState pcs(/*id=*/7, 0, 64, 4096, 4096, 1024, 4096);
+    PerCoreState pcs(/*id=*/7, 0, 64, 4096, 256, 4096, 1024, 4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), 7, pcs);
     svc->bind_io_context(test_io);
@@ -308,7 +308,7 @@ TEST(ServiceLifecycle, SpawnExecutesCoroutine)
     // spawn()으로 실행한 코루틴이 실제로 실행되는지 확인
     auto svc = std::make_unique<SpawnService>();
 
-    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    PerCoreState pcs(0, 0, 64, 4096, 256, 4096, 1024, 4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
@@ -335,7 +335,7 @@ TEST(ServiceLifecycle, SpawnOutstandingCounterTracksMultiple)
     // 여러 spawn 코루틴이 대기 중일 때 outstanding 카운터가 정확히 추적하는지 확인
     auto svc = std::make_unique<SpawnService>();
 
-    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    PerCoreState pcs(0, 0, 64, 4096, 256, 4096, 1024, 4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);
@@ -360,7 +360,7 @@ TEST(ServiceLifecycle, SpawnExceptionDoesNotLeak)
     // 예외가 밖으로 전파되지 않고 spdlog::error로 로깅만 됨.
     auto svc = std::make_unique<SpawnService>();
 
-    PerCoreState pcs(0, 0, 64, 4096, 4096, 1024, 4096);
+    PerCoreState pcs(0, 0, 64, 4096, 256, 4096, 1024, 4096);
     boost::asio::io_context test_io;
     auto cfg_ctx = make_cfg_ctx(dummy_server(), 0, pcs);
     svc->bind_io_context(test_io);

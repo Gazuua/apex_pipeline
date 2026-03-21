@@ -91,10 +91,10 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::remove(uint64_t u
 }
 
 boost::asio::awaitable<apex::core::Result<void>> SessionStore::set_user_session_id(uint64_t user_id,
-                                                                                   uint64_t session_id)
+                                                                                   apex::core::SessionId session_id)
 {
     auto key = std::format("session:user:{}", user_id);
-    auto value = std::to_string(session_id);
+    auto value = std::to_string(apex::core::to_underlying(session_id));
     auto ttl_sec = static_cast<int>(ttl_.count());
 
     auto core_id = apex::core::CoreEngine::current_core_id();

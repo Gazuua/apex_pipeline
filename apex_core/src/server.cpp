@@ -23,9 +23,10 @@ namespace apex::core
 // --- PerCoreState ---
 
 PerCoreState::PerCoreState(uint32_t id, uint32_t heartbeat_timeout_ticks, size_t timer_wheel_slots,
-                           size_t recv_buf_capacity, size_t bump_capacity, size_t arena_block, size_t arena_max)
+                           size_t recv_buf_capacity, size_t max_queue_depth, size_t bump_capacity, size_t arena_block,
+                           size_t arena_max)
     : core_id(id)
-    , session_mgr(id, heartbeat_timeout_ticks, timer_wheel_slots, recv_buf_capacity)
+    , session_mgr(id, heartbeat_timeout_ticks, timer_wheel_slots, recv_buf_capacity, max_queue_depth)
     , bump_allocator(bump_capacity)
     , arena_allocator(arena_block, arena_max)
 {}
@@ -63,9 +64,10 @@ Server::Server(ServerConfig config)
     // PerCoreState (no longer contains ConnectionHandler/MessageDispatcher)
     for (uint32_t i = 0; i < config_.num_cores; ++i)
     {
-        per_core_.push_back(std::make_unique<PerCoreState>(
-            i, config_.heartbeat_timeout_ticks, config_.timer_wheel_slots, config_.recv_buf_capacity,
-            config_.bump_capacity_bytes, config_.arena_block_bytes, config_.arena_max_bytes));
+        per_core_.push_back(std::make_unique<PerCoreState>(i, config_.heartbeat_timeout_ticks,
+                                                           config_.timer_wheel_slots, config_.recv_buf_capacity,
+                                                           config_.session_max_queue_depth, config_.bump_capacity_bytes,
+                                                           config_.arena_block_bytes, config_.arena_max_bytes));
     }
 
     // Acceptor binding moved to Listener<P>::start()

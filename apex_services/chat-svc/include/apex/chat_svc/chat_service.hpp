@@ -149,12 +149,12 @@ class ChatService : public apex::core::ServiceBase<ChatService>
     // --- Helpers ---
 
     /// Build Kafka Envelope and produce to reply_topic (or fallback to config).
-    void send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, uint64_t session_id,
+    void send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core_id, apex::core::SessionId session_id,
                        std::span<const uint8_t> fbs_payload, const std::string& reply_topic);
 
     /// Build Kafka Envelope with custom flags and produce to reply_topic (or fallback).
     void send_response_with_flags(uint32_t msg_id, uint16_t flags, uint64_t corr_id, uint16_t core_id,
-                                  uint64_t session_id, std::span<const uint8_t> fbs_payload,
+                                  apex::core::SessionId session_id, std::span<const uint8_t> fbs_payload,
                                   const std::string& reply_topic);
 
     /// Build Redis Pub/Sub payload: [msg_id(u32 BE)] + [fbs payload]
