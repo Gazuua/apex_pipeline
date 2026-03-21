@@ -78,11 +78,6 @@
 - **연관**: #48
 - **설명**: 현재 spdlog 호출 249건 중 debug 10건, trace 0건. 코어 핫패스 10개 소스에 로깅 전무. 개선: ① 코어 핫패스 debug/trace 추가 ② named logger 전환 ③ core_id/session_id 체계 포함 ④ MDC trace_id 활성화. #48 코드 리뷰 결과에 따라 범위 조정.
 
-### #4. Assertion 크래시 시 __FUNCTION__ / __LINE__ 로깅
-- **등급**: MAJOR
-- **스코프**: core, infra
-- **타입**: infra
-- **설명**: assertion 실패 시 위치 정보 없이 크래시. 시그널 핸들러 로깅 필요.
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
@@ -183,12 +178,6 @@
 - **타입**: infra
 - **설명**: `tsan_suppressions.txt`의 `race:boost::asio::detail::*`가 Boost.Asio 전체 내부 레이스를 억제하여 실제 사용 패턴 레이스까지 가릴 수 있음. 구체적 함수명으로 범위를 좁혀야 한다 (예: `race:boost::asio::detail::scheduler::do_run_one`). TSAN 빌드 활성화 후 false positive를 개별 확인하여 정밀 suppression으로 교체.
 
-### #105. Chat join_room SCARD/SADD TOCTOU 레이스
-- **등급**: MAJOR
-- **스코프**: chat-svc
-- **타입**: bug
-- **연관**: #23 (DUPLICATE → 히스토리)
-- **설명**: `ChatService::on_join_room`에서 SCARD로 인원 확인 후 SADD로 추가하는 패턴이 atomic하지 않음. 동시 접속 시 `max_members` 초과 가능. Redis MULTI/EXEC 트랜잭션 또는 Lua 스크립트로 원자적 처리 필요.
 
 ---
 

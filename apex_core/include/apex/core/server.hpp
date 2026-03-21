@@ -4,6 +4,7 @@
 
 #include <apex/core/adapter_interface.hpp>
 #include <apex/core/arena_allocator.hpp>
+#include <apex/core/assert.hpp>
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
@@ -23,7 +24,6 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
-#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -206,7 +206,7 @@ class Server
     {
         AdapterKey key{std::type_index(typeid(T)), std::string(role)};
         auto it = adapter_map_.find(key);
-        assert(it != adapter_map_.end() && "Adapter not registered");
+        APEX_ASSERT(it != adapter_map_.end(), "Adapter not registered");
         return static_cast<apex::shared::adapters::AdapterWrapper<T>*>(it->second)->get();
     }
 
@@ -343,19 +343,19 @@ class Server
 // PerCoreState complete type이 필요하므로 service_base.hpp가 아닌 여기서 정의.
 template <typename Derived> inline BumpAllocator& ServiceBase<Derived>::bump()
 {
-    assert(per_core_ != nullptr && "bump() called before internal_configure");
+    APEX_ASSERT(per_core_ != nullptr, "bump() called before internal_configure");
     return per_core_->bump_allocator;
 }
 
 template <typename Derived> inline ArenaAllocator& ServiceBase<Derived>::arena()
 {
-    assert(per_core_ != nullptr && "arena() called before internal_configure");
+    APEX_ASSERT(per_core_ != nullptr, "arena() called before internal_configure");
     return per_core_->arena_allocator;
 }
 
 template <typename Derived> inline uint32_t ServiceBase<Derived>::core_id() const
 {
-    assert(per_core_ != nullptr && "core_id() called before internal_configure");
+    APEX_ASSERT(per_core_ != nullptr, "core_id() called before internal_configure");
     return per_core_->core_id;
 }
 

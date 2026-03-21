@@ -270,32 +270,42 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(const
         co_return std::unexpected(max_members_result.error());
     auto max_members = static_cast<uint32_t>(*max_members_result);
 
-    // 2. SISMEMBER -- already in room?
-    auto is_member =
-        co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
-    if (is_member.has_value() && is_member->integer == 1)
+    // 2. Atomic join: SISMEMBER + SCARD check + SADD in a single Lua script.
+    // Eliminates TOCTOU race between SCARD and SADD that could exceed max_members.
+    // Returns: -1 = already in room, 0 = room full, >0 = new member count (success).
+    static constexpr std::string_view JOIN_ROOM_LUA = R"lua(
+if redis.call('SISMEMBER', KEYS[1], ARGV[1]) == 1 then
+    return -1
+end
+if redis.call('SCARD', KEYS[1]) >= tonumber(ARGV[2]) then
+    return 0
+end
+redis.call('SADD', KEYS[1], ARGV[1])
+return redis.call('SCARD', KEYS[1])
+)lua";
+
+    auto max_members_str = std::to_string(max_members);
+    auto lua_script = std::string(JOIN_ROOM_LUA);
+    auto eval_result = co_await redis_data_->multiplexer(core_id).command(
+        "EVAL %s 1 %s %s %s", lua_script.c_str(), members_key.c_str(), user_id_str.c_str(), max_members_str.c_str());
+
+    if (!eval_result.has_value() || eval_result->is_error() || !eval_result->is_integer())
+    {
+        spdlog::warn("[ChatService] Redis EVAL failed for join_room (room: {})", room_id);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+
+    auto lua_result = eval_result->integer;
+    if (lua_result == -1)
     {
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ALREADY_IN_ROOM, room_id);
     }
-
-    // 3. SCARD -- room full?
-    auto card_result = co_await redis_data_->multiplexer(core_id).command("SCARD %s", members_key.c_str());
-    if (card_result.has_value() && static_cast<uint32_t>(card_result->integer) >= max_members)
+    if (lua_result == 0)
     {
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ROOM_FULL, room_id);
     }
 
-    // 4. SADD -- add member
-    auto sadd_result =
-        co_await redis_data_->multiplexer(core_id).command("SADD %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!sadd_result.has_value())
-    {
-        spdlog::warn("[ChatService] Redis SADD failed for room {}", room_id);
-    }
-
-    // 5. Get updated member count
-    auto new_card = co_await redis_data_->multiplexer(core_id).command("SCARD %s", members_key.c_str());
-    auto member_count = static_cast<uint32_t>(new_card.has_value() ? new_card->integer : 0);
+    auto member_count = static_cast<uint32_t>(lua_result);
 
     // 6. Send JoinRoomResponse
     flatbuffers::FlatBufferBuilder fbb(256);
