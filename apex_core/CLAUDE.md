@@ -4,15 +4,10 @@
 
 - **OS/컴파일러**: Windows 10 Pro, VS2022 Community (MSVC 19.44), C++23
 - **빌드 시스템**: CMake + Ninja, vcpkg (`C:\Users\JHG\vcpkg`)
-- **빌드 명령**:
-  ```bash
-  # MSYS bash에서 실행 (//c 필수 — /c는 MSYS가 경로로 변환함)
-  cmd.exe //c "D:\\.workspace\\apex_pipeline_branch_01\\build.bat debug"
-  ```
 - **빌드 변형**: `APEX_BUILD_VARIANT` = release / debug / asan / tsan
 - **출력**: `apex_core/bin/{variant}/{target}.exe` (예: `bin/debug/echo_server.exe`, `bin/release/bench_mpsc_queue.exe`)
 - **compile_commands.json**: configure 후 빌드 스크립트에서 루트로 복사 (symlink 아님)
-- **의존성 (vcpkg)**: benchmark, boost-asio, boost-beast, boost-unordered, flatbuffers, gtest, hiredis, jwt-cpp, libpq, librdkafka, openssl, redis-plus-plus, spdlog, tomlplusplus
+
 
 ## MSVC 주의사항
 
