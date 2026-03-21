@@ -127,8 +127,9 @@ void install_crash_handlers()
 
 #ifdef _WIN32
     SetUnhandledExceptionFilter(unhandled_exception_filter);
-    // Suppress the Windows abort() dialog ("Debug Error!") to allow clean crash
-    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTMODE);
+    // Suppress the Windows abort() dialog ("Debug Error!") to allow clean crash.
+    // _WRITE_ABORT_MSG controls the "abnormal program termination" message box.
+    _set_abort_behavior(0, _WRITE_ABORT_MSG);
 #endif
 }
 
