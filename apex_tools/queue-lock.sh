@@ -211,6 +211,39 @@ do_build() {
     exit $exit_code
 }
 
+# === Channel: benchmark (shares build lock) ===
+do_benchmark() {
+    local exe_path="${1:?Usage: queue-lock.sh benchmark <exe_path> [args...]}"
+    shift
+    local bench_args=("$@")
+
+    if [[ ! -f "$exe_path" ]]; then
+        echo "[queue-lock] ERROR: benchmark executable not found: $exe_path" >&2
+        exit 1
+    fi
+
+    echo "[queue-lock] benchmark requested: exe=$exe_path, args=${bench_args[*]:-none}, branch=$BRANCH_ID"
+
+    acquire_lock "build"
+    trap 'release_lock "build"' EXIT
+
+    local log_file="$QUEUE_DIR/logs/${BRANCH_ID}.log"
+
+    echo "[queue-lock] starting benchmark: $exe_path ${bench_args[*]:-}"
+    echo "[queue-lock] log: $log_file"
+
+    local exit_code=0
+    "$exe_path" "${bench_args[@]}" 2>&1 | tee "$log_file" || exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        echo "[queue-lock] benchmark completed successfully"
+    else
+        echo "[queue-lock] benchmark FAILED (exit code: $exit_code)"
+    fi
+
+    exit $exit_code
+}
+
 # === Channel: merge ===
 do_merge() {
     local subcmd="${1:-help}"
@@ -296,15 +329,16 @@ main() {
 
     case "$channel" in
         init)   do_init ;;
-        build)  do_init; do_build "$@" ;;
-        merge)  do_init; do_merge "$@" ;;
+        build)      do_init; do_build "$@" ;;
+        benchmark)  do_init; do_benchmark "$@" ;;
+        merge)      do_init; do_merge "$@" ;;
         _check_pid)    check_pid_alive "$1" ;;
         _detect_stale) detect_stale_lock "$1" ;;
         _cleanup_queue) cleanup_orphan_queue "$1" ;;
         _try_lock)     try_lock "$1" ;;
         _acquire_lock) acquire_lock "$1" ;;
         _release_lock) release_lock "$1" ;;
-        *)      echo "Usage: queue-lock.sh <init|build|merge> [args...]"; exit 1 ;;
+        *)      echo "Usage: queue-lock.sh <init|build|benchmark|merge> [args...]"; exit 1 ;;
     esac
 }
 
