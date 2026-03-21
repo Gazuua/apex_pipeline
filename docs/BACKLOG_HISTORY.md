@@ -5,6 +5,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #118. test_service_lifecycle.cpp reinterpret_cast UB 위험 제거
+- **등급**: MAJOR | **스코프**: core | **타입**: test
+- **해결**: 2026-03-21 21:42:55 | **방식**: FIXED
+- **비고**: aligned_storage + reinterpret_cast 더미 객체 4개를 실제 인스턴스(Server, ServiceRegistry, ServiceRegistryView, PeriodicTaskScheduler)로 교체. GTest fixture(ServiceLifecycleTest) 도입. NOLINT 블록 전체 제거
+
+### #119. 타이밍 의존 테스트 일괄 개선 (sleep_for → 비결정적 대기)
+- **등급**: MAJOR | **스코프**: core | **타입**: test
+- **해결**: 2026-03-21 21:42:55 | **방식**: FIXED
+- **비고**: 4파일 5건 수정. 이벤트 대기 → wait_for 폴링 전환 (periodic_task_scheduler, server_error_paths). 부재 증명 → timeout_multiplier 스케일링 (connection_handler, periodic_task_scheduler). 의도적 블로킹 → 주석 보강 (cross_core_call)
+
+### #115. TcpAcceptor.StopPreventsNewAccepts CI flaky 테스트
+- **등급**: MINOR | **스코프**: core | **타입**: test
+- **해결**: 2026-03-21 21:39:55 | **방식**: FIXED
+- **비고**: 기존 코드에서 이미 결정적 패턴으로 수정 완료 확인. stop() → connect() → t.join() (io_ctx 완전 drain) → EXPECT_EQ(0) 방식으로 타이밍 레이스 제거됨
+
 ### #52. 디버깅/운영 흐름 로깅 대폭 추가
 - **등급**: MAJOR | **스코프**: core, shared, gateway, auth-svc, chat-svc | **타입**: infra
 - **해결**: 2026-03-21 18:44:46 | **방식**: FIXED

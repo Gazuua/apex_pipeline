@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <chrono>
 #include <stdexcept>
 #include <thread>
@@ -50,6 +51,7 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
     // listen<P>()는 lazy binding (start()에서 bind) — run()에서 실패
     // Listener::start() 내 TcpAcceptor가 bind 실패 시 예외 발생
     std::exception_ptr eptr;
+    std::atomic<bool> t2_done{false};
     std::thread t2([&] {
         try
         {
@@ -59,11 +61,13 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
         {
             eptr = std::current_exception();
         }
+        t2_done.store(true, std::memory_order_release);
     });
 
-    // server2가 예외 종료하거나 running 상태가 되길 대기
-    // TcpAcceptor bind 실패는 run() 내에서 예외를 throw
-    std::this_thread::sleep_for(500ms);
+    // 이벤트 대기: server2가 예외 종료하거나 running 상태가 되길 폴링 (BACKLOG-119).
+    // 고정 sleep_for(500ms) 대신 wait_for로 TSAN/ASAN 환경에서도 안정.
+    apex::test::wait_for([&] { return t2_done.load(std::memory_order_acquire) || server2.running(); },
+                         std::chrono::milliseconds(5000));
 
     // 정리
     if (server2.running())

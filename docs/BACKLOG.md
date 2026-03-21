@@ -87,19 +87,6 @@
 - **타입**: test
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
 
-### #118. test_service_lifecycle.cpp reinterpret_cast UB 위험 제거
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: test
-- **설명**: `dummy_server()`, `dummy_registry()` 등이 초기화되지 않은 aligned_storage에 reinterpret_cast로 참조를 반환. UBSAN-safe 주석이 있으나 가상 함수/멤버 접근 시 UB. 테스트용 최소 구현체(mock)로 교체하거나 접근하지 않는 경로를 별도 분리 필요.
-
-### #119. 타이밍 의존 테스트 일괄 개선 (sleep_for → 비결정적 대기)
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: test
-- **연관**: #115
-- **설명**: `sleep_for` 기반 타이밍 의존 테스트 4건: ① `test_cross_core_call.cpp:117` TimeoutReturnsError — io_context 스레드 블로킹 (TSAN 문제). ② `test_connection_handler.cpp:156` — 50ms sleep 후 dispatch 미호출 검증. ③ `test_periodic_task_scheduler.cpp:57` — 80ms sleep으로 태스크 실행 보장. ④ `test_server_error_paths.cpp:66` — 500ms sleep 하드코딩 대기. `wait_for` 패턴 또는 코루틴 타이머로 교체.
-
 ### #49. Docker 이미지 버전 감사 + pgbouncer 교체
 - **등급**: MAJOR
 - **스코프**: infra
@@ -170,12 +157,6 @@
 - **스코프**: docs
 - **타입**: docs
 - **설명**: `docs/CLAUDE.md` 백로그 운영 규칙 80줄이 루트 `CLAUDE.md`와 부분 중복. 중복 제거 또는 역할 분리 명확화.
-
-### #115. TcpAcceptor.StopPreventsNewAccepts CI flaky 테스트
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: test
-- **설명**: `test_tcp_acceptor.cpp:107` — `stop()` 호출 후 `connect()` 시도 시 stop 완료 전 accept가 이미 처리되는 타이밍 레이스. CI(linux-gcc)에서 간헐 실패 (`accept_count == 1`, expected 0). stop 후 accept loop 완전 종료 대기 또는 테스트 타이밍 보정 필요.
 
 ### #120. CircuitBreaker HALF_OPEN 성공 카운트 추적 부재
 - **등급**: MINOR
