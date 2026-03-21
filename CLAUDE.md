@@ -124,7 +124,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
 ### 문서/프로세스 규칙
-- **백로그**: `docs/BACKLOG.md`에 기록 (2축 분류: NOW/IN VIEW/DEFERRED × CRITICAL/MAJOR/MINOR). 별도 백로그 파일 생성 금지. 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록. 운영 규칙 상세: `docs/CLAUDE.md` § 백로그 운영
+- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙(분류 체계, 템플릿, 우선순위, 히스토리): `docs/CLAUDE.md` § 백로그 운영
 - **문서 경로**: `docs/{project}/plans/`, `progress/`, `review/` — 공통은 `docs/apex_common/`
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - **review 문서**: 리뷰 항목 상세 포함 필수 — 헤더/통계만 있는 빈 껍데기 금지
