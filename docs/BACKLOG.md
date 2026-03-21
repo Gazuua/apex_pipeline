@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 123
+다음 발번: 126
 
 ---
 
@@ -15,34 +15,6 @@
 ---
 
 ## IN VIEW
-
-### #5. gateway.toml 시크릿 운영 환경 관리
-- **등급**: MAJOR
-- **스코프**: infra, gateway
-- **타입**: security
-- **연관**: #6, #8
-- **설명**: Redis/PgBouncer 프로덕션 시크릿 주입 전략 (Docker Secrets 또는 K8s ConfigMap).
-
-### #6. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
-- **등급**: MAJOR
-- **스코프**: infra, auth-svc
-- **타입**: security
-- **연관**: #5, #8
-- **설명**: 평문 비밀번호 하드코딩. 환경 변수 치환 미구현.
-
-### #8. Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: security
-- **연관**: #5, #6
-- **설명**: 프로덕션 v0.6 배포 전 Redis ACL + PgBouncer SCRAM-SHA-256 + 시크릿 주입 필수.
-
-### #100. Blacklist fail-open 보안 정책 재검토
-- **등급**: MAJOR
-- **스코프**: gateway
-- **타입**: security
-- **연관**: #5, #8
-- **설명**: GatewayPipeline::authenticate()에서 Redis 장애 시 blacklist 체크를 fail-open(허용)으로 처리. Rate limit fail-open은 합리적이나, blacklist는 보안 사고(토큰 탈취/강제 로그아웃) 대응이므로 fail-close 또는 설정 가능(`config_.auth.blacklist_fail_open`)으로 전환 검토 필요.
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
@@ -60,9 +32,46 @@
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
+- **연관**: #123
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
 
+### #123. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: test
+- **연관**: #102
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가.
 
+### #124. jwt_blacklist is_valid_jti 입력 검증 테스트
+- **등급**: MAJOR
+- **스코프**: gateway
+- **타입**: test
+- **설명**: `jwt_blacklist.cpp`의 `is_valid_jti` 함수(빈 문자열, 128자 초과, 허용 문자 외 입력)가 미테스트. JTI Redis injection 방어 로직의 정확성 검증 필요.
+
+### #125. init.sql auth_schema 고아 스키마 정리
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: design-debt
+- **설명**: `apex_infra/postgres/init.sql`에서 `CREATE SCHEMA IF NOT EXISTS auth_schema`를 생성하지만, `001_create_schema_and_role.sql`은 `auth_svc` 스키마를 사용. `auth_schema`는 아무도 참조하지 않는 고아 스키마. 정리 또는 통일 필요.
+
+### #49. Docker 이미지 버전 감사 + pgbouncer 교체
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
+
+### #122. CI Docker :latest → immutable 태그 전환
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **연관**: #49
+- **설명**: CI 빌드 잡에서 `ghcr.io/gazuua/apex-pipeline-ci:latest`를 사용하여 빌드 간 재현성 미보장. sha 태그 또는 digest 기반 pinning으로 전환. Docker 이미지 빌드 시 이미 `sha-${{ github.sha }}` 태그를 생성하고 있으므로 참조만 변경하면 됨.
+
+### #121. ci.Dockerfile non-root 실행 + .dockerignore 서비스 빌드 호환
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: ① ci.Dockerfile이 `USER` 지시자 없이 root로 빌드 실행. 비특권 사용자 추가 필요. ② `.dockerignore`가 `*` + whitelist(vcpkg.json만) 방식이라 서비스 Dockerfile의 `COPY . /src`에서 소스 파일이 복사되지 않을 가능성. 서비스 빌드 컨텍스트 검증 후 whitelist 확장 필요.
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR
 - **스코프**: core, tools

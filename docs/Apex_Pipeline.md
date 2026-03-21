@@ -424,6 +424,7 @@ Tier 상세:
 | v0.5.8.4 | 소 | Nightly Valgrind 스트레스 테스트 필터 수정: gtest_filter fixture 이름 오류(`StressInfraTest` → `E2EStressInfraFixture` 등) 교정 + Valgrind 감속 하 실패 5개 테스트 추가 제외(MassTimeouts/HalfOpenConnection/DisconnectDuringResponse/ConcurrentRoomJoinLeave). 잔존 Stress 6개 실행 | PR #53 |
 | v0.5.9.0 | 중 | Tier 3 아키텍처 정비: SessionId 강타입화(enum class + hash + formatter), core→shared 역방향 의존 해소(forwarding header 제거 + FrameType concept), CoreEngine spawn_tracked + ServiceBase io_context 캡슐화(post/get_executor), ErrorCode 서비스 에러 분리(ServiceError sentinel + GatewayError/AuthError enum). 백로그 6건 해결(CRITICAL 2 + MAJOR 4). 전체 소스 MIT License 저작권 헤더 추가(336파일). branch-handoff.sh 멀티 에이전트 인수인계 시스템. Full Auto-Review v0.5.9.0(37건: CRITICAL 1 connection_handler async_write UB + MAJOR 14 + MINOR 22, 13건 수정). 71/71 유닛 통과 | |
 | v0.5.10.0 | 중 | SPSC All-to-All Mesh: CoreEngine MPSC inbox → SPSC all-to-all mesh 전환(N×(N-1) 전용 큐). CAS contention 제거 + cache line bouncing 감소. post_to() 동기 API(SPSC for core threads, asio::post fallback for non-core) + co_post_to() awaitable API(backpressure 지원). cross_core_post_msg/broadcast_cross_core → co_post_to 기반 awaitable 전환. BroadcastFanout asio::post 마이그레이션. CoreEngineConfig mpsc_queue_capacity → spsc_queue_capacity(기본 1024). 신규: spsc_queue.hpp, spsc_mesh.hpp/cpp, core_message.hpp + 단위 테스트 + 벤치마크 | |
+| v0.5.10.1 | 소 | 보안 시크릿 관리 + Blacklist 정책: Redis 4인스턴스 --requirepass 인증, PgBouncer 동적 userlist(평문 삭제), SQL 마이그레이션 비밀번호 쉘 래퍼(injection 방어), expand_env() apex_shared 추출(gateway/auth-svc/chat-svc 공통 사용), TOML ${VAR:-default} 패턴 적용, .env.dev/.env.prod.example 분리. blacklist_fail_open 설정 추가(기본 fail-close), jwt_blacklist Redis 실패 시 사실 보고 → gateway_pipeline 정책 결정. 80/80 유닛 통과 | |
 
 ### 활성 로드맵
 
@@ -451,6 +452,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.8.4 Nightly Valgrind 스트레스 필터 수정 (fixture 이름 교정 + 5개 추가 제외)
          v0.5.9.0 Tier 3 아키텍처 정비 + 저작권 헤더 + Full Auto-Review (37건 발견, 13건 수정)
          v0.5.10.0 SPSC All-to-All Mesh (MPSC→SPSC 전환, co_post_to awaitable, backpressure)
+         v0.5.10.1 보안 시크릿 관리 + Blacklist 정책 (Redis requirepass, expand_env 추출, blacklist fail-close)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
