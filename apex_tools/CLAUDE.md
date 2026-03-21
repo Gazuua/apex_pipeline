@@ -27,8 +27,3 @@ rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
   rm -rf ~/.claude/plugins/cache/apex-local/apex-auto-review/
   ```
   삭제 후 Claude Code 재시작 또는 새 세션에서 적용 확인
-
-## 빌드 관련
-
-- **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
-- **빌드는 한 번에 하나만** — MSVC+Ninja가 멀티코어를 풀로 사용하므로 동시 빌드 시 시스템 렉
