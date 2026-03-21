@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #120. CircuitBreaker HALF_OPEN 성공 카운트 추적 부재
+- **등급**: MINOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-21 22:16:52 | **방식**: FIXED
+- **비고**: `half_open_successes_` 카운터 분리 도입. 기존 `half_open_calls_`(허용 호출 수)와 성공 횟수의 의미 혼용을 해소. CLOSED 전이 조건을 성공 카운터 기반으로 변경. TC9 추가
+
 ### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
 - **등급**: MINOR | **스코프**: docs | **타입**: docs
 - **해결**: 2026-03-21 22:16:17 | **방식**: FIXED | **커밋**: 33effad

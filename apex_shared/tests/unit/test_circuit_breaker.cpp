@@ -149,9 +149,11 @@ TEST_F(CircuitBreakerTest, HalfOpenToClosedTransition)
         // half_open_max_calls = 2 successes should close the circuit
         (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::HALF_OPEN);
+        EXPECT_EQ(cb.half_open_successes(), 1u);
         (void)co_await cb.call(ok);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED);
         EXPECT_EQ(cb.failure_count(), 0u);
+        EXPECT_EQ(cb.half_open_successes(), 0u); // CLOSED 전이 시 리셋
         co_return;
     });
 }
@@ -215,6 +217,48 @@ TEST_F(CircuitBreakerTest, ClosedPartialFailuresResetOnSuccess)
         for (int i = 0; i < 2; ++i)
             (void)co_await cb.call(fail);
         EXPECT_EQ(cb.state(), CircuitState::CLOSED); // still CLOSED (only 2/3)
+        co_return;
+    });
+}
+
+// TC9: HALF_OPEN 성공 후 실패 — 성공 카운트가 OPEN 전이 시 소멸 확인 (BACKLOG-120)
+TEST_F(CircuitBreakerTest, HalfOpenSuccessCountResetOnFailure)
+{
+    CircuitBreaker cb(CircuitBreakerConfig{
+        .failure_threshold = 2, .open_duration = std::chrono::milliseconds{1}, .half_open_max_calls = 3});
+
+    run_coro(io_, [&]() -> boost::asio::awaitable<void> {
+        auto fail = [&]() -> boost::asio::awaitable<Result<void>> {
+            co_return std::unexpected(ErrorCode::AdapterError);
+        };
+        auto ok = [&]() -> boost::asio::awaitable<Result<void>> { co_return Result<void>{}; };
+
+        // Trip to OPEN
+        for (int i = 0; i < 2; ++i)
+            (void)co_await cb.call(fail);
+        EXPECT_EQ(cb.state(), CircuitState::OPEN);
+
+        // Wait for HALF_OPEN
+        boost::asio::steady_timer timer(io_, std::chrono::milliseconds{5});
+        co_await timer.async_wait(boost::asio::use_awaitable);
+
+        // 2 successes (out of 3 needed)
+        (void)co_await cb.call(ok);
+        EXPECT_EQ(cb.half_open_successes(), 1u);
+        (void)co_await cb.call(ok);
+        EXPECT_EQ(cb.half_open_successes(), 2u);
+        EXPECT_EQ(cb.state(), CircuitState::HALF_OPEN);
+
+        // Failure sends back to OPEN — successes are lost
+        (void)co_await cb.call(fail);
+        EXPECT_EQ(cb.state(), CircuitState::OPEN);
+
+        // Re-enter HALF_OPEN — successes counter starts from 0
+        boost::asio::steady_timer timer2(io_, std::chrono::milliseconds{5});
+        co_await timer2.async_wait(boost::asio::use_awaitable);
+
+        (void)co_await cb.call(ok);
+        EXPECT_EQ(cb.half_open_successes(), 1u); // fresh start
         co_return;
     });
 }
