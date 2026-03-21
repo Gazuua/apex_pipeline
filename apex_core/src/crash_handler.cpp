@@ -10,8 +10,8 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
 #include <io.h> // _write
+#include <Windows.h>
 #else
 #include <unistd.h> // write
 #endif
@@ -44,18 +44,18 @@ const char* signal_name(int sig) noexcept
 {
     switch (sig)
     {
-    case SIGABRT:
-        return "SIGABRT";
-    case SIGSEGV:
-        return "SIGSEGV";
-    case SIGFPE:
-        return "SIGFPE";
+        case SIGABRT:
+            return "SIGABRT";
+        case SIGSEGV:
+            return "SIGSEGV";
+        case SIGFPE:
+            return "SIGFPE";
 #if !defined(_WIN32)
-    case SIGBUS:
-        return "SIGBUS";
+        case SIGBUS:
+            return "SIGBUS";
 #endif
-    default:
-        return "UNKNOWN";
+        default:
+            return "UNKNOWN";
     }
 }
 

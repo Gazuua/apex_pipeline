@@ -36,4 +36,5 @@ namespace apex::core::detail
         {                                                                                                              \
             apex::core::detail::assert_fail(#cond, (msg));                                                             \
         }                                                                                                              \
-    } while (false)
+    }                                                                                                                  \
+    while (false)

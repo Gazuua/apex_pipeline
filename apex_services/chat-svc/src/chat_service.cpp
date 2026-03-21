@@ -286,10 +286,8 @@ return redis.call('SCARD', KEYS[1])
 
     auto max_members_str = std::to_string(max_members);
     auto lua_script = std::string(JOIN_ROOM_LUA);
-    auto eval_result =
-        co_await redis_data_->multiplexer(core_id).command("EVAL %s 1 %s %s %s", lua_script.c_str(),
-                                                            members_key.c_str(), user_id_str.c_str(),
-                                                            max_members_str.c_str());
+    auto eval_result = co_await redis_data_->multiplexer(core_id).command(
+        "EVAL %s 1 %s %s %s", lua_script.c_str(), members_key.c_str(), user_id_str.c_str(), max_members_str.c_str());
 
     if (!eval_result.has_value() || eval_result->is_error())
     {
