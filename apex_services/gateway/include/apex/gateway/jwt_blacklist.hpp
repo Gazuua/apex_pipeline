@@ -13,6 +13,15 @@
 namespace apex::gateway
 {
 
+namespace detail
+{
+
+/// Validate JTI contains only safe characters (hex digits + hyphens, max 128 chars).
+/// Prevents Redis command injection via crafted JTI values.
+[[nodiscard]] bool is_valid_jti(std::string_view jti) noexcept;
+
+} // namespace detail
+
 /// JWT blacklist Redis check (cold path).
 /// Called only for sensitive msg_ids. Redis key: "jwt:blacklist:{jti}"
 class JwtBlacklist

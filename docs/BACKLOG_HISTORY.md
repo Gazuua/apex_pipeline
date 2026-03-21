@@ -5,6 +5,21 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
+- **등급**: MINOR | **스코프**: docs | **타입**: docs
+- **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
+- **비고**: 루트 CLAUDE.md에서 중복 규칙(문서 경로, review 품질, TODO 분리) 제거 → 포인터로 축소. docs/CLAUDE.md를 단일 권위 출처로 명확화
+
+### #124. jwt_blacklist is_valid_jti 입력 검증 테스트
+- **등급**: MAJOR | **스코프**: gateway | **타입**: test
+- **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
+- **비고**: is_valid_jti를 detail namespace로 이동 + 단위 테스트 16건 작성. 빈 문자열, 128자 경계, hex 범위 외, Redis injection, 하이픈 전용 등 커버
+
+### #125. init.sql auth_schema 고아 스키마 정리
+- **등급**: MINOR | **스코프**: infra | **타입**: design-debt
+- **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
+- **비고**: auth_schema, chat_schema, match_schema 3개 고아 스키마 CREATE 제거. 실제 서비스는 마이그레이션에서 auth_svc, chat_svc를 직접 생성
+
 ### #123. 백로그 소탕 자동화 시스템 (FSD Backlog)
 - **등급**: MAJOR | **스코프**: tools | **타입**: infra
 - **해결**: 2026-03-22 00:11:51 | **방식**: FIXED

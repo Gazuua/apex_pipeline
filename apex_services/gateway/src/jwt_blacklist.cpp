@@ -11,11 +11,9 @@
 namespace apex::gateway
 {
 
-namespace
+namespace detail
 {
 
-/// Validate JTI contains only safe characters (alphanumeric + hyphens).
-/// Prevents Redis command injection via crafted JTI values.
 bool is_valid_jti(std::string_view jti) noexcept
 {
     if (jti.empty() || jti.size() > 128)
@@ -25,7 +23,7 @@ bool is_valid_jti(std::string_view jti) noexcept
     });
 }
 
-} // anonymous namespace
+} // namespace detail
 
 JwtBlacklist::JwtBlacklist(apex::shared::adapters::redis::RedisMultiplexer& redis)
     : redis_(redis)
@@ -33,7 +31,7 @@ JwtBlacklist::JwtBlacklist(apex::shared::adapters::redis::RedisMultiplexer& redi
 
 boost::asio::awaitable<apex::core::Result<bool>> JwtBlacklist::is_blacklisted(std::string_view jti)
 {
-    if (!is_valid_jti(jti))
+    if (!detail::is_valid_jti(jti))
     {
         spdlog::warn("JWT blacklist: invalid jti format, rejecting");
         co_return true; // Reject invalid JTI

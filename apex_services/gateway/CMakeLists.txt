@@ -186,6 +186,23 @@ if(BUILD_TESTING)
     apex_set_warnings(test_gateway_pipeline)
     add_test(NAME test_gateway_pipeline COMMAND test_gateway_pipeline)
 
+    # --- JWT Blacklist tests (JTI input validation) ---
+    add_executable(test_gateway_jwt_blacklist
+        tests/test_jwt_blacklist.cpp
+        src/jwt_blacklist.cpp
+    )
+    target_include_directories(test_gateway_jwt_blacklist PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test_gateway_jwt_blacklist PRIVATE
+        apex_core apex_shared_adapters_redis
+        spdlog::spdlog GTest::gtest GTest::gtest_main)
+    if(WIN32)
+        target_compile_options(test_gateway_jwt_blacklist PRIVATE /utf-8)
+        target_compile_definitions(test_gateway_jwt_blacklist PRIVATE _WIN32_WINNT=0x0A00)
+    endif()
+    apex_set_warnings(test_gateway_jwt_blacklist)
+    add_test(NAME test_gateway_jwt_blacklist COMMAND test_gateway_jwt_blacklist)
+
     # --- Config Reloader tests (TOML parse + RouteTable build) ---
     add_executable(test_gateway_config_reloader
         tests/test_config_reloader.cpp
@@ -208,6 +225,7 @@ if(BUILD_TESTING)
     set_tests_properties(
         test_gateway_route_table
         test_gateway_jwt_verifier
+        test_gateway_jwt_blacklist
         test_gateway_file_watcher
         test_gateway_pending_requests
         test_gateway_channel_session_map
