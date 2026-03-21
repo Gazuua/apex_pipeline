@@ -177,6 +177,7 @@ TEST(GatewayConfigTest, AuthExemptDefaults)
 {
     apex::gateway::GatewayConfig cfg;
     EXPECT_TRUE(cfg.auth.auth_exempt_msg_ids.empty());
+    EXPECT_FALSE(cfg.auth.blacklist_fail_open);
 }
 
 TEST(GatewayConfigTest, AuthExemptMsgIds)

@@ -52,6 +52,9 @@ public_key_file = "keys/gateway_rs256_pub_v2.pem"
 algorithm = "RS256"
 issuer = "apex-auth"
 
+[auth]
+blacklist_fail_open = true
+
 [auth.exempt]
 LoginRequest = 1000
 LogoutRequest = 1002
@@ -118,8 +121,9 @@ TEST_F(ConfigReloaderTest, ParseMinimalConfig)
     EXPECT_EQ(cfg->routes.size(), 2u);
     EXPECT_EQ(cfg->routes[0].kafka_topic, "auth.requests");
     EXPECT_EQ(cfg->routes[1].kafka_topic, "chat.requests");
-    // Minimal config has no [auth.exempt] — empty set (deny-by-default)
+    // Minimal config has no [auth] — defaults
     EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.empty());
+    EXPECT_FALSE(cfg->auth.blacklist_fail_open);
 }
 
 TEST_F(ConfigReloaderTest, ParseUpdatedConfig)
@@ -142,6 +146,7 @@ TEST_F(ConfigReloaderTest, ParseUpdatedConfig)
     EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1002));
     EXPECT_TRUE(cfg->auth.auth_exempt_msg_ids.contains(1004));
     EXPECT_FALSE(cfg->auth.auth_exempt_msg_ids.contains(2000));
+    EXPECT_TRUE(cfg->auth.blacklist_fail_open);
 }
 
 TEST_F(ConfigReloaderTest, ParseInvalidConfigFails)

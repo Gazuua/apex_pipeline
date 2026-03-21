@@ -81,4 +81,31 @@ TEST_F(ConfigUtilsTest, EmptyInput)
     EXPECT_EQ(apex::shared::expand_env(""), "");
 }
 
+TEST_F(ConfigUtilsTest, DollarWithoutBraces_Unchanged)
+{
+    // $VAR (no braces) should pass through unchanged -- only ${VAR} syntax is supported
+    EXPECT_EQ(apex::shared::expand_env("$NOT_BRACED"), "$NOT_BRACED");
+    EXPECT_EQ(apex::shared::expand_env("prefix$VAR suffix"), "prefix$VAR suffix");
+}
+
+TEST_F(ConfigUtilsTest, EmptyVarName_Unchanged)
+{
+    // ${} has no valid variable name -- regex requires [A-Za-z_] start, so no match
+    EXPECT_EQ(apex::shared::expand_env("${}"), "${}");
+}
+
+TEST_F(ConfigUtilsTest, DefaultValueEmpty_ExpandsToEmpty)
+{
+    // ${VAR:-} with empty default -- unset var should expand to empty string
+    unset_env("APEX_TEST_VAR");
+    EXPECT_EQ(apex::shared::expand_env("${APEX_TEST_VAR:-}"), "");
+}
+
+TEST_F(ConfigUtilsTest, VarEmbeddedInText)
+{
+    // Variable surrounded by text with no spaces -- tests last_pos append logic
+    set_env("APEX_TEST_VAR", "world");
+    EXPECT_EQ(apex::shared::expand_env("hello${APEX_TEST_VAR}!"), "helloworld!");
+}
+
 } // anonymous namespace
