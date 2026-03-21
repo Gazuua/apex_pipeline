@@ -14,7 +14,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ① | **착수** | 브랜치 생성, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
 | ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
-| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정 | 빌드+CI 성공 |
+| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → rebase (`git fetch origin main && git rebase origin/main`) → PR → CI 검증, 실패 시 재수정. **CI 재확인 기준**: PR 생성 후 추가 push 시 CI 자동 트리거됨 — 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 CI 재대기 불필요 | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
 | ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
@@ -69,7 +69,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
-  2. `git fetch origin main && git rebase origin/main` (충돌 시 에이전트가 resolve)
+  2. `git fetch origin main && git rebase origin/main` (충돌 시 에이전트가 resolve) — **충돌 해결 후 즉시 `git push --force-with-lease`** (충돌 상태 PR이 CI 트리거를 차단하고 다른 PR CI에도 영향)
   3. `queue-lock.sh build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시 스킵): **A)** ①+② 동시 충족: ① 문서 전용 PR (`.md`, `.txt`, `docs/` 변경만) ② rebase로 받은 변경이 문서뿐이고 PR 자체의 코드 빌드+테스트가 이미 통과된 경우 **B)** 단독 충족: rebase 시 충돌 없음 + rebase 이후 추가 코드 변경 없음 + 최신 PR CI가 통과 확인됨 (3개 조건 모두)
   4. `git push --force-with-lease`
   5. `gh pr merge --squash --admin`
