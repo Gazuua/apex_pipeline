@@ -20,14 +20,17 @@ response_topic = "gateway.responses"
 [redis.auth]
 host = "localhost"
 port = 6380
+password = "dev_redis_pass"
 
 [redis.pubsub]
 host = "localhost"
 port = 6383
+password = "dev_redis_pass"
 
 [redis.ratelimit]
 host = "localhost"
 port = 6381
+password = "dev_redis_pass"
 
 [jwt]
 public_key_file = "apex_services/tests/keys/test_rs256_pub.pem"

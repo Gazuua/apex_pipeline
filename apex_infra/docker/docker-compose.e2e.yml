@@ -51,6 +51,8 @@ services:
         --save ""
         --appendonly no
         --requirepass ${REDIS_AUTH_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_AUTH_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -72,6 +74,8 @@ services:
         --save ""
         --appendonly no
         --requirepass ${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -93,6 +97,8 @@ services:
         --save ""
         --appendonly no
         --requirepass ${REDIS_CHAT_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_CHAT_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -113,6 +119,8 @@ services:
         --save ""
         --appendonly no
         --requirepass ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
