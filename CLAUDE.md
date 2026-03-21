@@ -14,7 +14,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ① | **착수** | **브랜치 생성 최우선**, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
 | ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
-| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → rebase (`git fetch origin main && git rebase origin/main`) → PR → CI 검증, 실패 시 재수정. **CI 재확인 기준**: PR 생성 후 추가 push 시 CI 자동 트리거됨 — 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 CI 재대기 불필요 | 빌드+CI 성공 |
+| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정. **rebase 자동 강제**: `enforce-rebase.sh` hook이 `git push`/`gh pr create` 전에 origin/main 기반 rebase를 자동 실행 (충돌 시 차단+안내). **CI 재확인 기준**: PR 생성 후 추가 push 시 CI 자동 트리거됨 — 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 CI 재대기 불필요 | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
 | ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
