@@ -23,6 +23,8 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
                                                                           const apex::core::WireHeader& header,
                                                                           AuthState& state, std::string_view remote_ip)
 {
+    spdlog::debug("pipeline::process (session={}, msg_id=0x{:04X})", session->id(), header.msg_id);
+
     // Helper: send service error frame directly to client
     auto send_error = [&](GatewayError gw_err) {
         auto frame = apex::core::ErrorSender::build_error_frame(header.msg_id, apex::core::ErrorCode::ServiceError, "",
@@ -34,6 +36,8 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
     auto ip_result = check_ip_rate_limit(remote_ip);
     if (!ip_result)
     {
+        spdlog::debug("pipeline::process denied at IP rate-limit (session={}, msg_id=0x{:04X}, ip={})", session->id(),
+                      header.msg_id, remote_ip);
         send_error(ip_result.error());
         co_return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
@@ -42,6 +46,8 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
     auto auth_result = co_await authenticate(session, header, state);
     if (!auth_result)
     {
+        spdlog::debug("pipeline::process denied at authentication (session={}, msg_id=0x{:04X})", session->id(),
+                      header.msg_id);
         send_error(auth_result.error());
         co_return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
@@ -52,6 +58,8 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
         auto user_result = co_await check_user_rate_limit(state.user_id);
         if (!user_result)
         {
+            spdlog::debug("pipeline::process denied at user rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
+                          session->id(), header.msg_id, state.user_id);
             send_error(user_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
@@ -60,6 +68,8 @@ boost::asio::awaitable<apex::core::Result<void>> GatewayPipeline::process(apex::
         auto ep_result = co_await check_endpoint_rate_limit(state.user_id, header.msg_id);
         if (!ep_result)
         {
+            spdlog::debug("pipeline::process denied at endpoint rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
+                          session->id(), header.msg_id, state.user_id);
             send_error(ep_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }

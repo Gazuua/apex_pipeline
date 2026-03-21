@@ -297,6 +297,7 @@ return redis.call('SCARD', KEYS[1])
     }
 
     auto lua_result = eval_result->integer;
+    log_trace("on_join_room: Lua EVAL result={} (room={}, user={})", lua_result, room_id, user_id);
     if (lua_result == -1)
     {
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ALREADY_IN_ROOM, room_id);
@@ -489,6 +490,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
         fbb_pub.Finish(chat_msg);
 
         auto pub_payload = build_pubsub_payload(msg_ids::CHAT_MESSAGE, {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
+        log_trace("on_send_message: Redis PUBLISH (channel={}, payload_size={})", channel, pub_payload.size());
         auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", channel.c_str(), reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));
@@ -506,6 +508,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
         auto db_msg = fbs::CreateChatMessage(fbb_db, room_id, user_id, sender_off, content_off, 0, timestamp, 0);
         fbb_db.Finish(db_msg);
 
+        log_trace("on_send_message: Kafka produce (topic={}, payload_size={})", config_.persist_topic,
+                  fbb_db.GetSize());
         auto produce_result = kafka_->produce(config_.persist_topic, std::to_string(room_id),
                                               std::span<const uint8_t>(fbb_db.GetBufferPointer(), fbb_db.GetSize()));
         if (!produce_result.has_value())
@@ -740,6 +744,8 @@ ChatService::on_global_broadcast(const apex::core::KafkaMessageMeta& meta, uint3
         // 3. Redis PUBLISH to global channel
         auto pub_payload =
             build_pubsub_payload(msg_ids::GLOBAL_CHAT_MESSAGE, {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
+        log_trace("on_global_broadcast: Redis PUBLISH (channel={}, payload_size={})", global_channel,
+                  pub_payload.size());
         auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", global_channel.c_str(), reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));

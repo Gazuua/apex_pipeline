@@ -128,6 +128,8 @@ PgConnection& PgConnection::operator=(PgConnection&& other) noexcept
 
 boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std::string_view conninfo)
 {
+    spdlog::debug("[pg_connection] connect_async: initiating connection");
+
     // Ensure clean state
     if (conn_)
     {
@@ -226,6 +228,8 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::poll_connect()
 
 boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::query_async(std::string_view sql)
 {
+    spdlog::debug("[pg_connection] query_async: sending query (length={})", sql.size());
+
     if (!connected_ || !conn_)
     {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -383,6 +387,8 @@ PgConnection::query_prepared_async(std::string_view name, std::span<const std::s
 
 boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::collect_result()
 {
+    spdlog::trace("[pg_connection] collect_result: waiting for query result");
+
     PgResult last_result;
 
     for (;;)
@@ -415,6 +421,8 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::collect_resul
                     // No results at all
                     co_return std::unexpected(apex::core::ErrorCode::AdapterError);
                 }
+                spdlog::trace("[pg_connection] collect_result: rows={}, cols={}", last_result.row_count(),
+                              last_result.column_count());
                 co_return std::move(last_result);
             }
 

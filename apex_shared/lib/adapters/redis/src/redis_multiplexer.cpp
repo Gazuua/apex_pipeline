@@ -65,6 +65,11 @@ RedisMultiplexer::~RedisMultiplexer()
 
 boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command(std::string_view cmd)
 {
+    // Log only the command verb (e.g. "SET", "GET") — never the full string,
+    // which may contain passwords, tokens, or other sensitive values.
+    auto verb_end = cmd.find(' ');
+    spdlog::debug("[redis_multiplexer] command: {}", cmd.substr(0, verb_end));
+
     if (!conn_ || !conn_->is_connected())
     {
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -202,7 +207,10 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
     auto* r = static_cast<redisReply*>(reply);
 
     if (self->pending_.empty())
+    {
+        spdlog::trace("[redis_multiplexer] static_on_reply: no pending commands (orphan reply)");
         return;
+    }
 
     auto* front = self->pending_.front();
     self->pending_.pop_front();
@@ -218,16 +226,19 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
     // We must destroy it here since the coroutine won't do it.
     if (front->timed_out)
     {
+        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} already timed out, destroying", front->sequence);
         self->slab_.destroy(front);
         return;
     }
 
     if (r && r->type != REDIS_REPLY_ERROR)
     {
+        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} matched successfully", front->sequence);
         front->result = RedisReply{r};
     }
     else
     {
+        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} matched with error", front->sequence);
         front->result = std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     front->resolver.cancel(); // Resume coroutine
@@ -306,6 +317,8 @@ boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(
 
 boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
 {
+    spdlog::debug("[redis_multiplexer] reconnect_loop started ({}:{})", config_.host, config_.port);
+
     auto backoff = std::chrono::milliseconds{100};
     const auto max_backoff = config_.reconnect_max_backoff;
 
@@ -330,6 +343,7 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
             }
             reconnecting_ = false;
             reconnect_attempts_ = 0;
+            spdlog::debug("[redis_multiplexer] reconnect succeeded ({}:{})", config_.host, config_.port);
             spdlog::info("Redis reconnected successfully{}", config_.password.empty() ? "" : " (authenticated)");
             co_return;
         }

@@ -64,13 +64,6 @@
 - **타입**: infra
 - **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
 
-### #52. 디버깅/운영 흐름 로깅 대폭 추가
-- **등급**: MAJOR
-- **스코프**: core, shared, gateway, auth-svc, chat-svc
-- **타입**: infra
-- **연관**: #48
-- **설명**: 현재 spdlog 호출 249건 중 debug 10건, trace 0건. 코어 핫패스 10개 소스에 로깅 전무. 개선: ① 코어 핫패스 debug/trace 추가 ② named logger 전환 ③ core_id/session_id 체계 포함 ④ MDC trace_id 활성화. #48 코드 리뷰 결과에 따라 범위 조정.
-
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR

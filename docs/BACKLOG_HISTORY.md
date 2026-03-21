@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #52. 디버깅/운영 흐름 로깅 대폭 추가
+- **등급**: MAJOR | **스코프**: core, shared, gateway, auth-svc, chat-svc | **타입**: infra
+- **해결**: 2026-03-21 18:44:46 | **방식**: FIXED
+- **비고**: ServiceBase 로깅 헬퍼(5레벨×3오버로드) + standalone log_helpers.hpp. 코어 핫패스 5영역 + 어댑터 3종 + 서비스 3종 debug/trace 배치. named logger·MDC는 MSA 구조로 불필요하여 탈락
+
 ### #67. server.global<T>() / ConsumerPayloadPool / wire_services() 단위 테스트
 - **등급**: MAJOR | **스코프**: core, shared | **타입**: test
 - **해결**: 2026-03-21 18:15:55 | **방식**: FIXED | **커밋**: 2988f93

@@ -360,4 +360,9 @@ template <typename Derived> inline uint32_t ServiceBase<Derived>::core_id() cons
     return per_core_->core_id;
 }
 
+template <typename Derived> inline uint32_t ServiceBase<Derived>::core_id_for_log() const noexcept
+{
+    return per_core_ ? per_core_->core_id : UINT32_MAX;
+}
+
 } // namespace apex::core

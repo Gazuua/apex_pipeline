@@ -160,6 +160,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
         }
     }
     bool is_locked = !pg_res.is_null(0, 2); // locked_until IS NOT NULL → account locked
+    log_trace("on_login: PG user lookup success (user_id={}, locked={})", user_id, is_locked);
 
     // --- Step 3: Account lock check ---
     if (is_locked)
@@ -169,7 +170,14 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     }
 
     // --- Step 4: bcrypt password verification ---
-    if (!password_hasher_.verify(password, password_hash))
+    log_debug("on_login: bcrypt verify start (user_id={})", user_id);
+    auto bcrypt_start = std::chrono::steady_clock::now();
+    auto bcrypt_ok = password_hasher_.verify(password, password_hash);
+    auto bcrypt_elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - bcrypt_start);
+    log_debug("on_login: bcrypt verify done (user_id={}, elapsed={}ms, result={})", user_id, bcrypt_elapsed.count(),
+              bcrypt_ok ? "pass" : "fail");
+    if (!bcrypt_ok)
     {
         spdlog::warn("[AuthService] Login failed: bad credentials (user_id: {})", user_id);
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
@@ -182,6 +190,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
         spdlog::error("[AuthService] Failed to create access token (user_id: {})", user_id);
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
+    log_debug("on_login: access token issued (user_id={})", user_id);
 
     // --- Step 6: Opaque refresh token generation ---
     auto refresh_token_result = generate_secure_token();
@@ -367,6 +376,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     bool is_revoked = !pg_res.is_null(0, 1); // revoked_at != NULL
     auto token_family_sv = pg_res.value(0, 3);
     auto token_family = std::string(token_family_sv);
+    log_trace("on_refresh_token: PG lookup success (user_id={}, revoked={})", user_id, is_revoked);
 
     // --- Step 3: Reuse Detection ---
     // If this token has already been revoked, it's a reuse attempt.
@@ -482,6 +492,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
         spdlog::error("[AuthService] Failed to create access token for refresh (user_id: {})", user_id);
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
+    log_debug("on_refresh_token: new access token issued (user_id={})", user_id);
 
     // Update Redis session
     auto session_data = std::format(

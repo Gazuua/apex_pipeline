@@ -30,6 +30,8 @@ void MessageDispatcher::clear_default_handler()
 boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr session, uint32_t msg_id,
                                                                  std::span<const uint8_t> payload) const
 {
+    spdlog::trace("[msg=0x{:04X}] dispatch payload_size={}", msg_id, payload.size());
+
     auto it = handlers_.find(msg_id);
     if (it == handlers_.end())
     {

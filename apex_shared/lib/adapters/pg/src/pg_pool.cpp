@@ -3,6 +3,8 @@
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_pool.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 
 #include <boost/asio/steady_timer.hpp>
@@ -196,6 +198,9 @@ boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>> PgPool
 
 boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>> PgPool::acquire_connected()
 {
+    spdlog::debug("[pg_pool] acquire_connected: idle={}, active={}, total={}", idle_.size(), active_count_,
+                  total_count_);
+
     auto result = acquire();
     if (!result.has_value())
     {

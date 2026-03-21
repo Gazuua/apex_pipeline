@@ -338,6 +338,41 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
         return io_ctx_->get_executor();
     }
 
+    // ── Logging helpers ──────────────────────────────────────────────────
+    // core_id + service name이 자동 주입된다.
+    // 3가지 오버로드: 기본 / +session / +session+msg_id
+
+#define APEX_SVC_LOG_METHODS(level_name, spdlog_level)                                                                 \
+    template <typename... Args> void log_##level_name(fmt::format_string<Args...> fmt, Args&&... args)                 \
+    {                                                                                                                  \
+        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}] {}", core_id_for_log(), name_,                     \
+                        fmt::format(fmt, std::forward<Args>(args)...));                                                \
+    }                                                                                                                  \
+    template <typename... Args>                                                                                        \
+    void log_##level_name(const SessionPtr& session, fmt::format_string<Args...> fmt, Args&&... args)                  \
+    {                                                                                                                  \
+        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}] {}", core_id_for_log(), name_,            \
+                        session ? session->id() : make_session_id(0), fmt::format(fmt, std::forward<Args>(args)...));  \
+    }                                                                                                                  \
+    template <typename... Args>                                                                                        \
+    void log_##level_name(const SessionPtr& session, uint32_t msg_id, fmt::format_string<Args...> fmt, Args&&... args) \
+    {                                                                                                                  \
+        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
+            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}][msg=0x{:04X}] {}", core_id_for_log(),     \
+                        name_, session ? session->id() : make_session_id(0), msg_id,                                   \
+                        fmt::format(fmt, std::forward<Args>(args)...));                                                \
+    }
+
+    APEX_SVC_LOG_METHODS(trace, trace)
+    APEX_SVC_LOG_METHODS(debug, debug)
+    APEX_SVC_LOG_METHODS(info, info)
+    APEX_SVC_LOG_METHODS(warn, warn)
+    APEX_SVC_LOG_METHODS(error, err)
+
+#undef APEX_SVC_LOG_METHODS
+
   public:
     // ── Kafka 핸들러 접근자 (D2: ServiceBaseInterface override) ──────────
 
@@ -360,6 +395,8 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     }
 
   private:
+    uint32_t core_id_for_log() const noexcept;
+
     std::string name_;
     // m-06: owned_dispatcher_ provides a default dispatcher for standalone use.
     // When used with Server, bind_dispatcher() replaces it with the shared per-core
