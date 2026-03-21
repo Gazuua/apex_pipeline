@@ -43,6 +43,7 @@ find_package(Boost REQUIRED)
 target_link_libraries(apex_gateway
     PRIVATE
         apex_core
+        apex_shared
         apex_protocols_tcp
         apex_protocols_websocket
         apex_protocols_kafka
