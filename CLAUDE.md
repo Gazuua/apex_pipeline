@@ -82,8 +82,16 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 브랜치 인수인계 (Branch Handoff)
 - **도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"`
 - **착수 전**: `backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
+- **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge`
+  - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
+  - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
+- **강제 메커니즘** (Hook 기반):
+  - **active 미등록** → 모든 Edit/Write/git commit **차단** (예외 없음)
+  - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h) 편집 **차단**, 비소스(문서 등) 허용
+  - **status=implementing** → 모든 파일 허용
+  - **main/master 브랜치** → 핸드오프 체크 스킵
 - **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
-- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 소스 파일(`.cpp/.hpp/.h`) 편집 시 미ack 알림이 있으면 차단, 머지 시점도 hook이 자동 차단
+- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 미ack 알림은 경고 표시, 머지 시점은 hook이 자동 차단
 - **ack**: 알림 수신 시 `ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
 
 ### 설계 원칙
