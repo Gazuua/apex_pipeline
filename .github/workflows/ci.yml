@@ -190,6 +190,8 @@ jobs:
       needs.build.result == 'success'
     name: e2e
     runs-on: ubuntu-latest
+    env:
+      CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
 
     steps:
       - uses: actions/checkout@v4

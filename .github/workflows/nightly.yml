@@ -114,12 +114,14 @@ jobs:
   valgrind-e2e:
     permissions:
       contents: read
-    needs: build
+    needs: [read-tag, build]
     if: >-
       github.event.inputs.scope == 'all' ||
       github.event.inputs.scope == 'e2e-only' ||
       github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    env:
+      CI_IMAGE_TAG: ${{ needs.read-tag.outputs.ci_image_tag }}
     steps:
       - uses: actions/checkout@v4
 
