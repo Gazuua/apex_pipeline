@@ -1,7 +1,7 @@
 {
   "name": "apex-auto-review",
-  "description": "Agent tool 기반 서브에이전트 리뷰 + 수정 자동화 for Apex Pipeline",
-  "version": "3.0.0",
+  "description": "Apex Pipeline 자동화 도구 — auto-review (서브에이전트 코드 리뷰) + fsd-backlog (백로그 소탕 자율 수행)",
+  "version": "3.1.0",
   "author": {
     "name": "Gazuua"
   }
