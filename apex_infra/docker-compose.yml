@@ -42,7 +42,7 @@ services:
     restart: unless-stopped
     ports:
       - "6380:6379"
-    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_AUTH_PASSWORD:-dev_redis_pass}
     volumes:
       - redis-auth-data:/data
     networks:
@@ -66,6 +66,7 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
+        --requirepass ${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}
     volumes:
       - redis-ratelimit-data:/data
     networks:
@@ -83,7 +84,7 @@ services:
     restart: unless-stopped
     ports:
       - "6382:6379"
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_CHAT_PASSWORD:-dev_redis_pass}
     volumes:
       - redis-chat-data:/data
     networks:
@@ -106,6 +107,7 @@ services:
         --maxmemory 64mb
         --save ""
         --appendonly no
+        --requirepass ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
     networks:
       - apex-net
     healthcheck:
