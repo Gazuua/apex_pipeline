@@ -1,4 +1,8 @@
 *
 !vcpkg.json
-!apex_core/vcpkg.json
-!apex_shared/vcpkg.json
+!apex_core/
+!apex_shared/
+!apex_services/
+!CMakeLists.txt
+!cmake/
+!build.bat
