@@ -37,7 +37,7 @@ services:
 
   # Redis #0: Auth 전용 (세션, JWT 블랙리스트) — 읽기 위주, TTL 기반 자동 만료
   redis-auth:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-redis-auth
     restart: unless-stopped
     ports:
@@ -55,7 +55,7 @@ services:
 
   # Redis #1: Gateway 전용 (Rate Limit 카운터) — 쓰기 집중, 높은 TPS, 짧은 TTL
   redis-ratelimit:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-redis-ratelimit
     restart: unless-stopped
     ports:
@@ -78,7 +78,7 @@ services:
 
   # Redis #2: Chat 데이터 (방 멤버십, 접속 상태) — 읽기/쓰기 혼합
   redis-chat:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-redis-chat
     restart: unless-stopped
     ports:
@@ -96,7 +96,7 @@ services:
 
   # Redis #3: Pub/Sub 전용 (브로드캐스트) — 메시지 버스, persistence 불필요
   redis-pubsub:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-redis-pubsub
     restart: unless-stopped
     ports:
@@ -115,7 +115,7 @@ services:
       retries: 3
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.8-alpine
     container_name: apex-postgres
     restart: unless-stopped
     ports:
@@ -136,16 +136,28 @@ services:
       retries: 3
 
   pgbouncer:
-    image: edoburu/pgbouncer:1.23.1
+    image: bitnami/pgbouncer:1.23.1
     container_name: apex-pgbouncer
     restart: unless-stopped
     ports:
       - "6432:6432"
     environment:
-      DATABASE_URL: postgres://apex:${POSTGRES_PASSWORD:-apex}@postgres:5432/apex
-    volumes:
-      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: apex
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-apex}
+      POSTGRESQL_DATABASE: apex
+      PGBOUNCER_DATABASE: apex
+      PGBOUNCER_PORT: "6432"
+      PGBOUNCER_AUTH_TYPE: md5
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_DEFAULT_POOL_SIZE: "20"
+      PGBOUNCER_MIN_POOL_SIZE: "5"
+      PGBOUNCER_MAX_CLIENT_CONN: "200"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "50"
+      PGBOUNCER_QUERY_WAIT_TIMEOUT: "120"
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: "600"
+      PGBOUNCER_CLIENT_IDLE_TIMEOUT: "300"
     networks:
       - apex-net
     depends_on:

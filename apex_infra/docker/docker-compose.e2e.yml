@@ -40,7 +40,7 @@ services:
 
   # Redis #0: Auth (sessions, JWT blacklist)
   redis-auth:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-e2e-redis-auth
     ports:
       - "6380:6379"
@@ -60,7 +60,7 @@ services:
 
   # Redis #1: Gateway (Rate Limit counters)
   redis-ratelimit:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-e2e-redis-ratelimit
     ports:
       - "6381:6379"
@@ -80,7 +80,7 @@ services:
 
   # Redis #2: Chat data (room membership, online status)
   redis-chat:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-e2e-redis-chat
     ports:
       - "6382:6379"
@@ -100,7 +100,7 @@ services:
 
   # Redis #3: Pub/Sub (broadcast only, no persistence)
   redis-pubsub:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: apex-e2e-redis-pubsub
     ports:
       - "6383:6379"
@@ -119,7 +119,7 @@ services:
 
   # --- PostgreSQL ---
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.8-alpine
     container_name: apex-e2e-postgres
     ports:
       - "5432:5432"
@@ -145,6 +145,8 @@ services:
       context: ../..
       dockerfile: apex_infra/docker/gateway.Dockerfile
       target: runtime
+      args:
+        CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
     container_name: apex-e2e-gateway
     ports:
       - "8443:8443"
@@ -172,6 +174,8 @@ services:
       context: ../..
       dockerfile: apex_infra/docker/auth-svc.Dockerfile
       target: runtime
+      args:
+        CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
     container_name: apex-e2e-auth-svc
     depends_on:
       kafka:
@@ -188,6 +192,8 @@ services:
       context: ../..
       dockerfile: apex_infra/docker/chat-svc.Dockerfile
       target: runtime
+      args:
+        CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
     container_name: apex-e2e-chat-svc
     depends_on:
       kafka:

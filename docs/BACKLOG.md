@@ -62,24 +62,6 @@
 - **타입**: test
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버.
 
-### #49. Docker 이미지 버전 감사 + pgbouncer 교체
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
-
-### #122. CI Docker :latest → immutable 태그 전환
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **연관**: #49
-- **설명**: CI 빌드 잡에서 `ghcr.io/gazuua/apex-pipeline-ci:latest`를 사용하여 빌드 간 재현성 미보장. sha 태그 또는 digest 기반 pinning으로 전환. Docker 이미지 빌드 시 이미 `sha-${{ github.sha }}` 태그를 생성하고 있으므로 참조만 변경하면 됨.
-
-### #121. ci.Dockerfile non-root 실행 + .dockerignore 서비스 빌드 호환
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: ① ci.Dockerfile이 `USER` 지시자 없이 root로 빌드 실행. 비특권 사용자 추가 필요. ② `.dockerignore`가 `*` + whitelist(vcpkg.json만) 방식이라 서비스 Dockerfile의 `COPY . /src`에서 소스 파일이 복사되지 않을 가능성. 서비스 빌드 컨텍스트 검증 후 whitelist 확장 필요.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR

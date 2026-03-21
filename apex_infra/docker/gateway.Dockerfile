@@ -1,5 +1,6 @@
 # ── Build stage (self-contained, 로컬/외부 빌드용) ──
-FROM ghcr.io/gazuua/apex-pipeline-ci:latest AS builder
+ARG CI_IMAGE_TAG
+FROM ghcr.io/gazuua/apex-pipeline-ci:${CI_IMAGE_TAG} AS builder
 COPY . /src
 WORKDIR /src
 RUN cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \

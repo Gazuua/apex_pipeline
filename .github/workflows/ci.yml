@@ -10,6 +10,7 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+      - '.github/ci-image-tag'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -17,9 +18,11 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+      - '.github/ci-image-tag'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # CI_IMAGE_TAG is read from .github/ci-image-tag by the changes job
 
 jobs:
   # ── Path filter (Docker / Source 변경 감지) ────
@@ -30,8 +33,12 @@ jobs:
     outputs:
       docker: ${{ steps.filter.outputs.docker }}
       source: ${{ steps.filter.outputs.source }}
+      ci_image_tag: ${{ steps.read-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+      - name: Read CI image tag
+        id: read-tag
+        run: echo "tag=$(cat .github/ci-image-tag | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -80,7 +87,7 @@ jobs:
     if: needs.changes.outputs.docker == 'true'
     uses: ./.github/workflows/docker-build.yml
     permissions:
-      contents: read
+      contents: write
       packages: write
 
   # ── Source build & test ──────────────────────────
@@ -119,7 +126,7 @@ jobs:
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container && 'ghcr.io/gazuua/apex-pipeline-ci:latest' || '' }}
+    container: ${{ matrix.container && format('ghcr.io/gazuua/apex-pipeline-ci:{0}', needs.changes.outputs.ci_image_tag) || '' }}
 
     env:
       VCPKG_ROOT: ${{ matrix.container && '/opt/vcpkg' || format('{0}/vcpkg', github.workspace) }}
@@ -184,6 +191,8 @@ jobs:
       needs.build.result == 'success'
     name: e2e
     runs-on: ubuntu-latest
+    env:
+      CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
 
     steps:
       - uses: actions/checkout@v4

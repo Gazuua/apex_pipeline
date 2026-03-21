@@ -7,7 +7,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -34,3 +34,13 @@ jobs:
             ghcr.io/gazuua/apex-pipeline-ci:sha-${{ github.sha }}
           cache-from: type=registry,ref=ghcr.io/gazuua/apex-pipeline-ci:latest
           cache-to: type=inline
+
+      - name: Update ci-image-tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "sha-${{ github.sha }}" > .github/ci-image-tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/ci-image-tag
+          git diff --staged --quiet || git commit -m "chore(ci): update ci-image-tag to sha-${{ github.sha }} [skip ci]"
+          git push
