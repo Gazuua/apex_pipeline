@@ -722,12 +722,7 @@ def _bm_table_html(benchmarks, title=''):
             elif 0 < ips < 10e6:
                 tp_style = " style='color:#F59E0B;font-weight:bold;'"
 
-            # Per-core rows get green name highlight
-            name_style = ''
-            if 'PerCore' in b['name']:
-                name_style = " style='color:#34D399;font-weight:bold;'"
-
-            rows += (f'<tr><td{name_style}>{esc(name)}</td>'
+            rows += (f'<tr><td>{esc(name)}</td>'
                      f'<td{cpu_style}>{cpu}</td>'
                      f'<td{real_style}>{real}</td>'
                      f'<td>{iters}</td>'
