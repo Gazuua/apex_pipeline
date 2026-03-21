@@ -42,17 +42,6 @@
 - **연관**: #102
 - **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가. **[FSD 분석 2026-03-22]** #102 인프라 구축에 의존. 단독 자동화 불가.
 
-### #124. jwt_blacklist is_valid_jti 입력 검증 테스트
-- **등급**: MAJOR
-- **스코프**: gateway
-- **타입**: test
-- **설명**: `jwt_blacklist.cpp`의 `is_valid_jti` 함수(빈 문자열, 128자 초과, 허용 문자 외 입력)가 미테스트. JTI Redis injection 방어 로직의 정확성 검증 필요.
-
-### #125. init.sql auth_schema 고아 스키마 정리
-- **등급**: MINOR
-- **스코프**: infra
-- **타입**: design-debt
-- **설명**: `apex_infra/postgres/init.sql`에서 `CREATE SCHEMA IF NOT EXISTS auth_schema`를 생성하지만, `001_create_schema_and_role.sql`은 `auth_svc` 스키마를 사용. `auth_schema`는 아무도 참조하지 않는 고아 스키마. 정리 또는 통일 필요.
 
 ### #49. Docker 이미지 버전 감사 + pgbouncer 교체
 - **등급**: MAJOR
@@ -118,11 +107,6 @@
 - **연관**: #1
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
-### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
-- **등급**: MINOR
-- **스코프**: docs
-- **타입**: docs
-- **설명**: `docs/CLAUDE.md` 백로그 운영 규칙 80줄이 루트 `CLAUDE.md`와 부분 중복. 중복 제거 또는 역할 분리 명확화.
 
 ---
 
