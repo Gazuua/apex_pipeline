@@ -14,7 +14,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ① | **착수** | **브랜치 생성 최우선**, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
 | ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
-| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase.sh` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵 | 빌드+CI 성공 |
+| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase.sh` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵. **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진) | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
 | ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
@@ -56,7 +56,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.10.1 — 보안 시크릿 관리 + Blacklist 정책 (Redis requirepass, expand_env 추출, blacklist fail-close)
+- **현재**: v0.5.10.2 — Session UAF 소멸 순서 수정 (Server::~Server() 명시적 파괴 순서)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 

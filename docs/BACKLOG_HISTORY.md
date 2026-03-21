@@ -357,8 +357,8 @@
 
 ### #28. drain_timeout 만료 시 Server 멤버 소멸 순서
 - **등급**: MINOR | **스코프**: core | **타입**: design-debt
-- **해결**: 2026-03-18 22:14:17 | **방식**: WONTFIX
-- **비고**: C++ 멤버 선언 역순 소멸(RAII)으로 안전. shutdown_timer_ unique_ptr 자동 정리. 추가 조치 불필요.
+- **해결**: 2026-03-18 22:14:17 | **방식**: WONTFIX → **정정: FIXED (v0.5.10.2)**
+- **비고**: 당초 WONTFIX 판단(멤버 역순 소멸 안전)이 잘못됨. ~io_context()가 미완료 코루틴 프레임을 파괴하면서 intrusive_ptr\<Session\>이 이미 파괴된 slab 메모리에 접근하는 UAF 발견. v0.5.10.2에서 Server::~Server()에 명시적 파괴 순서(listeners→schedulers→core_engine) 추가하여 해결.
 
 ### #35. test_redis_reply.cpp 매직 넘버 0
 - **등급**: MINOR | **스코프**: shared | **타입**: test
