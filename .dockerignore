@@ -4,5 +4,6 @@
 !apex_shared/
 !apex_services/
 !CMakeLists.txt
+!CMakePresets.json
 !cmake/
 !build.bat

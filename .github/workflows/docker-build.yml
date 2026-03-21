@@ -36,6 +36,7 @@ jobs:
           cache-to: type=inline
 
       - name: Update ci-image-tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "sha-${{ github.sha }}" > .github/ci-image-tag
           git config user.name "github-actions[bot]"
