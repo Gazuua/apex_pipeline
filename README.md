@@ -197,6 +197,8 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - post_to() 동기 API (SPSC for core threads, asio::post fallback for non-core)
   - BroadcastFanout asio::post 기반 마이그레이션
 
+- **도구: `/fsd-backlog` 백로그 소탕 자동화** — 슬래시 커맨드 한 번으로 백로그 스캔→선별→구현→머지 완전 자율 수행
+
 - **v0.5.9.0 — Tier 3 아키텍처 정비 + 저작권 헤더 + Full Auto-Review**
   - SessionId 강타입화 (`enum class SessionId : uint64_t`)
   - core→shared 역방향 의존 해소 (forwarding header 유지, 로드맵 진행 중)
