@@ -21,10 +21,6 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
-  cancel-in-progress: false
-
 jobs:
   # ── Path filter (Docker / Source 변경 감지) ────
   changes:
