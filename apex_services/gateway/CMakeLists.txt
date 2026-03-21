@@ -43,6 +43,7 @@ find_package(Boost REQUIRED)
 target_link_libraries(apex_gateway
     PRIVATE
         apex_core
+        apex_shared
         apex_protocols_tcp
         apex_protocols_websocket
         apex_protocols_kafka
@@ -194,7 +195,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_config_reloader PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_config_reloader PRIVATE
-        apex_core apex_shared_rate_limit tomlplusplus::tomlplusplus
+        apex_core apex_shared apex_shared_rate_limit tomlplusplus::tomlplusplus
         spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_config_reloader PRIVATE /utf-8)

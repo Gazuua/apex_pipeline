@@ -18,6 +18,17 @@ apex_shared_add_unit_test(test_adapter_error test_adapter_error.cpp)
 apex_shared_add_unit_test(test_adapter_base test_adapter_base.cpp)
 apex_shared_add_unit_test(test_pool_concept test_pool_concept.cpp)
 
+# --- Config utils tests (depends on apex_shared, not adapters) ---
+add_executable(test_config_utils test_config_utils.cpp)
+target_link_libraries(test_config_utils
+    PRIVATE
+        apex::shared
+        GTest::gtest_main
+)
+apex_set_warnings(test_config_utils)
+add_test(NAME test_config_utils COMMAND test_config_utils)
+set_tests_properties(test_config_utils PROPERTIES TIMEOUT 30)
+
 # CircuitBreaker test needs Boost.Asio for coroutine testing
 add_executable(test_circuit_breaker test_circuit_breaker.cpp)
 target_link_libraries(test_circuit_breaker

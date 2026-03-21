@@ -23,6 +23,7 @@ enum class GatewayError : uint16_t
     RateLimitedUser = 9,
     RateLimitedEndpoint = 10,
     SubscriptionLimitExceeded = 11,
+    BlacklistCheckFailed = 12,
 };
 
 constexpr std::string_view gateway_error_name(GatewayError code) noexcept
@@ -51,6 +52,8 @@ constexpr std::string_view gateway_error_name(GatewayError code) noexcept
             return "RateLimitedEndpoint";
         case GatewayError::SubscriptionLimitExceeded:
             return "SubscriptionLimitExceeded";
+        case GatewayError::BlacklistCheckFailed:
+            return "BlacklistCheckFailed";
         default:
             return "Unknown";
     }

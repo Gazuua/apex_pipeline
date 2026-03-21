@@ -56,7 +56,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.10.0 — SPSC All-to-All Mesh (MPSC→SPSC 전환, co_post_to awaitable, backpressure)
+- **현재**: v0.5.10.1 — 보안 시크릿 관리 + Blacklist 정책 (Redis requirepass, expand_env 추출, blacklist fail-close)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 

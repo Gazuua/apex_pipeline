@@ -44,10 +44,8 @@ boost::asio::awaitable<apex::core::Result<bool>> JwtBlacklist::is_blacklisted(st
     auto result = co_await redis_.command("EXISTS %s", key.c_str());
     if (!result)
     {
-        // Redis failure: fail-open (availability priority).
-        // Conservative: treat as blacklisted for sensitive path.
-        spdlog::warn("JWT blacklist check failed for jti={}, assuming blacklisted", jti);
-        co_return true;
+        spdlog::warn("JWT blacklist Redis check failed for jti={}", jti);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     co_return result->integer > 0;
 }

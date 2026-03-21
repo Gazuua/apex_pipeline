@@ -22,11 +22,11 @@ response_topic = "auth.responses"
 [redis]
 host = "localhost"
 port = 6380
-# password = ""
+password = "${REDIS_AUTH_PASSWORD:-dev_redis_pass}"
 db = 0
 
 [pg]
-connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=apex_pass"
+connection_string = "host=localhost port=5432 dbname=apex_db user=apex_user password=${PG_SERVICE_PASSWORD:-apex_pass}"
 pool_size_per_core = 2
 
 [bcrypt]

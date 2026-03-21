@@ -45,17 +45,17 @@ response_topic = "gateway.responses"
 [redis.pubsub]
 host = "localhost"
 port = 6383
-# password = ""
+password = "${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}"
 
 [redis.auth]
 host = "localhost"
 port = 6380
-# password = ""
+password = "${REDIS_AUTH_PASSWORD:-dev_redis_pass}"
 
 [redis.ratelimit]
 host = "localhost"
 port = 6381
-# password = ""
+password = "${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}"
 
 [pubsub]
 max_subscriptions_per_session = 50
@@ -86,7 +86,10 @@ window_size_seconds = 60
 2011 = 200   # SendMessageRequest
 2001 = 5     # CreateRoomRequest
 
-# --- Auth Exemption ---
+# --- Auth ---
+[auth]
+blacklist_fail_open = false
+
 [auth.exempt]
 # 인증 없이 허용하는 msg_id 화이트리스트 (운영 판단, deny-by-default)
 LoginRequest = 1000

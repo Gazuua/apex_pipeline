@@ -5,6 +5,26 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #100. Blacklist fail-open 보안 정책 재검토
+- **등급**: MAJOR | **스코프**: gateway | **타입**: security
+- **해결**: 2026-03-21 23:04:20 | **방식**: FIXED | **커밋**: 2bbd8cb
+- **비고**: blacklist_fail_open 설정 추가 (기본값 fail-close). jwt_blacklist는 사실 보고, gateway_pipeline이 정책 결정. GatewayError::BlacklistCheckFailed 추가.
+
+### #8. Redis 4인스턴스 무인증 + PgBouncer 평문 비밀번호
+- **등급**: MAJOR | **스코프**: infra | **타입**: security
+- **해결**: 2026-03-21 23:04:20 | **방식**: FIXED | **커밋**: 824f3c5
+- **비고**: Redis 4개 --requirepass + REDISCLI_AUTH healthcheck. PgBouncer 동적 userlist 생성 (entrypoint.sh), 평문 userlist.txt 삭제. ACL/SCRAM은 v0.6 DEFERRED.
+
+### #6. SQL 마이그레이션 DB 역할 비밀번호 하드코딩
+- **등급**: MAJOR | **스코프**: infra, auth-svc | **타입**: security
+- **해결**: 2026-03-21 23:04:20 | **방식**: FIXED | **커밋**: 824f3c5
+- **비고**: CREATE ROLE 비밀번호를 쉘 래퍼(001_create_schema_and_role.sh)로 분리, ${POSTGRES_AUTH_ROLE_PASSWORD:-default} 패턴. SQL injection 방어(single quote 검증) 포함.
+
+### #5. gateway.toml 시크릿 운영 환경 관리
+- **등급**: MAJOR | **스코프**: infra, gateway | **타입**: security
+- **해결**: 2026-03-21 23:04:20 | **방식**: FIXED | **커밋**: 824f3c5
+- **비고**: expand_env() apex_shared로 추출, gateway/auth-svc/chat-svc TOML에 ${VAR:-default} 패턴 적용. .env.dev + .env.prod.example 분리.
+
 ### #49. Docker 이미지 버전 감사 + pgbouncer 교체
 - **등급**: MAJOR | **스코프**: infra | **타입**: infra
 - **해결**: 2026-03-21 22:32:22 | **방식**: FIXED

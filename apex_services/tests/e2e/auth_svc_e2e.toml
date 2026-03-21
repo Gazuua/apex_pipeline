@@ -21,6 +21,7 @@ response_topic = "gateway.responses"
 [redis]
 host = "localhost"
 port = 6380
+password = "dev_redis_pass"
 
 [pg]
 connection_string = "host=localhost port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password options='-c search_path=auth_svc,public'"

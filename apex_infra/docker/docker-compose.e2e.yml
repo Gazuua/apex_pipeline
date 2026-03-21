@@ -50,6 +50,9 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
+        --requirepass ${REDIS_AUTH_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_AUTH_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -70,6 +73,9 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
+        --requirepass ${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -90,6 +96,9 @@ services:
         --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
+        --requirepass ${REDIS_CHAT_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_CHAT_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -109,6 +118,9 @@ services:
         --maxmemory 64mb
         --save ""
         --appendonly no
+        --requirepass ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
+    environment:
+      REDISCLI_AUTH: ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
     networks:
       - apex-e2e-net
     healthcheck:
@@ -125,7 +137,7 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_USER: apex_admin
-      POSTGRES_PASSWORD: apex_e2e_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apex_e2e_password}
       POSTGRES_DB: apex_db
     volumes:
       - ./init-sql:/docker-entrypoint-initdb.d:ro

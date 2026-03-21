@@ -68,6 +68,7 @@ struct RateLimitConfig
 struct AuthConfig
 {
     std::unordered_set<uint32_t> auth_exempt_msg_ids; // 인증 면제 msg_id 화이트리스트 (deny-by-default)
+    bool blacklist_fail_open = false;                 // Redis 장애 시 fail-open(true) / fail-close(false)
 };
 
 struct GatewayConfig

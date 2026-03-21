@@ -35,8 +35,7 @@ endif()
 
 # --- 라이브러리 ---
 add_library(apex_shared STATIC
-    lib/src/placeholder.cpp
-    # 공유 유틸 소스 추가 시 여기에 등록
+    lib/src/config_utils.cpp
 )
 add_library(apex::shared ALIAS apex_shared)
 

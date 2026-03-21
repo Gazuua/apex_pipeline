@@ -113,12 +113,18 @@ boost::asio::awaitable<GatewayResult> GatewayPipeline::authenticate(apex::core::
             spdlog::info("authenticate: blacklisted JWT jti={} for msg_id={}", claims_result->jti, header.msg_id);
             co_return GatewayResult{std::unexpected(GatewayError::JwtBlacklisted)};
         }
-        // Redis error on blacklist check — fail-open for resilience
         if (!bl_result)
         {
-            spdlog::warn("authenticate: blacklist check failed (Redis error), "
-                         "allowing jti={}",
-                         claims_result->jti);
+            if (config_.auth.blacklist_fail_open)
+            {
+                spdlog::warn("authenticate: blacklist check failed (Redis error), allowing jti={}", claims_result->jti);
+            }
+            else
+            {
+                spdlog::warn("authenticate: blacklist check failed (Redis error), rejecting jti={}",
+                             claims_result->jti);
+                co_return GatewayResult{std::unexpected(GatewayError::BlacklistCheckFailed)};
+            }
         }
     }
 
