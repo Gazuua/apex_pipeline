@@ -699,18 +699,11 @@ def _bm_table_html(benchmarks, title=''):
             rows += f'<tr><td>{esc(name)}</td><td colspan="4" style="color:var(--danger);text-align:center;">{esc(err_msg)}</td></tr>\n'
         else:
             ips = b.get('items_per_second', 0)
-            cpu_ns = b['cpu_time']
 
-            # Highlight entire row green for standout performance
-            highlight_row = False
-            if cpu_ns < 10:  # sub-10ns operations
-                highlight_row = True
-            elif ips > 100e6:  # >100M items/s
-                highlight_row = True
-            elif 'PerCore' in b['name'] and ips > 700000:  # Per-core outperforming Shared
-                highlight_row = True
-
-            row_style = " style='color:#34D399;font-weight:bold;'" if highlight_row else ''
+            # Only highlight Per-core architecture rows that outperform Shared
+            row_style = ''
+            if 'PerCore' in b['name'] and ips > 700000:
+                row_style = " style='color:#34D399;font-weight:bold;'"
 
             rows += (f'<tr><td{row_style}>{esc(name)}</td>'
                      f'<td{row_style}>{cpu}</td>'
