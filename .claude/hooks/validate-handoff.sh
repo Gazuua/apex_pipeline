@@ -47,6 +47,24 @@ if [[ -f "$_PROBE_HANDOFF_DIR/index" ]]; then
     fi
 fi
 
+# === 0.5) git commit 시 active 등록 확인 ===
+if echo "$COMMAND" | grep -qE '^git commit|git commit '; then
+    CURRENT_BRANCH=$(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || echo "")
+
+    # main/master 스킵
+    if [[ "$CURRENT_BRANCH" != "main" && "$CURRENT_BRANCH" != "master" ]]; then
+        # feature/bugfix 브랜치만 체크
+        if [[ "$CURRENT_BRANCH" =~ ^(feature|bugfix)/ ]]; then
+            _ACTIVE_FILE="${_PROBE_HANDOFF_DIR}/active/${BRANCH_ID}.yml"
+            if [[ -d "$_PROBE_HANDOFF_DIR" && ! -f "$_ACTIVE_FILE" ]]; then
+                echo "차단: 핸드오프 미등록 상태에서 커밋 불가." >&2
+                echo "  먼저 실행: $HANDOFF_SH notify start --scopes <s> --summary \"설명\"" >&2
+                exit 2
+            fi
+        fi
+    fi
+fi
+
 # === 1) gh pr merge 시 gate check ===
 if echo "$COMMAND" | grep -q 'gh pr merge'; then
     GATE_RESULT=$(bash "$HANDOFF_SH" check --gate merge 2>&1)

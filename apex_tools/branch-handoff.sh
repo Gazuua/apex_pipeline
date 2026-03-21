@@ -113,6 +113,7 @@ ARGS_ID=""
 ARGS_ACTION=""
 ARGS_REASON=""
 ARGS_GATE=""
+ARGS_SKIP_DESIGN=""
 
 parse_args() {
     ARGS_BACKLOG=""
@@ -123,6 +124,7 @@ parse_args() {
     ARGS_ACTION=""
     ARGS_REASON=""
     ARGS_GATE=""
+    ARGS_SKIP_DESIGN=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -134,10 +136,37 @@ parse_args() {
             --action)        ARGS_ACTION="$2"; shift 2 ;;
             --reason)        ARGS_REASON="$2"; shift 2 ;;
             --gate)          ARGS_GATE="$2"; shift 2 ;;
+            --skip-design)   ARGS_SKIP_DESIGN="true"; shift ;;
             --*)             echo "[handoff] WARNING: unknown option '$1' (ignored)" >&2; shift 2 ;;
             *)               shift ;;
         esac
     done
+}
+
+require_summary() {
+    if [[ -z "${ARGS_SUMMARY:-}" ]]; then
+        echo "[handoff] ERROR: --summary is required" >&2
+        exit 1
+    fi
+}
+
+# === Status Validation ===
+get_active_status() {
+    local active_file="$HANDOFF_DIR/active/${BRANCH_ID}.yml"
+    if [[ ! -f "$active_file" ]]; then
+        echo ""
+        return
+    fi
+    grep '^status:' "$active_file" | awk '{print $2}'
+}
+
+validate_status() {
+    local required="$1" current
+    current=$(get_active_status)
+    if [[ "$current" != "$required" ]]; then
+        echo "[handoff] ERROR: status must be '$required' but is '${current:-unregistered}'" >&2
+        exit 1
+    fi
 }
 
 # === Notify ===
@@ -149,21 +178,29 @@ do_notify() {
     case "$subcmd" in
         start)   do_notify_start ;;
         design)  do_notify_design ;;
+        plan)    do_notify_plan ;;
         merge)   do_notify_merge ;;
-        *)       echo "Usage: branch-handoff.sh notify <start|design|merge> [options]"; exit 1 ;;
+        *)       echo "Usage: branch-handoff.sh notify <start|design|plan|merge> [options]"; exit 1 ;;
     esac
 }
 
 do_notify_start() {
+    require_summary
     local now
     now=$(date +"%Y-%m-%d %H:%M:%S")
+
+    local initial_status="started"
+    if [[ "${ARGS_SKIP_DESIGN:-}" == "true" ]]; then
+        initial_status="implementing"
+    fi
 
     # active 파일 생성
     {
         echo "branch: $BRANCH_ID"
         echo "pid: $$"
+        echo "session_pid: $PPID"
         if [[ -n "$ARGS_BACKLOG" ]]; then echo "backlog: $ARGS_BACKLOG"; fi
-        echo "status: started"
+        echo "status: $initial_status"
         echo "scopes:"
         IFS=',' read -ra scope_arr <<< "$ARGS_SCOPES"
         for s in "${scope_arr[@]}"; do echo "  - $s"; done
@@ -196,6 +233,9 @@ do_notify_start() {
 }
 
 do_notify_design() {
+    require_summary
+    validate_status "started"
+
     local now
     now=$(date +"%Y-%m-%d %H:%M:%S")
 
@@ -231,7 +271,7 @@ do_notify_design() {
 
     # active 파일 갱신 (있으면)
     if [[ -f "$HANDOFF_DIR/active/${BRANCH_ID}.yml" ]]; then
-        sed -i "s/^status: .*/status: designing/" "$HANDOFF_DIR/active/${BRANCH_ID}.yml"
+        sed -i "s/^status: .*/status: design-notified/" "$HANDOFF_DIR/active/${BRANCH_ID}.yml"
         if grep -q '^latest_tier2_id:' "$HANDOFF_DIR/active/${BRANCH_ID}.yml"; then
             sed -i "s/^latest_tier2_id: .*/latest_tier2_id: $new_id/" "$HANDOFF_DIR/active/${BRANCH_ID}.yml"
         else
@@ -267,6 +307,22 @@ do_notify_design() {
     if [[ -n "$prev_tier2_id" ]]; then echo "[handoff] supersedes: #${prev_tier2_id}"; fi
 }
 
+do_notify_plan() {
+    require_summary
+    validate_status "design-notified"
+
+    local now
+    now=$(date +"%Y-%m-%d %H:%M:%S")
+
+    # active 파일 status 갱신
+    if [[ -f "$HANDOFF_DIR/active/${BRANCH_ID}.yml" ]]; then
+        sed -i "s/^status: .*/status: implementing/" "$HANDOFF_DIR/active/${BRANCH_ID}.yml"
+        sed -i "s/^updated_at: .*/updated_at: \"$now\"/" "$HANDOFF_DIR/active/${BRANCH_ID}.yml"
+    fi
+
+    echo "[handoff] status → implementing (branch=$BRANCH_ID)"
+}
+
 do_notify_merge() {
     # scopes는 active 파일에서 추출
     local scopes=""
@@ -290,6 +346,9 @@ do_notify_merge() {
 
     # backlog-status 파일 삭제
     rm -f "$HANDOFF_DIR/backlog-status/${BRANCH_ID}.yml"
+
+    # watermark 파일 삭제 (stale watermark 방지)
+    rm -f "$HANDOFF_DIR/watermarks/${BRANCH_ID}"
 
     echo "[handoff] Tier 3 notification published: #${new_id} (branch=$BRANCH_ID, merge complete)"
 }

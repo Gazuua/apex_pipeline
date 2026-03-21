@@ -82,8 +82,16 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 브랜치 인수인계 (Branch Handoff)
 - **도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"`
 - **착수 전**: `backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
+- **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge`
+  - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
+  - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
+- **강제 메커니즘** (Hook 기반):
+  - **active 미등록** → 모든 Edit/Write/git commit **차단** (예외 없음)
+  - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h) 편집 **차단**, 비소스(문서 등) 허용
+  - **status=implementing** → 모든 파일 허용
+  - **main/master 브랜치** → 핸드오프 체크 스킵
 - **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
-- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 소스 파일(`.cpp/.hpp/.h`) 편집 시 미ack 알림이 있으면 차단, 머지 시점도 hook이 자동 차단
+- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 미ack 알림은 경고 표시, 머지 시점은 hook이 자동 차단
 - **ack**: 알림 수신 시 `ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
 
 ### 설계 원칙
@@ -125,6 +133,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 에이전트 작업
 - **서브에이전트는 작업 전 관련 CLAUDE.md를 직접 읽는다** — 메인이 발췌할 필요 없이 서브에이전트가 해당 영역의 CLAUDE.md를 직접 Read하여 규칙 파악
 - **태스크 완료 후 메인이 auto-review 필요 여부를 자체 판단하여 실행한다** (유저에게 묻지 않음)
+- **구현 계획 실행 방식은 자체 판단** — subagent-driven vs inline 선택을 유저에게 묻지 않고 작업 특성(순차 의존 vs 독립 병렬)에 따라 직접 결정. 선택한 방식과 이유를 한 줄로 알리고 바로 진행
 - **리뷰 이슈 판단 기준**: "지금 안 고치면 나중에 더 복잡해지는가?" YES면 지금 수정. 스코프 밖이라는 이유로 미루지 않음. 리뷰어는 구현 비용보다 미래 비용을 우선 고려
 - **작업 간 발견 이슈 처리** (유저에게 묻지 않고 자체 판단):
   1. 자기 작업으로 인한 이슈 → **즉시 수정** (컨텍스트가 살아있을 때 비용 최저)

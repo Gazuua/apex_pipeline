@@ -46,12 +46,23 @@ if [[ -n "$CURRENT_BRANCH" && "$CURRENT_BRANCH" != "main" ]]; then
 
     # 미등록 경고
     if [[ ! -f "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" ]]; then
-        echo "WARNING: 이 워크스페이스(${BRANCH_ID})가 핸드오프 시스템에 미등록 상태!"
+        echo "WARNING [BLOCKED]: 이 워크스페이스(${BRANCH_ID})가 핸드오프 시스템에 미등록 상태!"
+        echo "  모든 Edit/Write/git commit이 차단됩니다."
         echo "  → 즉시 실행: branch-handoff.sh notify start --scopes <s> --summary \"설명\" [--backlog <N>]"
+        echo "  (설계 불필요 시: branch-handoff.sh notify start --skip-design --scopes <s> --summary \"설명\")"
     else
         echo "Registered: ${BRANCH_ID}"
         grep '^backlog:' "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" 2>/dev/null | sed 's/^/  /'
-        grep '^status:' "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" 2>/dev/null | sed 's/^/  /'
+        _status=$(grep '^status:' "${HANDOFF_DIR}/active/${BRANCH_ID}.yml" 2>/dev/null | awk '{print $2}')
+        echo "  status: ${_status}"
+        case "$_status" in
+            started)
+                echo "  → 다음: notify design (설계 완료 시) 또는 notify start --skip-design (설계 불필요 시)" ;;
+            design-notified)
+                echo "  → 다음: notify plan (구현 계획 완료 시)" ;;
+            implementing)
+                echo "  → 구현 진행 중 (소스 편집 허용)" ;;
+        esac
     fi
 
     # 미처리 알림 확인
