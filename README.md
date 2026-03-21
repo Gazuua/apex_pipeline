@@ -6,7 +6,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## Performance — Per-core Architecture
 
 <div align="center">
-<img src="docs/apex_core/benchmark/architecture_scaling.png" alt="Per-core vs Shared io_context Scaling" width="800"/>
+<img src="docs/apex_core/benchmark/architecture_scaling.png?v=2" alt="Per-core vs Shared io_context Scaling" width="800"/>
 </div>
 
 <table>
