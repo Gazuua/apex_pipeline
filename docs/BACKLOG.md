@@ -4,19 +4,11 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 112
+다음 발번: 115
 
 ---
 
 ## NOW
-
-### #107. v0.5.10.0 벤치마크 실행 및 보고서 작성
-- **등급**: MAJOR
-- **스코프**: core, tools
-- **타입**: perf
-- **연관**: #106 (HISTORY)
-- **설명**: SPSC mesh 전환 후 Release 빌드 벤치마크 실행. SpscQueue vs MpscQueue throughput/latency 비교, cross-core latency/message-passing 측정. analysis.json 작성 + generate_benchmark_report.py로 보고서 생성.
-
 
 ### #109. 벤치마크 빌드 큐잉 시스템 강제
 - **등급**: MAJOR
@@ -27,6 +19,27 @@
 ---
 
 ## IN VIEW
+
+### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
+- **등급**: MAJOR
+- **스코프**: core, tools
+- **타입**: perf
+- **연관**: #107 (HISTORY)
+- **설명**: Shared 모델에서 SessionMap을 `boost::concurrent_flat_map`으로 교체하여 벤치마킹. io_context 내부 큐가 진짜 병목인지 결정적으로 검증. lock-free SessionMap으로도 처리량이 정체되면 io_context 분리가 유일한 해법임을 증명.
+
+### #113. Docker E2E 풀 인프라 벤치마킹
+- **등급**: MAJOR
+- **스코프**: infra, tools
+- **타입**: perf
+- **연관**: #107 (HISTORY)
+- **설명**: Docker Compose로 Gateway + Auth + Chat + Kafka + Redis + PostgreSQL 전체 인프라를 띄우고 E2E 부하 테스트 실행. 실 서비스 워크로드 기반 처리량/지연시간 측정. 벤치마크 보고서 시스템에 E2E 섹션 추가.
+
+### #114. 프로덕션급 서버 환경 벤치마크 실측
+- **등급**: MAJOR
+- **스코프**: core, tools
+- **타입**: perf
+- **연관**: #107 (HISTORY)
+- **설명**: 고코어 환경(16코어+ 서버)에서 Per-core vs Shared 아키텍처 비교 재측정. 4코어 노트북에서 관측된 2.1x 차이가 코어 수에 비례하여 확대되는지 검증. 벤치마크 보고서 버전 비교 기능(--baseline/--current) 활용.
 
 ### #67. server.global&lt;T&gt;() / ConsumerPayloadPool / wire_services() 단위 테스트
 - **등급**: MAJOR
