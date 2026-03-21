@@ -121,7 +121,8 @@ boost::asio::awaitable<GatewayResult> GatewayPipeline::authenticate(apex::core::
             }
             else
             {
-                spdlog::warn("authenticate: blacklist check failed (Redis error), rejecting jti={}", claims_result->jti);
+                spdlog::warn("authenticate: blacklist check failed (Redis error), rejecting jti={}",
+                             claims_result->jti);
                 co_return GatewayResult{std::unexpected(GatewayError::BlacklistCheckFailed)};
             }
         }
