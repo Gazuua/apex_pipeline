@@ -289,7 +289,7 @@ return redis.call('SCARD', KEYS[1])
     auto eval_result = co_await redis_data_->multiplexer(core_id).command(
         "EVAL %s 1 %s %s %s", lua_script.c_str(), members_key.c_str(), user_id_str.c_str(), max_members_str.c_str());
 
-    if (!eval_result.has_value() || eval_result->is_error())
+    if (!eval_result.has_value() || eval_result->is_error() || !eval_result->is_integer())
     {
         spdlog::warn("[ChatService] Redis EVAL failed for join_room (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);

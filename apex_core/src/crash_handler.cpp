@@ -4,6 +4,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <atomic>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -19,6 +20,11 @@
 namespace apex::core
 {
 
+// Cached logger pointer — avoids spdlog registry mutex in signal handler.
+// Stored at install_crash_handlers(), cleared at uninstall_crash_handlers().
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static std::atomic<spdlog::logger*> g_cached_logger{nullptr};
+
 namespace
 {
 
@@ -32,7 +38,7 @@ void safe_stderr(const char* msg) noexcept
     while (msg[len] != '\0')
         ++len;
 #ifdef _WIN32
-    _write(2, msg, static_cast<unsigned int>(len));
+    (void)_write(2, msg, static_cast<unsigned int>(len));
 #else
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg) — write() is signal-safe
     [[maybe_unused]] auto _ = ::write(STDERR_FILENO, msg, len);
@@ -68,11 +74,11 @@ void crash_signal_handler(int sig) noexcept
     safe_stderr(signal_name(sig));
     safe_stderr("\n[APEX CRASH] Attempting log flush before exit...\n");
 
-    // Step 2: Best-effort spdlog flush.
-    // WARNING: Not strictly async-signal-safe. If spdlog is mid-write when the
-    // signal fires, this may deadlock on spdlog's internal mutex. The stderr
-    // output above guarantees minimal diagnostics even if flush deadlocks.
-    if (auto logger = spdlog::default_logger())
+    // Step 2: Best-effort spdlog flush via cached pointer (bypasses registry mutex).
+    // WARNING: Not strictly async-signal-safe — flush() uses internal mutex.
+    // If spdlog is mid-write when the signal fires, this may deadlock.
+    // The stderr output above guarantees minimal diagnostics even if flush deadlocks.
+    if (auto* logger = g_cached_logger.load(std::memory_order_acquire))
     {
         logger->flush();
     }
@@ -104,7 +110,7 @@ LONG WINAPI unhandled_exception_filter(EXCEPTION_POINTERS* info) noexcept
     }
     safe_stderr("\n");
 
-    if (auto logger = spdlog::default_logger())
+    if (auto* logger = g_cached_logger.load(std::memory_order_acquire))
     {
         logger->flush();
     }
@@ -117,6 +123,9 @@ LONG WINAPI unhandled_exception_filter(EXCEPTION_POINTERS* info) noexcept
 
 void install_crash_handlers()
 {
+    // Cache logger pointer to bypass spdlog registry mutex in signal handler
+    g_cached_logger.store(spdlog::default_logger_raw(), std::memory_order_release);
+
     std::signal(SIGABRT, crash_signal_handler);
     std::signal(SIGSEGV, crash_signal_handler);
     std::signal(SIGFPE, crash_signal_handler);
@@ -135,6 +144,8 @@ void install_crash_handlers()
 
 void uninstall_crash_handlers()
 {
+    g_cached_logger.store(nullptr, std::memory_order_release);
+
     std::signal(SIGABRT, SIG_DFL);
     std::signal(SIGSEGV, SIG_DFL);
     std::signal(SIGFPE, SIG_DFL);

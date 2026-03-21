@@ -421,6 +421,10 @@ void Server::finalize_shutdown()
     // 7. [D3] Global resources 정리
     globals_.clear();
 
+    // Restore default signal handlers before caller tears down spdlog.
+    // Prevents crash handler from accessing destroyed spdlog internals.
+    uninstall_crash_handlers();
+
     // Finally stop control_io_ (causes run() to return)
     control_io_.stop();
 }
