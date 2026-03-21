@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook: 빌드 도구 직접 호출 차단
-# queue-lock.sh build를 통해서만 빌드 가능
+# PreToolUse hook: 빌드/벤치마크 도구 직접 호출 차단
+# queue-lock.sh build|benchmark를 통해서만 실행 가능
 
 INPUT=$(cat)
 
@@ -32,11 +32,12 @@ BLOCKED_PATTERNS=(
     '\bcl\.exe\b'
     '(^|[;&|]\s*)build\.bat'
     'cmd\.exe.*build\.bat'
+    '\bbench_\w+'
 )
 
 for pattern in "${BLOCKED_PATTERNS[@]}"; do
     if echo "$COMMAND" | grep -qE "$pattern"; then
-        echo "차단: 빌드는 queue-lock.sh build를 통해서만 실행할 수 있습니다. (matched: $pattern)" >&2
+        echo "차단: 빌드/벤치마크는 queue-lock.sh build|benchmark를 통해서만 실행할 수 있습니다. (matched: $pattern)" >&2
         exit 2
     fi
 done
