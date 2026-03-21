@@ -2,14 +2,15 @@
 
 #include <apex/core/error_code.hpp>
 #include <apex/core/protocol.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include <gtest/gtest.h>
 
 #include <cstring>
 
 using namespace apex::core;
+using apex::shared::protocols::tcp::TcpBinaryProtocol;
 
 class TcpBinaryProtocolTest : public ::testing::Test
 {

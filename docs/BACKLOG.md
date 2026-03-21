@@ -63,18 +63,6 @@
 - **연관**: #1
 - **설명**: 유닛 테스트(GTest + Mock 어댑터) + E2E 테스트 패턴을 다루는 별도 가이드. 프레임워크 가이드(#1)에서 분리된 스코프.
 
-### #116. apex_core → apex_shared 역방향 의존 제거 (포워딩 헤더 + CMake include path)
-- **등급**: MAJOR
-- **스코프**: core, shared
-- **타입**: design-debt
-- **설명**: `apex_core/include/apex/core/tcp_binary_protocol.hpp`가 `apex_shared` 헤더를 `using` 선언으로 re-export하고, `apex_core/CMakeLists.txt`에 `apex_shared` include 경로가 PUBLIC으로 포함되어 있다. 아키텍처상 core→shared 방향 의존은 레이어 위반. 포워딩 헤더를 deprecated 처리하고 사용처에서 직접 `apex_shared` 경로를 include하도록 전환 필요.
-
-### #117. GatewayService services[0] 하드코딩 + dynamic_cast 제거
-- **등급**: MAJOR
-- **스코프**: gateway
-- **타입**: design-debt
-- **설명**: `gateway_service.cpp:257`에서 `dynamic_cast<GatewayService*>(state.services[0].get())`로 첫 번째 서비스가 GatewayService임을 가정. ServiceRegistry의 타입 기반 조회(`registry.find<GatewayService>()`)로 교체하면 등록 순서 무관하게 동작하고, 프레임워크 가이드 D1 원칙도 준수.
-
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
 - **스코프**: auth-svc, chat-svc

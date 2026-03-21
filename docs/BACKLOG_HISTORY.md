@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #116. apex_core → apex_shared 역방향 의존 제거 (포워딩 헤더 + CMake include path)
+- **등급**: MAJOR | **스코프**: core, shared | **타입**: design-debt
+- **해결**: 2026-03-21 22:06:58 | **방식**: FIXED | **커밋**: 93a79b5
+- **비고**: CMake PUBLIC include path 2줄 제거, 포워딩 헤더 deprecated, 소비자 10파일 직접 include 전환, CMake 타겟 10개 명시적 링크 추가
+
+### #117. GatewayService services[0] 하드코딩 + dynamic_cast 제거
+- **등급**: MAJOR | **스코프**: gateway | **타입**: design-debt
+- **해결**: 2026-03-21 22:06:58 | **방식**: FIXED | **커밋**: 93a79b5
+- **비고**: dynamic_cast<GatewayService*>(state.services[0].get()) → state.registry.find<GatewayService>() 타입 기반 조회로 교체. D1 원칙 준수
+
 ### #118. test_service_lifecycle.cpp reinterpret_cast UB 위험 제거
 - **등급**: MAJOR | **스코프**: core | **타입**: test
 - **해결**: 2026-03-21 21:42:55 | **방식**: FIXED

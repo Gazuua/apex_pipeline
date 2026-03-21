@@ -254,10 +254,10 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
     for (uint32_t i = 0; i < num_cores; ++i)
     {
         auto& state = ctx.server.per_core_state(i);
-        auto* gw_svc = dynamic_cast<GatewayService*>(state.services[0].get());
+        auto* gw_svc = state.registry.find<GatewayService>();
         if (!gw_svc)
         {
-            throw std::logic_error("GatewayService must be the first registered service (services[0])");
+            throw std::logic_error("GatewayService not registered in ServiceRegistry");
         }
         pending_maps.push_back(&gw_svc->pending_requests());
         session_mgrs.push_back(&state.session_mgr);

@@ -4,8 +4,8 @@
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 
@@ -28,6 +28,7 @@
 #include <vector>
 
 using namespace apex::core;
+using apex::shared::protocols::tcp::TcpBinaryProtocol;
 using boost::asio::awaitable;
 using boost::asio::ip::tcp;
 using namespace std::chrono_literals;

@@ -13,8 +13,8 @@
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include <flatbuffers/flatbuffers.h>
 #include <generated/chat_message_generated.h>
@@ -27,6 +27,7 @@
 #include <vector>
 
 using namespace apex::core;
+using apex::shared::protocols::tcp::TcpBinaryProtocol;
 using boost::asio::awaitable;
 
 /// Single-core broadcast chat service.

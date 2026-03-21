@@ -17,8 +17,8 @@
 #include <apex/core/logging.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/session.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
 #include <apex/core/wire_header.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include <flatbuffers/flatbuffers.h>
 #include <generated/echo_generated.h>
@@ -30,6 +30,7 @@
 #include <cstdlib>
 
 using namespace apex::core;
+using apex::shared::protocols::tcp::TcpBinaryProtocol;
 using boost::asio::awaitable;
 
 class EchoService : public ServiceBase<EchoService>
