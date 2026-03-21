@@ -93,6 +93,7 @@ echo "Path: ${HANDOFF_DIR}"
 
 if [[ -d "${HANDOFF_DIR}/active" ]]; then
     _active_lines=""
+    _active_count=0
     _prev_nullglob=$(shopt -p nullglob 2>/dev/null || true)
     shopt -s nullglob
     for f in "${HANDOFF_DIR}/active/"*.yml; do
@@ -108,16 +109,16 @@ if [[ -d "${HANDOFF_DIR}/active" ]]; then
         _bl_label=""
         [[ -n "$_backlog" ]] && _bl_label="BACKLOG-${_backlog} "
 
-        if [[ -n "$_scopes" ]]; then
-            _active_lines="${_active_lines}  ${_br} [${_scopes}] ${_bl_label}— ${_summary}\n"
-        else
-            _active_lines="${_active_lines}  ${_br} [착수 단계] ${_bl_label}— 설계 알림 수신 시 자동 통보\n"
-        fi
+        _scope_label=""
+        [[ -n "$_scopes" ]] && _scope_label=" (${_scopes})"
+
+        _active_lines="${_active_lines}  ${_br} [${_status:-unknown}]${_scope_label} ${_bl_label}— ${_summary:-설명 없음}\n"
+        _active_count=$((_active_count + 1))
     done
     eval "$_prev_nullglob" 2>/dev/null || true
 
-    if [[ -n "$_active_lines" ]]; then
-        echo "--- Other Active Branches ---"
+    if [[ $_active_count -gt 0 ]]; then
+        echo "--- Other Active Branches (${_active_count}개 진행 중) ---"
         echo -e "$_active_lines"
     fi
 fi
