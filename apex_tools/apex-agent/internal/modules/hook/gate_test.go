@@ -22,6 +22,20 @@ func TestValidateBuild_AllowQueueLock(t *testing.T) {
 	}
 }
 
+func TestValidateBuild_AllowApexAgent(t *testing.T) {
+	cmds := []string{
+		"apex-agent queue build debug",
+		"apex-agent queue benchmark bench_mpsc_queue.exe",
+		`/d/.workspace/apex_tools/apex-agent/run-hook queue build debug`,
+		`bash ./apex_tools/apex-agent/run-hook queue benchmark bench_mpsc_queue.exe --benchmark_format=json`,
+	}
+	for _, cmd := range cmds {
+		if err := ValidateBuild(cmd); err != nil {
+			t.Errorf("apex-agent/run-hook command %q should be allowed, got: %v", cmd, err)
+		}
+	}
+}
+
 func TestValidateBuild_AllowReadOnly(t *testing.T) {
 	cmds := []string{"cat build.bat", "grep pattern file", "head -10 CMakeLists.txt", "echo hello"}
 	for _, cmd := range cmds {

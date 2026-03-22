@@ -27,6 +27,7 @@ func queueCmd() *cobra.Command {
 	cmd.AddCommand(queueReleaseCmd())
 	cmd.AddCommand(queueStatusCmd())
 	cmd.AddCommand(queueBuildCmd())
+	cmd.AddCommand(queueBenchmarkCmd())
 	cmd.AddCommand(queueMergeCmd())
 	return cmd
 }
@@ -242,6 +243,76 @@ func queueBuildCmd() *cobra.Command {
 			}
 
 			fmt.Printf("[queue-lock] build completed successfully\n")
+			return nil
+		},
+	}
+}
+
+// ── queue benchmark ──
+
+func queueBenchmarkCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:                "benchmark <exe> [benchmark args...]",
+		Short:              "빌드 잠금 획득 후 벤치마크 실행",
+		Long:               "build 채널 lock을 공유하여 빌드/벤치마크 상호배제를 보장한다.\n직접 bench_* 실행은 validate-build hook이 차단하므로 이 커맨드를 사용해야 한다.",
+		Args:               cobra.MinimumNArgs(1),
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			exe := args[0]
+			benchArgs := args[1:]
+
+			branch := getBranchID()
+			fmt.Printf("[queue-lock] benchmark requested: exe=%s, args=%s, branch=%s\n",
+				exe, formatArgs(benchArgs), branch)
+
+			// Acquire build lock (same channel as build — mutual exclusion).
+			acquireParams := map[string]any{
+				"channel": "build",
+				"branch":  branch,
+				"pid":     os.Getpid(),
+			}
+			_, err := sendQueueRequestMap("acquire", acquireParams)
+			if err != nil {
+				return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
+			}
+			fmt.Printf("[queue-lock] lock acquired: build (branch=%s)\n", branch)
+
+			// Ensure lock is released on exit.
+			released := false
+			defer func() {
+				if !released {
+					releaseParams := map[string]any{"channel": "build"}
+					_, _ = sendQueueRequestMap("release", releaseParams)
+					fmt.Printf("[queue-lock] lock released: build\n")
+				}
+			}()
+
+			// Run the benchmark executable.
+			benchCmd := exec.Command(exe, benchArgs...)
+			benchCmd.Stdout = os.Stdout
+			benchCmd.Stderr = os.Stderr
+			benchCmd.Stdin = os.Stdin
+
+			fmt.Printf("[queue-lock] starting benchmark: %s\n", strings.Join(append([]string{exe}, benchArgs...), " "))
+
+			runErr := benchCmd.Run()
+
+			// Release lock explicitly before printing result.
+			releaseParams := map[string]any{"channel": "build"}
+			_, _ = sendQueueRequestMap("release", releaseParams)
+			released = true
+			fmt.Printf("[queue-lock] lock released: build\n")
+
+			if runErr != nil {
+				exitCode := 1
+				if exitErr, ok := runErr.(*exec.ExitError); ok {
+					exitCode = exitErr.ExitCode()
+				}
+				fmt.Printf("[queue-lock] benchmark FAILED (exit code: %d)\n", exitCode)
+				os.Exit(exitCode)
+			}
+
+			fmt.Printf("[queue-lock] benchmark completed successfully\n")
 			return nil
 		},
 	}

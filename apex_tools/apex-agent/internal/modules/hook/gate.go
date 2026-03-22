@@ -39,8 +39,10 @@ func ValidateBuild(command string) error {
 		return nil
 	}
 
-	// Allow queue-lock.sh invocations.
-	if strings.Contains(command, "queue-lock.sh") {
+	// Allow approved build/benchmark wrappers.
+	if strings.Contains(command, "queue-lock.sh") ||
+		strings.Contains(command, "apex-agent") ||
+		strings.Contains(command, "run-hook") {
 		return nil
 	}
 
@@ -56,7 +58,7 @@ func ValidateBuild(command string) error {
 	for _, pat := range blockedBuildPatterns {
 		if pat.MatchString(command) {
 			ml.Warn("build command blocked", "pattern", pat.String())
-			return fmt.Errorf("차단: 빌드/벤치마크는 queue-lock.sh build|benchmark를 통해서만 실행할 수 있습니다. (matched: %s)", pat.String())
+			return fmt.Errorf("차단: 빌드/벤치마크는 apex-agent queue build|benchmark를 통해서만 실행할 수 있습니다. (matched: %s)", pat.String())
 		}
 	}
 
@@ -83,7 +85,7 @@ func ValidateMerge(command, cwd string) error {
 	lockDir := filepath.Join(queueDir, "merge.lock")
 	if _, err := os.Stat(lockDir); os.IsNotExist(err) {
 		ml.Warn("merge blocked: no lock held")
-		return fmt.Errorf("차단: 먼저 queue-lock.sh merge acquire를 실행하세요.")
+		return fmt.Errorf("차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
 	}
 
 	// Check owner branch matches.
@@ -94,7 +96,7 @@ func ValidateMerge(command, cwd string) error {
 			if strings.HasPrefix(line, "BRANCH=") {
 				ownerBranch := strings.TrimPrefix(line, "BRANCH=")
 				if ownerBranch != "" && !strings.Contains(cwd, ownerBranch) {
-					return fmt.Errorf("차단: merge lock 소유자가 %s입니다 (현재: %s). 먼저 queue-lock.sh merge acquire를 실행하세요.", ownerBranch, cwd)
+					return fmt.Errorf("차단: merge lock 소유자가 %s입니다 (현재: %s). 먼저 apex-agent queue merge acquire를 실행하세요.", ownerBranch, cwd)
 				}
 			}
 		}
