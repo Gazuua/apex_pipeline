@@ -336,25 +336,30 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(cons
     auto members_key = std::format("chat:room:{}:members", room_id);
     auto user_id_str = std::to_string(user_id);
 
-    // 1. SISMEMBER -- check if user is in the room
-    auto is_member =
-        co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!is_member.has_value())
+    // 1. Atomic leave: SISMEMBER + SREM in a single Lua script.
+    // Eliminates TOCTOU race between SISMEMBER and SREM on concurrent leave requests.
+    // Returns: 0 = not in room, 1 = successfully removed.
+    static constexpr std::string_view LEAVE_ROOM_LUA = R"lua(
+if redis.call('SISMEMBER', KEYS[1], ARGV[1]) == 0 then
+    return 0
+end
+redis.call('SREM', KEYS[1], ARGV[1])
+return 1
+)lua";
+
+    auto lua_script = std::string(LEAVE_ROOM_LUA);
+    auto eval_result = co_await redis_data_->multiplexer(core_id).command("EVAL %s 1 %s %s", lua_script.c_str(),
+                                                                          members_key.c_str(), user_id_str.c_str());
+
+    if (!eval_result.has_value() || eval_result->is_error() || !eval_result->is_integer())
     {
-        spdlog::warn("[ChatService] Redis SISMEMBER failed for leave_room (room: {})", room_id);
+        spdlog::warn("[ChatService] Redis EVAL failed for leave_room (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
-    if (is_member->integer == 0)
+
+    if (eval_result->integer == 0)
     {
         co_return co_await send_leave_room_error(meta, fbs::ChatRoomError_NOT_IN_ROOM, room_id);
-    }
-
-    // 2. SREM -- remove member
-    auto srem_result =
-        co_await redis_data_->multiplexer(core_id).command("SREM %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!srem_result.has_value())
-    {
-        spdlog::warn("[ChatService] Redis SREM failed for room {}", room_id);
     }
 
     // 3. Send LeaveRoomResponse

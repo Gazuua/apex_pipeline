@@ -11,7 +11,6 @@ add_executable(auth_svc_unit_tests
     unit/test_envelope_codec.cpp
     unit/test_auth_handlers.cpp
     unit/test_crypto_util.cpp
-    unit/test_auth_logic.cpp
 )
 
 target_link_libraries(auth_svc_unit_tests

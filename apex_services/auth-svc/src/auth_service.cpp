@@ -1,6 +1,5 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
-#include <apex/auth_svc/auth_logic.hpp>
 #include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/core/server.hpp>
@@ -132,7 +131,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     // --- Step 1: PG query — lookup user by email ---
     std::array<std::string, 1> login_params = {email};
     auto user_result =
-        co_await pg_->query("SELECT id, password_hash, locked_until FROM users WHERE email = $1", login_params);
+        co_await pg_->query("SELECT id, password_hash, locked_until > NOW() FROM users WHERE email = $1", login_params);
 
     if (!user_result.has_value())
     {
@@ -162,12 +161,9 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
             co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
         }
     }
-    // locked_until: NULL → 잠금 없음, 과거 시각 → 만료됨, 미래 시각 → 현재 잠금 중
-    bool is_locked = false;
-    if (!pg_res.is_null(0, 2))
-    {
-        is_locked = is_account_locked(pg_res.value(0, 2), std::chrono::system_clock::now());
-    }
+    // locked_until > NOW(): NULL → 잠금 없음, "f" → 만료됨, "t" → 현재 잠금 중
+    // PG timestamp comparison in SQL — timezone-safe (기존 C++ 문자열 비교의 타임존 버그 수정).
+    bool is_locked = (!pg_res.is_null(0, 2) && pg_res.value(0, 2) == "t");
     log_trace("on_login: PG user lookup success (user_id={}, locked={})", user_id, is_locked);
 
     // --- Step 3: Account lock check ---

@@ -5,8 +5,11 @@
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
+
+#include <spdlog/spdlog.h>
 
 #if !defined(_WIN32)
 #include <sys/socket.h> // SOL_SOCKET, SO_REUSEPORT
@@ -16,13 +19,22 @@ namespace apex::core
 {
 
 TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptCallback on_accept,
-                         boost::asio::ip::tcp protocol, bool reuseport)
+                         std::string_view bind_address, bool reuseport)
     : io_ctx_(io_ctx)
     , acceptor_(io_ctx)
     , backoff_timer_(io_ctx)
     , on_accept_(std::move(on_accept))
     , reuseport_(reuseport)
 {
+    boost::system::error_code ec;
+    auto addr = boost::asio::ip::make_address(bind_address, ec);
+    if (ec)
+    {
+        spdlog::critical("TcpAcceptor: invalid bind_address '{}' — {}", bind_address, ec.message());
+        throw boost::system::system_error(ec, "invalid bind_address");
+    }
+    auto protocol = addr.is_v4() ? boost::asio::ip::tcp::v4() : boost::asio::ip::tcp::v6();
+
     acceptor_.open(protocol);
     acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
 
@@ -34,8 +46,9 @@ TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptC
     }
 #endif
 
-    acceptor_.bind(boost::asio::ip::tcp::endpoint(protocol, port));
+    acceptor_.bind(boost::asio::ip::tcp::endpoint(addr, port));
     acceptor_.listen();
+    spdlog::info("TcpAcceptor bound to {}:{}", bind_address, this->port());
 }
 
 TcpAcceptor::~TcpAcceptor()

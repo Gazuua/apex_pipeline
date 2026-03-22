@@ -5,6 +5,36 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #139. auth_logic.hpp is_account_locked 타임존 비교 부정확
+- **등급**: MAJOR | **스코프**: AUTH_SVC | **타입**: BUG
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: C++ 문자열 비교를 SQL `locked_until > NOW()`로 전환. `is_account_locked()` 함수 및 테스트 삭제. refresh_token 만료 체크와 동일 패턴.
+
+### #140. TcpAcceptor bind_address 설정 가능화
+- **등급**: MAJOR | **스코프**: CORE | **타입**: SECURITY
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: ServerConfig.bind_address 추가, TcpAcceptor에서 make_address로 파싱. 기본값 0.0.0.0 유지, 내부 서비스는 127.0.0.1 설정 가능.
+
+### #141. TCP 동시 연결 수 제한 (max_connections)
+- **등급**: MAJOR | **스코프**: CORE | **타입**: SECURITY
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: ServerConfig.max_connections 추가 (0=무제한). Listener에서 active_sessions() 기반 연결 거부. TOCTOU는 허용 가능한 tradeoff (대략적 제한).
+
+### #143. AdapterBase::spawn_adapter_coro() DRAINING 거부 테스트
+- **등급**: MAJOR | **스코프**: SHARED | **타입**: TEST
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: test_adapter_base.cpp에 SpawnRejectsBeforeInit, SpawnRejectsInDrainingState, SpawnRejectsAfterClose 3건 추가.
+
+### #144. Session::state_ TSAN 호환성 — non-atomic cross-thread 접근
+- **등급**: MINOR | **스코프**: CORE | **타입**: DESIGN_DEBT
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: State → std::atomic<State>, memory_order_relaxed 사용. intrusive_ptr_release의 acq_rel이 cross-thread 가시성 보장.
+
+### #145. on_leave_room SISMEMBER+SREM TOCTOU 레이스
+- **등급**: MINOR | **스코프**: CHAT_SVC | **타입**: DESIGN_DEBT
+- **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
+- **비고**: Lua 스크립트 원자화 (join_room 패턴 미러링). SISMEMBER+SREM을 단일 EVAL로 전환.
+
 ### #138. ResponseDispatcher unicast push 배달 경로 부재
 - **등급**: MAJOR | **스코프**: GATEWAY | **타입**: DESIGN_DEBT
 - **해결**: 2026-03-23 01:22:39 | **방식**: FIXED

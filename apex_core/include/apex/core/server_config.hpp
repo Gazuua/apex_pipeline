@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 namespace apex::core
 {
@@ -12,9 +13,10 @@ namespace apex::core
 /// Server configuration. Fields are ordered for designated-initializer convenience.
 struct ServerConfig
 {
-    // Network (bind_address deferred — TcpAcceptor defaults to 0.0.0.0)
+    // Network
     // port 제거 — listen<P>(port, config)으로 대체
-    bool tcp_nodelay = true; // Disable Nagle's algorithm for low-latency
+    std::string bind_address = "0.0.0.0"; // Bind address (e.g., "127.0.0.1" for loopback only)
+    bool tcp_nodelay = true;              // Disable Nagle's algorithm for low-latency
 
     // Multicore
     uint32_t num_cores = 1;
@@ -26,6 +28,9 @@ struct ServerConfig
     size_t recv_buf_capacity = 8192;
     size_t session_max_queue_depth = 256; // Per-session write queue depth limit
     size_t timer_wheel_slots = 1024;
+
+    // Connection limits
+    uint32_t max_connections = 0; // Maximum concurrent connections (0 = unlimited)
 
     // Platform I/O
     bool reuseport = false; // Linux: per-core SO_REUSEPORT, Windows: ignored

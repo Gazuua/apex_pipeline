@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <string_view>
 
 namespace apex::core
 {
@@ -20,10 +21,10 @@ class TcpAcceptor
   public:
     using AcceptCallback = std::function<void(boost::asio::ip::tcp::socket)>;
 
-    /// @param protocol   IPv4/IPv6 selection (default v4, backward compatible).
-    /// @param reuseport  Enable SO_REUSEPORT (Linux only, ignored on Windows).
+    /// @param bind_address  IP address to bind (e.g., "0.0.0.0", "127.0.0.1", "::").
+    /// @param reuseport     Enable SO_REUSEPORT (Linux only, ignored on Windows).
     TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptCallback on_accept,
-                boost::asio::ip::tcp protocol = boost::asio::ip::tcp::v4(), bool reuseport = false);
+                std::string_view bind_address = "0.0.0.0", bool reuseport = false);
     ~TcpAcceptor();
 
     TcpAcceptor(const TcpAcceptor&) = delete;
