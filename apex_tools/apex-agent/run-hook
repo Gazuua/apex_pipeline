@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 # Cross-platform apex-agent launcher for Claude Code hooks.
+# Lookup order: installed binary → local build
 DIR="$(dirname "$0")"
+
+# 1) Installed location (make install / build.bat)
+if [[ -n "$LOCALAPPDATA" && -f "$LOCALAPPDATA/apex-agent/apex-agent.exe" ]]; then
+    exec "$LOCALAPPDATA/apex-agent/apex-agent.exe" "$@"
+fi
+if [[ -f "$HOME/.local/bin/apex-agent" ]]; then
+    exec "$HOME/.local/bin/apex-agent" "$@"
+fi
+
+# 2) Local build fallback
 [[ -f "$DIR/apex-agent.exe" ]] && exec "$DIR/apex-agent.exe" "$@"
 exec "$DIR/apex-agent" "$@"

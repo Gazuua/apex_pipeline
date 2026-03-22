@@ -13,11 +13,11 @@ endif
 
 GOFLAGS := -trimpath -ldflags="-s -w -X main.Version=$(VERSION)"
 
-build:
-	go build $(GOFLAGS) -o $(BINARY)$(EXE) ./cmd/apex-agent
+# build → install 자동 연계. 빌드 후 즉시 설치.
+build: install
 
 test:
-	go test ./... -race -cover -v
+	go test ./... -race -cover -v -count=1 -timeout 120s
 
 lint:
 	go vet ./...
@@ -27,8 +27,8 @@ clean:
 
 install:
 	@mkdir -p $(INSTALL_DIR)
-	go build -ldflags="-X main.Version=$(VERSION)" $(GOFLAGS) -o $(INSTALL_DIR)/apex-agent$(EXE) ./cmd/apex-agent
-	@echo "installed: $(INSTALL_DIR)/apex-agent$(EXE) ($(VERSION))"
+	go build $(GOFLAGS) -o $(INSTALL_DIR)/$(BINARY)$(EXE) ./cmd/apex-agent
+	@echo "installed: $(INSTALL_DIR)/$(BINARY)$(EXE) ($(VERSION))"
 
 # Cross-compile for CI release
 release-windows:

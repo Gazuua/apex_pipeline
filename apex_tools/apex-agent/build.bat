@@ -1,6 +1,7 @@
 @echo off
 REM apex-agent build script — Windows double-click friendly
-REM Usage: build.bat [test|clean|install]
+REM Usage: build.bat [test|clean]
+REM Default (no args): build + install
 
 cd /d "%~dp0"
 
@@ -8,10 +9,11 @@ for /f "delims=" %%v in ('git describe --tags --always --dirty 2^>nul') do set V
 if "%VERSION%"=="" set VERSION=dev
 
 set GOFLAGS=-trimpath -ldflags="-s -w -X main.Version=%VERSION%"
+set INSTALL_DIR=%LOCALAPPDATA%\apex-agent
 
 if "%1"=="test" (
-    echo === Running tests ===
-    go test ./... -race -cover -v
+    echo === Running tests (unit + e2e) ===
+    go test ./... -race -cover -v -count=1 -timeout 120s
     goto :end
 )
 
@@ -21,18 +23,11 @@ if "%1"=="clean" (
     goto :end
 )
 
-if "%1"=="install" (
-    echo === Installing to %LOCALAPPDATA%\apex-agent ===
-    if not exist "%LOCALAPPDATA%\apex-agent" mkdir "%LOCALAPPDATA%\apex-agent"
-    go build %GOFLAGS% -o "%LOCALAPPDATA%\apex-agent\apex-agent.exe" ./cmd/apex-agent
-    echo Installed: %LOCALAPPDATA%\apex-agent\apex-agent.exe [%VERSION%]
-    goto :end
-)
-
-echo === Building apex-agent %VERSION% ===
-go build %GOFLAGS% -o apex-agent.exe ./cmd/apex-agent
+echo === Building + Installing apex-agent %VERSION% ===
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+go build %GOFLAGS% -o "%INSTALL_DIR%\apex-agent.exe" ./cmd/apex-agent
 if %ERRORLEVEL%==0 (
-    echo Build OK: apex-agent.exe [%VERSION%]
+    echo Installed: %INSTALL_DIR%\apex-agent.exe [%VERSION%]
 ) else (
     echo Build FAILED
 )

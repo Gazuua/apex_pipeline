@@ -4,17 +4,18 @@
 
 ```bash
 # Makefile (bash/MSYS — 권장)
-make build        # 로컬 빌드
-make test         # 테스트 (-race -cover)
-make install      # $LOCALAPPDATA/apex-agent/ 에 설치
+make build        # 빌드 + 자동 install
+make test         # 전체 테스트 (단위 + e2e, -race -cover)
+make install      # install만 단독 실행
 
 # Windows 더블클릭
-build.bat         # 빌드
-build.bat test    # 테스트
-build.bat install # 설치
+build.bat         # 빌드 + 자동 install
+build.bat test    # 전체 테스트 (단위 + e2e)
 ```
 
-빌드 산출물: `apex-agent.exe` (Windows) / `apex-agent` (Linux). NTFS에서 두 이름은 같은 파일.
+- `make build` = `make install` — 빌드 후 자동으로 설치 경로에 복사
+- 설치 경로: `$LOCALAPPDATA/apex-agent/` (Windows) / `$HOME/.local/bin/` (Linux)
+- `run-hook`이 설치 경로 바이너리를 우선 사용 → 빌드 후 즉시 hook에 반영
 
 ## 크로스 플랫폼 hook 실행
 
