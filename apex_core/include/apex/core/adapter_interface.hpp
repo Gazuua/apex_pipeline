@@ -4,6 +4,7 @@
 
 #include <apex/core/adapter_state.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -27,6 +28,7 @@ class AdapterInterface
     [[nodiscard]] virtual bool is_ready() const noexcept = 0;
     [[nodiscard]] virtual AdapterState state() const noexcept = 0;
     [[nodiscard]] virtual std::string_view name() const noexcept = 0;
+    [[nodiscard]] virtual uint32_t outstanding_adapter_coros() const noexcept = 0;
 
     /// [D2] Adapter-service 자동 배선. Server가 Phase 3 이후 호출.
     /// 기본 구현은 no-op. KafkaAdapter가 override하여 KafkaDispatchBridge 자동 생성.

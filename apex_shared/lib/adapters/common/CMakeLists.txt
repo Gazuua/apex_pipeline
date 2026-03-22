@@ -3,6 +3,7 @@
 # apex_shared/lib/adapters/common/CMakeLists.txt
 add_library(apex_shared_adapters_common STATIC
     src/adapter_error.cpp
+    src/cancellation_token.cpp
     src/circuit_breaker.cpp
 )
 add_library(apex::shared::adapters::common ALIAS apex_shared_adapters_common)

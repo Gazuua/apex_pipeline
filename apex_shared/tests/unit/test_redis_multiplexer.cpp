@@ -16,7 +16,7 @@ TEST(RedisMultiplexer, ConstructWithConfig)
     RedisConfig config;
     config.host = "localhost";
     config.port = 6379;
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
     EXPECT_FALSE(mux.connected());
 }
 
@@ -25,7 +25,7 @@ TEST(RedisMultiplexer, InitialState)
 {
     boost::asio::io_context io_ctx;
     RedisConfig config;
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
     EXPECT_FALSE(mux.connected());
     EXPECT_EQ(mux.pending_count(), 0u);
     EXPECT_EQ(mux.reconnect_attempts(), 0u);
@@ -37,7 +37,7 @@ TEST(RedisMultiplexer, ReconnectStateTransition)
     boost::asio::io_context io_ctx;
     RedisConfig config;
     config.reconnect_max_backoff = std::chrono::milliseconds{100};
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
     EXPECT_FALSE(mux.connected());
 }
 
@@ -46,7 +46,7 @@ TEST(RedisMultiplexer, CommandWhileDisconnectedReturnsError)
 {
     boost::asio::io_context io_ctx;
     RedisConfig config;
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
     EXPECT_FALSE(mux.connected());
     // command()는 코루틴이므로 직접 호출 불가하지만 connected() false 확인
 }
@@ -56,7 +56,7 @@ TEST(RedisMultiplexer, CloseResetsPendingState)
 {
     boost::asio::io_context io_ctx;
     RedisConfig config;
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
 
     // close()는 코루틴이지만 connected=false 상태에서 즉시 완료됨
     // pending_count가 0인 상태에서 close는 안전
@@ -74,7 +74,7 @@ TEST(RedisMultiplexer, ConstructWithCustomConfig)
     config.command_timeout = std::chrono::milliseconds{5000};
     config.reconnect_max_backoff = std::chrono::milliseconds{500};
 
-    RedisMultiplexer mux(io_ctx, config);
+    RedisMultiplexer mux(io_ctx, config, 0, [](uint32_t, boost::asio::awaitable<void>) {});
     EXPECT_FALSE(mux.connected());
     EXPECT_EQ(mux.pending_count(), 0u);
     EXPECT_EQ(mux.reconnect_attempts(), 0u);

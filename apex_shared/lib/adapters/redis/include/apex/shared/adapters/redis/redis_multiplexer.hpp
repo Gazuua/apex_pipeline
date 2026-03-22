@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/assert.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/slab_allocator.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
@@ -18,6 +19,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -40,7 +42,11 @@ namespace apex::shared::adapters::redis
 class RedisMultiplexer
 {
   public:
-    RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config);
+    /// Callback type for spawning tracked coroutines via AdapterBase.
+    using SpawnCallback = std::function<void(uint32_t, boost::asio::awaitable<void>)>;
+
+    RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config, uint32_t core_id,
+                     SpawnCallback spawn_cb);
     ~RedisMultiplexer();
 
     // Non-copyable, non-movable
@@ -96,7 +102,7 @@ class RedisMultiplexer
     /// If password is configured, schedules AUTH after the event loop starts.
     void connect();
 
-    /// Whether the underlying connection is established and not reconnecting.
+    /// Whether the underlying connection is established.
     [[nodiscard]] bool connected() const noexcept;
 
     /// Number of commands awaiting reply.
@@ -105,12 +111,11 @@ class RedisMultiplexer
     /// Number of reconnection attempts since last successful connect.
     [[nodiscard]] uint32_t reconnect_attempts() const noexcept;
 
-    /// Graceful close — cancel all pending commands with AdapterError.
-    boost::asio::awaitable<void> close();
+    /// Synchronous close — cancel all pending commands with AdapterError.
+    void close();
 
   private:
     /// Authenticate connection via AUTH command.
-    /// Uses raw_async_command to bypass reconnecting_ guard.
     boost::asio::awaitable<apex::core::Result<void>> authenticate(RedisConnection& conn);
 
     struct PendingCommand
@@ -136,8 +141,6 @@ class RedisMultiplexer
     void cancel_all_pending(apex::core::ErrorCode error);
 
     /// Submit an already-formatted Redis protocol command and await reply.
-    /// Used by both the deprecated command(string_view) and the new
-    /// parameterized command(fmt, args...) overload.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>> submit_formatted_command(const char* cmd,
                                                                                                   int len);
 
@@ -150,9 +153,11 @@ class RedisMultiplexer
     apex::core::TypedSlabAllocator<PendingCommand> slab_;
     std::unique_ptr<RedisConnection> conn_;
     uint64_t next_sequence_{0};
-    bool reconnecting_{false};
     boost::asio::steady_timer backoff_timer_;
     uint32_t reconnect_attempts_{0};
+    uint32_t core_id_{0};
+    SpawnCallback spawn_callback_;
+    bool reconnect_active_{false};
 };
 
 } // namespace apex::shared::adapters::redis

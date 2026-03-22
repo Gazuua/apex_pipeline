@@ -87,7 +87,6 @@ class PgAdapter : public AdapterBase<PgAdapter>
     PgAdapterConfig config_;
     /// pools_[core_id] = per-core PgPool
     std::vector<std::unique_ptr<PgPool>> pools_;
-    apex::core::CoreEngine* engine_ = nullptr;
 };
 
 } // namespace apex::shared::adapters::pg
