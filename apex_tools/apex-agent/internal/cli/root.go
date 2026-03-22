@@ -23,6 +23,7 @@ func Execute() {
 	root.AddCommand(daemonCmd())
 	root.AddCommand(versionCmd())
 	root.AddCommand(hookCmd())
+	root.AddCommand(backlogCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

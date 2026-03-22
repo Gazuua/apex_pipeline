@@ -54,6 +54,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("resolve", m.handleResolve)
 	reg.Handle("check", m.handleCheck)
 	reg.Handle("next-id", m.handleNextID)
+	reg.Handle("export", m.handleExport)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -134,4 +135,12 @@ func (m *Module) handleNextID(_ context.Context, _ json.RawMessage, _ string) (a
 		return nil, err
 	}
 	return map[string]int{"id": id}, nil
+}
+
+func (m *Module) handleExport(_ context.Context, _ json.RawMessage, _ string) (any, error) {
+	content, err := m.manager.Export()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]string{"content": content}, nil
 }

@@ -51,6 +51,9 @@ func (d *Daemon) Register(m Module) {
 	d.modules = append(d.modules, m)
 }
 
+// Store returns the daemon's underlying data store.
+func (d *Daemon) Store() *store.Store { return d.store }
+
 func (d *Daemon) Run(ctx context.Context) error {
 	// 1. Write PID file.
 	if err := d.writePID(); err != nil {
