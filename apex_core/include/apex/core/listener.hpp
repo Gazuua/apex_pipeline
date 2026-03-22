@@ -124,6 +124,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         started_.store(true, std::memory_order_release);
     }
 
+    /// Graceful wind-down: 새 연결 수락 중단.
+    /// 기존 세션은 자연 종료 대기 (Server의 coroutine drain이 담당).
     void drain() override
     {
         if (!started_.load(std::memory_order_acquire))
@@ -132,6 +134,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
             acc->stop();
     }
 
+    /// Immediate shutdown: 새 연결 수락 중단.
+    /// 세션 강제 종료는 Server::finalize_shutdown()이 SessionManager를 통해 수행.
     void stop() override
     {
         if (!started_.load(std::memory_order_acquire))

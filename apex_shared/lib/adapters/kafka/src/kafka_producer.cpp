@@ -58,6 +58,29 @@ apex::core::Result<void> KafkaProducer::init()
     conf_set("compression.type", config_.compression_type.c_str());
     conf_set("queue.buffering.max.messages", std::to_string(config_.queue_buffering_max_messages).c_str());
 
+    // Security settings (only apply non-empty values)
+    const auto& sec = config_.security;
+    if (sec.protocol != "PLAINTEXT")
+        conf_set("security.protocol", sec.protocol.c_str());
+    if (!sec.ssl_ca_location.empty())
+        conf_set("ssl.ca.location", sec.ssl_ca_location.c_str());
+    if (!sec.ssl_cert_location.empty())
+        conf_set("ssl.certificate.location", sec.ssl_cert_location.c_str());
+    if (!sec.ssl_key_location.empty())
+        conf_set("ssl.key.location", sec.ssl_key_location.c_str());
+    if (!sec.sasl_mechanism.empty())
+        conf_set("sasl.mechanism", sec.sasl_mechanism.c_str());
+    if (!sec.sasl_username.empty())
+        conf_set("sasl.username", sec.sasl_username.c_str());
+    if (!sec.sasl_password.empty())
+        conf_set("sasl.password", sec.sasl_password.c_str());
+
+    // Extra properties (pass-through)
+    for (const auto& [key, val] : config_.extra_properties)
+    {
+        conf_set(key.c_str(), val.c_str());
+    }
+
     // Delivery report callback
     rd_kafka_conf_set_dr_msg_cb(conf, &KafkaProducer::delivery_report_cb);
     rd_kafka_conf_set_opaque(conf, this);

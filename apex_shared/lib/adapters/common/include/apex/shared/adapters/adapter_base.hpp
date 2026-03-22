@@ -8,12 +8,22 @@
 #include <apex/shared/adapters/adapter_error.hpp>
 
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <vector>
 
 namespace apex::shared::adapters
 {
+
+/// 어댑터 라이프사이클 상태.
+/// CLOSED → RUNNING (init 후) → DRAINING (drain 후) → CLOSED (close 후).
+enum class AdapterState : uint8_t
+{
+    RUNNING,  ///< 초기화 완료, 요청 수락 중
+    DRAINING, ///< 새 요청 거부, 진행 중 요청은 허용
+    CLOSED    ///< 리소스 해제 완료
+};
 
 /// 모든 어댑터의 공통 라이프사이클을 관리하는 CRTP 기본 클래스.
 ///
@@ -41,19 +51,20 @@ template <typename Derived> class AdapterBase
     void init(apex::core::CoreEngine& engine)
     {
         static_cast<Derived*>(this)->do_init(engine);
-        ready_.store(true, std::memory_order_release);
+        state_.store(AdapterState::RUNNING, std::memory_order_release);
     }
 
     /// 새 요청 거부 시그널. 진행 중 요청은 허용.
     void drain()
     {
-        ready_.store(false, std::memory_order_release);
+        state_.store(AdapterState::DRAINING, std::memory_order_release);
         static_cast<Derived*>(this)->do_drain();
     }
 
     /// 리소스 정리. flush + 커넥션 해제.
     void close()
     {
+        state_.store(AdapterState::CLOSED, std::memory_order_release);
         static_cast<Derived*>(this)->do_close();
     }
 
@@ -61,10 +72,16 @@ template <typename Derived> class AdapterBase
     /// KafkaAdapter 등이 override하여 서비스 핸들러를 자동 감지.
     void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&, apex::core::CoreEngine&) {}
 
-    /// init 완료 + drain 안 됨
+    /// init 완료 + drain/close 안 됨
     [[nodiscard]] bool is_ready() const noexcept
     {
-        return ready_.load(std::memory_order_acquire);
+        return state_.load(std::memory_order_acquire) == AdapterState::RUNNING;
+    }
+
+    /// 현재 라이프사이클 상태
+    [[nodiscard]] AdapterState state() const noexcept
+    {
+        return state_.load(std::memory_order_acquire);
     }
 
     /// 어댑터 이름
@@ -74,7 +91,7 @@ template <typename Derived> class AdapterBase
     }
 
   private:
-    std::atomic<bool> ready_{false};
+    std::atomic<AdapterState> state_{AdapterState::CLOSED};
 };
 
 /// AdapterBase<Derived>를 AdapterInterface(apex_core)로 감싸는 래퍼.

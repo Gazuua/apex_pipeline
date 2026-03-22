@@ -52,7 +52,7 @@
 - **스코프**: shared
 - **타입**: design-debt
 - **연관**: #24, #29, #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경, RedisAdapter가 `co_await RedisMultiplexer::close()` 호출. 전체 어댑터 인터페이스 변경. #24 3-state enum + #29 drain/stop 분리와 번들 필수.
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경. **[FSD 분석 2026-03-22]** A안 구현 시도 중 추가 설계 결정 필요 발견: ① Server::finalize_shutdown()에서 adapter->close()는 core threads 정지 후 호출 — awaitable 실행에 필요한 io_context가 이미 정지됨. ② 종료 순서 변경(adapter close → core stop) 시 기존 안전성 보장 "pending handlers may reference adapter resources" 검증 필요. ③ per-core RedisMultiplexer를 각자의 io_context에서 close하는 cross-io_context 조정 문제. Server shutdown 시퀀스 재설계 후 재시도.
 
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR

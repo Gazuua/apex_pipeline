@@ -24,6 +24,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../cmake/ApexWarnings.cmake)
 
 # --- Dependencies ---
 find_package(Boost REQUIRED)  # asio, unordered (header-only)
+find_package(OpenSSL REQUIRED)  # TransportContext uses ssl::context*
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(tomlplusplus CONFIG REQUIRED)
@@ -90,6 +91,8 @@ target_include_directories(apex_core
 target_link_libraries(apex_core
     PUBLIC
         Boost::boost
+        OpenSSL::SSL
+        OpenSSL::Crypto
         flatbuffers::flatbuffers
         spdlog::spdlog
         tomlplusplus::tomlplusplus

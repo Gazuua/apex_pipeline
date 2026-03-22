@@ -12,6 +12,7 @@
     "benchmark",
     "boost-unordered",
     "flatbuffers",
+    "openssl",
     {
       "name": "gtest"
     },

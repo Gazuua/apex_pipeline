@@ -87,7 +87,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine)
 
 void KafkaAdapter::do_drain()
 {
-    state_.store(AdapterState::DRAINING, std::memory_order_release);
+    // AdapterBase가 state를 DRAINING으로 설정한 후 호출됨.
     // Stop Consumer consumption
     for (auto& consumer : consumers_)
     {
@@ -98,7 +98,7 @@ void KafkaAdapter::do_drain()
 
 void KafkaAdapter::do_close()
 {
-    state_.store(AdapterState::CLOSED, std::memory_order_release);
+    // AdapterBase가 state를 CLOSED로 설정한 후 호출됨.
     // Stop Producer poll timer
     if (producer_poll_timer_)
     {
@@ -133,7 +133,7 @@ void KafkaAdapter::do_close()
 apex::core::Result<void> KafkaAdapter::produce(std::string_view topic, std::string_view key,
                                                std::span<const uint8_t> payload)
 {
-    if (!is_running())
+    if (!is_ready())
     {
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
@@ -142,7 +142,7 @@ apex::core::Result<void> KafkaAdapter::produce(std::string_view topic, std::stri
 
 apex::core::Result<void> KafkaAdapter::produce(std::string_view topic, std::string_view key, std::string_view payload)
 {
-    if (!is_running())
+    if (!is_ready())
     {
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
@@ -221,7 +221,7 @@ void KafkaAdapter::start_producer_poll_timer(boost::asio::io_context& io_ctx)
 
 void KafkaAdapter::on_producer_poll_tick()
 {
-    if (!producer_poll_timer_ || !is_running())
+    if (!producer_poll_timer_ || !is_ready())
         return;
 
     // Process delivery callbacks
