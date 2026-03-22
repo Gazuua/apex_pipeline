@@ -2,16 +2,16 @@
 
 #pragma once
 
+#include <apex/core/error_code.hpp>
+#include <apex/core/error_sender.hpp>
 #include <apex/core/result.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_error.hpp>
-#include <apex/gateway/jwt_blacklist.hpp>
-#include <apex/gateway/jwt_verifier.hpp>
-#include <apex/shared/rate_limit/rate_limit_facade.hpp>
 
 #include <boost/asio/awaitable.hpp>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
@@ -30,69 +30,251 @@ struct AuthState
     std::string token; // JWT token (set by handshake/login response handler)
 };
 
-/// Gateway request pipeline.
+/// Gateway request pipeline (template policy pattern).
+///
+/// Template parameters allow compile-time dependency injection:
+///   - VerifierT: JWT verifier — verify(token) → Result<JwtClaims>, is_sensitive(msg_id) → bool
+///   - BlacklistT: JWT blacklist — is_blacklisted(jti) → awaitable<Result<bool>>
+///   - LimiterT: Rate limit facade — check_ip/check_user/check_endpoint
+///
+/// Production uses concrete types (zero-cost, inline). Tests use mock types.
+///
 /// Processing order:
 ///   [Per-IP rate limit] -> JWT verification -> [Redis blacklist]
 ///   -> [Per-User rate limit] -> [Per-Endpoint rate limit] -> routing
-class GatewayPipeline
+template <typename VerifierT, typename BlacklistT, typename LimiterT> class GatewayPipelineBase
 {
   public:
     /// @param config Gateway configuration (auth exempt list, etc.).
     /// @param jwt_verifier JWT signature verifier.
     /// @param blacklist JWT blacklist checker (nullable -- no Redis connection).
     /// @param rate_limiter 3-layer rate limit facade (nullable -- rate limiting disabled).
-    GatewayPipeline(const GatewayConfig& config, const JwtVerifier& jwt_verifier, JwtBlacklist* blacklist,
-                    apex::shared::rate_limit::RateLimitFacade* rate_limiter = nullptr);
+    GatewayPipelineBase(const GatewayConfig& config, const VerifierT& jwt_verifier, BlacklistT* blacklist,
+                        LimiterT* rate_limiter = nullptr)
+        : config_(config)
+        , jwt_verifier_(jwt_verifier)
+        , blacklist_(blacklist)
+        , rate_limiter_(rate_limiter)
+    {}
 
     /// Full pipeline check for a request.
-    /// Runs rate limiting (Per-IP, Per-User, Per-Endpoint) and authentication.
-    /// On failure, sends error frame directly to client and returns ServiceError.
-    /// Caller should return ok() when this returns error (error frame already sent).
-    /// @param session Request session.
-    /// @param header Client WireHeader.
-    /// @param state Per-session auth state (modified on successful auth).
-    /// @param remote_ip Client IP address string (caller resolves from socket).
-    /// @return Ok if request should proceed, ServiceError if denied (frame already sent).
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> process(apex::core::SessionPtr session,
                                                                            const apex::core::WireHeader& header,
-                                                                           AuthState& state,
-                                                                           std::string_view remote_ip);
+                                                                           AuthState& state, std::string_view remote_ip)
+    {
+        spdlog::debug("pipeline::process (session={}, msg_id=0x{:04X})", session->id(), header.msg_id);
+
+        auto send_error = [&](GatewayError gw_err) {
+            auto frame = apex::core::ErrorSender::build_error_frame(header.msg_id, apex::core::ErrorCode::ServiceError,
+                                                                    "", static_cast<uint16_t>(gw_err));
+            (void)session->enqueue_write(std::move(frame));
+        };
+
+        // Layer 1: Per-IP rate limit (local memory, no I/O)
+        auto ip_result = check_ip_rate_limit(remote_ip);
+        if (!ip_result)
+        {
+            spdlog::debug("pipeline::process denied at IP rate-limit (session={}, msg_id=0x{:04X}, ip={})",
+                          session->id(), header.msg_id, remote_ip);
+            send_error(ip_result.error());
+            co_return apex::core::error(apex::core::ErrorCode::ServiceError);
+        }
+
+        // JWT authentication
+        auto auth_result = co_await authenticate(session, header, state);
+        if (!auth_result)
+        {
+            spdlog::debug("pipeline::process denied at authentication (session={}, msg_id=0x{:04X})", session->id(),
+                          header.msg_id);
+            send_error(auth_result.error());
+            co_return apex::core::error(apex::core::ErrorCode::ServiceError);
+        }
+
+        // Layer 2 + 3: Per-User + Per-Endpoint rate limit (Redis) -- only for authenticated users
+        if (state.authenticated)
+        {
+            auto user_result = co_await check_user_rate_limit(state.user_id);
+            if (!user_result)
+            {
+                spdlog::debug("pipeline::process denied at user rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
+                              session->id(), header.msg_id, state.user_id);
+                send_error(user_result.error());
+                co_return apex::core::error(apex::core::ErrorCode::ServiceError);
+            }
+
+            auto ep_result = co_await check_endpoint_rate_limit(state.user_id, header.msg_id);
+            if (!ep_result)
+            {
+                spdlog::debug(
+                    "pipeline::process denied at endpoint rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
+                    session->id(), header.msg_id, state.user_id);
+                send_error(ep_result.error());
+                co_return apex::core::error(apex::core::ErrorCode::ServiceError);
+            }
+        }
+
+        co_return apex::core::ok();
+    }
 
     /// Authentication check only (called for every message).
-    /// Login requests (system msg_id range) skip authentication.
     [[nodiscard]] boost::asio::awaitable<GatewayResult>
-    authenticate(apex::core::SessionPtr session, const apex::core::WireHeader& header, AuthState& state);
+    authenticate(apex::core::SessionPtr /*session*/, const apex::core::WireHeader& header, AuthState& state)
+    {
+        // 1. Config-based whitelist: skip auth for exempt msg_ids (deny-by-default)
+        if (config_.auth.auth_exempt_msg_ids.contains(header.msg_id))
+        {
+            co_return GatewayResult{};
+        }
+
+        // 2. Token must be present (set by handshake/login response handler)
+        if (state.token.empty())
+        {
+            spdlog::debug("authenticate: no JWT token for msg_id={}", header.msg_id);
+            co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
+        }
+
+        // 3. JWT signature + expiry verification (local, zero network cost)
+        auto claims_result = jwt_verifier_.verify(state.token);
+        if (!claims_result)
+        {
+            spdlog::debug("authenticate: JWT verify failed for msg_id={}, error={}", header.msg_id,
+                          static_cast<uint16_t>(claims_result.error()));
+            co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
+        }
+
+        // 4. Blacklist check for sensitive msg_ids (Redis, cold path)
+        if (blacklist_ && jwt_verifier_.is_sensitive(header.msg_id))
+        {
+            auto bl_result = co_await blacklist_->is_blacklisted(claims_result->jti);
+            if (bl_result && *bl_result)
+            {
+                spdlog::info("authenticate: blacklisted JWT jti={} for msg_id={}", claims_result->jti, header.msg_id);
+                co_return GatewayResult{std::unexpected(GatewayError::JwtBlacklisted)};
+            }
+            if (!bl_result)
+            {
+                if (config_.auth.blacklist_fail_open)
+                {
+                    spdlog::warn("authenticate: blacklist check failed (Redis error), allowing jti={}",
+                                 claims_result->jti);
+                }
+                else
+                {
+                    spdlog::warn("authenticate: blacklist check failed (Redis error), rejecting jti={}",
+                                 claims_result->jti);
+                    co_return GatewayResult{std::unexpected(GatewayError::BlacklistCheckFailed)};
+                }
+            }
+        }
+
+        // 5. Authentication successful — update per-session state
+        state.authenticated = true;
+        state.user_id = claims_result->user_id;
+        state.jti = claims_result->jti;
+
+        co_return GatewayResult{};
+    }
 
     /// Per-IP rate limit check (Layer 1, local memory, no I/O).
-    /// Called before JWT verification.
-    /// @param remote_ip Client IP address.
-    /// @return Ok if allowed, GatewayError::RateLimitedIp if denied.
-    [[nodiscard]] GatewayResult check_ip_rate_limit(std::string_view remote_ip);
+    [[nodiscard]] GatewayResult check_ip_rate_limit(std::string_view remote_ip)
+    {
+        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+        if (!limiter)
+        {
+            return {};
+        }
+
+        auto now = std::chrono::steady_clock::now();
+        if (!limiter->check_ip(remote_ip, now))
+        {
+            spdlog::debug("Per-IP rate limit exceeded: {}", remote_ip);
+            return std::unexpected(GatewayError::RateLimitedIp);
+        }
+
+        return {};
+    }
 
     /// Per-User rate limit check (Layer 2, Redis).
-    /// Called after JWT verification.
-    /// @param user_id Authenticated user ID.
-    /// @return Ok if allowed, GatewayError::RateLimitedUser if denied.
-    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_user_rate_limit(uint64_t user_id);
+    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_user_rate_limit(uint64_t user_id)
+    {
+        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+        if (!limiter)
+        {
+            co_return GatewayResult{};
+        }
+
+        auto result = co_await limiter->check_user(user_id, now_ms());
+        if (!result)
+        {
+            spdlog::warn("Per-User rate limit check failed (Redis error), allowing: user_id={}", user_id);
+            co_return GatewayResult{};
+        }
+
+        if (!result->allowed)
+        {
+            spdlog::debug("Per-User rate limit exceeded: user_id={}, retry_after={}ms", user_id,
+                          result->retry_after_ms);
+            co_return GatewayResult{std::unexpected(GatewayError::RateLimitedUser)};
+        }
+
+        co_return GatewayResult{};
+    }
 
     /// Per-Endpoint rate limit check (Layer 3, Redis).
-    /// Called before msg_id routing.
-    /// @param user_id Authenticated user ID.
-    /// @param msg_id Message type ID.
-    /// @return Ok if allowed, GatewayError::RateLimitedEndpoint if denied.
-    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id);
+    [[nodiscard]] boost::asio::awaitable<GatewayResult> check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id)
+    {
+        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
+        if (!limiter)
+        {
+            co_return GatewayResult{};
+        }
+
+        auto result = co_await limiter->check_endpoint(user_id, msg_id, now_ms());
+        if (!result)
+        {
+            spdlog::warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
+                         "user_id={}, msg_id={}",
+                         user_id, msg_id);
+            co_return GatewayResult{};
+        }
+
+        if (!result->allowed)
+        {
+            spdlog::debug("Per-Endpoint rate limit exceeded: user_id={}, msg_id={}, "
+                          "retry_after={}ms",
+                          user_id, msg_id, result->retry_after_ms);
+            co_return GatewayResult{std::unexpected(GatewayError::RateLimitedEndpoint)};
+        }
+
+        co_return GatewayResult{};
+    }
 
     /// Update rate limiter reference (for hot-reload / lazy init).
-    void set_rate_limiter(apex::shared::rate_limit::RateLimitFacade* limiter) noexcept;
+    void set_rate_limiter(LimiterT* limiter) noexcept
+    {
+        rate_limiter_.store(limiter, std::memory_order_release);
+    }
 
   private:
-    /// Get current epoch milliseconds.
-    [[nodiscard]] static uint64_t now_ms() noexcept;
+    [[nodiscard]] static uint64_t now_ms() noexcept
+    {
+        return static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+                .count());
+    }
 
     const GatewayConfig& config_;
-    const JwtVerifier& jwt_verifier_;
-    JwtBlacklist* blacklist_;
-    std::atomic<apex::shared::rate_limit::RateLimitFacade*> rate_limiter_;
+    const VerifierT& jwt_verifier_;
+    BlacklistT* blacklist_;
+    std::atomic<LimiterT*> rate_limiter_;
 };
 
 } // namespace apex::gateway
+
+// --- Production type alias ---
+// 프로덕션 코드는 이 헤더 대신 gateway_pipeline_production.hpp를 include하여
+// GatewayPipeline using alias를 사용한다.
+// 테스트 코드는 이 헤더만 include하고 mock 타입으로 GatewayPipelineBase를 직접 인스턴스화한다.
+//
+// gateway_pipeline.hpp          = template class만 (mock 테스트용)
+// gateway_pipeline_production.hpp = template + concrete includes + using alias (프로덕션용)

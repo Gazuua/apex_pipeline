@@ -26,7 +26,7 @@
 - **스코프**: shared
 - **타입**: design-debt
 - **연관**: #24, #29, #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** ~~A안: do_close() → awaitable~~ → **B안 확정: shutdown 시퀀스 재배치**. `finalize_shutdown()` 순서를 `outstanding_coros_ == 0` 대기 → `adapter->close()` (async, per-core io_context에서 co_spawn) → `core_engine->stop()` + `join()`으로 변경. adapter cleanup은 "quiesce(정지 준비)" 단계이며 io_context가 살아있어야 한다 (Boost.Asio: `stop()` 후 pending handler는 재개 없이 파괴됨). 안전성 근거: drain 단계에서 새 요청 거부 + outstanding_coros_ 폴링 0 확인 → close 시점에 adapter 자원 참조 handler 없음. **구현 시 필수**: `finalize_shutdown()` 각 단계에 불변조건(invariant) 주석 보강 — shutdown 순서가 의도적 설계 결정임을 명시하여 향후 임의 변경 방지.
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** ~~A안: do_close() → awaitable~~ → ~~B안: shutdown 시퀀스 재배치~~ → **[FSD 분석 2026-03-22]** B안 구현 시도 중 UAF 위험 발견: 단순 재배치(close → stop)하면 io_context가 살아있는 동안 detached 코루틴(reconnect_loop, AUTH)이 파괴된 multiplexer 멤버에 접근 가능. 현재 순서(stop → close)가 오히려 안전 — io_context 정지 후 코루틴이 재개 없이 파괴됨(Boost.Asio ~io_context). **올바른 해결 방향**: ① do_drain()에서 detached 코루틴을 cancellation_signal로 명시적 취소 ② outstanding 카운터에 어댑터 내부 코루틴도 포함 ③ drain 완료 확인 후 재배치 가능. cancellation 인프라 구축이 선행 필요.
 
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
