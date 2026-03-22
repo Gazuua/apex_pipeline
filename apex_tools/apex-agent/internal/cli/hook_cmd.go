@@ -33,6 +33,7 @@ func hookValidateBuildCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // parse error → allow (don't block on malformed input)
 			}
 			if err := hook.ValidateBuild(command); err != nil {
@@ -51,6 +52,7 @@ func hookValidateMergeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // parse error → allow
 			}
 			if !strings.Contains(command, "gh pr merge") {
@@ -89,6 +91,7 @@ func hookEnforceRebaseCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil
 			}
 			// Determine project root from cwd

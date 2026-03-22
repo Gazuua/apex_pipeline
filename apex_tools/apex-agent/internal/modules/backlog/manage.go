@@ -106,7 +106,10 @@ func (m *Manager) Add(item *BacklogItem) error {
 		if err != nil {
 			return fmt.Errorf("Add: %w", err)
 		}
-		id, _ := result.LastInsertId()
+		id, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("Add: LastInsertId: %w", err)
+		}
 		item.ID = int(id)
 	} else {
 		_, err := m.store.Exec(`
@@ -274,19 +277,33 @@ func (m *Manager) SetStatus(id int, status string) error {
 
 // SetStatusWith updates the status of a backlog item using the provided store
 // (which may be a transaction-bound copy from RunInTx).
+// FIXING 전이 시 이미 FIXING인 항목은 DB 레벨에서 차단 (rows affected=0).
 func (m *Manager) SetStatusWith(txs *store.Store, id int, status string) error {
 	if err := ValidateStatus(status); err != nil {
 		return err
 	}
-	result, err := txs.Exec(`
-		UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
-		status, id,
-	)
+
+	query := `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`
+	args := []any{status, id}
+
+	// FIXING 전이 시 이미 FIXING인 항목을 DB 레벨에서 방어
+	if status == StatusFixing {
+		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status != ?`
+		args = append(args, StatusFixing)
+	}
+
+	result, err := txs.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("SetStatus: %w", err)
 	}
-	n, _ := result.RowsAffected()
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("SetStatus RowsAffected: %w", err)
+	}
 	if n == 0 {
+		if status == StatusFixing {
+			return fmt.Errorf("SetStatus: item %d not found or already FIXING", id)
+		}
 		return fmt.Errorf("SetStatus: item %d not found", id)
 	}
 	ml.Info("status changed", "id", id, "status", status)
@@ -320,7 +337,9 @@ func (m *Manager) Release(id int, reason, branch string) error {
 		return fmt.Errorf("Release: %w", err)
 	}
 
-	// Remove from branch_backlogs (cross-table, same DB)
+	// Cross-table 접근: branch_backlogs는 handoff 모듈 소유 테이블이지만,
+	// release 시 해당 백로그의 브랜치 연결을 해제해야 함. 같은 SQLite DB 내
+	// 테이블이라 물리적 경계가 없고, 인터페이스 추가 비용 대비 ROI가 낮아 직접 접근 유지.
 	if _, delErr := m.store.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id); delErr != nil {
 		ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
 	}

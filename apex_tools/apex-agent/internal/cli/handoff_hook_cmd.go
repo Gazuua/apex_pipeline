@@ -26,6 +26,7 @@ func hookValidateHandoffCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, cwd, err := readHookInput()
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // malformed input → allow
 			}
 			if command == "" {
@@ -99,6 +100,7 @@ func hookHandoffProbeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, cwd, err := readHandoffProbeInput()
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // malformed input → allow
 			}
 

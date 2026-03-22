@@ -31,7 +31,9 @@ func EnforceRebase(command, projectRoot string) (string, error) {
 	}
 
 	// Fetch origin main
-	exec.Command("git", "-C", projectRoot, "fetch", "origin", "main", "--quiet").Run() //nolint:errcheck
+	if err := exec.Command("git", "-C", projectRoot, "fetch", "origin", "main", "--quiet").Run(); err != nil {
+		ml.Warn("git fetch failed, using stale origin/main", "err", err)
+	}
 
 	// Check how far behind
 	out, err := exec.Command("git", "-C", projectRoot, "rev-list", "--count", "HEAD..origin/main").Output()

@@ -3,6 +3,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"sort"
 )
@@ -58,14 +59,19 @@ func (m *Migrator) Migrate() error {
 			continue
 		}
 
-		if err := mig.fn(m.store); err != nil {
-			return fmt.Errorf("migrate %s v%d: %w", mig.module, mig.version, err)
-		}
-
-		if _, err := m.store.Exec(
-			"INSERT INTO _migrations (module, version) VALUES (?, ?)",
-			mig.module, mig.version,
-		); err != nil {
+		// 각 마이그레이션을 트랜잭션으로 감싸서 원자적으로 실행
+		if err := m.store.RunInTx(context.Background(), func(txs *Store) error {
+			if err := mig.fn(txs); err != nil {
+				return fmt.Errorf("migrate %s v%d: %w", mig.module, mig.version, err)
+			}
+			if _, err := txs.Exec(
+				"INSERT INTO _migrations (module, version) VALUES (?, ?)",
+				mig.module, mig.version,
+			); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
 	}

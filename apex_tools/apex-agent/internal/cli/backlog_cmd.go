@@ -52,13 +52,13 @@ func backlogAddCmd() *cobra.Command {
 		Short: "백로그 항목 추가",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params := map[string]any{
-				"Title":       title,
-				"Severity":    severity,
-				"Timeframe":   timeframe,
-				"Scope":       scope,
-				"Type":        itemType,
-				"Description": description,
-				"Related":     related,
+				"title":       title,
+				"severity":    severity,
+				"timeframe":   timeframe,
+				"scope":       scope,
+				"type":        itemType,
+				"description": description,
+				"related":     related,
 			}
 			resp, err := sendBacklogRequest("add", params)
 			if err != nil {
@@ -110,9 +110,9 @@ func backlogListCmd() *cobra.Command {
 		Short: "백로그 목록 조회",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params := map[string]any{
-				"Timeframe": timeframe,
-				"Severity":  severity,
-				"Status":    status,
+				"timeframe": timeframe,
+				"severity":  severity,
+				"status":    status,
 			}
 			resp, err := sendBacklogRequest("list", params)
 			if err != nil {
@@ -209,7 +209,7 @@ func openBacklogStore() (*store.Store, *backlog.Manager, func(), error) {
 		s.Close()
 		return nil, nil, nil, fmt.Errorf("migrate: %w", err)
 	}
-	return s, backlog.NewManager(s), func() { s.Close() }, nil
+	return s, mod.Manager(), func() { s.Close() }, nil
 }
 
 // ── backlog export ──

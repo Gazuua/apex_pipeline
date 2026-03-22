@@ -112,6 +112,9 @@ func (e *TestEnv) Stop() {
 func (e *TestEnv) Restart(t *testing.T) {
 	t.Helper()
 
+	// Unix 소켓 파일 잔여 제거 (Linux에서 flaky 방지)
+	os.Remove(e.SocketAddr)
+
 	cfg := daemon.Config{
 		DBPath:      e.DBPath,
 		PIDFilePath: filepath.Join(e.Dir, "test.pid"),

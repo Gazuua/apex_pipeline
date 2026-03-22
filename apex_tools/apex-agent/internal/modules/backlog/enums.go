@@ -140,7 +140,7 @@ func ValidateScope(s string) error {
 	for _, part := range strings.Split(s, ",") {
 		token := strings.TrimSpace(part)
 		if token == "" {
-			continue
+			return fmt.Errorf("empty scope token in %q", s)
 		}
 		if !validScopes[token] {
 			return fmt.Errorf("invalid scope %q: must be CORE|SHARED|GATEWAY|AUTH_SVC|CHAT_SVC|INFRA|CI|DOCS|TOOLS", token)

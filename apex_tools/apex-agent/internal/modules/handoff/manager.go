@@ -74,7 +74,9 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 		status = StatusImplementing
 	}
 
-	// FIXING 중복 체크 (트랜잭션 전에 수행 — Check는 읽기 전용)
+	// FIXING 중복 체크 (early reject — 읽기 전용).
+	// 최종 방어는 SetStatusWith의 DB 레벨 조건(AND status != 'FIXING')에서
+	// 트랜잭션 내 원자적으로 수행되므로 TOCTOU 안전.
 	if m.backlogManager != nil {
 		for _, bid := range backlogIDs {
 			if bid == 0 {

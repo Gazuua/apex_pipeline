@@ -39,10 +39,13 @@ func DBPath() string { return filepath.Join(DataDir(), dbName) }
 func PIDFilePath() string { return filepath.Join(DataDir(), pidName) }
 
 // SocketPath returns the platform-specific IPC socket address.
-// Windows: Named Pipe, Unix: Unix domain socket in temp directory.
+// Windows: Named Pipe, Unix: Unix domain socket in XDG_RUNTIME_DIR (preferred) or /tmp.
 func SocketPath() string {
 	if runtime.GOOS == "windows" {
 		return pipeName
+	}
+	if xdg := os.Getenv("XDG_RUNTIME_DIR"); xdg != "" {
+		return filepath.Join(xdg, socketName)
 	}
 	return filepath.Join(os.TempDir(), socketName)
 }

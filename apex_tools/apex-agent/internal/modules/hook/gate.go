@@ -44,10 +44,10 @@ func ValidateBuild(command string) error {
 	}
 
 	// Allow Go toolchain commands (not C++ build tools).
-	if strings.Contains(command, "go build") ||
-		strings.Contains(command, "go test") ||
-		strings.Contains(command, "go run") ||
-		strings.Contains(command, "go install") {
+	// NOTE: strings.Contains 방식은 체인 명령(&&, ||, ;)에서 우회 가능하나,
+	// hook 컨텍스트에서 오탐 위험이 극히 낮으므로 허용.
+	// first-token 보조 체크로 "go" 단독 실행도 허용.
+	if hasGoToolCommand(command) {
 		return nil
 	}
 
@@ -68,6 +68,23 @@ func ValidateBuild(command string) error {
 	}
 
 	return nil
+}
+
+// hasGoToolCommand checks if the command contains a Go toolchain invocation.
+// Uses both strings.Contains (for chained commands) and first-token matching.
+func hasGoToolCommand(command string) bool {
+	goSubCommands := []string{"go build", "go test", "go run", "go install"}
+	for _, sub := range goSubCommands {
+		if strings.Contains(command, sub) {
+			return true
+		}
+	}
+	// first-token check: 명령의 첫 토큰이 "go"이면 허용
+	firstToken := strings.Fields(strings.TrimSpace(command))
+	if len(firstToken) > 0 && firstToken[0] == "go" {
+		return true
+	}
+	return false
 }
 
 // ValidateMerge is now handled by CLI layer via daemon IPC (hook_cmd.go).

@@ -76,7 +76,7 @@ func Defaults() *Config {
 			PollInterval: 1 * time.Second,
 		},
 		Log: LogConfig{
-			Level:      "debug",
+			Level:      "info",
 			File:       "apex-agent.log",
 			MaxSizeMB:  50,
 			MaxBackups: 3,
@@ -149,7 +149,7 @@ stale_timeout = "1h"
 poll_interval = "1s"
 
 [log]
-level = "debug"             # debug | info | warn | error
+level = "info"              # debug | info | warn | error
 file = "apex-agent.log"     # 데이터 디렉토리 기준 상대 경로
 max_size_mb = 50
 max_backups = 3

@@ -237,6 +237,7 @@ func (m *Manager) CleanupStale() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("queue.CleanupStale: query: %w", err)
 	}
+	defer rows.Close()
 
 	type row struct {
 		id  int
@@ -246,14 +247,12 @@ func (m *Manager) CleanupStale() (int, error) {
 	for rows.Next() {
 		var r row
 		if err := rows.Scan(&r.id, &r.pid); err != nil {
-			rows.Close()
 			return 0, fmt.Errorf("queue.CleanupStale: scan: %w", err)
 		}
 		if !platform.IsProcessAlive(r.pid) {
 			stale = append(stale, r)
 		}
 	}
-	rows.Close()
 	if err := rows.Err(); err != nil {
 		return 0, fmt.Errorf("queue.CleanupStale: rows: %w", err)
 	}
