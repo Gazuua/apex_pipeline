@@ -28,6 +28,8 @@ if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 go build %GOFLAGS% -o "%INSTALL_DIR%\apex-agent.exe" ./cmd/apex-agent
 if %ERRORLEVEL%==0 (
     echo Installed: %INSTALL_DIR%\apex-agent.exe [%VERSION%]
+    "%INSTALL_DIR%\apex-agent.exe" daemon stop >nul 2>&1
+    "%INSTALL_DIR%\apex-agent.exe" daemon start >nul 2>&1 && echo daemon restarted
 ) else (
     echo Build FAILED
 )

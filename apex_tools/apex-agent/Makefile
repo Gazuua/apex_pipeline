@@ -13,8 +13,11 @@ endif
 
 GOFLAGS := -trimpath -ldflags="-s -w -X main.Version=$(VERSION)"
 
-# build → install 자동 연계. 빌드 후 즉시 설치.
+# build → install → daemon restart 자동 연계.
 build: install
+	@$(INSTALL_DIR)/$(BINARY)$(EXE) daemon stop 2>/dev/null; \
+	 $(INSTALL_DIR)/$(BINARY)$(EXE) daemon start 2>/dev/null && \
+	 echo "daemon restarted" || true
 
 test:
 	go test ./... -race -cover -v -count=1 -timeout 120s
