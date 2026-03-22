@@ -142,6 +142,14 @@ class Session
         return recv_buf_;
     }
 
+    /// 이 세션이 실제로 실행되는 core의 io_context executor를 설정한다.
+    /// accept 시점에 socket executor(= acceptor의 io_context)와 실제 core의
+    /// io_context가 다를 수 있으므로, timer/write_pump에서는 이 executor를 사용해야 한다.
+    void set_core_executor(boost::asio::any_io_executor exe) noexcept
+    {
+        core_executor_ = std::move(exe);
+    }
+
   private:
     // M-1: Assert valid state transition — Closed is a terminal state
     void set_state(State s) noexcept
@@ -158,6 +166,7 @@ class Session
     uint32_t core_id_;
     State state_{State::Connected};
     boost::asio::ip::tcp::socket socket_;
+    boost::asio::any_io_executor core_executor_; // 실제 core io_context의 executor (socket executor와 다를 수 있음)
     RingBuffer recv_buf_;
 
     // I-07: Timer entry ID embedded in Session to eliminate session_to_timer_ map
