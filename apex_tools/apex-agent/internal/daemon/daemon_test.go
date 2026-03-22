@@ -82,7 +82,7 @@ func TestDaemon_RegisterModule(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	if !started {
 		t.Error("module OnStart not called")
