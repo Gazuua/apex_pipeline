@@ -131,7 +131,7 @@ jobs:
 
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     container: ${{ matrix.container && format('ghcr.io/gazuua/apex-pipeline-ci:{0}', needs.changes.outputs.ci_image_tag) || '' }}
 
     env:
