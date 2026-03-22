@@ -4,6 +4,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,6 +17,9 @@ import (
 
 var ml = log.WithModule("daemon")
 
+// Version is set by main at startup (injected via ldflags).
+var Version = "dev"
+
 type Config struct {
 	DBPath      string
 	PIDFilePath string
@@ -24,11 +28,12 @@ type Config struct {
 }
 
 type Daemon struct {
-	cfg     Config
-	store   *store.Store
-	router  *Router
-	server  *ipc.Server
-	modules []Module
+	cfg        Config
+	store      *store.Store
+	router     *Router
+	server     *ipc.Server
+	modules    []Module
+	shutdownCh chan struct{}
 }
 
 func New(cfg Config) (*Daemon, error) {
@@ -40,9 +45,10 @@ func New(cfg Config) (*Daemon, error) {
 	router := NewRouter()
 
 	return &Daemon{
-		cfg:    cfg,
-		store:  s,
-		router: router,
+		cfg:        cfg,
+		store:      s,
+		router:     router,
+		shutdownCh: make(chan struct{}, 1),
 	}, nil
 }
 
@@ -69,7 +75,22 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
-	// 3. Register routes.
+	// 3. Register built-in daemon routes.
+	d.router.RegisterModule("daemon", func(reg RouteRegistrar) {
+		reg.Handle("version", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
+			return map[string]string{"version": Version}, nil
+		})
+		reg.Handle("shutdown", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
+			ml.Audit("shutdown requested via IPC")
+			select {
+			case d.shutdownCh <- struct{}{}:
+			default:
+			}
+			return map[string]string{"status": "shutting_down"}, nil
+		})
+	})
+
+	// Register user module routes.
 	for _, m := range d.modules {
 		mod := m // capture for closure
 		d.router.RegisterModule(mod.Name(), func(reg RouteRegistrar) {
@@ -114,6 +135,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			ml.Info("shutdown requested")
+			goto shutdown
+		case <-d.shutdownCh:
+			ml.Info("shutdown requested via IPC")
 			goto shutdown
 		case <-idleTicker.C:
 			last := d.server.LastRequestTime()

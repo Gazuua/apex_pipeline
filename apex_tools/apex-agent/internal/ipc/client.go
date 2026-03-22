@@ -6,11 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 )
+
+// Version is set by main at startup to match the CLI build version.
+// If "dev", version checks are skipped.
+var Version = "dev"
 
 // Client sends IPC requests to the daemon and returns responses.
 type Client struct {
-	addr string
+	addr           string
+	versionChecked bool
 }
 
 // NewClient creates a new IPC client targeting the given address.
@@ -18,9 +24,19 @@ func NewClient(addr string) *Client {
 	return &Client{addr: addr}
 }
 
-// Send dials the daemon, sends a request, and reads the response.
+// Send checks the daemon version on the first call (unless Version == "dev"),
+// then sends the request and returns the response.
 // Each call opens and closes its own connection (stateless).
 func (c *Client) Send(ctx context.Context, module, action string, params any, workspace string) (*Response, error) {
+	if !c.versionChecked {
+		c.versionChecked = true
+		c.checkVersion()
+	}
+	return c.send(ctx, module, action, params, workspace)
+}
+
+// send is the low-level transport method used by both Send and checkVersion.
+func (c *Client) send(ctx context.Context, module, action string, params any, workspace string) (*Response, error) {
 	var rawParams json.RawMessage
 	if params != nil {
 		var err error
@@ -53,4 +69,35 @@ func (c *Client) Send(ctx context.Context, module, action string, params any, wo
 	}
 
 	return &resp, nil
+}
+
+// checkVersion queries the daemon version and triggers a graceful shutdown if
+// there is a mismatch. After shutdown the daemon will be auto-started with the
+// new binary on the next Send call.
+func (c *Client) checkVersion() {
+	if Version == "dev" {
+		return
+	}
+
+	resp, err := c.send(context.Background(), "daemon", "version", nil, "")
+	if err != nil {
+		// Daemon not running — auto-start will handle this.
+		return
+	}
+
+	var data map[string]string
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		return
+	}
+
+	if data["version"] != Version {
+		ml.Info("version mismatch, restarting daemon",
+			"cli", Version,
+			"daemon", data["version"],
+		)
+		// Ask daemon to shut down gracefully; ignore errors (best effort).
+		_, _ = c.send(context.Background(), "daemon", "shutdown", nil, "")
+		// Give the daemon a moment to exit before the next dial attempt.
+		time.Sleep(500 * time.Millisecond)
+	}
 }
