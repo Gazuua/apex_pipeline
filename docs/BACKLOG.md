@@ -33,14 +33,14 @@
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #127
-- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수. **[FSD 분석 2026-03-22]** interface 추출이 선행 필요: JwtVerifier, JwtBlacklist, RateLimitFacade 3개 concrete 클래스에 가상 인터페이스를 도입하고 GatewayPipeline 생성자 시그니처 변경 필요. 프로덕션 코드 4+ 파일 수정 포함 — 별도 리팩토링 작업으로 분리.
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** ~~A안 채택: interface mock~~ → **B안 확정: template policy** — GatewayPipeline을 `template<Verifier, Blacklist, Limiter>`로 파라미터화. 프로덕션은 concrete 타입 직접 인라인(zero-cost), 테스트는 mock 타입 인스턴스화. explicit instantiation으로 컴파일 시간 제어. Gateway hot path 런타임 성능 보존. io_context 코루틴 테스트 하네스는 그대로 유지. #127과 번들 필수.
 
 ### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #102
-- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수. **[FSD 분석 2026-03-22]** #102와 동일 — interface 추출 선행 필요.
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** B안 확정: #102와 동일 인프라(template policy + io_context 코루틴 테스트 하네스). #102와 번들 필수.
 
 ### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
 - **등급**: MAJOR
