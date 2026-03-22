@@ -26,7 +26,7 @@
 - **스코프**: shared
 - **타입**: design-debt
 - **연관**: #24, #29, #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경. **[FSD 분석 2026-03-22]** A안 구현 시도 중 추가 설계 결정 필요 발견: ① Server::finalize_shutdown()에서 adapter->close()는 core threads 정지 후 호출 — awaitable 실행에 필요한 io_context가 이미 정지됨. ② 종료 순서 변경(adapter close → core stop) 시 기존 안전성 보장 "pending handlers may reference adapter resources" 검증 필요. ③ per-core RedisMultiplexer를 각자의 io_context에서 close하는 cross-io_context 조정 문제. Server shutdown 시퀀스 재설계 후 재시도.
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** ~~A안: do_close() → awaitable~~ → **B안 확정: shutdown 시퀀스 재배치**. `finalize_shutdown()` 순서를 `outstanding_coros_ == 0` 대기 → `adapter->close()` (async, per-core io_context에서 co_spawn) → `core_engine->stop()` + `join()`으로 변경. adapter cleanup은 "quiesce(정지 준비)" 단계이며 io_context가 살아있어야 한다 (Boost.Asio: `stop()` 후 pending handler는 재개 없이 파괴됨). 안전성 근거: drain 단계에서 새 요청 거부 + outstanding_coros_ 폴링 0 확인 → close 시점에 adapter 자원 참조 handler 없음. **구현 시 필수**: `finalize_shutdown()` 각 단계에 불변조건(invariant) 주석 보강 — shutdown 순서가 의도적 설계 결정임을 명시하여 향후 임의 변경 방지.
 
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
