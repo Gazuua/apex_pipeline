@@ -87,7 +87,7 @@ target_link_libraries(test_server_adapter
 apex_set_warnings(test_server_adapter)
 add_test(NAME test_server_adapter COMMAND test_server_adapter)
 
-# 단위 테스트 일괄 타임아웃 (30초)
+# 단위 테스트 일괄 타임아웃 (60초, TSAN 오버헤드 고려)
 set_tests_properties(
     test_math_utils
     test_mpsc_queue
@@ -128,5 +128,5 @@ set_tests_properties(
     test_server_global
     test_wire_services
     test_error_sender_service_code
-    PROPERTIES TIMEOUT 30
+    PROPERTIES TIMEOUT 60
 )
