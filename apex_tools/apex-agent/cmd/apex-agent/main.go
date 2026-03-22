@@ -1,0 +1,4 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+package main
+
+func main() {}
