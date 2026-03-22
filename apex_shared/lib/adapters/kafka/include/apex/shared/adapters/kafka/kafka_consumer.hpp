@@ -112,7 +112,7 @@ class KafkaConsumer
 
     MessageCallback message_cb_;
     KafkaProducer* producer_ = nullptr; ///< DLQ produce target (non-owning)
-    bool consuming_ = false;
+    std::atomic<bool> consuming_{false};
     uint64_t total_consumed_ = 0;
 
 #ifndef _WIN32

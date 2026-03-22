@@ -20,9 +20,9 @@ namespace apex::shared::adapters
 /// CLOSED → RUNNING (init 후) → DRAINING (drain 후) → CLOSED (close 후).
 enum class AdapterState : uint8_t
 {
-    RUNNING,  ///< 초기화 완료, 요청 수락 중
-    DRAINING, ///< 새 요청 거부, 진행 중 요청은 허용
-    CLOSED    ///< 리소스 해제 완료
+    CLOSED,  ///< 초기값 / 리소스 해제 완료
+    RUNNING, ///< 초기화 완료, 요청 수락 중
+    DRAINING ///< 새 요청 거부, 진행 중 요청은 허용
 };
 
 /// 모든 어댑터의 공통 라이프사이클을 관리하는 CRTP 기본 클래스.

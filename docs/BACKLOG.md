@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 133
+다음 발번: 136
 
 ---
 
@@ -73,6 +73,27 @@
 - **타입**: test
 - **연관**: #102
 - **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수.
+
+### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **연관**: #130 (이번 PR에서 도입)
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결.
+
+### #134. AdapterState가 AdapterInterface에 미노출
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **연관**: #24 (이번 PR에서 도입)
+- **설명**: `AdapterBase::state()`가 타입 소거 인터페이스 `AdapterInterface`에 포워딩되지 않아, Server에서 어댑터 상태를 조회할 수 없음. `AdapterState` enum을 core로 옮기거나, `AdapterInterface`에 `uint8_t` 기반 `state()` 추가 필요.
+
+### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
+- **등급**: MINOR
+- **스코프**: shared
+- **타입**: security
+- **연관**: #131 (이번 PR에서 도입)
+- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR
