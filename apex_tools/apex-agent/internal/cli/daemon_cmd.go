@@ -19,6 +19,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
+	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
@@ -55,6 +56,7 @@ func daemonRunCmd() *cobra.Command {
 			}
 			d.Register(hook.New())
 			d.Register(backlogmod.New(d.Store()))
+			d.Register(handoffmod.New(d.Store()))
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 			return d.Run(ctx)
