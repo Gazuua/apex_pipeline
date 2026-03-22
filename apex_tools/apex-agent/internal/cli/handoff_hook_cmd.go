@@ -1,0 +1,205 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
+)
+
+// hookValidateHandoffCmd handles the Bash PreToolUse hook for handoff validation:
+//  1. Notification probe (every call)
+//  2. Commit gate (git commit)
+//  3. Merge gate (gh pr merge)
+func hookValidateHandoffCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate-handoff",
+		Short: "핸드오프 Bash hook 게이트 (커밋/머지/알림 프로브)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			command, cwd, err := readHookInput()
+			if err != nil {
+				return nil // malformed input → allow
+			}
+			if command == "" {
+				return nil
+			}
+
+			// main/master 브랜치는 스킵
+			branch, err := gitCurrentBranch(cwd)
+			if err != nil || branch == "main" || branch == "master" {
+				return nil
+			}
+
+			// 1) 알림 프로브 (매 Bash 호출 시, 비차단 경고)
+			if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
+				if has, _ := msg["has_notifications"].(bool); has {
+					if m, _ := msg["message"].(string); m != "" {
+						fmt.Fprintln(os.Stderr, m)
+					}
+				}
+			}
+
+			// 2) git commit 게이트 (feature/bugfix 브랜치만)
+			if isGitCommit(command) && isFeatureBranch(branch) {
+				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
+				if err != nil {
+					// 데몬 연결 실패 시 통과 (graceful degradation)
+					return nil
+				}
+				if resp.Error != "" {
+					fmt.Fprintln(os.Stderr, resp.Error)
+					os.Exit(2)
+				}
+			}
+
+			// 3) gh pr merge 게이트
+			if strings.Contains(command, "gh pr merge") && isFeatureBranch(branch) {
+				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
+				if err != nil {
+					return nil
+				}
+				if resp.Error != "" {
+					fmt.Fprintln(os.Stderr, resp.Error)
+					os.Exit(2)
+				}
+			}
+
+			return nil
+		},
+	}
+}
+
+// hookHandoffProbeCmd handles the Edit|Write PreToolUse hook for handoff probe:
+//  1. Registration check (block all edits if not registered)
+//  2. Status-based source gate (started/design-notified → block source files)
+//  3. Notification warning (non-blocking)
+func hookHandoffProbeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "handoff-probe",
+		Short: "핸드오프 Edit/Write hook 게이트 (등록/상태/알림)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filePath, cwd, err := readHandoffProbeInput()
+			if err != nil {
+				return nil // malformed input → allow
+			}
+
+			// main/master 브랜치 스킵
+			branch, err := gitCurrentBranch(cwd)
+			if err != nil || branch == "main" || branch == "master" {
+				return nil
+			}
+
+			// feature/bugfix 브랜치만 체크
+			if !isFeatureBranch(branch) {
+				return nil
+			}
+
+			// 1+2) 등록 확인 + 상태 기반 소스 게이트
+			resp, err := sendHandoffRaw("validate-edit", map[string]any{
+				"branch":    branch,
+				"file_path": filePath,
+			})
+			if err != nil {
+				return nil // 데몬 연결 실패 시 통과
+			}
+			if resp.Error != "" {
+				fmt.Fprintln(os.Stderr, resp.Error)
+				os.Exit(2)
+			}
+
+			// 3) 알림 프로브 (비차단 경고)
+			if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
+				if has, _ := msg["has_notifications"].(bool); has {
+					if m, _ := msg["message"].(string); m != "" {
+						fmt.Fprintln(os.Stderr, m)
+					}
+				}
+			}
+
+			return nil
+		},
+	}
+}
+
+// --- helpers ---
+
+// readHandoffProbeInput reads Edit/Write hook JSON from stdin.
+// Returns (file_path, cwd, error).
+func readHandoffProbeInput() (string, string, error) {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return "", "", err
+	}
+
+	var input struct {
+		ToolInput struct {
+			FilePath string `json:"file_path"`
+		} `json:"tool_input"`
+		Cwd string `json:"cwd"`
+	}
+	if err := json.Unmarshal(data, &input); err != nil {
+		return "", "", err
+	}
+
+	return input.ToolInput.FilePath, input.Cwd, nil
+}
+
+// sendHandoffRaw sends a request to the handoff module and returns the raw response.
+func sendHandoffRaw(action string, params any) (*ipc.Response, error) {
+	client := ipc.NewClient(platform.SocketPath())
+	return client.Send(context.Background(), "handoff", action, params, "")
+}
+
+// sendHandoffRequest sends a request and parses the data as map[string]any.
+func sendHandoffRequest(action string, params any) (map[string]any, error) {
+	resp, err := sendHandoffRaw(action, params)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// gitCurrentBranch returns the current git branch for the given working directory.
+// Falls back to the process cwd if cwd is empty.
+func gitCurrentBranch(cwd string) (string, error) {
+	args := []string{"branch", "--show-current"}
+	c := exec.Command("git", args...)
+	if cwd != "" {
+		c.Dir = cwd
+	}
+	var out bytes.Buffer
+	c.Stdout = &out
+	c.Stderr = io.Discard
+	if err := c.Run(); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+// isGitCommit checks if the command is a git commit invocation.
+func isGitCommit(command string) bool {
+	return strings.Contains(command, "git commit")
+}
+
+// isFeatureBranch returns true for feature/* and bugfix/* branches.
+func isFeatureBranch(branch string) bool {
+	return strings.HasPrefix(branch, "feature/") || strings.HasPrefix(branch, "bugfix/")
+}

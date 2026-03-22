@@ -20,6 +20,8 @@ func hookCmd() *cobra.Command {
 	}
 	cmd.AddCommand(hookValidateBuildCmd())
 	cmd.AddCommand(hookValidateMergeCmd())
+	cmd.AddCommand(hookValidateHandoffCmd())
+	cmd.AddCommand(hookHandoffProbeCmd())
 	return cmd
 }
 

@@ -73,6 +73,10 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("backlog-check", m.handleBacklogCheck)
 	reg.Handle("get-branch", m.handleGetBranch)
 	reg.Handle("get-status", m.handleGetStatus)
+	reg.Handle("validate-commit", m.handleValidateCommit)
+	reg.Handle("validate-merge-gate", m.handleValidateMergeGate)
+	reg.Handle("validate-edit", m.handleValidateEdit)
+	reg.Handle("probe", m.handleProbe)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -201,4 +205,70 @@ func (m *Module) handleGetStatus(_ context.Context, params json.RawMessage, _ st
 		return nil, err
 	}
 	return map[string]any{"status": status}, nil
+}
+
+// --- Gate handler request types ---
+
+type validateCommitParams struct {
+	Branch string `json:"branch"`
+}
+
+type validateMergeGateParams struct {
+	Branch string `json:"branch"`
+}
+
+type validateEditParams struct {
+	Branch   string `json:"branch"`
+	FilePath string `json:"file_path"`
+}
+
+type probeParams struct {
+	Branch string `json:"branch"`
+}
+
+// --- Gate handlers ---
+
+func (m *Module) handleValidateCommit(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p validateCommitParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.ValidateCommit(p.Branch); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "allowed"}, nil
+}
+
+func (m *Module) handleValidateMergeGate(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p validateMergeGateParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.ValidateMergeGate(p.Branch); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "allowed"}, nil
+}
+
+func (m *Module) handleValidateEdit(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p validateEditParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.ValidateEdit(p.Branch, p.FilePath); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "allowed"}, nil
+}
+
+func (m *Module) handleProbe(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p probeParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	msg, err := m.manager.ProbeNotifications(p.Branch)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"message": msg, "has_notifications": msg != ""}, nil
 }
