@@ -28,6 +28,8 @@ func Execute() {
 	root.AddCommand(queueCmd())
 	root.AddCommand(migrateCmd())
 	root.AddCommand(cleanupCmd())
+	root.AddCommand(contextCmd())
+	root.AddCommand(pluginCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
