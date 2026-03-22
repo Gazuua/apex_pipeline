@@ -4,6 +4,8 @@ package handoff
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -63,8 +65,140 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 }
 
 // RegisterRoutes registers handoff action handlers.
-// Routes will be fully implemented in Task 2.
-func (m *Module) RegisterRoutes(_ daemon.RouteRegistrar) {}
+func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
+	reg.Handle("notify-start", m.handleNotifyStart)
+	reg.Handle("notify-transition", m.handleNotifyTransition)
+	reg.Handle("check", m.handleCheck)
+	reg.Handle("ack", m.handleAck)
+	reg.Handle("backlog-check", m.handleBacklogCheck)
+	reg.Handle("get-branch", m.handleGetBranch)
+	reg.Handle("get-status", m.handleGetStatus)
+}
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
 func (m *Module) OnStop() error                   { return nil }
+
+// --- Request/Response types ---
+
+type notifyStartParams struct {
+	Branch     string `json:"branch"`
+	Workspace  string `json:"workspace"`
+	Summary    string `json:"summary"`
+	BacklogID  int    `json:"backlog_id"`
+	Scopes     string `json:"scopes"`
+	SkipDesign bool   `json:"skip_design"`
+}
+
+type notifyTransitionParams struct {
+	Branch    string `json:"branch"`
+	Workspace string `json:"workspace"`
+	Type      string `json:"type"`
+	Summary   string `json:"summary"`
+}
+
+type checkParams struct {
+	Branch string `json:"branch"`
+}
+
+type ackParams struct {
+	NotificationID int    `json:"notification_id"`
+	Branch         string `json:"branch"`
+	Action         string `json:"action"`
+}
+
+type backlogCheckParams struct {
+	BacklogID int `json:"backlog_id"`
+}
+
+type getBranchParams struct {
+	Branch string `json:"branch"`
+}
+
+type getStatusParams struct {
+	Branch string `json:"branch"`
+}
+
+// --- Handlers ---
+
+func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p notifyStartParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BacklogID, p.Scopes, p.SkipDesign)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"notification_id": id}, nil
+}
+
+func (m *Module) handleNotifyTransition(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p notifyTransitionParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	id, err := m.manager.NotifyTransition(p.Branch, p.Workspace, p.Type, p.Summary)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"notification_id": id}, nil
+}
+
+func (m *Module) handleCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p checkParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	notifs, err := m.manager.CheckNotifications(p.Branch)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"notifications": notifs}, nil
+}
+
+func (m *Module) handleAck(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p ackParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.Ack(p.NotificationID, p.Branch, p.Action); err != nil {
+		return nil, err
+	}
+	return map[string]any{"ok": true}, nil
+}
+
+func (m *Module) handleBacklogCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p backlogCheckParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	available, branch, err := m.manager.BacklogCheck(p.BacklogID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"available": available, "branch": branch}, nil
+}
+
+func (m *Module) handleGetBranch(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p getBranchParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	b, err := m.manager.GetBranch(p.Branch)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"branch": b}, nil
+}
+
+func (m *Module) handleGetStatus(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p getStatusParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	status, err := m.manager.GetStatus(p.Branch)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"status": status}, nil
+}
