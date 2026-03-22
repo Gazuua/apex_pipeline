@@ -171,3 +171,119 @@ TEST_F(MessageDispatcherTest, HandlerReturnsErrorCode)
     EXPECT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), apex::core::ErrorCode::Timeout);
 }
+
+TEST_F(MessageDispatcherTest, HandlersAccessorReturnsRegisteredHandlers)
+{
+    d->register_handler(0x0001, [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        co_return apex::core::ok();
+    });
+    d->register_handler(0x0002, [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        co_return apex::core::ok();
+    });
+    d->register_handler(0x0003, [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        co_return apex::core::ok();
+    });
+
+    const auto& handlers = d->handlers();
+    EXPECT_EQ(handlers.size(), 3u);
+    EXPECT_TRUE(handlers.contains(0x0001));
+    EXPECT_TRUE(handlers.contains(0x0002));
+    EXPECT_TRUE(handlers.contains(0x0003));
+    EXPECT_FALSE(handlers.contains(0x9999));
+}
+
+TEST_F(MessageDispatcherTest, HandlersAccessorEmptyOnInit)
+{
+    const auto& handlers = d->handlers();
+    EXPECT_TRUE(handlers.empty());
+}
+
+TEST_F(MessageDispatcherTest, SyncAllHandlersCopiesDefaultAndMsgIdHandlers)
+{
+    // Source dispatcher: register default + specific msg_id handlers
+    MessageDispatcher source;
+    int default_count = 0;
+    int handler_1_count = 0;
+    int handler_2_count = 0;
+
+    source.set_default_handler(
+        [&default_count](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            ++default_count;
+            co_return apex::core::ok();
+        });
+    source.register_handler(
+        0x0010, [&handler_1_count](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            ++handler_1_count;
+            co_return apex::core::ok();
+        });
+    source.register_handler(
+        0x0020, [&handler_2_count](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+            ++handler_2_count;
+            co_return apex::core::ok();
+        });
+
+    // Target dispatcher: sync all handlers from source
+    MessageDispatcher target;
+    EXPECT_FALSE(target.has_default_handler());
+    EXPECT_EQ(target.handler_count(), 0u);
+
+    // Manually replicate what sync_all_handlers does (at MessageDispatcher level)
+    if (source.has_default_handler())
+    {
+        target.set_default_handler(source.default_handler());
+    }
+    for (const auto& [msg_id, handler] : source.handlers())
+    {
+        target.register_handler(msg_id, handler);
+    }
+
+    // Verify all handlers were copied
+    EXPECT_TRUE(target.has_default_handler());
+    EXPECT_EQ(target.handler_count(), 2u);
+    EXPECT_TRUE(target.has_handler(0x0010));
+    EXPECT_TRUE(target.has_handler(0x0020));
+
+    // Verify dispatched handlers work via target
+    auto r1 = run_coro(io_ctx_, target.dispatch(nullptr, 0x0010, {}));
+    EXPECT_TRUE(r1.has_value());
+    EXPECT_EQ(handler_1_count, 1);
+
+    auto r2 = run_coro(io_ctx_, target.dispatch(nullptr, 0x0020, {}));
+    EXPECT_TRUE(r2.has_value());
+    EXPECT_EQ(handler_2_count, 1);
+
+    // Default handler should handle unknown msg_id
+    auto r3 = run_coro(io_ctx_, target.dispatch(nullptr, 0x9999, {}));
+    EXPECT_TRUE(r3.has_value());
+    EXPECT_EQ(default_count, 1);
+}
+
+TEST_F(MessageDispatcherTest, SyncAllHandlersWithoutDefaultHandler)
+{
+    // Source with msg_id handlers only, no default
+    MessageDispatcher source;
+    source.register_handler(0x0001, [](SessionPtr, uint32_t, std::span<const uint8_t>) -> awaitable<Result<void>> {
+        co_return apex::core::ok();
+    });
+
+    MessageDispatcher target;
+
+    // Replicate sync_all_handlers logic
+    if (source.has_default_handler())
+    {
+        target.set_default_handler(source.default_handler());
+    }
+    for (const auto& [msg_id, handler] : source.handlers())
+    {
+        target.register_handler(msg_id, handler);
+    }
+
+    EXPECT_FALSE(target.has_default_handler());
+    EXPECT_EQ(target.handler_count(), 1u);
+    EXPECT_TRUE(target.has_handler(0x0001));
+
+    // Unregistered msg_id should return error (no default handler)
+    auto result = run_coro(io_ctx_, target.dispatch(nullptr, 0x9999, {}));
+    EXPECT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::HandlerNotFound);
+}

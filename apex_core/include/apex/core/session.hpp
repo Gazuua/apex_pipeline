@@ -11,6 +11,7 @@
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <fmt/format.h>
 
@@ -18,6 +19,7 @@
 #include <cassert>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <span>
 #include <vector>
 
@@ -78,17 +80,15 @@ class Session
     friend void intrusive_ptr_release(Session* s) noexcept;
 
     /// 프레임 응답을 이 세션에 비동기 전송.
+    /// 내부적으로 write_pump를 경유하여 순서 보장 + 동시 쓰기 안전.
     /// @pre 호출자는 이 세션이 속한 io_context의 implicit strand에서 호출해야 한다.
-    /// @pre payload 데이터는 co_await 완료 시점까지 유효해야 한다.
-    ///      (코루틴 프레임이 복사를 보장하지 않음)
-    /// @warning Only one async_send (or async_send_raw) operation may be
-    /// in-flight per Session at any time. Concurrent writes to the same
-    /// socket produce undefined behavior. The Server pipeline guarantees
-    /// this by processing one frame at a time per session.
+    /// @note header + payload를 단일 버퍼로 직렬화 후 write queue에 적재.
+    ///       write_pump가 실제 async_write를 수행하고 completion을 시그널한다.
     [[nodiscard]] boost::asio::awaitable<Result<void>> async_send(const WireHeader& header,
                                                                   std::span<const uint8_t> payload);
 
     /// 미리 빌드된 로우 프레임 비동기 전송.
+    /// 내부적으로 write_pump를 경유하여 순서 보장 + 동시 쓰기 안전.
     [[nodiscard]] boost::asio::awaitable<Result<void>> async_send_raw(std::span<const uint8_t> data);
 
     // --- Write Queue API (v0.5) ---
@@ -96,6 +96,14 @@ class Session
     struct WriteRequest
     {
         std::vector<uint8_t> data;
+
+        /// Completion signal for awaitable senders (async_send / async_send_raw).
+        /// nullptr for fire-and-forget enqueue_write.
+        /// Pattern: timer starts at steady_timer::time_point::max() (= infinite wait).
+        /// write_pump cancels the timer after write completes to wake the waiter.
+        /// The waiter stores write result in completion_result before co_await.
+        std::shared_ptr<boost::asio::steady_timer> completion_timer;
+        std::shared_ptr<Result<void>> completion_result;
     };
 
     /// 비동기 전송 큐에 적재 (동기, 즉시 반환).
@@ -162,6 +170,10 @@ class Session
     size_t max_queue_depth_;
 
     boost::asio::awaitable<void> write_pump();
+
+    /// Enqueue data with a completion timer and wait for write_pump to process it.
+    /// Used internally by async_send / async_send_raw to route through write_pump.
+    [[nodiscard]] boost::asio::awaitable<Result<void>> enqueue_and_await(std::vector<uint8_t> data);
 };
 
 using SessionPtr = boost::intrusive_ptr<Session>;

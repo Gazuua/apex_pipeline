@@ -3,6 +3,7 @@
 #include <benchmark/benchmark.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/unordered/concurrent_flat_map.hpp>
 
 #include <array>
 #include <cstdint>
@@ -147,3 +148,48 @@ static void BM_Shared_Stateful(benchmark::State& state)
     state.SetItemsProcessed(state.iterations() * total_msgs);
 }
 BENCHMARK(BM_Shared_Stateful)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(8)->Arg(16)->UseRealTime();
+
+// C) Shared (concurrent_flat_map): one io_context, boost::concurrent_flat_map
+//    — internally sharded with fine-grained locking, no external mutex needed
+static void BM_Shared_LockFree_Stateful(benchmark::State& state)
+{
+    const auto num_threads = static_cast<int>(state.range(0));
+    const int total_msgs = num_threads * MSGS_PER_CORE;
+    const int total_sessions = SESSIONS_PER_CORE * num_threads;
+
+    for (auto _ : state)
+    {
+        boost::asio::io_context ctx;
+
+        // Lock-free concurrent session map — no external synchronization needed
+        boost::concurrent_flat_map<uint64_t, SessionState> sessions;
+        for (int s = 0; s < total_sessions; ++s)
+            sessions.emplace(static_cast<uint64_t>(s), SessionState{});
+
+        // Pre-post all messages
+        for (int i = 0; i < total_msgs; ++i)
+        {
+            auto sid = static_cast<uint64_t>(i % total_sessions);
+            auto payload = static_cast<uint64_t>(i);
+            boost::asio::post(ctx, [&sessions, sid, payload]() {
+                // In-place visitation — no operator[], lock-free internally
+                sessions.visit(sid, [payload](auto& pair) { pair.second.process(payload); });
+            });
+        }
+
+        // N-1 worker threads + benchmark thread
+        std::vector<std::jthread> threads;
+        threads.reserve(num_threads - 1);
+        for (int t = 0; t < num_threads - 1; ++t)
+            threads.emplace_back([&ctx]() { ctx.run(); });
+        ctx.run();
+        for (auto& t : threads)
+            t.join();
+
+        uint64_t total = 0;
+        sessions.cvisit_all([&total](const auto& pair) { total += pair.second.msg_count; });
+        benchmark::DoNotOptimize(total);
+    }
+    state.SetItemsProcessed(state.iterations() * total_msgs);
+}
+BENCHMARK(BM_Shared_LockFree_Stateful)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(8)->Arg(16)->UseRealTime();

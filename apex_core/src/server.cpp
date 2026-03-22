@@ -224,7 +224,7 @@ void Server::run()
     }
 
     // ── Phase 3.5: multi-listener handler 동기화 ─────────────────────
-    // on_start()에서 등록된 default_handler를 보조 리스너에 전파.
+    // on_start()에서 등록된 모든 핸들러(default + msg_id)를 보조 리스너에 전파.
     // Phase 0(서비스 생성 직후)에서는 핸들러 미등록 → 반드시 on_start 이후 수행.
     if (listeners_.size() > 1)
     {
@@ -233,7 +233,7 @@ void Server::run()
             auto& dispatcher = listeners_[0]->dispatcher(core_id);
             for (size_t li = 1; li < listeners_.size(); ++li)
             {
-                listeners_[li]->sync_default_handler(core_id, dispatcher);
+                listeners_[li]->sync_all_handlers(core_id, dispatcher);
             }
         }
     }

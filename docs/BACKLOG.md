@@ -42,13 +42,6 @@
 - **연관**: #131 (이번 PR에서 도입)
 - **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.
 
-### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
-- **등급**: MAJOR
-- **스코프**: core, tools
-- **타입**: perf
-- **연관**: #107 (HISTORY)
-- **설명**: Shared 모델에서 SessionMap을 `boost::concurrent_flat_map`으로 교체하여 벤치마킹. io_context 내부 큐가 진짜 병목인지 결정적으로 검증. **[FSD 설계 확정 2026-03-22]** A안 채택: 기존 `bench_architecture_comparison.cpp`에 `BM_Shared_LockFree_Stateful` 변형 추가. Per-core vs sharded_mutex vs concurrent_flat_map 3자 비교. Boost 1.84.0+ 이미 가용. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
-
 ### #113. Docker E2E 풀 인프라 벤치마킹
 - **등급**: MAJOR
 - **스코프**: infra, tools
@@ -62,12 +55,6 @@
 - **타입**: perf
 - **연관**: #107 (HISTORY)
 - **설명**: 고코어 환경(16코어+ 서버)에서 Per-core vs Shared 아키텍처 비교 재측정. 4코어 노트북에서 관측된 2.1x 차이가 코어 수에 비례하여 확대되는지 검증. 벤치마크 보고서 버전 비교 기능(--baseline/--current) 활용. **[FSD 분석 2026-03-22]** 고코어(16+) 서버 환경 실측 필요. 현재 개발 환경에서 자동화 불가.
-
-### #20. BumpAllocator / ArenaAllocator 벤치마크
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: perf
-- **설명**: malloc vs BumpAllocator vs ArenaAllocator 벤치마크. **[FSD 설계 확정 2026-03-22]** 기존 micro 유지 + RequestCycle(할당 3~8회 가변 32~512B → reset) + TransactionCycle(블록 경계 넘는 가변 할당 → reset) 추가. Capacity 파라미터 스윕: Bump {16K,64K,256K}, Arena block {1K,4K,16K}. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #51. Visual Studio + WSL 디버그 환경 구축
 - **등급**: MINOR
@@ -92,18 +79,6 @@
 ---
 
 ## DEFERRED
-
-### #21. Server multi-listener dispatcher sync_all_handlers
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: 개별 msg_id 핸들러가 primary listener만 적용. 멀티 프로토콜 시 확장 필요. **[FSD 설계 확정 2026-03-22]** A안 채택: `ListenerBase::sync_all_handlers()` + `MessageDispatcher::handlers() const` 접근자 추가. Phase 3.5에서 전체 핸들러 맵 복사. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
-
-### #22. async_send_raw + write_pump 동시 write 위험
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: `async_send_raw`가 소켓에 직접 `async_write` 호출 — `write_pump`와 동시 실행 시 UB. **[FSD 설계 확정 2026-03-22]** B안 채택: `async_send_raw` 시그니처 유지, 내부적으로 `enqueue_write` + completion promise 패턴. write_pump가 항목 처리 후 promise 이행. `async_send`도 동일 적용. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR

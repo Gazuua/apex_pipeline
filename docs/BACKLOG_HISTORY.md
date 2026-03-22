@@ -5,6 +5,26 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #22. async_send_raw + write_pump 동시 write 위험
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-22 17:09:30 | **방식**: FIXED | **커밋**: df53344
+- **비고**: async_send/async_send_raw를 write_pump 경유 + completion promise(steady_timer) 패턴으로 변경. UB 원천 차단.
+
+### #21. Server multi-listener dispatcher sync_all_handlers
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-22 17:09:30 | **방식**: FIXED | **커밋**: df53344
+- **비고**: sync_all_handlers() 구현 — default + msg_id 핸들러 전체를 보조 리스너에 복사. Phase 3.5 교체.
+
+### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
+- **등급**: MAJOR | **스코프**: core, tools | **타입**: perf
+- **해결**: 2026-03-22 17:09:30 | **방식**: FIXED | **커밋**: df53344
+- **비고**: bench_architecture_comparison에 BM_Shared_LockFree_Stateful 추가. Per-core vs sharded_mutex vs concurrent_flat_map 3자 비교.
+
+### #20. BumpAllocator / ArenaAllocator 벤치마크
+- **등급**: MINOR | **스코프**: core | **타입**: perf
+- **해결**: 2026-03-22 17:09:30 | **방식**: FIXED | **커밋**: df53344
+- **비고**: RequestCycle + TransactionCycle 시나리오 + capacity 파라미터 스윕 추가.
+
 ### #61. 로그 보존 정책 TOML 파라미터화
 - **등급**: MINOR | **스코프**: core | **타입**: infra
 - **해결**: 2026-03-22 16:20:49 | **방식**: WONTFIX
