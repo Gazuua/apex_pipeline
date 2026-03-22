@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"testing"
 	"time"
-
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 )
 
 func TestClient_Send(t *testing.T) {
@@ -18,12 +16,13 @@ func TestClient_Send(t *testing.T) {
 		addr = "/tmp/apex-agent-test-client.sock"
 	}
 
-	router := daemon.NewRouter()
-	router.RegisterModule("echo", func(reg daemon.RouteRegistrar) {
-		reg.Handle("ping", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
-			return map[string]string{"ws": ws}, nil
-		})
-	})
+	router := &mockDispatcher{
+		handlers: map[string]func(ctx context.Context, params json.RawMessage, ws string) (any, error){
+			"echo.ping": func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
+				return map[string]string{"ws": ws}, nil
+			},
+		},
+	}
 
 	srv := NewServer(addr, router)
 	ctx, cancel := context.WithCancel(context.Background())
