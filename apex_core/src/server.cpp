@@ -411,9 +411,8 @@ void Server::finalize_shutdown()
     }
 
     // 4.5 [D7] Outstanding 코루틴 drain 대기 (drain_timeout 설정 사용)
-    // 서비스 코루틴(spawn())과 인프라 코루틴(spawn_tracked()) 모두 대기.
-    // 인프라 코루틴(KafkaDispatchBridge 등)이 adapter 리소스를 참조하므로
-    // adapter close(step 6) 전에 완료되어야 한다.
+    // 서비스 코루틴(spawn()), 인프라 코루틴(spawn_tracked()), 어댑터 코루틴(spawn_adapter_coro()) 모두 대기.
+    // drain(step 2)에서 어댑터 코루틴에 cancellation signal이 발행됨 → operation_aborted로 종료 중.
     {
         auto coro_deadline = std::chrono::steady_clock::now() + config_.drain_timeout;
         while (std::chrono::steady_clock::now() < coro_deadline)
@@ -427,27 +426,33 @@ void Server::finalize_shutdown()
                 }
             }
             total += core_engine_->outstanding_infra_coroutines();
+            for (const auto& adapter : adapters_)
+                total += adapter->outstanding_adapter_coros();
             if (total == 0)
                 break;
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
         }
     }
 
-    // 5. CoreEngine stop + join + drain
-    // Order matters: stop() signals threads, join() waits for exit,
-    // drain_remaining() cleans up leftover SPSC messages.
-    // CoreEngine must stop before adapter close -- pending completion handlers
-    // on core threads may reference adapter resources (e.g. KafkaConsumer).
-    core_engine_->stop();
-    core_engine_->join();
-    core_engine_->drain_remaining();
-
-    // 6. Adapter close (flush + 커넥션 정리)
-    // Safe now: all core threads have exited, no pending handlers.
+    // 5. Adapter close (flush + 커넥션 정리)
+    // INVARIANT: outstanding_adapter_coros == 0 (Step 4.5에서 확인됨)
+    // INVARIANT: io_context 아직 실행 중 (CoreEngine stop은 Step 6)
+    // INVARIANT: 새 요청 없음 (Step 2에서 DRAINING)
+    // WARNING: Step 6 이후로 이동 금지 — close()의 per-core phase가 io_context에 post함
+    spdlog::info("[shutdown] step 5: closing adapters");
     for (auto& adapter : adapters_)
     {
         adapter->close();
     }
+
+    // 6. CoreEngine stop + join + drain
+    // INVARIANT: 어댑터 리소스 정리 완료 — io_context에 어댑터 참조 핸들러 없음
+    // Order matters: stop() signals threads, join() waits for exit,
+    // drain_remaining() cleans up leftover SPSC messages.
+    spdlog::info("[shutdown] step 6: stopping core engine");
+    core_engine_->stop();
+    core_engine_->join();
+    core_engine_->drain_remaining();
 
     // 7. [D3] Global resources 정리
     globals_.clear();

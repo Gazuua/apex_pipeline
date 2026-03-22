@@ -44,6 +44,9 @@ class RedisAdapter : public AdapterBase<RedisAdapter>
     /// Cleanup all multiplexers.
     void do_close();
 
+    /// Per-core multiplexer close (called by AdapterBase::close Phase 1).
+    void do_close_per_core(uint32_t core_id);
+
     /// Adapter name.
     [[nodiscard]] std::string_view do_name() const noexcept
     {

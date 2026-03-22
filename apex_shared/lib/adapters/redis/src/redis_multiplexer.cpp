@@ -13,15 +13,19 @@
 #include <boost/asio/use_awaitable.hpp>
 
 #include <string>
+#include <utility>
 
 namespace apex::shared::adapters::redis
 {
 
-RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config)
+RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config, uint32_t core_id,
+                                   SpawnCallback spawn_cb)
     : io_ctx_(io_ctx)
     , config_(config)
     , slab_(64, {.auto_grow = true, .grow_chunk_size = {}, .max_total_count = config_.max_pending_commands})
     , backoff_timer_(io_ctx)
+    , core_id_(core_id)
+    , spawn_callback_(std::move(spawn_cb))
 {}
 
 void RedisMultiplexer::connect()
@@ -34,19 +38,16 @@ void RedisMultiplexer::connect()
         if (!config_.password.empty())
         {
             // AUTH must run asynchronously after the event loop starts.
-            boost::asio::co_spawn(
-                io_ctx_,
-                [this]() -> boost::asio::awaitable<void> {
-                    auto result = co_await authenticate(*conn_);
-                    if (!result.has_value())
-                    {
-                        spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host,
-                                     config_.port);
-                        conn_.reset();
-                        on_disconnect();
-                    }
-                },
-                boost::asio::detached);
+            spawn_callback_(core_id_, [this]() -> boost::asio::awaitable<void> {
+                auto result = co_await authenticate(*conn_);
+                if (!result.has_value())
+                {
+                    spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host,
+                                 config_.port);
+                    conn_.reset();
+                    on_disconnect();
+                }
+            }());
         }
     }
     else
@@ -54,15 +55,21 @@ void RedisMultiplexer::connect()
         spdlog::warn("RedisMultiplexer: initial connect failed ({}:{}), starting reconnect", config_.host,
                      config_.port);
         conn_.reset(); // Ensure null on failure
-        reconnecting_ = true;
-        boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
+        reconnect_active_ = true;
+        spawn_callback_(core_id_, reconnect_loop());
     }
 }
 
 RedisMultiplexer::~RedisMultiplexer()
 {
-    reconnecting_ = false;
-    backoff_timer_.cancel();
+    // 방어적 cleanup: close()가 호출되지 않은 경우에도 안전하게 정리.
+    // 정상 경로에서는 AdapterBase::close() → do_close_per_core()가 close()를 호출하지만,
+    // 테스트나 예외 경로에서 close() 없이 파괴될 수 있다.
+    if (conn_)
+    {
+        spdlog::warn("RedisMultiplexer destroyed with active connection — calling close() in destructor");
+        close();
+    }
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 }
 
@@ -182,9 +189,6 @@ RedisMultiplexer::pipeline(std::span<const std::string> commands)
     for (const auto& cmd : commands)
     {
         // Format each command via hiredis for safe transmission.
-        // pipeline() will be updated to accept parameterized commands in a
-        // future revision; for now, treat each string as a pre-formatted
-        // command (same as the deprecated command(string_view)).
         char* buf = nullptr;
         int len = redisFormatCommand(&buf, cmd.c_str());
         if (len < 0 || !buf)
@@ -232,11 +236,6 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
     if (front->cancelled)
         return;
 
-    // Step 2 of 2-step ownership transfer (see release_pending):
-    // If this command already timed out, the coroutine has already resumed
-    // and extracted the result. The PendingCommand is still alive in the slab
-    // (release_pending was called but only removes from deque if present).
-    // We must destroy it here since the coroutine won't do it.
     if (front->timed_out)
     {
         spdlog::trace("[redis_multiplexer] static_on_reply: seq={} already timed out, destroying", front->sequence);
@@ -259,16 +258,14 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
 
 void RedisMultiplexer::on_disconnect()
 {
-    // 재진입 방어: authenticate() co_await 중 disconnect 발생 시
-    // on_disconnect()가 다시 호출될 수 있다. 이미 reconnect_loop가
-    // 실행 중이면 이중 spawn을 방지한다.
-    if (reconnecting_)
+    // 재진입 방어: reconnect_loop가 이미 활성이면 이중 spawn 방지
+    if (reconnect_active_)
         return;
 
-    reconnecting_ = true;
+    reconnect_active_ = true;
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
-    // Start reconnect loop
-    boost::asio::co_spawn(io_ctx_, reconnect_loop(), boost::asio::detached);
+    // spawn_callback가 DRAINING 상태면 거부 → 새 코루틴 없음
+    spawn_callback_(core_id_, reconnect_loop());
 }
 
 boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(RedisConnection& conn)
@@ -276,9 +273,6 @@ boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(
     if (config_.password.empty())
         co_return apex::core::Result<void>{};
 
-    // Use redisAsyncCommand directly (same pattern as command()) to bypass
-    // command()'s reconnecting_ guard and avoid async_command's
-    // std::function copy-constructibility requirement.
     auto seq = next_sequence_++;
     auto* pending = slab_.construct(boost::asio::steady_timer(io_ctx_, std::chrono::steady_clock::time_point::max()),
                                     boost::asio::steady_timer(io_ctx_, config_.command_timeout),
@@ -323,8 +317,6 @@ boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    // AUTH succeeded — REDIS_REPLY_ERROR is already handled by static_on_reply
-    // which converts it to AdapterError (caught by !result.has_value() above).
     co_return apex::core::Result<void>{};
 }
 
@@ -335,7 +327,17 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
     auto backoff = std::chrono::milliseconds{100};
     const auto max_backoff = config_.reconnect_max_backoff;
 
-    while (reconnecting_)
+    // RAII: 코루틴 종료 시(정상/취소/예외) reconnect_active_ 해제
+    struct ReconnectGuard
+    {
+        bool& active;
+        ~ReconnectGuard()
+        {
+            active = false;
+        }
+    } guard{reconnect_active_};
+
+    for (;;)
     {
         ++reconnect_attempts_;
         spdlog::info("Redis reconnect attempt {} (backoff {}ms)", reconnect_attempts_, backoff.count());
@@ -343,60 +345,38 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
         conn_ = RedisConnection::create(io_ctx_, config_);
         if (conn_ && conn_->is_connected())
         {
-            // AUTH (password set => authenticate)
             auto auth = co_await authenticate(*conn_);
             if (!auth.has_value())
             {
                 conn_.reset();
-                // backoff then retry
                 backoff_timer_.expires_after(backoff);
-                co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
-                if (!reconnecting_)
+                auto [ec] = co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+                if (ec == boost::asio::error::operation_aborted)
                     co_return;
                 backoff = std::min(backoff * 2, max_backoff);
                 continue;
             }
-            reconnecting_ = false;
             reconnect_attempts_ = 0;
-            spdlog::debug("[redis_multiplexer] reconnect succeeded ({}:{})", config_.host, config_.port);
-            spdlog::info("Redis reconnected successfully{}", config_.password.empty() ? "" : " (authenticated)");
+            spdlog::info("Redis reconnected successfully ({}:{}){}", config_.host, config_.port,
+                         config_.password.empty() ? "" : " (authenticated)");
             co_return;
         }
 
         // Exponential backoff wait
         backoff_timer_.expires_after(backoff);
-        co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
-        if (!reconnecting_)
+        auto [ec] = co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+        if (ec == boost::asio::error::operation_aborted)
             co_return;
         backoff = std::min(backoff * 2, max_backoff);
     }
 }
 
-// 2-step ownership transfer for timed-out commands:
-//
-//   Step 1 (here, release_pending): coroutine finishes but the hiredis
-//     callback hasn't fired yet.  Do NOT destroy — leave the
-//     PendingCommand in the deque + slab so static_on_reply can find it.
-//
-//   Step 2 (static_on_reply): hiredis eventually delivers the reply,
-//     pops the front of the deque, sees timed_out == true, and calls
-//     slab_.destroy().
-//
-// This keeps FIFO deque ordering intact and prevents use-after-free:
-// neither side destroys the object while the other still references it.
 void RedisMultiplexer::release_pending(PendingCommand* cmd)
 {
     if (cmd->timed_out)
     {
-        // Timed-out command: the hiredis callback has NOT yet fired.
-        // The PendingCommand must stay in the deque for FIFO ordering
-        // and alive in the slab. static_on_reply() will pop it from
-        // the deque and call slab_.destroy() when the reply arrives.
         return;
     }
-
-    // Normal path: static_on_reply already popped this from pending_.
-    // Just return the memory to the slab.
     slab_.destroy(cmd);
 }
 
@@ -406,18 +386,14 @@ void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error)
     for (auto* cmd : local)
     {
         cmd->result = std::unexpected(error);
-        cmd->cancelled = true; // 소유권 표시 — static_on_reply 이중 해제 방지
+        cmd->cancelled = true;
 
         if (cmd->timed_out)
         {
-            // 이미 타임아웃됨 — 코루틴은 재개 완료. hiredis는 disconnect 후 콜백 안 함.
-            // cancel_all_pending이 유일한 소유자이므로 안전하게 해제.
             slab_.destroy(cmd);
         }
         else
         {
-            // 코루틴이 resolver.async_wait에 대기 중.
-            // cancel()이 completion handler를 post → 코루틴 재개 → release_pending에서 해제.
             cmd->resolver.cancel();
         }
     }
@@ -425,7 +401,7 @@ void RedisMultiplexer::cancel_all_pending(apex::core::ErrorCode error)
 
 bool RedisMultiplexer::connected() const noexcept
 {
-    return conn_ && conn_->is_connected() && !reconnecting_;
+    return conn_ && conn_->is_connected();
 }
 
 std::size_t RedisMultiplexer::pending_count() const noexcept
@@ -438,18 +414,14 @@ uint32_t RedisMultiplexer::reconnect_attempts() const noexcept
     return reconnect_attempts_;
 }
 
-boost::asio::awaitable<void> RedisMultiplexer::close()
+void RedisMultiplexer::close()
 {
-    reconnecting_ = false;
-    backoff_timer_.cancel();
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
-
     if (conn_)
     {
         conn_->disconnect();
         conn_.reset();
     }
-    co_return;
 }
 
 } // namespace apex::shared::adapters::redis
