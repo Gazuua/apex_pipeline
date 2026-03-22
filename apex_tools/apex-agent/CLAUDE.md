@@ -3,19 +3,35 @@
 ## 빌드
 
 ```bash
-# Makefile (bash/MSYS — 권장)
+# Claude Code 세션 내 (go 직접 — 권장)
+export PATH="/c/Program Files/Go/bin:$PATH"   # git-bash에서 go 경로 추가
+go build -o apex-agent.exe ./cmd/apex-agent    # 빌드
+go test ./... -count=1                         # 전체 테스트 (단위 + e2e)
+
+# Makefile (bash/MSYS — make 있는 환경)
 make build        # 빌드 + 자동 install
 make test         # 전체 테스트 (단위 + e2e, -race -cover)
-make install      # install만 단독 실행
 
 # Windows 더블클릭
 build.bat         # 빌드 + 자동 install
 build.bat test    # 전체 테스트 (단위 + e2e)
 ```
 
-- `make build` = `make install` — 빌드 후 자동으로 설치 경로에 복사
+- **git-bash에 `make` 없음** — Claude Code 세션에서는 `go build` 직접 사용
+- **validate-build hook이 `build.bat`/`go build` 허용** — Go 툴체인 커맨드는 C++ 빌드와 무관하므로 통과
 - 설치 경로: `$LOCALAPPDATA/apex-agent/` (Windows) / `$HOME/.local/bin/` (Linux)
 - `run-hook`이 설치 경로 바이너리를 우선 사용 → 빌드 후 즉시 hook에 반영
+
+### 바이너리 설치 (수동)
+
+```bash
+# 데몬이 실행 중이면 먼저 종료해야 함 — Windows 파일 잠금
+apex-agent daemon stop
+cp apex-agent.exe "$LOCALAPPDATA/apex-agent/apex-agent.exe"
+apex-agent daemon start
+```
+
+**주의**: 데몬 실행 중에 `cp`하면 "Device or resource busy" 에러. 반드시 stop → cp → start 순서.
 
 ## 크로스 플랫폼 hook 실행
 
@@ -59,7 +75,7 @@ d.Register(handoff.New(d.Store(), backlogMod.Manager()))
 
 | Hook | 트리거 | 역할 | 차단 시 exit |
 |------|--------|------|:---:|
-| `validate-build` | Bash | cmake/ninja/build.bat 직접 호출 차단 | 2 |
+| `validate-build` | Bash | cmake/ninja/build.bat/bench_* 직접 호출 차단 | 2 |
 | `validate-merge` | Bash | merge lock 미획득 시 `gh pr merge` 차단 | 2 |
 | `validate-handoff` | Bash | 미등록 커밋 차단 + 머지 시 미ack/FIXING 차단 | 2 |
 | `enforce-rebase` | Bash | push 전 자동 리베이스 | 2 |
@@ -72,6 +88,16 @@ d.Register(handoff.New(d.Store(), backlogMod.Manager()))
 3. 둘 다 없으면: Bash hook은 통과, Edit/Write hook은 차단
 
 daemon IPC `resolve-branch` 라우트가 이 로직을 서버 사이드에서 처리.
+
+### validate-build 허용 목록
+
+차단 패턴(`cmake`, `ninja`, `build.bat`, `bench_*` 등) 매칭 전에 허용 체크:
+
+| 패턴 | 이유 |
+|------|------|
+| `queue-lock.sh` | 레거시 호환 |
+| `apex-agent`, `run-hook` | Go 백엔드 래퍼 (queue build/benchmark 경유) |
+| `go build/test/run/install` | Go 툴체인 (C++ 빌드와 무관) |
 
 ### stdin 프로토콜
 
@@ -89,7 +115,13 @@ apex-agent backlog resolve ID --resolution FIXED
 apex-agent backlog release ID --reason "..."
 apex-agent backlog export
 apex-agent backlog check ID
+
+# MD → DB 싱크 (import가 아니라 migrate 서브커맨드)
+apex-agent migrate backlog                    # 기본 경로: docs/BACKLOG.md + docs/BACKLOG_HISTORY.md
+apex-agent migrate backlog --backlog path/to/BACKLOG.md --history path/to/HISTORY.md
 ```
+
+**주의**: `backlog import`가 아니라 `migrate backlog` — import는 migrate 커맨드의 서브커맨드.
 
 ### 열거형 검증 규칙
 
@@ -126,6 +158,22 @@ apex-agent handoff check
 apex-agent handoff ack --id N --action no-impact
 apex-agent handoff backlog-check N
 ```
+
+## 큐 CLI
+
+```bash
+apex-agent queue build <preset> [extra args...]     # 빌드 잠금 획득 후 build.bat 실행
+apex-agent queue benchmark <exe> [bench args...]    # 빌드 잠금 획득 후 벤치마크 실행
+apex-agent queue merge acquire                      # 머지 잠금 획득
+apex-agent queue merge release                      # 머지 잠금 해제
+apex-agent queue merge status                       # 머지 잠금 상태
+apex-agent queue acquire <channel>                  # 범용 채널 잠금 획득
+apex-agent queue release <channel>                  # 범용 채널 잠금 해제
+apex-agent queue status <channel>                   # 채널 상태 조회
+```
+
+- `queue build`와 `queue benchmark`는 동일한 "build" 채널 lock 공유 — 빌드/벤치마크 상호배제
+- `queue merge`는 독립 "merge" 채널 — build 잠금과 무관
 
 ### 착수 필수 플래그
 
