@@ -78,7 +78,7 @@ func handoffNotifyStartCmd() *cobra.Command {
 		Short: "작업 착수 알림 (백로그 연결)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(backlogs) == 0 {
-				return fmt.Errorf("백로그 작업은 --backlog 필수. 비백로그 작업은 'start job' 사용")
+				return fmt.Errorf("백로그 작업은 --backlog 필수. 비백로그 작업은 'notify job' 사용")
 			}
 			branch := getBranchID()
 			gitBranch := currentGitBranch()

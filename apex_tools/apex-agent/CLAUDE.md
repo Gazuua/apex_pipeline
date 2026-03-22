@@ -129,7 +129,7 @@ apex-agent handoff backlog-check N
 ### 착수 필수 플래그
 
 - `--summary`: **필수** — 작업 요약 없이 착수 불가
-- `--backlog`: `start` 커맨드에서 **필수** — 비백로그 작업은 `start job` 사용
+- `--backlog`: `notify start`에서 **필수** — 비백로그 작업은 `notify job` 사용
 
 ### 상태 머신
 
