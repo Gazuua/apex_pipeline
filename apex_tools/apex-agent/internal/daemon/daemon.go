@@ -75,11 +75,17 @@ func (d *Daemon) Run(ctx context.Context) error {
 		})
 	}
 
-	// 4. Start modules.
+	// 4. Start modules (with rollback on partial failure).
+	var started []Module
 	for _, m := range d.modules {
 		if err := m.OnStart(ctx); err != nil {
+			// Rollback: stop already-started modules in reverse order.
+			for i := len(started) - 1; i >= 0; i-- {
+				started[i].OnStop()
+			}
 			return fmt.Errorf("start module %s: %w", m.Name(), err)
 		}
+		started = append(started, m)
 	}
 
 	// 5. Start IPC server.
