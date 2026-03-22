@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 133
+다음 발번: 136
 
 ---
 
@@ -21,38 +21,12 @@
 
 ## IN VIEW
 
-### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: security
-- **설명**: Kafka 리스너가 `PLAINTEXT://` 프로토콜만 사용. 개발 환경에서는 적절하지만 프로덕션 배포 시 `SSL` 또는 `SASL_SSL` 필요. KafkaAdapter에 `security.protocol` 설정 메커니즘 추가 필요. **[FSD 설계 확정 2026-03-22]** B+C 하이브리드 채택: `KafkaSecurityConfig` typed struct(protocol, ssl_ca_location, ssl_cert/key_location, sasl_mechanism, sasl_username/password) + `extra_properties` map(librdkafka passthrough). 업계 표준(Spring Kafka 등) 준용. typed 필드로 IDE 자동완성 + 컴파일 타임 검증 확보, extra_properties로 librdkafka 200+ 설정 커버.
-
-### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **설명**: function-local static `ssl::context`가 멀티코어에서 `SSL_CTX` concurrent access 위험. 프로덕션 경로는 `make_socket_with_context()` 사용으로 회피하고 있으나, Transport concept의 `make_socket(io_context&)` 시그니처가 per-core context를 전달할 수 없는 구조적 한계. **[FSD 설계 확정 2026-03-22]** D안 채택 — TransportContext 번들 도입: `struct TransportContext { ssl::context* ssl_ctx = nullptr; /* 향후 metrics*, buffer_pool* 등 확장 */ }`. concept 시그니처를 `make_socket(io_context&, const TransportContext&)`로 1회 변경. 이후 per-core 상태 확장은 struct 필드 추가로 해결. make_socket_with_context() 제거.
-
-### #24. 어댑터 상태 관리 불일치
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #29, #132
-- **설명**: KafkaAdapter 자체 `AdapterState` enum vs 나머지 `AdapterBase::ready_` bool. 상태 표현이 불일치. **[FSD 설계 확정 2026-03-22]** A안 채택: AdapterBase에 3-state enum `AdapterState { RUNNING, DRAINING, CLOSED }` 도입, 전체 어댑터에 통일. KafkaAdapter의 독자 AdapterState 삭제, `is_ready()` → `state() == RUNNING`으로 전환. #29 drain/stop 분리, #132 async close와 번들 추천.
-
-### #29. drain()/stop() 동일 구현
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **연관**: #24, #132
-- **설명**: Listener와 AdapterBase의 `drain()`과 `stop()`이 완전히 동일한 구현. **[FSD 설계 확정 2026-03-22]** A안 채택 — 의미 분리: drain = accept/요청 수신 중단 + in-flight 완료 대기(state → DRAINING), stop = 즉시 종료(state → CLOSED). Listener와 AdapterBase 모두 적용. #24 3-state enum과 연동.
-
 ### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
 - **등급**: MAJOR
 - **스코프**: shared
 - **타입**: design-debt
 - **연관**: #24, #29, #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경, RedisAdapter가 `co_await RedisMultiplexer::close()` 호출. 전체 어댑터 인터페이스 변경. #24 3-state enum + #29 drain/stop 분리와 번들 필수.
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경. **[FSD 분석 2026-03-22]** A안 구현 시도 중 추가 설계 결정 필요 발견: ① Server::finalize_shutdown()에서 adapter->close()는 core threads 정지 후 호출 — awaitable 실행에 필요한 io_context가 이미 정지됨. ② 종료 순서 변경(adapter close → core stop) 시 기존 안전성 보장 "pending handlers may reference adapter resources" 검증 필요. ③ per-core RedisMultiplexer를 각자의 io_context에서 close하는 cross-io_context 조정 문제. Server shutdown 시퀀스 재설계 후 재시도.
 
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
@@ -73,6 +47,27 @@
 - **타입**: test
 - **연관**: #102
 - **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수.
+
+### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **연관**: #130 (이번 PR에서 도입)
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결.
+
+### #134. AdapterState가 AdapterInterface에 미노출
+- **등급**: MAJOR
+- **스코프**: core, shared
+- **타입**: design-debt
+- **연관**: #24 (이번 PR에서 도입)
+- **설명**: `AdapterBase::state()`가 타입 소거 인터페이스 `AdapterInterface`에 포워딩되지 않아, Server에서 어댑터 상태를 조회할 수 없음. `AdapterState` enum을 core로 옮기거나, `AdapterInterface`에 `uint8_t` 기반 `state()` 추가 필요.
+
+### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
+- **등급**: MINOR
+- **스코프**: shared
+- **타입**: security
+- **연관**: #131 (이번 PR에서 도입)
+- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR

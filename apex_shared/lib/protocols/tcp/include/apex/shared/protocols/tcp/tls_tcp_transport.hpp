@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/assert.hpp>
 #include <apex/core/transport.hpp>
 
 #include <boost/asio/as_tuple.hpp>
@@ -30,18 +31,10 @@ struct TlsTcpTransport
 
     using Socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
-    static Socket make_socket(boost::asio::io_context& ctx)
+    static Socket make_socket(boost::asio::io_context& ctx, const apex::core::TransportContext& tx_ctx)
     {
-        // Default SSL context -- for concept satisfaction / test use.
-        // Real path uses make_socket_with_context with per-core ssl::context.
-        static boost::asio::ssl::context default_ctx(boost::asio::ssl::context::tlsv13);
-        return Socket(ctx, default_ctx);
-    }
-
-    /// Create socket with per-core SSL context (production path).
-    static Socket make_socket_with_context(boost::asio::io_context& ctx, boost::asio::ssl::context& ssl_ctx)
-    {
-        return Socket(ctx, ssl_ctx);
+        APEX_ASSERT(tx_ctx.ssl_ctx != nullptr, "TlsTcpTransport requires TransportContext::ssl_ctx");
+        return Socket(ctx, *tx_ctx.ssl_ctx);
     }
 
     /// Initialize SSL context (per-core).

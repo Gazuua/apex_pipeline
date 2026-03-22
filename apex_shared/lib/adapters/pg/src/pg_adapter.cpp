@@ -59,8 +59,8 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine)
 
 void PgAdapter::do_drain()
 {
-    // drain signal: AdapterBase sets ready_ to false.
-    // No additional PgPool work needed -- in-flight queries complete naturally.
+    // AdapterBase가 state를 DRAINING으로 설정한 후 호출됨.
+    // PgPool 추가 작업 불필요 — in-flight 쿼리는 자연 완료.
     spdlog::info("PgAdapter: drain started");
 }
 

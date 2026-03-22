@@ -5,6 +5,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <cstring>
 #include <string>
 
 #ifndef _WIN32
@@ -53,12 +54,16 @@ apex::core::Result<void> KafkaConsumer::init()
     char errstr[512];
     rd_kafka_conf_t* conf = rd_kafka_conf_new();
 
-    // Helper: set config with warning on failure
-    auto conf_set = [&](const char* key, const char* val) {
+    // Helper: set config, returns false on failure.
+    // Sensitive keys (sasl.password) have their values masked in logs.
+    auto conf_set = [&](const char* key, const char* val) -> bool {
         if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
         {
-            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, val, errstr);
+            const bool sensitive = std::strcmp(key, "sasl.password") == 0;
+            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
+            return false;
         }
+        return true;
     };
 
     conf_set("bootstrap.servers", config_.brokers.c_str());
@@ -68,6 +73,46 @@ apex::core::Result<void> KafkaConsumer::init()
     conf_set("auto.offset.reset", "earliest");
     // enable.auto.commit = true (default, kept for convenience)
     conf_set("enable.auto.commit", "true");
+
+    // Security settings (only apply non-empty values).
+    // Security config failures are fatal — falling through to plaintext is worse than failing init.
+    const auto& sec = config_.security;
+    auto sec_set = [&](const char* key, const char* val) -> bool {
+        if (!conf_set(key, val))
+        {
+            spdlog::error("KafkaConsumer[core={}]: security config '{}' failed — aborting init", core_id_, key);
+            rd_kafka_conf_destroy(conf);
+            return false;
+        }
+        return true;
+    };
+    if (sec.protocol != "PLAINTEXT")
+        if (!sec_set("security.protocol", sec.protocol.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_ca_location.empty())
+        if (!sec_set("ssl.ca.location", sec.ssl_ca_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_cert_location.empty())
+        if (!sec_set("ssl.certificate.location", sec.ssl_cert_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_key_location.empty())
+        if (!sec_set("ssl.key.location", sec.ssl_key_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_mechanism.empty())
+        if (!sec_set("sasl.mechanism", sec.sasl_mechanism.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_username.empty())
+        if (!sec_set("sasl.username", sec.sasl_username.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_password.empty())
+        if (!sec_set("sasl.password", sec.sasl_password.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+
+    // Extra properties (pass-through)
+    for (const auto& [key, val] : config_.extra_properties)
+    {
+        conf_set(key.c_str(), val.c_str());
+    }
 
     rk_ = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk_)

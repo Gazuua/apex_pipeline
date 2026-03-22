@@ -18,7 +18,7 @@ struct PlainTcpTransport
     {};
     using Socket = boost::asio::ip::tcp::socket;
 
-    static Socket make_socket(boost::asio::io_context& ctx)
+    static Socket make_socket(boost::asio::io_context& ctx, const apex::core::TransportContext& /*tx_ctx*/)
     {
         return Socket(ctx);
     }

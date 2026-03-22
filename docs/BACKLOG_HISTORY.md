@@ -5,6 +5,26 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
+- **등급**: MAJOR | **스코프**: infra | **타입**: security
+- **해결**: 2026-03-22 13:09:42 | **방식**: FIXED | **커밋**: e104ade
+- **비고**: KafkaSecurityConfig typed struct + extra_properties map 도입. 보안 설정 실패 시 init 중단, sasl.password 로그 마스킹. PR #100
+
+### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
+- **등급**: MAJOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-22 13:09:42 | **방식**: FIXED | **커밋**: e104ade
+- **비고**: TransportContext 번들 도입, concept 시그니처 1회 변경, make_socket_with_context() 제거, per-core SSL_CTX 안전성 확보. PR #100
+
+### #24. 어댑터 상태 관리 불일치
+- **등급**: MAJOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-22 13:09:42 | **방식**: FIXED | **커밋**: e104ade
+- **비고**: AdapterBase에 3-state AdapterState enum 도입, KafkaAdapter 독자 enum 삭제, 전 어댑터 통일. PR #100
+
+### #29. drain()/stop() 동일 구현
+- **등급**: MAJOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-22 13:09:42 | **방식**: FIXED | **커밋**: e104ade
+- **비고**: drain/stop 의미 분리(state 전이 + 주석), AdapterBase close()에 CLOSED 상태 설정 추가. PR #100
+
 ### #128. AuthService::on_login locked_until 시간 비교 누락
 - **등급**: MAJOR | **스코프**: auth-svc | **타입**: bug
 - **해결**: 2026-03-22 11:00:06 | **방식**: FIXED | **커밋**: 0c088c9

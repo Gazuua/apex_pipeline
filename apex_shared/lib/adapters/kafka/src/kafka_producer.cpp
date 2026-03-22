@@ -38,12 +38,16 @@ apex::core::Result<void> KafkaProducer::init()
     char errstr[512];
     rd_kafka_conf_t* conf = rd_kafka_conf_new();
 
-    // Helper: set config with warning on failure
-    auto conf_set = [&](const char* key, const char* val) {
+    // Helper: set config, returns false on failure.
+    // Sensitive keys (sasl.password) have their values masked in logs.
+    auto conf_set = [&](const char* key, const char* val) -> bool {
         if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
         {
-            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, val, errstr);
+            const bool sensitive = std::strcmp(key, "sasl.password") == 0;
+            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
+            return false;
         }
+        return true;
     };
 
     // Broker
@@ -57,6 +61,46 @@ apex::core::Result<void> KafkaProducer::init()
     conf_set("batch.size", std::to_string(config_.producer_batch_size).c_str());
     conf_set("compression.type", config_.compression_type.c_str());
     conf_set("queue.buffering.max.messages", std::to_string(config_.queue_buffering_max_messages).c_str());
+
+    // Security settings (only apply non-empty values).
+    // Security config failures are fatal — falling through to plaintext is worse than failing init.
+    const auto& sec = config_.security;
+    auto sec_set = [&](const char* key, const char* val) -> bool {
+        if (!conf_set(key, val))
+        {
+            spdlog::error("KafkaProducer: security config '{}' failed — aborting init", key);
+            rd_kafka_conf_destroy(conf);
+            return false;
+        }
+        return true;
+    };
+    if (sec.protocol != "PLAINTEXT")
+        if (!sec_set("security.protocol", sec.protocol.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_ca_location.empty())
+        if (!sec_set("ssl.ca.location", sec.ssl_ca_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_cert_location.empty())
+        if (!sec_set("ssl.certificate.location", sec.ssl_cert_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.ssl_key_location.empty())
+        if (!sec_set("ssl.key.location", sec.ssl_key_location.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_mechanism.empty())
+        if (!sec_set("sasl.mechanism", sec.sasl_mechanism.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_username.empty())
+        if (!sec_set("sasl.username", sec.sasl_username.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+    if (!sec.sasl_password.empty())
+        if (!sec_set("sasl.password", sec.sasl_password.c_str()))
+            return std::unexpected(apex::core::ErrorCode::AdapterError);
+
+    // Extra properties (pass-through)
+    for (const auto& [key, val] : config_.extra_properties)
+    {
+        conf_set(key.c_str(), val.c_str());
+    }
 
     // Delivery report callback
     rd_kafka_conf_set_dr_msg_cb(conf, &KafkaProducer::delivery_report_cb);
