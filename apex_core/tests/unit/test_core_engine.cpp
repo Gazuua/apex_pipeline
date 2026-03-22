@@ -12,7 +12,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
 #include <thread>
 
 using namespace apex::core;
@@ -124,11 +126,32 @@ TEST(CoreEngineTest, PostToFullSpscQueueReturnsFalse)
                        .tick_interval = std::chrono::milliseconds{100},
                        .drain_batch_limit = 1024});
 
-    // Start engine so core threads set tls_core_id_
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
 
-    // Post from core 0 to core 1 via co_spawn (need core thread for SPSC)
+    // Block core 1's event loop so drain cannot run.
+    // Without this, schedule_drain() posts drain tasks that core 1
+    // processes between posts, preventing the queue from filling up
+    // (especially under TSAN where post_to() is slower).
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool core1_blocked = false;
+    bool release_core1 = false;
+
+    boost::asio::post(engine.io_context(1), [&] {
+        std::unique_lock lock(mtx);
+        core1_blocked = true;
+        cv.notify_all();
+        cv.wait(lock, [&] { return release_core1; });
+    });
+
+    {
+        std::unique_lock lock(mtx);
+        cv.wait(lock, [&] { return core1_blocked; });
+    }
+
+    // Post from core 0 to core 1 via co_spawn (need core thread for SPSC).
+    // Core 1 is blocked, so drain tasks queue up but never execute.
     std::atomic<bool> full_detected{false};
     boost::asio::co_spawn(
         engine.io_context(0),
@@ -152,6 +175,13 @@ TEST(CoreEngineTest, PostToFullSpscQueueReturnsFalse)
         boost::asio::detached);
 
     ASSERT_TRUE(apex::test::wait_for([&]() { return full_detected.load(); }));
+
+    // Unblock core 1 before stopping — otherwise join() deadlocks.
+    {
+        std::lock_guard lock(mtx);
+        release_core1 = true;
+    }
+    cv.notify_all();
 
     engine.stop();
     engine.join();
