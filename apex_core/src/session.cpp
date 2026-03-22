@@ -104,7 +104,7 @@ Result<void> Session::enqueue_write(std::vector<uint8_t> data)
         SPDLOG_WARN("Session {} write queue full (depth={})", id_, max_queue_depth_);
         return error(ErrorCode::BufferFull);
     }
-    write_queue_.push_back(WriteRequest{std::move(data)});
+    write_queue_.push_back(WriteRequest{std::move(data), nullptr, nullptr});
     if (!pump_running_)
     {
         pump_running_ = true;
