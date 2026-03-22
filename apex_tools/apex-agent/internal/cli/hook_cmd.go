@@ -22,6 +22,7 @@ func hookCmd() *cobra.Command {
 	cmd.AddCommand(hookValidateMergeCmd())
 	cmd.AddCommand(hookValidateHandoffCmd())
 	cmd.AddCommand(hookHandoffProbeCmd())
+	cmd.AddCommand(hookEnforceRebaseCmd())
 	return cmd
 }
 
@@ -55,6 +56,30 @@ func hookValidateMergeCmd() *cobra.Command {
 			if err := hook.ValidateMerge(command, cwd); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
 				os.Exit(2)
+			}
+			return nil
+		},
+	}
+}
+
+func hookEnforceRebaseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "enforce-rebase",
+		Short: "push/PR 전 자동 리베이스",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			command, _, err := readHookInput()
+			if err != nil {
+				return nil
+			}
+			// Determine project root from cwd
+			cwd, _ := os.Getwd()
+			msg, err := hook.EnforceRebase(command, cwd)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(2)
+			}
+			if msg != "" {
+				fmt.Fprintln(os.Stderr, msg)
 			}
 			return nil
 		},

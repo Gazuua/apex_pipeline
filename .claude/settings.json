@@ -29,7 +29,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/enforce-rebase.sh",
+            "command": "./apex_tools/apex-agent/apex-agent hook enforce-rebase",
             "timeout": 30
           }
         ]
