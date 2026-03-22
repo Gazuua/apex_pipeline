@@ -104,12 +104,17 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                 local.push_back(std::make_unique<TcpAcceptor>(
                     core_io, port_,
                     [this, i](boost::asio::ip::tcp::socket socket) {
-                        if (max_connections_ > 0 && active_sessions() >= max_connections_)
+                        if (max_connections_ > 0)
                         {
-                            spdlog::warn("Connection rejected: max_connections limit ({}/{})", active_sessions(),
-                                         max_connections_);
-                            socket.close();
-                            return;
+                            auto current = active_sessions();
+                            if (current >= max_connections_)
+                            {
+                                spdlog::warn("Connection rejected: max_connections limit ({}/{})", current,
+                                             max_connections_);
+                                boost::system::error_code ec;
+                                socket.close(ec);
+                                return;
+                            }
                         }
                         per_core_handlers_[i]->handler.accept_connection(std::move(socket), engine_.io_context(i));
                     },
@@ -213,11 +218,16 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
   private:
     void on_accept(boost::asio::ip::tcp::socket socket)
     {
-        if (max_connections_ > 0 && active_sessions() >= max_connections_)
+        if (max_connections_ > 0)
         {
-            spdlog::warn("Connection rejected: max_connections limit ({}/{})", active_sessions(), max_connections_);
-            socket.close();
-            return;
+            auto current = active_sessions();
+            if (current >= max_connections_)
+            {
+                spdlog::warn("Connection rejected: max_connections limit ({}/{})", current, max_connections_);
+                boost::system::error_code ec;
+                socket.close(ec);
+                return;
+            }
         }
 
         uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());

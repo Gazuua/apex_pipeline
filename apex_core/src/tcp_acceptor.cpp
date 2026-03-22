@@ -26,7 +26,13 @@ TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptC
     , on_accept_(std::move(on_accept))
     , reuseport_(reuseport)
 {
-    auto addr = boost::asio::ip::make_address(bind_address);
+    boost::system::error_code ec;
+    auto addr = boost::asio::ip::make_address(bind_address, ec);
+    if (ec)
+    {
+        spdlog::critical("TcpAcceptor: invalid bind_address '{}' — {}", bind_address, ec.message());
+        throw boost::system::system_error(ec, "invalid bind_address");
+    }
     auto protocol = addr.is_v4() ? boost::asio::ip::tcp::v4() : boost::asio::ip::tcp::v6();
 
     acceptor_.open(protocol);
