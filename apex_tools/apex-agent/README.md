@@ -77,7 +77,7 @@ e2e/                  E2E 통합 테스트
 - 머지 게이트: 미ack 알림 + FIXING 백로그 차단
 
 ### Hook 게이트
-- `validate-build`: cmake/ninja 직접 호출 차단 → queue-lock.sh 강제
+- `validate-build`: cmake/ninja 직접 호출 차단 → `apex-agent queue build` 강제
 - `validate-handoff`: 미등록 커밋 차단, 미해결 백로그 머지 차단
 - `handoff-probe`: 상태별 소스 파일 편집 제어
 - `enforce-rebase`: push 전 자동 리베이스

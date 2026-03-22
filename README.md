@@ -228,7 +228,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - core→shared 역방향 의존 해소 (forwarding header deprecated → 직접 include 전환 완료)
   - ErrorCode 분리, spawn_tracked 도입
   - 전체 소스/스크립트 MIT License 저작권 헤더 추가 (336개 파일)
-  - branch-handoff.sh 멀티 에이전트 인수인계 시스템
+  - apex-agent 멀티 에이전트 인수인계 시스템 (핸드오프)
   - Full Auto-Review v0.5.9.0 (37건 발견: CRITICAL 1 + MAJOR 14 + MINOR 22, 13건 수정)
   - CRITICAL: connection_handler async_write UB 수정 (async_send_raw→enqueue_write_raw)
   - 보안: bcrypt 해시 로그 노출 제거, Docker non-root 실행 전환 (3 서비스)

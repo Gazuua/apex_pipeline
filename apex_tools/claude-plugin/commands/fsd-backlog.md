@@ -23,7 +23,7 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 각 항목에 대해 순차 평가:
 
 1. **`[FSD 분석]` 태그가 이미 있는가?** → YES → 즉시 스킵 (상황 변화가 명확한 경우에만 재분석)
-2. **다른 에이전트가 점유 중인가?** → `branch-handoff.sh status`의 "Backlog items in progress" 확인 → 점유 중이면 스킵
+2. **다른 에이전트가 점유 중인가?** → `apex-agent handoff status`의 "Backlog items in progress" 확인 → 점유 중이면 스킵
 3. **타입이 자동화에 적합한가?**
    - bug, design-debt, test, docs, infra → 후보
    - security, perf → 코드 분석 후 판단
@@ -58,15 +58,15 @@ allowed-tools: ["Bash", "Glob", "Grep", "Read", "Edit", "Write", "Agent"]
 
 ```bash
 # 1. 점유 현황 확인 (Phase 1에서 이미 확인했지만, 착수 직전 재확인)
-"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh" status
+apex-agent handoff status
 
 # 2. 브랜치 생성 (최신 main 기반, enforce-rebase hook이 자동 보장)
 #    타임스탬프는 date +"%Y%m%d_%H%M%S" 명령으로 정확한 현재 시각을 취득
 git checkout -b feature/fsd-backlog-<YYYYMMDD_HHMMSS>
 
 # 3. 착수 선언 (--summary 필수, 비우면 hook이 차단)
-#    --backlog는 숫자만 전달 (접두사는 스크립트가 자동 추가)
-"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh" notify start \
+#    --backlog는 숫자만 전달 (접두사는 자동 추가)
+apex-agent handoff notify start \
   --skip-design \
   --backlog "<N,M,...>" \
   --scopes "<스코프1,스코프2>" \
@@ -105,7 +105,7 @@ git checkout -b feature/fsd-backlog-<YYYYMMDD_HHMMSS>
 
 ```bash
 # 점유 릴리즈 (active + backlog-status 자동 정리)
-"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh" notify merge \
+apex-agent handoff notify merge \
   --summary "BACKLOG-N,M,... 소탕 완료"
 ```
 

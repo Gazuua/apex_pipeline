@@ -26,7 +26,7 @@
 ## 벤치마크 실행
 
 - **구조/실행 가이드**: `apex_core/benchmarks/README.md` 참조 (벤치마크 목록, 실행 방법, JSON 출력 옵션)
-- **queue-lock.sh 경유 필수** — `queue-lock.sh benchmark <exe> [args]`로 실행. build 채널 lock을 공유하여 빌드/벤치마크 상호배제 보장. 직접 실행은 PreToolUse hook이 차단
+- **apex-agent queue 경유 필수** — `apex-agent queue benchmark <exe> [args]`로 실행. build 채널 lock을 공유하여 빌드/벤치마크 상호배제 보장. 직접 실행은 PreToolUse hook이 차단
 - **Release 빌드**(`release` 프리셋)로 측정 — 총 14개 벤치마크 실행 파일
 - 결과 JSON 저장: `apex_core/benchmark_results/` (임시) → `docs/apex_core/benchmark/{version}/` (git 추적)
 
@@ -38,7 +38,7 @@
   - `docs/apex_core/benchmark/analysis.json` — 섹션별 분석 텍스트 (매번 새로 작성)
   - `docs/apex_core/benchmark/{version}/*.json` — 벤치마크 데이터 (버전별 디렉토리)
 - **에이전트 워크플로우**:
-  1. Release 빌드 후 벤치마크 14개 순차 실행 (`queue-lock.sh benchmark` 경유) → JSON 저장
+  1. Release 빌드 후 벤치마크 14개 순차 실행 (`apex-agent queue benchmark` 경유) → JSON 저장
   2. `docs/apex_core/benchmark/{version}/`으로 복사 + `metadata.json` 생성
   3. 결과 데이터를 분석하여 `analysis.json` 작성 (11개 섹션)
   4. 스크립트 실행: `python generate_benchmark_report.py --data-dir=docs/apex_core/benchmark --baseline=v0.5.9.0 --current=v0.5.10.0 --analysis=... --output=...`
