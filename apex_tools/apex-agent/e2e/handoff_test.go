@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/e2e/testenv"
@@ -424,6 +425,193 @@ func TestHandoff_ResolveBranch(t *testing.T) {
 	json.Unmarshal(resp.Data, &result)
 	if result["found"] != false {
 		t.Error("nonexistent branch should not be found")
+	}
+}
+
+// TestHandoff_BacklogFixingAndMergeGate verifies:
+//  1. notify-start with backlog_ids → junction INSERT + FIXING status transition
+//  2. merge gate blocks when FIXING backlogs exist
+//  3. resolve removes FIXING → merge gate passes
+func TestHandoff_BacklogFixingAndMergeGate(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	branch := "feature/fixing-test"
+
+	// Step 1: Add a backlog item
+	resp, err := env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"id": 1, "title": "Gate Test Bug", "severity": "MAJOR", "timeframe": "NOW",
+		"scope": "CORE", "type": "BUG", "description": "test FIXING gate",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("backlog.add: %v / %s", err, resp.Error)
+	}
+
+	// Step 2: notify-start with backlog_ids → should set backlog to FIXING
+	resp, err = env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
+		"branch":      branch,
+		"workspace":   "ws1",
+		"summary":     "fixing gate test",
+		"backlog_ids": []int{1},
+		"skip_design": true,
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("notify-start: %v / %s", err, resp.Error)
+	}
+
+	// Step 3: Verify backlog is FIXING
+	resp, err = env.Client.Send(ctx, "backlog", "check", map[string]any{"id": 1}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("backlog.check: %v / %s", err, resp.Error)
+	}
+	var checkData map[string]any
+	json.Unmarshal(resp.Data, &checkData)
+	if checkData["status"] != "FIXING" {
+		t.Errorf("expected backlog status FIXING, got %v", checkData["status"])
+	}
+
+	// Step 4: Verify branch has backlog in junction
+	resp, err = env.Client.Send(ctx, "handoff", "get-branch", map[string]any{"branch": branch}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("get-branch: %v / %s", err, resp.Error)
+	}
+	var branchData map[string]any
+	json.Unmarshal(resp.Data, &branchData)
+	raw, _ := json.Marshal(branchData["branch"])
+	var branchInfo map[string]any
+	json.Unmarshal(raw, &branchInfo)
+	backlogIDs, _ := branchInfo["BacklogIDs"].([]any)
+	if len(backlogIDs) != 1 {
+		t.Errorf("expected 1 backlog ID in junction, got %d", len(backlogIDs))
+	}
+
+	// Step 5: Merge gate should BLOCK (FIXING backlog exists)
+	resp, err = env.Client.Send(ctx, "handoff", "validate-merge-gate", map[string]any{
+		"branch": branch,
+	}, "")
+	if err != nil {
+		t.Fatalf("validate-merge-gate: %v", err)
+	}
+	if resp.OK {
+		t.Error("merge gate should block when FIXING backlogs exist")
+	}
+	if !strings.Contains(resp.Error, "미해결 백로그") {
+		t.Errorf("expected FIXING block message, got: %s", resp.Error)
+	}
+
+	// Step 6: Resolve the backlog → merge gate should pass
+	resp, err = env.Client.Send(ctx, "backlog", "resolve", map[string]any{
+		"id": 1, "resolution": "FIXED",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("backlog.resolve: %v / %s", err, resp.Error)
+	}
+
+	resp, err = env.Client.Send(ctx, "handoff", "validate-merge-gate", map[string]any{
+		"branch": branch,
+	}, "")
+	if err != nil {
+		t.Fatalf("validate-merge-gate after resolve: %v", err)
+	}
+	if !resp.OK {
+		t.Errorf("merge gate should pass after resolve: %s", resp.Error)
+	}
+}
+
+// TestHandoff_StartJob verifies non-backlog job registration.
+func TestHandoff_StartJob(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	branch := "feature/job-test"
+
+	// Register without backlog
+	resp, err := env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
+		"branch":      branch,
+		"workspace":   "ws1",
+		"git_branch":  "feature/job-test",
+		"summary":     "job mode test",
+		"backlog_ids": []int{},
+		"skip_design": true,
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("notify-start job: %v / %s", err, resp.Error)
+	}
+
+	// Verify status = implementing (skip-design)
+	assertStatus(t, env, ctx, branch, "implementing")
+
+	// Verify no backlog junction
+	resp, err = env.Client.Send(ctx, "handoff", "get-branch", map[string]any{"branch": branch}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("get-branch: %v / %s", err, resp.Error)
+	}
+	var data map[string]any
+	json.Unmarshal(resp.Data, &data)
+	raw, _ := json.Marshal(data["branch"])
+	var info map[string]any
+	json.Unmarshal(raw, &info)
+	backlogIDs, _ := info["BacklogIDs"].([]any)
+	if len(backlogIDs) != 0 {
+		t.Errorf("job mode should have 0 backlog IDs, got %d", len(backlogIDs))
+	}
+
+	// Verify git_branch stored
+	if info["GitBranch"] != "feature/job-test" {
+		t.Errorf("expected git_branch 'feature/job-test', got %v", info["GitBranch"])
+	}
+
+	// Merge gate should pass (no backlogs, no notifications from others)
+	resp, err = env.Client.Send(ctx, "handoff", "validate-merge-gate", map[string]any{
+		"branch": branch,
+	}, "")
+	if err != nil {
+		t.Fatalf("validate-merge-gate: %v", err)
+	}
+	if !resp.OK {
+		t.Errorf("merge gate should pass for job with no backlogs: %s", resp.Error)
+	}
+}
+
+// TestHandoff_BacklogCheckJunction verifies backlog-check uses junction table.
+func TestHandoff_BacklogCheckJunction(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	// Add backlog item
+	env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"id": 50, "title": "Junction Check", "severity": "MINOR", "timeframe": "NOW",
+		"scope": "TOOLS", "type": "TEST", "description": "junction test",
+	}, "")
+
+	// Before registration: available
+	resp, err := env.Client.Send(ctx, "handoff", "backlog-check", map[string]any{"backlog_id": 50}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("backlog-check before: %v / %s", err, resp.Error)
+	}
+	var result map[string]any
+	json.Unmarshal(resp.Data, &result)
+	if result["available"] != true {
+		t.Error("backlog 50 should be available before registration")
+	}
+
+	// Register branch with backlog 50
+	env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
+		"branch": "feature/junction-50", "workspace": "ws1",
+		"summary": "junction test", "backlog_ids": []int{50}, "skip_design": true,
+	}, "")
+
+	// After registration: in use
+	resp, err = env.Client.Send(ctx, "handoff", "backlog-check", map[string]any{"backlog_id": 50}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("backlog-check after: %v / %s", err, resp.Error)
+	}
+	json.Unmarshal(resp.Data, &result)
+	if result["available"] != false {
+		t.Error("backlog 50 should be in use after registration")
+	}
+	if result["branch"] != "feature/junction-50" {
+		t.Errorf("expected branch 'feature/junction-50', got %v", result["branch"])
 	}
 }
 
