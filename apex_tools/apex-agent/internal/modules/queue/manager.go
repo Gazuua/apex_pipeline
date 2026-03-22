@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+var ml = log.WithModule("queue")
 
 // QueueEntry represents a row in the queue table.
 type QueueEntry struct {
@@ -83,6 +86,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 	if err := m.insertEntry(channel, branch, pid, "active"); err != nil {
 		return false, fmt.Errorf("queue.TryAcquire: insert active: %w", err)
 	}
+	ml.Audit("lock acquired", "channel", channel, "branch", branch, "pid", pid, "method", "try")
 	return true, nil
 }
 
@@ -128,6 +132,7 @@ func (m *Manager) Acquire(channel, branch string, pid int) error {
 		if err != nil {
 			return fmt.Errorf("queue.Acquire: promote: %w", err)
 		}
+		ml.Audit("lock acquired", "channel", channel, "branch", branch, "pid", pid, "method", "blocking")
 		return nil
 	}
 }
@@ -141,6 +146,7 @@ func (m *Manager) Release(channel string) error {
 	if err != nil {
 		return fmt.Errorf("queue.Release: %w", err)
 	}
+	ml.Audit("lock released", "channel", channel)
 	return nil
 }
 

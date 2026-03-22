@@ -7,7 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
+
+var ml = log.WithModule("plugin")
 
 const (
 	pluginID      = "apex-auto-review@apex-local"
@@ -37,8 +41,10 @@ func Setup(workspaceRoot string) error {
 	// Quick check: if already installed with same path+version, skip
 	installedFile := filepath.Join(pluginsDir, "installed_plugins.json")
 	if isAlreadyInstalled(installedFile, pluginPath, version) {
+		ml.Debug("plugin already installed, skipping", "plugin", pluginID, "version", version)
 		return nil
 	}
+	ml.Info("installing plugin", "plugin", pluginID, "version", version, "path", pluginPath)
 
 	// 1. known_marketplaces.json
 	knownFile := filepath.Join(pluginsDir, "known_marketplaces.json")

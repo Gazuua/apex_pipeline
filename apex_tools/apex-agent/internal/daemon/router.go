@@ -33,16 +33,20 @@ func (r *Router) RegisterModule(name string, setup func(RouteRegistrar)) {
 // Dispatch routes a request to the appropriate module handler.
 // Returns (result, nil) on success, (nil, error) on failure.
 func (r *Router) Dispatch(ctx context.Context, module, action string, params json.RawMessage, workspace string) (any, error) {
+	ml.Debug("dispatching", "module", module, "action", action)
+
 	r.mu.RLock()
 	mr, ok := r.modules[module]
 	r.mu.RUnlock()
 
 	if !ok {
+		ml.Warn("unknown module", "module", module)
 		return nil, fmt.Errorf("unknown module: %s", module)
 	}
 
 	handler, ok := mr.handlers[action]
 	if !ok {
+		ml.Warn("unknown action", "module", module, "action", action)
 		return nil, fmt.Errorf("unknown action: %s.%s", module, action)
 	}
 

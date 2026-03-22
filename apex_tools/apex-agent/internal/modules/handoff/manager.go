@@ -7,8 +7,11 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+var ml = log.WithModule("handoff")
 
 // Branch represents a registered working branch.
 type Branch struct {
@@ -93,6 +96,7 @@ func (m *Manager) NotifyStart(branch, workspace, summary string, backlogID int, 
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status, "notification_id", int(id))
 	return int(id), nil
 }
 
@@ -146,6 +150,7 @@ func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
+	ml.Audit("state transition", "branch", branch, "from", currentStatus, "to", nextStatus, "type", notifyType, "notification_id", int(id))
 	return int(id), nil
 }
 

@@ -14,6 +14,8 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
+var ml = log.WithModule("daemon")
+
 type Config struct {
 	DBPath      string
 	PIDFilePath string
@@ -27,7 +29,6 @@ type Daemon struct {
 	router  *Router
 	server  *ipc.Server
 	modules []Module
-	logger  log.Logger
 }
 
 func New(cfg Config) (*Daemon, error) {
@@ -37,13 +38,11 @@ func New(cfg Config) (*Daemon, error) {
 	}
 
 	router := NewRouter()
-	logger := log.New()
 
 	return &Daemon{
 		cfg:    cfg,
 		store:  s,
 		router: router,
-		logger: logger,
 	}, nil
 }
 
@@ -99,7 +98,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- d.server.Serve(serverCtx) }()
 
-	d.logger.Info("daemon started",
+	ml.Info("daemon started",
 		"pid", os.Getpid(),
 		"socket", d.cfg.SocketAddr,
 	)
@@ -114,7 +113,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			d.logger.Info("shutdown requested")
+			ml.Info("shutdown requested")
 			goto shutdown
 		case <-idleTicker.C:
 			last := d.server.LastRequestTime()
@@ -122,7 +121,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 				last = startTime
 			}
 			if time.Since(time.Unix(last, 0)) > d.cfg.IdleTimeout {
-				d.logger.Info("idle timeout, shutting down")
+				ml.Info("idle timeout, shutting down")
 				goto shutdown
 			}
 		}

@@ -12,8 +12,10 @@ func (m *Manager) ValidateCommit(branch string) error {
 		return err
 	}
 	if status == "" {
+		ml.Debug("gate check", "op", "commit", "branch", branch, "allowed", false, "reason", "not registered")
 		return fmt.Errorf("차단: 핸드오프 미등록 상태에서 커밋 불가")
 	}
+	ml.Debug("gate check", "op", "commit", "branch", branch, "allowed", true)
 	return nil
 }
 
@@ -25,8 +27,10 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 		return err
 	}
 	if len(notifications) > 0 {
+		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "unacked", len(notifications))
 		return fmt.Errorf("차단: 미ack 알림 %d건. 먼저 ack 처리 후 머지 재시도", len(notifications))
 	}
+	ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", true)
 	return nil
 }
 
@@ -40,11 +44,13 @@ func (m *Manager) ValidateEdit(branch, filePath string) error {
 
 	// Not registered → block all edits
 	if status == "" {
+		ml.Debug("gate check", "op", "edit", "branch", branch, "allowed", false, "reason", "not registered")
 		return fmt.Errorf("차단: 핸드오프 미등록")
 	}
 
 	// Source file in non-implementing status → block
 	if IsSourceFile(filePath) && !CanEditSource(status) {
+		ml.Debug("gate check", "op", "edit", "branch", branch, "file", filePath, "allowed", false, "status", status)
 		switch status {
 		case StatusStarted:
 			return fmt.Errorf("차단: 설계 미완료(status=started). 소스 파일 편집 불가")
@@ -55,6 +61,7 @@ func (m *Manager) ValidateEdit(branch, filePath string) error {
 		}
 	}
 
+	ml.Debug("gate check", "op", "edit", "branch", branch, "file", filePath, "allowed", true)
 	return nil
 }
 

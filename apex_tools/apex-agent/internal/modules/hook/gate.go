@@ -9,7 +9,11 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
+
+var ml = log.WithModule("hook")
 
 // blockedBuildPatterns are regex patterns that indicate direct build tool invocation.
 var blockedBuildPatterns = []*regexp.Regexp{
@@ -51,6 +55,7 @@ func ValidateBuild(command string) error {
 	// Check blocked patterns.
 	for _, pat := range blockedBuildPatterns {
 		if pat.MatchString(command) {
+			ml.Warn("build command blocked", "pattern", pat.String())
 			return fmt.Errorf("차단: 빌드/벤치마크는 queue-lock.sh build|benchmark를 통해서만 실행할 수 있습니다. (matched: %s)", pat.String())
 		}
 	}
@@ -77,6 +82,7 @@ func ValidateMerge(command, cwd string) error {
 	// Check if merge lock exists.
 	lockDir := filepath.Join(queueDir, "merge.lock")
 	if _, err := os.Stat(lockDir); os.IsNotExist(err) {
+		ml.Warn("merge blocked: no lock held")
 		return fmt.Errorf("차단: 먼저 queue-lock.sh merge acquire를 실행하세요.")
 	}
 

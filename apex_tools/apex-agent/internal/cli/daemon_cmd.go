@@ -5,9 +5,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
@@ -50,6 +53,22 @@ func daemonRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// Set up logging.
+			var logWriter io.Writer = os.Stderr
+			if appCfg.Log.File != "" {
+				logDir := platform.DataDir()
+				logPath := appCfg.Log.File
+				if !filepath.IsAbs(logPath) {
+					logPath = filepath.Join(logDir, logPath)
+				}
+				f, ferr := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+				if ferr == nil {
+					logWriter = io.MultiWriter(os.Stderr, f)
+				}
+			}
+			log.Init(log.LogConfig{Level: appCfg.Log.Level, Writer: logWriter})
+
 			daemonCfg := daemon.Config{
 				DBPath:      appCfg.Store.DBPath,
 				PIDFilePath: platform.PIDFilePath(),

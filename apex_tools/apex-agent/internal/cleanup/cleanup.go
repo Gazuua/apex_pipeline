@@ -8,7 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
+
+var ml = log.WithModule("cleanup")
 
 // Result holds the outcome of a cleanup run.
 type Result struct {
@@ -46,6 +50,7 @@ func Run(repoRoot string, execute bool) (*Result, error) {
 	}
 
 	result := &Result{}
+	ml.Info("cleanup started", "repo", repoRoot, "execute", execute)
 
 	// Refresh remote refs.
 	_, _ = runGit(repoRoot, "fetch", "--prune", "origin")
@@ -112,9 +117,11 @@ func processWorktrees(repoRoot string, execute bool, result *Result) (map[string
 		action := Action{Target: wtPath, Branch: wtBranch}
 		if execute {
 			if err := removeWorktree(repoRoot, wtPath); err != nil {
+				ml.Warn("worktree removal failed", "path", wtPath, "branch", wtBranch, "err", err)
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("워크트리 삭제 실패: %s — %v", wtPath, err))
 			} else {
+				ml.Info("worktree removed", "path", wtPath, "branch", wtBranch)
 				action.Done = true
 			}
 		}

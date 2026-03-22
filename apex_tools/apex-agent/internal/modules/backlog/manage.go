@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+var ml = log.WithModule("backlog")
 
 // BacklogItem represents a single entry in the backlog_items table.
 type BacklogItem struct {
@@ -87,6 +90,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 	if err != nil {
 		return fmt.Errorf("Add: %w", err)
 	}
+	ml.Info("item added", "id", item.ID, "severity", item.Severity, "timeframe", item.Timeframe)
 	return nil
 }
 
@@ -198,6 +202,7 @@ func (m *Manager) Resolve(id int, resolution string) error {
 	if n == 0 {
 		return fmt.Errorf("Resolve: item %d not found", id)
 	}
+	ml.Info("item resolved", "id", id, "resolution", resolution)
 	return nil
 }
 

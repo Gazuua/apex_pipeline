@@ -8,11 +8,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
+
+var ml = log.WithModule("context")
 
 // Generate produces the session context string for Claude.
 // workspaceRoot is the absolute path to the project root.
 func Generate(workspaceRoot string) string {
+	ml.Debug("generating session context", "workspace", workspaceRoot)
 	var b strings.Builder
 
 	b.WriteString("=== Project Context (auto-injected) ===\n")
