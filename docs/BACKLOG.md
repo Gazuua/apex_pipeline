@@ -154,6 +154,12 @@
 - **타입**: perf
 - **설명**: 단일 acceptor core 0 집중. per-core acceptor 검토.
 
+### #38. boost-beast 미사용 의존성
+- **등급**: MINOR
+- **스코프**: infra
+- **타입**: infra
+- **설명**: vcpkg.json에 `boost-beast` 등록됨. WebSocket은 길이-접두어 기반 MVP로 구현되어 있고, Beast API(`boost::beast` namespace, websocket::stream 등)는 미사용. websocket_protocol.hpp 주석에 "v0.5.1+에서 Beast 완전 통합 예정"으로 명시. Beast 통합 시까지 빌드 시간 + 의존성 비용만 발생.
+
 ### #39. CMakeLists.txt 하드코딩 상대 경로
 - **등급**: MINOR
 - **스코프**: infra

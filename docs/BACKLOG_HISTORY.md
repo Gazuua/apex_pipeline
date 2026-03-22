@@ -5,11 +5,6 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
-### #38. boost-beast 조기 추가
-- **등급**: MINOR | **스코프**: infra | **타입**: infra
-- **해결**: 2026-03-22 09:13:07 | **방식**: SUPERSEDED
-- **비고**: v0.5.0.0에서 WebSocket(Boost.Beast) 통합 완료. websocket_protocol.hpp에서 실사용 중이므로 "미사용 의존성" 이슈 해소
-
 ### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
 - **등급**: MINOR | **스코프**: docs | **타입**: docs
 - **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
