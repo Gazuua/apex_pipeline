@@ -3,12 +3,12 @@
 #pragma once
 
 #include <apex/core/adapter_interface.hpp>
+#include <apex/core/adapter_state.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/result.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
 
 #include <atomic>
-#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -16,14 +16,7 @@
 namespace apex::shared::adapters
 {
 
-/// 어댑터 라이프사이클 상태.
-/// CLOSED → RUNNING (init 후) → DRAINING (drain 후) → CLOSED (close 후).
-enum class AdapterState : uint8_t
-{
-    CLOSED,  ///< 초기값 / 리소스 해제 완료
-    RUNNING, ///< 초기화 완료, 요청 수락 중
-    DRAINING ///< 새 요청 거부, 진행 중 요청은 허용
-};
+using apex::core::AdapterState;
 
 /// 모든 어댑터의 공통 라이프사이클을 관리하는 CRTP 기본 클래스.
 ///
@@ -119,6 +112,10 @@ template <typename Derived> class AdapterWrapper final : public apex::core::Adap
     [[nodiscard]] bool is_ready() const noexcept override
     {
         return adapter_.is_ready();
+    }
+    [[nodiscard]] apex::core::AdapterState state() const noexcept override
+    {
+        return adapter_.state();
     }
     [[nodiscard]] std::string_view name() const noexcept override
     {

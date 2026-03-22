@@ -39,21 +39,21 @@
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #127
-- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수.
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수. **[FSD 분석 2026-03-22]** interface 추출이 선행 필요: JwtVerifier, JwtBlacklist, RateLimitFacade 3개 concrete 클래스에 가상 인터페이스를 도입하고 GatewayPipeline 생성자 시그니처 변경 필요. 프로덕션 코드 4+ 파일 수정 포함 — 별도 리팩토링 작업으로 분리.
 
 ### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #102
-- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수.
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수. **[FSD 분석 2026-03-22]** #102와 동일 — interface 추출 선행 필요.
 
 ### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
 - **등급**: MAJOR
 - **스코프**: core, shared
 - **타입**: design-debt
 - **연관**: #130 (이번 PR에서 도입)
-- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결.
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결. **[FSD 분석 2026-03-22]** Transport concept 타입 소거 재설계 필요. TLS Listener 구현과 연동되어야 하며 단독 수정 불가.
 
 ### #134. AdapterState가 AdapterInterface에 미노출
 - **등급**: MAJOR
@@ -67,7 +67,7 @@
 - **스코프**: shared
 - **타입**: security
 - **연관**: #131 (이번 PR에서 도입)
-- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정.
+- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR

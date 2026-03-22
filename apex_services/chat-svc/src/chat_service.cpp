@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/chat_svc/chat_logic.hpp>
 #include <apex/chat_svc/chat_service.hpp>
 
 #include <apex/core/configure_context.hpp>
@@ -180,11 +181,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
 {
     // 1. Input validation
     auto room_name = req->room_name();
-    if (!room_name || room_name->size() == 0)
+    auto name_validation = validate_room_name(room_name ? room_name->size() : 0, config_.max_room_name_length);
+    if (name_validation == RoomNameValidation::EMPTY)
     {
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_ROOM_NAME_EMPTY);
     }
-    if (room_name->size() > config_.max_room_name_length)
+    if (name_validation == RoomNameValidation::TOO_LONG)
     {
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_ROOM_NAME_TOO_LONG);
     }
@@ -298,11 +300,12 @@ return redis.call('SCARD', KEYS[1])
 
     auto lua_result = eval_result->integer;
     log_trace("on_join_room: Lua EVAL result={} (room={}, user={})", lua_result, room_id, user_id);
-    if (lua_result == -1)
+    auto join_result = interpret_join_result(lua_result);
+    if (join_result == JoinRoomResult::ALREADY_IN)
     {
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ALREADY_IN_ROOM, room_id);
     }
-    if (lua_result == 0)
+    if (join_result == JoinRoomResult::ROOM_FULL)
     {
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ROOM_FULL, room_id);
     }
@@ -450,11 +453,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
     auto content = req->content();
 
     // 1. Input validation
-    if (!content || content->size() == 0)
+    auto msg_validation = validate_message_content(content ? content->size() : 0, config_.max_message_length);
+    if (msg_validation == MessageValidation::EMPTY)
     {
         co_return co_await send_message_error(meta, fbs::ChatMessageError_EMPTY_MESSAGE);
     }
-    if (content->size() > config_.max_message_length)
+    if (msg_validation == MessageValidation::TOO_LONG)
     {
         co_return co_await send_message_error(meta, fbs::ChatMessageError_MESSAGE_TOO_LONG);
     }
@@ -539,11 +543,12 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
     auto content = req->content();
 
     // 1. Input validation
-    if (!content || content->size() == 0)
+    auto whisper_validation = validate_message_content(content ? content->size() : 0, config_.max_message_length);
+    if (whisper_validation == MessageValidation::EMPTY)
     {
         co_return co_await send_whisper_error(meta, fbs::ChatMessageError_EMPTY_MESSAGE);
     }
-    if (content->size() > config_.max_message_length)
+    if (whisper_validation == MessageValidation::TOO_LONG)
     {
         co_return co_await send_whisper_error(meta, fbs::ChatMessageError_MESSAGE_TOO_LONG);
     }

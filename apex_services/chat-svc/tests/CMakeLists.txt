@@ -37,6 +37,30 @@ apex_set_warnings(chat_svc_unit_tests)
 add_test(NAME chat_svc_unit_tests COMMAND chat_svc_unit_tests)
 set_tests_properties(chat_svc_unit_tests PROPERTIES TIMEOUT 30)
 
+# --- Chat Logic Tests (pure function unit tests, no adapter dependencies) ---
+add_executable(chat_svc_logic_tests
+    unit/test_chat_logic.cpp
+)
+
+target_link_libraries(chat_svc_logic_tests
+    PRIVATE
+        GTest::gtest
+        GTest::gtest_main
+)
+
+target_include_directories(chat_svc_logic_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+if(WIN32)
+    target_compile_options(chat_svc_logic_tests PRIVATE /utf-8)
+endif()
+
+apex_set_warnings(chat_svc_logic_tests)
+add_test(NAME chat_svc_logic_tests COMMAND chat_svc_logic_tests)
+set_tests_properties(chat_svc_logic_tests PROPERTIES TIMEOUT 10)
+
 # --- Chat Handler Tests (Mock adapter + Envelope dispatch) ---
 add_executable(chat_svc_handler_tests
     unit/test_chat_handlers.cpp
