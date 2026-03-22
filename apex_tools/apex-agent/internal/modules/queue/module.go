@@ -78,7 +78,7 @@ type statusParams struct {
 
 // --- Handlers ---
 
-func (m *Module) handleAcquire(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleAcquire(reqCtx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p acquireParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.acquire: decode params: %w", err)
@@ -87,7 +87,8 @@ func (m *Module) handleAcquire(_ context.Context, params json.RawMessage, _ stri
 	if pid == 0 {
 		pid = os.Getpid()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	// 30분 timeout + server shutdown(reqCtx) 시 자동 취소
+	ctx, cancel := context.WithTimeout(reqCtx, 30*time.Minute)
 	defer cancel()
 	if err := m.manager.Acquire(ctx, p.Channel, p.Branch, pid); err != nil {
 		return nil, err

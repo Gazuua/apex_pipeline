@@ -73,7 +73,8 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
 
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
+	// Read deadline — protect against slow/stalled clients
+	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 
 	var req Request
 	if err := ReadMessage(conn, &req); err != nil {
@@ -83,11 +84,18 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
+	// Clear deadline for handler execution — handlers may block (e.g., queue.Acquire 30min)
+	conn.SetDeadline(time.Time{})
+
 	s.lastRequest.Store(time.Now().Unix())
 	ml.Debug("request received", "module", req.Module, "action", req.Action)
 
 	// Router returns (any, error) — wrap into ipc.Response
 	result, err := s.router.Dispatch(ctx, req.Module, req.Action, req.Params, req.Workspace)
+
+	// Write deadline — protect against slow/stalled clients on response
+	conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
+
 	if err != nil {
 		ml.Debug("request error", "module", req.Module, "action", req.Action, "err", err)
 		if wErr := WriteMessage(conn, &Response{OK: false, Error: err.Error()}); wErr != nil {
