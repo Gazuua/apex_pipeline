@@ -44,6 +44,31 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		)`)
 		return err
 	})
+	mig.Register("backlog", 2, func(s *store.Store) error {
+		// id를 AUTOINCREMENT로 변경 — 삭제된 ID 재사용 방지
+		_, err := s.Exec(`
+			CREATE TABLE backlog_items_new (
+				id          INTEGER PRIMARY KEY AUTOINCREMENT,
+				title       TEXT    NOT NULL,
+				severity    TEXT    NOT NULL,
+				timeframe   TEXT    NOT NULL,
+				scope       TEXT    NOT NULL,
+				type        TEXT    NOT NULL,
+				description TEXT    NOT NULL,
+				related     TEXT,
+				position    INTEGER NOT NULL,
+				status      TEXT    NOT NULL DEFAULT 'open',
+				resolution  TEXT,
+				resolved_at TEXT,
+				created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+				updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+			);
+			INSERT INTO backlog_items_new SELECT * FROM backlog_items;
+			DROP TABLE backlog_items;
+			ALTER TABLE backlog_items_new RENAME TO backlog_items;
+		`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all backlog action handlers.

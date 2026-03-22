@@ -14,22 +14,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent hook validate-build",
+            "command": "./apex_tools/apex-agent/apex-agent.exe hook validate-build",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent hook validate-merge",
+            "command": "./apex_tools/apex-agent/apex-agent.exe hook validate-merge",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent hook validate-handoff",
+            "command": "./apex_tools/apex-agent/apex-agent.exe hook validate-handoff",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent hook enforce-rebase",
+            "command": "./apex_tools/apex-agent/apex-agent.exe hook enforce-rebase",
             "timeout": 30
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent hook handoff-probe",
+            "command": "./apex_tools/apex-agent/apex-agent.exe hook handoff-probe",
             "timeout": 5
           }
         ]
@@ -50,13 +50,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent plugin setup",
+            "command": "./apex_tools/apex-agent/apex-agent.exe plugin setup",
             "timeout": 10,
             "statusMessage": "auto-review 플러그인 확인 중..."
           },
           {
             "type": "command",
-            "command": "./apex_tools/apex-agent/apex-agent context",
+            "command": "./apex_tools/apex-agent/apex-agent.exe context",
             "timeout": 10,
             "statusMessage": "프로젝트 컨텍스트 로딩..."
           }

@@ -78,17 +78,35 @@ func (m *Manager) Add(item *BacklogItem) error {
 		status = "open"
 	}
 
-	_, err := m.store.Exec(`
-		INSERT INTO backlog_items
-			(id, title, severity, timeframe, scope, type, description, related,
-			 position, status, resolution, resolved_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		item.ID, item.Title, item.Severity, item.Timeframe, item.Scope, item.Type,
-		item.Description, item.Related, item.Position, status,
-		nullableString(item.Resolution), nullableString(item.ResolvedAt),
-	)
-	if err != nil {
-		return fmt.Errorf("Add: %w", err)
+	if item.ID == 0 {
+		// AUTOINCREMENT: id 생략 시 SQLite가 자동 할당
+		result, err := m.store.Exec(`
+			INSERT INTO backlog_items
+				(title, severity, timeframe, scope, type, description, related,
+				 position, status, resolution, resolved_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			item.Title, item.Severity, item.Timeframe, item.Scope, item.Type,
+			item.Description, item.Related, item.Position, status,
+			nullableString(item.Resolution), nullableString(item.ResolvedAt),
+		)
+		if err != nil {
+			return fmt.Errorf("Add: %w", err)
+		}
+		id, _ := result.LastInsertId()
+		item.ID = int(id)
+	} else {
+		_, err := m.store.Exec(`
+			INSERT INTO backlog_items
+				(id, title, severity, timeframe, scope, type, description, related,
+				 position, status, resolution, resolved_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			item.ID, item.Title, item.Severity, item.Timeframe, item.Scope, item.Type,
+			item.Description, item.Related, item.Position, status,
+			nullableString(item.Resolution), nullableString(item.ResolvedAt),
+		)
+		if err != nil {
+			return fmt.Errorf("Add: %w", err)
+		}
 	}
 	ml.Info("item added", "id", item.ID, "severity", item.Severity, "timeframe", item.Timeframe)
 	return nil
