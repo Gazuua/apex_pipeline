@@ -25,6 +25,7 @@ func Execute() {
 	root.AddCommand(hookCmd())
 	root.AddCommand(backlogCmd())
 	root.AddCommand(handoffCmd())
+	root.AddCommand(queueCmd())
 	root.AddCommand(migrateCmd())
 
 	if err := root.Execute(); err != nil {
