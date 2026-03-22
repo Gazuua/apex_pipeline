@@ -82,4 +82,12 @@ TEST(AuthLogic_IsAccountLocked, PostgresTimezoneFormat)
     EXPECT_TRUE(is_account_locked("2099-12-31 23:59:59+00", now));
 }
 
+TEST(AuthLogic_IsAccountLocked, EmptyString_NotLocked)
+{
+    // DB에서 NULL -> 빈 문자열로 변환된 경우.
+    // 빈 문자열은 모든 문자열보다 작으므로 잠금 해제로 판정된다.
+    auto now = make_utc(2026, 3, 22, 12, 0, 0);
+    EXPECT_FALSE(is_account_locked("", now));
+}
+
 } // namespace apex::auth_svc::test
