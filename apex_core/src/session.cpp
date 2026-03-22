@@ -39,6 +39,7 @@ Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t cor
     : id_(id)
     , core_id_(core_id)
     , socket_(std::move(socket))
+    , core_executor_(socket_.get_executor()) // 기본값: socket executor. accept_connection에서 core executor로 재설정됨.
     , recv_buf_(recv_buf_capacity)
     , max_queue_depth_(max_queue_depth)
 {}
@@ -111,8 +112,12 @@ Result<void> Session::enqueue_write(std::vector<uint8_t> data)
         // UAF 방어: co_spawn된 write_pump 코루틴이 실행되는 동안
         // Session이 소멸되지 않도록 intrusive_ptr로 refcount 증가.
         // 람다가 self를 캡처하여 코루틴 완료까지 생존 보장.
+        // core_executor_ 사용: socket executor와 core executor가 다를 수 있음
+        // (non-reuseport 경로에서 acceptor가 core 0에 있으면 socket executor는
+        //  core 0이지만 session은 다른 core에서 실행). write_pump가 session과
+        //  동일한 core에서 실행되어야 implicit strand invariant이 유지됨.
         SessionPtr self(this);
-        boost::asio::co_spawn(socket_.get_executor(), [self]() { return self->write_pump(); }, boost::asio::detached);
+        boost::asio::co_spawn(core_executor_, [self]() { return self->write_pump(); }, boost::asio::detached);
     }
     return ok();
 }
@@ -185,8 +190,10 @@ awaitable<Result<void>> Session::enqueue_and_await(std::vector<uint8_t> data)
 {
     // Create a timer as a completion signal. expires_at(max) = infinite wait.
     // write_pump will cancel() it after processing, which resumes this coroutine.
-    auto timer = std::make_shared<boost::asio::steady_timer>(socket_.get_executor(),
-                                                             boost::asio::steady_timer::time_point::max());
+    // core_executor_ 사용: socket executor는 acceptor의 io_context를 가리킬 수 있어
+    // timer가 다른 io_context의 timer service에 등록되면 shutdown 시 UAF 발생.
+    auto timer =
+        std::make_shared<boost::asio::steady_timer>(core_executor_, boost::asio::steady_timer::time_point::max());
     auto result = std::make_shared<Result<void>>(error(ErrorCode::SendFailed));
 
     // Check queue depth (same as enqueue_write)
@@ -202,7 +209,7 @@ awaitable<Result<void>> Session::enqueue_and_await(std::vector<uint8_t> data)
     {
         pump_running_ = true;
         SessionPtr self(this);
-        boost::asio::co_spawn(socket_.get_executor(), [self]() { return self->write_pump(); }, boost::asio::detached);
+        boost::asio::co_spawn(core_executor_, [self]() { return self->write_pump(); }, boost::asio::detached);
     }
 
     // Wait for write_pump to signal completion via timer cancel.

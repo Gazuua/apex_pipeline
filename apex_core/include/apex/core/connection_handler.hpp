@@ -62,6 +62,10 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         }
 
         auto session = session_mgr_.create_session(std::move(socket));
+        // Socket executor가 acceptor의 io_context(core 0)를 가리킬 수 있으므로,
+        // 실제 실행 core의 executor를 명시적으로 설정.
+        // Session 내부의 timer/write_pump가 올바른 io_context에서 동작하게 보장.
+        session->set_core_executor(io_ctx.get_executor());
         boost::asio::co_spawn(io_ctx, read_loop(std::move(session)), boost::asio::detached);
     }
 
