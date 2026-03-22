@@ -4,6 +4,9 @@ package main
 
 import "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/cli"
 
+var Version = "dev"
+
 func main() {
+	cli.Version = Version
 	cli.Execute()
 }
