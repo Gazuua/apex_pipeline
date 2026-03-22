@@ -194,6 +194,11 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - Server::~Server()에 명시적 파괴 순서 추가 (listeners → schedulers → core_engine)
   - 미완료 코루틴의 intrusive_ptr\<Session\> UAF 방지
 
+- **v0.5.10.1 — 보안 시크릿 관리 + Blacklist 정책**
+  - Redis 4인스턴스 requirepass 적용, PgBouncer 동적 userlist 생성
+  - expand_env() apex_shared 추출, TOML ${VAR:-default} 패턴 통일
+  - blacklist_fail_open 설정 추가 (기본값 fail-close), GatewayError::BlacklistCheckFailed 도입
+
 - **v0.5.10.0 — SPSC All-to-All Mesh**
   - CoreEngine MPSC inbox → SPSC all-to-all mesh 전환 (N×(N-1) 전용 큐)
   - CAS contention 제거 + cache line bouncing 감소로 크로스코어 레이턴시 개선
@@ -205,7 +210,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 
 - **v0.5.9.0 — Tier 3 아키텍처 정비 + 저작권 헤더 + Full Auto-Review**
   - SessionId 강타입화 (`enum class SessionId : uint64_t`)
-  - core→shared 역방향 의존 해소 (forwarding header 유지, 로드맵 진행 중)
+  - core→shared 역방향 의존 해소 (forwarding header deprecated → 직접 include 전환 완료)
   - ErrorCode 분리, spawn_tracked 도입
   - 전체 소스/스크립트 MIT License 저작권 헤더 추가 (336개 파일)
   - branch-handoff.sh 멀티 에이전트 인수인계 시스템

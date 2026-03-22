@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 127
+다음 발번: 128
 
 ---
 
@@ -37,10 +37,10 @@
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
-- **연관**: #123
+- **연관**: #127
 - **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버. **[FSD 분석 2026-03-22]** 코루틴 + Redis/Kafka/RateLimit mock 인프라 구축이 선행 필요. 테스트 인프라 설계 판단 포함.
 
-### #123. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
+### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
@@ -48,24 +48,6 @@
 - **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가. **[FSD 분석 2026-03-22]** #102 인프라 구축에 의존. 단독 자동화 불가.
 
 
-### #49. Docker 이미지 버전 감사 + pgbouncer 교체
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: `edoburu/pgbouncer:1.23.1` pull 실패 → `bitnami/pgbouncer` 교체. redis/postgres 마이너 핀닝 검토. dev + e2e 양쪽 compose 갱신.
-
-### #122. CI Docker :latest → immutable 태그 전환
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **연관**: #49
-- **설명**: CI 빌드 잡에서 `ghcr.io/gazuua/apex-pipeline-ci:latest`를 사용하여 빌드 간 재현성 미보장. sha 태그 또는 digest 기반 pinning으로 전환. Docker 이미지 빌드 시 이미 `sha-${{ github.sha }}` 태그를 생성하고 있으므로 참조만 변경하면 됨. **[FSD 분석 2026-03-22]** :latest 제거 시 build cache-from 전략 재설계 필요 (현재 :latest를 캐시 소스로 사용). 단순 참조 변경이 아님.
-
-### #121. ci.Dockerfile non-root 실행 + .dockerignore 서비스 빌드 호환
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: ① ci.Dockerfile이 `USER` 지시자 없이 root로 빌드 실행. 비특권 사용자 추가 필요. ② `.dockerignore`가 `*` + whitelist(vcpkg.json만) 방식이라 서비스 Dockerfile의 `COPY . /src`에서 소스 파일이 복사되지 않을 가능성. 서비스 빌드 컨텍스트 검증 후 whitelist 확장 필요.
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR
 - **스코프**: core, tools
@@ -109,7 +91,7 @@
 - **등급**: MINOR
 - **스코프**: tools
 - **타입**: infra
-- **연관**: #1
+- **연관**: #1 (HISTORY)
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제.
 
 
@@ -171,12 +153,6 @@
 - **스코프**: core
 - **타입**: perf
 - **설명**: 단일 acceptor core 0 집중. per-core acceptor 검토.
-
-### #38. boost-beast 조기 추가
-- **등급**: MINOR
-- **스코프**: infra
-- **타입**: infra
-- **설명**: Beast 통합 전까지 미사용 의존성.
 
 ### #39. CMakeLists.txt 하드코딩 상대 경로
 - **등급**: MINOR

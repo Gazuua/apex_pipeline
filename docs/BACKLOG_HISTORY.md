@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #38. boost-beast 조기 추가
+- **등급**: MINOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-22 09:13:07 | **방식**: SUPERSEDED
+- **비고**: v0.5.0.0에서 WebSocket(Boost.Beast) 통합 완료. websocket_protocol.hpp에서 실사용 중이므로 "미사용 의존성" 이슈 해소
+
 ### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
 - **등급**: MINOR | **스코프**: docs | **타입**: docs
 - **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
@@ -64,11 +69,6 @@
 - **등급**: MINOR | **스코프**: shared | **타입**: design-debt
 - **해결**: 2026-03-21 22:16:52 | **방식**: FIXED
 - **비고**: `half_open_successes_` 카운터 분리 도입. 기존 `half_open_calls_`(허용 호출 수)와 성공 횟수의 의미 혼용을 해소. CLOSED 전이 조건을 성공 카운터 기반으로 변경. TC9 추가
-
-### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
-- **등급**: MINOR | **스코프**: docs | **타입**: docs
-- **해결**: 2026-03-21 22:16:17 | **방식**: FIXED | **커밋**: 33effad
-- **비고**: 루트 CLAUDE.md 백로그 인라인 요약을 순수 포인터로 축소, docs/CLAUDE.md에 단일 권위 출처 명시
 
 ### #47. README 리뉴얼 (빌드 안내 + 프로젝트 소개 + 퀵스타트)
 - **등급**: MAJOR | **스코프**: docs | **타입**: docs
