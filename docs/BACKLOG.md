@@ -10,6 +10,13 @@
 
 ## NOW
 
+### #132. RedisAdapter::do_close() UAF 방어 — cancellation 인프라 + shutdown 재배치
+- **등급**: MAJOR
+- **스코프**: shared, core
+- **타입**: design-debt
+- **연관**: #24, #29, #129 (HISTORY)
+- **설명**: CancellationToken per-core 프리미티브 + AdapterBase 범용 cancellation 인프라 구축. RedisMultiplexer의 detached 코루틴(reconnect_loop, AUTH)을 cancellation_signal 기반으로 전환. shutdown 순서 재배치 (adapter close → CoreEngine stop). 3번 방향 전환 후 최종 구현 진행 중.
+
 ### #126. apex-agent: Hook/자동화 시스템 Go 백엔드 재작성
 - **등급**: CRITICAL
 - **스코프**: tools, infra
@@ -20,13 +27,6 @@
 ---
 
 ## IN VIEW
-
-### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #24, #29, #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** ~~A안: do_close() → awaitable~~ → ~~B안: shutdown 시퀀스 재배치~~ → **[FSD 분석 2026-03-22]** B안 구현 시도 중 UAF 위험 발견: 단순 재배치(close → stop)하면 io_context가 살아있는 동안 detached 코루틴(reconnect_loop, AUTH)이 파괴된 multiplexer 멤버에 접근 가능. 현재 순서(stop → close)가 오히려 안전 — io_context 정지 후 코루틴이 재개 없이 파괴됨(Boost.Asio ~io_context). **올바른 해결 방향**: ① do_drain()에서 detached 코루틴을 cancellation_signal로 명시적 취소 ② outstanding 카운터에 어댑터 내부 코루틴도 포함 ③ drain 완료 확인 후 재배치 가능. cancellation 인프라 구축이 선행 필요.
 
 ### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
 - **등급**: MAJOR
