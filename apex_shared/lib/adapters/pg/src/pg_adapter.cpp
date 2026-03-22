@@ -37,7 +37,6 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine)
         throw std::runtime_error("PgAdapter: pool_size_per_core must be > 0");
     }
 
-    engine_ = &engine;
     pools_.reserve(engine.core_count());
     for (uint32_t i = 0; i < engine.core_count(); ++i)
     {
@@ -71,7 +70,6 @@ void PgAdapter::do_close()
         pool->close_all();
     }
     pools_.clear();
-    engine_ = nullptr;
     spdlog::info("PgAdapter: closed");
 }
 

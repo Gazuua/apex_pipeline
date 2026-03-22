@@ -25,6 +25,34 @@ namespace apex::shared::adapters
 class CancellationToken
 {
   public:
+    CancellationToken() = default;
+    ~CancellationToken() = default;
+
+    // Non-copyable (std::atomic is non-copyable)
+    CancellationToken(const CancellationToken&) = delete;
+    CancellationToken& operator=(const CancellationToken&) = delete;
+
+    // Movable (needed for vector storage)
+    CancellationToken(CancellationToken&& other) noexcept
+        : slots_(std::move(other.slots_))
+        , outstanding_(other.outstanding_.load(std::memory_order_relaxed))
+#ifndef NDEBUG
+        , owner_thread_(other.owner_thread_)
+#endif
+    {}
+    CancellationToken& operator=(CancellationToken&& other) noexcept
+    {
+        if (this != &other)
+        {
+            slots_ = std::move(other.slots_);
+            outstanding_.store(other.outstanding_.load(std::memory_order_relaxed), std::memory_order_relaxed);
+#ifndef NDEBUG
+            owner_thread_ = other.owner_thread_;
+#endif
+        }
+        return *this;
+    }
+
     /// Allocates a new cancellation slot and increments outstanding counter.
     /// Returns the slot for binding to co_spawn via bind_cancellation_slot.
     [[nodiscard]] boost::asio::cancellation_slot new_slot();

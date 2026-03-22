@@ -34,6 +34,10 @@ class MockAdapter : public AdapterInterface
     {
         return "mock";
     }
+    [[nodiscard]] uint32_t outstanding_adapter_coros() const noexcept override
+    {
+        return 0;
+    }
 };
 
 /// Adapter that overrides wire_services to modify the services vector.
@@ -54,6 +58,10 @@ class WiringAdapter : public AdapterInterface
     [[nodiscard]] std::string_view name() const noexcept override
     {
         return "wiring";
+    }
+    [[nodiscard]] uint32_t outstanding_adapter_coros() const noexcept override
+    {
+        return 0;
     }
 
     bool wired = false;
