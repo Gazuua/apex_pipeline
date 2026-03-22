@@ -69,8 +69,8 @@ func TestResilience_DBAutoRecreate(t *testing.T) {
 		"title":       "resilience test item",
 		"severity":    "MINOR",
 		"timeframe":   "DEFERRED",
-		"scope":       "tools",
-		"type":        "enhancement",
+		"scope":       "TOOLS",
+		"type":        "PERF",
 		"description": "DB auto-recreate resilience test",
 	}, "")
 	if err != nil {

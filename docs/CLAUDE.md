@@ -62,8 +62,8 @@
 
 **연관 필드 규칙**: 다방향 링킹 필수 — A가 B를 참조하면 B도 A를 참조. 3개 이상 그룹이면 모든 멤버가 나머지 전원을 참조.
 
-**스코프 태그**: `core | shared | gateway | auth-svc | chat-svc | infra | ci | docs | tools` (서비스 추가 시 확장)
-**타입 태그**: `bug | design-debt | test | docs | perf | security | infra`
+**스코프 태그**: `CORE | SHARED | GATEWAY | AUTH_SVC | CHAT_SVC | INFRA | CI | DOCS | TOOLS` (서비스 추가 시 확장)
+**타입 태그**: `BUG | DESIGN_DEBT | TEST | DOCS | PERF | SECURITY | INFRA`
 
 ### 항목 ID
 

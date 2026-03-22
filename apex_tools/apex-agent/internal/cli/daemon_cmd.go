@@ -89,9 +89,10 @@ func daemonRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			backlogMod := backlogmod.New(d.Store())
 			d.Register(hook.New())
-			d.Register(backlogmod.New(d.Store()))
-			d.Register(handoffmod.New(d.Store()))
+			d.Register(backlogMod)
+			d.Register(handoffmod.New(d.Store(), backlogMod.Manager()))
 			d.Register(queuemod.New(d.Store()))
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()

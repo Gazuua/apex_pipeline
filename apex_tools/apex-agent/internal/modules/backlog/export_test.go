@@ -53,12 +53,12 @@ func TestExport_WithItems(t *testing.T) {
 
 	mgr.Add(&BacklogItem{
 		ID: 1, Title: "Test issue", Severity: "CRITICAL",
-		Timeframe: "NOW", Scope: "core", Type: "bug",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Something is broken",
 	})
 	mgr.Add(&BacklogItem{
 		ID: 2, Title: "Future task", Severity: "MAJOR",
-		Timeframe: "IN_VIEW", Scope: "shared", Type: "design-debt",
+		Timeframe: "IN_VIEW", Scope: "SHARED", Type: "DESIGN_DEBT",
 		Description: "Needs refactoring", Related: "1",
 	})
 
@@ -95,12 +95,12 @@ func TestExport_ResolvedExcluded(t *testing.T) {
 
 	mgr.Add(&BacklogItem{
 		ID: 1, Title: "Open issue", Severity: "MAJOR",
-		Timeframe: "NOW", Scope: "core", Type: "bug",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Still open",
 	})
 	mgr.Add(&BacklogItem{
 		ID: 2, Title: "Resolved issue", Severity: "MINOR",
-		Timeframe: "NOW", Scope: "core", Type: "bug",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Already fixed",
 	})
 	mgr.Resolve(2, "FIXED")
@@ -124,7 +124,7 @@ func TestExport_RelatedFormatting(t *testing.T) {
 
 	mgr.Add(&BacklogItem{
 		ID: 10, Title: "Multi-related", Severity: "MAJOR",
-		Timeframe: "NOW", Scope: "core", Type: "bug",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Links to many", Related: "24,29,132",
 	})
 
@@ -144,7 +144,7 @@ func TestExport_NoRelatedLine(t *testing.T) {
 
 	mgr.Add(&BacklogItem{
 		ID: 1, Title: "No relations", Severity: "MINOR",
-		Timeframe: "DEFERRED", Scope: "docs", Type: "docs",
+		Timeframe: "DEFERRED", Scope: "DOCS", Type: "DOCS",
 		Description: "Standalone item",
 	})
 

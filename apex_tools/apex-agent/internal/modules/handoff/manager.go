@@ -15,13 +15,19 @@ var ml = log.WithModule("handoff")
 
 // Branch represents a registered working branch.
 type Branch struct {
-	Branch    string
-	Workspace string
-	Status    string
-	BacklogID int
-	Summary   string
-	CreatedAt string
-	UpdatedAt string
+	Branch     string
+	Workspace  string
+	Status     string
+	BacklogIDs []int // junction 테이블에서 조회
+	Summary    string
+	CreatedAt  string
+	UpdatedAt  string
+}
+
+// BacklogStatusSetter is the interface handoff needs from backlog.
+type BacklogStatusSetter interface {
+	SetStatus(id int, status string) error
+	Check(id int) (exists bool, status string, err error)
 }
 
 // Notification represents a handoff notification event.
@@ -45,18 +51,19 @@ type Ack struct {
 
 // Manager provides handoff business logic.
 type Manager struct {
-	store *store.Store
+	store          *store.Store
+	backlogManager BacklogStatusSetter
 }
 
 // NewManager creates a new Manager backed by the given store.
-func NewManager(s *store.Store) *Manager {
-	return &Manager{store: s}
+func NewManager(s *store.Store, bm BacklogStatusSetter) *Manager {
+	return &Manager{store: s, backlogManager: bm}
 }
 
 // NotifyStart registers a new branch and creates a start notification.
 // If skipDesign is true, sets status to "implementing" directly.
 // Returns the notification ID.
-func (m *Manager) NotifyStart(branch, workspace, summary string, backlogID int, scopes string, skipDesign bool) (int, error) {
+func (m *Manager) NotifyStart(branch, workspace, summary string, backlogIDs []int, scopes string, skipDesign bool) (int, error) {
 	status := StatusStarted
 	if skipDesign {
 		status = StatusImplementing
@@ -70,12 +77,39 @@ func (m *Manager) NotifyStart(branch, workspace, summary string, backlogID int, 
 	defer tx.Rollback() //nolint:errcheck
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO branches (branch, workspace, status, backlog_id, summary, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
-		branch, workspace, status, nullableInt(backlogID), summary,
+		`INSERT INTO branches (branch, workspace, status, summary, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
+		branch, workspace, status, summary,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert branch: %w", err)
+	}
+
+	// junction 테이블에 백로그 연결
+	for _, bid := range backlogIDs {
+		if bid == 0 {
+			continue
+		}
+		// FIXING 중복 체크
+		if m.backlogManager != nil {
+			exists, bStatus, checkErr := m.backlogManager.Check(bid)
+			if checkErr != nil {
+				return 0, fmt.Errorf("check backlog %d: %w", bid, checkErr)
+			}
+			if !exists {
+				return 0, fmt.Errorf("backlog item %d not found", bid)
+			}
+			if bStatus == "FIXING" {
+				return 0, fmt.Errorf("backlog item %d is already FIXING", bid)
+			}
+		}
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
+			branch, bid,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("insert branch_backlog %d: %w", bid, err)
+		}
 	}
 
 	res, err := tx.ExecContext(ctx,
@@ -94,6 +128,16 @@ func (m *Manager) NotifyStart(branch, workspace, summary string, backlogID int, 
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit: %w", err)
+	}
+
+	// FIXING 상태 전이 (tx 밖에서 — 별도 테이블)
+	if m.backlogManager != nil {
+		for _, bid := range backlogIDs {
+			if bid == 0 {
+				continue
+			}
+			_ = m.backlogManager.SetStatus(bid, "FIXING")
+		}
 	}
 
 	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status, "notification_id", int(id))
@@ -207,7 +251,9 @@ func (m *Manager) Ack(notificationID int, branch, action string) error {
 // Returns available=true and empty branch if no active branch has this backlog ID.
 func (m *Manager) BacklogCheck(backlogID int) (available bool, branch string, err error) {
 	row := m.store.QueryRow(
-		`SELECT branch FROM branches WHERE backlog_id = ? AND status != ?`,
+		`SELECT bb.branch FROM branch_backlogs bb
+		 JOIN branches b ON b.branch = bb.branch
+		 WHERE bb.backlog_id = ? AND b.status != ?`,
 		backlogID, StatusMergeNotified,
 	)
 	var b string
@@ -224,22 +270,35 @@ func (m *Manager) BacklogCheck(backlogID int) (available bool, branch string, er
 // Returns nil, nil if not found.
 func (m *Manager) GetBranch(branch string) (*Branch, error) {
 	row := m.store.QueryRow(
-		`SELECT branch, workspace, status, backlog_id, summary, created_at, updated_at
+		`SELECT branch, workspace, status, summary, created_at, updated_at
 		 FROM branches WHERE branch = ?`,
 		branch,
 	)
 
 	var b Branch
-	var backlogID sql.NullInt64
 	var summary sql.NullString
-	if err := row.Scan(&b.Branch, &b.Workspace, &b.Status, &backlogID, &summary, &b.CreatedAt, &b.UpdatedAt); err != nil {
+	if err := row.Scan(&b.Branch, &b.Workspace, &b.Status, &summary, &b.CreatedAt, &b.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("scan branch: %w", err)
 	}
-	b.BacklogID = int(backlogID.Int64)
 	b.Summary = summary.String
+
+	// junction에서 backlog IDs 조회
+	rows, err := m.store.Query(
+		`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query backlog ids: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int
+		rows.Scan(&id)
+		b.BacklogIDs = append(b.BacklogIDs, id)
+	}
+
 	return &b, nil
 }
 
@@ -259,10 +318,3 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 	return status, nil
 }
 
-// nullableInt converts 0 to nil (NULL) for optional integer fields.
-func nullableInt(v int) interface{} {
-	if v == 0 {
-		return nil
-	}
-	return v
-}

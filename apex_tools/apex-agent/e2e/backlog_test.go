@@ -38,8 +38,8 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 		"title":       "Test Bug",
 		"severity":    "MAJOR",
 		"timeframe":   "NOW",
-		"scope":       "core",
-		"type":        "bug",
+		"scope":       "CORE",
+		"type":        "BUG",
 		"description": "A test bug for E2E validation",
 	}, "")
 	if err != nil {
@@ -93,14 +93,14 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 	if getItem["Timeframe"] != "NOW" {
 		t.Errorf("backlog.get: expected Timeframe='NOW', got %v", getItem["Timeframe"])
 	}
-	if getItem["Status"] != "open" {
+	if getItem["Status"] != "OPEN" {
 		t.Errorf("backlog.get: expected Status='open', got %v", getItem["Status"])
 	}
 
 	// Step 5: resolve → check status
 	resp, err = env.Client.Send(ctx, "backlog", "resolve", map[string]any{
 		"id":         1,
-		"resolution": "fixed",
+		"resolution": "FIXED",
 	}, "")
 	if err != nil {
 		t.Fatalf("backlog.resolve: transport error: %v", err)
@@ -122,8 +122,8 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 		"title":       "Export Verification Item",
 		"severity":    "MINOR",
 		"timeframe":   "NOW",
-		"scope":       "tools",
-		"type":        "enhancement",
+		"scope":       "TOOLS",
+		"type":        "PERF",
 		"description": "Verify export output",
 	}, "")
 
@@ -165,17 +165,17 @@ func TestBacklog_MigrationRoundtrip(t *testing.T) {
 	items := []map[string]any{
 		{
 			"id": 1, "title": "Now Item", "severity": "CRITICAL",
-			"timeframe": "NOW", "scope": "core", "type": "bug",
+			"timeframe": "NOW", "scope": "CORE", "type": "BUG",
 			"description": "Urgent fix needed",
 		},
 		{
 			"id": 2, "title": "InView Item", "severity": "MAJOR",
-			"timeframe": "IN_VIEW", "scope": "shared", "type": "refactor",
+			"timeframe": "IN_VIEW", "scope": "SHARED", "type": "DESIGN_DEBT",
 			"description": "Refactor in view",
 		},
 		{
 			"id": 3, "title": "Deferred Item", "severity": "MINOR",
-			"timeframe": "DEFERRED", "scope": "tools", "type": "enhancement",
+			"timeframe": "DEFERRED", "scope": "TOOLS", "type": "PERF",
 			"description": "Nice to have",
 		},
 	}
@@ -285,8 +285,8 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 		"title":       "Full Field Test",
 		"severity":    "CRITICAL",
 		"timeframe":   "NOW",
-		"scope":       "gateway",
-		"type":        "bug",
+		"scope":       "GATEWAY",
+		"type":        "BUG",
 		"description": "All fields populated for fidelity test",
 		"related":     "2,3",
 	}, "")
@@ -314,11 +314,11 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 		"Title":       "Full Field Test",
 		"Severity":    "CRITICAL",
 		"Timeframe":   "NOW",
-		"Scope":       "gateway",
-		"Type":        "bug",
+		"Scope":       "GATEWAY",
+		"Type":        "BUG",
 		"Description": "All fields populated for fidelity test",
 		"Related":     "2,3",
-		"Status":      "open",
+		"Status":      "OPEN",
 	}
 	for field, want := range checks {
 		got, ok := item[field]
@@ -334,7 +334,7 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 	// Step 3: Resolve the item
 	resp, err = env.Client.Send(ctx, "backlog", "resolve", map[string]any{
 		"id":         1,
-		"resolution": "wont-fix",
+		"resolution": "WONTFIX",
 	}, "")
 	if err != nil {
 		t.Fatalf("backlog.resolve: transport error: %v", err)
@@ -355,11 +355,11 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 	if err := json.Unmarshal(resp.Data, &resolvedItem); err != nil {
 		t.Fatalf("backlog.get after resolve: unmarshal: %v", err)
 	}
-	if resolvedItem["Status"] != "resolved" {
-		t.Errorf("backlog.get after resolve: expected Status='resolved', got %v", resolvedItem["Status"])
+	if resolvedItem["Status"] != "RESOLVED" {
+		t.Errorf("backlog.get after resolve: expected Status='RESOLVED', got %v", resolvedItem["Status"])
 	}
-	if resolvedItem["Resolution"] != "wont-fix" {
-		t.Errorf("backlog.get after resolve: expected Resolution='wont-fix', got %v", resolvedItem["Resolution"])
+	if resolvedItem["Resolution"] != "WONTFIX" {
+		t.Errorf("backlog.get after resolve: expected Resolution='WONTFIX', got %v", resolvedItem["Resolution"])
 	}
 	if resolvedItem["ResolvedAt"] == "" {
 		t.Error("backlog.get after resolve: expected non-empty ResolvedAt")
@@ -387,8 +387,8 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 		"title":       "Second Item",
 		"severity":    "MINOR",
 		"timeframe":   "DEFERRED",
-		"scope":       "tools",
-		"type":        "enhancement",
+		"scope":       "TOOLS",
+		"type":        "PERF",
 		"description": "Second item to verify id increment",
 	}, "")
 	if err != nil {

@@ -54,7 +54,7 @@ func ParseBacklogMD(content string) ([]BacklogItem, error) {
 				Title:     m[2],
 				Timeframe: currentTimeframe,
 				Position:  position,
-				Status:    "open",
+				Status:    StatusOpen,
 			}
 			continue
 		}
@@ -65,11 +65,11 @@ func ParseBacklogMD(content string) ([]BacklogItem, error) {
 				key, value := m[1], m[2]
 				switch key {
 				case "등급":
-					current.Severity = value
+					current.Severity = strings.ToUpper(strings.TrimSpace(value))
 				case "스코프":
-					current.Scope = value
+					current.Scope = NormalizeScope(value)
 				case "타입":
-					current.Type = value
+					current.Type = NormalizeType(value)
 				case "연관":
 					// "#50, #89" → "50,89"
 					value = strings.ReplaceAll(value, "#", "")
@@ -108,7 +108,7 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 			current = &BacklogItem{
 				ID:     id,
 				Title:  m[2],
-				Status: "resolved",
+				Status: StatusResolved,
 			}
 			continue
 		}
@@ -126,11 +126,11 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 				if m := inlineFieldRe.FindStringSubmatch(part); m != nil {
 					switch m[1] {
 					case "등급":
-						current.Severity = strings.TrimSpace(m[2])
+						current.Severity = strings.ToUpper(strings.TrimSpace(m[2]))
 					case "스코프":
-						current.Scope = strings.TrimSpace(m[2])
+						current.Scope = NormalizeScope(m[2])
 					case "타입":
-						current.Type = strings.TrimSpace(m[2])
+						current.Type = NormalizeType(strings.TrimSpace(m[2]))
 					}
 				}
 			}
@@ -146,7 +146,7 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 					case "해결":
 						current.ResolvedAt = strings.TrimSpace(m[2])
 					case "방식":
-						current.Resolution = strings.TrimSpace(m[2])
+						current.Resolution = NormalizeResolution(m[2])
 					}
 				}
 			}
@@ -185,7 +185,7 @@ func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 		}
 
 		// If item was resolved, mark it as such
-		if item.Status == "resolved" && item.Resolution != "" {
+		if item.Status == StatusResolved && item.Resolution != "" {
 			if err := mgr.Resolve(item.ID, item.Resolution); err != nil {
 				return count, fmt.Errorf("resolve #%d: %w", item.ID, err)
 			}

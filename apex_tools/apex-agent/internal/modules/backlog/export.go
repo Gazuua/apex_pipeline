@@ -35,7 +35,7 @@ func (mgr *Manager) Export() (string, error) {
 	}
 
 	for i, sec := range sections {
-		items, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: "open"})
+		items, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusOpen})
 		if err != nil {
 			return "", fmt.Errorf("list %s: %w", sec.dbValue, err)
 		}

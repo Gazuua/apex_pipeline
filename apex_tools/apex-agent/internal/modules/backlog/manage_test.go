@@ -47,11 +47,11 @@ func TestNextID_AfterInsert(t *testing.T) {
 		Title:       "Test Item",
 		Severity:    "MAJOR",
 		Timeframe:   "NOW",
-		Scope:       "core",
-		Type:        "bug",
+		Scope:       "CORE",
+		Type:        "BUG",
 		Description: "A test bug",
 		Position:    1,
-		Status:      "open",
+		Status:      "OPEN",
 	}
 	if err := m.Add(item); err != nil {
 		t.Fatalf("Add failed: %v", err)
@@ -77,12 +77,12 @@ func TestAdd_Basic(t *testing.T) {
 		Title:       "Fix memory leak",
 		Severity:    "CRITICAL",
 		Timeframe:   "NOW",
-		Scope:       "core",
-		Type:        "bug",
+		Scope:       "CORE",
+		Type:        "BUG",
 		Description: "Memory leak in session handler",
 		Related:     "BACKLOG-99",
 		Position:    1,
-		Status:      "open",
+		Status:      "OPEN",
 	}
 	if err := m.Add(item); err != nil {
 		t.Fatalf("Add failed: %v", err)
@@ -116,8 +116,8 @@ func TestAdd_Basic(t *testing.T) {
 	if got.Related != item.Related {
 		t.Errorf("Related: want %q, got %q", item.Related, got.Related)
 	}
-	if got.Status != "open" {
-		t.Errorf("Status: want %q, got %q", "open", got.Status)
+	if got.Status != "OPEN" {
+		t.Errorf("Status: want %q, got %q", "OPEN", got.Status)
 	}
 	if got.CreatedAt == "" {
 		t.Error("CreatedAt should not be empty")
@@ -137,8 +137,8 @@ func TestAdd_AutoPosition(t *testing.T) {
 		Title:       "First",
 		Severity:    "MAJOR",
 		Timeframe:   "NOW",
-		Scope:       "core",
-		Type:        "bug",
+		Scope:       "CORE",
+		Type:        "BUG",
 		Description: "First item",
 	}
 	item2 := &BacklogItem{
@@ -146,8 +146,8 @@ func TestAdd_AutoPosition(t *testing.T) {
 		Title:       "Second",
 		Severity:    "MINOR",
 		Timeframe:   "NOW",
-		Scope:       "core",
-		Type:        "test",
+		Scope:       "CORE",
+		Type:        "TEST",
 		Description: "Second item",
 	}
 
@@ -196,8 +196,8 @@ func TestGet_Found(t *testing.T) {
 		Title:       "Design debt",
 		Severity:    "MINOR",
 		Timeframe:   "DEFERRED",
-		Scope:       "gateway",
-		Type:        "design-debt",
+		Scope:       "GATEWAY",
+		Type:        "DESIGN_DEBT",
 		Description: "Refactor routing table",
 	}
 	if err := m.Add(item); err != nil {
@@ -226,9 +226,9 @@ func TestList_ByTimeframe(t *testing.T) {
 	m := NewManager(s)
 
 	items := []*BacklogItem{
-		{ID: 1, Title: "NOW-1", Severity: "CRITICAL", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "d"},
-		{ID: 2, Title: "NOW-2", Severity: "MAJOR", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "d"},
-		{ID: 3, Title: "IN_VIEW-1", Severity: "MAJOR", Timeframe: "IN_VIEW", Scope: "core", Type: "test", Description: "d"},
+		{ID: 1, Title: "NOW-1", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 2, Title: "NOW-2", Severity: "MAJOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 3, Title: "IN_VIEW-1", Severity: "MAJOR", Timeframe: "IN_VIEW", Scope: "CORE", Type: "TEST", Description: "d"},
 	}
 	for _, item := range items {
 		if err := m.Add(item); err != nil {
@@ -236,7 +236,7 @@ func TestList_ByTimeframe(t *testing.T) {
 		}
 	}
 
-	nowItems, err := m.List(ListFilter{Timeframe: "NOW", Status: "open"})
+	nowItems, err := m.List(ListFilter{Timeframe: "NOW", Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestList_ByTimeframe(t *testing.T) {
 		t.Errorf("expected 2 NOW items, got %d", len(nowItems))
 	}
 
-	inViewItems, err := m.List(ListFilter{Timeframe: "IN_VIEW", Status: "open"})
+	inViewItems, err := m.List(ListFilter{Timeframe: "IN_VIEW", Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -258,19 +258,19 @@ func TestList_ByStatus(t *testing.T) {
 	m := NewManager(s)
 
 	items := []*BacklogItem{
-		{ID: 1, Title: "Open Item", Severity: "MAJOR", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "d"},
-		{ID: 2, Title: "Another Open", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "core", Type: "docs", Description: "d"},
+		{ID: 1, Title: "Open Item", Severity: "MAJOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 2, Title: "Another Open", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "CORE", Type: "DOCS", Description: "d"},
 	}
 	for _, item := range items {
 		if err := m.Add(item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
-	if err := m.Resolve(1, "fixed"); err != nil {
+	if err := m.Resolve(1, "FIXED"); err != nil {
 		t.Fatalf("Resolve failed: %v", err)
 	}
 
-	openItems, err := m.List(ListFilter{Status: "open"})
+	openItems, err := m.List(ListFilter{Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestList_ByStatus(t *testing.T) {
 		t.Errorf("expected 1 open item, got %d", len(openItems))
 	}
 
-	resolvedItems, err := m.List(ListFilter{Status: "resolved"})
+	resolvedItems, err := m.List(ListFilter{Status: "RESOLVED"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -293,9 +293,9 @@ func TestList_OrderByPosition(t *testing.T) {
 
 	// Insert in reverse order — List should still return ordered by timeframe then position.
 	items := []*BacklogItem{
-		{ID: 10, Title: "B", Severity: "MINOR", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "d"},
-		{ID: 9, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "d"},
-		{ID: 8, Title: "C", Severity: "CRITICAL", Timeframe: "IN_VIEW", Scope: "core", Type: "bug", Description: "d"},
+		{ID: 10, Title: "B", Severity: "MINOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 9, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 8, Title: "C", Severity: "CRITICAL", Timeframe: "IN_VIEW", Scope: "CORE", Type: "BUG", Description: "d"},
 	}
 	for _, item := range items {
 		if err := m.Add(item); err != nil {
@@ -303,7 +303,7 @@ func TestList_OrderByPosition(t *testing.T) {
 		}
 	}
 
-	all, err := m.List(ListFilter{Status: "open"})
+	all, err := m.List(ListFilter{Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -337,8 +337,8 @@ func TestList_NoFilter_ReturnsAllOpen(t *testing.T) {
 			Title:       "Item",
 			Severity:    "MAJOR",
 			Timeframe:   "NOW",
-			Scope:       "core",
-			Type:        "bug",
+			Scope:       "CORE",
+			Type:        "BUG",
 			Description: "d",
 		}
 		if err := m.Add(item); err != nil {
@@ -367,14 +367,14 @@ func TestResolve_Basic(t *testing.T) {
 		Title:       "Bug to fix",
 		Severity:    "MAJOR",
 		Timeframe:   "NOW",
-		Scope:       "core",
-		Type:        "bug",
+		Scope:       "CORE",
+		Type:        "BUG",
 		Description: "Fix this",
 	}
 	if err := m.Add(item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
-	if err := m.Resolve(1, "fixed"); err != nil {
+	if err := m.Resolve(1, "FIXED"); err != nil {
 		t.Fatalf("Resolve failed: %v", err)
 	}
 
@@ -382,11 +382,11 @@ func TestResolve_Basic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
-	if got.Status != "resolved" {
-		t.Errorf("Status: want %q, got %q", "resolved", got.Status)
+	if got.Status != "RESOLVED" {
+		t.Errorf("Status: want %q, got %q", "RESOLVED", got.Status)
 	}
-	if got.Resolution != "fixed" {
-		t.Errorf("Resolution: want %q, got %q", "fixed", got.Resolution)
+	if got.Resolution != "FIXED" {
+		t.Errorf("Resolution: want %q, got %q", "FIXED", got.Resolution)
 	}
 	if got.ResolvedAt == "" {
 		t.Error("ResolvedAt should not be empty after resolve")
@@ -397,7 +397,7 @@ func TestResolve_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
 
-	err := m.Resolve(999, "fixed")
+	err := m.Resolve(999, "FIXED")
 	if err == nil {
 		t.Error("expected error when resolving non-existent item")
 	}
@@ -414,8 +414,8 @@ func TestCheck_Exists(t *testing.T) {
 		Title:       "Check test",
 		Severity:    "MINOR",
 		Timeframe:   "DEFERRED",
-		Scope:       "infra",
-		Type:        "infra",
+		Scope:       "INFRA",
+		Type:        "INFRA",
 		Description: "d",
 	}
 	if err := m.Add(item); err != nil {
@@ -429,8 +429,8 @@ func TestCheck_Exists(t *testing.T) {
 	if !exists {
 		t.Error("expected exists=true")
 	}
-	if status != "open" {
-		t.Errorf("status: want %q, got %q", "open", status)
+	if status != "OPEN" {
+		t.Errorf("status: want %q, got %q", "OPEN", status)
 	}
 }
 

@@ -23,6 +23,9 @@ func New(s *store.Store) *Module {
 
 func (m *Module) Name() string { return "backlog" }
 
+// Manager returns the underlying Manager for cross-module use.
+func (m *Module) Manager() *Manager { return m.manager }
+
 // RegisterSchema registers the backlog_items table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
 	mig.Register("backlog", 1, func(s *store.Store) error {
@@ -69,6 +72,91 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		`)
 		return err
 	})
+	mig.Register("backlog", 3, func(s *store.Store) error {
+		// 1. 기존 데이터 대문자 정규화
+		updates := []string{
+			`UPDATE backlog_items SET status = UPPER(status) WHERE status != UPPER(status)`,
+			`UPDATE backlog_items SET severity = UPPER(severity) WHERE severity != UPPER(severity)`,
+			`UPDATE backlog_items SET type = UPPER(REPLACE(type, '-', '_')) WHERE type != UPPER(REPLACE(type, '-', '_'))`,
+		}
+		for _, q := range updates {
+			if _, err := s.Exec(q); err != nil {
+				return fmt.Errorf("normalize: %w", err)
+			}
+		}
+
+		// scope: 쉼표 구분 각각 정규화 (Go에서 처리)
+		rows, err := s.Query("SELECT id, scope FROM backlog_items")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		type idScope struct {
+			id    int
+			scope string
+		}
+		var pairs []idScope
+		for rows.Next() {
+			var p idScope
+			rows.Scan(&p.id, &p.scope)
+			pairs = append(pairs, p)
+		}
+		rows.Close()
+		for _, p := range pairs {
+			normalized := NormalizeScope(p.scope)
+			if normalized != p.scope {
+				s.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id)
+			}
+		}
+
+		// resolution 오염 데이터 정리
+		resRows, err := s.Query("SELECT id, resolution FROM backlog_items WHERE resolution IS NOT NULL")
+		if err != nil {
+			return err
+		}
+		defer resRows.Close()
+		type idRes struct {
+			id  int
+			res string
+		}
+		var resPairs []idRes
+		for resRows.Next() {
+			var p idRes
+			resRows.Scan(&p.id, &p.res)
+			resPairs = append(resPairs, p)
+		}
+		resRows.Close()
+		for _, p := range resPairs {
+			normalized := NormalizeResolution(p.res)
+			if normalized != p.res {
+				s.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id)
+			}
+		}
+
+		// 2. 스키마 재생성 (DEFAULT 'OPEN')
+		_, err = s.Exec(`
+			CREATE TABLE backlog_items_v3 (
+				id          INTEGER PRIMARY KEY AUTOINCREMENT,
+				title       TEXT    NOT NULL,
+				severity    TEXT    NOT NULL,
+				timeframe   TEXT    NOT NULL,
+				scope       TEXT    NOT NULL,
+				type        TEXT    NOT NULL,
+				description TEXT    NOT NULL,
+				related     TEXT,
+				position    INTEGER NOT NULL,
+				status      TEXT    NOT NULL DEFAULT 'OPEN',
+				resolution  TEXT,
+				resolved_at TEXT,
+				created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+				updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+			);
+			INSERT INTO backlog_items_v3 SELECT * FROM backlog_items;
+			DROP TABLE backlog_items;
+			ALTER TABLE backlog_items_v3 RENAME TO backlog_items;
+		`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all backlog action handlers.
@@ -80,6 +168,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("check", m.handleCheck)
 	reg.Handle("next-id", m.handleNextID)
 	reg.Handle("export", m.handleExport)
+	reg.Handle("release", m.handleRelease)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -168,4 +257,19 @@ func (m *Module) handleExport(_ context.Context, _ json.RawMessage, _ string) (a
 		return nil, err
 	}
 	return map[string]string{"content": content}, nil
+}
+
+func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		ID     int    `json:"id"`
+		Reason string `json:"reason"`
+		Branch string `json:"branch"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("backlog.release: decode params: %w", err)
+	}
+	if err := m.manager.Release(p.ID, p.Reason, p.Branch); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "released"}, nil
 }

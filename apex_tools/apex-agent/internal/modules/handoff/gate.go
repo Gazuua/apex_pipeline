@@ -2,7 +2,10 @@
 
 package handoff
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // ValidateCommit checks if a branch is registered for committing.
 // Returns nil if allowed, error if blocked.
@@ -20,6 +23,7 @@ func (m *Manager) ValidateCommit(branch string) error {
 }
 
 // ValidateMergeGate checks if all notifications are acked before merge.
+// Also blocks if there are FIXING backlogs attached to this branch.
 // Returns nil if allowed, error if blocked.
 func (m *Manager) ValidateMergeGate(branch string) error {
 	notifications, err := m.CheckNotifications(branch)
@@ -30,6 +34,34 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "unacked", len(notifications))
 		return fmt.Errorf("차단: 미ack 알림 %d건. 먼저 ack 처리 후 머지 재시도", len(notifications))
 	}
+
+	// FIXING 백로그 체크 (backlog 모듈이 등록되지 않은 경우 스킵)
+	rows, err := m.store.Query(
+		`SELECT bb.backlog_id FROM branch_backlogs bb
+		 JOIN backlog_items bi ON bi.id = bb.backlog_id
+		 WHERE bb.branch = ? AND bi.status = 'FIXING'`,
+		branch,
+	)
+	if err != nil {
+		// backlog_items 테이블 미존재 시 스킵 (backlog 모듈 미등록)
+		if strings.Contains(err.Error(), "no such table") {
+			ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", true, "note", "backlog table not found, skipping FIXING check")
+			return nil
+		}
+		return fmt.Errorf("query fixing backlogs: %w", err)
+	}
+	defer rows.Close()
+	var fixingIDs []int
+	for rows.Next() {
+		var id int
+		rows.Scan(&id)
+		fixingIDs = append(fixingIDs, id)
+	}
+	if len(fixingIDs) > 0 {
+		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "fixing", fixingIDs)
+		return fmt.Errorf("차단: 미해결 백로그 %d건 (IDs: %v) — resolve 또는 release 후 재시도", len(fixingIDs), fixingIDs)
+	}
+
 	ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", true)
 	return nil
 }

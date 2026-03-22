@@ -17,8 +17,8 @@ type Module struct {
 }
 
 // New creates a new handoff Module backed by the given store.
-func New(s *store.Store) *Module {
-	return &Module{manager: NewManager(s)}
+func New(s *store.Store, bm BacklogStatusSetter) *Module {
+	return &Module{manager: NewManager(s, bm)}
 }
 
 func (m *Module) Name() string { return "handoff" }
@@ -62,6 +62,43 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		}
 		return nil
 	})
+	mig.Register("handoff", 2, func(s *store.Store) error {
+		// 1. junction 테이블 생성
+		_, err := s.Exec(`CREATE TABLE branch_backlogs (
+			branch     TEXT    NOT NULL,
+			backlog_id INTEGER NOT NULL,
+			PRIMARY KEY (branch, backlog_id)
+		)`)
+		if err != nil {
+			return fmt.Errorf("create branch_backlogs: %w", err)
+		}
+
+		// 2. 기존 branches.backlog_id 데이터 이관 (NULL 스킵)
+		_, err = s.Exec(`
+			INSERT INTO branch_backlogs (branch, backlog_id)
+			SELECT branch, backlog_id FROM branches WHERE backlog_id IS NOT NULL
+		`)
+		if err != nil {
+			return fmt.Errorf("migrate backlog_ids: %w", err)
+		}
+
+		// 3. branches 재생성 (backlog_id 컬럼 제거)
+		_, err = s.Exec(`
+			CREATE TABLE branches_v2 (
+				branch      TEXT    PRIMARY KEY,
+				workspace   TEXT    NOT NULL,
+				status      TEXT    NOT NULL,
+				summary     TEXT,
+				created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+				updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+			);
+			INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
+				SELECT branch, workspace, status, summary, created_at, updated_at FROM branches;
+			DROP TABLE branches;
+			ALTER TABLE branches_v2 RENAME TO branches;
+		`)
+		return err
+	})
 }
 
 // RegisterRoutes registers handoff action handlers.
@@ -88,7 +125,7 @@ type notifyStartParams struct {
 	Branch     string `json:"branch"`
 	Workspace  string `json:"workspace"`
 	Summary    string `json:"summary"`
-	BacklogID  int    `json:"backlog_id"`
+	BacklogIDs []int  `json:"backlog_ids"`
 	Scopes     string `json:"scopes"`
 	SkipDesign bool   `json:"skip_design"`
 }
@@ -129,7 +166,7 @@ func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BacklogID, p.Scopes, p.SkipDesign)
+	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BacklogIDs, p.Scopes, p.SkipDesign)
 	if err != nil {
 		return nil, err
 	}

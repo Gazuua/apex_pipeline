@@ -34,6 +34,7 @@ func handoffCmd() *cobra.Command {
 		Short: "핸드오프 알림 전송",
 	}
 	notify.AddCommand(handoffNotifyStartCmd())
+	notify.AddCommand(handoffNotifyStartJobCmd())
 	notify.AddCommand(handoffNotifyDesignCmd())
 	notify.AddCommand(handoffNotifyPlanCmd())
 	notify.AddCommand(handoffNotifyMergeCmd())
@@ -51,21 +52,24 @@ func handoffCmd() *cobra.Command {
 func handoffNotifyStartCmd() *cobra.Command {
 	var (
 		summary    string
-		backlog    int
+		backlogs   []int
 		scopes     string
 		skipDesign bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "작업 착수 알림",
+		Short: "작업 착수 알림 (백로그 연결)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(backlogs) == 0 {
+				return fmt.Errorf("백로그 작업은 --backlog 필수. 비백로그 작업은 'start job' 사용")
+			}
 			branch := getBranchID()
 			params := map[string]any{
 				"branch":      branch,
 				"workspace":   branch,
 				"summary":     summary,
-				"backlog_id":  backlog,
+				"backlog_ids": backlogs,
 				"scopes":      scopes,
 				"skip_design": skipDesign,
 			}
@@ -81,7 +85,48 @@ func handoffNotifyStartCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&summary, "summary", "", "작업 요약 (필수)")
-	cmd.Flags().IntVar(&backlog, "backlog", 0, "백로그 번호")
+	cmd.Flags().IntSliceVar(&backlogs, "backlog", nil, "백로그 번호 (복수 가능)")
+	cmd.Flags().StringVar(&scopes, "scopes", "", "영향 스코프 (예: core,shared)")
+	cmd.Flags().BoolVar(&skipDesign, "skip-design", false, "설계 단계 스킵 (바로 implementing)")
+	_ = cmd.MarkFlagRequired("summary")
+
+	return cmd
+}
+
+// ── handoff notify start job ──
+
+func handoffNotifyStartJobCmd() *cobra.Command {
+	var (
+		summary    string
+		scopes     string
+		skipDesign bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "job",
+		Short: "비백로그 작업 착수 알림",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":      branch,
+				"workspace":   branch,
+				"summary":     summary,
+				"backlog_ids": []int{},
+				"scopes":      scopes,
+				"skip_design": skipDesign,
+			}
+			result, err := sendHandoffRequest("notify-start", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			notifID, _ := result["notification_id"].(float64)
+			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, job mode)\n",
+				notifID, branch)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "작업 요약 (필수)")
 	cmd.Flags().StringVar(&scopes, "scopes", "", "영향 스코프 (예: core,shared)")
 	cmd.Flags().BoolVar(&skipDesign, "skip-design", false, "설계 단계 스킵 (바로 implementing)")
 	_ = cmd.MarkFlagRequired("summary")
@@ -287,21 +332,27 @@ func handoffStatusCmd() *cobra.Command {
 			}
 
 			var b struct {
-				Branch    string  `json:"Branch"`
-				Workspace string  `json:"Workspace"`
-				Status    string  `json:"Status"`
-				BacklogID float64 `json:"BacklogID"`
-				Summary   string  `json:"Summary"`
-				CreatedAt string  `json:"CreatedAt"`
-				UpdatedAt string  `json:"UpdatedAt"`
+				Branch     string  `json:"Branch"`
+				Workspace  string  `json:"Workspace"`
+				Status     string  `json:"Status"`
+				BacklogIDs []int   `json:"BacklogIDs"`
+				Summary    string  `json:"Summary"`
+				CreatedAt  string  `json:"CreatedAt"`
+				UpdatedAt  string  `json:"UpdatedAt"`
 			}
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return fmt.Errorf("parse response: %w", err)
 			}
 
 			fmt.Printf("[handoff] branch=%s status=%s", b.Branch, b.Status)
-			if b.BacklogID > 0 {
-				fmt.Printf(" backlog=BACKLOG-%.0f", b.BacklogID)
+			if len(b.BacklogIDs) > 0 {
+				fmt.Printf(" backlogs=")
+				for i, id := range b.BacklogIDs {
+					if i > 0 {
+						fmt.Printf(",")
+					}
+					fmt.Printf("BACKLOG-%d", id)
+				}
 			}
 			if b.Summary != "" {
 				fmt.Printf(" summary=%q", b.Summary)

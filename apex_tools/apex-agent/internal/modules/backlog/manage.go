@@ -61,6 +61,19 @@ func (m *Manager) NextID() (int, error) {
 // Add inserts a new backlog item. If Position is 0, it is auto-assigned to the
 // end of the item's timeframe group (max position in that group + 1).
 func (m *Manager) Add(item *BacklogItem) error {
+	if err := ValidateSeverity(item.Severity); err != nil {
+		return err
+	}
+	if err := ValidateTimeframe(item.Timeframe); err != nil {
+		return err
+	}
+	if err := ValidateType(item.Type); err != nil {
+		return err
+	}
+	if err := ValidateScope(item.Scope); err != nil {
+		return err
+	}
+
 	if item.Position == 0 {
 		row := m.store.QueryRow(
 			"SELECT COALESCE(MAX(position), 0) FROM backlog_items WHERE timeframe = ?",
@@ -75,7 +88,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 
 	status := item.Status
 	if status == "" {
-		status = "open"
+		status = StatusOpen
 	}
 
 	if item.ID == 0 {
@@ -143,7 +156,7 @@ func (m *Manager) Get(id int) (*BacklogItem, error) {
 func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 	status := filter.Status
 	if status == "" {
-		status = "open"
+		status = StatusOpen
 	}
 
 	query := `
@@ -201,14 +214,17 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 // Resolve marks an item as resolved with the given resolution type.
 // Returns an error if the item does not exist.
 func (m *Manager) Resolve(id int, resolution string) error {
+	if err := ValidateResolution(resolution); err != nil {
+		return err
+	}
 	result, err := m.store.Exec(`
 		UPDATE backlog_items
-		SET status = 'resolved',
+		SET status = ?,
 		    resolution = ?,
 		    resolved_at = datetime('now','localtime'),
 		    updated_at = datetime('now','localtime')
 		WHERE id = ?`,
-		resolution, id,
+		StatusResolved, resolution, id,
 	)
 	if err != nil {
 		return fmt.Errorf("Resolve: %w", err)
@@ -221,6 +237,60 @@ func (m *Manager) Resolve(id int, resolution string) error {
 		return fmt.Errorf("Resolve: item %d not found", id)
 	}
 	ml.Info("item resolved", "id", id, "resolution", resolution)
+	return nil
+}
+
+// SetStatus updates the status of a backlog item.
+func (m *Manager) SetStatus(id int, status string) error {
+	if err := ValidateStatus(status); err != nil {
+		return err
+	}
+	result, err := m.store.Exec(`
+		UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
+		status, id,
+	)
+	if err != nil {
+		return fmt.Errorf("SetStatus: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("SetStatus: item %d not found", id)
+	}
+	ml.Info("status changed", "id", id, "status", status)
+	return nil
+}
+
+// Release removes a backlog item from active work.
+// If status is FIXING, sets it back to OPEN.
+// Appends release reason to description.
+func (m *Manager) Release(id int, reason, branch string) error {
+	item, err := m.Get(id)
+	if err != nil {
+		return fmt.Errorf("Release: %w", err)
+	}
+	if item == nil {
+		return fmt.Errorf("Release: item %d not found", id)
+	}
+
+	// Append release history to description
+	appendDesc := fmt.Sprintf("\n[RELEASED] %s: %s", branch, reason)
+
+	_, err = m.store.Exec(`
+		UPDATE backlog_items
+		SET status = CASE WHEN status = ? THEN ? ELSE status END,
+		    description = description || ?,
+		    updated_at = datetime('now','localtime')
+		WHERE id = ?`,
+		StatusFixing, StatusOpen, appendDesc, id,
+	)
+	if err != nil {
+		return fmt.Errorf("Release: %w", err)
+	}
+
+	// Remove from branch_backlogs (cross-table, same DB)
+	_, _ = m.store.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id)
+
+	ml.Info("item released", "id", id, "reason", reason)
 	return nil
 }
 

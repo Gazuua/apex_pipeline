@@ -25,6 +25,7 @@ func backlogCmd() *cobra.Command {
 	cmd.AddCommand(backlogResolveCmd())
 	cmd.AddCommand(backlogExportCmd())
 	cmd.AddCommand(backlogCheckCmd())
+	cmd.AddCommand(backlogReleaseCmd())
 	return cmd
 }
 
@@ -150,7 +151,7 @@ func backlogListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&timeframe, "timeframe", "", "필터: NOW, IN_VIEW, DEFERRED")
 	cmd.Flags().StringVar(&severity, "severity", "", "필터: CRITICAL, MAJOR, MINOR")
-	cmd.Flags().StringVar(&status, "status", "open", "필터: open, resolved")
+	cmd.Flags().StringVar(&status, "status", "OPEN", "필터: OPEN, FIXING, RESOLVED")
 
 	return cmd
 }
@@ -185,7 +186,7 @@ func backlogResolveCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&resolution, "resolution", "", "해결 방식: FIXED, WONTFIX, DUPLICATE, DEFERRED (필수)")
+	cmd.Flags().StringVar(&resolution, "resolution", "", "해결 방식: FIXED, DOCUMENTED, WONTFIX, DUPLICATE, SUPERSEDED (필수)")
 	_ = cmd.MarkFlagRequired("resolution")
 
 	return cmd
@@ -215,6 +216,40 @@ func backlogExportCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// ── backlog release ──
+
+func backlogReleaseCmd() *cobra.Command {
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "release ID",
+		Short: "백로그 항목 착수 해제 (FIXING → OPEN)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var id int
+			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+				return fmt.Errorf("ID must be an integer: %s", args[0])
+			}
+			branch := getBranchID()
+			params := map[string]any{"id": id, "reason": reason, "branch": branch}
+			resp, err := sendBacklogRequest("release", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			if resp.Error != "" {
+				return fmt.Errorf("backlog release: %s", resp.Error)
+			}
+			fmt.Printf("Released #%d: %s\n", id, reason)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&reason, "reason", "", "해제 사유 (필수)")
+	_ = cmd.MarkFlagRequired("reason")
+
+	return cmd
 }
 
 // ── backlog check ──

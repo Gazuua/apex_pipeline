@@ -54,17 +54,29 @@ func TestParseBacklogMD_Basic(t *testing.T) {
 		t.Fatalf("got %d items, want 3", len(items))
 	}
 
-	// Item 1
+	// Item 1 — scope/type normalized to UPPER_SNAKE_CASE
 	if items[0].ID != 1 || items[0].Severity != "CRITICAL" || items[0].Timeframe != "NOW" {
 		t.Errorf("item 1: %+v", items[0])
+	}
+	if items[0].Scope != "CORE" {
+		t.Errorf("item 1 scope = %q, want CORE", items[0].Scope)
+	}
+	if items[0].Type != "BUG" {
+		t.Errorf("item 1 type = %q, want BUG", items[0].Type)
 	}
 	if items[0].Position != 1 {
 		t.Errorf("item 1 position = %d, want 1", items[0].Position)
 	}
 
-	// Item 2
+	// Item 2 — multi-scope normalized
 	if items[1].ID != 2 || items[1].Related != "1" || items[1].Timeframe != "NOW" {
 		t.Errorf("item 2: %+v", items[1])
+	}
+	if items[1].Scope != "SHARED, TOOLS" {
+		t.Errorf("item 2 scope = %q, want 'SHARED, TOOLS'", items[1].Scope)
+	}
+	if items[1].Type != "DESIGN_DEBT" {
+		t.Errorf("item 2 type = %q, want DESIGN_DEBT", items[1].Type)
 	}
 	if items[1].Position != 2 {
 		t.Errorf("item 2 position = %d, want 2", items[1].Position)
@@ -104,11 +116,14 @@ func TestParseBacklogHistoryMD_Basic(t *testing.T) {
 		t.Fatalf("got %d items, want 2", len(items))
 	}
 
-	if items[0].ID != 128 || items[0].Status != "resolved" || items[0].Resolution != "FIXED" {
+	if items[0].ID != 128 || items[0].Status != StatusResolved || items[0].Resolution != "FIXED" {
 		t.Errorf("item 128: %+v", items[0])
 	}
-	if items[0].Severity != "MAJOR" || items[0].Scope != "auth-svc" {
-		t.Errorf("item 128 fields: %+v", items[0])
+	if items[0].Severity != "MAJOR" || items[0].Scope != "AUTH_SVC" {
+		t.Errorf("item 128 fields: severity=%q scope=%q", items[0].Severity, items[0].Scope)
+	}
+	if items[0].Type != "BUG" {
+		t.Errorf("item 128 type = %q, want BUG", items[0].Type)
 	}
 }
 
@@ -145,8 +160,8 @@ func TestImportItems_Basic(t *testing.T) {
 	mig.Migrate()
 
 	items := []BacklogItem{
-		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "Fix it", Position: 1, Status: "open"},
-		{ID: 2, Title: "Done", Severity: "MINOR", Timeframe: "NOW", Scope: "docs", Type: "docs", Description: "Was done", Position: 2, Status: "resolved", Resolution: "FIXED"},
+		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix it", Position: 1, Status: "OPEN"},
+		{ID: 2, Title: "Done", Severity: "MINOR", Timeframe: "NOW", Scope: "DOCS", Type: "DOCS", Description: "Was done", Position: 2, Status: StatusResolved, Resolution: "FIXED"},
 	}
 
 	count, err := mod.manager.ImportItems(items)
@@ -159,14 +174,14 @@ func TestImportItems_Basic(t *testing.T) {
 
 	// Verify open item
 	item, _ := mod.manager.Get(1)
-	if item.Status != "open" {
-		t.Errorf("item 1 status = %q, want 'open'", item.Status)
+	if item.Status != "OPEN" {
+		t.Errorf("item 1 status = %q, want 'OPEN'", item.Status)
 	}
 
 	// Verify resolved item
 	item2, _ := mod.manager.Get(2)
-	if item2.Status != "resolved" {
-		t.Errorf("item 2 status = %q, want 'resolved'", item2.Status)
+	if item2.Status != "RESOLVED" {
+		t.Errorf("item 2 status = %q, want 'RESOLVED'", item2.Status)
 	}
 }
 
@@ -183,7 +198,7 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 	mig.Migrate()
 
 	items := []BacklogItem{
-		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "core", Type: "bug", Description: "Fix", Position: 1, Status: "open"},
+		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix", Position: 1, Status: "OPEN"},
 	}
 
 	mod.manager.ImportItems(items)
