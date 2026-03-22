@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 150
+다음 발번: 153
 
 ---
 
@@ -120,6 +120,24 @@
 - **스코프**: CORE, SHARED
 - **타입**: TEST
 - **설명**: auto-review에서 식별된 미테스트 경로: ① AdapterBase init 실패 복구 ② CircuitBreaker 동시 호출 ③ CrossCoreCall 동일 코어 호출 ④ Session 동시 write ⑤ TimingWheel 용량 1 ⑥ FrameCodec UnsupportedProtocolVersion ⑦ RedisMultiplexer close 중 콜백 안전성 ⑧ ConfigTest num_cores=0 ⑨ SpscMesh 자기 코어 post. 우선순위: ①⑦(프로덕션 장애 직결) > ②③(동시성) > 나머지.
+
+### #150. JWT uid 파싱 — std::stoull 예외 시 에러 메시지 부정확
+- **등급**: MINOR
+- **스코프**: GATEWAY, AUTH_SVC
+- **타입**: BUG
+- **설명**: `jwt_verifier.cpp`와 `jwt_manager.cpp`에서 `std::stoull(decoded.get_payload_claim("uid").as_string())`이 비정상 문자열에 예외를 던지면 상위 catch에서 "JWT unexpected error"로 뭉뚱그려짐. `std::from_chars`로 전환하면 예외 없이 정확한 에러("uid claim 파싱 실패")를 로깅할 수 있다.
+
+### #151. FrameCodec vs Protocol concept 에러 타입 이원화 통일
+- **등급**: MINOR
+- **스코프**: CORE
+- **타입**: DESIGN_DEBT
+- **설명**: `FrameCodec::try_decode()`는 `expected<Frame, FrameError>`를, `Protocol` concept은 `Result<Frame>` (`expected<Frame, ErrorCode>`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.
+
+### #152. ServiceBase on_start/on_stop CRTP 비대칭 미문서화
+- **등급**: MINOR
+- **스코프**: CORE
+- **타입**: DOCS
+- **설명**: `on_configure()/on_wire()/on_session_closed()`는 virtual인데 `on_start()/on_stop()`은 CRTP 디스패치. 의도적 설계(devirtualization 보장)라면 주석으로 사유를 명시해야 유지보수자 혼동 방지.
 
 ### #149. Whisper core_id=0 하드코딩 — SessionId core 인코딩
 - **등급**: MINOR
