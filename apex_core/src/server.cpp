@@ -98,13 +98,26 @@ Server::~Server()
     // 멤버 선언 순서에 의한 암묵적 파괴가 안전하지 않으므로 직접 제어:
     //   1) listeners_ : TcpAcceptor 소켓이 io_context에 등록됨
     //   2) per_core_ schedulers : 타이머가 io_context에 등록됨
-    //   3) core_engine_ : io_context 소유. ~io_context()가 미완료 코루틴을
-    //      파괴하며, 코루틴 프레임의 intrusive_ptr<Session>이 해제됨.
+    //   3) 잔여 핸들러 drain : core_engine_->stop()이 io_context::stop()을 호출하면
+    //      pending completion handler(예: Session::enqueue_and_await의 timer cancel)가
+    //      미처리된 채 남음. ~io_context()가 이들을 파괴하면 코루틴 프레임 내
+    //      steady_timer 소멸자가 timer_service에 재진입하여 UAF 발생.
+    //      코어 스레드 종료 후 restart+poll로 잔여 핸들러를 안전하게 소진.
+    //   4) core_engine_ : io_context 소유. 잔여 핸들러 drain 후 파괴 안전.
     //      per_core_의 Session slab 메모리가 유효한 상태에서 실행되어야 함.
     listeners_.clear();
     for (auto& state : per_core_)
     {
         state->scheduler.reset();
+    }
+    if (core_engine_)
+    {
+        for (uint32_t i = 0; i < config_.num_cores; ++i)
+        {
+            auto& io = core_engine_->io_context(i);
+            io.restart();
+            io.poll();
+        }
     }
     core_engine_.reset();
 }
