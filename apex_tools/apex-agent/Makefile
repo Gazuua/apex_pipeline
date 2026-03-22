@@ -1,4 +1,4 @@
-.PHONY: build test lint clean
+.PHONY: build test lint clean release-windows release-linux
 
 BINARY := apex-agent
 GOFLAGS := -trimpath -ldflags="-s -w"
