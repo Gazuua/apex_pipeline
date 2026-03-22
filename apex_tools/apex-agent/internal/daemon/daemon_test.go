@@ -70,29 +70,32 @@ func TestDaemon_RegisterModule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	started := false
-	stopped := false
+	startedCh := make(chan struct{}, 1)
+	stoppedCh := make(chan struct{}, 1)
 
 	d.Register(&mockModule{
 		name:    "test",
-		onStart: func() { started = true },
-		onStop:  func() { stopped = true },
+		onStart: func() { startedCh <- struct{}{} },
+		onStop:  func() { stoppedCh <- struct{}{} },
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
-	time.Sleep(500 * time.Millisecond)
 
-	if !started {
-		t.Error("module OnStart not called")
+	select {
+	case <-startedCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("module OnStart not called within 5s")
 	}
 
 	cancel()
 	<-done
 
-	if !stopped {
-		t.Error("module OnStop not called")
+	select {
+	case <-stoppedCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("module OnStop not called within 5s")
 	}
 }
 
