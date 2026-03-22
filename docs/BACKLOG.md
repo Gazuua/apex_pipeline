@@ -21,51 +21,58 @@
 
 ## IN VIEW
 
-### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **설명**: function-local static `ssl::context`가 멀티코어에서 `SSL_CTX` concurrent access 위험. 프로덕션 경로는 `make_socket_with_context()` 사용으로 회피하고 있으나, Transport concept의 `make_socket(io_context&)` 시그니처가 per-core context를 전달할 수 없는 구조적 한계. concept 확장 선행 필요. **[FSD 분석 2026-03-22]** Transport concept 확장이 선행 필요. make_socket(io_context&) 시그니처에 per-core SSL context를 전달할 방법이 없는 구조적 한계. 자동화 불가.
-
 ### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
 - **등급**: MAJOR
 - **스코프**: infra
 - **타입**: security
-- **설명**: Kafka 리스너가 `PLAINTEXT://` 프로토콜만 사용. 개발 환경에서는 적절하지만 프로덕션 배포 시 `SSL` 또는 `SASL_SSL` 필요. KafkaAdapter에 `security.protocol` 설정 메커니즘 추가 필요. **[FSD 분석 2026-03-22]** security.protocol 설정 메커니즘 설계 판단 필요 (KafkaAdapter 설정 확장 방향). 자동화 불가.
+- **설명**: Kafka 리스너가 `PLAINTEXT://` 프로토콜만 사용. 개발 환경에서는 적절하지만 프로덕션 배포 시 `SSL` 또는 `SASL_SSL` 필요. KafkaAdapter에 `security.protocol` 설정 메커니즘 추가 필요. **[FSD 설계 확정 2026-03-22]** B+C 하이브리드 채택: `KafkaSecurityConfig` typed struct(protocol, ssl_ca_location, ssl_cert/key_location, sasl_mechanism, sasl_username/password) + `extra_properties` map(librdkafka passthrough). 업계 표준(Spring Kafka 등) 준용. typed 필드로 IDE 자동완성 + 컴파일 타임 검증 확보, extra_properties로 librdkafka 200+ 설정 커버.
 
-### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
+### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
 - **등급**: MAJOR
-- **스코프**: tools, docs
-- **타입**: infra
-- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **[FSD 분석 2026-03-22]** 5종 도구 각각 동작 정의·threshold·예외 처리에 설계 판단 필요. 기계적 자동화 불가.
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: function-local static `ssl::context`가 멀티코어에서 `SSL_CTX` concurrent access 위험. 프로덕션 경로는 `make_socket_with_context()` 사용으로 회피하고 있으나, Transport concept의 `make_socket(io_context&)` 시그니처가 per-core context를 전달할 수 없는 구조적 한계. **[FSD 설계 확정 2026-03-22]** D안 채택 — TransportContext 번들 도입: `struct TransportContext { ssl::context* ssl_ctx = nullptr; /* 향후 metrics*, buffer_pool* 등 확장 */ }`. concept 시그니처를 `make_socket(io_context&, const TransportContext&)`로 1회 변경. 이후 per-core 상태 확장은 struct 필드 추가로 해결. make_socket_with_context() 제거.
+
+### #24. 어댑터 상태 관리 불일치
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **연관**: #29, #132
+- **설명**: KafkaAdapter 자체 `AdapterState` enum vs 나머지 `AdapterBase::ready_` bool. 상태 표현이 불일치. **[FSD 설계 확정 2026-03-22]** A안 채택: AdapterBase에 3-state enum `AdapterState { RUNNING, DRAINING, CLOSED }` 도입, 전체 어댑터에 통일. KafkaAdapter의 독자 AdapterState 삭제, `is_ready()` → `state() == RUNNING`으로 전환. #29 drain/stop 분리, #132 async close와 번들 추천.
+
+### #29. drain()/stop() 동일 구현
+- **등급**: MAJOR
+- **스코프**: core
+- **타입**: design-debt
+- **연관**: #24, #132
+- **설명**: Listener와 AdapterBase의 `drain()`과 `stop()`이 완전히 동일한 구현. **[FSD 설계 확정 2026-03-22]** A안 채택 — 의미 분리: drain = accept/요청 수신 중단 + in-flight 완료 대기(state → DRAINING), stop = 즉시 종료(state → CLOSED). Listener와 AdapterBase 모두 적용. #24 3-state enum과 연동.
+
+### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **연관**: #24, #29, #129 (HISTORY)
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경, RedisAdapter가 `co_await RedisMultiplexer::close()` 호출. 전체 어댑터 인터페이스 변경. #24 3-state enum + #29 drain/stop 분리와 번들 필수.
 
 ### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
 - **등급**: MAJOR
 - **스코프**: auth-svc, chat-svc
 - **타입**: test
-- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족. **[FSD 분석 2026-03-22]** 테스트 대상 비즈니스 로직 선정, mock 전략, 커버리지 목표에 설계 판단 필요.
+- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족. **[FSD 설계 확정 2026-03-22]** A안 채택: Redis/Kafka 의존 없는 순수 함수로 비즈니스 로직 분리 → 직접 단위 테스트. mock 불필요 방식. 대상: 계정 잠금 카운터 리셋, 토큰 갱신 로직, 방 인원 제한, 메시지 순서 등.
 
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #127
-- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. Mock 의존성이 많아 단위 테스트 인프라 구축 필요. E2E에서 부분 커버. **[FSD 분석 2026-03-22]** 코루틴 + Redis/Kafka/RateLimit mock 인프라 구축이 선행 필요. 테스트 인프라 설계 판단 포함.
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수.
 
 ### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #102
-- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가. **[FSD 분석 2026-03-22]** #102 인프라 구축에 의존. 단독 자동화 불가.
-
-
-### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #129 (HISTORY)
-- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. 해결하려면 `AdapterBase::do_close()`를 코루틴으로 변경하는 어댑터 인터페이스 설계 변경이 선행되어야 함. **[FSD 분석 2026-03-22]** 어댑터 인터페이스(AdapterBase::do_close() 코루틴화) 설계 변경이 선행 필요. 자동화 불가.
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR
@@ -110,8 +117,8 @@
 - **등급**: MINOR
 - **스코프**: tools
 - **타입**: infra
-- **연관**: #1 (HISTORY)
-- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 분석 2026-03-22]** 옵션 선택 필요 (문자열 기반 diff 스캔 vs AST 파싱). #126 Go 백엔드 재작성과 충돌 가능. 자동화 불가.
+- **연관**: #1 (HISTORY), #126
+- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드 재작성 시 리뷰 검증 기능 통합. #126 완료 후 착수.
 
 
 ---
@@ -136,24 +143,18 @@
 - **타입**: infra
 - **설명**: `retention_days` 등으로 자동 삭제 제어. 현재 영구 보존. 디스크 용량 이슈 발생 시 트리거. **[FSD 분석 2026-03-22]** TOML 파라미터 스키마 및 자동 삭제 정책 설계 필요. 자동화 불가.
 
+### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
+- **등급**: MAJOR
+- **스코프**: tools, docs
+- **타입**: infra
+- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **후순위 강등(2026-03-22)**: 현재 스크립트 후킹으로 문서 규칙 준수율 충분. #126 Go 백엔드 안정화 후 재평가.
+
 ### #50. apex_tools/scripts 폴더 신설 + 스크립트 정리
 - **등급**: MINOR
 - **스코프**: tools
 - **타입**: infra
 - **연관**: #126
 - **설명**: 독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지. **[FSD 분석 2026-03-22]** #126 Go 백엔드 재작성 진행 중이며 스크립트 구조에 직접 영향. 이동 대상 선별에 판단 필요. #126 완료 후 재평가.
-
-### #24. 어댑터 상태 관리 불일치
-- **등급**: MINOR
-- **스코프**: shared
-- **타입**: design-debt
-- **설명**: KafkaAdapter 자체 AdapterState vs 나머지 AdapterBase::ready_. 정규화 시 통일. **[FSD 분석 2026-03-22]** 통합 방향 선택 필요 — A안: KafkaAdapter의 AdapterState 삭제(ready_ 통일) vs B안: 모든 어댑터에 AdapterState 확장. 자동화 불가.
-
-### #29. drain()/stop() 동일 구현
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: design-debt
-- **설명**: drain=soft close, stop=hard close 분리 검토. **[FSD 분석 2026-03-22]** drain=soft close vs stop=hard close 분리 정책 설계 필요. 자동화 불가.
 
 ### #36. Acceptor core 0 부하 불균형
 - **등급**: MINOR
