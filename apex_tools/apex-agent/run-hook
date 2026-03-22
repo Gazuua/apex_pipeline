@@ -3,15 +3,25 @@
 # Cross-platform apex-agent launcher for Claude Code hooks.
 # Lookup order: installed binary → local build
 DIR="$(dirname "$0")"
+_HOOK_LOG="${LOCALAPPDATA:-/tmp}/apex-agent/hook-debug.log"
+_BIN=""
 
 # 1) Installed location (make install / build.bat)
 if [[ -n "$LOCALAPPDATA" && -f "$LOCALAPPDATA/apex-agent/apex-agent.exe" ]]; then
-    exec "$LOCALAPPDATA/apex-agent/apex-agent.exe" "$@"
-fi
-if [[ -f "$HOME/.local/bin/apex-agent" ]]; then
-    exec "$HOME/.local/bin/apex-agent" "$@"
+    _BIN="$LOCALAPPDATA/apex-agent/apex-agent.exe"
+elif [[ -f "$HOME/.local/bin/apex-agent" ]]; then
+    _BIN="$HOME/.local/bin/apex-agent"
+# 2) Local build fallback
+elif [[ -f "$DIR/apex-agent.exe" ]]; then
+    _BIN="$DIR/apex-agent.exe"
+else
+    _BIN="$DIR/apex-agent"
 fi
 
-# 2) Local build fallback
-[[ -f "$DIR/apex-agent.exe" ]] && exec "$DIR/apex-agent.exe" "$@"
-exec "$DIR/apex-agent" "$@"
+# Run with exit code capture for debugging
+"$_BIN" "$@"
+_RC=$?
+if [[ $_RC -ne 0 ]]; then
+    echo "[$(date '+%H:%M:%S.%3N')] FAIL rc=$_RC args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
+fi
+exit $_RC
