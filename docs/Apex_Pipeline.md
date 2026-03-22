@@ -427,6 +427,7 @@ Tier 상세:
 | v0.5.10.1 | 소 | 보안 시크릿 관리 + Blacklist 정책: Redis 4인스턴스 --requirepass 인증, PgBouncer 동적 userlist(평문 삭제), SQL 마이그레이션 비밀번호 쉘 래퍼(injection 방어), expand_env() apex_shared 추출(gateway/auth-svc/chat-svc 공통 사용), TOML ${VAR:-default} 패턴 적용, .env.dev/.env.prod.example 분리. blacklist_fail_open 설정 추가(기본 fail-close), jwt_blacklist Redis 실패 시 사실 보고 → gateway_pipeline 정책 결정. 80/80 유닛 통과 | |
 | v0.5.10.2 | 소 | Session UAF 소멸 순서 수정: Server::~Server()에 명시적 파괴 순서 추가(listeners_.clear() → scheduler.reset() → core_engine_.reset()). 멤버 선언 역순 파괴(RAII)에 의존 시 ~io_context()가 미완료 코루틴의 intrusive_ptr\<Session\>을 해제하면서 이미 파괴된 slab 메모리에 접근하는 UAF 발생. 의존성 역순 명시적 정리로 해결 | |
 | v0.5.10.3 | 소 | FSD 백로그 소탕 — 프레임워크 인터페이스 정비: ① KafkaSecurityConfig typed struct + extra_properties (SSL/SASL 보안 설정 메커니즘, 크레덴셜 마스킹, 보안 실패 시 init 중단) ② TransportContext 번들 도입 (Transport concept 시그니처 1회 변경, static ssl::context 제거, per-core SSL_CTX) ③ AdapterBase 3-state AdapterState enum 통일 (CLOSED/RUNNING/DRAINING, KafkaAdapter 독자 state 삭제) ④ drain/stop 의미 분리 (state 전이 + 주석). 81/81 테스트 통과 | |
+| v0.5.10.4 | 소 | FSD 백로그 소탕 — 인터페이스 노출 + 비즈니스 로직 테스트: ① AdapterState enum apex_core 이동 + AdapterInterface::state() 가상 메서드 추가 (Server에서 어댑터 상태 조회 가능) ② Auth/Chat 비즈니스 로직 순수 함수 분리 (auth_logic.hpp, chat_logic.hpp) + 핸들러 리팩토링 ③ 신규 단위 테스트 24건 (crypto_util 5 + auth_logic 7 + chat_logic 12). 82/82 테스트 통과 | |
 
 ### 활성 로드맵
 
@@ -456,6 +457,8 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.10.0 SPSC All-to-All Mesh (MPSC→SPSC 전환, co_post_to awaitable, backpressure)
          v0.5.10.1 보안 시크릿 관리 + Blacklist 정책 (Redis requirepass, expand_env 추출, blacklist fail-close)
          v0.5.10.2 Session UAF 소멸 순서 수정 (Server::~Server() 명시적 파괴 순서)
+         v0.5.10.3 FSD 백로그 소탕 (KafkaSecurityConfig, TransportContext, AdapterState 3-state, drain/stop 분리)
+         v0.5.10.4 FSD 백로그 소탕 (AdapterState 노출, Auth/Chat 비즈니스 로직 테스트)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
