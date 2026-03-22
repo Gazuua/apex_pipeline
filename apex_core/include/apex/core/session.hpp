@@ -36,8 +36,7 @@ template <typename T> class TypedSlabAllocator;
 ///
 /// @warning Session is NOT thread-safe. All operations must be called from
 /// the owning core's io_context thread (I-22). Use boost::asio::post() to
-/// dispatch operations from other threads. state_ is intentionally non-atomic
-/// because each Session is confined to a single core's strand.
+/// dispatch operations from other threads.
 ///
 /// @note intrusive_ptr with non-atomic refcount: per-core architecture guarantees
 /// Session objects are accessed from a single core thread only. Cross-core
@@ -127,11 +126,12 @@ class Session
     }
     [[nodiscard]] State state() const noexcept
     {
-        return state_;
+        return state_.load(std::memory_order_relaxed);
     }
     [[nodiscard]] bool is_open() const noexcept
     {
-        return state_ == State::Connected || state_ == State::Active;
+        auto s = state_.load(std::memory_order_relaxed);
+        return s == State::Connected || s == State::Active;
     }
     [[nodiscard]] boost::asio::ip::tcp::socket& socket() noexcept
     {
@@ -154,8 +154,8 @@ class Session
     // M-1: Assert valid state transition — Closed is a terminal state
     void set_state(State s) noexcept
     {
-        assert(state_ != State::Closed && "Cannot transition from Closed state");
-        state_ = s;
+        assert(state_.load(std::memory_order_relaxed) != State::Closed && "Cannot transition from Closed state");
+        state_.store(s, std::memory_order_relaxed);
     }
     friend class SessionManager;
 
@@ -164,7 +164,7 @@ class Session
 
     SessionId id_;
     uint32_t core_id_;
-    State state_{State::Connected};
+    std::atomic<State> state_{State::Connected}; // atomic for safe cross-thread destructor access
     boost::asio::ip::tcp::socket socket_;
     boost::asio::any_io_executor core_executor_; // 실제 core io_context의 executor (socket executor와 다를 수 있음)
     RingBuffer recv_buf_;

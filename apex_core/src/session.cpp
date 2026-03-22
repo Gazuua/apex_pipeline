@@ -80,11 +80,11 @@ awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data)
 
 void Session::close() noexcept
 {
-    if (state_ == State::Closed)
+    if (state_.load(std::memory_order_relaxed) == State::Closed)
         return;
     // Bypass set_state() which asserts on Closed->Closed transition
     // (already guarded by early return above)
-    state_ = State::Closed;
+    state_.store(State::Closed, std::memory_order_relaxed);
 
     boost::system::error_code ec;
     if (socket_.is_open())

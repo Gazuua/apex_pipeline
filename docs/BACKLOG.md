@@ -26,7 +26,7 @@
 - **스코프**: CORE, SHARED
 - **타입**: DESIGN_DEBT
 - **연관**: #130(이번PR에서도입)
-- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md` **[FSD 분석 2026-03-23]** SocketBase virtual interface + TcpSocket/TlsSocket 구현체 + Session 소유권 변경 등 다중 파일 대규모 리팩터링. 설계는 확정되었으나 구현 범위가 FSD 자동화 한계 초과.
 
 ### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
 - **등급**: MINOR
@@ -109,6 +109,55 @@
 - **타입**: TEST
 - **설명**: `test_adapter_base.cpp`에서 init/drain/close 라이프사이클 상태 전이는 검증하지만, `spawn_adapter_coro()`가 DRAINING/CLOSED 상태에서 코루틴 spawn을 올바르게 거부하는지 미검증. 어댑터 코루틴 관리의 핵심 경로이며, drain 시 새 코루틴이 spawn되면 리소스 누수 발생 가능. mock adapter에서 호출 형태로 비용 낮게 구현 가능.
 
+### #146. AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹
+- **등급**: MAJOR
+- **스코프**: AUTH_SVC
+- **타입**: PERF
+- **설명**: `password_hasher_.verify()`가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 `co_spawn` 분리 필요.
+
+### #147. Docker 서비스 이미지에 테스트용 RSA 키 번들링
+- **등급**: MAJOR
+- **스코프**: INFRA
+- **타입**: SECURITY
+- **연관**: #140
+- **설명**: gateway/auth-svc Dockerfile의 runtime 스테이지에서 `COPY apex_services/tests/keys/ /app/keys/`로 E2E 테스트 전용 RSA 키를 이미지에 포함. 현재 Dockerfile이 E2E 전용이라 실질 위험 없으나, 프로덕션 Dockerfile 파생 시 테스트 키 배포 위험. 프로덕션은 Kubernetes Secret/Docker Secret 외부 마운트 필수.
+
+### #148. 테스트 커버리지 갭 — 핵심 경로 9건
+- **등급**: MAJOR
+- **스코프**: CORE, SHARED
+- **타입**: TEST
+- **설명**: auto-review에서 식별된 미테스트 경로: ① AdapterBase init 실패 복구 ② CircuitBreaker 동시 호출 ③ CrossCoreCall 동일 코어 호출 ④ Session 동시 write ⑤ TimingWheel 용량 1 ⑥ FrameCodec UnsupportedProtocolVersion ⑦ RedisMultiplexer close 중 콜백 안전성 ⑧ ConfigTest num_cores=0 ⑨ SpscMesh 자기 코어 post. 우선순위: ①⑦(프로덕션 장애 직결) > ②③(동시성) > 나머지.
+
+### #150. JWT uid 파싱 — std::stoull 예외 시 에러 메시지 부정확
+- **등급**: MINOR
+- **스코프**: GATEWAY, AUTH_SVC
+- **타입**: BUG
+- **설명**: `jwt_verifier.cpp`와 `jwt_manager.cpp`에서 `std::stoull(decoded.get_payload_claim("uid").as_string())`이 비정상 문자열에 예외를 던지면 상위 catch에서 "JWT unexpected error"로 뭉뚱그려짐. `std::from_chars`로 전환하면 예외 없이 정확한 에러("uid claim 파싱 실패")를 로깅할 수 있다.
+
+### #151. FrameCodec vs Protocol concept 에러 타입 이원화 통일
+- **등급**: MINOR
+- **스코프**: CORE
+- **타입**: DESIGN_DEBT
+- **설명**: `FrameCodec::try_decode()`는 `expected<Frame, FrameError>`를, `Protocol` concept은 `Result<Frame>` (`expected<Frame, ErrorCode>`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.
+
+### #152. ServiceBase on_start/on_stop CRTP 비대칭 미문서화
+- **등급**: MINOR
+- **스코프**: CORE
+- **타입**: DOCS
+- **설명**: `on_configure()/on_wire()/on_session_closed()`는 virtual인데 `on_start()/on_stop()`은 CRTP 디스패치. 의도적 설계(devirtualization 보장)라면 주석으로 사유를 명시해야 유지보수자 혼동 방지.
+
+### #149. Whisper core_id=0 하드코딩 — SessionId core 인코딩
+- **등급**: MINOR
+- **스코프**: CHAT_SVC, GATEWAY
+- **타입**: DESIGN_DEBT
+- **설명**: Whisper unicast 전송 시 `core_id=0` 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).
+
+### #65. auto-review 가이드 검증 자동화
+- **등급**: MINOR
+- **스코프**: TOOLS
+- **타입**: INFRA
+- **연관**: #1(HISTORY), #126(HISTORY)
+- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. **[FSD 분석 2026-03-23]** Go 백엔드 기능 추가로 C++ 백로그 번들과 스코프 상이. 별도 작업으로 착수 권장.
 
 ---
 
@@ -118,7 +167,7 @@
 - **등급**: MAJOR
 - **스코프**: TOOLS, DOCS
 - **타입**: INFRA
-- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **후순위 강등(2026-03-22)**: 현재 스크립트 후킹으로 문서 규칙 준수율 충분. #126 Go 백엔드 완료(2026-03-23). 재평가 가능.
+- **설명**: 에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **후순위 강등(2026-03-22)**: 현재 스크립트 후킹으로 문서 규칙 준수율 충분. #126 Go 백엔드 완료(2026-03-23). 재평가 가능. **[FSD 분석 2026-03-23]** 5가지 자동화 시스템(스크립트 + pre-commit hook + 템플릿) 대규모 인프라 구축. 자동화 불가.
 
 ### #50. apex_tools/scripts 폴더 신설 + 스크립트 정리
 - **등급**: MINOR

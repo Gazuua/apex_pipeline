@@ -11,10 +11,12 @@
 #include <apex/core/transport.hpp>
 
 #include <boost/asio/post.hpp>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace apex::core
@@ -66,10 +68,13 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
     };
 
     Listener(uint16_t port, typename P::Config protocol_config, CoreEngine& engine,
-             std::vector<SessionManager*> session_mgrs, ConnectionHandlerConfig handler_config, bool reuseport = false)
+             std::vector<SessionManager*> session_mgrs, ConnectionHandlerConfig handler_config,
+             std::string bind_address = "0.0.0.0", uint32_t max_connections = 0, bool reuseport = false)
         : port_(port)
         , protocol_config_(std::move(protocol_config))
         , engine_(engine)
+        , bind_address_(std::move(bind_address))
+        , max_connections_(max_connections)
         , reuseport_(reuseport)
     {
         // per-core handler 생성
@@ -99,9 +104,16 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                 local.push_back(std::make_unique<TcpAcceptor>(
                     core_io, port_,
                     [this, i](boost::asio::ip::tcp::socket socket) {
+                        if (max_connections_ > 0 && active_sessions() >= max_connections_)
+                        {
+                            spdlog::warn("Connection rejected: max_connections limit ({}/{})", active_sessions(),
+                                         max_connections_);
+                            socket.close();
+                            return;
+                        }
                         per_core_handlers_[i]->handler.accept_connection(std::move(socket), engine_.io_context(i));
                     },
-                    boost::asio::ip::tcp::v4(),
+                    bind_address_,
                     /*reuseport=*/true));
             }
         }
@@ -112,7 +124,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
             // Accept on core 0's io_context (or a control io_context)
             local.push_back(std::make_unique<TcpAcceptor>(
                 engine_.io_context(0), port_,
-                [this](boost::asio::ip::tcp::socket socket) { on_accept(std::move(socket)); }));
+                [this](boost::asio::ip::tcp::socket socket) { on_accept(std::move(socket)); }, bind_address_));
         }
 
         // Publish fully-built vector to the member.
@@ -201,6 +213,13 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
   private:
     void on_accept(boost::asio::ip::tcp::socket socket)
     {
+        if (max_connections_ > 0 && active_sessions() >= max_connections_)
+        {
+            spdlog::warn("Connection rejected: max_connections limit ({}/{})", active_sessions(), max_connections_);
+            socket.close();
+            return;
+        }
+
         uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
         uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed) % num_cores;
 
@@ -213,6 +232,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
     uint16_t port_;
     typename P::Config protocol_config_;
     CoreEngine& engine_;
+    std::string bind_address_;
+    uint32_t max_connections_;
     bool reuseport_;
     std::vector<std::unique_ptr<PerCoreHandler>> per_core_handlers_;
     std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;

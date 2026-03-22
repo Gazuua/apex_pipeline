@@ -113,11 +113,11 @@ TEST(TcpAcceptor, ReusePortMultipleAcceptors)
     boost::asio::io_context io1, io2;
     std::atomic<int> count1{0}, count2{0};
 
-    TcpAcceptor acc1(io1, 0, [&](tcp::socket) { ++count1; }, tcp::v4(), /*reuseport=*/true);
+    TcpAcceptor acc1(io1, 0, [&](tcp::socket) { ++count1; }, "0.0.0.0", /*reuseport=*/true);
     acc1.start();
     auto port = acc1.port();
 
-    TcpAcceptor acc2(io2, port, [&](tcp::socket) { ++count2; }, tcp::v4(), /*reuseport=*/true);
+    TcpAcceptor acc2(io2, port, [&](tcp::socket) { ++count2; }, "0.0.0.0", /*reuseport=*/true);
     acc2.start();
 
     std::thread t1([&] { io1.run(); });
@@ -166,7 +166,7 @@ TEST(TcpAcceptor, IPv6AcceptConnection)
     boost::asio::io_context io_ctx;
     std::atomic<int> accept_count{0};
 
-    TcpAcceptor acceptor(io_ctx, 0, [&](tcp::socket) { ++accept_count; }, tcp::v6());
+    TcpAcceptor acceptor(io_ctx, 0, [&](tcp::socket) { ++accept_count; }, "::");
     acceptor.start();
     EXPECT_GT(acceptor.port(), 0);
 
