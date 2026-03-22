@@ -123,6 +123,58 @@ apex-agent migrate backlog --backlog path/to/BACKLOG.md --history path/to/HISTOR
 
 **주의**: `backlog import`가 아니라 `migrate backlog` — import는 migrate 커맨드의 서브커맨드.
 
+### 데이터 관리 — Source of Truth 분리
+
+```
+MD (git-tracked)           DB (로컬 SQLite)
+┌──────────────┐         ┌──────────────┐
+│  메타데이터    │ Import→ │  메타데이터    │
+│  (구조/내용)  │         │  + 상태 ★     │ ← 상태의 유일한 주인
+└──────────────┘ ←Export  └──────────────┘
+```
+
+- **MD**: 메타데이터의 출처 (제목, 등급, 시간축, 스코프, 타입, 설명, 연관)
+- **DB**: 상태의 출처 (OPEN → FIXING → RESOLVED). 상태 변경은 CLI 전용
+
+**Import** (`migrate backlog`) — MD → DB, 파일 기준 `a+` 모드:
+- DB에 없는 항목 → 새로 추가
+- DB에 있는 항목 → 메타데이터만 갱신, **상태 절대 불변**
+- MD에서 삭제된 항목 → DB에 그대로 남음 (삭제 안 함)
+
+**Export** (`backlog export`) — DB → stdout, `w+` 모드:
+- **import-first 안전장치**: Export 전에 자동으로 Import 실행 (DB 유실 시 MD에서 복원)
+- Import + Export를 **단일 트랜잭션**으로 묶음 — 실패 시 전체 롤백
+- OPEN + FIXING → 출력, RESOLVED → 제외 (BACKLOG_HISTORY.md로 별도 이관)
+- `--unsafe` 플래그로 import 단계 건너뛰기 가능
+
+### 워크플로우별 타이밍
+
+| 시점 | 명령 | 설명 |
+|------|------|------|
+| 착수 시 (①) | `migrate backlog` | MD → DB 메타데이터 싱크 |
+| 작업 중 (③) | `backlog resolve/release` | CLI로 상태 변경 (에이전트 판단) |
+| 머지 전 (⑥) | `backlog export > docs/BACKLOG.md` | DB → MD 전체 덤프 |
+
+### 머지 전 백로그 정리 (에이전트 수행)
+
+`ValidateMergeGate`가 FIXING 백로그가 남아있으면 `notify merge`를 차단한다.
+에이전트가 머지 전에 반드시 각 FIXING 백로그를 판단하여 처리해야 한다:
+
+```bash
+# 1. 연결된 FIXING 백로그 확인
+apex-agent backlog list --status FIXING
+
+# 2. 각 항목 판단
+apex-agent backlog resolve ID --resolution FIXED       # 해결 완료한 건
+apex-agent backlog release ID --reason "사유"           # 못 끝낸 건 → OPEN 복귀
+
+# 3. FIXING 0건 확인 후 머지 진행
+apex-agent handoff notify merge --summary "..."
+
+# 4. export로 MD 갱신
+apex-agent backlog export > docs/BACKLOG.md
+```
+
 ### 열거형 검증 규칙
 
 모든 열거형 필드는 **UPPER_SNAKE_CASE 필수**. 소문자/레거시 값은 즉시 거부.
