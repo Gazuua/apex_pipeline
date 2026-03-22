@@ -1,1 +1,57 @@
-<\!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=benchmark/index.html"></head></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Pipeline — GitHub Pages</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: #0F172A; color: #E2E8F0;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 24px;
+  }
+  .hub { max-width: 480px; width: 100%; text-align: center; }
+  h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; }
+  h1 span {
+    background: linear-gradient(90deg, #34D399, #38BDF8, #A78BFA);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .sub { color: #94A3B8; font-size: 0.9rem; margin-bottom: 32px; }
+  a.card {
+    display: block; text-decoration: none; color: inherit;
+    background: #1E293B; border: 1px solid #334155; border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 12px; text-align: left;
+    transition: border-color .2s, transform .2s;
+  }
+  a.card:hover { border-color: #34D399; transform: translateY(-2px); }
+  a.card .title { font-weight: 600; color: #F8FAFC; margin-bottom: 4px; }
+  a.card .desc { font-size: 0.82rem; color: #94A3B8; }
+  a.card .tag {
+    display: inline-block; font-size: 0.7rem; font-weight: 600;
+    padding: 2px 8px; border-radius: 10px; margin-top: 8px;
+  }
+  .tag.green { background: rgba(52,211,153,0.15); color: #34D399; }
+  .tag.blue  { background: rgba(56,189,248,0.15); color: #38BDF8; }
+</style>
+</head>
+<body>
+<div class="hub">
+  <h1><span>Apex Pipeline</span></h1>
+  <p class="sub">Project Showcase &amp; Reports</p>
+
+  <a class="card" href="showcase/">
+    <div class="title">AI Agent-Driven Development Ecosystem</div>
+    <div class="desc">apex-agent, auto-review, fsd-backlog — 완전 자동화 개발 생태계 아키텍처 쇼케이스</div>
+    <span class="tag green">SHOWCASE</span>
+  </a>
+
+  <a class="card" href="benchmark/">
+    <div class="title">Per-core io_context Benchmark</div>
+    <div class="desc">Shared-nothing 아키텍처 벤치마크 리포트</div>
+    <span class="tag blue">BENCHMARK</span>
+  </a>
+</div>
+</body>
+</html>
