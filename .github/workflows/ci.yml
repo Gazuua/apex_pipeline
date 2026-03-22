@@ -33,6 +33,7 @@ jobs:
     outputs:
       docker: ${{ steps.filter.outputs.docker }}
       source: ${{ steps.filter.outputs.source }}
+      go: ${{ steps.filter.outputs.go }}
       ci_image_tag: ${{ steps.read-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +64,10 @@ jobs:
               - 'apex_core/build.sh'
               - 'apex_tools/build-preflight.bat'
               - 'apex_tools/build-preflight.sh'
+            go:
+              - 'apex_tools/apex-agent/**/*.go'
+              - 'apex_tools/apex-agent/go.mod'
+              - 'apex_tools/apex-agent/go.sum'
 
   # ── Format check (clang-format) ────────────────
   format-check:
@@ -234,3 +239,28 @@ jobs:
           name: e2e-results
           path: e2e-results.xml
           retention-days: 7
+
+  # ── Go (apex-agent) ──────────────────────────────
+  go-test:
+    permissions:
+      contents: read
+    name: Go (apex-agent)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [changes]
+    if: needs.changes.outputs.go == 'true'
+    defaults:
+      run:
+        working-directory: apex_tools/apex-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apex_tools/apex-agent/go.mod
+      - run: go mod verify
+      - run: go vet ./...
+      - run: go test ./... -race -cover -v
+      - name: Build (linux)
+        run: go build -o apex-agent ./cmd/apex-agent
+      - name: Build (windows cross-compile)
+        run: GOOS=windows GOARCH=amd64 go build -o apex-agent.exe ./cmd/apex-agent

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Cross-platform apex-agent launcher for Claude Code hooks.
+# Lookup order: installed binary → local build
+DIR="$(dirname "$0")"
+_HOOK_LOG="${LOCALAPPDATA:-/tmp}/apex-agent/hook-debug.log"
+_BIN=""
+
+# 1) Installed location (make install / build.bat)
+if [[ -n "$LOCALAPPDATA" && -f "$LOCALAPPDATA/apex-agent/apex-agent.exe" ]]; then
+    _BIN="$LOCALAPPDATA/apex-agent/apex-agent.exe"
+elif [[ -f "$HOME/.local/bin/apex-agent" ]]; then
+    _BIN="$HOME/.local/bin/apex-agent"
+# 2) Local build fallback
+elif [[ -f "$DIR/apex-agent.exe" ]]; then
+    _BIN="$DIR/apex-agent.exe"
+else
+    _BIN="$DIR/apex-agent"
+fi
+
+# Verify binary exists before attempting execution
+if [[ ! -f "$_BIN" ]]; then
+    echo "[apex-agent] ERROR: binary not found at $_BIN" >&2
+    echo "[apex-agent] Run 'go build -o apex-agent.exe ./cmd/apex-agent' in apex_tools/apex-agent/" >&2
+    exit 1
+fi
+
+# Run with full logging for debugging
+echo "[$(date '+%H:%M:%S.%3N')] START args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
+_STDERR_FILE="$(mktemp 2>/dev/null || echo /tmp/apex-hook-stderr-$$)"
+"$_BIN" "$@" 2>"$_STDERR_FILE"
+_RC=$?
+_STDERR_CONTENT=$(cat "$_STDERR_FILE" 2>/dev/null)
+rm -f "$_STDERR_FILE" 2>/dev/null
+if [[ -n "$_STDERR_CONTENT" ]]; then
+    echo "[$(date '+%H:%M:%S.%3N')] END   rc=$_RC args=$* STDERR=[$_STDERR_CONTENT]" >> "$_HOOK_LOG" 2>/dev/null
+    echo "$_STDERR_CONTENT" >&2
+else
+    echo "[$(date '+%H:%M:%S.%3N')] END   rc=$_RC args=$*" >> "$_HOOK_LOG" 2>/dev/null
+fi
+exit $_RC

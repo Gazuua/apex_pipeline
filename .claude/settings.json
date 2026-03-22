@@ -14,22 +14,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-build.sh",
-            "timeout": 5
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-build",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-merge.sh",
-            "timeout": 5
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-merge",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-handoff.sh",
-            "timeout": 10
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-handoff",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/enforce-rebase.sh",
+            "command": "bash ./apex_tools/apex-agent/run-hook hook enforce-rebase",
             "timeout": 30
           }
         ]
@@ -39,8 +39,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/handoff-probe.sh",
-            "timeout": 5
+            "command": "bash ./apex_tools/apex-agent/run-hook hook handoff-probe",
+            "timeout": 15
           }
         ]
       }
@@ -50,13 +50,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./apex_tools/setup-claude-plugin.sh",
+            "command": "bash ./apex_tools/apex-agent/run-hook plugin setup",
             "timeout": 10,
             "statusMessage": "auto-review 플러그인 확인 중..."
           },
           {
             "type": "command",
-            "command": "bash ./apex_tools/session-context.sh",
+            "command": "bash ./apex_tools/apex-agent/run-hook context",
             "timeout": 10,
             "statusMessage": "프로젝트 컨텍스트 로딩..."
           }

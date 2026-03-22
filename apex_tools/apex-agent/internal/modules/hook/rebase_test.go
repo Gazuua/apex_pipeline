@@ -1,0 +1,88 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
+package hook
+
+import "testing"
+
+func TestIsGitPush(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want bool
+	}{
+		{"git push", true},
+		{"git push origin main", true},
+		{"git push --force-with-lease", true},
+		{"git status", false},
+		{"gh pr create", false},
+		// Regex word boundary prevents false positives
+		{"echo git push log", true},    // "git" + "push" as whole words → still matches (intended: echo wraps a real push)
+		{"git pusher utility", false},  // "pusher" is not "push" (word boundary)
+		{"push git changes log", false}, // "push" before "git" — regex requires git.*push order
+	}
+	for _, tt := range tests {
+		if got := isGitPush(tt.cmd); got != tt.want {
+			t.Errorf("isGitPush(%q) = %v, want %v", tt.cmd, got, tt.want)
+		}
+	}
+}
+
+func TestIsGHPRCreate(t *testing.T) {
+	tests := []struct {
+		cmd  string
+		want bool
+	}{
+		{"gh pr create --title test", true},
+		{"gh pr merge", false},
+		{"git push", false},
+		// Regex word boundary prevents false positives
+		{"echo gh pr create log", true},        // "gh pr create" as whole words → still matches
+		{"gh pr create-review --flag", true},    // "create" is followed by "-" but word boundary matches before "-"
+		{"create a gh pr description", false},   // wrong order: "create" before "gh pr"
+		{"gh issue create --label pr", false},   // "pr" is not after "create" — regex requires gh.*pr.*create order
+	}
+	for _, tt := range tests {
+		if got := isGHPRCreate(tt.cmd); got != tt.want {
+			t.Errorf("isGHPRCreate(%q) = %v, want %v", tt.cmd, got, tt.want)
+		}
+	}
+}
+
+func TestEnforceRebase_SkipsNonPush(t *testing.T) {
+	msg, err := EnforceRebase("git status", "/tmp")
+	if err != nil {
+		t.Errorf("non-push should not error: %v", err)
+	}
+	if msg != "" {
+		t.Errorf("non-push should return empty msg, got: %s", msg)
+	}
+}
+
+func TestEnforceRebase_SkipsGitCommit(t *testing.T) {
+	msg, err := EnforceRebase("git commit -m 'test'", "/tmp")
+	if err != nil {
+		t.Errorf("git commit should not error: %v", err)
+	}
+	if msg != "" {
+		t.Errorf("git commit should return empty msg, got: %s", msg)
+	}
+}
+
+func TestEnforceRebase_SkipsGHPRMerge(t *testing.T) {
+	msg, err := EnforceRebase("gh pr merge --squash", "/tmp")
+	if err != nil {
+		t.Errorf("gh pr merge should not error: %v", err)
+	}
+	if msg != "" {
+		t.Errorf("gh pr merge should return empty msg, got: %s", msg)
+	}
+}
+
+func TestEnforceRebase_SkipsEmptyCommand(t *testing.T) {
+	msg, err := EnforceRebase("", "/tmp")
+	if err != nil {
+		t.Errorf("empty command should not error: %v", err)
+	}
+	if msg != "" {
+		t.Errorf("empty command should return empty msg, got: %s", msg)
+	}
+}

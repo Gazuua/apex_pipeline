@@ -1,6 +1,35 @@
 # apex_tools
 
-개발 도구 및 스크립트.
+개발 도구 및 자동화.
+
+## apex-agent (Go 백엔드)
+
+빌드 큐, 핸드오프, 백로그 관리, Hook 게이트, 브랜치 정리 등 프로젝트 자동화를 담당하는 Go 단일 바이너리.
+상세: `apex-agent/CLAUDE.md`
+
+### 주요 커맨드
+
+| 커맨드 | 설명 |
+|--------|------|
+| `apex-agent queue build <preset>` | 빌드 잠금 획득 후 빌드 실행 |
+| `apex-agent queue merge <acquire\|release>` | 머지 잠금 관리 |
+| `apex-agent handoff notify start` | 브랜치 핸드오프 착수 |
+| `apex-agent handoff status` | 핸드오프 상태 조회 |
+| `apex-agent backlog list` | 백로그 조회 |
+| `apex-agent cleanup --execute` | 머지 완료 브랜치 정리 |
+| `apex-agent daemon start` | 백그라운드 데몬 시작 |
+
+### Hook 게이트
+
+`.claude/settings.json`에 PreToolUse로 등록. 모두 `run-hook` 래퍼 경유:
+
+| Hook | 역할 |
+|------|------|
+| `validate-build` | cmake/ninja/build.bat 직접 호출 차단 |
+| `validate-merge` | merge lock 미획득 시 `gh pr merge` 차단 |
+| `validate-handoff` | 미등록 커밋 차단 + 머지 시 미ack/FIXING 차단 |
+| `enforce-rebase` | push 전 자동 리베이스 |
+| `handoff-probe` | 미등록 편집 차단 + 상태별 소스 게이트 |
 
 ## Git Hooks
 
@@ -13,31 +42,12 @@ git config core.hooksPath apex_tools/git-hooks
 | Hook | 설명 |
 |------|------|
 | `pre-commit` | main 직접 커밋 차단 (squash merge는 허용) |
-
-## Session Context 훅
-
-세션 시작 시 프로젝트 컨텍스트(README.md + git 상태)를 자동 주입하는 `SessionStart` 훅.
-Claude가 매 세션마다 별도 질문 없이 프로젝트 현황을 파악한 상태로 시작함.
-
-| 항목 | 내용 |
-|------|------|
-| 스크립트 | `session-context.sh` |
-| 출력 | README.md 전문 + 현재 브랜치 + `git status --short` + 최근 커밋 5개 |
-| 등록 | `.claude/settings.json` → `hooks.SessionStart` |
+| `post-merge` | apex-agent 자동 빌드 트리거 |
 
 ## Auto-Review 플러그인
 
-자동 리뷰 플러그인. 7개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복한 뒤 PR 생성 + CI 통과까지 처리.
-
-### 셋업
-
-Claude Code 세션 시작 시 `SessionStart` 훅이 자동으로 플러그인을 등록함. 별도 설치 불필요.
-
-수동 설치가 필요한 경우:
-
-```bash
-bash apex_tools/setup-claude-plugin.sh
-```
+7개 전문 리뷰어가 병렬로 코드를 검사하고, 이슈 수정 → 재리뷰를 Clean(0건)까지 반복.
+SessionStart hook이 세션 시작 시 자동으로 플러그인 등록 + 데몬 기동.
 
 ### 사용법
 
@@ -62,16 +72,20 @@ bash apex_tools/setup-claude-plugin.sh
 
 ```
 apex_tools/
-├── .claude-plugin/marketplace.json       ← 로컬 마켓플레이스
-├── setup-claude-plugin.sh                ← 자동 셋업 스크립트
-├── session-context.sh                    ← 세션 컨텍스트 자동 주입
-├── auto-review/config.md                 ← auto-review 설정
+├── apex-agent/                              ← Go 바이너리 (빌드큐, 핸드오프, 백로그, hook, cleanup)
+│   ├── run-hook                             ← 크로스플랫폼 hook 래퍼
+│   ├── cmd/apex-agent/main.go               ← 엔트리포인트
+│   ├── internal/                            ← 모듈별 구현
+│   └── e2e/                                 ← E2E 통합 테스트
+├── git-hooks/                               ← Git hook (pre-commit, post-merge)
+├── auto-review/config.md                    ← auto-review 설정
 └── claude-plugin/
-    ├── commands/auto-review.md           ← 오케스트레이터
+    ├── commands/auto-review.md              ← 오케스트레이터
     └── agents/
-        └── reviewer-{docs-spec,docs-records,design,logic,systems,test,infra-security}.md
+        └── reviewer-{docs-spec,...}.md      ← 7개 리뷰어 에이전트
 ```
 
 ## 기타
 
-- `new-service.sh` — 서비스 스캐폴딩 스크립트 (v1.0.0.0에서 추가)
+- `build-preflight.sh` — 빌드 사전 체크 (cmake/ninja/gcc 버전 검증). `build.sh`에서 source
+- `new-service.sh` — 서비스 스캐폴딩 스크립트 (v1.0.0.0에서 추가 예정)

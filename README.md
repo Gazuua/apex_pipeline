@@ -123,6 +123,55 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 > 상세 로드맵: `docs/Apex_Pipeline.md` §10
 
+## AI Agent-Driven Development
+
+<div align="center">
+<img src="docs/showcase/agent_ecosystem_arch.svg" alt="AI Agent-Driven Development Ecosystem Architecture" width="860"/>
+</div>
+
+<table>
+<tr><td>
+
+사람이 **"무엇을 만들 것인가"** 에만 집중할 수 있도록, 개발의 기계적 단계를 에이전트가 자율적으로 수행하는 생태계입니다.
+Go 데몬이 세션을 넘어 상태를 관리하고, Hook이 규칙을 물리적으로 강제하며, 7개 리뷰 에이전트가 병렬로 코드를 분석·수정합니다.
+
+</td></tr>
+</table>
+
+<table>
+<thead>
+<tr>
+<th>시스템</th>
+<th align="center">역할</th>
+<th align="center">핵심 지표</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>🟢 apex-agent</b></td>
+<td>Go 데몬 + SQLite — 브랜치 상태 머신, 백로그 추적, 빌드/머지 큐 락</td>
+<td align="center"><b>14,000+ LOC</b> · 4 모듈 · 14 테스트 패키지</td>
+</tr>
+<tr>
+<td><b>🔵 Auto-Review</b></td>
+<td>도메인 전문 리뷰어 병렬 디스패치 — 찾고, 고치고, 백로그에 등록</td>
+<td align="center"><b>7 병렬 에이전트</b> · Zero-approval Fix</td>
+</tr>
+<tr>
+<td><b>🟣 FSD-Backlog</b></td>
+<td>백로그 스캔→선별→구현→머지 완전 자율 (확신 없으면 멈춤)</td>
+<td align="center"><b>4-Phase</b> · Confidence-gated</td>
+</tr>
+<tr>
+<td><b>🟡 Hook Gates</b></td>
+<td>PreToolUse 레벨에서 빌드/머지/편집을 물리적 차단 — 우회 불가</td>
+<td align="center"><b>5 강제 게이트</b> · 수동 개입 0</td>
+</tr>
+</tbody>
+</table>
+
+> 🏗️ [**인터랙티브 아키텍처 쇼케이스**](https://gazuua.github.io/apex_pipeline/showcase/) — 전체 생태계 아키텍처, 플로우차트, 상태 머신, 라이프사이클 상세
+
 ## 빌드
 
 ### Prerequisites
@@ -190,6 +239,12 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 
 ### 완료
 
+- **도구: apex-agent Go 백엔드 완전 재작성 (#126)**
+  - bash 11종(~2,080줄) → Go 단일 바이너리(14,000+ LOC) 전면 재작성
+  - 데몬 모드 (Named Pipe/Unix Socket IPC) + SQLite WAL 상태 저장소
+  - 4개 모듈: Hook Gate, Backlog 강타입 관리, Handoff 상태머신, Queue FIFO 빌드·머지 큐
+  - 5개 hook 게이트 + E2E 테스트 14 패키지 전체 PASS + CI Go 파이프라인
+
 - **v0.5.10.6 — RedisAdapter close UAF 방어**
   - CancellationToken per-core 프리미티브 (어댑터 코루틴 추적/취소)
   - AdapterBase 범용 cancellation 인프라 (spawn/cancel/wait, 2단계 close)
@@ -228,7 +283,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - core→shared 역방향 의존 해소 (forwarding header deprecated → 직접 include 전환 완료)
   - ErrorCode 분리, spawn_tracked 도입
   - 전체 소스/스크립트 MIT License 저작권 헤더 추가 (336개 파일)
-  - branch-handoff.sh 멀티 에이전트 인수인계 시스템
+  - apex-agent 멀티 에이전트 인수인계 시스템 (핸드오프)
   - Full Auto-Review v0.5.9.0 (37건 발견: CRITICAL 1 + MAJOR 14 + MINOR 22, 13건 수정)
   - CRITICAL: connection_handler async_write UB 수정 (async_send_raw→enqueue_write_raw)
   - 보안: bcrypt 해시 로그 노출 제거, Docker non-root 실행 전환 (3 서비스)

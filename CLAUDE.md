@@ -14,7 +14,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ① | **착수** | **브랜치 생성 최우선**, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
 | ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
-| ④ | **검증** | 로컬 빌드+테스트 (queue-lock.sh) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase.sh` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵. **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진) | 빌드+CI 성공 |
+| ④ | **검증** | 로컬 빌드+테스트 (`apex-agent queue build`) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵. **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진) | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
 | ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
@@ -31,7 +31,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ⑤ 리뷰 | 문서 전용 작업, 또는 변경 범위가 극히 작아 리뷰 ROI가 없는 경우 |
 | ①⑥⑦ | **스킵 불가** — 모든 작업에 필수 |
 
-기존 hook 4개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프). 상세: `settings.json` + `.claude/hooks/`.
+기존 hook 5개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
 
 ## 모노레포 구조
 
@@ -39,8 +39,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ## 빌드
 
-- `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug` (bash 셸). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합
-- 개별 타겟 빌드: `"<프로젝트루트절대경로>/apex_tools/queue-lock.sh" build debug --target apex_core`
+- `"<프로젝트루트절대경로>/apex_tools/apex-agent/run-hook" queue build debug` (bash 셸). **반드시 절대 경로 사용** — `pwd`나 git root로 경로를 구한 뒤 조합
+- 개별 타겟 빌드: `"<프로젝트루트절대경로>/apex_tools/apex-agent/run-hook" queue build debug --target apex_core`
 - `build.bat`, `cmake`, `ninja` 등 직접 호출 시 PreToolUse hook이 차단
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
 - **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
@@ -57,6 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.6 — RedisAdapter close UAF 방어 (CancellationToken + AdapterBase cancellation 인프라 + shutdown 재배치)
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -70,20 +71,20 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **새 브랜치 생성 전 최신화 필수**: `git fetch origin main && git pull origin main` 실행 후 최신 main 기반으로 브랜치 생성
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
-  1. `queue-lock.sh merge acquire` (lock 획득까지 대기)
-  2. rebase는 `enforce-rebase.sh` hook이 push 시 자동 실행 (충돌 시 차단+안내, 에이전트가 resolve 후 재시도)
-  3. `queue-lock.sh build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시 스킵): **A)** ①+② 동시 충족: ① 문서 전용 PR (`.md`, `.txt`, `docs/` 변경만) 또는 소스 파일 변경이 주석만인 PR ② rebase로 받은 변경이 문서뿐이고 PR 자체의 코드 빌드+테스트가 이미 통과된 경우 (주석만 변경 시 빌드+CI 대기 자체가 불필요) **B)** 단독 충족: rebase 시 충돌 없음 + rebase 이후 추가 코드 변경 없음 + 최신 PR CI가 통과 확인됨 (3개 조건 모두)
+  1. `apex-agent queue merge acquire` (lock 획득까지 대기)
+  2. rebase는 `enforce-rebase` hook이 push 시 자동 실행 (충돌 시 차단+안내, 에이전트가 resolve 후 재시도)
+  3. `apex-agent queue build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시 스킵): **A)** ①+② 동시 충족: ① 문서 전용 PR (`.md`, `.txt`, `docs/` 변경만) 또는 소스 파일 변경이 주석만인 PR ② rebase로 받은 변경이 문서뿐이고 PR 자체의 코드 빌드+테스트가 이미 통과된 경우 (주석만 변경 시 빌드+CI 대기 자체가 불필요) **B)** 단독 충족: rebase 시 충돌 없음 + rebase 이후 추가 코드 변경 없음 + 최신 PR CI가 통과 확인됨 (3개 조건 모두)
   4. `git push --force-with-lease`
   5. `gh pr merge --squash --admin`
-  6. `queue-lock.sh merge release`
+  6. `apex-agent queue merge release`
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
-- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex_tools/cleanup-branches.sh --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
+- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
 
 ### 브랜치 인수인계 (Branch Handoff)
-- **도구**: `"<프로젝트루트절대경로>/apex_tools/branch-handoff.sh"`
-- **착수 전**: `backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
+- **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
+- **착수 전**: `apex-agent handoff backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
 - **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge`
   - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
   - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
@@ -94,7 +95,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - **main/master 브랜치** → 핸드오프 체크 스킵
 - **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
 - **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 미ack 알림은 경고 표시, 머지 시점은 hook이 자동 차단
-- **ack**: 알림 수신 시 `ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
+- **ack**: 알림 수신 시 `apex-agent handoff ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
 
 ### 설계 원칙
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
@@ -149,6 +150,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | 빌드/MSVC/아키텍처/벤치마크 | `apex_core/CLAUDE.md` |
 | 문서 작성/리뷰/브레인스토밍 | `docs/CLAUDE.md` |
 | 도구/플러그인 캐시/auto-review | `apex_tools/CLAUDE.md` |
+| **apex-agent Go 백엔드** ★ | `apex_tools/apex-agent/CLAUDE.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
 | 프레임워크 가이드 (서비스 개발 API + 내부 아키텍처) | `docs/apex_core/apex_core_guide.md` |
+
+**★ `apex_tools/apex-agent/CLAUDE.md` 필독** — hook 게이트, 백로그 Import/Export, 핸드오프, 큐 잠금, 머지 전 워크플로우 등 모든 에이전트 자동화의 핵심 규칙이 여기에 있음. 백로그 상태 관리(Source of Truth 분리), 바이너리 설치 절차, validate-build 허용 목록 등 실수하기 쉬운 항목 포함.

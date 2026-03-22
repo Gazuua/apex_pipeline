@@ -4,7 +4,7 @@
 
 - [ ] 다른 프로그램 종료 (브라우저, IDE 등 — CPU 경합 방지)
 - [ ] 전원 설정: "고성능" 모드 (노트북은 배터리 절약 모드에서 터보 부스트가 제한됨)
-- [ ] Release 빌드 확인 (`queue-lock.sh build release`)
+- [ ] Release 빌드 확인 (`apex-agent queue build release`)
 - [ ] 벤치마크 실행 파일이 최신인지 확인 (`bin/release/bench_*.exe` 타임스탬프)
 
 ## 알려진 함정
@@ -57,7 +57,7 @@ VERSION="v0.6.0.0"
 BASELINE="v0.5.10.0"
 
 # 1. Release 빌드
-queue-lock.sh build release
+apex-agent queue build release
 
 # 2. 전체 벤치마크 실행
 for bench in mpsc_queue spsc_queue allocators ring_buffer frame_codec \

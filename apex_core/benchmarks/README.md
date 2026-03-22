@@ -57,17 +57,17 @@ cmd.exe //c "D:\\.workspace\\apex_core\\build.bat debug"
 
 ## 실행
 
-### 중요: queue-lock.sh 경유 필수
+### 중요: apex-agent queue 경유 필수
 
-벤치마크는 **반드시 `queue-lock.sh benchmark`를 통해 실행한다.**
+벤치마크는 **반드시 `apex-agent queue benchmark`를 통해 실행한다.**
 빌드와 동일한 lock을 공유하여 CPU 경합을 방지한다. 직접 실행은 PreToolUse hook이 차단한다.
 
 ```bash
 # 올바른 실행 방법
-"$(pwd)/apex_tools/queue-lock.sh" benchmark apex_core/bin/release/bench_mpsc_queue.exe
+apex-agent queue benchmark apex_core/bin/release/bench_mpsc_queue.exe
 
 # JSON 출력 포함
-"$(pwd)/apex_tools/queue-lock.sh" benchmark apex_core/bin/release/bench_mpsc_queue.exe \
+apex-agent queue benchmark apex_core/bin/release/bench_mpsc_queue.exe \
     --benchmark_format=json --benchmark_out=apex_core/benchmark_results/mpsc_queue.json
 ```
 
@@ -79,20 +79,18 @@ cmd.exe //c "D:\\.workspace\\apex_core\\build.bat debug"
 개별 컴포넌트의 단위 성능을 측정한다.
 
 ```bash
-LOCK="$(pwd)/apex_tools/queue-lock.sh"
-
 # 개별 실행 (Release)
-"$LOCK" benchmark apex_core/bin/release/bench_mpsc_queue.exe
-"$LOCK" benchmark apex_core/bin/release/bench_spsc_queue.exe
-"$LOCK" benchmark apex_core/bin/release/bench_ring_buffer.exe
-"$LOCK" benchmark apex_core/bin/release/bench_frame_codec.exe
-"$LOCK" benchmark apex_core/bin/release/bench_dispatcher.exe
-"$LOCK" benchmark apex_core/bin/release/bench_timing_wheel.exe
-"$LOCK" benchmark apex_core/bin/release/bench_slab_allocator.exe
-"$LOCK" benchmark apex_core/bin/release/bench_session_lifecycle.exe
+apex-agent queue benchmark apex_core/bin/release/bench_mpsc_queue.exe
+apex-agent queue benchmark apex_core/bin/release/bench_spsc_queue.exe
+apex-agent queue benchmark apex_core/bin/release/bench_ring_buffer.exe
+apex-agent queue benchmark apex_core/bin/release/bench_frame_codec.exe
+apex-agent queue benchmark apex_core/bin/release/bench_dispatcher.exe
+apex-agent queue benchmark apex_core/bin/release/bench_timing_wheel.exe
+apex-agent queue benchmark apex_core/bin/release/bench_slab_allocator.exe
+apex-agent queue benchmark apex_core/bin/release/bench_session_lifecycle.exe
 
 # JSON 출력 (결과 저장용)
-"$LOCK" benchmark apex_core/bin/release/bench_mpsc_queue.exe \
+apex-agent queue benchmark apex_core/bin/release/bench_mpsc_queue.exe \
     --benchmark_format=json --benchmark_out=apex_core/benchmark_results/mpsc_queue.json
 ```
 
@@ -112,12 +110,11 @@ LOCK="$(pwd)/apex_tools/queue-lock.sh"
 여러 컴포넌트가 조합된 파이프라인 성능을 측정한다.
 
 ```bash
-LOCK="$(pwd)/apex_tools/queue-lock.sh"
-"$LOCK" benchmark apex_core/bin/release/bench_cross_core_latency.exe
-"$LOCK" benchmark apex_core/bin/release/bench_cross_core_message_passing.exe
-"$LOCK" benchmark apex_core/bin/release/bench_frame_pipeline.exe
-"$LOCK" benchmark apex_core/bin/release/bench_session_throughput.exe
-"$LOCK" benchmark apex_core/bin/release/bench_architecture_comparison.exe
+apex-agent queue benchmark apex_core/bin/release/bench_cross_core_latency.exe
+apex-agent queue benchmark apex_core/bin/release/bench_cross_core_message_passing.exe
+apex-agent queue benchmark apex_core/bin/release/bench_frame_pipeline.exe
+apex-agent queue benchmark apex_core/bin/release/bench_session_throughput.exe
+apex-agent queue benchmark apex_core/bin/release/bench_architecture_comparison.exe
 ```
 
 | 벤치마크 | 측정 대상 |
@@ -204,21 +201,20 @@ VERSION="v0.6.0.0"  # 현재 버전
 BASELINE="v0.5.10.0" # 비교 대상 (이전 버전). 첫 벤치마크면 생략
 
 # 1. Release 빌드
-queue-lock.sh build release
+apex-agent queue build release
 
-# 2. 벤치마크 13개 순차 실행 (JSON 저장) — queue-lock.sh 경유 필수
-LOCK="$(pwd)/apex_tools/queue-lock.sh"
+# 2. 벤치마크 13개 순차 실행 (JSON 저장) — apex-agent queue benchmark 경유 필수
 for bench in mpsc_queue spsc_queue allocators ring_buffer frame_codec \
              dispatcher timing_wheel session_lifecycle serialization \
              cross_core_latency cross_core_message_passing \
              frame_pipeline session_throughput; do
-    "$LOCK" benchmark apex_core/bin/release/bench_${bench}.exe \
+    apex-agent queue benchmark apex_core/bin/release/bench_${bench}.exe \
         --benchmark_format=json \
         --benchmark_out=apex_core/benchmark_results/${bench}.json
 done
 
 # architecture_comparison은 별도 실행 (Per-core vs Shared 비교, 장시간 소요)
-"$LOCK" benchmark apex_core/bin/release/bench_architecture_comparison.exe \
+apex-agent queue benchmark apex_core/bin/release/bench_architecture_comparison.exe \
     --benchmark_format=json \
     --benchmark_out=apex_core/benchmark_results/architecture_comparison.json
 
