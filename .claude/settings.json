@@ -15,17 +15,17 @@
           {
             "type": "command",
             "command": "bash ./apex_tools/apex-agent/run-hook hook validate-build",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash ./apex_tools/apex-agent/run-hook hook validate-merge",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "bash ./apex_tools/apex-agent/run-hook hook validate-handoff",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
@@ -40,7 +40,7 @@
           {
             "type": "command",
             "command": "bash ./apex_tools/apex-agent/run-hook hook handoff-probe",
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
