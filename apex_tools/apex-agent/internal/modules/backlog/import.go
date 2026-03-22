@@ -171,9 +171,10 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 }
 
 // ImportItems inserts or updates parsed items in the database.
-// New items are inserted; existing items are updated with MD values
+// New items are inserted; existing items have metadata updated
 // (severity, timeframe, scope, type, description, related, position).
-// Status is NOT overwritten if the DB already has a non-OPEN status (e.g. FIXING).
+// Status is NEVER overwritten for existing items — DB is the single source of
+// truth for status. Status changes go through CLI only (resolve/release/handoff).
 func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 	count := 0
 	for _, item := range items {
@@ -196,14 +197,10 @@ func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 			continue
 		}
 
-		// Existing item — update metadata fields from MD.
-		// Preserve DB status if it's FIXING (active work in progress).
-		status := item.Status
-		if dbStatus == StatusFixing {
-			status = StatusFixing
-		}
+		// Existing item — update metadata only, never touch status.
+		// Status is owned exclusively by DB (changed via CLI: resolve/release/handoff).
 		if err := mgr.UpdateFromImport(item.ID, item.Severity, item.Timeframe,
-			item.Scope, item.Type, item.Description, item.Related, item.Position, status); err != nil {
+			item.Scope, item.Type, item.Description, item.Related, item.Position, dbStatus); err != nil {
 			return count, fmt.Errorf("update #%d: %w", item.ID, err)
 		}
 		count++

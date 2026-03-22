@@ -227,4 +227,16 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 	if got.Timeframe != "IN_VIEW" {
 		t.Errorf("timeframe should be updated to IN_VIEW, got %s", got.Timeframe)
 	}
+
+	// Verify RESOLVED status is also preserved — DB owns status, import never touches it.
+	mod.manager.Resolve(1, "FIXED")
+	items[0].Status = "OPEN" // MD says OPEN, but DB says RESOLVED
+	count, _ = mod.manager.ImportItems(items)
+	if count != 1 {
+		t.Errorf("update count = %d, want 1", count)
+	}
+	got, _ = mod.manager.Get(1)
+	if got.Status != "RESOLVED" {
+		t.Errorf("RESOLVED status should be preserved, got %s", got.Status)
+	}
 }
