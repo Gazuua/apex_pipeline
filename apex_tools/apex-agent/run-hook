@@ -18,10 +18,9 @@ else
     _BIN="$DIR/apex-agent"
 fi
 
-# Run with exit code capture for debugging
+# Run with full logging for debugging
+echo "[$(date '+%H:%M:%S.%3N')] START args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
 "$_BIN" "$@"
 _RC=$?
-if [[ $_RC -ne 0 ]]; then
-    echo "[$(date '+%H:%M:%S.%3N')] FAIL rc=$_RC args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
-fi
+echo "[$(date '+%H:%M:%S.%3N')] END   rc=$_RC args=$*" >> "$_HOOK_LOG" 2>/dev/null
 exit $_RC
