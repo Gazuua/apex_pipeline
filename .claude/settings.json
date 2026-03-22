@@ -50,13 +50,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./apex_tools/setup-claude-plugin.sh",
+            "command": "./apex_tools/apex-agent/apex-agent plugin setup",
             "timeout": 10,
             "statusMessage": "auto-review 플러그인 확인 중..."
           },
           {
             "type": "command",
-            "command": "bash ./apex_tools/session-context.sh",
+            "command": "./apex_tools/apex-agent/apex-agent context",
             "timeout": 10,
             "statusMessage": "프로젝트 컨텍스트 로딩..."
           }
