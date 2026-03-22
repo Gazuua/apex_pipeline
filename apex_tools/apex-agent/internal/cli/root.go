@@ -27,6 +27,7 @@ func Execute() {
 	root.AddCommand(handoffCmd())
 	root.AddCommand(queueCmd())
 	root.AddCommand(migrateCmd())
+	root.AddCommand(cleanupCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
