@@ -19,10 +19,6 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-concurrency:
-  group: nightly
-  cancel-in-progress: true
-
 jobs:
   # ── Read CI image tag ──────────────────────────────────────────
   read-tag:
