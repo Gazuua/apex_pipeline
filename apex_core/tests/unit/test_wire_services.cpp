@@ -26,6 +26,10 @@ class MockAdapter : public AdapterInterface
     {
         return true;
     }
+    [[nodiscard]] AdapterState state() const noexcept override
+    {
+        return AdapterState::RUNNING;
+    }
     [[nodiscard]] std::string_view name() const noexcept override
     {
         return "mock";
@@ -42,6 +46,10 @@ class WiringAdapter : public AdapterInterface
     [[nodiscard]] bool is_ready() const noexcept override
     {
         return true;
+    }
+    [[nodiscard]] AdapterState state() const noexcept override
+    {
+        return AdapterState::RUNNING;
     }
     [[nodiscard]] std::string_view name() const noexcept override
     {

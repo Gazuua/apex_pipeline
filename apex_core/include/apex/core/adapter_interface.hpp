@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/core/adapter_state.hpp>
+
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -23,6 +25,7 @@ class AdapterInterface
     virtual void drain() = 0;
     virtual void close() = 0;
     [[nodiscard]] virtual bool is_ready() const noexcept = 0;
+    [[nodiscard]] virtual AdapterState state() const noexcept = 0;
     [[nodiscard]] virtual std::string_view name() const noexcept = 0;
 
     /// [D2] Adapter-service 자동 배선. Server가 Phase 3 이후 호출.

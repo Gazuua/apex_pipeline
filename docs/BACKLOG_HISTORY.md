@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #134. AdapterState가 AdapterInterface에 미노출
+- **등급**: MAJOR | **스코프**: core, shared | **타입**: design-debt
+- **해결**: 2026-03-22 14:03:03 | **방식**: FIXED | **커밋**: a89764b
+- **비고**: AdapterState enum을 apex_core로 이동, AdapterInterface에 state() 순수 가상 메서드 추가. PR #101
+
+### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
+- **등급**: MAJOR | **스코프**: auth-svc, chat-svc | **타입**: test
+- **해결**: 2026-03-22 14:03:03 | **방식**: FIXED | **커밋**: a89764b
+- **비고**: 순수 함수 추출(auth_logic.hpp, chat_logic.hpp) + 단위 테스트 24건 추가 (crypto_util 5 + auth_logic 7 + chat_logic 12). PR #101
+
 ### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
 - **등급**: MAJOR | **스코프**: infra | **타입**: security
 - **해결**: 2026-03-22 13:09:42 | **방식**: FIXED | **커밋**: e104ade

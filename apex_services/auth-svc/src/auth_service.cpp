@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/auth_svc/auth_logic.hpp>
 #include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/core/server.hpp>
@@ -163,22 +164,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     bool is_locked = false;
     if (!pg_res.is_null(0, 2))
     {
-        auto locked_str = pg_res.value(0, 2); // PostgreSQL timestamptz → ISO 8601 문자열
-        // PostgreSQL 형식: "2026-03-22 12:00:00+00" — std::chrono 파싱 대신 간단 비교
-        // DB가 UTC를 반환하므로 시스템 시간(UTC)과 직접 비교 가능
-        // locked_until이 비어있지 않으면 SQL에서 NOW() 비교하는 것이 최선이지만,
-        // 쿼리 변경 없이 C++ 측에서 처리: locked_str > 현재 UTC 문자열이면 잠금 중
-        auto now = std::chrono::system_clock::now();
-        auto now_t = std::chrono::system_clock::to_time_t(now);
-        std::tm now_tm{};
-#ifdef _WIN32
-        gmtime_s(&now_tm, &now_t);
-#else
-        gmtime_r(&now_t, &now_tm);
-#endif
-        char now_buf[32];
-        std::strftime(now_buf, sizeof(now_buf), "%Y-%m-%d %H:%M:%S", &now_tm);
-        is_locked = locked_str > std::string_view(now_buf);
+        is_locked = is_account_locked(pg_res.value(0, 2), std::chrono::system_clock::now());
     }
     log_trace("on_login: PG user lookup success (user_id={}, locked={})", user_id, is_locked);
 

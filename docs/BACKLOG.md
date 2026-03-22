@@ -28,46 +28,33 @@
 - **연관**: #24, #29, #129 (HISTORY)
 - **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. **[FSD 설계 확정 2026-03-22]** A안 채택: `AdapterBase::do_close()` 반환 타입을 `awaitable<void>`로 변경. **[FSD 분석 2026-03-22]** A안 구현 시도 중 추가 설계 결정 필요 발견: ① Server::finalize_shutdown()에서 adapter->close()는 core threads 정지 후 호출 — awaitable 실행에 필요한 io_context가 이미 정지됨. ② 종료 순서 변경(adapter close → core stop) 시 기존 안전성 보장 "pending handlers may reference adapter resources" 검증 필요. ③ per-core RedisMultiplexer를 각자의 io_context에서 close하는 cross-io_context 조정 문제. Server shutdown 시퀀스 재설계 후 재시도.
 
-### #19. Auth/Chat 비즈니스 로직 세밀 테스트 부족
-- **등급**: MAJOR
-- **스코프**: auth-svc, chat-svc
-- **타입**: test
-- **설명**: 핸들러 디스패치 + msg_id 라우팅 테스트는 구현됨(test_auth_handlers.cpp, test_chat_handlers.cpp). 개별 비즈니스 로직(bcrypt 해싱, 방 인원 제한, 토큰 만료 등)의 세밀한 단위 테스트 커버리지 부족. **[FSD 설계 확정 2026-03-22]** A안 채택: Redis/Kafka 의존 없는 순수 함수로 비즈니스 로직 분리 → 직접 단위 테스트. mock 불필요 방식. 대상: 계정 잠금 카운터 리셋, 토큰 갱신 로직, 방 인원 제한, 메시지 순서 등.
-
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #127
-- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수.
+- **설명**: "direct send + ok()" 패턴의 에러 경로(IP rate limit 거부, JWT 인증 실패, pending map full, route not found)가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: interface mock + io_context 코루틴 테스트 하네스. RateLimitFacade, JwtBlacklist 등 interface 추출 → mock 구현, `io_context.run()` 기반 코루틴 실행. #127과 번들 필수. **[FSD 분석 2026-03-22]** interface 추출이 선행 필요: JwtVerifier, JwtBlacklist, RateLimitFacade 3개 concrete 클래스에 가상 인터페이스를 도입하고 GatewayPipeline 생성자 시그니처 변경 필요. 프로덕션 코드 4+ 파일 수정 포함 — 별도 리팩토링 작업으로 분리.
 
 ### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
 - **등급**: MAJOR
 - **스코프**: gateway
 - **타입**: test
 - **연관**: #102
-- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수.
+- **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. **[FSD 설계 확정 2026-03-22]** A안 채택: #102와 동일 인프라(interface mock + io_context 코루틴 테스트 하네스) 사용. #102와 번들 필수. **[FSD 분석 2026-03-22]** #102와 동일 — interface 추출 선행 필요.
 
 ### #133. TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존
 - **등급**: MAJOR
 - **스코프**: core, shared
 - **타입**: design-debt
 - **연관**: #130 (이번 PR에서 도입)
-- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결.
-
-### #134. AdapterState가 AdapterInterface에 미노출
-- **등급**: MAJOR
-- **스코프**: core, shared
-- **타입**: design-debt
-- **연관**: #24 (이번 PR에서 도입)
-- **설명**: `AdapterBase::state()`가 타입 소거 인터페이스 `AdapterInterface`에 포워딩되지 않아, Server에서 어댑터 상태를 조회할 수 없음. `AdapterState` enum을 core로 옮기거나, `AdapterInterface`에 `uint8_t` 기반 `state()` 추가 필요.
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결. **[FSD 분석 2026-03-22]** Transport concept 타입 소거 재설계 필요. TLS Listener 구현과 연동되어야 하며 단독 수정 불가.
 
 ### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
 - **등급**: MINOR
 - **스코프**: shared
 - **타입**: security
 - **연관**: #131 (이번 PR에서 도입)
-- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정.
+- **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR
