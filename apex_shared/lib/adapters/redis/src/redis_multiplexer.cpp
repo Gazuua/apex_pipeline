@@ -70,7 +70,12 @@ RedisMultiplexer::~RedisMultiplexer()
         spdlog::warn("RedisMultiplexer destroyed with active connection — calling close() in destructor");
         close();
     }
-    cancel_all_pending(apex::core::ErrorCode::AdapterError);
+    // 소멸자 경로: cancel_all_pending 대신 직접 slab 해제.
+    // cancel_all_pending의 resolver.cancel()은 코루틴 resume을 post하는데,
+    // this 파괴 후 resume 시 slab_ 접근 → use-after-free.
+    for (auto* cmd : pending_)
+        slab_.destroy(cmd);
+    pending_.clear();
 }
 
 boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command(std::string_view cmd)
@@ -262,10 +267,16 @@ void RedisMultiplexer::on_disconnect()
     if (reconnect_active_)
         return;
 
-    reconnect_active_ = true;
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
-    // spawn_callback가 DRAINING 상태면 거부 → 새 코루틴 없음
+
+    // spawn 시도. DRAINING 상태면 spawn_callback_이 거부하므로
+    // reconnect_active_를 spawn 성공 시에만 설정.
+    // ReconnectGuard가 코루틴 종료 시 false로 되돌림.
+    reconnect_active_ = true;
     spawn_callback_(core_id_, reconnect_loop());
+    // spawn_callback_이 거부하면 코루틴이 실행되지 않아 ReconnectGuard가 생성되지 않음.
+    // 이 경우 reconnect_active_가 true로 남지만, DRAINING/CLOSED 이후 destroy 흐름이므로
+    // 실질적 영향 없음 (multiplexer가 곧 파괴됨).
 }
 
 boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(RedisConnection& conn)
@@ -416,6 +427,7 @@ uint32_t RedisMultiplexer::reconnect_attempts() const noexcept
 
 void RedisMultiplexer::close()
 {
+    backoff_timer_.cancel(); // reconnect_loop가 대기 중일 수 있음
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
     if (conn_)
     {

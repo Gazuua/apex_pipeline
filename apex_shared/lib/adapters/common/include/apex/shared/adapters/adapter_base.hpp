@@ -87,22 +87,23 @@ template <typename Derived> class AdapterBase
         // Phase 1: per-core cleanup (io_context에 post)
         if (!io_ctxs_.empty())
         {
-            std::atomic<uint32_t> remaining{static_cast<uint32_t>(io_ctxs_.size())};
+            // shared_ptr: 타임아웃 후 close()가 반환해도 미실행 핸들러가 안전하게 접근 가능
+            auto remaining = std::make_shared<std::atomic<uint32_t>>(static_cast<uint32_t>(io_ctxs_.size()));
             for (uint32_t i = 0; i < io_ctxs_.size(); ++i)
             {
-                boost::asio::post(*io_ctxs_[i], [this, i, &remaining] {
+                boost::asio::post(*io_ctxs_[i], [this, i, remaining] {
                     static_cast<Derived*>(this)->do_close_per_core(i);
-                    remaining.fetch_sub(1, std::memory_order_release);
+                    remaining->fetch_sub(1, std::memory_order_release);
                 });
             }
             // 타임아웃 방어: 5초 이내에 완료되지 않으면 경고 후 진행
             auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
-            while (remaining.load(std::memory_order_acquire) > 0)
+            while (remaining->load(std::memory_order_acquire) > 0)
             {
                 if (std::chrono::steady_clock::now() > deadline)
                 {
                     spdlog::warn("AdapterBase::close() timed out ({} cores remaining)",
-                                 remaining.load(std::memory_order_relaxed));
+                                 remaining->load(std::memory_order_relaxed));
                     break;
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds{1});
