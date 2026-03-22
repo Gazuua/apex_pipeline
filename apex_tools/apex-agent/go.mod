@@ -3,6 +3,7 @@ module github.com/Gazuua/apex_pipeline/apex_tools/apex-agent
 go 1.26.1
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.42.0
