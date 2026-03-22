@@ -78,6 +78,9 @@ func ParseBacklogMD(content string) ([]BacklogItem, error) {
 				case "설명":
 					current.Description = value
 				}
+			} else if current.Description != "" && !strings.HasPrefix(line, "###") && !strings.HasPrefix(line, "- **") && strings.TrimSpace(line) != "" {
+				// 멀티라인 설명 연속 — 이전 줄에 설명이 시작됐고, 새 필드/항목이 아닌 줄
+				current.Description += " " + strings.TrimSpace(line)
 			}
 		}
 	}

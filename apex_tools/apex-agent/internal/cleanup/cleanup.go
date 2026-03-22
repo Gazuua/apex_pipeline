@@ -153,7 +153,7 @@ func isDirtyWorktree(wtPath string) bool {
 	if _, err := os.Stat(wtPath); err != nil {
 		return false
 	}
-	out, err := runGit(wtPath, "-C", wtPath, "status", "--porcelain")
+	out, err := runGit(wtPath, "status", "--porcelain")
 	if err != nil {
 		return false
 	}

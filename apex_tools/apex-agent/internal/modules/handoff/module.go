@@ -83,21 +83,28 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		}
 
 		// 3. branches 재생성 (backlog_id 컬럼 제거)
-		_, err = s.Exec(`
-			CREATE TABLE branches_v2 (
-				branch      TEXT    PRIMARY KEY,
-				workspace   TEXT    NOT NULL,
-				status      TEXT    NOT NULL,
-				summary     TEXT,
-				created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-				updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
-			);
-			INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
-				SELECT branch, workspace, status, summary, created_at, updated_at FROM branches;
-			DROP TABLE branches;
-			ALTER TABLE branches_v2 RENAME TO branches;
-		`)
-		return err
+		// 개별 Exec()로 분리 — partial failure 시 명확한 에러 반환
+		if _, err = s.Exec(`CREATE TABLE branches_v2 (
+			branch      TEXT    PRIMARY KEY,
+			workspace   TEXT    NOT NULL,
+			status      TEXT    NOT NULL,
+			summary     TEXT,
+			created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+			updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+		)`); err != nil {
+			return fmt.Errorf("create branches_v2: %w", err)
+		}
+		if _, err = s.Exec(`INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
+			SELECT branch, workspace, status, summary, created_at, updated_at FROM branches`); err != nil {
+			return fmt.Errorf("copy to branches_v2: %w", err)
+		}
+		if _, err = s.Exec(`DROP TABLE branches`); err != nil {
+			return fmt.Errorf("drop old branches: %w", err)
+		}
+		if _, err = s.Exec(`ALTER TABLE branches_v2 RENAME TO branches`); err != nil {
+			return fmt.Errorf("rename branches_v2: %w", err)
+		}
+		return nil
 	})
 	mig.Register("handoff", 3, func(s *store.Store) error {
 		// git_branch 컬럼 추가 — hook fallback 조회용

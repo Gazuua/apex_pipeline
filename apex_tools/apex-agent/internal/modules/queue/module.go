@@ -82,7 +82,7 @@ func (m *Module) handleAcquire(_ context.Context, params json.RawMessage, _ stri
 	if pid == 0 {
 		pid = os.Getpid()
 	}
-	if err := m.manager.Acquire(p.Channel, p.Branch, pid); err != nil {
+	if err := m.manager.Acquire(context.Background(), p.Channel, p.Branch, pid); err != nil {
 		return nil, err
 	}
 	return map[string]any{"acquired": true, "channel": p.Channel}, nil

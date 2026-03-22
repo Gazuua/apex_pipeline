@@ -3,6 +3,7 @@
 package queue
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -93,13 +94,21 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 // Acquire acquires the lock for channel, blocking until it succeeds.
 // It inserts a waiting entry then polls until it becomes first in queue
 // and no active entry exists.
-func (m *Manager) Acquire(channel, branch string, pid int) error {
+func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first.
 	if err := m.insertEntry(channel, branch, pid, "waiting"); err != nil {
 		return fmt.Errorf("queue.Acquire: insert: %w", err)
 	}
 
 	for {
+		select {
+		case <-ctx.Done():
+			// 취소/타임아웃 시 대기 엔트리 정리
+			_, _ = m.store.Exec(`DELETE FROM queue WHERE channel=? AND branch=? AND status='waiting'`, channel, branch)
+			return fmt.Errorf("queue.Acquire: %w", ctx.Err())
+		default:
+		}
+
 		// Clean up dead processes.
 		if _, err := m.CleanupStale(); err != nil {
 			return fmt.Errorf("queue.Acquire: cleanup: %w", err)

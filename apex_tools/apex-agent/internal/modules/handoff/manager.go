@@ -132,13 +132,16 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 		return 0, fmt.Errorf("commit: %w", err)
 	}
 
-	// FIXING 상태 전이 (tx 밖에서 — 별도 테이블)
+	// FIXING 상태 전이 (tx 밖 — backlog 모듈이 자체 Exec 사용, 동일 DB이나 인터페이스 제약)
 	if m.backlogManager != nil {
 		for _, bid := range backlogIDs {
 			if bid == 0 {
 				continue
 			}
-			_ = m.backlogManager.SetStatus(bid, "FIXING")
+			if err := m.backlogManager.SetStatus(bid, "FIXING"); err != nil {
+				ml.Warn("backlog FIXING 전이 실패 — 브랜치는 등록됨, 백로그 상태 불일치 가능",
+					"backlog_id", bid, "branch", branch, "err", err)
+			}
 		}
 	}
 
@@ -251,6 +254,8 @@ func (m *Manager) Ack(notificationID int, branch, action string) error {
 
 // BacklogCheck checks if a backlog item is being worked on by any active branch.
 // Returns available=true and empty branch if no active branch has this backlog ID.
+// TODO: "abandoned" 상태 추가 또는 stale timeout 기반 자동 해제 —
+//       현재 merge-notified만 제외하므로 영구 미머지 브랜치의 backlog가 점유 상태로 남음.
 func (m *Manager) BacklogCheck(backlogID int) (available bool, branch string, err error) {
 	row := m.store.QueryRow(
 		`SELECT bb.branch FROM branch_backlogs bb

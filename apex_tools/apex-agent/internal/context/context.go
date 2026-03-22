@@ -55,6 +55,8 @@ func Generate(workspaceRoot string) string {
 	}
 
 	// Branch handoff status (non-main branches)
+	// TODO: YAML 파일 직접 읽기 → daemon IPC(handoff status) 조회로 전환.
+	//       현재 과도기: 상태가 SQLite에 있지만 context는 레거시 YAML에서 읽음.
 	if branch != "" && branch != "main" {
 		b.WriteString("\n--- Branch Handoff ---\n")
 		branchID := filepath.Base(workspaceRoot)
