@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #132. RedisAdapter::do_close() UAF 방어 — cancellation 인프라 + shutdown 재배치
+- **등급**: MAJOR | **스코프**: shared, core | **타입**: design-debt
+- **해결**: 2026-03-22 21:30:00 | **방식**: FIXED | **커밋**: 3ee5fe9
+- **비고**: CancellationToken + AdapterBase cancellation 인프라 + shutdown 재배치 (adapter close → CoreEngine stop 이전). CI 긴급 수정(aa8ed5c) 포함.
+
 ### #22. async_send_raw + write_pump 동시 write 위험
 - **등급**: MAJOR | **스코프**: core | **타입**: design-debt
 - **해결**: 2026-03-22 17:09:30 | **방식**: FIXED | **커밋**: df53344

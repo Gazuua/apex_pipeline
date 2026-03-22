@@ -75,6 +75,11 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
         auto exp = now + access_token_ttl_;
 
         auto jti = generate_jti();
+        if (jti.empty())
+        {
+            spdlog::error("[JwtManager] Cannot create token -- JTI generation failed (CSPRNG)");
+            return {};
+        }
 
         auto token = jwt::create()
                          .set_issuer(issuer_)

@@ -74,7 +74,7 @@ ParsedConfig parse_config(const std::string& path)
     if (auto pg = tbl["pg"]; pg)
     {
         cfg.pg.connection_string = apex::shared::expand_env(pg["connection_string"].value_or(
-            std::string{"host=localhost port=5432 dbname=apex_db user=apex_user password=apex_pass"}));
+            std::string{"host=localhost port=5432 dbname=apex_db user=apex_user password=${PG_AUTH_PASSWORD:-}"}));
         cfg.pg.pool_size_per_core = static_cast<size_t>(pg["pool_size_per_core"].value_or(int64_t{2}));
     }
 

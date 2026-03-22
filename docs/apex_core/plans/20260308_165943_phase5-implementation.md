@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23, toml++ (header-only), spdlog, CMake + Ninja, vcpkg, GitHub Actions
 
-**설계서:** `docs/apex_core/plans/20260308_070528_phase5-design.md`
+**설계서:** `docs/apex_core/plans/20260308_160700_phase5-design.md`
 
 ---
 

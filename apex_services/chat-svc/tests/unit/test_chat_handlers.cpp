@@ -290,8 +290,9 @@ TEST(ChatHandlersTest, MockKafkaProduceResponse)
     ASSERT_TRUE(result.has_value());
 
     EXPECT_EQ(mock.produce_count(), 1u);
-    EXPECT_EQ(mock.produced()[0].topic, "chat.responses");
-    EXPECT_EQ(mock.produced()[0].key, "12345");
+    auto produced = mock.produced();
+    EXPECT_EQ(produced[0].topic, "chat.responses");
+    EXPECT_EQ(produced[0].key, "12345");
 }
 
 // --- PubSub payload 형식 검증 ---

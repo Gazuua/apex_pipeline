@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.10.2 | **최종 갱신**: 2026-03-22
+**버전**: v0.5.10.6 | **최종 갱신**: 2026-03-22
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
@@ -367,17 +367,20 @@ Signal (SIGINT/SIGTERM)
     2. Adapter drain (새 요청 거부, 진행 중 요청 완료 대기)
     3. Scheduler stop_all (주기적 타이머 해제 — 서비스 정지 전에 실행)
     4. Service stop (on_stop() 호출, per-session 상태 정리)
-    5. [D7] Outstanding 코루틴 drain 대기 (drain_timeout 내, 10ms 폴링)
+    4.5. [D7] Outstanding 코루틴 drain 대기 (drain_timeout 내, 10ms 폴링)
+         서비스 코루틴 + 인프라 코루틴 + 어댑터 코루틴 모두 대기
+    5. Adapter close (flush + 커넥션 정리)
+       io_context 아직 실행 중 — close()의 per-core phase가 io_context에 post함
     6. CoreEngine stop → join → drain_remaining
        (코어 스레드 종료 후 잔여 SPSC 메시지 소비)
-    7. Adapter close (flush + 커넥션 정리) + [D3] Globals clear
+    7. [D3] Globals clear
     → control_io_.stop() → run() 반환
 ```
 
 **핵심 순서 근거**:
 - Step 3(Scheduler) → Step 4(Service): 타이머 콜백이 정지된 서비스를 참조하지 않도록
-- Step 5(코루틴 drain) → Step 6(CoreEngine stop): spawn된 코루틴이 완료될 시간 확보
-- Step 6(CoreEngine) → Step 7(Adapter close): 코어 스레드의 completion handler가 어댑터 리소스 참조 가능
+- Step 4.5(코루틴 drain) → Step 5(Adapter close): 어댑터 코루틴이 완료된 후에만 close 실행
+- Step 5(Adapter close) → Step 6(CoreEngine stop): close()가 io_context에 per-core cleanup을 post하므로, io_context가 실행 중이어야 함 (v0.5.10.6에서 재배치)
 
 `on_stop()`에서 해야 할 것:
 - per-session 상태 맵 클리어
@@ -560,7 +563,7 @@ void on_configure(ConfigureContext& ctx) override {
 
 | 어댑터 | Config 타입 | 주요 필드 |
 |--------|-----------|----------|
-| `KafkaAdapter` | `KafkaConfig` | `brokers`, `consumer_group`, `consume_topics`, `producer_poll_interval_ms`, `flush_timeout_ms` |
+| `KafkaAdapter` | `KafkaConfig` | `brokers`, `consumer_group`, `consume_topics`, `producer_poll_interval_ms`, `flush_timeout_ms`, `security` (KafkaSecurityConfig), `extra_properties` |
 | `RedisAdapter` | `RedisConfig` | `host`, `port`, `password`, `db`, `max_pending_commands` |
 | `PgAdapter` | `PgAdapterConfig` | `connection_string`, `pool_size_per_core` |
 
