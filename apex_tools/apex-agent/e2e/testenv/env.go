@@ -30,17 +30,11 @@ type TestEnv struct {
 
 	daemon  *daemon.Daemon
 	done    chan error
-	stopped bool // true after Stop() has drained done — prevents double-drain in cleanup
+	stopped bool
 }
 
-// Done returns the channel that receives the daemon's exit error.
-// The caller should only peek at the channel (e.g., <-env.Done()), not drain it
-// in a way that conflicts with Stop() or t.Cleanup. For tests that send an IPC
-// shutdown and want to wait for the daemon to exit before manipulating files,
-// call env.Stop() instead — it handles draining the channel correctly.
-func (e *TestEnv) Done() <-chan error {
-	return e.done
-}
+// Done returns the daemon completion channel.
+func (e *TestEnv) Done() <-chan error { return e.done }
 
 // New creates a fully isolated test environment with daemon running.
 func New(t *testing.T) *TestEnv {
@@ -95,14 +89,14 @@ func New(t *testing.T) *TestEnv {
 		if !env.stopped {
 			cancel()
 			<-done
+			env.stopped = true
 		}
 	})
 
 	return env
 }
 
-// Stop stops the daemon and marks the env as stopped so the t.Cleanup
-// registered by New will not attempt a double-drain of the done channel.
+// Stop stops the daemon and marks the env as stopped so cleanups skip.
 func (e *TestEnv) Stop() {
 	if e.stopped {
 		return
@@ -113,6 +107,7 @@ func (e *TestEnv) Stop() {
 }
 
 // Restart starts a new daemon on the same environment.
+// Caller must call Stop() before Restart().
 func (e *TestEnv) Restart(t *testing.T) {
 	t.Helper()
 
@@ -147,6 +142,7 @@ func (e *TestEnv) Restart(t *testing.T) {
 		if !e.stopped {
 			cancel()
 			<-done
+			e.stopped = true
 		}
 	})
 }
