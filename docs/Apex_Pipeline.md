@@ -260,7 +260,7 @@ int main() {
     server
         .add_service<EchoService>()
         .listen<TcpBinaryProtocol>(9000)   // TCP 바이너리 프로토콜
-        // .listen<WebSocketProtocol>(9001) // WebSocket (v0.5.0.0에서 MVP 완료)
+        // .listen<WebSocketProtocol>(9001) // WebSocket (v0.5.1+ Beast 통합 후)
         .run();  // SIGINT/SIGTERM으로 graceful shutdown
 }
 ```
@@ -403,7 +403,7 @@ Tier 상세:
 
 | 버전 | 규모 | 내용 | 비고 |
 |------|------|------|------|
-| v0.5.0.0 | 대 | Wave 1: Protocol concept 기반 의존성 역전 (core=concept, shared=구현), Server 비템플릿 리팩터링 + `listen<P>(port)` 멀티 프로토콜, ListenerBase virtual + ConnectionHandler\<P\> zero-overhead I/O, per-session write queue (std::deque + write_pump), CircuitBreaker + AdapterState 상태 머신, Redis AUTH/ARRAY, 어댑터 retry/reconnect, DLQ, 공유 프로토콜 스키마 4종, WebSocket MVP | PR #25, 단위 테스트 51개 |
+| v0.5.0.0 | 대 | Wave 1: Protocol concept 기반 의존성 역전 (core=concept, shared=구현), Server 비템플릿 리팩터링 + `listen<P>(port)` 멀티 프로토콜, ListenerBase virtual + ConnectionHandler\<P\> zero-overhead I/O, per-session write queue (std::deque + write_pump), CircuitBreaker + AdapterState 상태 머신, Redis AUTH/ARRAY, 어댑터 retry/reconnect, DLQ, 공유 프로토콜 스키마 4종, WebSocket MVP (커스텀 길이-접두어 프레이밍, RFC 6455 미지원 — Beast 통합은 v0.5.1+ 예정) | PR #25, 단위 테스트 51개 |
 | v0.5.2.0 | 중 | Wave 2: Gateway MVP — TLS 종단 (OpenSSL), JWT 검증 (jwt-cpp), msg_id 기반 Kafka 라우팅, TOML hot-reload (FileWatcher), PendingRequests 요청-응답 매칭 | PR #27 |
 | v0.5.2.1 | 소 | Wave 2: Rate Limiting 3계층 — Per-IP Sliding Window (TimingWheel), Per-User Redis, Per-Endpoint Config | PR #27 |
 | v0.5.3.0 | 중 | Wave 2: Auth Service — JWT 발급/검증/블랙리스트, bcrypt 해싱, Redis 세션 관리, PostgreSQL 사용자 저장소 | PR #27 |
