@@ -373,8 +373,10 @@ apex_tools/apex-agent/
 │       ├── hook/
 │       │   ├── module.go
 │       │   └── gate.go             # validate-build/merge/handoff 통합
-│       └── cleanup/
-│           └── module.go           # 브랜치 정리
+│       ├── cleanup/
+│       │   └── module.go           # 브랜치 정리
+│       └── context/
+│           └── module.go           # 세션 컨텍스트 + 플러그인 등록
 ├── go.mod
 ├── go.sum
 ├── Makefile                        # build, test, lint, cross-compile
