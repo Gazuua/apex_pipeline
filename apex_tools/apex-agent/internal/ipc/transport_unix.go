@@ -5,13 +5,22 @@
 package ipc
 
 import (
+	"fmt"
 	"net"
 	"os"
 )
 
 func listenPlatform(addr string) (net.Listener, error) {
 	os.Remove(addr)
-	return net.Listen("unix", addr)
+	ln, err := net.Listen("unix", addr)
+	if err != nil {
+		return nil, err
+	}
+	if chErr := os.Chmod(addr, 0o600); chErr != nil {
+		ln.Close()
+		return nil, fmt.Errorf("chmod socket: %w", chErr)
+	}
+	return ln, nil
 }
 
 func dialPlatform(addr string) (net.Conn, error) {

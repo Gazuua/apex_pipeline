@@ -8,5 +8,8 @@ if [ -n "$changed" ]; then
     echo "[apex-agent] 소스 변경 감지, 자동 빌드+설치 중..."
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    cd "$PROJECT_ROOT/apex_tools/apex-agent" && make install
+    if ! (cd "$PROJECT_ROOT/apex_tools/apex-agent" && make install); then
+        echo "[apex-agent] WARNING: 자동 빌드 실패. 수동으로 빌드하세요:" >&2
+        echo "  cd $PROJECT_ROOT/apex_tools/apex-agent && go build -o apex-agent.exe ./cmd/apex-agent" >&2
+    fi
 fi

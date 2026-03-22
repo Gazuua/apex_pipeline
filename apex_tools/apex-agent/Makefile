@@ -11,7 +11,7 @@ else
     EXE =
 endif
 
-GOFLAGS := -trimpath -ldflags="-s -w -X main.Version=$(VERSION)"
+GOFLAGS := -trimpath -ldflags="-s -w -X github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version.Version=$(VERSION)"
 
 # build → install → daemon restart 자동 연계.
 build: install

@@ -161,3 +161,86 @@ func TestExport_NoRelatedLine(t *testing.T) {
 		}
 	}
 }
+
+// ── SafeExport ──
+
+func TestSafeExport_ImportsThenExports(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	backlogMD := `# BACKLOG
+
+다음 발번: 3
+
+---
+
+## NOW
+
+### #1. Critical bug
+- **등급**: CRITICAL
+- **스코프**: CORE
+- **타입**: BUG
+- **설명**: Something is broken
+
+### #2. Another issue
+- **등급**: MAJOR
+- **스코프**: SHARED
+- **타입**: DESIGN_DEBT
+- **설명**: Needs refactoring
+
+---
+
+## IN VIEW
+
+---
+
+## DEFERRED
+`
+
+	content, imported, err := mgr.SafeExport(backlogMD, "")
+	if err != nil {
+		t.Fatalf("SafeExport failed: %v", err)
+	}
+
+	if imported != 2 {
+		t.Errorf("expected 2 imported items, got %d", imported)
+	}
+
+	// Verify exported content contains the imported items
+	if !strings.Contains(content, "### #1. Critical bug") {
+		t.Error("exported content should contain item #1")
+	}
+	if !strings.Contains(content, "### #2. Another issue") {
+		t.Error("exported content should contain item #2")
+	}
+	if !strings.Contains(content, "## NOW") {
+		t.Error("exported content should contain NOW section")
+	}
+}
+
+func TestSafeExport_EmptyMDFiles(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	// Pre-populate DB with an item to verify export still works
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "Pre-existing", Severity: "MINOR",
+		Timeframe: "DEFERRED", Scope: "DOCS", Type: "DOCS",
+		Description: "Already in DB",
+	})
+
+	// Both MD files are empty strings — import phase is skipped
+	content, imported, err := mgr.SafeExport("", "")
+	if err != nil {
+		t.Fatalf("SafeExport with empty MDs failed: %v", err)
+	}
+
+	if imported != 0 {
+		t.Errorf("expected 0 imported with empty MDs, got %d", imported)
+	}
+
+	// DB item should still be exported
+	if !strings.Contains(content, "### #1. Pre-existing") {
+		t.Error("exported content should contain pre-existing DB item")
+	}
+}

@@ -242,7 +242,7 @@ func backlogExportCmd() *cobra.Command {
 			var content string
 
 			// Import + Export를 단일 트랜잭션으로 묶어 원자성 보장
-			txErr := s.RunInTx(context.Background(), func() error {
+			txErr := s.RunInTx(context.Background(), func(_ *store.Store) error {
 				if !unsafe {
 					// 안전 모드: import-first
 					imported := 0

@@ -40,8 +40,8 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 		t.Error("notify-start: response missing 'notification_id'")
 	}
 
-	// Step 2: get-status → "started"
-	assertStatus(t, env, ctx, branch, "started")
+	// Step 2: get-status → "STARTED"
+	assertStatus(t, env, ctx, branch, "STARTED")
 
 	// Step 3: notify-transition type="design"
 	resp, err = env.Client.Send(ctx, "handoff", "notify-transition", map[string]any{
@@ -57,8 +57,8 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 		t.Fatalf("notify-transition design: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 4: get-status → "design-notified"
-	assertStatus(t, env, ctx, branch, "design-notified")
+	// Step 4: get-status → "DESIGN_NOTIFIED"
+	assertStatus(t, env, ctx, branch, "DESIGN_NOTIFIED")
 
 	// Step 5: notify-transition type="plan"
 	resp, err = env.Client.Send(ctx, "handoff", "notify-transition", map[string]any{
@@ -74,8 +74,8 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 		t.Fatalf("notify-transition plan: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 6: get-status → "implementing"
-	assertStatus(t, env, ctx, branch, "implementing")
+	// Step 6: get-status → "IMPLEMENTING"
+	assertStatus(t, env, ctx, branch, "IMPLEMENTING")
 
 	// Step 7: notify-transition type="merge"
 	resp, err = env.Client.Send(ctx, "handoff", "notify-transition", map[string]any{
@@ -91,8 +91,8 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 		t.Fatalf("notify-transition merge: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 8: get-status → "merge-notified"
-	assertStatus(t, env, ctx, branch, "merge-notified")
+	// Step 8: get-status → "MERGE_NOTIFIED"
+	assertStatus(t, env, ctx, branch, "MERGE_NOTIFIED")
 }
 
 // TestHandoff_GateEnforcement verifies gate rules for commit and edit validation.
@@ -114,7 +114,7 @@ func TestHandoff_GateEnforcement(t *testing.T) {
 		t.Error("validate-commit on unregistered branch: expected blocked (NOT OK), got OK")
 	}
 
-	// Step 2: notify-start (skip_design=false → status becomes "started")
+	// Step 2: notify-start (skip_design=false → status becomes "STARTED")
 	resp, err = env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
 		"branch":      branch,
 		"workspace":   workspace,
@@ -139,7 +139,7 @@ func TestHandoff_GateEnforcement(t *testing.T) {
 		t.Errorf("validate-commit registered: expected allowed (OK), got error: %s", resp.Error)
 	}
 
-	// Step 4: validate-edit on .go file → blocked (status="started", not "implementing")
+	// Step 4: validate-edit on .go file → blocked (status="STARTED", not "IMPLEMENTING")
 	resp, err = env.Client.Send(ctx, "handoff", "validate-edit", map[string]any{
 		"branch":    branch,
 		"file_path": "internal/foo/bar.go",
@@ -190,7 +190,7 @@ func TestHandoff_GateEnforcement(t *testing.T) {
 		t.Fatalf("notify-transition plan: expected OK, got error: %s", resp.Error)
 	}
 
-	assertStatus(t, env, ctx, branch, "implementing")
+	assertStatus(t, env, ctx, branch, "IMPLEMENTING")
 
 	// Step 7: validate-edit on .go file → allowed (now implementing)
 	resp, err = env.Client.Send(ctx, "handoff", "validate-edit", map[string]any{
@@ -539,7 +539,7 @@ func TestHandoff_StartJob(t *testing.T) {
 	}
 
 	// Verify status = implementing (skip-design)
-	assertStatus(t, env, ctx, branch, "implementing")
+	assertStatus(t, env, ctx, branch, "IMPLEMENTING")
 
 	// Verify no backlog junction
 	resp, err = env.Client.Send(ctx, "handoff", "get-branch", map[string]any{"branch": branch}, "")

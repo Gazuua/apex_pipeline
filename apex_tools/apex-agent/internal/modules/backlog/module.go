@@ -98,14 +98,18 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		var pairs []idScope
 		for rows.Next() {
 			var p idScope
-			rows.Scan(&p.id, &p.scope)
+			if scanErr := rows.Scan(&p.id, &p.scope); scanErr != nil {
+				return fmt.Errorf("scan scope: %w", scanErr)
+			}
 			pairs = append(pairs, p)
 		}
 		rows.Close()
 		for _, p := range pairs {
 			normalized := NormalizeScope(p.scope)
 			if normalized != p.scope {
-				s.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id)
+				if _, execErr := s.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id); execErr != nil {
+					return fmt.Errorf("update scope id=%d: %w", p.id, execErr)
+				}
 			}
 		}
 
@@ -122,14 +126,18 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		var resPairs []idRes
 		for resRows.Next() {
 			var p idRes
-			resRows.Scan(&p.id, &p.res)
+			if scanErr := resRows.Scan(&p.id, &p.res); scanErr != nil {
+				return fmt.Errorf("scan resolution: %w", scanErr)
+			}
 			resPairs = append(resPairs, p)
 		}
 		resRows.Close()
 		for _, p := range resPairs {
 			normalized := NormalizeResolution(p.res)
 			if normalized != p.res {
-				s.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id)
+				if _, execErr := s.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id); execErr != nil {
+					return fmt.Errorf("update resolution id=%d: %w", p.id, execErr)
+				}
 			}
 		}
 

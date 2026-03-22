@@ -4,15 +4,8 @@ package main
 
 import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/cli"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 )
 
-var Version = "dev"
-
 func main() {
-	cli.Version = Version
-	daemon.Version = Version
-	ipc.Version = Version
 	cli.Execute()
 }

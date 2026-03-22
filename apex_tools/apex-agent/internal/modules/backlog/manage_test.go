@@ -3,6 +3,8 @@
 package backlog
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -447,5 +449,160 @@ func TestCheck_NotExists(t *testing.T) {
 	}
 	if status != "" {
 		t.Errorf("status: want empty, got %q", status)
+	}
+}
+
+// ── SetStatus ──
+
+func TestSetStatus_Valid(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "Status test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "test status transitions",
+	}
+	if err := m.Add(item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	// OPEN → FIXING
+	if err := m.SetStatus(1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+	got, err := m.Get(1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "FIXING" {
+		t.Errorf("Status: want %q, got %q", "FIXING", got.Status)
+	}
+
+	// FIXING → RESOLVED
+	if err := m.SetStatus(1, "RESOLVED"); err != nil {
+		t.Fatalf("SetStatus RESOLVED failed: %v", err)
+	}
+	got, err = m.Get(1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "RESOLVED" {
+		t.Errorf("Status: want %q, got %q", "RESOLVED", got.Status)
+	}
+}
+
+func TestSetStatus_NotFound(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	err := m.SetStatus(999, "FIXING")
+	if err == nil {
+		t.Fatal("expected error for non-existent item")
+	}
+}
+
+func TestSetStatusWith_UsesTxStore(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "TxStore test", Severity: "MINOR",
+		Timeframe: "IN_VIEW", Scope: "SHARED", Type: "TEST",
+		Description: "test SetStatusWith via RunInTx",
+	}
+	if err := m.Add(item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	err := s.RunInTx(context.Background(), func(txs *store.Store) error {
+		return m.SetStatusWith(txs, 1, "FIXING")
+	})
+	if err != nil {
+		t.Fatalf("RunInTx + SetStatusWith failed: %v", err)
+	}
+
+	got, err := m.Get(1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "FIXING" {
+		t.Errorf("Status: want %q, got %q", "FIXING", got.Status)
+	}
+}
+
+// ── Release ──
+
+func TestRelease_FixingToOpen(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "Release test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "original description",
+	}
+	if err := m.Add(item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	// Set to FIXING first
+	if err := m.SetStatus(1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+
+	// Release should revert to OPEN
+	if err := m.Release(1, "not enough time", "feature/test"); err != nil {
+		t.Fatalf("Release failed: %v", err)
+	}
+
+	got, err := m.Get(1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "OPEN" {
+		t.Errorf("Status after release: want %q, got %q", "OPEN", got.Status)
+	}
+}
+
+func TestRelease_AppendsDescription(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "Release desc test", Severity: "MINOR",
+		Timeframe: "DEFERRED", Scope: "TOOLS", Type: "DESIGN_DEBT",
+		Description: "original",
+	}
+	if err := m.Add(item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	if err := m.SetStatus(1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+
+	reason := "deferred to next sprint"
+	branch := "feature/backlog-1"
+	if err := m.Release(1, reason, branch); err != nil {
+		t.Fatalf("Release failed: %v", err)
+	}
+
+	got, err := m.Get(1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+
+	if !strings.Contains(got.Description, "[RELEASED]") {
+		t.Errorf("Description should contain [RELEASED], got: %q", got.Description)
+	}
+	if !strings.Contains(got.Description, reason) {
+		t.Errorf("Description should contain reason %q, got: %q", reason, got.Description)
+	}
+	if !strings.Contains(got.Description, branch) {
+		t.Errorf("Description should contain branch %q, got: %q", branch, got.Description)
+	}
+	if !strings.HasPrefix(got.Description, "original") {
+		t.Errorf("Description should start with original text, got: %q", got.Description)
 	}
 }

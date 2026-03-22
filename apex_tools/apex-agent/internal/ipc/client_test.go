@@ -28,9 +28,22 @@ func TestClient_Send(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go srv.Serve(ctx)
-	time.Sleep(50 * time.Millisecond)
 
+	// Poll for server readiness instead of fixed sleep.
 	client := NewClient(addr)
+	ready := false
+	for i := 0; i < 100; i++ {
+		conn, err := Dial(addr)
+		if err == nil {
+			conn.Close()
+			ready = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("server did not become ready within timeout")
+	}
 	resp, err := client.Send(context.Background(), "echo", "ping", nil, "branch_01")
 	if err != nil {
 		t.Fatalf("Send: %v", err)

@@ -16,6 +16,13 @@ import (
 
 var ml = log.WithModule("queue")
 
+// Queue status constants.
+const (
+	StatusWaiting = "WAITING"
+	StatusActive  = "ACTIVE"
+	StatusDone    = "DONE"
+)
+
 // QueueEntry represents a row in the queue table.
 type QueueEntry struct {
 	ID        int
@@ -50,7 +57,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 	if active != nil {
 		// Channel is busy — register as waiting.
-		if err := m.insertEntry(channel, branch, pid, "waiting"); err != nil {
+		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
 			return false, fmt.Errorf("queue.TryAcquire: insert waiting: %w", err)
 		}
 		return false, nil
@@ -65,7 +72,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 	// If there's a waiter with a different branch already queued ahead, we must wait.
 	if firstWaiting != nil && firstWaiting.Branch != branch {
-		if err := m.insertEntry(channel, branch, pid, "waiting"); err != nil {
+		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
 			return false, fmt.Errorf("queue.TryAcquire: insert waiting (queue not empty): %w", err)
 		}
 		return false, nil
@@ -74,8 +81,8 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 	// If there's a waiting entry for this branch (already registered), promote it to active.
 	if firstWaiting != nil && firstWaiting.Branch == branch {
 		_, err := m.store.Exec(
-			`UPDATE queue SET status='active' WHERE id=?`,
-			firstWaiting.ID,
+			`UPDATE queue SET status=? WHERE id=?`,
+			StatusActive, firstWaiting.ID,
 		)
 		if err != nil {
 			return false, fmt.Errorf("queue.TryAcquire: promote waiting to active: %w", err)
@@ -84,7 +91,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 	}
 
 	// No waiters at all — insert directly as active.
-	if err := m.insertEntry(channel, branch, pid, "active"); err != nil {
+	if err := m.insertEntry(channel, branch, pid, StatusActive); err != nil {
 		return false, fmt.Errorf("queue.TryAcquire: insert active: %w", err)
 	}
 	ml.Audit("lock acquired", "channel", channel, "branch", branch, "pid", pid, "method", "try")
@@ -96,7 +103,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 // and no active entry exists.
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first.
-	if err := m.insertEntry(channel, branch, pid, "waiting"); err != nil {
+	if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
 		return fmt.Errorf("queue.Acquire: insert: %w", err)
 	}
 
@@ -104,7 +111,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		select {
 		case <-ctx.Done():
 			// 취소/타임아웃 시 대기 엔트리 정리
-			_, _ = m.store.Exec(`DELETE FROM queue WHERE channel=? AND branch=? AND status='waiting'`, channel, branch)
+			_, _ = m.store.Exec(`DELETE FROM queue WHERE channel=? AND branch=? AND status=?`, channel, branch, StatusWaiting)
 			return fmt.Errorf("queue.Acquire: %w", ctx.Err())
 		default:
 		}
@@ -135,8 +142,8 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 
 		// Promote our waiting entry to active.
 		_, err = m.store.Exec(
-			`UPDATE queue SET status='active' WHERE id=?`,
-			first.ID,
+			`UPDATE queue SET status=? WHERE id=?`,
+			StatusActive, first.ID,
 		)
 		if err != nil {
 			return fmt.Errorf("queue.Acquire: promote: %w", err)
@@ -149,8 +156,8 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 // Release marks the active entry for channel as done.
 func (m *Manager) Release(channel string) error {
 	_, err := m.store.Exec(
-		`UPDATE queue SET status='done' WHERE channel=? AND status='active'`,
-		channel,
+		`UPDATE queue SET status=? WHERE channel=? AND status=?`,
+		StatusDone, channel, StatusActive,
 	)
 	if err != nil {
 		return fmt.Errorf("queue.Release: %w", err)
@@ -164,9 +171,9 @@ func (m *Manager) Status(channel string) (*QueueEntry, []QueueEntry, error) {
 	rows, err := m.store.Query(
 		`SELECT id, channel, branch, pid, status, created_at
 		 FROM queue
-		 WHERE channel=? AND status IN ('active','waiting')
+		 WHERE channel=? AND status IN (?, ?)
 		 ORDER BY id ASC`,
-		channel,
+		channel, StatusActive, StatusWaiting,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("queue.Status: query: %w", err)
@@ -182,10 +189,10 @@ func (m *Manager) Status(channel string) (*QueueEntry, []QueueEntry, error) {
 			return nil, nil, fmt.Errorf("queue.Status: scan: %w", err)
 		}
 		switch e.Status {
-		case "active":
+		case StatusActive:
 			ec := e
 			active = &ec
-		case "waiting":
+		case StatusWaiting:
 			waiting = append(waiting, e)
 		}
 	}
@@ -199,7 +206,8 @@ func (m *Manager) Status(channel string) (*QueueEntry, []QueueEntry, error) {
 // Returns the number of removed entries.
 func (m *Manager) CleanupStale() (int, error) {
 	rows, err := m.store.Query(
-		`SELECT id, pid FROM queue WHERE status IN ('active','waiting')`,
+		`SELECT id, pid FROM queue WHERE status IN (?, ?)`,
+		StatusActive, StatusWaiting,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("queue.CleanupStale: query: %w", err)
@@ -252,10 +260,10 @@ func (m *Manager) firstWaiting(channel string) (*QueueEntry, error) {
 	row := m.store.QueryRow(
 		`SELECT id, channel, branch, pid, status, created_at
 		 FROM queue
-		 WHERE channel=? AND status='waiting'
+		 WHERE channel=? AND status=?
 		 ORDER BY id ASC
 		 LIMIT 1`,
-		channel,
+		channel, StatusWaiting,
 	)
 	var e QueueEntry
 	err := row.Scan(&e.ID, &e.Channel, &e.Branch, &e.PID, &e.Status, &e.CreatedAt)

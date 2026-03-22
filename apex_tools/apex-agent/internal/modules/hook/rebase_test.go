@@ -14,6 +14,10 @@ func TestIsGitPush(t *testing.T) {
 		{"git push --force-with-lease", true},
 		{"git status", false},
 		{"gh pr create", false},
+		// False positive cases — strings.Contains-based matching
+		{"echo git push log", true},   // contains "git" and "push"
+		{"git pusher utility", true},   // partial word match
+		{"push git changes log", true}, // reversed order still matches
 	}
 	for _, tt := range tests {
 		if got := isGitPush(tt.cmd); got != tt.want {
@@ -30,6 +34,11 @@ func TestIsGHPRCreate(t *testing.T) {
 		{"gh pr create --title test", true},
 		{"gh pr merge", false},
 		{"git push", false},
+		// False positive cases — strings.Contains-based matching
+		{"echo gh pr create log", true},        // contains all three tokens
+		{"gh pr create-review --flag", true},    // partial word match
+		{"create a gh pr description", true},    // reversed order still matches
+		{"gh issue create --label pr", true},    // "gh", "pr", "create" scattered
 	}
 	for _, tt := range tests {
 		if got := isGHPRCreate(tt.cmd); got != tt.want {

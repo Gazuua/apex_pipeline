@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-)
 
-var Version = "dev"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version"
+)
 
 func Execute() {
 	root := &cobra.Command{
@@ -43,7 +43,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "버전 출력",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("apex-agent %s\n", Version)
+			fmt.Printf("apex-agent %s\n", version.Version)
 		},
 	}
 }

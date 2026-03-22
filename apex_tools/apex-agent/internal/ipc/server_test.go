@@ -29,7 +29,21 @@ func TestServer_HandleRequest(t *testing.T) {
 	defer cancel()
 
 	go srv.Serve(ctx)
-	time.Sleep(50 * time.Millisecond)
+
+	// Poll for server readiness instead of fixed sleep.
+	ready := false
+	for i := 0; i < 100; i++ {
+		c, err := Dial(addr)
+		if err == nil {
+			c.Close()
+			ready = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("server did not become ready within timeout")
+	}
 
 	conn, err := Dial(addr)
 	if err != nil {

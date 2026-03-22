@@ -30,52 +30,19 @@ func TestGenerate_ContainsGitSection(t *testing.T) {
 	}
 }
 
-func TestGenerate_ContainsHandoffStorage(t *testing.T) {
-	out := Generate(t.TempDir())
-	if !strings.Contains(out, "--- Handoff Storage ---") {
-		t.Errorf("expected Handoff Storage section not found:\n%s", out)
-	}
-}
-
-func TestHandoffDir_UsesLocalAppData(t *testing.T) {
-	t.Setenv("APEX_HANDOFF_DIR", "")
-	t.Setenv("LOCALAPPDATA", "/tmp/testlocal")
-	t.Setenv("XDG_DATA_HOME", "")
-	dir := handoffDir()
-	if !strings.Contains(dir, "apex-branch-handoff") {
-		t.Errorf("expected apex-branch-handoff in dir, got: %s", dir)
-	}
-}
-
-func TestHandoffDir_UsesOverride(t *testing.T) {
-	t.Setenv("APEX_HANDOFF_DIR", "/custom/handoff")
-	dir := handoffDir()
-	if dir != "/custom/handoff" {
-		t.Errorf("expected /custom/handoff, got: %s", dir)
-	}
-}
-
-func TestFieldValue(t *testing.T) {
-	lines := []string{
-		"branch: feature/test",
-		"status: implementing",
-		"backlog: 42",
-		`summary: "some description"`,
-	}
+func TestWorkspaceID(t *testing.T) {
 	tests := []struct {
-		prefix string
-		want   string
+		root string
+		want string
 	}{
-		{"branch:", "feature/test"},
-		{"status:", "implementing"},
-		{"backlog:", "42"},
-		{"summary:", `"some description"`},
-		{"missing:", ""},
+		{"/path/to/apex_pipeline_branch_02", "branch_02"},
+		{"/path/to/apex_pipeline_main", "main"},
+		{"/path/to/other_project", "other_project"},
 	}
 	for _, tt := range tests {
-		got := fieldValue(lines, tt.prefix)
+		got := workspaceID(tt.root)
 		if got != tt.want {
-			t.Errorf("fieldValue(%q) = %q, want %q", tt.prefix, got, tt.want)
+			t.Errorf("workspaceID(%q) = %q, want %q", tt.root, got, tt.want)
 		}
 	}
 }

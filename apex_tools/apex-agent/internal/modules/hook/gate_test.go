@@ -109,10 +109,8 @@ func TestValidateMerge_NonMergeCommand(t *testing.T) {
 
 func TestValidateMerge_BlockWithoutLock(t *testing.T) {
 	// Use a temp directory that definitely doesn't have merge.lock.
-	orig := os.Getenv("APEX_BUILD_QUEUE_DIR")
 	tmpDir := t.TempDir()
-	os.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-	defer os.Setenv("APEX_BUILD_QUEUE_DIR", orig)
+	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
 
 	err := ValidateMerge("gh pr merge --squash", "/workspace")
 	if err == nil {
@@ -124,9 +122,7 @@ func TestValidateMerge_AllowWithLock(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
 
-	orig := os.Getenv("APEX_BUILD_QUEUE_DIR")
-	os.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-	defer os.Setenv("APEX_BUILD_QUEUE_DIR", orig)
+	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
 
 	err := ValidateMerge("gh pr merge --squash", "/workspace")
 	if err != nil {
@@ -139,9 +135,7 @@ func TestValidateMerge_BlockWrongOwner(t *testing.T) {
 	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
 	os.WriteFile(filepath.Join(tmpDir, "merge.owner"), []byte("BRANCH=branch_01\n"), 0o644)
 
-	orig := os.Getenv("APEX_BUILD_QUEUE_DIR")
-	os.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-	defer os.Setenv("APEX_BUILD_QUEUE_DIR", orig)
+	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
 
 	err := ValidateMerge("gh pr merge --squash", "/workspace/branch_02")
 	if err == nil {
@@ -154,9 +148,7 @@ func TestValidateMerge_AllowCorrectOwner(t *testing.T) {
 	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
 	os.WriteFile(filepath.Join(tmpDir, "merge.owner"), []byte("BRANCH=branch_02\n"), 0o644)
 
-	orig := os.Getenv("APEX_BUILD_QUEUE_DIR")
-	os.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-	defer os.Setenv("APEX_BUILD_QUEUE_DIR", orig)
+	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
 
 	err := ValidateMerge("gh pr merge --squash", "/workspace/branch_02")
 	if err != nil {

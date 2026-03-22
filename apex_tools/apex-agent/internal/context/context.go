@@ -3,13 +3,16 @@
 package context
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
 var ml = log.WithModule("context")
@@ -54,143 +57,101 @@ func Generate(workspaceRoot string) string {
 		b.WriteString("\n")
 	}
 
-	// Branch handoff status (non-main branches)
-	// TODO: YAML 파일 직접 읽기 → daemon IPC(handoff status) 조회로 전환.
-	//       현재 과도기: 상태가 SQLite에 있지만 context는 레거시 YAML에서 읽음.
+	// Branch handoff status via daemon IPC (non-main branches)
 	if branch != "" && branch != "main" {
-		b.WriteString("\n--- Branch Handoff ---\n")
-		branchID := filepath.Base(workspaceRoot)
-		branchID = strings.TrimPrefix(branchID, "apex_pipeline_")
-
-		hDir := handoffDir()
-		activeFile := filepath.Join(hDir, "active", branchID+".yml")
-
-		if _, err := os.Stat(activeFile); os.IsNotExist(err) {
-			fmt.Fprintf(&b, "WARNING [BLOCKED]: 이 워크스페이스(%s)가 핸드오프 시스템에 미등록 상태!\n", branchID)
-			b.WriteString("  모든 Edit/Write/git commit이 차단됩니다.\n")
-			b.WriteString("  → 즉시 실행: apex-agent handoff notify start --scopes <s> --summary \"설명\" [--backlog <N>]\n")
-			b.WriteString("  (설계 불필요 시: apex-agent handoff notify start --skip-design --scopes <s> --summary \"설명\")\n")
-		} else {
-			fmt.Fprintf(&b, "Registered: %s\n", branchID)
-			if data, err := os.ReadFile(activeFile); err == nil {
-				lines := strings.Split(string(data), "\n")
-				for _, l := range lines {
-					if strings.HasPrefix(l, "backlog:") {
-						fmt.Fprintf(&b, "  %s\n", l)
-						break
-					}
-				}
-				status := ""
-				for _, l := range lines {
-					if strings.HasPrefix(l, "status:") {
-						status = strings.TrimSpace(strings.TrimPrefix(l, "status:"))
-						break
-					}
-				}
-				fmt.Fprintf(&b, "  status: %s\n", status)
-				switch status {
-				case "started":
-					b.WriteString("  → 다음: notify design (설계 완료 시) 또는 notify start --skip-design (설계 불필요 시)\n")
-				case "design-notified":
-					b.WriteString("  → 다음: notify plan (구현 계획 완료 시)\n")
-				case "implementing":
-					b.WriteString("  → 구현 진행 중 (소스 편집 허용)\n")
-				}
-			}
-		}
+		branchID := workspaceID(workspaceRoot)
+		appendHandoffStatus(&b, branchID)
 	}
-
-	// Other active branches
-	hDir := handoffDir()
-	activeDir := filepath.Join(hDir, "active")
-	if entries, err := os.ReadDir(activeDir); err == nil {
-		myBranchID := filepath.Base(workspaceRoot)
-		myBranchID = strings.TrimPrefix(myBranchID, "apex_pipeline_")
-
-		var activeLines []string
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".yml") {
-				continue
-			}
-			data, err := os.ReadFile(filepath.Join(activeDir, e.Name()))
-			if err != nil {
-				continue
-			}
-			lines := strings.Split(string(data), "\n")
-			br := fieldValue(lines, "branch:")
-			if br == myBranchID {
-				continue
-			}
-			status := fieldValue(lines, "status:")
-			backlog := fieldValue(lines, "backlog:")
-			summary := strings.Trim(fieldValue(lines, "summary:"), `"`)
-
-			// scopes: list under "scopes:" key
-			var scopes []string
-			inScopes := false
-			for _, l := range lines {
-				trimmed := strings.TrimSpace(l)
-				if trimmed == "scopes:" {
-					inScopes = true
-					continue
-				}
-				if inScopes {
-					if strings.HasPrefix(trimmed, "- ") {
-						scopes = append(scopes, strings.TrimPrefix(trimmed, "- "))
-					} else if trimmed != "" {
-						inScopes = false
-					}
-				}
-			}
-
-			blLabel := ""
-			if backlog != "" {
-				blLabel = "BACKLOG-" + backlog + " "
-			}
-			scopeLabel := ""
-			if len(scopes) > 0 {
-				scopeLabel = " (" + strings.Join(scopes, ",") + ")"
-			}
-			if summary == "" {
-				summary = "설명 없음"
-			}
-			statusStr := status
-			if statusStr == "" {
-				statusStr = "unknown"
-			}
-			activeLines = append(activeLines, fmt.Sprintf("  %s [%s]%s %s— %s", br, statusStr, scopeLabel, blLabel, summary))
-		}
-		if len(activeLines) > 0 {
-			fmt.Fprintf(&b, "\n--- Other Active Branches (%d개 진행 중) ---\n", len(activeLines))
-			for _, l := range activeLines {
-				b.WriteString(l)
-				b.WriteString("\n")
-			}
-		}
-	}
-
-	// Handoff storage location
-	b.WriteString("\n--- Handoff Storage ---\n")
-	fmt.Fprintf(&b, "Path: %s\n", hDir)
 
 	b.WriteString("=== End Project Context ===\n")
 	return b.String()
 }
 
-// handoffDir returns the platform-specific handoff storage directory.
-func handoffDir() string {
-	// Allow override via environment variable
-	if override := os.Getenv("APEX_HANDOFF_DIR"); override != "" {
-		return override
+// workspaceID extracts the workspace branch identifier from the project root.
+// e.g., "/path/to/apex_pipeline_branch_02" -> "branch_02"
+func workspaceID(workspaceRoot string) string {
+	base := filepath.Base(workspaceRoot)
+	if strings.HasPrefix(base, "apex_pipeline_") {
+		return strings.TrimPrefix(base, "apex_pipeline_")
 	}
-	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-		return filepath.Join(localAppData, "apex-branch-handoff")
+	return base
+}
+
+// branchInfo mirrors the daemon's Branch struct fields we care about.
+type branchInfo struct {
+	Branch     string `json:"Branch"`
+	Workspace  string `json:"Workspace"`
+	Status     string `json:"Status"`
+	BacklogIDs []int  `json:"BacklogIDs"`
+	Summary    string `json:"Summary"`
+	UpdatedAt  string `json:"UpdatedAt"`
+}
+
+// appendHandoffStatus queries the daemon for handoff status and writes it to b.
+// On daemon connection failure, it writes a warning and skips the section (graceful degradation).
+func appendHandoffStatus(b *strings.Builder, branchID string) {
+	b.WriteString("\n--- Branch Handoff ---\n")
+
+	client := ipc.NewClient(platform.SocketPath())
+	resp, err := client.Send(context.Background(), "handoff", "get-branch", map[string]string{
+		"branch": branchID,
+	}, "")
+	if err != nil {
+		ml.Warn("daemon unavailable for handoff status", "error", err)
+		b.WriteString("WARNING: daemon 연결 실패 — 핸드오프 상태를 조회할 수 없습니다.\n")
+		b.WriteString("  → daemon 시작: apex-agent daemon start\n")
+		return
 	}
-	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-		return filepath.Join(xdg, "apex-branch-handoff")
+	if resp.Error != "" {
+		ml.Warn("handoff get-branch error", "error", resp.Error)
+		fmt.Fprintf(b, "WARNING: 핸드오프 조회 오류: %s\n", resp.Error)
+		return
 	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", "apex-branch-handoff")
+
+	// Parse response data
+	var result map[string]json.RawMessage
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		ml.Warn("failed to parse handoff response", "error", err)
+		return
+	}
+
+	rawBranch, ok := result["branch"]
+	if !ok || string(rawBranch) == "null" || len(rawBranch) == 0 {
+		// Not registered
+		fmt.Fprintf(b, "WARNING [BLOCKED]: 이 워크스페이스(%s)가 핸드오프 시스템에 미등록 상태!\n", branchID)
+		b.WriteString("  모든 Edit/Write/git commit이 차단됩니다.\n")
+		b.WriteString("  → 즉시 실행: apex-agent handoff notify start --scopes <s> --summary \"설명\" [--backlog <N>]\n")
+		b.WriteString("  (설계 불필요 시: apex-agent handoff notify start --skip-design --scopes <s> --summary \"설명\")\n")
+		return
+	}
+
+	var info branchInfo
+	if err := json.Unmarshal(rawBranch, &info); err != nil {
+		ml.Warn("failed to parse branch info", "error", err)
+		return
+	}
+
+	fmt.Fprintf(b, "Registered: %s\n", branchID)
+
+	// Backlog IDs
+	if len(info.BacklogIDs) > 0 {
+		ids := make([]string, len(info.BacklogIDs))
+		for i, id := range info.BacklogIDs {
+			ids[i] = fmt.Sprintf("BACKLOG-%d", id)
+		}
+		fmt.Fprintf(b, "  backlogs: %s\n", strings.Join(ids, ", "))
+	}
+
+	// Status + guidance
+	fmt.Fprintf(b, "  status: %s\n", info.Status)
+	switch info.Status {
+	case "started", "STARTED":
+		b.WriteString("  → 다음: notify design (설계 완료 시) 또는 notify start --skip-design (설계 불필요 시)\n")
+	case "design-notified", "DESIGN_NOTIFIED":
+		b.WriteString("  → 다음: notify plan (구현 계획 완료 시)\n")
+	case "implementing", "IMPLEMENTING":
+		b.WriteString("  → 구현 진행 중 (소스 편집 허용)\n")
+	}
 }
 
 // gitCurrentBranch returns the current git branch name.
@@ -207,15 +168,4 @@ func gitExec(root string, args ...string) (string, error) {
 	cmdArgs := append([]string{"-C", root}, args...)
 	out, err := exec.Command("git", cmdArgs...).CombinedOutput()
 	return strings.TrimSpace(string(out)), err
-}
-
-// fieldValue extracts the value from a YAML line matching "key: value".
-func fieldValue(lines []string, prefix string) string {
-	for _, l := range lines {
-		trimmed := strings.TrimSpace(l)
-		if strings.HasPrefix(trimmed, prefix) {
-			return strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
-		}
-	}
-	return ""
 }

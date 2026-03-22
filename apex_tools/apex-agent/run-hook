@@ -18,6 +18,13 @@ else
     _BIN="$DIR/apex-agent"
 fi
 
+# Verify binary exists before attempting execution
+if [[ ! -f "$_BIN" ]]; then
+    echo "[apex-agent] ERROR: binary not found at $_BIN" >&2
+    echo "[apex-agent] Run 'go build -o apex-agent.exe ./cmd/apex-agent' in apex_tools/apex-agent/" >&2
+    exit 1
+fi
+
 # Run with full logging for debugging
 echo "[$(date '+%H:%M:%S.%3N')] START args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
 "$_BIN" "$@"

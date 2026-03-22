@@ -257,6 +257,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: apex_tools/apex-agent/go.mod
+      - run: go mod verify
       - run: go vet ./...
       - run: go test ./... -race -cover -v
       - name: Build (linux)

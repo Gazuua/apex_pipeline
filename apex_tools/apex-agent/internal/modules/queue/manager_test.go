@@ -3,7 +3,10 @@
 package queue_test
 
 import (
+	"context"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -51,8 +54,8 @@ func TestTryAcquire_Free(t *testing.T) {
 	if active == nil {
 		t.Fatal("expected active entry")
 	}
-	if active.Status != "active" {
-		t.Errorf("expected status=active, got %q", active.Status)
+	if active.Status != queue.StatusActive {
+		t.Errorf("expected status=%s, got %q", queue.StatusActive, active.Status)
 	}
 	if active.Branch != "feature/test" {
 		t.Errorf("expected branch=feature/test, got %q", active.Branch)
@@ -97,8 +100,8 @@ func TestTryAcquire_Busy(t *testing.T) {
 	if waiting[0].Branch != "feature/second" {
 		t.Errorf("expected waiting branch=feature/second, got %q", waiting[0].Branch)
 	}
-	if waiting[0].Status != "waiting" {
-		t.Errorf("expected status=waiting, got %q", waiting[0].Status)
+	if waiting[0].Status != queue.StatusWaiting {
+		t.Errorf("expected status=%s, got %q", queue.StatusWaiting, waiting[0].Status)
 	}
 }
 
@@ -250,5 +253,102 @@ func TestFIFO_Order(t *testing.T) {
 	}
 	if ok2 {
 		t.Fatal("expected second waiter to be blocked while first waiter holds lock")
+	}
+}
+
+// TestAcquire_ContextCancel_CleansUpWaitingEntry: context cancellation removes the waiting entry.
+func TestAcquire_ContextCancel_CleansUpWaitingEntry(t *testing.T) {
+	s := newTestStore(t)
+	m := queue.NewManager(s)
+
+	pid := os.Getpid()
+
+	// Hold the lock so that Acquire blocks.
+	acquired, err := m.TryAcquire("build", "feature/holder", pid)
+	if err != nil || !acquired {
+		t.Fatalf("TryAcquire holder: err=%v acquired=%v", err, acquired)
+	}
+
+	// Start Acquire in a goroutine with a cancellable context.
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- m.Acquire(ctx, "build", "feature/waiter", pid)
+	}()
+
+	// Give Acquire time to insert its waiting entry.
+	time.Sleep(100 * time.Millisecond)
+
+	// Cancel the context.
+	cancel()
+
+	// Wait for Acquire to return.
+	err = <-done
+	if err == nil {
+		t.Fatal("expected error from cancelled Acquire, got nil")
+	}
+
+	// Verify that the waiting entry was cleaned up.
+	_, waiting, err := m.Status("build")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	for _, w := range waiting {
+		if w.Branch == "feature/waiter" {
+			t.Error("expected waiting entry to be cleaned up after context cancel")
+		}
+	}
+}
+
+// TestAcquire_PromotesAfterRelease: Acquire blocks, then succeeds after Release.
+func TestAcquire_PromotesAfterRelease(t *testing.T) {
+	s := newTestStore(t)
+	m := queue.NewManager(s)
+
+	pid := os.Getpid()
+
+	// Hold the lock.
+	acquired, err := m.TryAcquire("merge", "feature/holder", pid)
+	if err != nil || !acquired {
+		t.Fatalf("TryAcquire holder: err=%v acquired=%v", err, acquired)
+	}
+
+	// Start Acquire in a goroutine.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- m.Acquire(ctx, "merge", "feature/waiter", pid)
+	}()
+
+	// Give Acquire time to register as waiting.
+	time.Sleep(100 * time.Millisecond)
+
+	// Release the lock.
+	if err := m.Release("merge"); err != nil {
+		t.Fatalf("Release: %v", err)
+	}
+
+	// Acquire should complete successfully.
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Acquire after Release: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Acquire did not complete after Release within timeout")
+	}
+
+	// Verify the waiter is now active.
+	active, _, err := m.Status("merge")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if active == nil {
+		t.Fatal("expected active entry after Acquire")
+	}
+	if active.Branch != "feature/waiter" {
+		t.Errorf("expected active branch=feature/waiter, got %q", active.Branch)
 	}
 }

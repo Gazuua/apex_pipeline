@@ -100,7 +100,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			item.Title, item.Severity, item.Timeframe, item.Scope, item.Type,
 			item.Description, item.Related, item.Position, status,
-			nullableString(item.Resolution), nullableString(item.ResolvedAt),
+			store.NullableString(item.Resolution), store.NullableString(item.ResolvedAt),
 		)
 		if err != nil {
 			return fmt.Errorf("Add: %w", err)
@@ -115,7 +115,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			item.ID, item.Title, item.Severity, item.Timeframe, item.Scope, item.Type,
 			item.Description, item.Related, item.Position, status,
-			nullableString(item.Resolution), nullableString(item.ResolvedAt),
+			store.NullableString(item.Resolution), store.NullableString(item.ResolvedAt),
 		)
 		if err != nil {
 			return fmt.Errorf("Add: %w", err)
@@ -212,6 +212,8 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 }
 
 // UpdateFromImport updates metadata fields for an existing item from MD import.
+// The caller (ImportItems) passes the DB's current status as the status parameter,
+// so the DB status is preserved — import never changes status.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
 func (m *Manager) UpdateFromImport(id int, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
 	_, err := m.store.Exec(`
@@ -261,10 +263,16 @@ func (m *Manager) Resolve(id int, resolution string) error {
 
 // SetStatus updates the status of a backlog item.
 func (m *Manager) SetStatus(id int, status string) error {
+	return m.SetStatusWith(m.store, id, status)
+}
+
+// SetStatusWith updates the status of a backlog item using the provided store
+// (which may be a transaction-bound copy from RunInTx).
+func (m *Manager) SetStatusWith(txs *store.Store, id int, status string) error {
 	if err := ValidateStatus(status); err != nil {
 		return err
 	}
-	result, err := m.store.Exec(`
+	result, err := txs.Exec(`
 		UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
 		status, id,
 	)
@@ -327,10 +335,3 @@ func (m *Manager) Check(id int) (exists bool, status string, err error) {
 	return true, status, nil
 }
 
-// nullableString converts an empty string to nil for SQL NULL storage.
-func nullableString(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
-}

@@ -32,7 +32,7 @@ func TestContext_OutputFormat(t *testing.T) {
 		"=== Project Context (auto-injected) ===",
 		"--- Git Status ---",
 		"Branch:",
-		"--- Handoff Storage ---",
+		"--- Branch Handoff ---",
 		"=== End Project Context ===",
 	}
 	for _, want := range requiredSections {

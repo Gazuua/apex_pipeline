@@ -9,9 +9,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Store wraps a SQLite database. When tx is set (via RunInTx), all
+// Exec/Query/QueryRow calls are routed through the transaction.
 type Store struct {
 	db *sql.DB
-	tx *sql.Tx // non-nil when inside RunInTx — routes Exec/Query through transaction
+	tx *sql.Tx // non-nil inside RunInTx callback — routes ops through transaction
 }
 
 func Open(dsn string) (*Store, error) {
@@ -55,19 +57,29 @@ func (s *Store) QueryRow(query string, args ...any) *sql.Row {
 
 func (s *Store) BeginTx(ctx context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }
 
-// RunInTx executes fn within a transaction. All Store.Exec/Query/QueryRow calls
-// inside fn are routed through the transaction. Commits on success, rolls back on error.
-func (s *Store) RunInTx(ctx context.Context, fn func() error) error {
+// RunInTx executes fn within a transaction. A transaction-bound Store copy is
+// passed to fn — all Exec/Query/QueryRow calls on it go through the transaction.
+// The original Store is NOT modified, so concurrent goroutines are safe.
+// Commits on success, rolls back on error.
+func (s *Store) RunInTx(ctx context.Context, fn func(txs *Store) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	s.tx = tx
-	defer func() { s.tx = nil }()
+	txs := &Store{db: s.db, tx: tx}
 
-	if err := fn(); err != nil {
+	if err := fn(txs); err != nil {
 		tx.Rollback() //nolint:errcheck
 		return err
 	}
 	return tx.Commit()
+}
+
+// NullableString returns nil for empty strings, otherwise the string itself.
+// Useful for nullable TEXT columns in SQLite.
+func NullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }

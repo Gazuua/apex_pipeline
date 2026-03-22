@@ -162,14 +162,20 @@ func isDirtyWorktree(wtPath string) bool {
 
 // removeWorktree forcefully removes a worktree and any leftover directory.
 func removeWorktree(repoRoot, wtPath string) error {
-	_, err := runGit(repoRoot, "worktree", "remove", "--force", wtPath)
-	if err != nil {
+	_, gitErr := runGit(repoRoot, "worktree", "remove", "--force", wtPath)
+	if gitErr != nil {
 		// Best-effort fallback: manual removal.
 		_ = os.RemoveAll(wtPath)
 	}
 	// Remove any residual directory.
 	if info, statErr := os.Stat(wtPath); statErr == nil && info.IsDir() {
-		_ = os.RemoveAll(wtPath)
+		rmErr := os.RemoveAll(wtPath)
+		// If directory still exists after both attempts, return error.
+		if rmErr != nil {
+			if _, stillExists := os.Stat(wtPath); stillExists == nil {
+				return fmt.Errorf("removeWorktree: directory still exists after removal attempts: %s (git: %v, rm: %w)", wtPath, gitErr, rmErr)
+			}
+		}
 	}
 	return nil
 }

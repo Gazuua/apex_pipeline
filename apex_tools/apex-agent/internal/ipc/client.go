@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-)
 
-// Version is set by main at startup to match the CLI build version.
-// If "dev", version checks are skipped.
-var Version = "dev"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version"
+)
 
 // Client sends IPC requests to the daemon and returns responses.
 type Client struct {
@@ -24,7 +22,7 @@ func NewClient(addr string) *Client {
 	return &Client{addr: addr}
 }
 
-// Send checks the daemon version on the first call (unless Version == "dev"),
+// Send checks the daemon version on the first call (unless version.Version == "dev"),
 // then sends the request and returns the response.
 // Each call opens and closes its own connection (stateless).
 func (c *Client) Send(ctx context.Context, module, action string, params any, workspace string) (*Response, error) {
@@ -52,6 +50,12 @@ func (c *Client) send(ctx context.Context, module, action string, params any, wo
 	}
 	defer conn.Close()
 
+	if deadline, ok := ctx.Deadline(); ok {
+		conn.SetDeadline(deadline)
+	} else {
+		conn.SetDeadline(time.Now().Add(10 * time.Second))
+	}
+
 	req := &Request{
 		Module:    module,
 		Action:    action,
@@ -75,7 +79,7 @@ func (c *Client) send(ctx context.Context, module, action string, params any, wo
 // there is a mismatch. After shutdown the daemon will be auto-started with the
 // new binary on the next Send call.
 func (c *Client) checkVersion() {
-	if Version == "dev" {
+	if version.Version == "dev" {
 		return
 	}
 
@@ -90,9 +94,9 @@ func (c *Client) checkVersion() {
 		return
 	}
 
-	if data["version"] != Version {
+	if data["version"] != version.Version {
 		ml.Info("version mismatch, restarting daemon",
-			"cli", Version,
+			"cli", version.Version,
 			"daemon", data["version"],
 		)
 		// Ask daemon to shut down gracefully; ignore errors (best effort).

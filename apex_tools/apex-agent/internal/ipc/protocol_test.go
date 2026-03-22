@@ -4,7 +4,9 @@ package ipc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -56,5 +58,24 @@ func TestReadMessage_Empty(t *testing.T) {
 	err := ReadMessage(&buf, &req)
 	if err == nil {
 		t.Error("expected error on empty buffer")
+	}
+}
+
+func TestReadMessage_MaxSizeExceeded(t *testing.T) {
+	var buf bytes.Buffer
+
+	// Write a length prefix of 4MB+1 (exceeds maxMessageSize)
+	oversize := uint32(4*1024*1024 + 1)
+	if err := binary.Write(&buf, binary.BigEndian, oversize); err != nil {
+		t.Fatalf("write length prefix: %v", err)
+	}
+
+	var req Request
+	err := ReadMessage(&buf, &req)
+	if err == nil {
+		t.Fatal("expected error for oversized message, got nil")
+	}
+	if !strings.Contains(err.Error(), "message too large") {
+		t.Errorf("expected 'message too large' error, got: %v", err)
 	}
 }

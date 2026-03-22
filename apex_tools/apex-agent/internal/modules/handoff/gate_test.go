@@ -23,6 +23,44 @@ func setupGateTestDB(t *testing.T) (*store.Store, *Manager) {
 	return s, mod.manager
 }
 
+// setupGateTestDBWithBacklog sets up handoff + backlog_items table for merge gate tests.
+func setupGateTestDBWithBacklog(t *testing.T) (*store.Store, *Manager) {
+	t.Helper()
+	s, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	mig := store.NewMigrator(s)
+	mod := New(s, nil)
+	mod.RegisterSchema(mig)
+
+	// Manually register a minimal backlog_items migration (just the table structure)
+	mig.Register("backlog", 1, func(st *store.Store) error {
+		_, err := st.Exec(`CREATE TABLE backlog_items (
+			id          INTEGER PRIMARY KEY,
+			title       TEXT    NOT NULL,
+			severity    TEXT    NOT NULL,
+			timeframe   TEXT    NOT NULL,
+			scope       TEXT    NOT NULL,
+			type        TEXT    NOT NULL,
+			description TEXT    NOT NULL,
+			related     TEXT,
+			position    INTEGER NOT NULL,
+			status      TEXT    NOT NULL DEFAULT 'OPEN',
+			resolution  TEXT,
+			resolved_at TEXT,
+			created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+			updated_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+		)`)
+		return err
+	})
+
+	if err := mig.Migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	return s, mod.manager
+}
+
 // ── ValidateCommit ──
 
 func TestValidateCommit_NotRegistered(t *testing.T) {
@@ -241,5 +279,65 @@ func TestProbeNotifications_AckedNotShown(t *testing.T) {
 	}
 	if msg != "" {
 		t.Errorf("acked notification should not show, got: %s", msg)
+	}
+}
+
+// ── ValidateMergeGate with FIXING backlog ──
+
+func TestValidateMergeGate_FixingBacklogBlocks(t *testing.T) {
+	s, mgr := setupGateTestDBWithBacklog(t)
+	defer s.Close()
+
+	// Register branch
+	if _, err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// Insert a backlog item with status FIXING
+	_, err := s.Exec(`INSERT INTO backlog_items (id, title, severity, timeframe, scope, type, description, position, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		42, "test bug", "MAJOR", "NOW", "CORE", "BUG", "desc", 1, "FIXING")
+	if err != nil {
+		t.Fatalf("insert backlog item: %v", err)
+	}
+
+	// Link backlog to branch via junction table
+	_, err = s.Exec(`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, "branch_01", 42)
+	if err != nil {
+		t.Fatalf("insert branch_backlog: %v", err)
+	}
+
+	// Merge gate should block because of FIXING backlog
+	err = mgr.ValidateMergeGate("branch_01")
+	if err == nil {
+		t.Error("expected merge to be blocked with FIXING backlog, got nil")
+	}
+}
+
+func TestValidateMergeGate_NoFixingBacklogPasses(t *testing.T) {
+	s, mgr := setupGateTestDBWithBacklog(t)
+	defer s.Close()
+
+	// Register branch
+	if _, err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// Insert a backlog item with status RESOLVED (not FIXING)
+	_, err := s.Exec(`INSERT INTO backlog_items (id, title, severity, timeframe, scope, type, description, position, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		42, "test bug", "MAJOR", "NOW", "CORE", "BUG", "desc", 1, "RESOLVED")
+	if err != nil {
+		t.Fatalf("insert backlog item: %v", err)
+	}
+
+	// Link backlog to branch via junction table
+	_, err = s.Exec(`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, "branch_01", 42)
+	if err != nil {
+		t.Fatalf("insert branch_backlog: %v", err)
+	}
+
+	// Merge gate should pass — backlog is resolved, not FIXING
+	err = mgr.ValidateMergeGate("branch_01")
+	if err != nil {
+		t.Errorf("expected merge to pass with RESOLVED backlog, got: %v", err)
 	}
 }

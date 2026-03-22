@@ -54,7 +54,9 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 	var fixingIDs []int
 	for rows.Next() {
 		var id int
-		rows.Scan(&id)
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return fmt.Errorf("scan fixing backlog id: %w", scanErr)
+		}
 		fixingIDs = append(fixingIDs, id)
 	}
 	if len(fixingIDs) > 0 {
@@ -85,9 +87,9 @@ func (m *Manager) ValidateEdit(branch, filePath string) error {
 		ml.Debug("gate check", "op", "edit", "branch", branch, "file", filePath, "allowed", false, "status", status)
 		switch status {
 		case StatusStarted:
-			return fmt.Errorf("차단: 설계 미완료(status=started). 소스 파일 편집 불가")
+			return fmt.Errorf("차단: 설계 미완료(status=STARTED). 소스 파일 편집 불가")
 		case StatusDesignNotified:
-			return fmt.Errorf("차단: 구현 계획 미완료(status=design-notified). 소스 파일 편집 불가")
+			return fmt.Errorf("차단: 구현 계획 미완료(status=DESIGN_NOTIFIED). 소스 파일 편집 불가")
 		default:
 			return fmt.Errorf("차단: status=%s에서 소스 파일 편집 불가", status)
 		}

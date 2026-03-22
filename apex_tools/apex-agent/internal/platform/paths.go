@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // AppName is the application identifier used for directory and pipe names.
@@ -48,4 +49,14 @@ func SocketPath() string {
 // EnsureDataDir creates the data directory if it doesn't exist.
 func EnsureDataDir() error {
 	return os.MkdirAll(DataDir(), 0o755)
+}
+
+// NormalizePath normalizes a file path for the current platform.
+// On Windows, handles MSYS-style paths (/c/Users/...) and forward slashes.
+func NormalizePath(p string) string {
+	if runtime.GOOS == "windows" && len(p) >= 3 && p[0] == '/' && p[2] == '/' {
+		drive := strings.ToUpper(string(p[1]))
+		p = drive + ":" + p[2:]
+	}
+	return filepath.Clean(filepath.FromSlash(p))
 }

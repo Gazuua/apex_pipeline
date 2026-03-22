@@ -178,21 +178,27 @@ func NormalizeStatus(s string) string {
 
 // NormalizeResolution cleans up resolution values.
 // Handles corrupted data like "WONTFIX → **정정: FIXED (v0.5.10.2)**" → "FIXED"
+// Also handles "WONTFIX → DOCUMENTED" (without 정정 keyword) by extracting
+// the last valid resolution token from the string.
 func NormalizeResolution(s string) string {
 	s = strings.TrimSpace(s)
 	// 오염 데이터: "WONTFIX → ..." 패턴 → 마지막 유효 resolution 추출
 	if strings.Contains(s, "→") || strings.Contains(s, "정정") {
+		upper := strings.ToUpper(s)
+		// 마지막에 등장하는 유효 resolution을 찾아 반환한다.
+		// 순회 순서를 역으로 하는 대신, 각 resolution의 LastIndex를 비교하여
+		// 문자열에서 가장 뒤에 위치한 것을 선택한다.
+		bestRes := ""
+		bestIdx := -1
 		for _, res := range []string{"FIXED", "DOCUMENTED", "WONTFIX", "DUPLICATE", "SUPERSEDED"} {
-			// 마지막으로 등장하는 유효 resolution을 사용
-			if strings.Contains(strings.ToUpper(s), res) {
-				// "정정: FIXED" 패턴이면 FIXED 사용
-				if strings.Contains(s, "정정") {
-					idx := strings.LastIndex(strings.ToUpper(s), res)
-					if idx >= 0 {
-						return res
-					}
-				}
+			idx := strings.LastIndex(upper, res)
+			if idx > bestIdx {
+				bestIdx = idx
+				bestRes = res
 			}
+		}
+		if bestRes != "" {
+			return bestRes
 		}
 	}
 	return strings.ToUpper(s)

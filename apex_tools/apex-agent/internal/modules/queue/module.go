@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -32,13 +33,17 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			channel    TEXT    NOT NULL,
 			branch     TEXT    NOT NULL,
 			pid        INTEGER NOT NULL,
-			status     TEXT    NOT NULL DEFAULT 'waiting',
+			status     TEXT    NOT NULL DEFAULT 'WAITING',
 			created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
 		)`)
 		if err != nil {
 			return err
 		}
 		_, err = s.Exec(`CREATE INDEX idx_queue_channel_status ON queue(channel, status)`)
+		return err
+	})
+	mig.Register("queue", 2, func(s *store.Store) error {
+		_, err := s.Exec(`UPDATE queue SET status = UPPER(status)`)
 		return err
 	})
 }
@@ -82,7 +87,9 @@ func (m *Module) handleAcquire(_ context.Context, params json.RawMessage, _ stri
 	if pid == 0 {
 		pid = os.Getpid()
 	}
-	if err := m.manager.Acquire(context.Background(), p.Channel, p.Branch, pid); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	if err := m.manager.Acquire(ctx, p.Channel, p.Branch, pid); err != nil {
 		return nil, err
 	}
 	return map[string]any{"acquired": true, "channel": p.Channel}, nil

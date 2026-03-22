@@ -3,6 +3,7 @@
 package handoff
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -355,5 +356,164 @@ func TestGetStatus_Registered(t *testing.T) {
 	}
 	if status != StatusStarted {
 		t.Errorf("expected status %q, got %q", StatusStarted, status)
+	}
+}
+
+// ── ResolveBranch ──
+
+func TestResolveBranch_ByWorkspace(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
+
+	// Register with workspace "branch_02"
+	_, err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
+	if err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// Should find by workspace ID
+	resolved, err := mgr.ResolveBranch("branch_02", "")
+	if err != nil {
+		t.Fatalf("ResolveBranch: %v", err)
+	}
+	if resolved != "branch_02" {
+		t.Errorf("expected resolved=%q, got %q", "branch_02", resolved)
+	}
+}
+
+func TestResolveBranch_FallbackGitBranch(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
+
+	// Register with workspace "branch_02" and git_branch "feature/test-branch"
+	_, err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
+	if err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// Query with a different workspace ID but correct git_branch → fallback
+	resolved, err := mgr.ResolveBranch("branch_99", "feature/test-branch")
+	if err != nil {
+		t.Fatalf("ResolveBranch: %v", err)
+	}
+	if resolved != "branch_02" {
+		t.Errorf("expected resolved=%q (via git_branch fallback), got %q", "branch_02", resolved)
+	}
+}
+
+func TestResolveBranch_NotFound(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
+
+	// No branches registered — both workspace and git_branch miss
+	resolved, err := mgr.ResolveBranch("branch_99", "feature/nonexistent")
+	if err != nil {
+		t.Fatalf("ResolveBranch: %v", err)
+	}
+	if resolved != "" {
+		t.Errorf("expected empty string for not found, got %q", resolved)
+	}
+}
+
+// ── NotifyStart with BacklogStatusSetter ──
+
+// mockBacklogManager implements BacklogStatusSetter for testing.
+type mockBacklogManager struct {
+	items         map[int]string // id → status
+	failSetStatus bool
+}
+
+func (m *mockBacklogManager) Check(id int) (bool, string, error) {
+	status, exists := m.items[id]
+	if !exists {
+		return false, "", nil
+	}
+	return true, status, nil
+}
+
+func (m *mockBacklogManager) SetStatus(id int, status string) error {
+	if m.failSetStatus {
+		return fmt.Errorf("mock SetStatus error for id=%d", id)
+	}
+	m.items[id] = status
+	return nil
+}
+
+func (m *mockBacklogManager) SetStatusWith(txs *store.Store, id int, status string) error {
+	if m.failSetStatus {
+		return fmt.Errorf("mock SetStatusWith error for id=%d", id)
+	}
+	m.items[id] = status
+	return nil
+}
+
+func setupHandoffTestDBWithBacklog(t *testing.T, bm BacklogStatusSetter) (*store.Store, *Manager) {
+	t.Helper()
+	s, err := store.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	mig := store.NewMigrator(s)
+	mod := New(s, bm)
+	mod.RegisterSchema(mig)
+	if err := mig.Migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s, mod.manager
+}
+
+func TestNotifyStart_BacklogSetStatusFails(t *testing.T) {
+	bm := &mockBacklogManager{
+		items:         map[int]string{100: "OPEN"},
+		failSetStatus: true,
+	}
+	s, mgr := setupHandoffTestDBWithBacklog(t, bm)
+
+	_, err := mgr.NotifyStart("feature/fail-backlog", "ws1", "summary", "", []int{100}, "", false)
+	if err == nil {
+		t.Fatal("expected error when SetStatusWith fails, got nil")
+	}
+
+	// Verify rollback: branch should NOT exist
+	b, err := mgr.GetBranch("feature/fail-backlog")
+	if err != nil {
+		t.Fatalf("GetBranch: %v", err)
+	}
+	if b != nil {
+		t.Errorf("expected branch to NOT exist after rollback, got %+v", b)
+	}
+
+	// Verify rollback: backlog status should remain OPEN (not FIXING)
+	if bm.items[100] != "OPEN" {
+		t.Errorf("expected backlog 100 to remain OPEN after rollback, got %q", bm.items[100])
+	}
+
+	// Verify no junction entry
+	var count int
+	row := s.QueryRow("SELECT COUNT(*) FROM branch_backlogs WHERE branch=?", "feature/fail-backlog")
+	if err := row.Scan(&count); err != nil {
+		t.Fatalf("query junction: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 junction entries after rollback, got %d", count)
+	}
+}
+
+func TestNotifyStart_BacklogAlreadyFixing(t *testing.T) {
+	bm := &mockBacklogManager{
+		items: map[int]string{200: "FIXING"},
+	}
+	_, mgr := setupHandoffTestDBWithBacklog(t, bm)
+
+	_, err := mgr.NotifyStart("feature/already-fixing", "ws1", "summary", "", []int{200}, "", false)
+	if err == nil {
+		t.Fatal("expected error when backlog is already FIXING, got nil")
+	}
+
+	// Branch should NOT be created
+	b, err := mgr.GetBranch("feature/already-fixing")
+	if err != nil {
+		t.Fatalf("GetBranch: %v", err)
+	}
+	if b != nil {
+		t.Errorf("expected branch to NOT exist, got %+v", b)
 	}
 }

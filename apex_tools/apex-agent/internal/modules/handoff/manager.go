@@ -28,6 +28,7 @@ type Branch struct {
 // BacklogStatusSetter is the interface handoff needs from backlog.
 type BacklogStatusSetter interface {
 	SetStatus(id int, status string) error
+	SetStatusWith(txs *store.Store, id int, status string) error
 	Check(id int) (exists bool, status string, err error)
 }
 
@@ -71,29 +72,12 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 		status = StatusImplementing
 	}
 
-	ctx := context.Background()
-	tx, err := m.store.BeginTx(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO branches (branch, workspace, git_branch, status, summary, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
-		branch, workspace, nullableString(gitBranch), status, summary,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("insert branch: %w", err)
-	}
-
-	// junction 테이블에 백로그 연결
-	for _, bid := range backlogIDs {
-		if bid == 0 {
-			continue
-		}
-		// FIXING 중복 체크
-		if m.backlogManager != nil {
+	// FIXING 중복 체크 (트랜잭션 전에 수행 — Check는 읽기 전용)
+	if m.backlogManager != nil {
+		for _, bid := range backlogIDs {
+			if bid == 0 {
+				continue
+			}
 			exists, bStatus, checkErr := m.backlogManager.Check(bid)
 			if checkErr != nil {
 				return 0, fmt.Errorf("check backlog %d: %w", bid, checkErr)
@@ -105,48 +89,68 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 				return 0, fmt.Errorf("backlog item %d is already FIXING", bid)
 			}
 		}
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
-			branch, bid,
+	}
+
+	var notifID int
+	err := m.store.RunInTx(context.Background(), func(txs *store.Store) error {
+		_, err := txs.Exec(
+			`INSERT INTO branches (branch, workspace, git_branch, status, summary, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
+			branch, workspace, store.NullableString(gitBranch), status, summary,
 		)
 		if err != nil {
-			return 0, fmt.Errorf("insert branch_backlog %d: %w", bid, err)
+			return fmt.Errorf("insert branch: %w", err)
 		}
-	}
 
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO notifications (branch, workspace, type, summary, created_at)
-		 VALUES (?, ?, 'start', ?, datetime('now','localtime'))`,
-		branch, workspace, summary,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("insert notification: %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("last insert id: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-
-	// FIXING 상태 전이 (tx 밖 — backlog 모듈이 자체 Exec 사용, 동일 DB이나 인터페이스 제약)
-	if m.backlogManager != nil {
+		// junction 테이블에 백로그 연결
 		for _, bid := range backlogIDs {
 			if bid == 0 {
 				continue
 			}
-			if err := m.backlogManager.SetStatus(bid, "FIXING"); err != nil {
-				ml.Warn("backlog FIXING 전이 실패 — 브랜치는 등록됨, 백로그 상태 불일치 가능",
-					"backlog_id", bid, "branch", branch, "err", err)
+			_, err = txs.Exec(
+				`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
+				branch, bid,
+			)
+			if err != nil {
+				return fmt.Errorf("insert branch_backlog %d: %w", bid, err)
 			}
 		}
+
+		res, err := txs.Exec(
+			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
+			 VALUES (?, ?, 'start', ?, datetime('now','localtime'))`,
+			branch, workspace, summary,
+		)
+		if err != nil {
+			return fmt.Errorf("insert notification: %w", err)
+		}
+
+		id, err := res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("last insert id: %w", err)
+		}
+		notifID = int(id)
+
+		// FIXING 상태 전이 — 트랜잭션 내에서 실행하여 원자성 보장
+		if m.backlogManager != nil {
+			for _, bid := range backlogIDs {
+				if bid == 0 {
+					continue
+				}
+				if err := m.backlogManager.SetStatusWith(txs, bid, "FIXING"); err != nil {
+					return fmt.Errorf("backlog FIXING 전이 실패 (backlog_id=%d): %w", bid, err)
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
-	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status, "notification_id", int(id))
-	return int(id), nil
+	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status, "notification_id", notifID)
+	return notifID, nil
 }
 
 // NotifyTransition applies a state transition (design/plan/merge) and creates a notification.
@@ -166,41 +170,38 @@ func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string
 		return 0, err
 	}
 
-	ctx := context.Background()
-	tx, err := m.store.BeginTx(ctx)
+	var notifID int
+	err = m.store.RunInTx(context.Background(), func(txs *store.Store) error {
+		_, err := txs.Exec(
+			`UPDATE branches SET status = ?, updated_at = datetime('now','localtime') WHERE branch = ?`,
+			nextStatus, branch,
+		)
+		if err != nil {
+			return fmt.Errorf("update branch status: %w", err)
+		}
+
+		res, err := txs.Exec(
+			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
+			 VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
+			branch, workspace, notifyType, summary,
+		)
+		if err != nil {
+			return fmt.Errorf("insert notification: %w", err)
+		}
+
+		id, err := res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("last insert id: %w", err)
+		}
+		notifID = int(id)
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	_, err = tx.ExecContext(ctx,
-		`UPDATE branches SET status = ?, updated_at = datetime('now','localtime') WHERE branch = ?`,
-		nextStatus, branch,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("update branch status: %w", err)
+		return 0, err
 	}
 
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO notifications (branch, workspace, type, summary, created_at)
-		 VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
-		branch, workspace, notifyType, summary,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("insert notification: %w", err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("last insert id: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit: %w", err)
-	}
-
-	ml.Audit("state transition", "branch", branch, "from", currentStatus, "to", nextStatus, "type", notifyType, "notification_id", int(id))
-	return int(id), nil
+	ml.Audit("state transition", "branch", branch, "from", currentStatus, "to", nextStatus, "type", notifyType, "notification_id", notifID)
+	return notifID, nil
 }
 
 // CheckNotifications returns unacked notifications for a branch.
@@ -302,7 +303,9 @@ func (m *Manager) GetBranch(branch string) (*Branch, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var id int
-		rows.Scan(&id)
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, fmt.Errorf("scan backlog id: %w", scanErr)
+		}
 		b.BacklogIDs = append(b.BacklogIDs, id)
 	}
 
@@ -351,11 +354,4 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 	return status, nil
 }
 
-// nullableString converts an empty string to nil for SQL NULL storage.
-func nullableString(s string) any {
-	if s == "" {
-		return nil
-	}
-	return s
-}
 

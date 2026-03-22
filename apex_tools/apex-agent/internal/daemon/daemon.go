@@ -13,12 +13,10 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version"
 )
 
 var ml = log.WithModule("daemon")
-
-// Version is set by main at startup (injected via ldflags).
-var Version = "dev"
 
 type Config struct {
 	DBPath      string
@@ -78,7 +76,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// 3. Register built-in daemon routes.
 	d.router.RegisterModule("daemon", func(reg RouteRegistrar) {
 		reg.Handle("version", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
-			return map[string]string{"version": Version}, nil
+			return map[string]string{"version": version.Version}, nil
 		})
 		reg.Handle("shutdown", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
 			ml.Audit("shutdown requested via IPC")
@@ -165,7 +163,7 @@ shutdown:
 }
 
 func (d *Daemon) writePID() error {
-	return os.WriteFile(d.cfg.PIDFilePath, []byte(strconv.Itoa(os.Getpid())), 0o644)
+	return os.WriteFile(d.cfg.PIDFilePath, []byte(strconv.Itoa(os.Getpid())), 0o600)
 }
 
 func (d *Daemon) removePID() {

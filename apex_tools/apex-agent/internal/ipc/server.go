@@ -73,6 +73,8 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
 
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
+
 	var req Request
 	if err := ReadMessage(conn, &req); err != nil {
 		ml.Error("read request failed", "err", err)
@@ -88,17 +90,23 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	result, err := s.router.Dispatch(ctx, req.Module, req.Action, req.Params, req.Workspace)
 	if err != nil {
 		ml.Debug("request error", "module", req.Module, "action", req.Action, "err", err)
-		WriteMessage(conn, &Response{OK: false, Error: err.Error()})
+		if wErr := WriteMessage(conn, &Response{OK: false, Error: err.Error()}); wErr != nil {
+			ml.Error("write error response failed", "err", wErr)
+		}
 		return
 	}
 
 	data, err := json.Marshal(result)
 	if err != nil {
 		ml.Error("marshal result failed", "err", err)
-		WriteMessage(conn, &Response{OK: false, Error: fmt.Sprintf("marshal: %v", err)})
+		if wErr := WriteMessage(conn, &Response{OK: false, Error: fmt.Sprintf("marshal: %v", err)}); wErr != nil {
+			ml.Error("write marshal-error response failed", "err", wErr)
+		}
 		return
 	}
 
 	ml.Debug("response sent", "module", req.Module, "action", req.Action, "ok", true)
-	WriteMessage(conn, &Response{OK: true, Data: data})
+	if wErr := WriteMessage(conn, &Response{OK: true, Data: data}); wErr != nil {
+		ml.Error("write response failed", "module", req.Module, "action", req.Action, "err", wErr)
+	}
 }

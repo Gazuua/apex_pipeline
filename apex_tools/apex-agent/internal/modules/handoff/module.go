@@ -111,6 +111,17 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		_, err := s.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
 		return err
 	})
+	mig.Register("handoff", 4, func(s *store.Store) error {
+		// status를 UPPER_SNAKE_CASE로 정규화
+		_, err := s.Exec(`UPDATE branches SET status = CASE status
+			WHEN 'started' THEN 'STARTED'
+			WHEN 'design-notified' THEN 'DESIGN_NOTIFIED'
+			WHEN 'implementing' THEN 'IMPLEMENTING'
+			WHEN 'merge-notified' THEN 'MERGE_NOTIFIED'
+			ELSE UPPER(REPLACE(status, '-', '_'))
+		END`)
+		return err
+	})
 }
 
 // RegisterRoutes registers handoff action handlers.

@@ -6,10 +6,10 @@ import "fmt"
 
 // Valid statuses
 const (
-	StatusStarted        = "started"
-	StatusDesignNotified = "design-notified"
-	StatusImplementing   = "implementing"
-	StatusMergeNotified  = "merge-notified"
+	StatusStarted        = "STARTED"
+	StatusDesignNotified = "DESIGN_NOTIFIED"
+	StatusImplementing   = "IMPLEMENTING"
+	StatusMergeNotified  = "MERGE_NOTIFIED"
 )
 
 // Valid notification types

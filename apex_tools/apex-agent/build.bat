@@ -8,7 +8,7 @@ cd /d "%~dp0"
 for /f "delims=" %%v in ('git describe --tags --always --dirty 2^>nul') do set VERSION=%%v
 if "%VERSION%"=="" set VERSION=dev
 
-set GOFLAGS=-trimpath -ldflags="-s -w -X main.Version=%VERSION%"
+set GOFLAGS=-trimpath -ldflags="-s -w -X github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version.Version=%VERSION%"
 set INSTALL_DIR=%LOCALAPPDATA%\apex-agent
 
 if "%1"=="test" (

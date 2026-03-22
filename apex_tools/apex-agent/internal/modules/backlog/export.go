@@ -3,44 +3,55 @@
 package backlog
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 // SafeExport runs Import first (MD → DB) to ensure DB is a superset of the
 // current MD, then exports. This prevents data loss if the local DB was
 // deleted or corrupted — Import restores from MD before Export overwrites it.
+// Import + Export are wrapped in a single transaction for atomicity.
 //
 // Returns (content, importCount, error).
 func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error) {
-	imported := 0
+	var content string
+	var imported int
 
-	// 1) Import current MD into DB (idempotent — existing items keep their status).
-	if backlogMD != "" {
-		items, err := ParseBacklogMD(backlogMD)
-		if err != nil {
-			return "", 0, fmt.Errorf("parse BACKLOG.md: %w", err)
-		}
-		n, err := mgr.ImportItems(items)
-		if err != nil {
-			return "", 0, fmt.Errorf("import BACKLOG.md: %w", err)
-		}
-		imported += n
-	}
-	if historyMD != "" {
-		items, err := ParseBacklogHistoryMD(historyMD)
-		if err != nil {
-			return "", 0, fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
-		}
-		n, err := mgr.ImportItems(items)
-		if err != nil {
-			return "", 0, fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
-		}
-		imported += n
-	}
+	err := mgr.store.RunInTx(context.Background(), func(txs *store.Store) error {
+		txMgr := &Manager{store: txs}
 
-	// 2) Export from DB.
-	content, err := mgr.Export()
+		// 1) Import current MD into DB (idempotent — existing items keep their status).
+		if backlogMD != "" {
+			items, err := ParseBacklogMD(backlogMD)
+			if err != nil {
+				return fmt.Errorf("parse BACKLOG.md: %w", err)
+			}
+			n, err := txMgr.ImportItems(items)
+			if err != nil {
+				return fmt.Errorf("import BACKLOG.md: %w", err)
+			}
+			imported += n
+		}
+		if historyMD != "" {
+			items, err := ParseBacklogHistoryMD(historyMD)
+			if err != nil {
+				return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
+			}
+			n, err := txMgr.ImportItems(items)
+			if err != nil {
+				return fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
+			}
+			imported += n
+		}
+
+		// 2) Export from DB.
+		var exportErr error
+		content, exportErr = txMgr.Export()
+		return exportErr
+	})
 	if err != nil {
 		return "", imported, err
 	}

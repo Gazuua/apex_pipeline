@@ -13,7 +13,7 @@ import (
 
 func listenPlatform(addr string) (net.Listener, error) {
 	return winio.ListenPipe(addr, &winio.PipeConfig{
-		SecurityDescriptor: "",
+		SecurityDescriptor: "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;IU)",
 		MessageMode:        false,
 		InputBufferSize:    64 * 1024,
 		OutputBufferSize:   64 * 1024,
