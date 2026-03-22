@@ -169,21 +169,24 @@ TEST(MetadataPrefix, SourceIds)
 
 TEST(ReplyTopicHeader, SerializeEmpty)
 {
-    auto bytes = ReplyTopicHeader::serialize("");
-    EXPECT_TRUE(bytes.empty());
+    auto result = ReplyTopicHeader::serialize("");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
 }
 
 TEST(ReplyTopicHeader, SerializeAndParse)
 {
     std::string topic = "auth.responses";
-    auto bytes = ReplyTopicHeader::serialize(topic);
+    auto result = ReplyTopicHeader::serialize(topic);
+    ASSERT_TRUE(result.has_value());
+    auto& bytes = *result;
     ASSERT_FALSE(bytes.empty());
     EXPECT_EQ(bytes.size(), sizeof(uint16_t) + topic.size());
 
-    auto result = ReplyTopicHeader::parse(bytes);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->first, topic);
-    EXPECT_EQ(result->second, bytes.size());
+    auto parse_result = ReplyTopicHeader::parse(bytes);
+    ASSERT_TRUE(parse_result.has_value());
+    EXPECT_EQ(parse_result->first, topic);
+    EXPECT_EQ(parse_result->second, bytes.size());
 }
 
 TEST(ReplyTopicHeader, ParseInsufficientData_TooShort)
@@ -207,22 +210,22 @@ TEST(ReplyTopicHeader, ParseInsufficientData_TopicTruncated)
     EXPECT_EQ(result.error(), EnvelopeError::InsufficientData);
 }
 
-TEST(ReplyTopicHeader, SerializeOverflowReturnsEmpty)
+TEST(ReplyTopicHeader, SerializeOverflowReturnsError)
 {
-    // uint16_t max = 65535. 그보다 큰 topic은 빈 벡터 반환해야 함
-    // 실제로 65536바이트 문자열을 만들어서 테스트
     std::string oversized_topic(65536, 'A');
-    auto bytes = ReplyTopicHeader::serialize(oversized_topic);
-    EXPECT_TRUE(bytes.empty());
+    auto result = ReplyTopicHeader::serialize(oversized_topic);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), EnvelopeError::TopicTooLong);
 }
 
 TEST(ReplyTopicHeader, SerializeMaxValidLength)
 {
     // uint16_t max = 65535 — 이 길이는 유효해야 함
     std::string max_topic(65535, 'B');
-    auto bytes = ReplyTopicHeader::serialize(max_topic);
-    ASSERT_FALSE(bytes.empty());
-    EXPECT_EQ(bytes.size(), sizeof(uint16_t) + 65535);
+    auto result = ReplyTopicHeader::serialize(max_topic);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result->empty());
+    EXPECT_EQ(result->size(), sizeof(uint16_t) + 65535);
 }
 
 // === extract_reply_topic Tests ===

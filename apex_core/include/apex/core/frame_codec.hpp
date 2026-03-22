@@ -32,6 +32,7 @@ enum class FrameError : uint8_t
     InsufficientData,
     HeaderParseError,
     BodyTooLarge,
+    UnsupportedProtocolVersion,
 };
 
 /// Stateless frame codec. Extracts complete frames from a RingBuffer.

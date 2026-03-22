@@ -29,14 +29,15 @@ std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
     if (!parse_result)
     {
         auto err = parse_result.error();
-        if (err == ParseError::BodyTooLarge)
+        switch (err)
         {
-            return std::unexpected(FrameError::BodyTooLarge);
+            case ParseError::BodyTooLarge:
+                return std::unexpected(FrameError::BodyTooLarge);
+            case ParseError::UnsupportedVersion:
+                return std::unexpected(FrameError::UnsupportedProtocolVersion);
+            default:
+                return std::unexpected(FrameError::HeaderParseError);
         }
-        // I-19: ParseError::UnsupportedVersion is mapped to FrameError::HeaderParseError.
-        // TODO: Add FrameError::UnsupportedProtocolVersion for finer-grained error handling
-        // once frame_codec.hpp is updated. ErrorCode::UnsupportedProtocolVersion is available.
-        return std::unexpected(FrameError::HeaderParseError);
     }
 
     auto header = *parse_result;

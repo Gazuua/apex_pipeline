@@ -118,6 +118,13 @@ if(WIN32)
     target_link_libraries(apex_core PUBLIC ws2_32 mswsock)
 endif()
 
+# Output directory for examples/benchmarks: bin/{variant}/
+if(APEX_BUILD_VARIANT)
+    set(APEX_CORE_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/bin/${APEX_BUILD_VARIANT}")
+else()
+    set(APEX_CORE_BIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/bin/release")
+endif()
+
 add_subdirectory(tests)
 add_subdirectory(examples)
 add_subdirectory(benchmarks)

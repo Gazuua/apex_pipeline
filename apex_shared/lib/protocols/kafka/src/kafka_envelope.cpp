@@ -182,16 +182,16 @@ std::array<uint8_t, MetadataPrefix::SIZE> MetadataPrefix::serialize() const
 
 // --- ReplyTopicHeader ---
 
-std::vector<uint8_t> ReplyTopicHeader::serialize(std::string_view reply_topic)
+std::expected<std::vector<uint8_t>, EnvelopeError> ReplyTopicHeader::serialize(std::string_view reply_topic)
 {
     if (reply_topic.empty())
     {
-        return {};
+        return std::vector<uint8_t>{};
     }
 
     if (reply_topic.size() > std::numeric_limits<uint16_t>::max())
     {
-        return {}; // Topic too long for uint16_t length field
+        return std::unexpected(EnvelopeError::TopicTooLong);
     }
 
     auto len = static_cast<uint16_t>(reply_topic.size());
@@ -242,9 +242,20 @@ std::vector<uint8_t> build_full_envelope(const RoutingHeader& routing, const Met
         rh.flags &= ~routing_flags::HAS_REPLY_TOPIC;
     }
 
+    auto reply_result = ReplyTopicHeader::serialize(reply_topic);
+    // TopicTooLong인 경우 reply_topic 섹션 생략 (HAS_REPLY_TOPIC 플래그 해제)
+    std::vector<uint8_t> reply_bytes;
+    if (reply_result.has_value())
+    {
+        reply_bytes = std::move(*reply_result);
+    }
+    else
+    {
+        rh.flags &= ~routing_flags::HAS_REPLY_TOPIC;
+    }
+
     auto routing_bytes = rh.serialize();
     auto metadata_bytes = metadata.serialize();
-    auto reply_bytes = ReplyTopicHeader::serialize(reply_topic);
 
     std::vector<uint8_t> buf;
     buf.reserve(routing_bytes.size() + metadata_bytes.size() + reply_bytes.size() + payload.size());

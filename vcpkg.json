@@ -10,7 +10,10 @@
       "version>=": "1.84.0"
     },
     "benchmark",
-    "boost-beast",
+    {
+      "name": "boost-beast",
+      "$comment": "v0.5.1+ WebSocket Beast 통합 예정 — 현재 미사용이지만 의도적 유지"
+    },
     "boost-unordered",
     "flatbuffers",
     "gtest",

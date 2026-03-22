@@ -5,6 +5,36 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #128. AuthService::on_login locked_until 시간 비교 누락
+- **등급**: MAJOR | **스코프**: auth-svc | **타입**: bug
+- **해결**: 2026-03-22 11:00:06 | **방식**: FIXED | **커밋**: 0c088c9
+- **비고**: C++ 측 시간 비교 추가 (locked_str > 현재 UTC 문자열). PR #96에서 해결. FSD 소탕에서 히스토리 이전
+
+### #129. RedisMultiplexer reconnect_loop this 캡처 생존 보장 불완전
+- **등급**: MAJOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-22 11:00:06 | **방식**: FIXED
+- **비고**: member backoff_timer_ 추가, 소멸자에서 reconnecting_=false + timer cancel. TcpAcceptor 패턴 적용
+
+### #26. ReplyTopicHeader::serialize() silent failure
+- **등급**: MINOR | **스코프**: shared | **타입**: design-debt
+- **해결**: 2026-03-22 11:00:06 | **방식**: FIXED
+- **비고**: 반환 타입을 std::expected<vector, EnvelopeError>로 변경. TopicTooLong 에러 추가. 호출처+테스트 갱신
+
+### #27. FrameError→ErrorCode 매핑 구분 불가
+- **등급**: MINOR | **스코프**: core | **타입**: design-debt
+- **해결**: 2026-03-22 11:00:06 | **방식**: FIXED
+- **비고**: FrameError::UnsupportedProtocolVersion 추가, BodyTooLarge→BufferFull 분리, frame_codec.cpp TODO 해소
+
+### #38. boost-beast 미사용 의존성
+- **등급**: MINOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-22 11:00:06 | **방식**: DOCUMENTED
+- **비고**: v0.5.1+ Beast 통합 예정으로 의도적 유지. vcpkg.json에 주석 추가로 의도 명시
+
+### #39. CMakeLists.txt 하드코딩 상대 경로
+- **등급**: MINOR | **스코프**: infra | **타입**: infra
+- **해결**: 2026-03-22 11:00:06 | **방식**: FIXED
+- **비고**: apex_core/CMakeLists.txt에 APEX_CORE_BIN_DIR 변수 정의, examples/benchmarks에서 참조로 통일
+
 ### #63. docs/CLAUDE.md 백로그 운영 규칙 중복 정리
 - **등급**: MINOR | **스코프**: docs | **타입**: docs
 - **해결**: 2026-03-22 00:56:28 | **방식**: FIXED
