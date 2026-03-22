@@ -14,12 +14,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-build.sh",
+            "command": "./apex_tools/apex-agent/apex-agent hook validate-build",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-merge.sh",
+            "command": "./apex_tools/apex-agent/apex-agent hook validate-merge",
             "timeout": 5
           },
           {
