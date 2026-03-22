@@ -9,7 +9,7 @@
 #include <apex/core/wire_context.hpp>
 #include <apex/gateway/channel_session_map.hpp>
 #include <apex/gateway/gateway_config.hpp>
-#include <apex/gateway/gateway_pipeline.hpp>
+#include <apex/gateway/gateway_pipeline_production.hpp>
 #include <apex/gateway/message_router.hpp>
 #include <apex/gateway/pending_requests.hpp>
 

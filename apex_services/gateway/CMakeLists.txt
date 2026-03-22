@@ -186,6 +186,22 @@ if(BUILD_TESTING)
     apex_set_warnings(test_gateway_pipeline)
     add_test(NAME test_gateway_pipeline COMMAND test_gateway_pipeline)
 
+    # --- Gateway Pipeline Error tests (template policy + mock + coroutine) ---
+    add_executable(test_gateway_pipeline_errors
+        tests/test_gateway_pipeline_errors.cpp
+    )
+    target_include_directories(test_gateway_pipeline_errors PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test_gateway_pipeline_errors PRIVATE
+        apex_core
+        spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
+    if(WIN32)
+        target_compile_options(test_gateway_pipeline_errors PRIVATE /utf-8)
+        target_compile_definitions(test_gateway_pipeline_errors PRIVATE _WIN32_WINNT=0x0A00)
+    endif()
+    apex_set_warnings(test_gateway_pipeline_errors)
+    add_test(NAME test_gateway_pipeline_errors COMMAND test_gateway_pipeline_errors)
+
     # --- JWT Blacklist tests (JTI input validation) ---
     add_executable(test_gateway_jwt_blacklist
         tests/test_jwt_blacklist.cpp
@@ -231,6 +247,7 @@ if(BUILD_TESTING)
         test_gateway_channel_session_map
         test_gateway_message_router
         test_gateway_pipeline
+        test_gateway_pipeline_errors
         test_gateway_config_reloader
         PROPERTIES TIMEOUT 30
     )
