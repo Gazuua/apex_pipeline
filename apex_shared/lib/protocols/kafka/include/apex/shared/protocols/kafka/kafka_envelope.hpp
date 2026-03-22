@@ -23,6 +23,7 @@ enum class EnvelopeError : uint8_t
 {
     InsufficientData,
     UnsupportedVersion,
+    TopicTooLong,
 };
 
 struct RoutingHeader
@@ -148,7 +149,8 @@ constexpr uint16_t HAS_REPLY_TOPIC = 0x0800;
 struct ReplyTopicHeader
 {
     /// reply_topic이 비어있으면 빈 vector 반환 (직렬화하지 않음).
-    [[nodiscard]] static std::vector<uint8_t> serialize(std::string_view reply_topic);
+    /// reply_topic이 uint16_t max를 초과하면 EnvelopeError::TopicTooLong 반환.
+    [[nodiscard]] static std::expected<std::vector<uint8_t>, EnvelopeError> serialize(std::string_view reply_topic);
 
     /// data에서 reply_topic을 파싱. reply_topic_len(u16 BE) + topic bytes.
     /// @return {reply_topic, 소비한 바이트 수} 또는 에러

@@ -21,6 +21,7 @@ RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisC
     : io_ctx_(io_ctx)
     , config_(config)
     , slab_(64, {.auto_grow = true, .grow_chunk_size = {}, .max_total_count = config_.max_pending_commands})
+    , backoff_timer_(io_ctx)
 {}
 
 void RedisMultiplexer::connect()
@@ -60,6 +61,8 @@ void RedisMultiplexer::connect()
 
 RedisMultiplexer::~RedisMultiplexer()
 {
+    reconnecting_ = false;
+    backoff_timer_.cancel();
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 }
 
@@ -346,8 +349,10 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
             {
                 conn_.reset();
                 // backoff then retry
-                boost::asio::steady_timer timer(io_ctx_, backoff);
-                co_await timer.async_wait(boost::asio::use_awaitable);
+                backoff_timer_.expires_after(backoff);
+                co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+                if (!reconnecting_)
+                    co_return;
                 backoff = std::min(backoff * 2, max_backoff);
                 continue;
             }
@@ -359,8 +364,10 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
         }
 
         // Exponential backoff wait
-        boost::asio::steady_timer timer(io_ctx_, backoff);
-        co_await timer.async_wait(boost::asio::use_awaitable);
+        backoff_timer_.expires_after(backoff);
+        co_await backoff_timer_.async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+        if (!reconnecting_)
+            co_return;
         backoff = std::min(backoff * 2, max_backoff);
     }
 }
@@ -434,6 +441,7 @@ uint32_t RedisMultiplexer::reconnect_attempts() const noexcept
 boost::asio::awaitable<void> RedisMultiplexer::close()
 {
     reconnecting_ = false;
+    backoff_timer_.cancel();
     cancel_all_pending(apex::core::ErrorCode::AdapterError);
 
     if (conn_)

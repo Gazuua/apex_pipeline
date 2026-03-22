@@ -32,7 +32,9 @@ struct TcpBinaryProtocol
             case apex::core::FrameError::HeaderParseError:
                 return std::unexpected(apex::core::ErrorCode::InvalidMessage);
             case apex::core::FrameError::BodyTooLarge:
-                return std::unexpected(apex::core::ErrorCode::InvalidMessage);
+                return std::unexpected(apex::core::ErrorCode::BufferFull);
+            case apex::core::FrameError::UnsupportedProtocolVersion:
+                return std::unexpected(apex::core::ErrorCode::UnsupportedProtocolVersion);
         }
         return std::unexpected(apex::core::ErrorCode::Unknown);
     }

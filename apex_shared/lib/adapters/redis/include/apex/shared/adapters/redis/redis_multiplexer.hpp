@@ -151,6 +151,7 @@ class RedisMultiplexer
     std::unique_ptr<RedisConnection> conn_;
     uint64_t next_sequence_{0};
     bool reconnecting_{false};
+    boost::asio::steady_timer backoff_timer_;
     uint32_t reconnect_attempts_{0};
 };
 

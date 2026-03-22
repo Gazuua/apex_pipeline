@@ -1,11 +1,7 @@
 # Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
-# Output directory: bin/{variant}/ (debug, release, asan, tsan)
-if(APEX_BUILD_VARIANT)
-    set(_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/${APEX_BUILD_VARIANT}")
-else()
-    set(_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/release")
-endif()
+# Output directory: APEX_CORE_BIN_DIR (상위 CMakeLists.txt에서 정의)
+set(_bin_dir "${APEX_CORE_BIN_DIR}")
 
 # Helper function — add example + copy runtime DLLs
 function(apex_add_example EXAMPLE_NAME EXAMPLE_SOURCE)

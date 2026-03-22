@@ -14,12 +14,8 @@ apex_set_warnings(apex_bench_main)
 target_include_directories(apex_bench_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(apex_bench_main PRIVATE benchmark::benchmark)
 
-# Output directory: bin/{variant}/ (debug, release, asan, tsan)
-if(APEX_BUILD_VARIANT)
-    set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/${APEX_BUILD_VARIANT}")
-else()
-    set(_bench_bin_dir "${CMAKE_CURRENT_SOURCE_DIR}/../bin/release")
-endif()
+# Output directory: APEX_CORE_BIN_DIR (상위 CMakeLists.txt에서 정의)
+set(_bench_bin_dir "${APEX_CORE_BIN_DIR}")
 
 # Helper function — each benchmark is an independent executable
 function(apex_add_benchmark BENCH_NAME BENCH_SOURCE)
