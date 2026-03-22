@@ -5,6 +5,16 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #102. GatewayPipeline 에러 흐름 단위 테스트
+- **등급**: MAJOR | **스코프**: gateway | **타입**: test
+- **해결**: 2026-03-22 15:09:59 | **방식**: FIXED | **커밋**: 107469e
+- **비고**: GatewayPipeline template policy 리팩토링 + mock 기반 에러 경로 테스트 16건. PR #104
+
+### #127. blacklist_fail_open fail-open/fail-close 분기 단위 테스트
+- **등급**: MAJOR | **스코프**: gateway | **타입**: test
+- **해결**: 2026-03-22 15:09:59 | **방식**: FIXED | **커밋**: 107469e
+- **비고**: #102와 동일 PR. blacklist fail-open/fail-close/non-sensitive skip/null blacklist 4건 포함. PR #104
+
 ### #134. AdapterState가 AdapterInterface에 미노출
 - **등급**: MAJOR | **스코프**: core, shared | **타입**: design-debt
 - **해결**: 2026-03-22 14:03:03 | **방식**: FIXED | **커밋**: a89764b
