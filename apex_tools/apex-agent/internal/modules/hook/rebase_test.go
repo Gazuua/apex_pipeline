@@ -14,10 +14,10 @@ func TestIsGitPush(t *testing.T) {
 		{"git push --force-with-lease", true},
 		{"git status", false},
 		{"gh pr create", false},
-		// False positive cases — strings.Contains-based matching
-		{"echo git push log", true},   // contains "git" and "push"
-		{"git pusher utility", true},   // partial word match
-		{"push git changes log", true}, // reversed order still matches
+		// Regex word boundary prevents false positives
+		{"echo git push log", true},    // "git" + "push" as whole words → still matches (intended: echo wraps a real push)
+		{"git pusher utility", false},  // "pusher" is not "push" (word boundary)
+		{"push git changes log", false}, // "push" before "git" — regex requires git.*push order
 	}
 	for _, tt := range tests {
 		if got := isGitPush(tt.cmd); got != tt.want {
@@ -34,11 +34,11 @@ func TestIsGHPRCreate(t *testing.T) {
 		{"gh pr create --title test", true},
 		{"gh pr merge", false},
 		{"git push", false},
-		// False positive cases — strings.Contains-based matching
-		{"echo gh pr create log", true},        // contains all three tokens
-		{"gh pr create-review --flag", true},    // partial word match
-		{"create a gh pr description", true},    // reversed order still matches
-		{"gh issue create --label pr", true},    // "gh", "pr", "create" scattered
+		// Regex word boundary prevents false positives
+		{"echo gh pr create log", true},        // "gh pr create" as whole words → still matches
+		{"gh pr create-review --flag", true},    // "create" is followed by "-" but word boundary matches before "-"
+		{"create a gh pr description", false},   // wrong order: "create" before "gh pr"
+		{"gh issue create --label pr", false},   // "pr" is not after "create" — regex requires gh.*pr.*create order
 	}
 	for _, tt := range tests {
 		if got := isGHPRCreate(tt.cmd); got != tt.want {

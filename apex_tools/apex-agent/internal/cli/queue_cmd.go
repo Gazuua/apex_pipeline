@@ -127,6 +127,27 @@ func queueReleaseCmd() *cobra.Command {
 	}
 }
 
+// printQueueStatus formats and prints the status of a queue channel.
+func printQueueStatus(channel string, result map[string]any) {
+	active := result["active"]
+	waitingRaw, _ := result["waiting"].([]any)
+	depth := len(waitingRaw)
+
+	if active == nil || active == false {
+		fmt.Printf("[queue-lock] channel=%s LOCK=FREE queue_depth=%d\n", channel, depth)
+	} else {
+		activeBranch := ""
+		if activeMap, ok := active.(map[string]any); ok {
+			activeBranch, _ = activeMap["branch"].(string)
+		}
+		if activeBranch != "" {
+			fmt.Printf("[queue-lock] channel=%s LOCK=HELD by %s queue_depth=%d\n", channel, activeBranch, depth)
+		} else {
+			fmt.Printf("[queue-lock] channel=%s LOCK=HELD queue_depth=%d\n", channel, depth)
+		}
+	}
+}
+
 // ── queue status ──
 
 func queueStatusCmd() *cobra.Command {
@@ -136,32 +157,11 @@ func queueStatusCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			channel := args[0]
-			params := map[string]any{
-				"channel": channel,
-			}
-			result, err := sendQueueRequestMap("status", params)
+			result, err := sendQueueRequestMap("status", map[string]any{"channel": channel})
 			if err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
-
-			active := result["active"]
-			waitingRaw, _ := result["waiting"].([]any)
-			depth := len(waitingRaw)
-
-			if active == nil || active == false {
-				fmt.Printf("[queue-lock] channel=%s LOCK=FREE queue_depth=%d\n", channel, depth)
-			} else {
-				// Extract branch from active entry if present.
-				activeBranch := ""
-				if activeMap, ok := active.(map[string]any); ok {
-					activeBranch, _ = activeMap["branch"].(string)
-				}
-				if activeBranch != "" {
-					fmt.Printf("[queue-lock] channel=%s LOCK=HELD by %s queue_depth=%d\n", channel, activeBranch, depth)
-				} else {
-					fmt.Printf("[queue-lock] channel=%s LOCK=HELD queue_depth=%d\n", channel, depth)
-				}
-			}
+			printQueueStatus(channel, result)
 			return nil
 		},
 	}
@@ -321,29 +321,11 @@ func queueMergeCmd() *cobra.Command {
 				}
 				fmt.Printf("[queue-lock] lock released: merge\n")
 			case "status":
-				params := map[string]any{
-					"channel": "merge",
-				}
-				result, err := sendQueueRequestMap("status", params)
+				result, err := sendQueueRequestMap("status", map[string]any{"channel": "merge"})
 				if err != nil {
 					return fmt.Errorf("daemon unavailable: %w", err)
 				}
-				active := result["active"]
-				waitingRaw, _ := result["waiting"].([]any)
-				depth := len(waitingRaw)
-				if active == nil || active == false {
-					fmt.Printf("[queue-lock] channel=merge LOCK=FREE queue_depth=%d\n", depth)
-				} else {
-					activeBranch := ""
-					if activeMap, ok := active.(map[string]any); ok {
-						activeBranch, _ = activeMap["branch"].(string)
-					}
-					if activeBranch != "" {
-						fmt.Printf("[queue-lock] channel=merge LOCK=HELD by %s queue_depth=%d\n", activeBranch, depth)
-					} else {
-						fmt.Printf("[queue-lock] channel=merge LOCK=HELD queue_depth=%d\n", depth)
-					}
-				}
+				printQueueStatus("merge", result)
 			default:
 				return fmt.Errorf("unknown merge operation %q: expected acquire, release, or status", op)
 			}

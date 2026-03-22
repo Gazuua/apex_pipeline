@@ -67,6 +67,16 @@ func hookValidateMergeCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
 				os.Exit(2)
 			}
+			// Verify lock holder matches current workspace
+			if activeEntry, ok := result["active"].(map[string]any); ok {
+				if holder, _ := activeEntry["branch"].(string); holder != "" {
+					myBranch := getBranchID()
+					if holder != myBranch {
+						fmt.Fprintf(os.Stderr, "차단: merge lock 소유자가 %s입니다 (현재: %s)\n", holder, myBranch)
+						os.Exit(2)
+					}
+				}
+			}
 			return nil
 		},
 	}

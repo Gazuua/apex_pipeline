@@ -5,6 +5,7 @@ package hook
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -54,12 +55,15 @@ func EnforceRebase(command, projectRoot string) (string, error) {
 	return fmt.Sprintf("[enforce-rebase] origin/main 기준 rebase 완료 (%d개 커밋 반영)", behind), nil
 }
 
+var gitPushPattern = regexp.MustCompile(`\bgit\b.*\bpush\b`)
+var ghPRCreatePattern = regexp.MustCompile(`\bgh\b.*\bpr\b.*\bcreate\b`)
+
 func isGitPush(cmd string) bool {
-	return strings.Contains(cmd, "git") && strings.Contains(cmd, "push")
+	return gitPushPattern.MatchString(cmd)
 }
 
 func isGHPRCreate(cmd string) bool {
-	return strings.Contains(cmd, "gh") && strings.Contains(cmd, "pr") && strings.Contains(cmd, "create")
+	return ghPRCreatePattern.MatchString(cmd)
 }
 
 func gitCurrentBranch(projectRoot string) (string, error) {
