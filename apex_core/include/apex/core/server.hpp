@@ -70,9 +70,16 @@ struct AdapterKeyHash
 /// SessionManager and allocators. MessageDispatcher and ConnectionHandler
 /// are owned by Listener<P> (per-protocol).
 ///
-/// Members are destroyed in reverse declaration order:
-///   allocators → services → scheduler → registry → session_mgr
+/// Members are destroyed in reverse declaration order (last declared = first destroyed):
+///   arena_allocator → bump_allocator → services → scheduler → registry →
+///   fallback_dispatcher → session_mgr
+///
+/// allocator가 services보다 먼저 소멸되지만, 서비스 소멸자에서 allocator에 접근하지
+/// 않으므로 안전하다 (bump/arena는 요청 범위 임시 데이터 전용).
 /// services가 scheduler/registry보다 먼저 소멸되어 안전한 정리 보장.
+/// session_mgr가 가장 마지막에 소멸 — 코루틴 프레임의 SessionPtr이 해제될 때
+/// session_pool_ 메모리가 유효해야 하므로 Server::~Server()에서 core_engine을
+/// per_core보다 먼저 명시적으로 파괴한다.
 struct PerCoreState
 {
     uint32_t core_id;

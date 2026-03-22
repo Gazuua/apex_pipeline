@@ -411,6 +411,9 @@ void Server::finalize_shutdown()
     }
 
     // 4.5 [D7] Outstanding 코루틴 drain 대기 (drain_timeout 설정 사용)
+    // 서비스 코루틴(spawn())과 인프라 코루틴(spawn_tracked()) 모두 대기.
+    // 인프라 코루틴(KafkaDispatchBridge 등)이 adapter 리소스를 참조하므로
+    // adapter close(step 6) 전에 완료되어야 한다.
     {
         auto coro_deadline = std::chrono::steady_clock::now() + config_.drain_timeout;
         while (std::chrono::steady_clock::now() < coro_deadline)
@@ -423,6 +426,7 @@ void Server::finalize_shutdown()
                     total += svc->outstanding_coroutines();
                 }
             }
+            total += core_engine_->outstanding_infra_coroutines();
             if (total == 0)
                 break;
             std::this_thread::sleep_for(std::chrono::milliseconds{10});

@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 128
+다음 발번: 132
 
 ---
 
@@ -20,6 +20,30 @@
 ---
 
 ## IN VIEW
+
+### #128. AuthService::on_login locked_until 시간 비교 누락
+- **등급**: MAJOR
+- **스코프**: auth-svc
+- **타입**: bug
+- **설명**: `locked_until` 컬럼이 NULL이 아니면 무조건 잠금으로 판단하여, 과거 시각이어도 영구 잠금 처리됨. SQL 쿼리에서 `locked_until > NOW()` 조건 추가 또는 C++ 측 시간 비교 필요. DB 마이그레이션 영향도 확인 선행.
+
+### #129. RedisMultiplexer reconnect_loop this 캡처 생존 보장 불완전
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: `reconnect_loop()` 코루틴이 `this`를 암묵적 캡처하여 `co_spawn(detached)`로 스폰됨. `~RedisMultiplexer()`가 reconnect_loop 완료를 대기하지 않음. 현재 shutdown 순서에 의해 안전하지만, cancellation token 전달로 방어적 보장 필요.
+
+### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **설명**: function-local static `ssl::context`가 멀티코어에서 `SSL_CTX` concurrent access 위험. 프로덕션 경로는 `make_socket_with_context()` 사용으로 회피하고 있으나, Transport concept의 `make_socket(io_context&)` 시그니처가 per-core context를 전달할 수 없는 구조적 한계. concept 확장 선행 필요.
+
+### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
+- **등급**: MAJOR
+- **스코프**: infra
+- **타입**: security
+- **설명**: Kafka 리스너가 `PLAINTEXT://` 프로토콜만 사용. 개발 환경에서는 적절하지만 프로덕션 배포 시 `SSL` 또는 `SASL_SSL` 필요. KafkaAdapter에 `security.protocol` 설정 메커니즘 추가 필요.
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR
