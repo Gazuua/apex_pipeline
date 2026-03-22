@@ -30,6 +30,7 @@ func Execute() {
 	root.AddCommand(cleanupCmd())
 	root.AddCommand(contextCmd())
 	root.AddCommand(pluginCmd())
+	root.AddCommand(configCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

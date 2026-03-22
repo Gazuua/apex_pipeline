@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
@@ -45,13 +46,24 @@ func daemonRunCmd() *cobra.Command {
 			if err := platform.EnsureDataDir(); err != nil {
 				return err
 			}
-			cfg := daemon.Config{
-				DBPath:      platform.DBPath(),
-				PIDFilePath: platform.PIDFilePath(),
-				SocketAddr:  platform.SocketPath(),
-				IdleTimeout: 30 * time.Minute,
+			appCfg, err := config.Load(config.DefaultPath())
+			if err != nil {
+				return err
 			}
-			d, err := daemon.New(cfg)
+			daemonCfg := daemon.Config{
+				DBPath:      appCfg.Store.DBPath,
+				PIDFilePath: platform.PIDFilePath(),
+				SocketAddr:  appCfg.Daemon.SocketPath,
+				IdleTimeout: appCfg.Daemon.IdleTimeout,
+			}
+			// Fill empty values with platform defaults
+			if daemonCfg.DBPath == "" {
+				daemonCfg.DBPath = platform.DBPath()
+			}
+			if daemonCfg.SocketAddr == "" {
+				daemonCfg.SocketAddr = platform.SocketPath()
+			}
+			d, err := daemon.New(daemonCfg)
 			if err != nil {
 				return err
 			}
