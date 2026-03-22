@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #61. 로그 보존 정책 TOML 파라미터화
+- **등급**: MINOR | **스코프**: core | **타입**: infra
+- **해결**: 2026-03-22 16:20:49 | **방식**: WONTFIX
+- **비고**: 로그 영구 보존은 의도적 설계. logging.cpp, config.cpp에 주석 명시. retention 자동화 불필요.
+
 ### #102. GatewayPipeline 에러 흐름 단위 테스트
 - **등급**: MAJOR | **스코프**: gateway | **타입**: test
 - **해결**: 2026-03-22 15:09:59 | **방식**: FIXED | **커밋**: 107469e

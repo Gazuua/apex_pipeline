@@ -211,6 +211,7 @@ void init_logging(const LogConfig& config)
         for (size_t i = 0; i < levels.size(); ++i)
         {
             auto pattern = (log_dir / (std::string("%Y%m%d_") + level_names[i] + ".log")).string();
+            // max_files = 0 (무제한) — 의도적 영구 보존. 로그 보존 정책 자동화 불필요 (WONTFIX)
             auto daily = std::make_shared<spdlog::sinks::daily_file_format_sink_mt>(pattern, 0, 0, false, 0);
             if (config.file.json)
             {
