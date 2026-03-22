@@ -21,32 +21,6 @@
 
 ## IN VIEW
 
-### #131. Kafka 통신 PLAINTEXT — 프로덕션 배포 시 SSL/SASL 필요
-- **등급**: MAJOR
-- **스코프**: infra
-- **타입**: security
-- **설명**: Kafka 리스너가 `PLAINTEXT://` 프로토콜만 사용. 개발 환경에서는 적절하지만 프로덕션 배포 시 `SSL` 또는 `SASL_SSL` 필요. KafkaAdapter에 `security.protocol` 설정 메커니즘 추가 필요. **[FSD 설계 확정 2026-03-22]** B+C 하이브리드 채택: `KafkaSecurityConfig` typed struct(protocol, ssl_ca_location, ssl_cert/key_location, sasl_mechanism, sasl_username/password) + `extra_properties` map(librdkafka passthrough). 업계 표준(Spring Kafka 등) 준용. typed 필드로 IDE 자동완성 + 컴파일 타임 검증 확보, extra_properties로 librdkafka 200+ 설정 커버.
-
-### #130. TlsTcpTransport::make_socket() static SSL context 멀티코어 unsafe
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **설명**: function-local static `ssl::context`가 멀티코어에서 `SSL_CTX` concurrent access 위험. 프로덕션 경로는 `make_socket_with_context()` 사용으로 회피하고 있으나, Transport concept의 `make_socket(io_context&)` 시그니처가 per-core context를 전달할 수 없는 구조적 한계. **[FSD 설계 확정 2026-03-22]** D안 채택 — TransportContext 번들 도입: `struct TransportContext { ssl::context* ssl_ctx = nullptr; /* 향후 metrics*, buffer_pool* 등 확장 */ }`. concept 시그니처를 `make_socket(io_context&, const TransportContext&)`로 1회 변경. 이후 per-core 상태 확장은 struct 필드 추가로 해결. make_socket_with_context() 제거.
-
-### #24. 어댑터 상태 관리 불일치
-- **등급**: MAJOR
-- **스코프**: shared
-- **타입**: design-debt
-- **연관**: #29, #132
-- **설명**: KafkaAdapter 자체 `AdapterState` enum vs 나머지 `AdapterBase::ready_` bool. 상태 표현이 불일치. **[FSD 설계 확정 2026-03-22]** A안 채택: AdapterBase에 3-state enum `AdapterState { RUNNING, DRAINING, CLOSED }` 도입, 전체 어댑터에 통일. KafkaAdapter의 독자 AdapterState 삭제, `is_ready()` → `state() == RUNNING`으로 전환. #29 drain/stop 분리, #132 async close와 번들 추천.
-
-### #29. drain()/stop() 동일 구현
-- **등급**: MAJOR
-- **스코프**: core
-- **타입**: design-debt
-- **연관**: #24, #132
-- **설명**: Listener와 AdapterBase의 `drain()`과 `stop()`이 완전히 동일한 구현. **[FSD 설계 확정 2026-03-22]** A안 채택 — 의미 분리: drain = accept/요청 수신 중단 + in-flight 완료 대기(state → DRAINING), stop = 즉시 종료(state → CLOSED). Listener와 AdapterBase 모두 적용. #24 3-state enum과 연동.
-
 ### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
 - **등급**: MAJOR
 - **스코프**: shared
