@@ -123,6 +123,55 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 > 상세 로드맵: `docs/Apex_Pipeline.md` §10
 
+## AI Agent-Driven Development
+
+<div align="center">
+<img src="docs/showcase/agent_ecosystem_arch.svg" alt="AI Agent-Driven Development Ecosystem Architecture" width="860"/>
+</div>
+
+<table>
+<tr><td>
+
+사람이 **"무엇을 만들 것인가"** 에만 집중할 수 있도록, 개발의 기계적 단계를 에이전트가 자율적으로 수행하는 생태계입니다.
+Go 데몬이 세션을 넘어 상태를 관리하고, Hook이 규칙을 물리적으로 강제하며, 7개 리뷰 에이전트가 병렬로 코드를 분석·수정합니다.
+
+</td></tr>
+</table>
+
+<table>
+<thead>
+<tr>
+<th>시스템</th>
+<th align="center">역할</th>
+<th align="center">핵심 지표</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><b>🟢 apex-agent</b></td>
+<td>Go 데몬 + SQLite — 브랜치 상태 머신, 백로그 추적, 빌드/머지 큐 락</td>
+<td align="center"><b>4,273+ LOC</b> · 4 모듈 · 3 상태 머신</td>
+</tr>
+<tr>
+<td><b>🔵 Auto-Review</b></td>
+<td>도메인 전문 리뷰어 병렬 디스패치 — 찾고, 고치고, 백로그에 등록</td>
+<td align="center"><b>7 병렬 에이전트</b> · Zero-approval Fix</td>
+</tr>
+<tr>
+<td><b>🟣 FSD-Backlog</b></td>
+<td>백로그 스캔→선별→구현→머지 완전 자율 (확신 없으면 멈춤)</td>
+<td align="center"><b>4-Phase</b> · Confidence-gated</td>
+</tr>
+<tr>
+<td><b>🟡 Hook Gates</b></td>
+<td>PreToolUse 레벨에서 빌드/머지/편집을 물리적 차단 — 우회 불가</td>
+<td align="center"><b>5 강제 게이트</b> · 수동 개입 0</td>
+</tr>
+</tbody>
+</table>
+
+> 🏗️ [**인터랙티브 아키텍처 쇼케이스**](https://gazuua.github.io/apex_pipeline/showcase/) — 전체 생태계 아키텍처, 플로우차트, 상태 머신, 라이프사이클 상세
+
 ## 빌드
 
 ### Prerequisites

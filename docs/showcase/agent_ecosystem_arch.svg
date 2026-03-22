@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="Segoe UI, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+    <linearGradient id="heroGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="50%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" rx="16" fill="url(#bg)"/>
+  <rect x="1" y="1" width="898" height="518" rx="15" fill="none" stroke="#334155" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="42" text-anchor="middle" font-size="18" font-weight="700" fill="url(#heroGrad)">AI Agent-Driven Development Ecosystem</text>
+  <text x="450" y="62" text-anchor="middle" font-size="11" fill="#64748B">에이전트가 설계하고, 리뷰하고, 수정하고, 머지한다</text>
+
+  <!-- Session Boundary -->
+  <rect x="30" y="80" width="840" height="410" rx="12" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="6,4"/>
+  <text x="50" y="98" font-size="10" fill="#475569" letter-spacing="1" text-transform="uppercase">CLAUDE CODE SESSION</text>
+
+  <!-- ═══ Hook Layer ═══ -->
+  <rect x="50" y="110" width="800" height="70" rx="10" fill="#1E293B" stroke="#334155"/>
+  <circle cx="70" cy="130" r="4" fill="#F59E0B"/>
+  <text x="80" y="134" font-size="12" font-weight="600" fill="#F59E0B">Hook 게이트 레이어</text>
+  <text x="255" y="134" font-size="10" fill="#64748B">— 모든 도구 호출 전 강제 검증 (PreToolUse)</text>
+
+  <!-- Hook boxes -->
+  <rect x="70" y="145" width="138" height="26" rx="6" fill="#0F172A" stroke="rgba(245,158,11,0.4)"/>
+  <text x="139" y="162" text-anchor="middle" font-size="9.5" font-weight="500" fill="#F59E0B">validate-build</text>
+
+  <rect x="218" y="145" width="138" height="26" rx="6" fill="#0F172A" stroke="rgba(245,158,11,0.4)"/>
+  <text x="287" y="162" text-anchor="middle" font-size="9.5" font-weight="500" fill="#F59E0B">validate-merge</text>
+
+  <rect x="366" y="145" width="138" height="26" rx="6" fill="#0F172A" stroke="rgba(245,158,11,0.4)"/>
+  <text x="435" y="162" text-anchor="middle" font-size="9.5" font-weight="500" fill="#F59E0B">validate-handoff</text>
+
+  <rect x="514" y="145" width="138" height="26" rx="6" fill="#0F172A" stroke="rgba(245,158,11,0.4)"/>
+  <text x="583" y="162" text-anchor="middle" font-size="9.5" font-weight="500" fill="#F59E0B">enforce-rebase</text>
+
+  <rect x="662" y="145" width="168" height="26" rx="6" fill="#0F172A" stroke="rgba(245,158,11,0.4)"/>
+  <text x="746" y="162" text-anchor="middle" font-size="9.5" font-weight="500" fill="#F59E0B">handoff-probe</text>
+
+  <!-- Connector: Hook → Daemon -->
+  <text x="450" y="200" text-anchor="middle" font-size="9" fill="#475569" letter-spacing="0.5">▼  IPC (JSON over Named Pipe / Unix Socket)  ▼</text>
+
+  <!-- ═══ Daemon Layer ═══ -->
+  <rect x="50" y="210" width="800" height="100" rx="10" fill="#1E293B" stroke="rgba(52,211,153,0.25)"/>
+  <circle cx="70" cy="232" r="4" fill="#34D399"/>
+  <text x="80" y="236" font-size="12" font-weight="600" fill="#34D399">apex-agent 데몬</text>
+  <text x="230" y="236" font-size="10" fill="#64748B">— Go 4,273+ LOC · SQLite 영속 상태</text>
+
+  <!-- Module boxes -->
+  <rect x="70" y="248" width="185" height="50" rx="8" fill="#0F172A" stroke="rgba(52,211,153,0.35)"/>
+  <text x="162" y="268" text-anchor="middle" font-size="10.5" font-weight="600" fill="#34D399">Backlog Module</text>
+  <text x="162" y="284" text-anchor="middle" font-size="8.5" fill="#64748B">MD ⇄ DB 동기화 · 1,928 LOC</text>
+
+  <rect x="268" y="248" width="185" height="50" rx="8" fill="#0F172A" stroke="rgba(52,211,153,0.35)"/>
+  <text x="360" y="268" text-anchor="middle" font-size="10.5" font-weight="600" fill="#34D399">Handoff Module</text>
+  <text x="360" y="284" text-anchor="middle" font-size="8.5" fill="#64748B">브랜치 상태 머신 · 1,131 LOC</text>
+
+  <rect x="466" y="248" width="185" height="50" rx="8" fill="#0F172A" stroke="rgba(52,211,153,0.35)"/>
+  <text x="558" y="268" text-anchor="middle" font-size="10.5" font-weight="600" fill="#34D399">Queue Module</text>
+  <text x="558" y="284" text-anchor="middle" font-size="8.5" fill="#64748B">빌드/머지 FIFO 락 · 393 LOC</text>
+
+  <rect x="664" y="248" width="168" height="50" rx="8" fill="#0F172A" stroke="rgba(52,211,153,0.35)"/>
+  <text x="748" y="268" text-anchor="middle" font-size="10.5" font-weight="600" fill="#34D399">Hook Module</text>
+  <text x="748" y="284" text-anchor="middle" font-size="8.5" fill="#64748B">검증 패턴 매칭 · 133 LOC</text>
+
+  <!-- Connector: Daemon → Automation -->
+  <text x="450" y="330" text-anchor="middle" font-size="9" fill="#475569" letter-spacing="0.5">▲  쿼리 &amp; 커맨드  ▲</text>
+
+  <!-- ═══ Automation Layer ═══ -->
+  <rect x="50" y="340" width="800" height="136" rx="10" fill="#1E293B" stroke="#334155"/>
+  <circle cx="70" cy="362" r="4" fill="#38BDF8"/>
+  <text x="80" y="366" font-size="12" font-weight="600" fill="#38BDF8">자동화 시스템</text>
+  <text x="195" y="366" font-size="10" fill="#64748B">— 데몬 API를 활용하는 상위 오케스트레이터</text>
+
+  <!-- Auto-Review box -->
+  <rect x="70" y="380" width="356" height="82" rx="8" fill="#0F172A" stroke="rgba(56,189,248,0.35)"/>
+  <text x="248" y="400" text-anchor="middle" font-size="11" font-weight="600" fill="#38BDF8">Auto-Review</text>
+  <text x="248" y="416" text-anchor="middle" font-size="9" fill="#94A3B8">7개 도메인 전문 리뷰 에이전트 병렬 디스패치</text>
+
+  <!-- Reviewer pills -->
+  <rect x="82" y="426" width="52" height="18" rx="9" fill="rgba(56,189,248,0.1)" stroke="rgba(56,189,248,0.2)"/>
+  <text x="108" y="439" text-anchor="middle" font-size="7.5" fill="#38BDF8">logic</text>
+  <rect x="140" y="426" width="60" height="18" rx="9" fill="rgba(56,189,248,0.1)" stroke="rgba(56,189,248,0.2)"/>
+  <text x="170" y="439" text-anchor="middle" font-size="7.5" fill="#38BDF8">systems</text>
+  <rect x="206" y="426" width="55" height="18" rx="9" fill="rgba(56,189,248,0.1)" stroke="rgba(56,189,248,0.2)"/>
+  <text x="233" y="439" text-anchor="middle" font-size="7.5" fill="#38BDF8">design</text>
+  <rect x="267" y="426" width="39" height="18" rx="9" fill="rgba(56,189,248,0.1)" stroke="rgba(56,189,248,0.2)"/>
+  <text x="286" y="439" text-anchor="middle" font-size="7.5" fill="#38BDF8">test</text>
+  <rect x="312" y="426" width="100" height="18" rx="9" fill="rgba(56,189,248,0.1)" stroke="rgba(56,189,248,0.2)"/>
+  <text x="362" y="439" text-anchor="middle" font-size="7.5" fill="#38BDF8">infra-security +2</text>
+
+  <!-- FSD-Backlog box -->
+  <rect x="446" y="380" width="386" height="82" rx="8" fill="#0F172A" stroke="rgba(167,139,250,0.35)"/>
+  <text x="639" y="400" text-anchor="middle" font-size="11" font-weight="600" fill="#A78BFA">FSD-Backlog (Full Self-Driving)</text>
+  <text x="639" y="416" text-anchor="middle" font-size="9" fill="#94A3B8">스캔 → 선별 → 구현 → 머지 완전 자율 수행</text>
+
+  <!-- FSD flow -->
+  <rect x="462" y="426" width="48" height="18" rx="9" fill="rgba(167,139,250,0.1)" stroke="rgba(167,139,250,0.2)"/>
+  <text x="486" y="439" text-anchor="middle" font-size="7.5" fill="#A78BFA">Scan</text>
+  <text x="518" y="439" font-size="8" fill="#475569">→</text>
+  <rect x="526" y="426" width="52" height="18" rx="9" fill="rgba(167,139,250,0.1)" stroke="rgba(167,139,250,0.2)"/>
+  <text x="552" y="439" text-anchor="middle" font-size="7.5" fill="#A78BFA">Select</text>
+  <text x="586" y="439" font-size="8" fill="#475569">→</text>
+  <rect x="594" y="426" width="70" height="18" rx="9" fill="rgba(167,139,250,0.1)" stroke="rgba(167,139,250,0.2)"/>
+  <text x="629" y="439" text-anchor="middle" font-size="7.5" fill="#A78BFA">Implement</text>
+  <text x="672" y="439" font-size="8" fill="#475569">→</text>
+  <rect x="680" y="426" width="52" height="18" rx="9" fill="rgba(167,139,250,0.1)" stroke="rgba(167,139,250,0.2)"/>
+  <text x="706" y="439" text-anchor="middle" font-size="7.5" fill="#A78BFA">Build</text>
+  <text x="740" y="439" font-size="8" fill="#475569">→</text>
+  <rect x="748" y="426" width="56" height="18" rx="9" fill="rgba(167,139,250,0.1)" stroke="rgba(167,139,250,0.2)"/>
+  <text x="776" y="439" text-anchor="middle" font-size="7.5" fill="#A78BFA">Merge</text>
+
+  <!-- Bottom stats bar -->
+  <rect x="50" y="490" width="800" height="1" fill="#334155"/>
+  <text x="130" y="508" text-anchor="middle" font-size="10" fill="#64748B"><tspan font-weight="700" fill="#34D399">4,273+</tspan> Go LOC</text>
+  <text x="310" y="508" text-anchor="middle" font-size="10" fill="#64748B"><tspan font-weight="700" fill="#38BDF8">7</tspan> Parallel Reviewers</text>
+  <text x="490" y="508" text-anchor="middle" font-size="10" fill="#64748B"><tspan font-weight="700" fill="#F59E0B">5</tspan> Enforcement Hooks</text>
+  <text x="690" y="508" text-anchor="middle" font-size="10" fill="#64748B"><tspan font-weight="700" fill="#A78BFA">0</tspan> Manual Intervention</text>
+</svg>
