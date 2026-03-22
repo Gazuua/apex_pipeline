@@ -2,4 +2,8 @@
 
 package main
 
-func main() {}
+import "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/cli"
+
+func main() {
+	cli.Execute()
+}
