@@ -28,63 +28,67 @@ func hookValidateHandoffCmd() *cobra.Command {
 			if err != nil {
 				return nil // malformed input → allow
 			}
-			if command == "" {
-				return nil
-			}
-
-			// main/master 브랜치는 스킵
-			gitBranch, err := gitCurrentBranch(cwd)
-			if err != nil || gitBranch == "main" || gitBranch == "master" {
-				return nil
-			}
-
-			// feature/bugfix 브랜치만 체크
-			if !isFeatureBranch(gitBranch) {
-				return nil
-			}
-
-			// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
-			branch, _ := resolveHandoffBranch(cwd, gitBranch)
-			if branch == "" {
-				return nil // 미등록 시 Bash는 통과 (Edit/Write만 차단)
-			}
-
-			// 1) 알림 프로브 (매 Bash 호출 시, 비차단 경고)
-			if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
-				if has, _ := msg["has_notifications"].(bool); has {
-					if m, _ := msg["message"].(string); m != "" {
-						fmt.Fprintln(os.Stderr, m)
-					}
-				}
-			}
-
-			// 2) commit 게이트
-			if isGitCommit(command) {
-				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
-				if err != nil {
-					// 데몬 연결 실패 시 통과 (graceful degradation)
-					return nil
-				}
-				if resp.Error != "" {
-					fmt.Fprintln(os.Stderr, resp.Error)
-					os.Exit(2)
-				}
-			}
-
-			// 3) gh pr merge 게이트
-			if strings.Contains(command, "gh pr merge") {
-				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
-				if err != nil {
-					return nil
-				}
-				if resp.Error != "" {
-					fmt.Fprintln(os.Stderr, resp.Error)
-					os.Exit(2)
-				}
-			}
-
+			runValidateHandoff(command, cwd)
 			return nil
 		},
+	}
+}
+
+// runValidateHandoff runs handoff validation with the given command and cwd.
+// Shared by hookValidateHandoffCmd (standalone) and hookValidateAllCmd (unified).
+func runValidateHandoff(command, cwd string) {
+	if command == "" {
+		return
+	}
+
+	// main/master 브랜치는 스킵
+	gitBranch, err := gitCurrentBranch(cwd)
+	if err != nil || gitBranch == "main" || gitBranch == "master" {
+		return
+	}
+
+	// feature/bugfix 브랜치만 체크
+	if !isFeatureBranch(gitBranch) {
+		return
+	}
+
+	// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
+	branch, _ := resolveHandoffBranch(cwd, gitBranch)
+	if branch == "" {
+		return // 미등록 시 Bash는 통과 (Edit/Write만 차단)
+	}
+
+	// 1) 알림 프로브 (매 Bash 호출 시, 비차단 경고)
+	if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
+		if has, _ := msg["has_notifications"].(bool); has {
+			if m, _ := msg["message"].(string); m != "" {
+				fmt.Fprintln(os.Stderr, m)
+			}
+		}
+	}
+
+	// 2) commit 게이트
+	if isGitCommit(command) {
+		resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
+		if err != nil {
+			return // 데몬 연결 실패 시 통과
+		}
+		if resp.Error != "" {
+			fmt.Fprintln(os.Stderr, resp.Error)
+			os.Exit(2)
+		}
+	}
+
+	// 3) gh pr merge 게이트
+	if strings.Contains(command, "gh pr merge") {
+		resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
+		if err != nil {
+			return
+		}
+		if resp.Error != "" {
+			fmt.Fprintln(os.Stderr, resp.Error)
+			os.Exit(2)
+		}
 	}
 }
 

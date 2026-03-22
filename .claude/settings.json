@@ -14,22 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-build",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-merge",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-handoff",
-            "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash ./apex_tools/apex-agent/run-hook hook enforce-rebase",
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-all",
             "timeout": 30
           }
         ]

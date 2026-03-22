@@ -18,12 +18,73 @@ func hookCmd() *cobra.Command {
 		Use:   "hook",
 		Short: "Hook 검증 게이트",
 	}
+	cmd.AddCommand(hookValidateAllCmd())
 	cmd.AddCommand(hookValidateBuildCmd())
 	cmd.AddCommand(hookValidateMergeCmd())
 	cmd.AddCommand(hookValidateHandoffCmd())
 	cmd.AddCommand(hookHandoffProbeCmd())
 	cmd.AddCommand(hookEnforceRebaseCmd())
 	return cmd
+}
+
+// hookValidateAllCmd runs all 4 Bash PreToolUse validations in a single process.
+// This avoids stdin pipe contention when Claude Code runs multiple hooks in parallel.
+// stdin is read once and shared across all validators.
+func hookValidateAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate-all",
+		Short: "통합 Bash hook 게이트 (build + merge + handoff + rebase)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			command, cwd, err := readHookInput()
+			if err != nil {
+				return nil // parse error → allow
+			}
+
+			// 1) validate-build
+			if err := hook.ValidateBuild(command); err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(2)
+			}
+
+			// 2) validate-merge (lock check via daemon IPC)
+			if strings.Contains(command, "gh pr merge") {
+				result, mergeErr := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
+				if mergeErr == nil { // daemon available
+					if result["active"] == nil {
+						fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
+						os.Exit(2)
+					}
+					if activeEntry, ok := result["active"].(map[string]any); ok {
+						if holder, _ := activeEntry["branch"].(string); holder != "" {
+							myBranch := getBranchID()
+							if holder != myBranch {
+								fmt.Fprintf(os.Stderr, "차단: merge lock 소유자가 %s입니다 (현재: %s)\n", holder, myBranch)
+								os.Exit(2)
+							}
+						}
+					}
+				}
+			}
+
+			// 3) validate-handoff (reuses same command/cwd, no stdin re-read)
+			runValidateHandoff(command, cwd)
+
+			// 4) enforce-rebase
+			if cwd == "" {
+				cwd, _ = os.Getwd()
+			}
+			msg, rebaseErr := hook.EnforceRebase(command, cwd)
+			if rebaseErr != nil {
+				fmt.Fprintln(os.Stderr, rebaseErr.Error())
+				os.Exit(2)
+			}
+			if msg != "" {
+				fmt.Fprintln(os.Stderr, msg)
+			}
+
+			return nil
+		},
+	}
 }
 
 func hookValidateBuildCmd() *cobra.Command {
