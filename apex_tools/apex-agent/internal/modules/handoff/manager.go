@@ -95,6 +95,29 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 
 	var notifID int
 	err := m.store.RunInTx(context.Background(), func(txs *store.Store) error {
+		// 기존 항목이 있으면 정리 후 재등록 허용
+		// - MERGE_NOTIFIED: 머지 완료 후 같은 workspace에서 새 작업 시작
+		// - 그 외 상태: 중도 포기 후 새 작업 시작 (연결된 FIXING 백로그를 OPEN으로 복귀)
+		var existingStatus string
+		row := txs.QueryRow(`SELECT status FROM branches WHERE branch = ?`, branch)
+		if scanErr := row.Scan(&existingStatus); scanErr == nil {
+			// 이전 작업에 연결된 FIXING 백로그가 있으면 OPEN으로 복귀
+			if existingStatus != StatusMergeNotified && m.backlogManager != nil {
+				oldIDs := m.getBacklogIDs(txs, branch)
+				for _, oldID := range oldIDs {
+					if releaseErr := m.backlogManager.SetStatusWith(txs, oldID, "OPEN"); releaseErr != nil {
+						ml.Warn("failed to release backlog on branch replace", "backlog_id", oldID, "err", releaseErr)
+					}
+				}
+			}
+			// 이전 작업의 잔여 데이터 정리: junction → notifications/acks → branch
+			txs.Exec(`DELETE FROM branch_backlogs WHERE branch = ?`, branch)
+			txs.Exec(`DELETE FROM notification_acks WHERE branch = ? OR notification_id IN (SELECT id FROM notifications WHERE branch = ?)`, branch, branch)
+			txs.Exec(`DELETE FROM notifications WHERE branch = ?`, branch)
+			txs.Exec(`DELETE FROM branches WHERE branch = ?`, branch)
+			ml.Info("cleared stale entry for re-registration", "branch", branch, "previous_status", existingStatus)
+		}
+
 		_, err := txs.Exec(
 			`INSERT INTO branches (branch, workspace, git_branch, status, summary, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
@@ -359,4 +382,20 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 	return status, nil
 }
 
-
+// getBacklogIDs returns backlog IDs linked to a branch via junction table.
+// Uses the provided store (can be transaction-bound).
+func (m *Manager) getBacklogIDs(s *store.Store, branch string) []int {
+	rows, err := s.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		if rows.Scan(&id) == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}

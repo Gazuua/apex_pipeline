@@ -321,7 +321,9 @@ func (m *Manager) Release(id int, reason, branch string) error {
 	}
 
 	// Remove from branch_backlogs (cross-table, same DB)
-	_, _ = m.store.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id)
+	if _, delErr := m.store.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id); delErr != nil {
+		ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
+	}
 
 	ml.Info("item released", "id", id, "reason", reason)
 	return nil

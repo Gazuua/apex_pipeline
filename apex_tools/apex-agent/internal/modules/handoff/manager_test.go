@@ -527,3 +527,146 @@ func TestNotifyStart_BacklogAlreadyFixing(t *testing.T) {
 		t.Errorf("expected branch to NOT exist, got %+v", b)
 	}
 }
+
+func TestNotifyStart_ReplaceMergeNotified(t *testing.T) {
+	s, mgr := setupHandoffTestDB(t)
+
+	// 1. 첫 번째 작업 등록 → implementing → merge-notified
+	_, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "first work", "git-branch-1", nil, "", true)
+	if err != nil {
+		t.Fatalf("first NotifyStart: %v", err)
+	}
+	if _, err := mgr.NotifyTransition("feature/ws-reuse", "ws1", "merge", "merge done"); err != nil {
+		t.Fatalf("NotifyTransition merge: %v", err)
+	}
+
+	// 상태 확인: MERGE_NOTIFIED
+	status, _ := mgr.GetStatus("feature/ws-reuse")
+	if status != StatusMergeNotified {
+		t.Fatalf("expected %q, got %q", StatusMergeNotified, status)
+	}
+
+	// 2. 같은 workspace에서 새 작업 시작 — MERGE_NOTIFIED 자동 정리 후 등록
+	notifID, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "second work", "git-branch-2", nil, "", true)
+	if err != nil {
+		t.Fatalf("second NotifyStart should succeed but got: %v", err)
+	}
+	if notifID <= 0 {
+		t.Fatalf("expected positive notification ID, got %d", notifID)
+	}
+
+	// 새 작업의 상태 확인
+	b, err := mgr.GetBranch("feature/ws-reuse")
+	if err != nil {
+		t.Fatalf("GetBranch: %v", err)
+	}
+	if b == nil {
+		t.Fatal("expected branch to exist")
+	}
+	if b.Status != StatusImplementing {
+		t.Errorf("expected %q, got %q", StatusImplementing, b.Status)
+	}
+	if b.Summary != "second work" {
+		t.Errorf("expected summary %q, got %q", "second work", b.Summary)
+	}
+
+	// 이전 notification은 정리되고 새 notification만 존재하는지 확인
+	rows, err := s.Query(`SELECT COUNT(*) FROM notifications WHERE branch = ?`, "feature/ws-reuse")
+	if err != nil {
+		t.Fatalf("query notifications: %v", err)
+	}
+	defer rows.Close()
+	rows.Next()
+	var count int
+	rows.Scan(&count)
+	if count != 1 {
+		t.Errorf("expected 1 notification (new start), got %d", count)
+	}
+}
+
+func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
+	s, _ := setupHandoffTestDB(t)
+
+	// backlog 모듈 준비 (FIXING 복귀 테스트를 위해)
+	_, err := s.Exec(`CREATE TABLE IF NOT EXISTS backlog_items (
+		id INTEGER PRIMARY KEY, title TEXT, severity TEXT, timeframe TEXT,
+		scope TEXT, type TEXT, description TEXT, related TEXT, status TEXT DEFAULT 'OPEN',
+		created_at TEXT, updated_at TEXT
+	)`)
+	if err != nil {
+		t.Fatalf("create backlog_items: %v", err)
+	}
+	_, err = s.Exec(`INSERT INTO backlog_items (id, title, status) VALUES (200, 'test backlog', 'OPEN')`)
+	if err != nil {
+		t.Fatalf("insert backlog: %v", err)
+	}
+
+	// mock backlog manager — SetStatusWith로 실제 DB 갱신
+	mock := &mockBacklogManagerForReplace{store: s}
+	mgrWithBacklog := NewManager(s, mock)
+
+	// 1. 백로그 연결하여 첫 작업 시작 (FIXING으로 전이됨)
+	_, err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "first work", "", []int{200}, "", true)
+	if err != nil {
+		t.Fatalf("first NotifyStart: %v", err)
+	}
+
+	// backlog 200이 FIXING인지 확인
+	var bStatus string
+	s.QueryRow(`SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
+	if bStatus != "FIXING" {
+		t.Fatalf("expected backlog status FIXING, got %q", bStatus)
+	}
+
+	// 2. 중도 포기 — 같은 branch에서 새 작업 시작 (FIXING 백로그 → OPEN 복귀)
+	_, err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "new work after abandon", "", nil, "", true)
+	if err != nil {
+		t.Fatalf("second NotifyStart should succeed (abandon+replace): %v", err)
+	}
+
+	// backlog 200이 OPEN으로 복귀했는지 확인
+	s.QueryRow(`SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
+	if bStatus != "OPEN" {
+		t.Errorf("expected backlog status OPEN after abandon, got %q", bStatus)
+	}
+
+	// 새 작업 상태 확인
+	b, _ := mgrWithBacklog.GetBranch("feature/abandon")
+	if b == nil {
+		t.Fatal("expected branch to exist")
+	}
+	if b.Status != StatusImplementing {
+		t.Errorf("expected %q, got %q", StatusImplementing, b.Status)
+	}
+	if b.Summary != "new work after abandon" {
+		t.Errorf("expected summary %q, got %q", "new work after abandon", b.Summary)
+	}
+}
+
+// mockBacklogManagerForReplace implements BacklogOperator with real DB operations.
+type mockBacklogManagerForReplace struct {
+	store *store.Store
+}
+
+func (m *mockBacklogManagerForReplace) SetStatus(id int, status string) error {
+	_, err := m.store.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+	return err
+}
+
+func (m *mockBacklogManagerForReplace) SetStatusWith(txs *store.Store, id int, status string) error {
+	_, err := txs.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+	return err
+}
+
+func (m *mockBacklogManagerForReplace) Check(id int) (bool, string, error) {
+	var status string
+	err := m.store.QueryRow(`SELECT status FROM backlog_items WHERE id = ?`, id).Scan(&status)
+	if err != nil {
+		return false, "", nil
+	}
+	return true, status, nil
+}
+
+func (m *mockBacklogManagerForReplace) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+	return nil, nil
+}
