@@ -8,21 +8,51 @@ import (
 	"testing"
 )
 
-func TestNew_WritesToBuffer(t *testing.T) {
+func TestDebug_WritesToBuffer(t *testing.T) {
 	var buf bytes.Buffer
-	logger := New(WithWriter(&buf))
-	logger.Info("test message", "key", "value")
+	Init(LogConfig{Level: "debug", Writer: &buf})
+	Debug("test message", "key", "value")
 
 	out := buf.String()
 	if !strings.Contains(out, "test message") {
-		t.Errorf("log output = %q, want contains 'test message'", out)
-	}
-	if !strings.Contains(out, "key=value") && !strings.Contains(out, `"key":"value"`) {
-		t.Errorf("log output = %q, want contains key/value", out)
+		t.Errorf("output = %q, want contains 'test message'", out)
 	}
 }
 
-func TestNew_DefaultDoesNotPanic(t *testing.T) {
-	logger := New()
-	logger.Info("should not panic")
+func TestAudit_HasAuditTag(t *testing.T) {
+	var buf bytes.Buffer
+	Init(LogConfig{Level: "debug", Writer: &buf})
+	Audit("lock acquired", "channel", "build")
+
+	out := buf.String()
+	if !strings.Contains(out, "audit=true") {
+		t.Errorf("audit log missing audit=true tag: %q", out)
+	}
+}
+
+func TestWithModule_AddsModuleField(t *testing.T) {
+	var buf bytes.Buffer
+	Init(LogConfig{Level: "debug", Writer: &buf})
+	ml := WithModule("handoff")
+	ml.Info("state changed")
+
+	out := buf.String()
+	if !strings.Contains(out, "module=handoff") {
+		t.Errorf("module log missing module field: %q", out)
+	}
+}
+
+func TestLevelFilter_InfoHidesDebug(t *testing.T) {
+	var buf bytes.Buffer
+	Init(LogConfig{Level: "info", Writer: &buf})
+	Debug("should be hidden")
+	Info("should be visible")
+
+	out := buf.String()
+	if strings.Contains(out, "should be hidden") {
+		t.Error("debug message should be filtered at info level")
+	}
+	if !strings.Contains(out, "should be visible") {
+		t.Error("info message should be visible")
+	}
 }
