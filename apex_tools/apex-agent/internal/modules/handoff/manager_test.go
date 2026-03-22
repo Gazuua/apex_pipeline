@@ -444,6 +444,16 @@ func (m *mockBacklogManager) SetStatusWith(txs *store.Store, id int, status stri
 	return nil
 }
 
+func (m *mockBacklogManager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+	var fixing []int
+	for _, id := range backlogIDs {
+		if status, exists := m.items[id]; exists && status == "FIXING" {
+			fixing = append(fixing, id)
+		}
+	}
+	return fixing, nil
+}
+
 func setupHandoffTestDBWithBacklog(t *testing.T, bm BacklogOperator) (*store.Store, *Manager) {
 	t.Helper()
 	s, err := store.Open(":memory:")

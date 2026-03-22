@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,8 +31,7 @@ func backlogCmd() *cobra.Command {
 }
 
 func sendBacklogRequest(action string, params any) (*ipc.Response, error) {
-	client := ipc.NewClient(platform.SocketPath())
-	return client.Send(context.Background(), "backlog", action, params, "")
+	return sendRequest("backlog", action, params, "")
 }
 
 // ── backlog add ──

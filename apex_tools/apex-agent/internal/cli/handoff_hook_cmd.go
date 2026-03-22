@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -201,24 +200,12 @@ func readHandoffProbeInput() (string, string, error) {
 
 // sendHandoffRaw sends a request to the handoff module and returns the raw response.
 func sendHandoffRaw(action string, params any) (*ipc.Response, error) {
-	client := ipc.NewClient(platform.SocketPath())
-	return client.Send(context.Background(), "handoff", action, params, "")
+	return sendRequest("handoff", action, params, "")
 }
 
 // sendHandoffRequest sends a request and parses the data as map[string]any.
 func sendHandoffRequest(action string, params any) (map[string]any, error) {
-	resp, err := sendHandoffRaw(action, params)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Error != "" {
-		return nil, fmt.Errorf("%s", resp.Error)
-	}
-	var result map[string]any
-	if err := json.Unmarshal(resp.Data, &result); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return sendRequestMap("handoff", action, params, "")
 }
 
 // gitCurrentBranch returns the current git branch for the given working directory.

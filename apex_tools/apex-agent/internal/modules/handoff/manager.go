@@ -5,6 +5,7 @@ package handoff
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -30,6 +31,7 @@ type BacklogOperator interface {
 	SetStatus(id int, status string) error
 	SetStatusWith(txs *store.Store, id int, status string) error
 	Check(id int) (exists bool, status string, err error)
+	ListFixingForBranch(branch string, backlogIDs []int) ([]int, error)
 }
 
 // Notification represents a handoff notification event.
@@ -266,7 +268,7 @@ func (m *Manager) BacklogCheck(backlogID int) (available bool, branch string, er
 	)
 	var b string
 	if scanErr := row.Scan(&b); scanErr != nil {
-		if scanErr == sql.ErrNoRows {
+		if errors.Is(scanErr, sql.ErrNoRows) {
 			return true, "", nil
 		}
 		return false, "", fmt.Errorf("query backlog check: %w", scanErr)
@@ -286,7 +288,7 @@ func (m *Manager) GetBranch(branch string) (*Branch, error) {
 	var b Branch
 	var summary sql.NullString
 	if err := row.Scan(&b.Branch, &b.Workspace, &b.GitBranch, &b.Status, &summary, &b.CreatedAt, &b.UpdatedAt); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("scan branch: %w", err)
@@ -349,7 +351,7 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 	)
 	var status string
 	if err := row.Scan(&status); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
 		return "", fmt.Errorf("scan status: %w", err)

@@ -3,8 +3,6 @@
 package cli
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
 func queueCmd() *cobra.Command {
@@ -34,24 +31,12 @@ func queueCmd() *cobra.Command {
 
 // sendQueueRequest sends a request to the queue module and returns the raw response.
 func sendQueueRequest(action string, params any) (*ipc.Response, error) {
-	client := ipc.NewClient(platform.SocketPath())
-	return client.Send(context.Background(), "queue", action, params, getBranchID())
+	return sendRequest("queue", action, params, getBranchID())
 }
 
 // sendQueueRequestMap sends a request and parses the response data as map[string]any.
 func sendQueueRequestMap(action string, params any) (map[string]any, error) {
-	resp, err := sendQueueRequest(action, params)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Error != "" {
-		return nil, fmt.Errorf("%s", resp.Error)
-	}
-	var result map[string]any
-	if err := json.Unmarshal(resp.Data, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return result, nil
+	return sendRequestMap("queue", action, params, getBranchID())
 }
 
 // projectRoot returns the project root directory.
@@ -163,6 +148,63 @@ func queueStatusCmd() *cobra.Command {
 	}
 }
 
+// runWithBuildLock acquires the build channel lock, executes the command returned
+// by makeCmd, then releases the lock. Handles lock release both on success and
+// failure (via defer). label is used in log messages (e.g. "build", "benchmark").
+func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
+	branch := getBranchID()
+
+	// Acquire build lock.
+	acquireParams := map[string]any{
+		"channel": "build",
+		"branch":  branch,
+		"pid":     os.Getpid(),
+	}
+	_, err := sendQueueRequestMap("acquire", acquireParams)
+	if err != nil {
+		return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
+	}
+	fmt.Printf("[queue-lock] lock acquired: build (branch=%s)\n", branch)
+
+	// Ensure lock is released on exit.
+	released := false
+	defer func() {
+		if !released {
+			releaseParams := map[string]any{"channel": "build"}
+			_, _ = sendQueueRequestMap("release", releaseParams)
+			fmt.Printf("[queue-lock] lock released: build\n")
+		}
+	}()
+
+	// Build the command and get its display string.
+	execCmd, displayStr := makeCmd()
+	execCmd.Stdout = os.Stdout
+	execCmd.Stderr = os.Stderr
+	execCmd.Stdin = os.Stdin
+
+	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
+
+	runErr := execCmd.Run()
+
+	// Release lock explicitly before printing result.
+	releaseParams := map[string]any{"channel": "build"}
+	_, _ = sendQueueRequestMap("release", releaseParams)
+	released = true
+	fmt.Printf("[queue-lock] lock released: build\n")
+
+	if runErr != nil {
+		exitCode := 1
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		fmt.Printf("[queue-lock] %s FAILED (exit code: %d)\n", label, exitCode)
+		os.Exit(exitCode)
+	}
+
+	fmt.Printf("[queue-lock] %s completed successfully\n", label)
+	return nil
+}
+
 // ── queue build ──
 
 func queueBuildCmd() *cobra.Command {
@@ -175,75 +217,31 @@ func queueBuildCmd() *cobra.Command {
 			preset := args[0]
 			extraArgs := args[1:]
 
-			branch := getBranchID()
 			fmt.Printf("[queue-lock] build requested: preset=%s, args=%s, branch=%s\n",
-				preset, formatArgs(extraArgs), branch)
+				preset, formatArgs(extraArgs), getBranchID())
 
-			// Acquire build lock.
-			acquireParams := map[string]any{
-				"channel": "build",
-				"branch":  branch,
-				"pid":     os.Getpid(),
-			}
-			_, err := sendQueueRequestMap("acquire", acquireParams)
-			if err != nil {
-				return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
-			}
-			fmt.Printf("[queue-lock] lock acquired: build (branch=%s)\n", branch)
-
-			// Ensure lock is released on exit.
-			released := false
-			defer func() {
-				if !released {
-					releaseParams := map[string]any{"channel": "build"}
-					_, _ = sendQueueRequestMap("release", releaseParams)
-					fmt.Printf("[queue-lock] lock released: build\n")
+			return runWithBuildLock("build", func() (*exec.Cmd, string) {
+				root, err := projectRoot()
+				if err != nil {
+					// projectRoot failure: create a command that will fail immediately.
+					// The error is printed via stderr.
+					fmt.Fprintf(os.Stderr, "[queue-lock] %v\n", err)
+					return exec.Command("false"), "false"
 				}
-			}()
 
-			// Find project root.
-			root, err := projectRoot()
-			if err != nil {
-				return fmt.Errorf("[queue-lock] %w", err)
-			}
+				buildBat := filepath.Join(root, "build.bat")
+				display := strings.Join(append([]string{buildBat, preset}, extraArgs...), " ")
 
-			// Build the command: cmd.exe /c <root>\build.bat <preset> [extra args...]
-			buildBat := filepath.Join(root, "build.bat")
-			cmdArgs := append([]string{"/c", buildBat, preset}, extraArgs...)
-
-			var buildCmd *exec.Cmd
-			if runtime.GOOS == "windows" {
-				buildCmd = exec.Command("cmd.exe", cmdArgs...)
-			} else {
-				// Fallback for non-Windows (e.g. CI Linux runners).
-				shArgs := append([]string{filepath.Join(root, "build.bat"), preset}, extraArgs...)
-				buildCmd = exec.Command("bash", shArgs...)
-			}
-			buildCmd.Stdout = os.Stdout
-			buildCmd.Stderr = os.Stderr
-			buildCmd.Stdin = os.Stdin
-
-			fmt.Printf("[queue-lock] starting build: %s\n", strings.Join(append([]string{buildBat, preset}, extraArgs...), " "))
-
-			runErr := buildCmd.Run()
-
-			// Release lock explicitly before printing result.
-			releaseParams := map[string]any{"channel": "build"}
-			_, _ = sendQueueRequestMap("release", releaseParams)
-			released = true
-			fmt.Printf("[queue-lock] lock released: build\n")
-
-			if runErr != nil {
-				exitCode := 1
-				if exitErr, ok := runErr.(*exec.ExitError); ok {
-					exitCode = exitErr.ExitCode()
+				var c *exec.Cmd
+				if runtime.GOOS == "windows" {
+					cmdArgs := append([]string{"/c", buildBat, preset}, extraArgs...)
+					c = exec.Command("cmd.exe", cmdArgs...)
+				} else {
+					shArgs := append([]string{buildBat, preset}, extraArgs...)
+					c = exec.Command("bash", shArgs...)
 				}
-				fmt.Printf("[queue-lock] build FAILED (exit code: %d)\n", exitCode)
-				os.Exit(exitCode)
-			}
-
-			fmt.Printf("[queue-lock] build completed successfully\n")
-			return nil
+				return c, display
+			})
 		},
 	}
 }
@@ -261,59 +259,13 @@ func queueBenchmarkCmd() *cobra.Command {
 			exe := args[0]
 			benchArgs := args[1:]
 
-			branch := getBranchID()
 			fmt.Printf("[queue-lock] benchmark requested: exe=%s, args=%s, branch=%s\n",
-				exe, formatArgs(benchArgs), branch)
+				exe, formatArgs(benchArgs), getBranchID())
 
-			// Acquire build lock (same channel as build — mutual exclusion).
-			acquireParams := map[string]any{
-				"channel": "build",
-				"branch":  branch,
-				"pid":     os.Getpid(),
-			}
-			_, err := sendQueueRequestMap("acquire", acquireParams)
-			if err != nil {
-				return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
-			}
-			fmt.Printf("[queue-lock] lock acquired: build (branch=%s)\n", branch)
-
-			// Ensure lock is released on exit.
-			released := false
-			defer func() {
-				if !released {
-					releaseParams := map[string]any{"channel": "build"}
-					_, _ = sendQueueRequestMap("release", releaseParams)
-					fmt.Printf("[queue-lock] lock released: build\n")
-				}
-			}()
-
-			// Run the benchmark executable.
-			benchCmd := exec.Command(exe, benchArgs...)
-			benchCmd.Stdout = os.Stdout
-			benchCmd.Stderr = os.Stderr
-			benchCmd.Stdin = os.Stdin
-
-			fmt.Printf("[queue-lock] starting benchmark: %s\n", strings.Join(append([]string{exe}, benchArgs...), " "))
-
-			runErr := benchCmd.Run()
-
-			// Release lock explicitly before printing result.
-			releaseParams := map[string]any{"channel": "build"}
-			_, _ = sendQueueRequestMap("release", releaseParams)
-			released = true
-			fmt.Printf("[queue-lock] lock released: build\n")
-
-			if runErr != nil {
-				exitCode := 1
-				if exitErr, ok := runErr.(*exec.ExitError); ok {
-					exitCode = exitErr.ExitCode()
-				}
-				fmt.Printf("[queue-lock] benchmark FAILED (exit code: %d)\n", exitCode)
-				os.Exit(exitCode)
-			}
-
-			fmt.Printf("[queue-lock] benchmark completed successfully\n")
-			return nil
+			return runWithBuildLock("benchmark", func() (*exec.Cmd, string) {
+				display := strings.Join(append([]string{exe}, benchArgs...), " ")
+				return exec.Command(exe, benchArgs...), display
+			})
 		},
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -125,6 +126,20 @@ func (m *Manager) Add(item *BacklogItem) error {
 	return nil
 }
 
+// scanBacklogItem scans a row into a BacklogItem.
+func scanBacklogItem(scanner interface{ Scan(dest ...any) error }) (*BacklogItem, error) {
+	var item BacklogItem
+	err := scanner.Scan(
+		&item.ID, &item.Title, &item.Severity, &item.Timeframe, &item.Scope, &item.Type,
+		&item.Description, &item.Related, &item.Position, &item.Status,
+		&item.Resolution, &item.ResolvedAt, &item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &item, nil
+}
+
 // Get retrieves a single backlog item by ID.
 // Returns nil, nil if the item does not exist.
 func (m *Manager) Get(id int) (*BacklogItem, error) {
@@ -135,12 +150,7 @@ func (m *Manager) Get(id int) (*BacklogItem, error) {
 		       created_at, updated_at
 		FROM backlog_items WHERE id = ?`, id)
 
-	item := &BacklogItem{}
-	err := row.Scan(
-		&item.ID, &item.Title, &item.Severity, &item.Timeframe, &item.Scope, &item.Type,
-		&item.Description, &item.Related, &item.Position, &item.Status,
-		&item.Resolution, &item.ResolvedAt, &item.CreatedAt, &item.UpdatedAt,
-	)
+	item, err := scanBacklogItem(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -195,15 +205,11 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 
 	var items []BacklogItem
 	for rows.Next() {
-		var item BacklogItem
-		if err := rows.Scan(
-			&item.ID, &item.Title, &item.Severity, &item.Timeframe, &item.Scope, &item.Type,
-			&item.Description, &item.Related, &item.Position, &item.Status,
-			&item.Resolution, &item.ResolvedAt, &item.CreatedAt, &item.UpdatedAt,
-		); err != nil {
+		item, err := scanBacklogItem(rows)
+		if err != nil {
 			return nil, fmt.Errorf("List scan: %w", err)
 		}
-		items = append(items, item)
+		items = append(items, *item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("List rows: %w", err)
@@ -333,5 +339,46 @@ func (m *Manager) Check(id int) (exists bool, status string, err error) {
 		return false, "", fmt.Errorf("Check: %w", err)
 	}
 	return true, status, nil
+}
+
+// ListFixingForBranch returns backlog IDs from the given list that have status FIXING.
+// Used by handoff merge gate to check for unresolved backlogs.
+func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+	if len(backlogIDs) == 0 {
+		return nil, nil
+	}
+
+	// Build dynamic placeholders: (?, ?, ...)
+	placeholders := make([]string, len(backlogIDs))
+	args := make([]any, len(backlogIDs))
+	for i, id := range backlogIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(
+		"SELECT id FROM backlog_items WHERE id IN (%s) AND status = ?",
+		strings.Join(placeholders, ", "),
+	)
+	args = append(args, StatusFixing)
+
+	rows, err := m.store.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("ListFixingForBranch: %w", err)
+	}
+	defer rows.Close()
+
+	var fixing []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("ListFixingForBranch scan: %w", err)
+		}
+		fixing = append(fixing, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ListFixingForBranch rows: %w", err)
+	}
+	return fixing, nil
 }
 

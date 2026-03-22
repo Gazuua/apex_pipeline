@@ -5,8 +5,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -32,29 +30,16 @@ func ensureDaemon() {
 		return // 이미 실행 중
 	}
 
-	// 데몬 시작 — daemonStartCmd와 동일 로직 (인라인)
 	if err := platform.EnsureDataDir(); err != nil {
 		fmt.Fprintf(os.Stderr, "[apex-agent] data dir error: %v\n", err)
 		return
 	}
-	exe, _ := os.Executable()
-	child := exec.Command(exe, "daemon", "run")
-	detachProcess(child)
-	if err := child.Start(); err != nil {
-		fmt.Fprintf(os.Stderr, "[apex-agent] daemon start failed: %v\n", err)
+	pid, err := startDaemonProcess()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[apex-agent] %v\n", err)
 		return
 	}
-	// 소켓 준비 대기 (최대 5초)
-	for i := 0; i < 100; i++ {
-		time.Sleep(50 * time.Millisecond)
-		conn, err := ipc.Dial(platform.SocketPath())
-		if err == nil {
-			conn.Close()
-			fmt.Fprintf(os.Stderr, "[apex-agent] daemon auto-started (pid %d)\n", child.Process.Pid)
-			return
-		}
-	}
-	fmt.Fprintf(os.Stderr, "[apex-agent] daemon start timeout\n")
+	fmt.Fprintf(os.Stderr, "[apex-agent] daemon auto-started (pid %d)\n", pid)
 }
 
 func pluginSetupCmd() *cobra.Command {

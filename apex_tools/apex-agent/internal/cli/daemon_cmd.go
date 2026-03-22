@@ -7,21 +7,18 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
@@ -110,23 +107,12 @@ func daemonStartCmd() *cobra.Command {
 				fmt.Println("daemon already running")
 				return nil
 			}
-			exe, _ := os.Executable()
-			child := exec.Command(exe, "daemon", "run")
-			detachProcess(child)
-			if err := child.Start(); err != nil {
-				return fmt.Errorf("start daemon: %w", err)
+			pid, err := startDaemonProcess()
+			if err != nil {
+				return err
 			}
-			addr := platform.SocketPath()
-			for i := 0; i < 100; i++ {
-				time.Sleep(50 * time.Millisecond)
-				conn, err := ipc.Dial(addr)
-				if err == nil {
-					conn.Close()
-					fmt.Printf("daemon started (pid %d)\n", child.Process.Pid)
-					return nil
-				}
-			}
-			return fmt.Errorf("daemon failed to start within 5 seconds")
+			fmt.Printf("daemon started (pid %d)\n", pid)
+			return nil
 		},
 	}
 }
