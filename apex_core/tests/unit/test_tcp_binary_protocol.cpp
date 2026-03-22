@@ -120,6 +120,22 @@ TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError)
     EXPECT_EQ(result.error(), ErrorCode::BufferFull);
 }
 
+TEST_F(TcpBinaryProtocolTest, UnsupportedVersionReturnsError)
+{
+    // version 필드를 잘못된 값으로 설정하여 UnsupportedProtocolVersion 에러 확인
+    WireHeader hdr{.version = 99, .msg_id = 0x0042, .body_size = 4, .reserved = {}};
+    std::array<uint8_t, WireHeader::SIZE> raw{};
+    hdr.serialize(raw);
+
+    auto w = buf_.writable();
+    std::memcpy(w.data(), raw.data(), raw.size());
+    buf_.commit_write(raw.size());
+
+    auto result = TcpBinaryProtocol::try_decode(buf_);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::UnsupportedProtocolVersion);
+}
+
 TEST_F(TcpBinaryProtocolTest, ConsecutiveDecodeConsumeCycle)
 {
     // 2개 프레임 연속 write

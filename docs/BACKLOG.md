@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 132
+다음 발번: 133
 
 ---
 
@@ -59,6 +59,13 @@
 - **연관**: #102
 - **설명**: `gateway_pipeline.cpp`의 `blacklist_fail_open` 설정 기반 fail-open/fail-close 분기 + `BlacklistCheckFailed` 에러 반환 경로가 미테스트. 코루틴 + Redis mock 인프라 필요. #102의 GatewayPipeline 테스트 인프라 구축 시 함께 추가. **[FSD 분석 2026-03-22]** #102 인프라 구축에 의존. 단독 자동화 불가.
 
+
+### #132. RedisAdapter::do_close()에서 RedisMultiplexer::close() 미호출
+- **등급**: MAJOR
+- **스코프**: shared
+- **타입**: design-debt
+- **연관**: #129 (HISTORY)
+- **설명**: `RedisAdapter::do_close()`가 `per_core_.clear()`로 RedisMultiplexer를 동기적으로 파괴하는데, `close()`를 co_await하지 않아 detached 코루틴(reconnect_loop, AUTH)이 파괴된 멤버를 참조할 수 있음. 현재는 shutdown 순서(어댑터 먼저 → io_context drain)에 의해 안전하지만 방어적 보장 부재. 해결하려면 `AdapterBase::do_close()`를 코루틴으로 변경하는 어댑터 인터페이스 설계 변경이 선행되어야 함.
 
 ### #112. lock-free SessionMap (concurrent_flat_map) 아키텍처 벤치마크
 - **등급**: MAJOR

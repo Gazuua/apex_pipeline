@@ -346,3 +346,27 @@ TEST(EnvelopePayloadOffset, HasReplyTopicFlagTruncatedTopic)
     // parse 실패하므로 ENVELOPE_HEADER_SIZE 반환
     EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
 }
+
+TEST(BuildFullEnvelope, TopicTooLongOmitsReplySection)
+{
+    RoutingHeader rh;
+    rh.msg_id = 42;
+
+    MetadataPrefix mp;
+    std::string oversized_topic(65536, 'X');
+    std::vector<uint8_t> payload{0x01};
+
+    auto envelope = build_full_envelope(rh, mp, oversized_topic, payload);
+
+    // HAS_REPLY_TOPIC 플래그가 해제되어야 함
+    auto parsed_rh = RoutingHeader::parse(envelope);
+    ASSERT_TRUE(parsed_rh.has_value());
+    EXPECT_EQ(parsed_rh->flags & routing_flags::HAS_REPLY_TOPIC, 0u);
+
+    // payload offset은 ENVELOPE_HEADER_SIZE (reply 섹션 없음)
+    auto offset = envelope_payload_offset(parsed_rh->flags, envelope);
+    EXPECT_EQ(offset, ENVELOPE_HEADER_SIZE);
+
+    // envelope 크기 = header(48) + payload(1)
+    EXPECT_EQ(envelope.size(), ENVELOPE_HEADER_SIZE + 1);
+}
