@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 147
+다음 발번: 154
 
 ---
 
@@ -81,33 +81,6 @@
 - **타입**: INFRA
 - **연관**: #1(HISTORY), #126
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. ---
-
-### #140. TcpAcceptor bind_address 설정 가능화
-- **등급**: MAJOR
-- **스코프**: CORE
-- **타입**: SECURITY
-- **연관**: #141
-- **설명**: `TcpAcceptor`가 `tcp::v4()` (0.0.0.0)에 하드코딩 바인딩. `ServerConfig`에 `bind_address` 필드가 없어 내부 서비스(auth-svc, chat-svc)가 불필요하게 외부 네트워크에 노출될 수 있음. Gateway만 외부 바인딩, 나머지는 `127.0.0.1` 기본값 권장.
-
-### #141. TCP 동시 연결 수 제한 (max_connections)
-- **등급**: MAJOR
-- **스코프**: CORE
-- **타입**: SECURITY
-- **연관**: #140
-- **설명**: `TcpAcceptor`에 최대 동시 연결 수 제한 없음. 악의적 대량 연결 시 서버 리소스(fd, 메모리) 고갈 DoS 벡터. Rate limit은 Gateway 메시지 단위만 존재. `ServerConfig`에 `max_connections` 필드 추가 + 임계치 초과 시 신규 연결 거부.
-
-### #139. auth_logic.hpp is_account_locked 타임존 비교 부정확
-- **등급**: MAJOR
-- **스코프**: AUTH_SVC
-- **타입**: BUG
-- **연관**: #128(HISTORY)
-- **설명**: `is_account_locked()`가 UTC 포맷 문자열과 PostgreSQL `timestamptz`(타임존 오프셋 포함 가능) 문자열을 사전순 비교. 오프셋(예: `+09`)이 포함되면 시간 순서와 불일치하여 계정 잠금 판정 오류 가능. 권장: SQL에서 `locked_until > NOW()` 비교로 전환, 또는 C++에서 타임존 파싱 수행.
-
-### #143. AdapterBase::spawn_adapter_coro() DRAINING 거부 테스트
-- **등급**: MAJOR
-- **스코프**: SHARED
-- **타입**: TEST
-- **설명**: `test_adapter_base.cpp`에서 init/drain/close 라이프사이클 상태 전이는 검증하지만, `spawn_adapter_coro()`가 DRAINING/CLOSED 상태에서 코루틴 spawn을 올바르게 거부하는지 미검증. 어댑터 코루틴 관리의 핵심 경로이며, drain 시 새 코루틴이 spawn되면 리소스 누수 발생 가능. mock adapter에서 호출 형태로 비용 낮게 구현 가능.
 
 ### #146. AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹
 - **등급**: MAJOR
@@ -212,17 +185,9 @@
 - **타입**: PERF
 - **설명**: 벤치마크에서 병목 확인 시 도입. **[FSD 분석 2026-03-22]** 벤치마크 병목 확인 전제 조건 미충족. 트리거 대기.
 
-### #144. Session::state_ TSAN 호환성 — non-atomic cross-thread 접근
+### #153. apex-agent 백로그 동기화 — 단순 BACKLOG.md 수정 시 SQLite 미갱신
 - **등급**: MINOR
-- **스코프**: CORE
-- **타입**: DESIGN_DEBT
-- **설명**: `Session::state_`가 non-atomic `State` 타입. per-core single-threaded io_context로 보호되지만, `~Session()` 소멸자가 코어 외부 스레드에서 호출될 가능성이 있으며(session.hpp:66-67 주석) close()를 호출하므로 `state_` data race 가능. TSAN false positive 발생 시 실제 race 탐지가 어려워질 수 있음. `std::atomic<State>`로 변경 권장.
-
-### #145. on_leave_room SISMEMBER+SREM TOCTOU 레이스
-- **등급**: MINOR
-- **스코프**: CHAT_SVC
-- **타입**: DESIGN_DEBT
-- **연관**: #105(HISTORY)
-- **설명**: SISMEMBER + SREM이 별도 명령이므로 동일 유저의 동시 leave 요청에서 이론적 TOCTOU race 가능. #105에서 join_room은 Lua 스크립트로 원자화했으나 leave는 미적용. SREM이 idempotent하므로 실질적 피해 미미. 동일 패턴으로 Lua 스크립트화하면 해결.
-
+- **스코프**: TOOLS
+- **타입**: BUG
+- **설명**: `docs/BACKLOG.md`를 직접 수정(항목 추가/삭제/편집)해도 apex-agent Go 백엔드의 SQLite DB에 반영되지 않음. 다음 에이전트가 `apex-agent backlog import`/`export`를 실행해야 동기화됨. 단순 BACKLOG.md 수정 시에도 정식 import/export 워크플로우가 자동 트리거되어야 함. pre-commit hook 또는 파일 감시 기반 자동 동기화 검토 필요.
 
