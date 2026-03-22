@@ -170,28 +170,41 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 	return items, nil
 }
 
-// ImportItems inserts parsed items into the database.
+// ImportItems inserts or updates parsed items in the database.
+// New items are inserted; existing items are updated with MD values
+// (severity, timeframe, scope, type, description, related, position).
+// Status is NOT overwritten if the DB already has a non-OPEN status (e.g. FIXING).
 func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 	count := 0
 	for _, item := range items {
-		// Skip if ID already exists
-		exists, _, err := mgr.Check(item.ID)
+		exists, dbStatus, err := mgr.Check(item.ID)
 		if err != nil {
 			return count, err
 		}
-		if exists {
+
+		if !exists {
+			// New item — insert.
+			if err := mgr.Add(&item); err != nil {
+				return count, fmt.Errorf("import #%d: %w", item.ID, err)
+			}
+			if item.Status == StatusResolved && item.Resolution != "" {
+				if err := mgr.Resolve(item.ID, item.Resolution); err != nil {
+					return count, fmt.Errorf("resolve #%d: %w", item.ID, err)
+				}
+			}
+			count++
 			continue
 		}
 
-		if err := mgr.Add(&item); err != nil {
-			return count, fmt.Errorf("import #%d: %w", item.ID, err)
+		// Existing item — update metadata fields from MD.
+		// Preserve DB status if it's FIXING (active work in progress).
+		status := item.Status
+		if dbStatus == StatusFixing {
+			status = StatusFixing
 		}
-
-		// If item was resolved, mark it as such
-		if item.Status == StatusResolved && item.Resolution != "" {
-			if err := mgr.Resolve(item.ID, item.Resolution); err != nil {
-				return count, fmt.Errorf("resolve #%d: %w", item.ID, err)
-			}
+		if err := mgr.UpdateFromImport(item.ID, item.Severity, item.Timeframe,
+			item.Scope, item.Type, item.Description, item.Related, item.Position, status); err != nil {
+			return count, fmt.Errorf("update #%d: %w", item.ID, err)
 		}
 		count++
 	}

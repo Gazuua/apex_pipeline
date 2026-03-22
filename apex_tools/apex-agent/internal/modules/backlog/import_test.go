@@ -202,8 +202,29 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 	}
 
 	mod.manager.ImportItems(items)
-	count, _ := mod.manager.ImportItems(items) // second import
-	if count != 0 {
-		t.Errorf("duplicate import count = %d, want 0", count)
+	count, _ := mod.manager.ImportItems(items) // second import — updates existing
+	if count != 1 {
+		t.Errorf("duplicate import count = %d, want 1 (update)", count)
+	}
+
+	// Verify metadata is preserved after re-import.
+	got, _ := mod.manager.Get(1)
+	if got.Severity != "CRITICAL" || got.Timeframe != "NOW" {
+		t.Errorf("re-imported item mismatch: severity=%s, timeframe=%s", got.Severity, got.Timeframe)
+	}
+
+	// Verify FIXING status is preserved on re-import.
+	mod.manager.SetStatus(1, "FIXING")
+	items[0].Timeframe = "IN_VIEW" // MD에서 timeframe 변경
+	count, _ = mod.manager.ImportItems(items)
+	if count != 1 {
+		t.Errorf("update count = %d, want 1", count)
+	}
+	got, _ = mod.manager.Get(1)
+	if got.Status != "FIXING" {
+		t.Errorf("FIXING status should be preserved, got %s", got.Status)
+	}
+	if got.Timeframe != "IN_VIEW" {
+		t.Errorf("timeframe should be updated to IN_VIEW, got %s", got.Timeframe)
 	}
 }

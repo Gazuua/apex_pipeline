@@ -211,6 +211,25 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 	return items, nil
 }
 
+// UpdateFromImport updates metadata fields for an existing item from MD import.
+// Does NOT touch resolution/resolved_at — those are managed by Resolve().
+func (m *Manager) UpdateFromImport(id int, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
+	_, err := m.store.Exec(`
+		UPDATE backlog_items
+		SET severity = ?, timeframe = ?, scope = ?, type = ?,
+		    description = ?, related = ?, position = ?, status = ?,
+		    updated_at = datetime('now','localtime')
+		WHERE id = ?`,
+		severity, timeframe, scope, itemType,
+		description, related, position, status, id,
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateFromImport #%d: %w", id, err)
+	}
+	ml.Info("item updated from import", "id", id, "severity", severity, "timeframe", timeframe)
+	return nil
+}
+
 // Resolve marks an item as resolved with the given resolution type.
 // Returns an error if the item does not exist.
 func (m *Manager) Resolve(id int, resolution string) error {
