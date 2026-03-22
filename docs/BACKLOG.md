@@ -66,7 +66,7 @@
 - **스코프**: CORE
 - **타입**: SECURITY
 - **연관**: #140
-- **설명**: `TcpAcceptor`에 최대 동시 연결 수 제한 없음. 악의적 대량 연결 시 서버 리소스(fd, 메모리) 고갈 DoS 벡터. Rate limit은 Gateway 메시지 단위만 존재. `ServerConfig`에 `max_connections` 필드 추가 + 임계치 초과 시 신규 연결 거부.
+- **설명**: `TcpAcceptor`에 최대 동시 연결 수 제한 없음. 악의적 대량 연결 시 서버 리소스(fd, 메모리) 고갈 DoS 벡터. Rate limit은 Gateway 메시지 단위만 존재. `ServerConfig`에 `max_connections` 필드 추가 + 임계치 초과 시 신규 연결 거부. **[FSD 설계 확정 2026-03-23]** per-core 독립 enforcement: ServerConfig에 max_connections(기본 0=무제한) 추가 → per_core_limit = max_connections/num_cores → Listener on_accept에서 session_count 체크 → 초과 시 소켓 즉시 close. cross-core 조율 없이 shared-nothing 원칙 유지.
 
 ### #139. auth_logic.hpp is_account_locked 타임존 비교 부정확
 - **등급**: MAJOR
@@ -80,7 +80,7 @@
 - **스코프**: SHARED
 - **타입**: DESIGN_DEBT
 - **연관**: #136
-- **설명**: `KafkaAdapter::~KafkaAdapter()` 소멸자에서 `stop_consuming()` 후 `consumers_.clear()` 사이에 이미 큐잉된 async handler가 소멸된 KafkaConsumer에 접근 가능. `do_close()` 경로는 shutdown 시퀀스로 보호되나 소멸자 방어 경로에서는 미보호. 비정상 종료 또는 테스트 경로에서 간헐적 크래시 가능.
+- **설명**: `KafkaAdapter::~KafkaAdapter()` 소멸자에서 `stop_consuming()` 후 `consumers_.clear()` 사이에 이미 큐잉된 async handler가 소멸된 KafkaConsumer에 접근 가능. `do_close()` 경로는 shutdown 시퀀스로 보호되나 소멸자 방어 경로에서는 미보호. 비정상 종료 또는 테스트 경로에서 간헐적 크래시 가능. **[FSD 설계 확정 2026-03-23]** io_context barrier flush: stop_consuming() 후 각 io_context에 barrier(promise/future) post → FIFO 보장으로 취소 핸들러 전부 처리 대기 → consumers_.clear(). io_context stopped 시 wait_for(timeout)으로 deadlock 방지.
 
 ### #136. HiredisAsioAdapter `[this]` raw 캡처 — sentinel 패턴 전환
 - **등급**: MAJOR
@@ -94,7 +94,7 @@
 - **스코프**: CORE
 - **타입**: TEST
 - **연관**: #4(HISTORY)
-- **설명**: `crash_handler.cpp`의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치.
+- **설명**: `crash_handler.cpp`의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치. **[FSD 설계 확정 2026-03-23]** GTest DEATH_TEST 활용(내장 fork/CreateProcess): ASSERT_DEATH로 signal handler 크래시 출력 검증 + in-process 단위 테스트로 install/uninstall 안전성·sanitizer 감지·signal_name() 헬퍼 검증. Sanitizer 빌드 시 GTEST_SKIP().
 
 ### #143. AdapterBase::spawn_adapter_coro() DRAINING 거부 테스트
 - **등급**: MAJOR
@@ -125,7 +125,7 @@
 - **등급**: MINOR
 - **스코프**: CHAT_SVC, GATEWAY
 - **타입**: DESIGN_DEBT
-- **설명**: Whisper unicast 전송 시 `core_id=0` 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능.
+- **설명**: Whisper unicast 전송 시 `core_id=0` 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).
 
 ### #65. auto-review 가이드 검증 자동화
 - **등급**: MINOR
