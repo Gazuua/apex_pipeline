@@ -339,7 +339,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(cons
     // 1. SISMEMBER -- check if user is in the room
     auto is_member =
         co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!is_member.has_value() || is_member->integer == 0)
+    if (!is_member.has_value())
+    {
+        spdlog::warn("[ChatService] Redis SISMEMBER failed for leave_room (room: {})", room_id);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+    if (is_member->integer == 0)
     {
         co_return co_await send_leave_room_error(meta, fbs::ChatRoomError_NOT_IN_ROOM, room_id);
     }
@@ -477,7 +482,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
     // 2. SISMEMBER -- membership check
     auto is_member =
         co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!is_member.has_value() || is_member->integer == 0)
+    if (!is_member.has_value())
+    {
+        spdlog::warn("[ChatService] Redis SISMEMBER failed for send_message (room: {})", room_id);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+    if (is_member->integer == 0)
     {
         co_return co_await send_message_error(meta, fbs::ChatMessageError_NOT_IN_ROOM);
     }
@@ -632,7 +642,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
     auto user_id_str = std::to_string(user_id);
     auto is_member =
         co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
-    if (!is_member.has_value() || is_member->integer == 0)
+    if (!is_member.has_value())
+    {
+        spdlog::warn("[ChatService] Redis SISMEMBER failed for chat_history (room: {})", room_id);
+        co_return std::unexpected(apex::core::ErrorCode::AdapterError);
+    }
+    if (is_member->integer == 0)
     {
         co_return co_await send_history_error(meta, fbs::ChatMessageError_NOT_IN_ROOM);
     }

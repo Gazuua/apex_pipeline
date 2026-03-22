@@ -5,10 +5,15 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #138. ResponseDispatcher unicast push 배달 경로 부재
+- **등급**: MAJOR | **스코프**: GATEWAY | **타입**: DESIGN_DEBT
+- **해결**: 2026-03-23 01:22:39 | **방식**: FIXED
+- **비고**: auto-review L1 수정. `corr_id==0`(서버 push) 경로 추가 — 모든 코어 순회하여 `session_id`로 대상 세션 탐색 후 WireHeader 응답 전달. Whisper 메시지 silent drop 해소.
+
 ### #126. apex-agent: Hook/자동화 시스템 Go 백엔드 재작성
 - **등급**: CRITICAL | **스코프**: tools, infra | **타입**: infra
 - **해결**: 2026-03-23 00:54:59 | **방식**: FIXED
-- **비고**: 11개 bash 스크립트(~2,080줄) → Go 단일 바이너리(~19,000줄) 전면 재작성. 데몬 모드(Named Pipe/Unix Socket IPC), SQLite 상태 저장소, 4개 모듈(Hook/Backlog/Handoff/Queue), 5개 hook 게이트, E2E 테스트 14 패키지 전체 PASS. CI Go 파이프라인 추가. auto-review 5라운드 수정 완료.
+- **비고**: 11개 bash 스크립트(~2,080줄) → Go 단일 바이너리(14,000+ LOC) 전면 재작성. 데몬 모드(Named Pipe/Unix Socket IPC), SQLite 상태 저장소, 4개 모듈(Hook/Backlog/Handoff/Queue), 5개 hook 게이트, E2E 테스트 14 패키지 전체 PASS. CI Go 파이프라인 추가. auto-review 5라운드 수정 완료.
 
 ### #132. RedisAdapter::do_close() UAF 방어 — cancellation 인프라 + shutdown 재배치
 - **등급**: MAJOR | **스코프**: shared, core | **타입**: design-debt

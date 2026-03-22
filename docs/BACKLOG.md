@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 146
+다음 발번: 150
 
 ---
 
@@ -18,14 +18,14 @@
 - **등급**: MAJOR
 - **스코프**: CORE, SHARED
 - **타입**: DESIGN_DEBT
-- **연관**: #130(이번PR에서도입)
+- **연관**: #130(HISTORY)
 - **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
 - **등급**: MINOR
 - **스코프**: SHARED
 - **타입**: SECURITY
-- **연관**: #131(이번PR에서도입)
+- **연관**: #131(HISTORY)
 - **설명**: `KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.
 
 ### #113. Docker E2E 풀 인프라 벤치마킹
@@ -82,11 +82,12 @@
 - **연관**: #136
 - **설명**: `KafkaAdapter::~KafkaAdapter()` 소멸자에서 `stop_consuming()` 후 `consumers_.clear()` 사이에 이미 큐잉된 async handler가 소멸된 KafkaConsumer에 접근 가능. `do_close()` 경로는 shutdown 시퀀스로 보호되나 소멸자 방어 경로에서는 미보호. 비정상 종료 또는 테스트 경로에서 간헐적 크래시 가능.
 
-### #138. ResponseDispatcher unicast push 배달 경로 부재
+### #136. HiredisAsioAdapter `[this]` raw 캡처 — sentinel 패턴 전환
 - **등급**: MAJOR
-- **스코프**: GATEWAY
+- **스코프**: SHARED
 - **타입**: DESIGN_DEBT
-- **설명**: `ResponseDispatcher::on_response`가 모든 메시지를 `corr_id`로 `PendingRequestsMap` 매칭. whisper 등 unsolicited push(`corr_id=0`, `core_id=0`)는 pending map에 미등록이므로 "No pending request" 로그와 함께 드롭. `corr_id=0`인 경우 `session_id` 기반 직접 세션 전달 경로 추가 필요. multi-core 환경에서 대상 세션 코어 탐색 또는 session-to-core 매핑도 필요.
+- **연관**: #137
+- **설명**: `handle_read()/handle_write()`의 `async_wait` 콜백이 `[this]`를 raw 캡처. `RedisConnection::disconnect()` → `redisAsyncFree()` → `on_cleanup()` → `socket_.cancel()` + `socket_.release()` → `asio_adapter_.reset()` 순서로 실행 시, 취소된 핸들러가 io_context에 post되어 소멸 후 실행될 수 있다. 현재는 `!ec` short-circuit으로 안전하지만 취약한 구조. `shared_ptr<bool>` sentinel 또는 `shared_from_this` 패턴으로 전환 권장.
 
 ### #142. CrashHandler 단위 테스트 부재
 - **등급**: MAJOR
@@ -101,11 +102,36 @@
 - **타입**: TEST
 - **설명**: `test_adapter_base.cpp`에서 init/drain/close 라이프사이클 상태 전이는 검증하지만, `spawn_adapter_coro()`가 DRAINING/CLOSED 상태에서 코루틴 spawn을 올바르게 거부하는지 미검증. 어댑터 코루틴 관리의 핵심 경로이며, drain 시 새 코루틴이 spawn되면 리소스 누수 발생 가능. mock adapter에서 호출 형태로 비용 낮게 구현 가능.
 
+### #146. AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹
+- **등급**: MAJOR
+- **스코프**: AUTH_SVC
+- **타입**: PERF
+- **설명**: `password_hasher_.verify()`가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 `co_spawn` 분리 필요.
+
+### #147. Docker 서비스 이미지에 테스트용 RSA 키 번들링
+- **등급**: MAJOR
+- **스코프**: INFRA
+- **타입**: SECURITY
+- **연관**: #140
+- **설명**: gateway/auth-svc Dockerfile의 runtime 스테이지에서 `COPY apex_services/tests/keys/ /app/keys/`로 E2E 테스트 전용 RSA 키를 이미지에 포함. 현재 Dockerfile이 E2E 전용이라 실질 위험 없으나, 프로덕션 Dockerfile 파생 시 테스트 키 배포 위험. 프로덕션은 Kubernetes Secret/Docker Secret 외부 마운트 필수.
+
+### #148. 테스트 커버리지 갭 — 핵심 경로 9건
+- **등급**: MAJOR
+- **스코프**: CORE, SHARED
+- **타입**: TEST
+- **설명**: auto-review에서 식별된 미테스트 경로: ① AdapterBase init 실패 복구 ② CircuitBreaker 동시 호출 ③ CrossCoreCall 동일 코어 호출 ④ Session 동시 write ⑤ TimingWheel 용량 1 ⑥ FrameCodec UnsupportedProtocolVersion ⑦ RedisMultiplexer close 중 콜백 안전성 ⑧ ConfigTest num_cores=0 ⑨ SpscMesh 자기 코어 post. 우선순위: ①⑦(프로덕션 장애 직결) > ②③(동시성) > 나머지.
+
+### #149. Whisper core_id=0 하드코딩 — SessionId core 인코딩
+- **등급**: MINOR
+- **스코프**: CHAT_SVC, GATEWAY
+- **타입**: DESIGN_DEBT
+- **설명**: Whisper unicast 전송 시 `core_id=0` 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능.
+
 ### #65. auto-review 가이드 검증 자동화
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **연관**: #1(HISTORY), #126
+- **연관**: #1(HISTORY), #126(HISTORY)
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능.
 
 
@@ -123,7 +149,7 @@
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **연관**: #126
+- **연관**: #126(HISTORY)
 - **설명**: 독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지. **[FSD 분석 2026-03-22]** #126 Go 백엔드 재작성 완료(2026-03-23)로 bash 스크립트 5종 삭제됨. 잔여 스크립트 유무 재평가 후 착수 여부 결정.
 
 ### #144. Session::state_ TSAN 호환성 — non-atomic cross-thread 접근

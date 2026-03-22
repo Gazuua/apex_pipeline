@@ -54,8 +54,14 @@ template <typename Derived> class AdapterBase
     AdapterBase& operator=(AdapterBase&&) = delete;
 
     /// 어댑터 초기화. Server::run()에서 서비스 시작 전에 호출.
+    /// 이중 호출 시 경고 로그 후 무시 (standalone 어댑터의 실수 방지).
     void init(apex::core::CoreEngine& engine)
     {
+        if (state_.load(std::memory_order_acquire) == AdapterState::RUNNING)
+        {
+            spdlog::warn("AdapterBase::init() called on already-running adapter — skipping");
+            return;
+        }
         // Phase 1: 인프라 초기화 (파생 클래스보다 먼저)
         base_engine_ = &engine;
         tokens_.reserve(engine.core_count());
@@ -115,6 +121,12 @@ template <typename Derived> class AdapterBase
 
     /// [D2] Adapter-service 자동 배선 (기본 no-op).
     /// KafkaAdapter 등이 override하여 서비스 핸들러를 자동 감지.
+    ///
+    /// NOTE: 의도적으로 CRTP 디스패치(static_cast<Derived*>)를 사용하지 않는다.
+    /// do_init/do_drain/do_close와 달리, Derived가 동일 시그니처의 wire_services()를
+    /// 정의하면 이름 숨기기(name hiding)로 자연스럽게 Derived 버전이 호출된다.
+    /// AdapterWrapper::wire_services()가 adapter_.wire_services()를 호출하므로,
+    /// Derived에 wire_services()가 있으면 Derived 것이, 없으면 이 기본 no-op이 호출된다.
     void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&, apex::core::CoreEngine&) {}
 
     /// init 완료 + drain/close 안 됨

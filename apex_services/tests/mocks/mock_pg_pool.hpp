@@ -7,6 +7,7 @@
 
 #include <apex/core/result.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <mutex>
@@ -152,7 +153,7 @@ class MockPgPool
     std::vector<PgQuery> queries_;
     std::deque<MockPgResult> result_queue_;
     std::deque<int> affected_rows_queue_;
-    bool fail_queries_{false};
+    std::atomic<bool> fail_queries_{false};
 };
 
 } // namespace apex::test

@@ -62,6 +62,37 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
     //    and session write happen on the core thread — no data race.
     auto corr_id = meta.corr_id;
     auto routing_copy = routing;
+    auto target_session_id = apex::core::make_session_id(meta.session_id);
+
+    // Server push path: corr_id == 0 means this is a push message (e.g., whisper),
+    // not a request-response correlation. Deliver directly by session_id.
+    // Since we don't know which core owns the target session, post to ALL cores
+    // and let each core check its own SessionManager.
+    if (corr_id == 0)
+    {
+        for (uint16_t core = 0; core < session_mgrs_.size(); ++core)
+        {
+            boost::asio::post(engine_.io_context(core), [this, core, routing_copy, target_session_id, payload_copy]() {
+                auto* session_mgr = session_mgrs_[core];
+                auto session = session_mgr->find_session(target_session_id);
+                if (!session || !session->is_open())
+                    return;
+
+                auto payload_offset =
+                    envelope_payload_offset(routing_copy.flags, std::span<const uint8_t>(*payload_copy));
+                if (payload_offset > payload_copy->size())
+                {
+                    spdlog::warn("Push payload offset {} exceeds size {}", payload_offset, payload_copy->size());
+                    return;
+                }
+                auto fbs_payload = std::span<const uint8_t>(payload_copy->data() + payload_offset,
+                                                            payload_copy->size() - payload_offset);
+                auto wire_response = build_wire_response(routing_copy, fbs_payload, routing_copy.msg_id);
+                (void)session->enqueue_write(std::move(wire_response));
+            });
+        }
+        return apex::core::ok();
+    }
 
     boost::asio::post(engine_.io_context(target_core), [this, target_core, corr_id, routing_copy,
                                                         payload_copy = std::move(payload_copy)]() {

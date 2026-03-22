@@ -21,6 +21,8 @@ target_link_libraries(apex_protocols_kafka
         apex::core
 )
 
+target_compile_features(apex_protocols_kafka PUBLIC cxx_std_23)
+
 apex_set_warnings(apex_protocols_kafka)
 
 if(WIN32)

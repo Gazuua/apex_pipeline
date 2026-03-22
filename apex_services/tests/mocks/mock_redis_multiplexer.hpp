@@ -7,6 +7,7 @@
 
 #include <apex/core/result.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <mutex>
@@ -136,7 +137,7 @@ class MockRedisMultiplexer
     mutable std::mutex mu_;
     std::vector<RedisCommand> commands_;
     std::deque<MockRedisReply> response_queue_;
-    bool fail_commands_{false};
+    std::atomic<bool> fail_commands_{false};
 };
 
 } // namespace apex::test

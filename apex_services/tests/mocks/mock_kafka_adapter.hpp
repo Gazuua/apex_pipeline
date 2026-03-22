@@ -7,6 +7,7 @@
 
 #include <apex/core/result.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -115,7 +116,7 @@ class MockKafkaAdapter
     mutable std::mutex mu_;
     std::vector<ProducedMessage> produced_;
     MessageCallback message_cb_;
-    bool fail_produce_{false};
+    std::atomic<bool> fail_produce_{false};
 };
 
 } // namespace apex::test

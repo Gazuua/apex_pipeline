@@ -75,8 +75,12 @@ public:
         flatbuffers::FlatBufferBuilder fbb(256);
         auto resp = CreateMyResponse(fbb, fbb.CreateString("ok"));
         fbb.Finish(resp);
-        session->enqueue_write(
-            apex::core::build_frame(msg_id + 1, fbb));  // §4.3 참조
+        apex::core::WireHeader header{
+            .msg_id = msg_id + 1,
+            .body_size = static_cast<uint32_t>(fbb.GetSize()),
+            .reserved = {}};
+        (void)co_await session->async_send(
+            header, {fbb.GetBufferPointer(), fbb.GetSize()});
 
         co_return apex::core::ok();
     }
