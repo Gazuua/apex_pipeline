@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// NormalizePath normalizes a file path for the current platform.
+// On Windows, handles MSYS-style paths (/c/Users/...) and forward slashes.
 func NormalizePath(p string) string {
 	if runtime.GOOS == "windows" && len(p) >= 3 && p[0] == '/' && p[2] == '/' {
 		drive := strings.ToUpper(string(p[1]))

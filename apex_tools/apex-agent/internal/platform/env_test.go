@@ -44,6 +44,13 @@ func TestPIDFilePath_EndsWithPID(t *testing.T) {
 	}
 }
 
+func TestEnsureDataDir_Creates(t *testing.T) {
+	// EnsureDataDir should not return an error (directory may already exist).
+	if err := EnsureDataDir(); err != nil {
+		t.Fatalf("EnsureDataDir() error: %v", err)
+	}
+}
+
 func TestSocketPath_Platform(t *testing.T) {
 	p := SocketPath()
 	if runtime.GOOS == "windows" {

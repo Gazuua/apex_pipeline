@@ -8,6 +8,7 @@ import (
 	"runtime"
 )
 
+// AppName is the application identifier used for directory and pipe names.
 const (
 	AppName    = "apex-agent"
 	pipeName   = `\\.\pipe\apex-agent`
@@ -16,6 +17,8 @@ const (
 	pidName    = "apex-agent.pid"
 )
 
+// DataDir returns the platform-specific data directory for apex-agent.
+// Windows: %LOCALAPPDATA%/apex-agent, Unix: $XDG_DATA_HOME/apex-agent or ~/.local/share/apex-agent.
 func DataDir() string {
 	if runtime.GOOS == "windows" {
 		return filepath.Join(os.Getenv("LOCALAPPDATA"), AppName)
@@ -27,9 +30,14 @@ func DataDir() string {
 	return filepath.Join(home, ".local", "share", AppName)
 }
 
-func DBPath() string      { return filepath.Join(DataDir(), dbName) }
+// DBPath returns the full path to the SQLite database file.
+func DBPath() string { return filepath.Join(DataDir(), dbName) }
+
+// PIDFilePath returns the full path to the daemon PID file.
 func PIDFilePath() string { return filepath.Join(DataDir(), pidName) }
 
+// SocketPath returns the platform-specific IPC socket address.
+// Windows: Named Pipe, Unix: Unix domain socket in temp directory.
 func SocketPath() string {
 	if runtime.GOOS == "windows" {
 		return pipeName
@@ -37,6 +45,7 @@ func SocketPath() string {
 	return filepath.Join(os.TempDir(), socketName)
 }
 
+// EnsureDataDir creates the data directory if it doesn't exist.
 func EnsureDataDir() error {
 	return os.MkdirAll(DataDir(), 0o755)
 }
