@@ -28,14 +28,21 @@ PubSubListener::~PubSubListener()
 
 void PubSubListener::start()
 {
-    running_ = true;
+    if (running_.exchange(true))
+    {
+        spdlog::warn("PubSubListener::start() called while already running -- ignoring");
+        return;
+    }
     thread_ = std::thread([this] { run_thread(); });
     spdlog::info("PubSubListener started ({}:{})", config_.host, config_.port);
 }
 
 void PubSubListener::stop()
 {
-    running_ = false;
+    if (!running_.exchange(false))
+    {
+        return; // Already stopped or never started
+    }
     if (thread_.joinable())
     {
         thread_.join();

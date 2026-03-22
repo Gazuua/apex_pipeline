@@ -104,7 +104,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Circuit Breaker** | 외부 서비스 호출 | 연속 실패 시 빠른 실패 반환, 연쇄 장애 차단 |
 | **Dead Letter Queue** | Kafka Consumer | 처리 실패 메시지를 DLQ 토픽으로 격리, 유실 방지 |
 | **Retry + Exponential Backoff** | 모든 외부 호출 | 일시적 실패 자동 재시도, 부하 폭주 방지 |
-| **Graceful Shutdown** | 전 서비스 | SIGTERM → Listener stop(acceptor 중지, 코어별 세션 close) → **어댑터 drain (새 요청 거부, is_ready=false)** → **Scheduler stop_all (주기 태스크 중지)** → 서비스 on_stop() → outstanding 코루틴 drain 대기(서비스+인프라+어댑터 코루틴) → **어댑터 close (Kafka flush, Redis/PG 풀 close_all)** → CoreEngine stop → CoreEngine join → drain_remaining(잔여 SPSC 메시지 소비) → globals clear → shutdown_logging() → 종료. 핵심: 어댑터 drain은 서비스 stop **이전** 수행, 어댑터 close는 CoreEngine 종료 **이전** 수행(close()가 io_context에 per-core cleanup을 post하므로 io_context 실행 중이어야 함, v0.5.10.6에서 재배치). drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, v0.2.0.0에서 구현. shutdown 후 로깅 시도는 spdlog::get() null 체크로 방어 |
+| **Graceful Shutdown** | 전 서비스 | SIGTERM → Listener drain(acceptor 중지, 신규 연결 거부) + 코어별 세션 close(post) → 활성 세션 drain 대기 → **Listener stop (최종 정리)** → **어댑터 drain (새 요청 거부, is_ready=false)** → **Scheduler stop_all (주기 태스크 중지)** → 서비스 on_stop() → outstanding 코루틴 drain 대기(서비스+인프라+어댑터 코루틴) → **어댑터 close (Kafka flush, Redis/PG 풀 close_all)** → CoreEngine stop → CoreEngine join → drain_remaining(잔여 SPSC 메시지 소비) → globals clear → shutdown_logging() → 종료. 핵심: 어댑터 drain은 서비스 stop **이전** 수행, 어댑터 close는 CoreEngine 종료 **이전** 수행(close()가 io_context에 per-core cleanup을 post하므로 io_context 실행 중이어야 함, v0.5.10.6에서 재배치). drain 타임아웃: ADR-05에서 기본값 25초(K8s 30초 대비 5초 여유)로 설계 확정, v0.2.0.0에서 구현. shutdown 후 로깅 시도는 spdlog::get() null 체크로 방어 |
 | **Health Check** | K8s Liveness/Readiness | 비정상 Pod 자동 재시작 |
 | **Rate Limiting** | Gateway | 3계층: Per-IP Sliding Window (TimingWheel) / Per-User Redis / Per-Endpoint Config |
 | **Idempotency Key** | 전 서비스 | 중복 요청 자동 감지, 멱등성 보장 |
@@ -243,7 +243,7 @@ public:
     }
 
     // 핸들러는 코루틴 — enqueue_write()로 per-session write queue에 전송
-    awaitable<Result<void>> on_echo(SessionPtr session, uint16_t msg_id,
+    awaitable<Result<void>> on_echo(SessionPtr session, uint32_t msg_id,
                                     const EchoRequest* req) {
         // FlatBuffers zero-copy 읽기 + 응답 빌드 + 비동기 전송
         flatbuffers::FlatBufferBuilder builder(256);
@@ -260,7 +260,7 @@ int main() {
     server
         .add_service<EchoService>()
         .listen<TcpBinaryProtocol>(9000)   // TCP 바이너리 프로토콜
-        // .listen<WebSocketProtocol>(9001) // WebSocket (v0.5.1+ Beast 통합 후)
+        // .listen<WebSocketProtocol>(9001) // WebSocket (v0.5.0.0에서 MVP 완료)
         .run();  // SIGINT/SIGTERM으로 graceful shutdown
 }
 ```

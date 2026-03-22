@@ -16,8 +16,13 @@ namespace apex::shared::adapters
 
 /// CircuitBreaker::call()이 받을 수 있는 callable의 반환 타입 제약.
 /// F()는 반드시 awaitable<Result<T>>를 반환해야 한다.
+/// value_type은 awaitable의 내부 결과 타입이며, has_value()와 error()를 제공해야 한다.
 template <typename F>
-concept CircuitCallable = std::invocable<F> && requires { typename std::invoke_result_t<F>::value_type; };
+concept CircuitCallable = std::invocable<F> && requires { typename std::invoke_result_t<F>::value_type; } &&
+                          requires(std::invoke_result_t<F>::value_type r) {
+                              { r.has_value() } -> std::same_as<bool>;
+                              { r.error() } -> std::convertible_to<apex::core::ErrorCode>;
+                          };
 
 struct CircuitBreakerConfig
 {

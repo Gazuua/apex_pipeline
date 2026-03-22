@@ -40,7 +40,7 @@ void BroadcastFanout::fanout(std::string_view channel, std::span<const uint8_t> 
     // Global channels (pub:global:*) — broadcast to ALL sessions on ALL cores.
     // Gateway is channel-name-agnostic except for this prefix convention.
     static constexpr std::string_view GLOBAL_PREFIX = "pub:global:";
-    if (channel.substr(0, GLOBAL_PREFIX.size()) == GLOBAL_PREFIX)
+    if (channel.starts_with(GLOBAL_PREFIX))
     {
         for (uint32_t core_id = 0; core_id < session_mgrs_.size(); ++core_id)
         {

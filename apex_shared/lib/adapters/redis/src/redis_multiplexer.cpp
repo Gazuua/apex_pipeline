@@ -202,8 +202,6 @@ RedisMultiplexer::pipeline(std::span<const std::string> commands)
             }
         } guard{buf};
         auto result = co_await submit_formatted_command(buf, len);
-        guard.p = nullptr; // ownership transferred, release guard
-        redisFreeCommand(buf);
         if (!result.has_value())
         {
             co_return std::unexpected(result.error());

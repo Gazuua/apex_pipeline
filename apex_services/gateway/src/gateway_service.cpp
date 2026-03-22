@@ -31,6 +31,11 @@
 namespace apex::gateway
 {
 
+// Gateway 프로토콜 규약: 시스템 메시지(AUTHENTICATE, SUBSCRIBE, UNSUBSCRIBE)의
+// FlatBuffers 페이로드에서 첫 번째 필드(vtable offset 4)는 항상 primary string
+// (JWT 토큰 또는 채널 이름). 스키마 비의존 — Gateway MSA 독립성 유지.
+constexpr flatbuffers::voffset_t kPrimaryStringField = 4;
+
 // GatewayGlobals 소멸자 — PubSubListener 정지 포함
 GatewayGlobals::~GatewayGlobals()
 {
@@ -141,7 +146,7 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
         if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
         {
             verifier.EndTable();
-            auto* token = root->GetPointer<const flatbuffers::String*>(4);
+            auto* token = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
             if (token && verifier.VerifyString(token) && token->size() > 0)
             {
                 auto& state = auth_states_[session->id()];
@@ -166,7 +171,7 @@ apex::core::Result<void> GatewayService::handle_subscribe_channel(apex::core::Se
         if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
         {
             verifier.EndTable();
-            auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+            auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
             if (ch && verifier.VerifyString(ch) && ch->size() > 0)
             {
                 auto result = globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
@@ -195,7 +200,7 @@ apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::
         if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
         {
             verifier.EndTable();
-            auto* ch = root->GetPointer<const flatbuffers::String*>(4);
+            auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
             if (ch && verifier.VerifyString(ch) && ch->size() > 0)
             {
                 globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());

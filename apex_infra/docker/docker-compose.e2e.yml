@@ -116,6 +116,7 @@ services:
     command: >
       redis-server
         --maxmemory 64mb
+        --maxmemory-policy allkeys-lru
         --save ""
         --appendonly no
         --requirepass ${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}
