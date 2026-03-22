@@ -461,6 +461,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.10.3 FSD 백로그 소탕 (KafkaSecurityConfig, TransportContext, AdapterState 3-state, drain/stop 분리)
          v0.5.10.4 FSD 백로그 소탕 (AdapterState 노출, Auth/Chat 비즈니스 로직 테스트)
          v0.5.10.5 FSD 백로그 소탕 (Gateway template policy + 에러 테스트)
+         v0.5.10.6 RedisAdapter close UAF 방어 (CancellationToken + AdapterBase 인프라 + shutdown 재배치)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

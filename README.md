@@ -186,9 +186,24 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Chat Service | `apex_infra/docker/chat-svc.Dockerfile` |
 | CI 빌드 | `apex_infra/docker/ci.Dockerfile` |
 
-## 현재 상태 — v0.5.10.2
+## 현재 상태 — v0.5.10.6
 
 ### 완료
+
+- **v0.5.10.6 — RedisAdapter close UAF 방어**
+  - CancellationToken per-core 프리미티브 (어댑터 코루틴 추적/취소)
+  - AdapterBase 범용 cancellation 인프라 (spawn/cancel/wait, 2단계 close)
+  - RedisMultiplexer reconnecting_ 플래그 → cancellation_signal 기반 전환
+  - Server shutdown 재배치 (adapter close → CoreEngine stop 이전으로)
+
+- **v0.5.10.5 — FSD 백로그 소탕 (Gateway)**
+  - GatewayPipeline template policy 리팩토링 + 에러 경로 단위 테스트
+
+- **v0.5.10.4 — FSD 백로그 소탕 (AdapterState + 테스트)**
+  - AdapterState 노출, Auth/Chat 비즈니스 로직 테스트
+
+- **v0.5.10.3 — FSD 백로그 소탕 (어댑터 인프라)**
+  - KafkaSecurityConfig, TransportContext, AdapterState 3-state, drain/stop 분리
 
 - **v0.5.10.2 — Session UAF 소멸 순서 수정**
   - Server::~Server()에 명시적 파괴 순서 추가 (listeners → schedulers → core_engine)
