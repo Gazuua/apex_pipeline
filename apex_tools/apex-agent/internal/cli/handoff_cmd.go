@@ -1,0 +1,346 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
+package cli
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+// getBranchID extracts the workspace branch identifier from the project root.
+// e.g., "apex_pipeline_branch_02" → "branch_02"
+func getBranchID() string {
+	cwd, _ := os.Getwd()
+	base := filepath.Base(cwd)
+	if strings.HasPrefix(base, "apex_pipeline_") {
+		return strings.TrimPrefix(base, "apex_pipeline_")
+	}
+	return base
+}
+
+func handoffCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "handoff",
+		Short: "브랜치 핸드오프 관리",
+	}
+
+	notify := &cobra.Command{
+		Use:   "notify",
+		Short: "핸드오프 알림 전송",
+	}
+	notify.AddCommand(handoffNotifyStartCmd())
+	notify.AddCommand(handoffNotifyDesignCmd())
+	notify.AddCommand(handoffNotifyPlanCmd())
+	notify.AddCommand(handoffNotifyMergeCmd())
+
+	cmd.AddCommand(notify)
+	cmd.AddCommand(handoffCheckCmd())
+	cmd.AddCommand(handoffAckCmd())
+	cmd.AddCommand(handoffStatusCmd())
+	cmd.AddCommand(handoffBacklogCheckCmd())
+	return cmd
+}
+
+// ── handoff notify start ──
+
+func handoffNotifyStartCmd() *cobra.Command {
+	var (
+		summary    string
+		backlog    int
+		scopes     string
+		skipDesign bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "start",
+		Short: "작업 착수 알림",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":      branch,
+				"workspace":   branch,
+				"summary":     summary,
+				"backlog_id":  backlog,
+				"scopes":      scopes,
+				"skip_design": skipDesign,
+			}
+			result, err := sendHandoffRequest("notify-start", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			notifID, _ := result["notification_id"].(float64)
+			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, scopes=%s)\n",
+				notifID, branch, scopes)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "작업 요약 (필수)")
+	cmd.Flags().IntVar(&backlog, "backlog", 0, "백로그 번호")
+	cmd.Flags().StringVar(&scopes, "scopes", "", "영향 스코프 (예: core,shared)")
+	cmd.Flags().BoolVar(&skipDesign, "skip-design", false, "설계 단계 스킵 (바로 implementing)")
+	_ = cmd.MarkFlagRequired("summary")
+
+	return cmd
+}
+
+// ── handoff notify design ──
+
+func handoffNotifyDesignCmd() *cobra.Command {
+	var summary string
+
+	cmd := &cobra.Command{
+		Use:   "design",
+		Short: "설계 확정 알림",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":    branch,
+				"workspace": branch,
+				"type":      "design",
+				"summary":   summary,
+			}
+			result, err := sendHandoffRequest("notify-transition", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			notifID, _ := result["notification_id"].(float64)
+			fmt.Printf("[handoff] Tier 2 notification published: #%.0f (branch=%s)\n",
+				notifID, branch)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "설계 요약 (필수)")
+	_ = cmd.MarkFlagRequired("summary")
+
+	return cmd
+}
+
+// ── handoff notify plan ──
+
+func handoffNotifyPlanCmd() *cobra.Command {
+	var summary string
+
+	cmd := &cobra.Command{
+		Use:   "plan",
+		Short: "구현 계획 확정 알림",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":    branch,
+				"workspace": branch,
+				"type":      "plan",
+				"summary":   summary,
+			}
+			result, err := sendHandoffRequest("notify-transition", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			notifID, _ := result["notification_id"].(float64)
+			fmt.Printf("[handoff] status → implementing (branch=%s, notif=#%.0f)\n",
+				branch, notifID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "계획 요약 (필수)")
+	_ = cmd.MarkFlagRequired("summary")
+
+	return cmd
+}
+
+// ── handoff notify merge ──
+
+func handoffNotifyMergeCmd() *cobra.Command {
+	var summary string
+
+	cmd := &cobra.Command{
+		Use:   "merge",
+		Short: "머지 완료 알림",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":    branch,
+				"workspace": branch,
+				"type":      "merge",
+				"summary":   summary,
+			}
+			result, err := sendHandoffRequest("notify-transition", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			notifID, _ := result["notification_id"].(float64)
+			fmt.Printf("[handoff] merge notification published: #%.0f (branch=%s)\n",
+				notifID, branch)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "머지 요약 (필수)")
+	_ = cmd.MarkFlagRequired("summary")
+
+	return cmd
+}
+
+// ── handoff check ──
+
+func handoffCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "미확인 알림 조회",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			result, err := sendHandoffRequest("check", map[string]any{"branch": branch})
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+
+			rawNotifs, _ := result["notifications"].([]any)
+			if len(rawNotifs) == 0 {
+				fmt.Println("No new notifications.")
+				return nil
+			}
+
+			for _, raw := range rawNotifs {
+				data, _ := json.Marshal(raw)
+				var n struct {
+					ID        float64 `json:"ID"`
+					Branch    string  `json:"Branch"`
+					Workspace string  `json:"Workspace"`
+					Type      string  `json:"Type"`
+					Summary   string  `json:"Summary"`
+					CreatedAt string  `json:"CreatedAt"`
+				}
+				if err := json.Unmarshal(data, &n); err != nil {
+					continue
+				}
+				fmt.Printf("[#%.0f] type=%-12s branch=%-30s %s\n",
+					n.ID, n.Type, n.Branch, n.Summary)
+				if n.CreatedAt != "" {
+					fmt.Printf("       at=%s\n", n.CreatedAt)
+				}
+			}
+			return nil
+		},
+	}
+}
+
+// ── handoff ack ──
+
+func handoffAckCmd() *cobra.Command {
+	var (
+		id     int
+		action string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "ack",
+		Short: "알림 확인 처리",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"notification_id": id,
+				"branch":          branch,
+				"action":          action,
+			}
+			_, err := sendHandoffRequest("ack", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			fmt.Printf("[handoff] acked notification #%d with action=%s (branch=%s)\n",
+				id, action, branch)
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&id, "id", 0, "알림 번호 (필수)")
+	cmd.Flags().StringVar(&action, "action", "", "처리 방식: no-impact|will-rebase|rebased|design-adjusted|deferred (필수)")
+	_ = cmd.MarkFlagRequired("id")
+	_ = cmd.MarkFlagRequired("action")
+
+	return cmd
+}
+
+// ── handoff status ──
+
+func handoffStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "현재 브랜치 핸드오프 상태 조회",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			result, err := sendHandoffRequest("get-branch", map[string]any{"branch": branch})
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+
+			raw, _ := json.Marshal(result["branch"])
+			if string(raw) == "null" || len(raw) == 0 {
+				fmt.Printf("[handoff] branch=%s: not registered\n", branch)
+				return nil
+			}
+
+			var b struct {
+				Branch    string  `json:"Branch"`
+				Workspace string  `json:"Workspace"`
+				Status    string  `json:"Status"`
+				BacklogID float64 `json:"BacklogID"`
+				Summary   string  `json:"Summary"`
+				CreatedAt string  `json:"CreatedAt"`
+				UpdatedAt string  `json:"UpdatedAt"`
+			}
+			if err := json.Unmarshal(raw, &b); err != nil {
+				return fmt.Errorf("parse response: %w", err)
+			}
+
+			fmt.Printf("[handoff] branch=%s status=%s", b.Branch, b.Status)
+			if b.BacklogID > 0 {
+				fmt.Printf(" backlog=BACKLOG-%.0f", b.BacklogID)
+			}
+			if b.Summary != "" {
+				fmt.Printf(" summary=%q", b.Summary)
+			}
+			fmt.Println()
+			if b.UpdatedAt != "" {
+				fmt.Printf("          updated=%s\n", b.UpdatedAt)
+			}
+			return nil
+		},
+	}
+}
+
+// ── handoff backlog-check ──
+
+func handoffBacklogCheckCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "backlog-check N",
+		Short: "백로그 번호 사용 여부 확인",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var id int
+			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+				return fmt.Errorf("N must be an integer: %s", args[0])
+			}
+			result, err := sendHandoffRequest("backlog-check", map[string]any{"backlog_id": id})
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+
+			available, _ := result["available"].(bool)
+			usedBy, _ := result["branch"].(string)
+
+			if available {
+				fmt.Printf("BACKLOG-%d: AVAILABLE\n", id)
+			} else {
+				fmt.Printf("BACKLOG-%d: IN USE by %s\n", id, usedBy)
+			}
+			return nil
+		},
+	}
+}
