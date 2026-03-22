@@ -38,16 +38,8 @@ void RedisMultiplexer::connect()
         if (!config_.password.empty())
         {
             // AUTH must run asynchronously after the event loop starts.
-            spawn_callback_(core_id_, [this]() -> boost::asio::awaitable<void> {
-                auto result = co_await authenticate(*conn_);
-                if (!result.has_value())
-                {
-                    spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host,
-                                 config_.port);
-                    conn_.reset();
-                    on_disconnect();
-                }
-            }());
+            // 멤버 함수 코루틴 사용 — IIFE 람다는 임시객체 파괴 후 dangling this.
+            spawn_callback_(core_id_, initial_auth());
         }
     }
     else
@@ -277,6 +269,17 @@ void RedisMultiplexer::on_disconnect()
     // spawn_callback_이 거부하면 코루틴이 실행되지 않아 ReconnectGuard가 생성되지 않음.
     // 이 경우 reconnect_active_가 true로 남지만, DRAINING/CLOSED 이후 destroy 흐름이므로
     // 실질적 영향 없음 (multiplexer가 곧 파괴됨).
+}
+
+boost::asio::awaitable<void> RedisMultiplexer::initial_auth()
+{
+    auto result = co_await authenticate(*conn_);
+    if (!result.has_value())
+    {
+        spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host, config_.port);
+        conn_.reset();
+        on_disconnect();
+    }
 }
 
 boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(RedisConnection& conn)

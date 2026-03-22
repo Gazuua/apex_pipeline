@@ -144,6 +144,11 @@ class RedisMultiplexer
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<RedisReply>> submit_formatted_command(const char* cmd,
                                                                                                   int len);
 
+    /// Initial AUTH — connect() 시 비밀번호 설정된 경우 코루틴으로 실행.
+    /// IIFE 람다 대신 멤버 함수 사용: 코루틴 프레임이 this를 직접 저장하여
+    /// 람다 임시객체 파괴 후 dangling pointer 문제를 방지.
+    boost::asio::awaitable<void> initial_auth();
+
     /// Exponential backoff reconnect loop
     boost::asio::awaitable<void> reconnect_loop();
 

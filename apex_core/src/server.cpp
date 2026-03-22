@@ -95,12 +95,26 @@ Server::~Server()
     }
 
     // 명시적 파괴 순서 — io_context 의존성 역순 정리.
-    // 멤버 선언 순서에 의한 암묵적 파괴가 안전하지 않으므로 직접 제어:
+    //
+    //   0) 잔여 핸들러 drain: core_engine_->stop()이 io_context::stop()을 호출하면
+    //      pending completion handler(예: Session::enqueue_and_await의 timer cancel)가
+    //      미처리된 채 남음. 모든 객체(listener, session, timer)가 아직 유효한 상태에서
+    //      restart+poll로 잔여 핸들러를 소진해야 ~io_context() 시 UAF를 방지.
+    //      ※ listeners_.clear() 이후로 이동 금지 — poll이 처리하는 핸들러가
+    //        TcpAcceptor 등 listener 소유 객체를 참조할 수 있음.
     //   1) listeners_ : TcpAcceptor 소켓이 io_context에 등록됨
     //   2) per_core_ schedulers : 타이머가 io_context에 등록됨
-    //   3) core_engine_ : io_context 소유. ~io_context()가 미완료 코루틴을
-    //      파괴하며, 코루틴 프레임의 intrusive_ptr<Session>이 해제됨.
-    //      per_core_의 Session slab 메모리가 유효한 상태에서 실행되어야 함.
+    //   3) core_engine_ : io_context 소유. per_core_의 Session slab 메모리가
+    //      유효한 상태에서 실행되어야 함.
+    if (core_engine_)
+    {
+        for (uint32_t i = 0; i < config_.num_cores; ++i)
+        {
+            auto& io = core_engine_->io_context(i);
+            io.restart();
+            io.poll();
+        }
+    }
     listeners_.clear();
     for (auto& state : per_core_)
     {

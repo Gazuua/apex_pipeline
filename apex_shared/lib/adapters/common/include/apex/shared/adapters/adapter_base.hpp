@@ -147,6 +147,10 @@ template <typename Derived> class AdapterBase
   protected:
     /// 지정된 코어에서 코루틴을 spawn하고 cancellation 추적에 등록.
     /// DRAINING/CLOSED 상태에서는 spawn 거부 (로그 경고, 코루틴 미실행).
+    /// new_slot()/co_spawn 전체를 io_context에 post — CancellationToken의
+    /// 모든 접근(new_slot, on_complete, cancel_all)이 코어 스레드에서 실행되어
+    /// debug assert (owner thread) 보장. init 시에는 io_context 미실행 상태이므로
+    /// 핸들러가 큐잉되었다가 코어 스레드 시작 시 처리됨.
     void spawn_adapter_coro(uint32_t core_id, boost::asio::awaitable<void> coro)
     {
         if (state_.load(std::memory_order_acquire) != AdapterState::RUNNING)
@@ -155,20 +159,22 @@ template <typename Derived> class AdapterBase
                          static_cast<Derived*>(this)->do_name());
             return;
         }
-        auto& token = tokens_[core_id];
-        auto slot = token.new_slot();
-        boost::asio::co_spawn(
-            *io_ctxs_[core_id],
-            [&token, c = std::move(coro)]() mutable -> boost::asio::awaitable<void> {
-                try
-                {
-                    co_await std::move(c);
-                }
-                catch (...)
-                {}
-                token.on_complete();
-            },
-            boost::asio::bind_cancellation_slot(slot, boost::asio::detached));
+        boost::asio::post(*io_ctxs_[core_id], [this, core_id, c = std::move(coro)]() mutable {
+            auto& token = tokens_[core_id];
+            auto slot = token.new_slot();
+            boost::asio::co_spawn(
+                *io_ctxs_[core_id],
+                [&token, c2 = std::move(c)]() mutable -> boost::asio::awaitable<void> {
+                    try
+                    {
+                        co_await std::move(c2);
+                    }
+                    catch (...)
+                    {}
+                    token.on_complete();
+                },
+                boost::asio::bind_cancellation_slot(slot, boost::asio::detached));
+        });
     }
 
     /// Per-core 리소스 정리 (기본 no-op). Derived에서 override 가능.
