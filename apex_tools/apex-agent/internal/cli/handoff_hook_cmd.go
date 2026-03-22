@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,9 +37,20 @@ func hookValidateHandoffCmd() *cobra.Command {
 			}
 
 			// main/master 브랜치는 스킵
-			branch, err := gitCurrentBranch(cwd)
-			if err != nil || branch == "main" || branch == "master" {
+			gitBranch, err := gitCurrentBranch(cwd)
+			if err != nil || gitBranch == "main" || gitBranch == "master" {
 				return nil
+			}
+
+			// feature/bugfix 브랜치만 체크
+			if !isFeatureBranch(gitBranch) {
+				return nil
+			}
+
+			// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
+			branch, _ := resolveHandoffBranch(cwd, gitBranch)
+			if branch == "" {
+				return nil // 미등록 시 Bash는 통과 (Edit/Write만 차단)
 			}
 
 			// 1) 알림 프로브 (매 Bash 호출 시, 비차단 경고)
@@ -50,8 +62,8 @@ func hookValidateHandoffCmd() *cobra.Command {
 				}
 			}
 
-			// 2) git commit 게이트 (feature/bugfix 브랜치만)
-			if isGitCommit(command) && isFeatureBranch(branch) {
+			// 2) commit 게이트
+			if isGitCommit(command) {
 				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
 				if err != nil {
 					// 데몬 연결 실패 시 통과 (graceful degradation)
@@ -64,7 +76,7 @@ func hookValidateHandoffCmd() *cobra.Command {
 			}
 
 			// 3) gh pr merge 게이트
-			if strings.Contains(command, "gh pr merge") && isFeatureBranch(branch) {
+			if strings.Contains(command, "gh pr merge") {
 				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
 				if err != nil {
 					return nil
@@ -95,14 +107,21 @@ func hookHandoffProbeCmd() *cobra.Command {
 			}
 
 			// main/master 브랜치 스킵
-			branch, err := gitCurrentBranch(cwd)
-			if err != nil || branch == "main" || branch == "master" {
+			gitBranch, err := gitCurrentBranch(cwd)
+			if err != nil || gitBranch == "main" || gitBranch == "master" {
 				return nil
 			}
 
 			// feature/bugfix 브랜치만 체크
-			if !isFeatureBranch(branch) {
+			if !isFeatureBranch(gitBranch) {
 				return nil
+			}
+
+			// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
+			branch, _ := resolveHandoffBranch(cwd, gitBranch)
+			if branch == "" {
+				fmt.Fprintln(os.Stderr, "차단: 핸드오프 미등록")
+				os.Exit(2)
 			}
 
 			// 1+2) 등록 확인 + 상태 기반 소스 게이트
@@ -130,6 +149,40 @@ func hookHandoffProbeCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// resolveHandoffBranch resolves the daemon branch key using workspace ID (primary)
+// and git branch name (fallback). Returns empty string if not found.
+func resolveHandoffBranch(cwd, gitBranch string) (string, error) {
+	wsID := getBranchID()
+	if cwd != "" {
+		wsID = filepath.Base(cwd)
+		if strings.HasPrefix(wsID, "apex_pipeline_") {
+			wsID = strings.TrimPrefix(wsID, "apex_pipeline_")
+		}
+	}
+
+	resp, err := sendHandoffRaw("resolve-branch", map[string]any{
+		"workspace_id": wsID,
+		"git_branch":   gitBranch,
+	})
+	if err != nil {
+		return "", err
+	}
+	if resp.Error != "" {
+		return "", fmt.Errorf("%s", resp.Error)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return "", err
+	}
+	if found, _ := result["found"].(bool); found {
+		if branch, ok := result["branch"].(string); ok {
+			return branch, nil
+		}
+	}
+	return "", nil
 }
 
 // --- helpers ---

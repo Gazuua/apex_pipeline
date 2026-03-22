@@ -17,6 +17,7 @@ var ml = log.WithModule("handoff")
 type Branch struct {
 	Branch     string
 	Workspace  string
+	GitBranch  string // git branch --show-current 값
 	Status     string
 	BacklogIDs []int // junction 테이블에서 조회
 	Summary    string
@@ -62,8 +63,9 @@ func NewManager(s *store.Store, bm BacklogStatusSetter) *Manager {
 
 // NotifyStart registers a new branch and creates a start notification.
 // If skipDesign is true, sets status to "implementing" directly.
+// gitBranch is stored for fallback lookups by hook system.
 // Returns the notification ID.
-func (m *Manager) NotifyStart(branch, workspace, summary string, backlogIDs []int, scopes string, skipDesign bool) (int, error) {
+func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, backlogIDs []int, scopes string, skipDesign bool) (int, error) {
 	status := StatusStarted
 	if skipDesign {
 		status = StatusImplementing
@@ -77,9 +79,9 @@ func (m *Manager) NotifyStart(branch, workspace, summary string, backlogIDs []in
 	defer tx.Rollback() //nolint:errcheck
 
 	_, err = tx.ExecContext(ctx,
-		`INSERT INTO branches (branch, workspace, status, summary, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
-		branch, workspace, status, summary,
+		`INSERT INTO branches (branch, workspace, git_branch, status, summary, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
+		branch, workspace, nullableString(gitBranch), status, summary,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert branch: %w", err)
@@ -270,14 +272,14 @@ func (m *Manager) BacklogCheck(backlogID int) (available bool, branch string, er
 // Returns nil, nil if not found.
 func (m *Manager) GetBranch(branch string) (*Branch, error) {
 	row := m.store.QueryRow(
-		`SELECT branch, workspace, status, summary, created_at, updated_at
+		`SELECT branch, workspace, COALESCE(git_branch, ''), status, summary, created_at, updated_at
 		 FROM branches WHERE branch = ?`,
 		branch,
 	)
 
 	var b Branch
 	var summary sql.NullString
-	if err := row.Scan(&b.Branch, &b.Workspace, &b.Status, &summary, &b.CreatedAt, &b.UpdatedAt); err != nil {
+	if err := row.Scan(&b.Branch, &b.Workspace, &b.GitBranch, &b.Status, &summary, &b.CreatedAt, &b.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -302,6 +304,32 @@ func (m *Manager) GetBranch(branch string) (*Branch, error) {
 	return &b, nil
 }
 
+// ResolveBranch finds a branch by workspace ID first, then by git branch name.
+// Returns the workspace branch ID (primary key) or empty string if not found.
+func (m *Manager) ResolveBranch(workspaceID, gitBranch string) (string, error) {
+	// 1차: workspace ID로 조회
+	status, err := m.GetStatus(workspaceID)
+	if err != nil {
+		return "", err
+	}
+	if status != "" {
+		return workspaceID, nil
+	}
+
+	// 2차: git branch 이름으로 fallback
+	if gitBranch != "" {
+		row := m.store.QueryRow(
+			`SELECT branch FROM branches WHERE git_branch = ?`, gitBranch,
+		)
+		var branch string
+		if scanErr := row.Scan(&branch); scanErr == nil {
+			return branch, nil
+		}
+	}
+
+	return "", nil
+}
+
 // GetStatus returns the current status of a branch (empty string if not registered).
 func (m *Manager) GetStatus(branch string) (string, error) {
 	row := m.store.QueryRow(
@@ -316,5 +344,13 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 		return "", fmt.Errorf("scan status: %w", err)
 	}
 	return status, nil
+}
+
+// nullableString converts an empty string to nil for SQL NULL storage.
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 

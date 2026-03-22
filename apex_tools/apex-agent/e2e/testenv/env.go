@@ -70,8 +70,8 @@ func New(t *testing.T) *TestEnv {
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
 
-	// Wait for readiness
-	time.Sleep(200 * time.Millisecond)
+	// Wait for readiness — poll until socket is connectable (max 5s)
+	waitForSocket(t, socketAddr)
 
 	client := ipc.NewClient(socketAddr)
 
@@ -132,7 +132,7 @@ func (e *TestEnv) Restart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
-	time.Sleep(200 * time.Millisecond)
+	waitForSocket(t, e.SocketAddr)
 
 	e.Cancel = cancel
 	e.daemon = d
@@ -163,6 +163,20 @@ func (e *TestEnv) InitGitRepo(t *testing.T) string {
 	run(t, repoDir, "git", "commit", "-m", "initial commit")
 
 	return repoDir
+}
+
+// waitForSocket polls the IPC socket until it's connectable (max 5s).
+func waitForSocket(t *testing.T, addr string) {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		time.Sleep(50 * time.Millisecond)
+		conn, err := ipc.Dial(addr)
+		if err == nil {
+			conn.Close()
+			return
+		}
+	}
+	t.Fatalf("daemon socket not ready after 5s: %s", addr)
 }
 
 func testSocketAddr(name string) string {

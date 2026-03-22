@@ -27,7 +27,7 @@ func setupHandoffTestDB(t *testing.T) (*store.Store, *Manager) {
 func TestNotifyStart_Basic(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	notifID, err := mgr.NotifyStart("feature/test", "ws1", "test summary", nil, "", false)
+	notifID, err := mgr.NotifyStart("feature/test", "ws1", "test summary", "", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestNotifyStart_Basic(t *testing.T) {
 func TestNotifyStart_SkipDesign(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/skip", "ws1", "skip design", nil, "", true)
+	_, err := mgr.NotifyStart("feature/skip", "ws1", "skip design", "", nil, "", true)
 	if err != nil {
 		t.Fatalf("NotifyStart with skipDesign: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestNotifyStart_SkipDesign(t *testing.T) {
 func TestNotifyStart_WithBacklog(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/backlog-126", "ws1", "backlog item", []int{126}, "", false)
+	_, err := mgr.NotifyStart("feature/backlog-126", "ws1", "backlog item", "", []int{126}, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestNotifyStart_WithBacklog(t *testing.T) {
 func TestNotifyTransition_Design(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/trans", "ws1", "summary", nil, "", false)
+	_, err := mgr.NotifyStart("feature/trans", "ws1", "summary", "", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestNotifyTransition_Design(t *testing.T) {
 func TestNotifyTransition_Plan(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/plan", "ws1", "summary", nil, "", false)
+	_, _ = mgr.NotifyStart("feature/plan", "ws1", "summary", "", nil, "", false)
 	_, _ = mgr.NotifyTransition("feature/plan", "ws1", TypeDesign, "design")
 
 	_, err := mgr.NotifyTransition("feature/plan", "ws1", TypePlan, "plan summary")
@@ -138,7 +138,7 @@ func TestNotifyTransition_Plan(t *testing.T) {
 func TestNotifyTransition_Merge(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/merge", "ws1", "summary", nil, "", true) // skipDesign → implementing
+	_, _ = mgr.NotifyStart("feature/merge", "ws1", "summary", "", nil, "", true) // skipDesign → implementing
 
 	_, err := mgr.NotifyTransition("feature/merge", "ws1", TypeMerge, "merge summary")
 	if err != nil {
@@ -157,7 +157,7 @@ func TestNotifyTransition_Merge(t *testing.T) {
 func TestNotifyTransition_Invalid(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/invalid", "ws1", "summary", nil, "", false)
+	_, _ = mgr.NotifyStart("feature/invalid", "ws1", "summary", "", nil, "", false)
 
 	// started → plan is invalid (must go through design first)
 	_, err := mgr.NotifyTransition("feature/invalid", "ws1", TypePlan, "skip design")
@@ -182,7 +182,7 @@ func TestCheckNotifications_ExcludesOwn(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// Branch A creates a notification
-	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", nil, "", false)
+	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
 
 	// Branch A checks — should NOT see its own notification
 	notifs, err := mgr.CheckNotifications("feature/branchA")
@@ -198,7 +198,7 @@ func TestCheckNotifications_SeesOthers(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// Branch A creates a notification
-	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", nil, "", false)
+	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
 
 	// Branch B checks — should see Branch A's notification
 	notifs, err := mgr.CheckNotifications("feature/branchB")
@@ -217,7 +217,7 @@ func TestCheckNotifications_ExcludesAcked(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// Branch A creates a notification
-	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", nil, "", false)
+	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
 
 	// Branch B acks it
 	err := mgr.Ack(notifID, "feature/branchB", "no-impact")
@@ -238,7 +238,7 @@ func TestCheckNotifications_ExcludesAcked(t *testing.T) {
 func TestAck_Basic(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", nil, "", false)
+	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
 
 	err := mgr.Ack(notifID, "feature/branchB", "no-impact")
 	if err != nil {
@@ -277,7 +277,7 @@ func TestBacklogCheck_Available(t *testing.T) {
 func TestBacklogCheck_InUse(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/backlog-42", "ws1", "summary", []int{42}, "", false)
+	_, _ = mgr.NotifyStart("feature/backlog-42", "ws1", "summary", "", []int{42}, "", false)
 
 	available, branch, err := mgr.BacklogCheck(42)
 	if err != nil {
@@ -306,7 +306,7 @@ func TestGetBranch_NotFound(t *testing.T) {
 func TestGetBranch_Found(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/found", "ws2", "found summary", []int{7}, "", false)
+	_, _ = mgr.NotifyStart("feature/found", "ws2", "found summary", "", []int{7}, "", false)
 
 	b, err := mgr.GetBranch("feature/found")
 	if err != nil {
@@ -347,7 +347,7 @@ func TestGetStatus_NotRegistered(t *testing.T) {
 func TestGetStatus_Registered(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/present", "ws1", "summary", nil, "", false)
+	_, _ = mgr.NotifyStart("feature/present", "ws1", "summary", "", nil, "", false)
 
 	status, err := mgr.GetStatus("feature/present")
 	if err != nil {

@@ -3,9 +3,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -21,6 +24,19 @@ func getBranchID() string {
 		return strings.TrimPrefix(base, "apex_pipeline_")
 	}
 	return base
+}
+
+// currentGitBranch returns the current git branch name.
+// Returns empty string on error (e.g., not a git repo).
+func currentGitBranch() string {
+	c := exec.Command("git", "branch", "--show-current")
+	var out bytes.Buffer
+	c.Stdout = &out
+	c.Stderr = io.Discard
+	if err := c.Run(); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out.String())
 }
 
 func handoffCmd() *cobra.Command {
@@ -65,9 +81,11 @@ func handoffNotifyStartCmd() *cobra.Command {
 				return fmt.Errorf("백로그 작업은 --backlog 필수. 비백로그 작업은 'start job' 사용")
 			}
 			branch := getBranchID()
+			gitBranch := currentGitBranch()
 			params := map[string]any{
 				"branch":      branch,
 				"workspace":   branch,
+				"git_branch":  gitBranch,
 				"summary":     summary,
 				"backlog_ids": backlogs,
 				"scopes":      scopes,
@@ -78,8 +96,8 @@ func handoffNotifyStartCmd() *cobra.Command {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
 			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, scopes=%s)\n",
-				notifID, branch, scopes)
+			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, scopes=%s)\n",
+				notifID, branch, gitBranch, scopes)
 			return nil
 		},
 	}
@@ -107,9 +125,11 @@ func handoffNotifyStartJobCmd() *cobra.Command {
 		Short: "비백로그 작업 착수 알림",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := getBranchID()
+			gitBranch := currentGitBranch()
 			params := map[string]any{
 				"branch":      branch,
 				"workspace":   branch,
+				"git_branch":  gitBranch,
 				"summary":     summary,
 				"backlog_ids": []int{},
 				"scopes":      scopes,
@@ -120,8 +140,8 @@ func handoffNotifyStartJobCmd() *cobra.Command {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
 			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, job mode)\n",
-				notifID, branch)
+			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, job mode)\n",
+				notifID, branch, gitBranch)
 			return nil
 		},
 	}

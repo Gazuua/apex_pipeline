@@ -99,6 +99,11 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		`)
 		return err
 	})
+	mig.Register("handoff", 3, func(s *store.Store) error {
+		// git_branch 컬럼 추가 — hook fallback 조회용
+		_, err := s.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
+		return err
+	})
 }
 
 // RegisterRoutes registers handoff action handlers.
@@ -110,6 +115,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("backlog-check", m.handleBacklogCheck)
 	reg.Handle("get-branch", m.handleGetBranch)
 	reg.Handle("get-status", m.handleGetStatus)
+	reg.Handle("resolve-branch", m.handleResolveBranch)
 	reg.Handle("validate-commit", m.handleValidateCommit)
 	reg.Handle("validate-merge-gate", m.handleValidateMergeGate)
 	reg.Handle("validate-edit", m.handleValidateEdit)
@@ -124,6 +130,7 @@ func (m *Module) OnStop() error                   { return nil }
 type notifyStartParams struct {
 	Branch     string `json:"branch"`
 	Workspace  string `json:"workspace"`
+	GitBranch  string `json:"git_branch"`
 	Summary    string `json:"summary"`
 	BacklogIDs []int  `json:"backlog_ids"`
 	Scopes     string `json:"scopes"`
@@ -166,7 +173,7 @@ func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BacklogIDs, p.Scopes, p.SkipDesign)
+	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.GitBranch, p.BacklogIDs, p.Scopes, p.SkipDesign)
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +249,25 @@ func (m *Module) handleGetStatus(_ context.Context, params json.RawMessage, _ st
 		return nil, err
 	}
 	return map[string]any{"status": status}, nil
+}
+
+// --- Resolve handler ---
+
+type resolveBranchParams struct {
+	WorkspaceID string `json:"workspace_id"`
+	GitBranch   string `json:"git_branch"`
+}
+
+func (m *Module) handleResolveBranch(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p resolveBranchParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	branch, err := m.manager.ResolveBranch(p.WorkspaceID, p.GitBranch)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"branch": branch, "found": branch != ""}, nil
 }
 
 // --- Gate handler request types ---

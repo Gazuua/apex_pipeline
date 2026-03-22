@@ -117,7 +117,7 @@ func daemonStartCmd() *cobra.Command {
 				return fmt.Errorf("start daemon: %w", err)
 			}
 			addr := platform.SocketPath()
-			for i := 0; i < 60; i++ {
+			for i := 0; i < 100; i++ {
 				time.Sleep(50 * time.Millisecond)
 				conn, err := ipc.Dial(addr)
 				if err == nil {
@@ -126,7 +126,7 @@ func daemonStartCmd() *cobra.Command {
 					return nil
 				}
 			}
-			return fmt.Errorf("daemon failed to start within 3 seconds")
+			return fmt.Errorf("daemon failed to start within 5 seconds")
 		},
 	}
 }
