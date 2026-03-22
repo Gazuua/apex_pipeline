@@ -65,11 +65,24 @@ Agent tool로 리뷰어를 디스패치할 때 다음을 포함한다:
 
 | 조건 | 동작 |
 |------|------|
-| main 브랜치에서 실행 | 즉시 중단 |
+| main 브랜치에서 실행 | 리뷰 브랜치 자동 생성 후 진행 (아래 § main 자동 분기 참조) |
 | 작업 커밋 없음 (task 모드) | 즉시 중단 |
 | 과도한 라운드 반복 | 중단 + 유저 보고 |
 | 빌드는 한 번에 하나만 | `run_in_background: true`, timeout 설정 금지 |
 | 수정 불가 이슈 | `docs/BACKLOG.md`에 기록 (유저 미개입) |
+
+### main 자동 분기
+
+main 브랜치에서 auto-review가 실행되면 다음을 자동 수행한다:
+
+1. **최신화**: `git fetch origin main && git pull origin main`
+2. **브랜치 생성**: `review/auto-review-YYYYMMDD_HHMMSS` (타임스탬프는 `date +"%Y%m%d_%H%M%S"`로 취득)
+3. **핸드오프 등록**: `branch-handoff.sh notify start --skip-design` (설계 불필요 → 바로 implementing)
+4. **리뷰 진행**: 이후 정상 흐름대로 진행
+
+리뷰 완료 후:
+- **수정 있음** → 커밋 + PR 생성 + CI 검증 + 머지 (정상 머지 플로우)
+- **수정 없음** → 브랜치 삭제 (`git push origin --delete {branch} && git checkout main && git branch -D {branch}`), 리뷰 문서만 main에 커밋
 
 ---
 
