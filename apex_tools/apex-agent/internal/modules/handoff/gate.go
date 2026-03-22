@@ -14,7 +14,7 @@ func (m *Manager) ValidateCommit(branch string) error {
 		return err
 	}
 	if status == "" {
-		ml.Debug("gate check", "op", "commit", "branch", branch, "allowed", false, "reason", "not registered")
+		ml.Warn("gate blocked", "op", "commit", "branch", branch, "reason", "not registered")
 		return fmt.Errorf("차단: 핸드오프 미등록 상태에서 커밋 불가")
 	}
 	ml.Debug("gate check", "op", "commit", "branch", branch, "allowed", true)
@@ -30,7 +30,7 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 		return err
 	}
 	if len(notifications) > 0 {
-		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "unacked", len(notifications))
+		ml.Warn("gate blocked", "op", "merge", "branch", branch, "unacked", len(notifications))
 		return fmt.Errorf("차단: 미ack 알림 %d건. 먼저 ack 처리 후 머지 재시도", len(notifications))
 	}
 
@@ -61,7 +61,7 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 			return fmt.Errorf("list fixing backlogs: %w", err)
 		}
 		if len(fixingIDs) > 0 {
-			ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "fixing", fixingIDs)
+			ml.Warn("gate blocked", "op", "merge", "branch", branch, "fixing", fixingIDs)
 			return fmt.Errorf("차단: 미해결 백로그 %d건 (IDs: %v) — resolve 또는 release 후 재시도", len(fixingIDs), fixingIDs)
 		}
 	} else {
@@ -82,13 +82,13 @@ func (m *Manager) ValidateEdit(branch, filePath string) error {
 
 	// Not registered → block all edits
 	if status == "" {
-		ml.Debug("gate check", "op", "edit", "branch", branch, "allowed", false, "reason", "not registered")
+		ml.Warn("gate blocked", "op", "edit", "branch", branch, "reason", "not registered")
 		return fmt.Errorf("차단: 핸드오프 미등록")
 	}
 
 	// Source file in non-implementing status → block
 	if IsSourceFile(filePath) && !CanEditSource(status) {
-		ml.Debug("gate check", "op", "edit", "branch", branch, "file", filePath, "allowed", false, "status", status)
+		ml.Warn("gate blocked", "op", "edit", "branch", branch, "file", filePath, "status", status)
 		switch status {
 		case StatusStarted:
 			return fmt.Errorf("차단: 설계 미완료(status=STARTED). 소스 파일 편집 불가")

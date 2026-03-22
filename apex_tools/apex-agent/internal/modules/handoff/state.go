@@ -2,7 +2,11 @@
 
 package handoff
 
-import "fmt"
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+)
 
 // Valid statuses
 const (
@@ -47,14 +51,16 @@ func CanEditAny(status string) bool {
 }
 
 // IsSourceFile checks if a file path is a source code file.
+// Returns false for bare extensions (e.g., ".cpp" with no filename).
 func IsSourceFile(path string) bool {
-	// Currently checks C++ and Go source extensions.
-	// The handoff system gates source files differently from docs.
-	suffixes := []string{".cpp", ".hpp", ".h", ".c", ".cc", ".cxx", ".hxx", ".go"}
-	for _, s := range suffixes {
-		if len(path) > len(s) && path[len(path)-len(s):] == s {
-			return true
-		}
+	base := filepath.Base(path)
+	ext := strings.ToLower(filepath.Ext(base))
+	if ext == "" || base == ext {
+		return false // no extension, or bare extension without filename
+	}
+	switch ext {
+	case ".cpp", ".hpp", ".h", ".c", ".cc", ".cxx", ".hxx", ".go":
+		return true
 	}
 	return false
 }

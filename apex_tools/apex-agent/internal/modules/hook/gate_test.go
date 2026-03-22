@@ -3,8 +3,6 @@
 package hook
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -93,65 +91,5 @@ func TestValidateBuild_AllowNormalCommand(t *testing.T) {
 	}
 }
 
-// ── ValidateMerge ──
-
-func TestValidateMerge_EmptyCommand(t *testing.T) {
-	if err := ValidateMerge("", ""); err != nil {
-		t.Errorf("empty command should be allowed, got: %v", err)
-	}
-}
-
-func TestValidateMerge_NonMergeCommand(t *testing.T) {
-	if err := ValidateMerge("gh pr create", "/workspace"); err != nil {
-		t.Errorf("non-merge command should be allowed, got: %v", err)
-	}
-}
-
-func TestValidateMerge_BlockWithoutLock(t *testing.T) {
-	// Use a temp directory that definitely doesn't have merge.lock.
-	tmpDir := t.TempDir()
-	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-
-	err := ValidateMerge("gh pr merge --squash", "/workspace")
-	if err == nil {
-		t.Error("gh pr merge without lock should be blocked")
-	}
-}
-
-func TestValidateMerge_AllowWithLock(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
-
-	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-
-	err := ValidateMerge("gh pr merge --squash", "/workspace")
-	if err != nil {
-		t.Errorf("gh pr merge with lock should be allowed, got: %v", err)
-	}
-}
-
-func TestValidateMerge_BlockWrongOwner(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, "merge.owner"), []byte("BRANCH=branch_01\n"), 0o644)
-
-	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-
-	err := ValidateMerge("gh pr merge --squash", "/workspace/branch_02")
-	if err == nil {
-		t.Error("merge by non-owner should be blocked")
-	}
-}
-
-func TestValidateMerge_AllowCorrectOwner(t *testing.T) {
-	tmpDir := t.TempDir()
-	os.MkdirAll(filepath.Join(tmpDir, "merge.lock"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, "merge.owner"), []byte("BRANCH=branch_02\n"), 0o644)
-
-	t.Setenv("APEX_BUILD_QUEUE_DIR", tmpDir)
-
-	err := ValidateMerge("gh pr merge --squash", "/workspace/branch_02")
-	if err != nil {
-		t.Errorf("merge by correct owner should be allowed, got: %v", err)
-	}
-}
+// ValidateMerge tests removed — file-based lock replaced by daemon IPC (hook_cmd.go).
+// Merge lock validation is now tested via E2E (TestHook_ValidateMergeRequiresLock).

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/e2e/testenv"
@@ -60,58 +59,63 @@ func TestHook_ValidateBuildBlocksAndAllows(t *testing.T) {
 	}
 }
 
-// TestHook_ValidateMergeRequiresLock verifies that hook.validate-merge blocks
-// gh pr merge when no file-based merge lock is held, and allows it when the lock exists.
+// TestHook_ValidateMergeRequiresLock verifies that merge lock is enforced
+// via DB-based queue (queue.status). The CLI hook_cmd.go checks queue status
+// to determine if merge is allowed.
 func TestHook_ValidateMergeRequiresLock(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
 
-	// Create a temp queue directory for lock isolation.
-	queueDir := filepath.Join(env.Dir, "queue")
-	if err := os.MkdirAll(queueDir, 0o755); err != nil {
-		t.Fatalf("create queue dir: %v", err)
-	}
-
-	// Point hook to our isolated queue directory.
-	t.Setenv("APEX_BUILD_QUEUE_DIR", queueDir)
-
-	sendValidateMerge := func(cmd, cwd string) *ipc.Response {
+	checkMergeStatus := func() bool {
 		t.Helper()
-		resp, err := env.Client.Send(ctx, "hook", "validate-merge",
-			map[string]string{"command": cmd, "cwd": cwd}, "")
+		resp, err := env.Client.Send(ctx, "queue", "status",
+			map[string]string{"channel": "merge"}, "")
 		if err != nil {
-			t.Fatalf("validate-merge(%q): transport error: %v", cmd, err)
+			t.Fatalf("queue.status: transport error: %v", err)
 		}
-		return resp
+		if !resp.OK {
+			t.Fatalf("queue.status: error: %s", resp.Error)
+		}
+		var result map[string]any
+		if err := json.Unmarshal(resp.Data, &result); err != nil {
+			t.Fatalf("queue.status: unmarshal: %v", err)
+		}
+		return result["active"] != nil
 	}
 
-	// Without lock → blocked.
-	resp := sendValidateMerge("gh pr merge --squash --admin", env.Dir)
-	if resp.OK {
-		t.Error("gh pr merge without lock: expected blocked (NOT OK), got OK")
+	// Without lock → no active entry.
+	if checkMergeStatus() {
+		t.Error("merge channel should have no active entry initially")
 	}
 
-	// Create the merge.lock directory to simulate lock acquisition.
-	lockDir := filepath.Join(queueDir, "merge.lock")
-	if err := os.MkdirAll(lockDir, 0o755); err != nil {
-		t.Fatalf("create merge.lock: %v", err)
+	// Acquire merge lock.
+	resp, err := env.Client.Send(ctx, "queue", "try-acquire",
+		map[string]any{"channel": "merge", "branch": "test-branch", "pid": os.Getpid()}, "")
+	if err != nil {
+		t.Fatalf("queue.acquire: transport error: %v", err)
 	}
-
-	// With lock → allowed.
-	resp = sendValidateMerge("gh pr merge --squash --admin", env.Dir)
 	if !resp.OK {
-		t.Errorf("gh pr merge with lock: expected allowed (OK), got error: %s", resp.Error)
+		t.Fatalf("queue.acquire: error: %s", resp.Error)
 	}
 
-	// Remove the lock.
-	if err := os.RemoveAll(lockDir); err != nil {
-		t.Fatalf("remove merge.lock: %v", err)
+	// With lock → active entry exists.
+	if !checkMergeStatus() {
+		t.Error("merge channel should have active entry after acquire")
 	}
 
-	// After lock release → blocked again.
-	resp = sendValidateMerge("gh pr merge --squash --admin", env.Dir)
-	if resp.OK {
-		t.Error("gh pr merge after lock release: expected blocked (NOT OK), got OK")
+	// Release merge lock.
+	resp, err = env.Client.Send(ctx, "queue", "release",
+		map[string]any{"channel": "merge"}, "")
+	if err != nil {
+		t.Fatalf("queue.release: transport error: %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("queue.release: error: %s", resp.Error)
+	}
+
+	// After release → no active entry.
+	if checkMergeStatus() {
+		t.Error("merge channel should have no active entry after release")
 	}
 }
 

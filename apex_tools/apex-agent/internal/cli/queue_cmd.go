@@ -3,11 +3,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,6 +39,23 @@ func sendQueueRequest(action string, params any) (*ipc.Response, error) {
 // sendQueueRequestMap sends a request and parses the response data as map[string]any.
 func sendQueueRequestMap(action string, params any) (map[string]any, error) {
 	return sendRequestMap("queue", action, params, getBranchID())
+}
+
+// sendQueueAcquire sends a blocking acquire request with extended timeout (35min).
+// queue.acquire can block up to 30min waiting for lock, so 10s default timeout is insufficient.
+func sendQueueAcquire(params any) (map[string]any, error) {
+	resp, err := sendRequestWithTimeout("queue", "acquire", params, getBranchID(), 35*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return result, nil
 }
 
 // projectRoot returns the project root directory.
@@ -76,7 +95,7 @@ func queueAcquireCmd() *cobra.Command {
 				"branch":  branch,
 				"pid":     os.Getpid(),
 			}
-			_, err := sendQueueRequestMap("acquire", params)
+			_, err := sendQueueAcquire(params)
 			if err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
@@ -160,7 +179,7 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 		"branch":  branch,
 		"pid":     os.Getpid(),
 	}
-	_, err := sendQueueRequestMap("acquire", acquireParams)
+	_, err := sendQueueAcquire(acquireParams)
 	if err != nil {
 		return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
 	}
@@ -287,7 +306,7 @@ func queueMergeCmd() *cobra.Command {
 					"branch":  branch,
 					"pid":     os.Getpid(),
 				}
-				_, err := sendQueueRequestMap("acquire", params)
+				_, err := sendQueueAcquire(params)
 				if err != nil {
 					return fmt.Errorf("daemon unavailable: %w", err)
 				}

@@ -42,16 +42,8 @@ func (m *Module) handleValidateBuild(ctx context.Context, params json.RawMessage
 	return map[string]string{"status": "allowed"}, nil
 }
 
-func (m *Module) handleValidateMerge(ctx context.Context, params json.RawMessage, workspace string) (any, error) {
-	var p struct {
-		Command string `json:"command"`
-		Cwd     string `json:"cwd"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, err
-	}
-	if err := ValidateMerge(p.Command, p.Cwd); err != nil {
-		return nil, err
-	}
+// handleValidateMerge is a no-op stub — merge lock validation is now handled
+// by CLI hook_cmd.go via daemon IPC (queue.status). Kept for route compatibility.
+func (m *Module) handleValidateMerge(_ context.Context, _ json.RawMessage, _ string) (any, error) {
 	return map[string]string{"status": "allowed"}, nil
 }

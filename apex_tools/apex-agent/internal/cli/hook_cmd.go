@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -48,12 +49,22 @@ func hookValidateMergeCmd() *cobra.Command {
 		Use:   "validate-merge",
 		Short: "머지 잠금 미획득 차단",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command, cwd, err := readHookInput()
+			command, _, err := readHookInput()
 			if err != nil {
+				return nil // parse error → allow
+			}
+			if !strings.Contains(command, "gh pr merge") {
 				return nil
 			}
-			if err := hook.ValidateMerge(command, cwd); err != nil {
-				fmt.Fprintln(os.Stderr, err.Error())
+
+			// Check merge lock via daemon IPC (DB-based queue)
+			result, err := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
+			if err != nil {
+				// Daemon unavailable → fail-open (allow merge)
+				return nil
+			}
+			if result["active"] == nil {
+				fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
 				os.Exit(2)
 			}
 			return nil
