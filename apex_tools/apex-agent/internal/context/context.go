@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
@@ -68,13 +67,8 @@ func Generate(workspaceRoot string) string {
 }
 
 // workspaceID extracts the workspace branch identifier from the project root.
-// e.g., "/path/to/apex_pipeline_branch_02" -> "branch_02"
 func workspaceID(workspaceRoot string) string {
-	base := filepath.Base(workspaceRoot)
-	if strings.HasPrefix(base, "apex_pipeline_") {
-		return strings.TrimPrefix(base, "apex_pipeline_")
-	}
-	return base
+	return platform.WorkspaceID(workspaceRoot)
 }
 
 // branchInfo mirrors the daemon's Branch struct fields we care about.
@@ -145,22 +139,19 @@ func appendHandoffStatus(b *strings.Builder, branchID string) {
 	// Status + guidance
 	fmt.Fprintf(b, "  status: %s\n", info.Status)
 	switch info.Status {
-	case "started", "STARTED":
+	case "STARTED":
 		b.WriteString("  → 다음: notify design (설계 완료 시) 또는 notify start --skip-design (설계 불필요 시)\n")
-	case "design-notified", "DESIGN_NOTIFIED":
+	case "DESIGN_NOTIFIED":
 		b.WriteString("  → 다음: notify plan (구현 계획 완료 시)\n")
-	case "implementing", "IMPLEMENTING":
+	case "IMPLEMENTING":
 		b.WriteString("  → 구현 진행 중 (소스 편집 허용)\n")
 	}
 }
 
 // gitCurrentBranch returns the current git branch name.
 func gitCurrentBranch(root string) string {
-	out, err := exec.Command("git", "-C", root, "branch", "--show-current").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
+	branch, _ := platform.GitCurrentBranch(root)
+	return branch
 }
 
 // gitExec runs a git command in the given root and returns combined output.

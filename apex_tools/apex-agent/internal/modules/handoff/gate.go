@@ -59,6 +59,9 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 		}
 		fixingIDs = append(fixingIDs, id)
 	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate fixing backlogs: %w", err)
+	}
 	if len(fixingIDs) > 0 {
 		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", false, "fixing", fixingIDs)
 		return fmt.Errorf("차단: 미해결 백로그 %d건 (IDs: %v) — resolve 또는 release 후 재시도", len(fixingIDs), fixingIDs)

@@ -25,8 +25,8 @@ type Branch struct {
 	UpdatedAt  string
 }
 
-// BacklogStatusSetter is the interface handoff needs from backlog.
-type BacklogStatusSetter interface {
+// BacklogOperator is the interface handoff needs from backlog.
+type BacklogOperator interface {
 	SetStatus(id int, status string) error
 	SetStatusWith(txs *store.Store, id int, status string) error
 	Check(id int) (exists bool, status string, err error)
@@ -54,11 +54,11 @@ type Ack struct {
 // Manager provides handoff business logic.
 type Manager struct {
 	store          *store.Store
-	backlogManager BacklogStatusSetter
+	backlogManager BacklogOperator
 }
 
 // NewManager creates a new Manager backed by the given store.
-func NewManager(s *store.Store, bm BacklogStatusSetter) *Manager {
+func NewManager(s *store.Store, bm BacklogOperator) *Manager {
 	return &Manager{store: s, backlogManager: bm}
 }
 
@@ -307,6 +307,9 @@ func (m *Manager) GetBranch(branch string) (*Branch, error) {
 			return nil, fmt.Errorf("scan backlog id: %w", scanErr)
 		}
 		b.BacklogIDs = append(b.BacklogIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate backlog ids: %w", err)
 	}
 
 	return &b, nil

@@ -4,6 +4,7 @@ package platform
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -49,6 +50,30 @@ func SocketPath() string {
 // EnsureDataDir creates the data directory if it doesn't exist.
 func EnsureDataDir() error {
 	return os.MkdirAll(DataDir(), 0o755)
+}
+
+// WorkspaceID extracts the workspace branch identifier from a project root path.
+// e.g., "/path/to/apex_pipeline_branch_02" → "branch_02"
+func WorkspaceID(root string) string {
+	base := filepath.Base(root)
+	if strings.HasPrefix(base, "apex_pipeline_") {
+		return strings.TrimPrefix(base, "apex_pipeline_")
+	}
+	return base
+}
+
+// GitCurrentBranch returns the current git branch name for the given root directory.
+// Returns empty string and error if git fails or root is empty.
+func GitCurrentBranch(root string) (string, error) {
+	args := []string{"branch", "--show-current"}
+	if root != "" {
+		args = []string{"-C", root, "branch", "--show-current"}
+	}
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // NormalizePath normalizes a file path for the current platform.

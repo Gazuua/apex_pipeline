@@ -3,13 +3,10 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -225,20 +222,8 @@ func sendHandoffRequest(action string, params any) (map[string]any, error) {
 }
 
 // gitCurrentBranch returns the current git branch for the given working directory.
-// Falls back to the process cwd if cwd is empty.
 func gitCurrentBranch(cwd string) (string, error) {
-	args := []string{"branch", "--show-current"}
-	c := exec.Command("git", args...)
-	if cwd != "" {
-		c.Dir = cwd
-	}
-	var out bytes.Buffer
-	c.Stdout = &out
-	c.Stderr = io.Discard
-	if err := c.Run(); err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(out.String()), nil
+	return platform.GitCurrentBranch(cwd)
 }
 
 // isGitCommit checks if the command is a git commit invocation.

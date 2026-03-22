@@ -6,21 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
-// getBranchID extracts the workspace branch identifier from the project root.
-// e.g., "apex_pipeline_branch_02" → "branch_02"
+// getBranchID extracts the workspace branch identifier from the current directory.
 func getBranchID() string {
 	cwd, _ := os.Getwd()
-	base := filepath.Base(cwd)
-	if strings.HasPrefix(base, "apex_pipeline_") {
-		return strings.TrimPrefix(base, "apex_pipeline_")
-	}
-	return base
+	return platform.WorkspaceID(cwd)
 }
 
 func handoffCmd() *cobra.Command {

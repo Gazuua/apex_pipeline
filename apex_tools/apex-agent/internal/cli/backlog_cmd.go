@@ -233,7 +233,7 @@ func backlogExportCmd() *cobra.Command {
 --unsafe 플래그로 import 단계를 건너뛸 수 있습니다.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 직접 DB 접근 (daemon 불필요)
-			s, mgr, cleanup, err := openBacklogStore()
+			_, mgr, cleanup, err := openBacklogStore()
 			if err != nil {
 				return err
 			}
@@ -241,44 +241,27 @@ func backlogExportCmd() *cobra.Command {
 
 			var content string
 
-			// Import + Export를 단일 트랜잭션으로 묶어 원자성 보장
-			txErr := s.RunInTx(context.Background(), func(_ *store.Store) error {
-				if !unsafe {
-					// 안전 모드: import-first
-					imported := 0
-					if data, readErr := os.ReadFile(backlogPath); readErr == nil {
-						items, parseErr := backlog.ParseBacklogMD(string(data))
-						if parseErr != nil {
-							return fmt.Errorf("parse BACKLOG.md: %w", parseErr)
-						}
-						n, importErr := mgr.ImportItems(items)
-						if importErr != nil {
-							return fmt.Errorf("import BACKLOG.md: %w", importErr)
-						}
-						imported += n
-					}
-					if data, readErr := os.ReadFile(historyPath); readErr == nil {
-						items, parseErr := backlog.ParseBacklogHistoryMD(string(data))
-						if parseErr != nil {
-							return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", parseErr)
-						}
-						n, importErr := mgr.ImportItems(items)
-						if importErr != nil {
-							return fmt.Errorf("import BACKLOG_HISTORY.md: %w", importErr)
-						}
-						imported += n
-					}
-					if imported > 0 {
-						fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
-					}
-				}
-
+			if unsafe {
+				// unsafe 모드: import 없이 바로 export
 				var exportErr error
 				content, exportErr = mgr.Export()
-				return exportErr
-			})
-			if txErr != nil {
-				return txErr
+				if exportErr != nil {
+					return exportErr
+				}
+			} else {
+				// 안전 모드: SafeExport (import-first + 단일 트랜잭션)
+				backlogData, _ := os.ReadFile(backlogPath)
+				historyData, _ := os.ReadFile(historyPath)
+
+				var imported int
+				var exportErr error
+				content, imported, exportErr = mgr.SafeExport(string(backlogData), string(historyData))
+				if exportErr != nil {
+					return exportErr
+				}
+				if imported > 0 {
+					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
+				}
 			}
 
 			fmt.Fprint(os.Stdout, content)

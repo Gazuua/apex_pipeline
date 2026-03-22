@@ -412,9 +412,9 @@ func TestResolveBranch_NotFound(t *testing.T) {
 	}
 }
 
-// ── NotifyStart with BacklogStatusSetter ──
+// ── NotifyStart with BacklogOperator ──
 
-// mockBacklogManager implements BacklogStatusSetter for testing.
+// mockBacklogManager implements BacklogOperator for testing.
 type mockBacklogManager struct {
 	items         map[int]string // id → status
 	failSetStatus bool
@@ -444,7 +444,7 @@ func (m *mockBacklogManager) SetStatusWith(txs *store.Store, id int, status stri
 	return nil
 }
 
-func setupHandoffTestDBWithBacklog(t *testing.T, bm BacklogStatusSetter) (*store.Store, *Manager) {
+func setupHandoffTestDBWithBacklog(t *testing.T, bm BacklogOperator) (*store.Store, *Manager) {
 	t.Helper()
 	s, err := store.Open(":memory:")
 	if err != nil {

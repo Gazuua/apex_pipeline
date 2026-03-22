@@ -24,7 +24,7 @@ type BacklogItem struct {
 	Description string
 	Related     string
 	Position    int
-	Status      string // open, resolved
+	Status      string // OPEN, FIXING, RESOLVED
 	Resolution  string
 	ResolvedAt  string
 	CreatedAt   string
@@ -152,7 +152,7 @@ func (m *Manager) Get(id int) (*BacklogItem, error) {
 
 // List retrieves backlog items matching the filter, ordered by timeframe then position.
 // Timeframe ordering: NOW < IN_VIEW < DEFERRED.
-// If filter.Status is empty, defaults to "open".
+// If filter.Status is empty, defaults to "OPEN".
 func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 	status := filter.Status
 	if status == "" {
