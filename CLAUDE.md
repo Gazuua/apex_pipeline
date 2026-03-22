@@ -14,7 +14,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ① | **착수** | **브랜치 생성 최우선**, 백로그 확인, 핸드오프 backlog-check | 브랜치 |
 | ② | **설계** | 브레인스토밍 → 스펙 문서 | `docs/{project}/plans/` |
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
-| ④ | **검증** | 로컬 빌드+테스트 (`apex-agent queue build`) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵. **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진). **④⑤ 병렬화**: CI 폴링 시작 직후 auto-review를 병렬로 디스패치 — CI 대기 시간에 리뷰를 동시 진행. CI 실패와 리뷰 이슈를 합산하여 한 번에 수정 | 빌드+CI 성공 |
+| ④ | **검증** | 로컬 빌드+테스트 (`apex-agent queue build`) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵 (auto-review에서 코드를 수정했다면 코드 변경이므로 CI 재대기 필수). **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진). **④⑤ 병렬화**: CI 폴링 시작 직후 auto-review를 병렬로 디스패치 — CI 대기 시간에 리뷰를 동시 진행. CI 실패와 리뷰 이슈를 합산하여 한 번에 수정 | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
 | ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
