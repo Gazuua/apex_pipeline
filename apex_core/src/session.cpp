@@ -6,6 +6,7 @@
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
@@ -54,22 +55,16 @@ awaitable<Result<void>> Session::async_send(const WireHeader& header, std::span<
     if (!is_open())
         co_return error(ErrorCode::SessionClosed);
 
+    // Serialize header + payload into a single buffer, then enqueue via write_pump.
     std::array<uint8_t, WireHeader::SIZE> hdr_buf{};
     header.serialize(hdr_buf);
 
-    std::array<boost::asio::const_buffer, 2> buffers{boost::asio::buffer(hdr_buf),
-                                                     boost::asio::buffer(payload.data(), payload.size())};
+    std::vector<uint8_t> frame;
+    frame.reserve(WireHeader::SIZE + payload.size());
+    frame.insert(frame.end(), hdr_buf.begin(), hdr_buf.end());
+    frame.insert(frame.end(), payload.begin(), payload.end());
 
-    auto [ec, bytes_sent] =
-        co_await boost::asio::async_write(socket_, buffers, boost::asio::as_tuple(boost::asio::use_awaitable));
-    (void)bytes_sent;
-
-    if (ec)
-    {
-        close();
-        co_return error(ErrorCode::SendFailed);
-    }
-    co_return ok();
+    co_return co_await enqueue_and_await(std::move(frame));
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-reference-coroutine-parameters)
@@ -78,16 +73,8 @@ awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data)
     if (!is_open())
         co_return error(ErrorCode::SessionClosed);
 
-    auto [ec, bytes_sent] = co_await boost::asio::async_write(socket_, boost::asio::buffer(data.data(), data.size()),
-                                                              boost::asio::as_tuple(boost::asio::use_awaitable));
-    (void)bytes_sent;
-
-    if (ec)
-    {
-        close();
-        co_return error(ErrorCode::SendFailed);
-    }
-    co_return ok();
+    std::vector<uint8_t> copy(data.begin(), data.end());
+    co_return co_await enqueue_and_await(std::move(copy));
 }
 
 void Session::close() noexcept
@@ -151,21 +138,79 @@ awaitable<void> Session::write_pump()
 {
     while (!write_queue_.empty() && is_open())
     {
-        auto& front = write_queue_.front();
-        auto [ec, bytes_written] = co_await boost::asio::async_write(socket_, boost::asio::buffer(front.data),
+        // Move front out so we can pop before signaling completion.
+        // This ensures queue state is consistent before any completion callback.
+        auto req = std::move(write_queue_.front());
+        write_queue_.pop_front();
+
+        auto [ec, bytes_written] = co_await boost::asio::async_write(socket_, boost::asio::buffer(req.data),
                                                                      boost::asio::as_tuple(boost::asio::use_awaitable));
         (void)bytes_written;
 
-        write_queue_.pop_front();
-
         if (ec)
         {
+            // Signal error to the awaiting coroutine if present
+            if (req.completion_timer)
+            {
+                *req.completion_result = error(ErrorCode::SendFailed);
+                req.completion_timer->cancel();
+            }
+
+            // Signal error to all remaining queued requests with completion
+            for (auto& pending : write_queue_)
+            {
+                if (pending.completion_timer)
+                {
+                    *pending.completion_result = error(ErrorCode::SendFailed);
+                    pending.completion_timer->cancel();
+                }
+            }
+
             write_queue_.clear(); // 에러 시 잔여 큐 정리
             close();
             break;
         }
+
+        // Signal success to the awaiting coroutine if present
+        if (req.completion_timer)
+        {
+            *req.completion_result = ok();
+            req.completion_timer->cancel();
+        }
     }
     pump_running_ = false;
+}
+
+awaitable<Result<void>> Session::enqueue_and_await(std::vector<uint8_t> data)
+{
+    // Create a timer as a completion signal. expires_at(max) = infinite wait.
+    // write_pump will cancel() it after processing, which resumes this coroutine.
+    auto timer = std::make_shared<boost::asio::steady_timer>(socket_.get_executor(),
+                                                             boost::asio::steady_timer::time_point::max());
+    auto result = std::make_shared<Result<void>>(error(ErrorCode::SendFailed));
+
+    // Check queue depth (same as enqueue_write)
+    if (write_queue_.size() >= max_queue_depth_)
+    {
+        SPDLOG_WARN("Session {} write queue full (depth={})", id_, max_queue_depth_);
+        co_return error(ErrorCode::BufferFull);
+    }
+
+    write_queue_.push_back(WriteRequest{std::move(data), timer, result});
+
+    if (!pump_running_)
+    {
+        pump_running_ = true;
+        SessionPtr self(this);
+        boost::asio::co_spawn(socket_.get_executor(), [self]() { return self->write_pump(); }, boost::asio::detached);
+    }
+
+    // Wait for write_pump to signal completion via timer cancel.
+    // cancel() causes co_await to return with operation_aborted, which is expected.
+    auto [ec] = co_await timer->async_wait(boost::asio::as_tuple(boost::asio::use_awaitable));
+    (void)ec; // operation_aborted is the expected "success" signal
+
+    co_return *result;
 }
 
 } // namespace apex::core

@@ -45,6 +45,10 @@ class ListenerBase
     /// Used for multi-protocol: services register on the primary listener,
     /// and their default handler is propagated to secondary listeners.
     virtual void sync_default_handler(uint32_t core_id, const MessageDispatcher& source) = 0;
+
+    /// Copy all handlers (default + msg_id handlers) from source to this listener's per-core dispatcher.
+    /// Replaces sync_default_handler for full handler replication across multi-protocol listeners.
+    virtual void sync_all_handlers(uint32_t core_id, const MessageDispatcher& source) = 0;
 };
 
 /// 프로토콜별 리스너. 포트 바인딩 + accept loop + per-core ConnectionHandler 관리.
@@ -173,6 +177,24 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         if (source.has_default_handler())
         {
             per_core_handlers_[core_id]->dispatcher.set_default_handler(source.default_handler());
+        }
+    }
+
+    /// Copy all handlers (default + msg_id handlers) from source dispatcher.
+    void sync_all_handlers(uint32_t core_id, const MessageDispatcher& source) override
+    {
+        auto& target = per_core_handlers_[core_id]->dispatcher;
+
+        // Sync default handler
+        if (source.has_default_handler())
+        {
+            target.set_default_handler(source.default_handler());
+        }
+
+        // Sync all msg_id handlers
+        for (const auto& [msg_id, handler] : source.handlers())
+        {
+            target.register_handler(msg_id, handler);
         }
     }
 

@@ -47,6 +47,13 @@ class MessageDispatcher
     }
     [[nodiscard]] size_t handler_count() const noexcept;
 
+    /// Read-only access to the msg_id → handler map.
+    /// Used by sync_all_handlers() to replicate handlers across listeners.
+    [[nodiscard]] const auto& handlers() const noexcept
+    {
+        return handlers_;
+    }
+
   private:
     boost::unordered_flat_map<uint32_t, Handler> handlers_;
     Handler default_handler_; // fallback for unmatched msg_ids

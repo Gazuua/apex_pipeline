@@ -521,8 +521,9 @@ flags: `NONE=0x00`, `COMPRESSED=0x01`, `HEARTBEAT=0x02`, `ERROR_RESPONSE=0x04`, 
 
 | API | 용도 | 비고 |
 |-----|------|------|
-| `session->enqueue_write(vector<uint8_t>)` | 일반 응답 | write queue에 적재, pump가 순서대로 전송 |
-| `session->async_send(WireHeader, span)` | 단일 프레임 직접 전송 | write queue 우회 — 동시 사용 금지 |
+| `session->enqueue_write(vector<uint8_t>)` | 일반 응답 (fire-and-forget) | write queue에 적재, pump가 순서대로 전송 |
+| `session->async_send(WireHeader, span)` | 단일 프레임 awaitable 전송 | write queue 경유, 완료 시 Result 반환 |
+| `session->async_send_raw(span)` | 로우 프레임 awaitable 전송 | write queue 경유, 완료 시 Result 반환 |
 | `ErrorSender::build_error_frame(msg_id, code)` | 에러 프레임 빌드 | `enqueue_write`와 조합 |
 
 **Kafka 서비스의 응답 전송** (`send_response` 패턴, D5):
@@ -688,12 +689,14 @@ ctx.scheduler.cancel(handle);
 ### Session 주요 API
 
 ```cpp
-session->enqueue_write(std::vector<uint8_t> data);   // write queue 적재
-session->enqueue_write_raw(std::span<const uint8_t>); // raw 데이터 적재
-session->close();                                      // graceful 종료
-session->id();                                         // SessionId (enum class)
-session->core_id();                                    // 소속 코어
-session->is_open();                                    // 연결 상태
+session->enqueue_write(std::vector<uint8_t> data);     // write queue 적재 (fire-and-forget)
+session->enqueue_write_raw(std::span<const uint8_t>);  // raw 데이터 적재 (fire-and-forget)
+co_await session->async_send(WireHeader, span);        // write queue 경유, 완료 대기 (awaitable)
+co_await session->async_send_raw(span);                // write queue 경유, 완료 대기 (awaitable)
+session->close();                                       // graceful 종료
+session->id();                                          // SessionId (enum class)
+session->core_id();                                     // 소속 코어
+session->is_open();                                     // 연결 상태
 ```
 
 **SessionId 강타입**: `enum class SessionId : uint64_t {}` — `corr_id`, `user_id` 등과의 암묵적 변환 차단.
