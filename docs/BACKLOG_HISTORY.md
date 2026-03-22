@@ -5,6 +5,11 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #126. apex-agent: Hook/자동화 시스템 Go 백엔드 재작성
+- **등급**: CRITICAL | **스코프**: tools, infra | **타입**: infra
+- **해결**: 2026-03-23 00:54:59 | **방식**: FIXED
+- **비고**: 11개 bash 스크립트(~2,080줄) → Go 단일 바이너리(~19,000줄) 전면 재작성. 데몬 모드(Named Pipe/Unix Socket IPC), SQLite 상태 저장소, 4개 모듈(Hook/Backlog/Handoff/Queue), 5개 hook 게이트, E2E 테스트 14 패키지 전체 PASS. CI Go 파이프라인 추가. auto-review 5라운드 수정 완료.
+
 ### #132. RedisAdapter::do_close() UAF 방어 — cancellation 인프라 + shutdown 재배치
 - **등급**: MAJOR | **스코프**: shared, core | **타입**: design-debt
 - **해결**: 2026-03-22 21:30:00 | **방식**: FIXED | **커밋**: 3ee5fe9

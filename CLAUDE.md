@@ -57,6 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.6 — RedisAdapter close UAF 방어 (CancellationToken + AdapterBase cancellation 인프라 + shutdown 재배치)
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
