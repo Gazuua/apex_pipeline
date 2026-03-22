@@ -124,52 +124,28 @@ jobs:
             os: ubuntu-latest
             preset: ubsan
             container: true
-          - name: windows-msvc
-            os: windows-latest
-            preset: debug
-            container: false
+          # MSVC 제거 — 프로덕션 타겟이 Linux이고, 로컬 Windows 빌드로 MSVC 검증 충분.
+          # Linux 성공 + MSVC 실패 사례는 사실상 없음 (반대는 빈번).
 
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    container: ${{ matrix.container && format('ghcr.io/gazuua/apex-pipeline-ci:{0}', needs.changes.outputs.ci_image_tag) || '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: ghcr.io/gazuua/apex-pipeline-ci:${{ needs.changes.outputs.ci_image_tag }}
 
     env:
-      VCPKG_ROOT: ${{ matrix.container && '/opt/vcpkg' || format('{0}/vcpkg', github.workspace) }}
+      VCPKG_ROOT: /opt/vcpkg
 
     steps:
-      # ── Non-container setup (Windows only) ───────
       - uses: actions/checkout@v4
-
-      - name: Setup vcpkg
-        if: ${{ !matrix.container }}
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: 'b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01'
-
-      - name: Cache vcpkg_installed (Windows)
-        if: ${{ !matrix.container }}
-        uses: actions/cache@v4
-        with:
-          path: vcpkg_installed
-          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'apex_core/vcpkg.json', 'apex_shared/vcpkg.json') }}
-
-      - name: Setup Ninja
-        if: ${{ !matrix.container }}
-        uses: seanmiddleditch/gha-setup-ninja@v5
-
-      - name: Setup MSVC
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
 
       # ── Build & test ─────────────────────────────
       - name: Configure
         run: >-
           cmake --preset ${{ matrix.preset }}
-          ${{ matrix.container && '-DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed' || '' }}
+          -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
 
       - name: Build
-        run: cmake --build build/${{ runner.os == 'Windows' && 'Windows' || 'Linux' }}/${{ matrix.preset }}
+        run: cmake --build build/Linux/${{ matrix.preset }}
 
       - name: Upload service binaries
         if: matrix.name == 'linux-gcc'
