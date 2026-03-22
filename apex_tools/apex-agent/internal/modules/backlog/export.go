@@ -35,10 +35,16 @@ func (mgr *Manager) Export() (string, error) {
 	}
 
 	for i, sec := range sections {
-		items, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusOpen})
+		// OPEN + FIXING 모두 출력 — FIXING은 작업 중이지만 아직 미해결
+		openItems, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusOpen})
 		if err != nil {
-			return "", fmt.Errorf("list %s: %w", sec.dbValue, err)
+			return "", fmt.Errorf("list %s open: %w", sec.dbValue, err)
 		}
+		fixingItems, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusFixing})
+		if err != nil {
+			return "", fmt.Errorf("list %s fixing: %w", sec.dbValue, err)
+		}
+		items := append(openItems, fixingItems...)
 
 		fmt.Fprintf(&b, "## %s\n", sec.mdHeading)
 
