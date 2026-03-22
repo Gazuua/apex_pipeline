@@ -81,7 +81,28 @@ internal/config/
 
 - `daemon_cmd.go`: `config.Load()` → 각 모듈에 설정 전달
 - `platform/env.go`: 기본값 제공자로 역할 축소 (config가 오버라이드)
-- 모든 `APEX_*` 환경변수 참조 제거
+- 모든 `APEX_*` 환경변수 참조 제거 (OS 표준 환경변수 `LOCALAPPDATA`, `XDG_DATA_HOME` 등은 유지 — platform 기본값 결정에 필요)
+
+### Config → daemon.Config 매핑
+
+| TOML | daemon.Config 필드 | 기본값 소스 |
+|------|-------------------|------------|
+| `daemon.idle_timeout` | `IdleTimeout` | 30m |
+| `daemon.socket_path` | `SocketAddr` | `platform.SocketPath()` |
+| `store.db_path` | `DBPath` | `platform.DBPath()` |
+| (자동) | `PIDFilePath` | `platform.PIDFilePath()` |
+| `log.*` | 별도 `LogConfig` | 스펙 기본값 |
+| `queue.*` | 모듈에 직접 전달 | 스펙 기본값 |
+| `build.*` | CLI에서 사용 | 스펙 기본값 |
+
+`daemon.Config`를 확장하거나, 최상위 `config.Config`에서 각 대상(daemon, log, queue, build)으로 분배하는 변환 함수를 `config` 패키지에 둔다.
+
+### 기존 코드 영향 (로깅 포함)
+
+- `daemon_cmd.go`: `config.Load()` → `daemon.Config` 변환 + `slog.SetDefault()` 호출
+- `platform/env.go`: 기본값 제공자로 역할 축소 (config가 오버라이드)
+- `daemon.go`: `log.New()` 인스턴스 제거 → 글로벌 `log.WithModule()` 사용
+- `router.go`, 각 모듈: 인스턴스 기반 logger → 패키지 래퍼 함수 전환
 
 ---
 
@@ -106,6 +127,15 @@ Linux:   ~/.local/bin/apex-agent
 
 ```makefile
 VERSION = $(shell git describe --tags --always --dirty)
+
+# 플랫폼별 설치 경로 자동 결정
+ifeq ($(OS),Windows_NT)
+    INSTALL_DIR ?= $(LOCALAPPDATA)/apex-agent
+    EXE = .exe
+else
+    INSTALL_DIR ?= $(HOME)/.local/bin
+    EXE =
+endif
 
 install:
     go build -ldflags="-X main.Version=$(VERSION)" \
@@ -230,7 +260,7 @@ time=2026-03-22T14:35:42+09:00 level=INFO  module=handoff audit=true msg="state 
 
 ### 의존성
 
-`gopkg.in/natefinished/lumberjack.v2` — 로그 로테이션.
+`gopkg.in/natefinch/lumberjack.v2` — 로그 로테이션.
 
 ---
 
@@ -257,13 +287,20 @@ func New(t *testing.T) *TestEnv   // 환경 생성 + 데몬 시작
 func (e *TestEnv) InitGitRepo()   // 임시 git 레포 생성
 ```
 
-### 빌드 태그 없음 — 항상 실행
+### 실행 방식
+
+빌드 태그 없음 — `go test`에 항상 포함. 기존 `e2e/e2e_test.go`의 `//go:build e2e` 태그도 제거.
 
 ```bash
-go test ./e2e/...           # 전체 E2E (로컬 + CI)
+go test ./e2e/...           # E2E만 실행 (로컬 개발 시)
 go test ./e2e/... -short    # 스트레스 테스트 스킵 (빠른 확인)
-go test ./...               # 단위 + E2E 전부
+go test ./...               # 단위 + E2E 전부 (CI + 로컬)
 ```
+
+CI 파이프라인: 기존 `go test ./... -race -cover -v` 스텝에 E2E가 자동 포함. 별도 스텝 불필요.
+데몬은 TestEnv가 in-process로 기동하므로 외부 프로세스 의존 없음.
+
+**프로세스 재시작 테스트** (#13 StalePID, #15 DBRecreate): TestEnv의 데몬을 Stop → 환경 조작 → 새 데몬 Start로 시뮬레이션. subprocess spawn 불필요.
 
 ### 18개 시나리오
 
@@ -271,14 +308,14 @@ go test ./...               # 단위 + E2E 전부
 e2e/
 ├── testenv/
 │   └── env.go                # 테스트 환경 팩토리
-├── daemon_test.go            # 그룹 A: 인프라 (#1, #13)
-├── hook_test.go              # 그룹 B: Hook (#2, #14)
-├── handoff_test.go           # 그룹 C: 핸드오프 (#3, #4, #5)
-├── backlog_test.go           # 그룹 D: 백로그 (#6, #7, #17)
-├── queue_test.go             # 그룹 E: 큐 (#8, #16)
-├── git_test.go               # 그룹 F: Git (#9, #10)
-├── session_test.go           # 그룹 G: 세션 (#11, #12)
-└── resilience_test.go        # 그룹 H: 내성 (#14, #15, #18)
+├── daemon_test.go            # 그룹 A: 인프라 (#1)
+├── hook_test.go              # 그룹 B: Hook (#2, #3, #4)
+├── handoff_test.go           # 그룹 C: 핸드오프 (#5, #6, #7)
+├── backlog_test.go           # 그룹 D: 백로그 (#8, #9, #10)
+├── queue_test.go             # 그룹 E: 큐 (#11, #12)
+├── git_test.go               # 그룹 F: Git (#13, #14)
+├── session_test.go           # 그룹 G: 세션 (#15, #16)
+└── resilience_test.go        # 그룹 H: 내성 (#17, #18, #19, #20)
 ```
 
 ### 시나리오 상세
@@ -287,53 +324,53 @@ e2e/
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
 | 1 | Daemon_StartIPCRoundtripIdleShutdown | 데몬 시작 → IPC 왕복 → idle timeout → 자동 종료 |
-| 13 | Daemon_StalePIDRecovery | 죽은 PID 파일 → CLI 호출 → 자동 재시작 |
 
 **그룹 B: Hook 파이프라인**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
 | 2 | Hook_ValidateBuildBlocksAndAllows | 빌드 도구 차단 + 허용 명령 통과 |
-| 2 | Hook_ValidateMergeRequiresLock | 잠금 없이 머지 차단, 잠금 후 허용 |
-| 14 | Hook_MalformedInput | 깨진 JSON, 빈 stdin → 크래시 없음 |
+| 3 | Hook_ValidateMergeRequiresLock | 잠금 없이 머지 차단, 잠금 후 허용 |
+| 4 | Hook_MalformedInput | 깨진 JSON, 빈 stdin → 크래시 없음 |
 
 **그룹 C: 핸드오프**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 3 | Handoff_FullLifecycle | start → design → plan → merge 전체 경로 |
-| 4 | Handoff_GateEnforcement | 미등록 커밋 차단, status별 소스 차단, 미ack 머지 차단 |
-| 5 | Handoff_MultiWorkspace | 두 브랜치 동시 등록 + 양방향 알림 교환 + ack |
+| 5 | Handoff_FullLifecycle | start → design → plan → merge 전체 경로 |
+| 6 | Handoff_GateEnforcement | 미등록 커밋 차단, status별 소스 차단, 미ack 머지 차단 |
+| 7 | Handoff_MultiWorkspace | 두 브랜치 동시 등록 + 양방향 알림 교환 + ack |
 
 **그룹 D: 백로그**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 6 | Backlog_CRUDAndExport | add → list → resolve → export 포맷 검증 |
-| 7 | Backlog_MigrationRoundtrip | BACKLOG.md 파싱 → import → export → 구조 비교 |
-| 17 | Backlog_RoundtripFidelity | 수동 마크다운 → import → export → diff 0 |
+| 8 | Backlog_CRUDAndExport | add → list → resolve → export 포맷 검증 |
+| 9 | Backlog_MigrationRoundtrip | BACKLOG.md 파싱 → import → export → 구조 비교 |
+| 10 | Backlog_RoundtripFidelity | 수동 마크다운 → import → export → diff 0 |
 
 **그룹 E: 큐**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 8 | Queue_AcquireReleaseSerialize | acquire → status → release → 재acquire |
-| 16 | Queue_ConcurrentStress | 10 goroutine 동시 요청 → 전부 순차 처리 + 정상 응답 (`-short` 스킵) |
+| 11 | Queue_AcquireReleaseSerialize | acquire → status → release → 재acquire |
+| 12 | Queue_ConcurrentStress | 10 goroutine 동시 요청 → 전부 순차 처리 + 정상 응답 (`-short` 스킵) |
 
 **그룹 F: Git 연동**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 9 | EnforceRebase_AutoAndConflict | behind → 자동 rebase 성공 / 충돌 → 차단+abort |
-| 10 | Cleanup_MergedBranchDetection | 머지된 브랜치 감지 + dry-run 확인 |
+| 13 | EnforceRebase_AutoAndConflict | behind → 자동 rebase 성공 / 충돌 → 차단+abort |
+| 14 | Cleanup_MergedBranchDetection | 머지된 브랜치 감지 + dry-run 확인 |
 
 **그룹 G: 세션**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 11 | Context_OutputFormat | 필수 섹션 포함 (Git Status, Handoff Storage) |
-| 12 | Plugin_IdempotentSetup | 2회 setup → 두 번째 변경 없음 |
+| 15 | Context_OutputFormat | 필수 섹션 포함 (Git Status, Handoff Storage) |
+| 16 | Plugin_IdempotentSetup | 2회 setup → 두 번째 변경 없음 |
 
 **그룹 H: 내성**
 | # | 테스트 | 검증 내용 |
 |---|--------|----------|
-| 14 | Resilience_MalformedIPC | 잘못된 IPC 메시지 → 데몬 크래시 없이 에러 응답 |
-| 15 | Resilience_DBAutoRecreate | DB 삭제 → 재시작 → 자동 재생성 + 마이그레이션 |
-| 18 | Resilience_CustomConfigPaths | 비표준 config 경로 → 전체 워크플로우 동작 |
+| 17 | Resilience_MalformedIPC | 잘못된 IPC 메시지 → 데몬 크래시 없이 에러 응답 |
+| 18 | Resilience_DBAutoRecreate | DB 삭제 → 재시작 → 자동 재생성 + 마이그레이션 |
+| 19 | Resilience_StalePIDRecovery | 죽은 PID 파일 → CLI 호출 → 자동 재시작 |
+| 20 | Resilience_CustomConfigPaths | 비표준 config 경로 → 전체 워크플로우 동작 |
 
 ---
 
