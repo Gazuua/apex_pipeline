@@ -222,8 +222,8 @@ poll_interval = "5s"
 	if err != nil {
 		t.Fatalf("config.Load on missing file: expected no error, got %v", err)
 	}
-	if defaultCfg.Log.Level != "debug" {
-		t.Errorf("default log.level: expected %q, got %q", "debug", defaultCfg.Log.Level)
+	if defaultCfg.Log.Level != "info" {
+		t.Errorf("default log.level: expected %q, got %q", "info", defaultCfg.Log.Level)
 	}
 
 	// Verify the already-running daemon (using its own config) still works.

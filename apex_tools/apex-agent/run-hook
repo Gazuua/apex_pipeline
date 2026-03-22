@@ -27,7 +27,7 @@ fi
 
 # Run with full logging for debugging
 echo "[$(date '+%H:%M:%S.%3N')] START args=$* bin=$_BIN" >> "$_HOOK_LOG" 2>/dev/null
-_STDERR_FILE="$(mktemp 2>/dev/null || echo /tmp/apex-hook-stderr-$$)"
+_STDERR_FILE="$(mktemp 2>/dev/null || echo /tmp/apex-hook-stderr-$$-$RANDOM)"
 "$_BIN" "$@" 2>"$_STDERR_FILE"
 _RC=$?
 _STDERR_CONTENT=$(cat "$_STDERR_FILE" 2>/dev/null)

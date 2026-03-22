@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -87,7 +88,9 @@ func appendHandoffStatus(b *strings.Builder, branchID string) {
 	b.WriteString("\n--- Branch Handoff ---\n")
 
 	client := ipc.NewClient(platform.SocketPath())
-	resp, err := client.Send(context.Background(), "handoff", "get-branch", map[string]string{
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	resp, err := client.Send(ctx, "handoff", "get-branch", map[string]string{
 		"branch": branchID,
 	}, "")
 	if err != nil {

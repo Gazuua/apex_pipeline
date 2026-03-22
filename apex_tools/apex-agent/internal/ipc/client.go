@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version"
@@ -13,8 +14,8 @@ import (
 
 // Client sends IPC requests to the daemon and returns responses.
 type Client struct {
-	addr           string
-	versionChecked bool
+	addr        string
+	versionOnce sync.Once
 }
 
 // NewClient creates a new IPC client targeting the given address.
@@ -26,10 +27,7 @@ func NewClient(addr string) *Client {
 // then sends the request and returns the response.
 // Each call opens and closes its own connection (stateless).
 func (c *Client) Send(ctx context.Context, module, action string, params any, workspace string) (*Response, error) {
-	if !c.versionChecked {
-		c.versionChecked = true
-		c.checkVersion()
-	}
+	c.versionOnce.Do(c.checkVersion)
 	return c.send(ctx, module, action, params, workspace)
 }
 

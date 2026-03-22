@@ -314,8 +314,8 @@ func TestHandoff_MultiWorkspace(t *testing.T) {
 		if err := json.Unmarshal(ackResp.Data, &ackData); err != nil {
 			t.Fatalf("ack notif %d: unmarshal: %v", nid, err)
 		}
-		if ackData["ok"] != true {
-			t.Errorf("ack notif %d: expected ok=true, got %v", nid, ackData["ok"])
+		if ackData["status"] != "acked" {
+			t.Errorf("ack notif %d: expected status=acked, got %v", nid, ackData["status"])
 		}
 	}
 

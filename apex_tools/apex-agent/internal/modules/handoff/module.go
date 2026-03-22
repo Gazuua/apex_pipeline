@@ -230,7 +230,7 @@ func (m *Module) handleAck(_ context.Context, params json.RawMessage, _ string) 
 	if err := m.manager.Ack(p.NotificationID, p.Branch, p.Action); err != nil {
 		return nil, err
 	}
-	return map[string]any{"ok": true}, nil
+	return map[string]string{"status": "acked"}, nil
 }
 
 func (m *Module) handleBacklogCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {

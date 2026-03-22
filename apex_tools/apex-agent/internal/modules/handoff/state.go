@@ -16,7 +16,10 @@ const (
 	StatusMergeNotified  = "MERGE_NOTIFIED"
 )
 
-// Valid notification types
+// Valid notification types.
+// 의도적 lowercase 유지: CLI 인자("start", "design", "merge")와 직접 매핑되며
+// DB에도 이 값으로 저장됨. 다른 열거형(backlog status/severity 등)은 UPPER_SNAKE_CASE이지만,
+// notification type은 CLI 사용성과 기존 DB 호환을 위해 lowercase를 유지한다.
 const (
 	TypeStart  = "start"
 	TypeDesign = "design"

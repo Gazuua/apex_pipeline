@@ -14,8 +14,8 @@ func TestDefaults(t *testing.T) {
 	if cfg.Daemon.IdleTimeout != 30*time.Minute {
 		t.Errorf("IdleTimeout = %v, want 30m", cfg.Daemon.IdleTimeout)
 	}
-	if cfg.Log.Level != "debug" {
-		t.Errorf("Log.Level = %q, want 'debug'", cfg.Log.Level)
+	if cfg.Log.Level != "info" {
+		t.Errorf("Log.Level = %q, want 'info'", cfg.Log.Level)
 	}
 	if !cfg.Log.Audit {
 		t.Error("Log.Audit should default to true")

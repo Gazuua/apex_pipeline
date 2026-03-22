@@ -13,12 +13,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
@@ -122,6 +124,18 @@ func daemonStopCmd() *cobra.Command {
 		Use:   "stop",
 		Short: "데몬 종료",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// IPC로 graceful shutdown 먼저 시도
+			client := ipc.NewClient(platform.SocketPath())
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if _, err := client.Send(ctx, "daemon", "shutdown", nil, ""); err == nil {
+				// shutdown 요청 성공 — 데몬에 종료 시간 부여
+				time.Sleep(500 * time.Millisecond)
+				fmt.Println("daemon stopped (graceful)")
+				return nil
+			}
+
+			// IPC 실패 시 PID 기반 Kill fallback
 			pid, err := readPID()
 			if err != nil {
 				return fmt.Errorf("daemon not running")
