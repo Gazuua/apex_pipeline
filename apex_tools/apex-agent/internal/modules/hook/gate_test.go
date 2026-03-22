@@ -69,6 +69,21 @@ func TestValidateBuild_BlockBenchmark(t *testing.T) {
 	}
 }
 
+func TestValidateBuild_AllowGoToolchain(t *testing.T) {
+	cmds := []string{
+		"go build ./...",
+		"go test ./internal/modules/hook/... -v",
+		"go run ./cmd/apex-agent version",
+		"go install ./cmd/apex-agent",
+		`export PATH="/c/Program Files/Go/bin:$PATH" && go build -o apex-agent.exe ./cmd/apex-agent`,
+	}
+	for _, cmd := range cmds {
+		if err := ValidateBuild(cmd); err != nil {
+			t.Errorf("go command %q should be allowed, got: %v", cmd, err)
+		}
+	}
+}
+
 func TestValidateBuild_AllowNormalCommand(t *testing.T) {
 	cmds := []string{"git status", "go test ./...", "ls -la", "cd /tmp"}
 	for _, cmd := range cmds {

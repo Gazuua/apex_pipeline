@@ -46,6 +46,14 @@ func ValidateBuild(command string) error {
 		return nil
 	}
 
+	// Allow Go toolchain commands (not C++ build tools).
+	if strings.Contains(command, "go build") ||
+		strings.Contains(command, "go test") ||
+		strings.Contains(command, "go run") ||
+		strings.Contains(command, "go install") {
+		return nil
+	}
+
 	// Allow read-only commands.
 	trimmed := strings.TrimSpace(command)
 	for _, prefix := range readOnlyPrefixes {

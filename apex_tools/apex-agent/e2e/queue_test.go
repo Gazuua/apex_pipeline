@@ -308,3 +308,226 @@ func TestQueue_FIFOOrdering(t *testing.T) {
 		t.Errorf("unexpected leftover waiters: %d", len(finalWaiting))
 	}
 }
+
+// TestQueue_BuildBenchmarkMutualExclusion verifies that build and benchmark
+// share the "build" channel and are mutually exclusive — holding one blocks the other.
+//
+// Scenario:
+//  1. "build" acquires "build" channel → succeeds
+//  2. "benchmark" tries to acquire "build" channel → fails (held by build)
+//  3. "build" releases
+//  4. "benchmark" acquires → succeeds
+//  5. "build" tries to acquire → fails (held by benchmark)
+//  6. "benchmark" releases
+//  7. Both can now acquire freely
+func TestQueue_BuildBenchmarkMutualExclusion(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	const channel = "build"
+	const buildBranch = "feature/build-work"
+	const benchBranch = "feature/bench-work"
+
+	tryAcquire := func(branch string, pid int) bool {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "try-acquire", map[string]any{
+			"channel": channel,
+			"branch":  branch,
+			"pid":     pid,
+		}, "")
+		if err != nil {
+			t.Fatalf("try-acquire %s: %v", branch, err)
+		}
+		if !resp.OK {
+			t.Fatalf("try-acquire %s: %s", branch, resp.Error)
+		}
+		var data map[string]any
+		json.Unmarshal(resp.Data, &data)
+		return data["acquired"] == true
+	}
+
+	release := func() {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "release", map[string]any{
+			"channel": channel,
+		}, "")
+		if err != nil {
+			t.Fatalf("release: %v", err)
+		}
+		if !resp.OK {
+			t.Fatalf("release: %s", resp.Error)
+		}
+	}
+
+	// Step 1: "build" acquires.
+	if !tryAcquire(buildBranch, 88001) {
+		t.Fatal("build should acquire free channel")
+	}
+
+	// Step 2: "benchmark" can't acquire — same channel held by build.
+	if tryAcquire(benchBranch, 88002) {
+		t.Fatal("benchmark should NOT acquire while build holds the lock")
+	}
+
+	// Step 3: release build.
+	release()
+
+	// Step 4: benchmark now acquires.
+	if !tryAcquire(benchBranch, 88002) {
+		t.Fatal("benchmark should acquire after build released")
+	}
+
+	// Step 5: build can't acquire — held by benchmark.
+	if tryAcquire(buildBranch, 88001) {
+		t.Fatal("build should NOT acquire while benchmark holds the lock")
+	}
+
+	// Step 6: release benchmark.
+	release()
+
+	// Step 7: both channels free — verify.
+	if !tryAcquire(buildBranch, 88001) {
+		t.Fatal("build should acquire after full release")
+	}
+	release()
+}
+
+// TestQueue_SequentialBenchmarks verifies that multiple benchmark processes
+// execute one at a time (not concurrently), enforced by the shared "build" lock.
+//
+// Scenario: 3 benchmarks queue up. Each gets the lock after the previous releases.
+func TestQueue_SequentialBenchmarks(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	const channel = "build"
+	benchmarks := []struct {
+		branch string
+		pid    int
+	}{
+		{"feature/bench-mpsc", 77001},
+		{"feature/bench-spsc", 77002},
+		{"feature/bench-ring", 77003},
+	}
+
+	tryAcquire := func(branch string, pid int) bool {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "try-acquire", map[string]any{
+			"channel": channel,
+			"branch":  branch,
+			"pid":     pid,
+		}, "")
+		if err != nil {
+			t.Fatalf("try-acquire %s: %v", branch, err)
+		}
+		if !resp.OK {
+			t.Fatalf("try-acquire %s: %s", branch, resp.Error)
+		}
+		var data map[string]any
+		json.Unmarshal(resp.Data, &data)
+		return data["acquired"] == true
+	}
+
+	release := func() {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "release", map[string]any{
+			"channel": channel,
+		}, "")
+		if err != nil {
+			t.Fatalf("release: %v", err)
+		}
+		if !resp.OK {
+			t.Fatalf("release: %s", resp.Error)
+		}
+	}
+
+	// First benchmark acquires.
+	if !tryAcquire(benchmarks[0].branch, benchmarks[0].pid) {
+		t.Fatal("first benchmark should acquire free channel")
+	}
+
+	// Remaining benchmarks queue up (acquire fails).
+	for i := 1; i < len(benchmarks); i++ {
+		if tryAcquire(benchmarks[i].branch, benchmarks[i].pid) {
+			t.Fatalf("benchmark %d should NOT acquire while another holds the lock", i)
+		}
+	}
+
+	// Release and acquire in FIFO order.
+	for i := 1; i < len(benchmarks); i++ {
+		release()
+		if !tryAcquire(benchmarks[i].branch, benchmarks[i].pid) {
+			t.Fatalf("benchmark %d should acquire after previous released", i)
+		}
+	}
+
+	// Final release.
+	release()
+
+	// Channel must be free.
+	resp, err := env.Client.Send(ctx, "queue", "status", map[string]any{
+		"channel": channel,
+	}, "")
+	if err != nil {
+		t.Fatalf("final status: %v", err)
+	}
+	var status map[string]any
+	json.Unmarshal(resp.Data, &status)
+	if status["active"] != nil {
+		t.Errorf("channel should be free, got active=%v", status["active"])
+	}
+}
+
+// TestQueue_MergeBenchmarkIndependent verifies that "merge" and "build" channels
+// are independent — holding a build/benchmark lock does NOT block merge operations.
+func TestQueue_MergeBenchmarkIndependent(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	const branch = "feature/independent-test"
+
+	tryAcquire := func(channel string, pid int) bool {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "try-acquire", map[string]any{
+			"channel": channel,
+			"branch":  branch,
+			"pid":     pid,
+		}, "")
+		if err != nil {
+			t.Fatalf("try-acquire %s: %v", channel, err)
+		}
+		if !resp.OK {
+			t.Fatalf("try-acquire %s: %s", channel, resp.Error)
+		}
+		var data map[string]any
+		json.Unmarshal(resp.Data, &data)
+		return data["acquired"] == true
+	}
+
+	releaseChannel := func(channel string) {
+		t.Helper()
+		resp, err := env.Client.Send(ctx, "queue", "release", map[string]any{
+			"channel": channel,
+		}, "")
+		if err != nil {
+			t.Fatalf("release %s: %v", channel, err)
+		}
+		if !resp.OK {
+			t.Fatalf("release %s: %s", channel, resp.Error)
+		}
+	}
+
+	// Acquire build channel (simulating benchmark run).
+	if !tryAcquire("build", 66001) {
+		t.Fatal("build channel should be acquirable")
+	}
+
+	// Acquire merge channel — must succeed despite build being held.
+	if !tryAcquire("merge", 66002) {
+		t.Fatal("merge channel should be independent of build channel")
+	}
+
+	// Both held simultaneously — release both.
+	releaseChannel("build")
+	releaseChannel("merge")
+}
