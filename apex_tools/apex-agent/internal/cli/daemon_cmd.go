@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
@@ -62,10 +63,12 @@ func daemonRunCmd() *cobra.Command {
 				if !filepath.IsAbs(logPath) {
 					logPath = filepath.Join(logDir, logPath)
 				}
-				f, ferr := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-				if ferr == nil {
-					logWriter = io.MultiWriter(os.Stderr, f)
+				fileWriter := &lumberjack.Logger{
+					Filename:   logPath,
+					MaxSize:    appCfg.Log.MaxSizeMB,
+					MaxBackups: appCfg.Log.MaxBackups,
 				}
+				logWriter = io.MultiWriter(os.Stderr, fileWriter)
 			}
 			log.Init(log.LogConfig{Level: appCfg.Log.Level, Writer: logWriter})
 
