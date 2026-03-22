@@ -22,6 +22,7 @@ import (
 	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
+	queuemod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
 )
 
 func daemonCmd() *cobra.Command {
@@ -57,6 +58,7 @@ func daemonRunCmd() *cobra.Command {
 			d.Register(hook.New())
 			d.Register(backlogmod.New(d.Store()))
 			d.Register(handoffmod.New(d.Store()))
+			d.Register(queuemod.New(d.Store()))
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 			return d.Run(ctx)

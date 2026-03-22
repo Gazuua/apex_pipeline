@@ -1,0 +1,321 @@
+// Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
+)
+
+func queueCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "queue",
+		Short: "빌드/머지 잠금 큐 관리",
+	}
+	cmd.AddCommand(queueAcquireCmd())
+	cmd.AddCommand(queueReleaseCmd())
+	cmd.AddCommand(queueStatusCmd())
+	cmd.AddCommand(queueBuildCmd())
+	cmd.AddCommand(queueMergeCmd())
+	return cmd
+}
+
+// sendQueueRequest sends a request to the queue module and returns the raw response.
+func sendQueueRequest(action string, params any) (*ipc.Response, error) {
+	client := ipc.NewClient(platform.SocketPath())
+	return client.Send(context.Background(), "queue", action, params, getBranchID())
+}
+
+// sendQueueRequestMap sends a request and parses the response data as map[string]any.
+func sendQueueRequestMap(action string, params any) (map[string]any, error) {
+	resp, err := sendQueueRequest(action, params)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return result, nil
+}
+
+// projectRoot returns the project root directory.
+// It walks up from the current working directory until it finds a directory
+// containing build.bat (the C++ build script).
+func projectRoot() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("getwd: %w", err)
+	}
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "build.bat")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root without finding build.bat.
+			return "", fmt.Errorf("project root not found: build.bat not found above %s", cwd)
+		}
+		dir = parent
+	}
+}
+
+// ── queue acquire ──
+
+func queueAcquireCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "acquire <channel>",
+		Short: "채널 잠금 획득 (블로킹)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			channel := args[0]
+			branch := getBranchID()
+			params := map[string]any{
+				"channel": channel,
+				"branch":  branch,
+				"pid":     os.Getpid(),
+			}
+			_, err := sendQueueRequestMap("acquire", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			fmt.Printf("[queue-lock] lock acquired: %s (branch=%s)\n", channel, branch)
+			return nil
+		},
+	}
+}
+
+// ── queue release ──
+
+func queueReleaseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "release <channel>",
+		Short: "채널 잠금 해제",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			channel := args[0]
+			params := map[string]any{
+				"channel": channel,
+			}
+			_, err := sendQueueRequestMap("release", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			fmt.Printf("[queue-lock] lock released: %s\n", channel)
+			return nil
+		},
+	}
+}
+
+// ── queue status ──
+
+func queueStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status <channel>",
+		Short: "채널 잠금 상태 조회",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			channel := args[0]
+			params := map[string]any{
+				"channel": channel,
+			}
+			result, err := sendQueueRequestMap("status", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+
+			active := result["active"]
+			waitingRaw, _ := result["waiting"].([]any)
+			depth := len(waitingRaw)
+
+			if active == nil || active == false {
+				fmt.Printf("[queue-lock] channel=%s LOCK=FREE queue_depth=%d\n", channel, depth)
+			} else {
+				// Extract branch from active entry if present.
+				activeBranch := ""
+				if activeMap, ok := active.(map[string]any); ok {
+					activeBranch, _ = activeMap["branch"].(string)
+				}
+				if activeBranch != "" {
+					fmt.Printf("[queue-lock] channel=%s LOCK=HELD by %s queue_depth=%d\n", channel, activeBranch, depth)
+				} else {
+					fmt.Printf("[queue-lock] channel=%s LOCK=HELD queue_depth=%d\n", channel, depth)
+				}
+			}
+			return nil
+		},
+	}
+}
+
+// ── queue build ──
+
+func queueBuildCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:                "build <preset> [extra args...]",
+		Short:              "빌드 잠금 획득 후 build.bat 실행",
+		Args:               cobra.MinimumNArgs(1),
+		DisableFlagParsing: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			preset := args[0]
+			extraArgs := args[1:]
+
+			branch := getBranchID()
+			fmt.Printf("[queue-lock] build requested: preset=%s, args=%s, branch=%s\n",
+				preset, formatArgs(extraArgs), branch)
+
+			// Acquire build lock.
+			acquireParams := map[string]any{
+				"channel": "build",
+				"branch":  branch,
+				"pid":     os.Getpid(),
+			}
+			_, err := sendQueueRequestMap("acquire", acquireParams)
+			if err != nil {
+				return fmt.Errorf("[queue-lock] failed to acquire build lock: %w", err)
+			}
+			fmt.Printf("[queue-lock] lock acquired: build (branch=%s)\n", branch)
+
+			// Ensure lock is released on exit.
+			released := false
+			defer func() {
+				if !released {
+					releaseParams := map[string]any{"channel": "build"}
+					_, _ = sendQueueRequestMap("release", releaseParams)
+					fmt.Printf("[queue-lock] lock released: build\n")
+				}
+			}()
+
+			// Find project root.
+			root, err := projectRoot()
+			if err != nil {
+				return fmt.Errorf("[queue-lock] %w", err)
+			}
+
+			// Build the command: cmd.exe /c <root>\build.bat <preset> [extra args...]
+			buildBat := filepath.Join(root, "build.bat")
+			cmdArgs := append([]string{"/c", buildBat, preset}, extraArgs...)
+
+			var buildCmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				buildCmd = exec.Command("cmd.exe", cmdArgs...)
+			} else {
+				// Fallback for non-Windows (e.g. CI Linux runners).
+				shArgs := append([]string{filepath.Join(root, "build.bat"), preset}, extraArgs...)
+				buildCmd = exec.Command("bash", shArgs...)
+			}
+			buildCmd.Stdout = os.Stdout
+			buildCmd.Stderr = os.Stderr
+			buildCmd.Stdin = os.Stdin
+
+			fmt.Printf("[queue-lock] starting build: %s\n", strings.Join(append([]string{buildBat, preset}, extraArgs...), " "))
+
+			runErr := buildCmd.Run()
+
+			// Release lock explicitly before printing result.
+			releaseParams := map[string]any{"channel": "build"}
+			_, _ = sendQueueRequestMap("release", releaseParams)
+			released = true
+			fmt.Printf("[queue-lock] lock released: build\n")
+
+			if runErr != nil {
+				exitCode := 1
+				if exitErr, ok := runErr.(*exec.ExitError); ok {
+					exitCode = exitErr.ExitCode()
+				}
+				fmt.Printf("[queue-lock] build FAILED (exit code: %d)\n", exitCode)
+				os.Exit(exitCode)
+			}
+
+			fmt.Printf("[queue-lock] build completed successfully\n")
+			return nil
+		},
+	}
+}
+
+// ── queue merge ──
+
+func queueMergeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "merge <acquire|release|status>",
+		Short: "머지 잠금 래퍼",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			op := args[0]
+			branch := getBranchID()
+			switch op {
+			case "acquire":
+				params := map[string]any{
+					"channel": "merge",
+					"branch":  branch,
+					"pid":     os.Getpid(),
+				}
+				_, err := sendQueueRequestMap("acquire", params)
+				if err != nil {
+					return fmt.Errorf("daemon unavailable: %w", err)
+				}
+				fmt.Printf("[queue-lock] lock acquired: merge (branch=%s)\n", branch)
+			case "release":
+				params := map[string]any{
+					"channel": "merge",
+				}
+				_, err := sendQueueRequestMap("release", params)
+				if err != nil {
+					return fmt.Errorf("daemon unavailable: %w", err)
+				}
+				fmt.Printf("[queue-lock] lock released: merge\n")
+			case "status":
+				params := map[string]any{
+					"channel": "merge",
+				}
+				result, err := sendQueueRequestMap("status", params)
+				if err != nil {
+					return fmt.Errorf("daemon unavailable: %w", err)
+				}
+				active := result["active"]
+				waitingRaw, _ := result["waiting"].([]any)
+				depth := len(waitingRaw)
+				if active == nil || active == false {
+					fmt.Printf("[queue-lock] channel=merge LOCK=FREE queue_depth=%d\n", depth)
+				} else {
+					activeBranch := ""
+					if activeMap, ok := active.(map[string]any); ok {
+						activeBranch, _ = activeMap["branch"].(string)
+					}
+					if activeBranch != "" {
+						fmt.Printf("[queue-lock] channel=merge LOCK=HELD by %s queue_depth=%d\n", activeBranch, depth)
+					} else {
+						fmt.Printf("[queue-lock] channel=merge LOCK=HELD queue_depth=%d\n", depth)
+					}
+				}
+			default:
+				return fmt.Errorf("unknown merge operation %q: expected acquire, release, or status", op)
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+// formatArgs formats a slice of args for display. Returns "none" if empty.
+func formatArgs(args []string) string {
+	if len(args) == 0 {
+		return "none"
+	}
+	return strings.Join(args, " ")
+}
+
