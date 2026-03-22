@@ -7,6 +7,47 @@ import (
 	"strings"
 )
 
+// SafeExport runs Import first (MD → DB) to ensure DB is a superset of the
+// current MD, then exports. This prevents data loss if the local DB was
+// deleted or corrupted — Import restores from MD before Export overwrites it.
+//
+// Returns (content, importCount, error).
+func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error) {
+	imported := 0
+
+	// 1) Import current MD into DB (idempotent — existing items keep their status).
+	if backlogMD != "" {
+		items, err := ParseBacklogMD(backlogMD)
+		if err != nil {
+			return "", 0, fmt.Errorf("parse BACKLOG.md: %w", err)
+		}
+		n, err := mgr.ImportItems(items)
+		if err != nil {
+			return "", 0, fmt.Errorf("import BACKLOG.md: %w", err)
+		}
+		imported += n
+	}
+	if historyMD != "" {
+		items, err := ParseBacklogHistoryMD(historyMD)
+		if err != nil {
+			return "", 0, fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
+		}
+		n, err := mgr.ImportItems(items)
+		if err != nil {
+			return "", 0, fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
+		}
+		imported += n
+	}
+
+	// 2) Export from DB.
+	content, err := mgr.Export()
+	if err != nil {
+		return "", imported, err
+	}
+
+	return content, imported, nil
+}
+
 // Export generates BACKLOG.md content from the database.
 func (mgr *Manager) Export() (string, error) {
 	nextID, err := mgr.NextID()

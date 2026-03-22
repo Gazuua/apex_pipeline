@@ -12,7 +12,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 func backlogCmd() *cobra.Command {
@@ -192,30 +194,102 @@ func backlogResolveCmd() *cobra.Command {
 	return cmd
 }
 
+// openBacklogStore opens the DB directly (no daemon) and returns Store + Manager.
+// The cleanup function must be called to close the store.
+func openBacklogStore() (*store.Store, *backlog.Manager, func(), error) {
+	if err := platform.EnsureDataDir(); err != nil {
+		return nil, nil, nil, err
+	}
+	s, err := store.Open(platform.DBPath())
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("open store: %w", err)
+	}
+	mig := store.NewMigrator(s)
+	mod := backlog.New(s)
+	mod.RegisterSchema(mig)
+	if err := mig.Migrate(); err != nil {
+		s.Close()
+		return nil, nil, nil, fmt.Errorf("migrate: %w", err)
+	}
+	return s, backlog.NewManager(s), func() { s.Close() }, nil
+}
+
 // ── backlog export ──
 
 func backlogExportCmd() *cobra.Command {
-	return &cobra.Command{
+	var backlogPath, historyPath string
+	var unsafe bool
+
+	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "BACKLOG.md 형식으로 출력",
+		Short: "BACKLOG.md 형식으로 출력 (import-first 안전 모드)",
+		Long: `DB 내용을 BACKLOG.md 형식으로 출력합니다.
+
+기본 동작 (안전 모드):
+  1. 현재 BACKLOG.md + BACKLOG_HISTORY.md를 DB에 import (메타데이터만, 상태 불변)
+  2. DB에서 export
+
+이렇게 하면 DB가 유실되어도 MD 파일에서 복원 후 export하므로 데이터 손실이 없습니다.
+--unsafe 플래그로 import 단계를 건너뛸 수 있습니다.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := sendBacklogRequest("export", nil)
+			// 직접 DB 접근 (daemon 불필요)
+			s, mgr, cleanup, err := openBacklogStore()
 			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
+				return err
 			}
-			if resp.Error != "" {
-				return fmt.Errorf("backlog export: %s", resp.Error)
+			defer cleanup()
+
+			var content string
+
+			// Import + Export를 단일 트랜잭션으로 묶어 원자성 보장
+			txErr := s.RunInTx(context.Background(), func() error {
+				if !unsafe {
+					// 안전 모드: import-first
+					imported := 0
+					if data, readErr := os.ReadFile(backlogPath); readErr == nil {
+						items, parseErr := backlog.ParseBacklogMD(string(data))
+						if parseErr != nil {
+							return fmt.Errorf("parse BACKLOG.md: %w", parseErr)
+						}
+						n, importErr := mgr.ImportItems(items)
+						if importErr != nil {
+							return fmt.Errorf("import BACKLOG.md: %w", importErr)
+						}
+						imported += n
+					}
+					if data, readErr := os.ReadFile(historyPath); readErr == nil {
+						items, parseErr := backlog.ParseBacklogHistoryMD(string(data))
+						if parseErr != nil {
+							return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", parseErr)
+						}
+						n, importErr := mgr.ImportItems(items)
+						if importErr != nil {
+							return fmt.Errorf("import BACKLOG_HISTORY.md: %w", importErr)
+						}
+						imported += n
+					}
+					if imported > 0 {
+						fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
+					}
+				}
+
+				var exportErr error
+				content, exportErr = mgr.Export()
+				return exportErr
+			})
+			if txErr != nil {
+				return txErr
 			}
-			var result struct {
-				Content string `json:"content"`
-			}
-			if err := json.Unmarshal(resp.Data, &result); err != nil {
-				return fmt.Errorf("parse response: %w", err)
-			}
-			fmt.Fprint(os.Stdout, result.Content)
+
+			fmt.Fprint(os.Stdout, content)
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&backlogPath, "backlog", "docs/BACKLOG.md", "BACKLOG.md 파일 경로")
+	cmd.Flags().StringVar(&historyPath, "history", "docs/BACKLOG_HISTORY.md", "BACKLOG_HISTORY.md 파일 경로")
+	cmd.Flags().BoolVar(&unsafe, "unsafe", false, "import 단계 건너뛰기 (DB 유실 시 데이터 손실 위험)")
+	return cmd
 }
 
 // ── backlog release ──
