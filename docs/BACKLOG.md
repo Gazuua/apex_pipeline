@@ -33,7 +33,7 @@
 - **스코프**: core, shared
 - **타입**: design-debt
 - **연관**: #130 (이번 PR에서 도입)
-- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. Transport concept의 associated type (`T::Context`)으로 타입 소거하면 core의 SSL 의존을 제거 가능. Listener에서 TLS 소켓 생성 경로 구현 시 함께 해결. **[FSD 분석 2026-03-22]** Transport concept 타입 소거 재설계 필요. TLS Listener 구현과 연동되어야 하며 단독 수정 불가.
+- **설명**: `TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #135. KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장
 - **등급**: MINOR
@@ -47,7 +47,7 @@
 - **스코프**: core, tools
 - **타입**: perf
 - **연관**: #107 (HISTORY)
-- **설명**: Shared 모델에서 SessionMap을 `boost::concurrent_flat_map`으로 교체하여 벤치마킹. io_context 내부 큐가 진짜 병목인지 결정적으로 검증. lock-free SessionMap으로도 처리량이 정체되면 io_context 분리가 유일한 해법임을 증명. **[FSD 분석 2026-03-22]** concurrent_flat_map 교체 + 벤치마크 인프라 구축 필요. 실험적 작업으로 자동화 불가.
+- **설명**: Shared 모델에서 SessionMap을 `boost::concurrent_flat_map`으로 교체하여 벤치마킹. io_context 내부 큐가 진짜 병목인지 결정적으로 검증. **[FSD 설계 확정 2026-03-22]** A안 채택: 기존 `bench_architecture_comparison.cpp`에 `BM_Shared_LockFree_Stateful` 변형 추가. Per-core vs sharded_mutex vs concurrent_flat_map 3자 비교. Boost 1.84.0+ 이미 가용. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #113. Docker E2E 풀 인프라 벤치마킹
 - **등급**: MAJOR
@@ -67,7 +67,7 @@
 - **등급**: MINOR
 - **스코프**: core
 - **타입**: perf
-- **설명**: malloc vs BumpAllocator vs ArenaAllocator 벤치마크 미구현. **[FSD 분석 2026-03-22]** 벤치마크 구현 필요 — 테스트 대상 선정 및 측정 기준에 설계 판단 포함. 자동화 불가.
+- **설명**: malloc vs BumpAllocator vs ArenaAllocator 벤치마크. **[FSD 설계 확정 2026-03-22]** 기존 micro 유지 + RequestCycle(할당 3~8회 가변 32~512B → reset) + TransactionCycle(블록 경계 넘는 가변 할당 → reset) 추가. Capacity 파라미터 스윕: Bump {16K,64K,256K}, Arena block {1K,4K,16K}. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #51. Visual Studio + WSL 디버그 환경 구축
 - **등급**: MINOR
@@ -97,19 +97,13 @@
 - **등급**: MAJOR
 - **스코프**: core
 - **타입**: design-debt
-- **설명**: 개별 msg_id 핸들러가 primary listener만 적용. 멀티 프로토콜 시 확장 필요. **[FSD 분석 2026-03-22]** 멀티 프로토콜 확장 설계 필요. 자동화 불가.
+- **설명**: 개별 msg_id 핸들러가 primary listener만 적용. 멀티 프로토콜 시 확장 필요. **[FSD 설계 확정 2026-03-22]** A안 채택: `ListenerBase::sync_all_handlers()` + `MessageDispatcher::handlers() const` 접근자 추가. Phase 3.5에서 전체 핸들러 맵 복사. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #22. async_send_raw + write_pump 동시 write 위험
 - **등급**: MAJOR
 - **스코프**: core
 - **타입**: design-debt
-- **설명**: 현재 write_pump만 사용하여 미트리거. API 확장 시 동기화 필요. **[FSD 분석 2026-03-22]** write 동기화 메커니즘 설계 필요. API 확장 시점에 트리거. 자동화 불가.
-
-### #61. 로그 보존 정책 TOML 파라미터화
-- **등급**: MINOR
-- **스코프**: core
-- **타입**: infra
-- **설명**: `retention_days` 등으로 자동 삭제 제어. 현재 영구 보존. 디스크 용량 이슈 발생 시 트리거. **[FSD 분석 2026-03-22]** TOML 파라미터 스키마 및 자동 삭제 정책 설계 필요. 자동화 불가.
+- **설명**: `async_send_raw`가 소켓에 직접 `async_write` 호출 — `write_pump`와 동시 실행 시 UB. **[FSD 설계 확정 2026-03-22]** B안 채택: `async_send_raw` 시그니처 유지, 내부적으로 `enqueue_write` + completion promise 패턴. write_pump가 항목 처리 후 promise 이행. `async_send`도 동일 적용. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md`
 
 ### #59. 문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿
 - **등급**: MAJOR

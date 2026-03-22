@@ -153,7 +153,7 @@ LogConfig parse_logging(const toml::table& root)
         cfg.file.enabled = get_or<bool>(*file, "enabled", cfg.file.enabled);
         cfg.file.path = get_or<std::string>(*file, "path", cfg.file.path);
         cfg.file.json = get_or<bool>(*file, "json", cfg.file.json);
-        // deprecated: max_size_mb, max_files — 존재해도 무시
+        // retention 관련 필드 없음 — 로그 영구 보존 의도적 설계 (WONTFIX)
     }
 
     // [logging.async]
