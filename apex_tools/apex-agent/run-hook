@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Cross-platform apex-agent launcher for Claude Code hooks.
+DIR="$(dirname "$0")"
+[[ -f "$DIR/apex-agent.exe" ]] && exec "$DIR/apex-agent.exe" "$@"
+exec "$DIR/apex-agent" "$@"

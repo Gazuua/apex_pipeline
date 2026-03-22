@@ -188,23 +188,17 @@ func resolveHandoffBranch(cwd, gitBranch string) (string, error) {
 // --- helpers ---
 
 // readHandoffProbeInput reads Edit/Write hook JSON from stdin.
-// Returns (file_path, cwd, error).
+// Uses json.Decoder to avoid blocking on unclosed stdin pipe.
 func readHandoffProbeInput() (string, string, error) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", "", err
-	}
-
 	var input struct {
 		ToolInput struct {
 			FilePath string `json:"file_path"`
 		} `json:"tool_input"`
 		Cwd string `json:"cwd"`
 	}
-	if err := json.Unmarshal(data, &input); err != nil {
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
 		return "", "", err
 	}
-
 	return input.ToolInput.FilePath, input.Cwd, nil
 }
 

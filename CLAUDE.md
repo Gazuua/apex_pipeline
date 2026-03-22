@@ -149,6 +149,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | 빌드/MSVC/아키텍처/벤치마크 | `apex_core/CLAUDE.md` |
 | 문서 작성/리뷰/브레인스토밍 | `docs/CLAUDE.md` |
 | 도구/플러그인 캐시/auto-review | `apex_tools/CLAUDE.md` |
+| apex-agent Go 백엔드 (데몬/hook/백로그/핸드오프) | `apex_tools/apex-agent/CLAUDE.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
 | 프레임워크 가이드 (서비스 개발 API + 내부 아키텍처) | `docs/apex_core/apex_core_guide.md` |

@@ -5,7 +5,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -87,22 +86,17 @@ func hookEnforceRebaseCmd() *cobra.Command {
 }
 
 // readHookInput reads Claude Code hook JSON from stdin.
+// Uses json.Decoder to avoid blocking on unclosed stdin pipe.
 // Returns (command, cwd, error).
 func readHookInput() (string, string, error) {
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return "", "", err
-	}
-
 	var input struct {
 		ToolInput struct {
 			Command string `json:"command"`
 		} `json:"tool_input"`
 		Cwd string `json:"cwd"`
 	}
-	if err := json.Unmarshal(data, &input); err != nil {
+	if err := json.NewDecoder(os.Stdin).Decode(&input); err != nil {
 		return "", "", err
 	}
-
 	return input.ToolInput.Command, input.Cwd, nil
 }

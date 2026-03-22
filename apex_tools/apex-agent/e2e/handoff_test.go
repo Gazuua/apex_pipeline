@@ -364,6 +364,69 @@ func TestHandoff_MultiWorkspace(t *testing.T) {
 	}
 }
 
+// TestHandoff_ResolveBranch verifies workspace ID primary + git_branch fallback lookup.
+func TestHandoff_ResolveBranch(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	// Register with git_branch
+	resp, err := env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
+		"branch":     "ws_01",
+		"workspace":  "ws_01",
+		"git_branch": "feature/test-resolve",
+		"summary":    "resolve test",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("notify-start: %v / %s", err, resp.Error)
+	}
+
+	// 1차: workspace ID로 조회 → found
+	resp, err = env.Client.Send(ctx, "handoff", "resolve-branch", map[string]any{
+		"workspace_id": "ws_01",
+		"git_branch":   "",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("resolve by workspace: %v / %s", err, resp.Error)
+	}
+	var result map[string]any
+	json.Unmarshal(resp.Data, &result)
+	if result["found"] != true {
+		t.Error("workspace ID lookup should find the branch")
+	}
+	if result["branch"] != "ws_01" {
+		t.Errorf("expected branch 'ws_01', got %v", result["branch"])
+	}
+
+	// 2차: 존재하지 않는 workspace → git_branch fallback
+	resp, err = env.Client.Send(ctx, "handoff", "resolve-branch", map[string]any{
+		"workspace_id": "nonexistent",
+		"git_branch":   "feature/test-resolve",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("resolve by git_branch: %v / %s", err, resp.Error)
+	}
+	json.Unmarshal(resp.Data, &result)
+	if result["found"] != true {
+		t.Error("git_branch fallback should find the branch")
+	}
+	if result["branch"] != "ws_01" {
+		t.Errorf("fallback should return 'ws_01', got %v", result["branch"])
+	}
+
+	// 3차: 둘 다 없음 → not found
+	resp, err = env.Client.Send(ctx, "handoff", "resolve-branch", map[string]any{
+		"workspace_id": "ghost",
+		"git_branch":   "feature/nonexistent",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("resolve not found: %v / %s", err, resp.Error)
+	}
+	json.Unmarshal(resp.Data, &result)
+	if result["found"] != false {
+		t.Error("nonexistent branch should not be found")
+	}
+}
+
 // assertStatus is a helper that sends handoff.get-status and asserts the returned status.
 func assertStatus(t *testing.T, env *testenv.TestEnv, ctx context.Context, branch, want string) {
 	t.Helper()

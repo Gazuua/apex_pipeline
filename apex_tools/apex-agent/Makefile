@@ -14,7 +14,7 @@ endif
 GOFLAGS := -trimpath -ldflags="-s -w -X main.Version=$(VERSION)"
 
 build:
-	go build $(GOFLAGS) -o $(BINARY)$(if $(filter windows,$(GOOS)),.exe) ./cmd/apex-agent
+	go build $(GOFLAGS) -o $(BINARY)$(EXE) ./cmd/apex-agent
 
 test:
 	go test ./... -race -cover -v

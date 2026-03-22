@@ -405,3 +405,110 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 		t.Errorf("backlog.add second: expected id=2, got %v", addData["id"])
 	}
 }
+
+// TestBacklog_EnumValidation verifies that invalid enum values are rejected.
+func TestBacklog_EnumValidation(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	// 소문자 type 거부
+	resp, err := env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"title": "Bad Type", "severity": "MAJOR", "timeframe": "NOW",
+		"scope": "CORE", "type": "bug", "description": "should fail",
+	}, "")
+	if err != nil {
+		t.Fatalf("transport error: %v", err)
+	}
+	if resp.OK {
+		t.Error("lowercase type 'bug' should be rejected")
+	}
+	if !strings.Contains(resp.Error, "invalid type") {
+		t.Errorf("expected 'invalid type' error, got: %s", resp.Error)
+	}
+
+	// 소문자 scope 거부
+	resp, err = env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"title": "Bad Scope", "severity": "MAJOR", "timeframe": "NOW",
+		"scope": "core", "type": "BUG", "description": "should fail",
+	}, "")
+	if err != nil {
+		t.Fatalf("transport error: %v", err)
+	}
+	if resp.OK {
+		t.Error("lowercase scope 'core' should be rejected")
+	}
+
+	// 잘못된 resolution 거부
+	resp, err = env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"id": 1, "title": "OK Item", "severity": "MAJOR", "timeframe": "NOW",
+		"scope": "CORE", "type": "BUG", "description": "valid item",
+	}, "")
+	if err != nil {
+		t.Fatalf("transport error: %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("valid add should succeed: %s", resp.Error)
+	}
+
+	resp, err = env.Client.Send(ctx, "backlog", "resolve", map[string]any{
+		"id": 1, "resolution": "DEFERRED",
+	}, "")
+	if err != nil {
+		t.Fatalf("transport error: %v", err)
+	}
+	if resp.OK {
+		t.Error("invalid resolution 'DEFERRED' should be rejected")
+	}
+
+	// 정상 resolution
+	resp, err = env.Client.Send(ctx, "backlog", "resolve", map[string]any{
+		"id": 1, "resolution": "FIXED",
+	}, "")
+	if err != nil {
+		t.Fatalf("transport error: %v", err)
+	}
+	if !resp.OK {
+		t.Errorf("valid resolution 'FIXED' should succeed: %s", resp.Error)
+	}
+}
+
+// TestBacklog_Release verifies the release command flow.
+func TestBacklog_Release(t *testing.T) {
+	env := testenv.New(t)
+	ctx := context.Background()
+
+	// Add an item
+	resp, err := env.Client.Send(ctx, "backlog", "add", map[string]any{
+		"id": 1, "title": "Release Test", "severity": "MAJOR", "timeframe": "NOW",
+		"scope": "CORE", "type": "BUG", "description": "test release flow",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("add: %v / %s", err, resp.Error)
+	}
+
+	// Release it
+	resp, err = env.Client.Send(ctx, "backlog", "release", map[string]any{
+		"id": 1, "reason": "scope change", "branch": "branch_test",
+	}, "")
+	if err != nil {
+		t.Fatalf("release transport: %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("release should succeed: %s", resp.Error)
+	}
+
+	// Verify description has release history appended
+	resp, err = env.Client.Send(ctx, "backlog", "get", map[string]any{"id": 1}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("get: %v / %s", err, resp.Error)
+	}
+	var item map[string]any
+	json.Unmarshal(resp.Data, &item)
+	desc, _ := item["Description"].(string)
+	if !strings.Contains(desc, "[RELEASED]") {
+		t.Errorf("description should contain [RELEASED], got: %s", desc)
+	}
+	if !strings.Contains(desc, "scope change") {
+		t.Errorf("description should contain reason, got: %s", desc)
+	}
+}
