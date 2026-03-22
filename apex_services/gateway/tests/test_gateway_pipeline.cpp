@@ -3,7 +3,7 @@
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
 #include <apex/gateway/gateway_config.hpp>
-#include <apex/gateway/gateway_pipeline.hpp>
+#include <apex/gateway/gateway_pipeline_production.hpp>
 
 #include <gtest/gtest.h>
 
