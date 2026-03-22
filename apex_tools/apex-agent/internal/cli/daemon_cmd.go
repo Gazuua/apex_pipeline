@@ -18,6 +18,7 @@ import (
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
@@ -51,6 +52,7 @@ func daemonRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			d.Register(hook.New())
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 			return d.Run(ctx)
