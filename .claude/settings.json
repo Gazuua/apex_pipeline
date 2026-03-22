@@ -24,7 +24,7 @@
           },
           {
             "type": "command",
-            "command": "bash .claude/hooks/validate-handoff.sh",
+            "command": "./apex_tools/apex-agent/apex-agent hook validate-handoff",
             "timeout": 10
           },
           {
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/handoff-probe.sh",
+            "command": "./apex_tools/apex-agent/apex-agent hook handoff-probe",
             "timeout": 5
           }
         ]
