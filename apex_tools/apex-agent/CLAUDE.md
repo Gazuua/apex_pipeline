@@ -112,7 +112,7 @@ apex-agent backlog check ID
 apex-agent handoff notify start --backlog 126 --summary "..." [--skip-design] [--scopes core,shared]
 
 # 비백로그 작업 착수
-apex-agent handoff notify job --summary "..." [--skip-design]
+apex-agent handoff notify start job --summary "..." [--skip-design]
 
 # 상태 전이
 apex-agent handoff notify design --summary "..."
@@ -129,7 +129,7 @@ apex-agent handoff backlog-check N
 ### 착수 필수 플래그
 
 - `--summary`: **필수** — 작업 요약 없이 착수 불가
-- `--backlog`: `notify start`에서 **필수** — 비백로그 작업은 `notify job` 사용
+- `--backlog`: `notify start`에서 **필수** — 비백로그 작업은 `notify start job` 사용
 
 ### 상태 머신
 

@@ -57,7 +57,7 @@ handoff notify start --backlog 126,132 --summary "..." --scopes CORE,SHARED [--s
 ### 비백로그 작업
 
 ```bash
-handoff notify job --summary "CI 파이프라인 정비" --scopes CI [--skip-design]
+handoff notify start job --summary "CI 파이프라인 정비" --scopes CI [--skip-design]
 ```
 
 - `job` 서브커맨드로 명시적 구분
