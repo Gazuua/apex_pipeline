@@ -167,9 +167,10 @@ TEST_F(MessageRouterTest, MockKafkaProduceRecorded)
     ASSERT_TRUE(result.has_value());
 
     EXPECT_EQ(mock_kafka_.produce_count(), 1u);
-    EXPECT_EQ(mock_kafka_.produced()[0].topic, "auth.requests");
-    EXPECT_EQ(mock_kafka_.produced()[0].key, "key-1");
-    EXPECT_EQ(mock_kafka_.produced()[0].payload, payload);
+    auto produced = mock_kafka_.produced();
+    EXPECT_EQ(produced[0].topic, "auth.requests");
+    EXPECT_EQ(produced[0].key, "key-1");
+    EXPECT_EQ(produced[0].payload, payload);
 }
 
 TEST_F(MessageRouterTest, MockKafkaProduceFailure)

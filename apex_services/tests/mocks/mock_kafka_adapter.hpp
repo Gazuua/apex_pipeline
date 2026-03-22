@@ -85,8 +85,11 @@ class MockKafkaAdapter
 
     // --- Test inspection ---
 
-    [[nodiscard]] const std::vector<ProducedMessage>& produced() const
+    /// Returns a snapshot copy of produced messages (thread-safe).
+    /// Use produce_count() for lightweight size checks without copying.
+    [[nodiscard]] std::vector<ProducedMessage> produced() const
     {
+        std::lock_guard lock(mu_);
         return produced_;
     }
 

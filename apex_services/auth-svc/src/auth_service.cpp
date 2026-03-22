@@ -21,6 +21,7 @@
 #include <flatbuffers/flatbuffers.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -142,7 +143,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     auto& pg_res = *user_result;
     if (pg_res.row_count() == 0)
     {
-        spdlog::warn("[AuthService] Login failed: user not found (email: {})", email);
+        spdlog::warn("[AuthService] Login failed: user not found (email: {}***)",
+                     email.substr(0, std::min(email.size(), size_t{3})));
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
     }
 

@@ -105,8 +105,11 @@ class MockRedisMultiplexer
 
     // --- Test inspection ---
 
-    [[nodiscard]] const std::vector<RedisCommand>& commands() const
+    /// Returns a snapshot copy of recorded commands (thread-safe).
+    /// Use command_count() for lightweight size checks without copying.
+    [[nodiscard]] std::vector<RedisCommand> commands() const
     {
+        std::lock_guard lock(mu_);
         return commands_;
     }
 

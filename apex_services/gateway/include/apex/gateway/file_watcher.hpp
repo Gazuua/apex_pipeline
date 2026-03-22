@@ -5,6 +5,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <functional>
@@ -54,7 +55,7 @@ class FileWatcher
     std::chrono::milliseconds interval_;
     std::unique_ptr<boost::asio::steady_timer> timer_;
     std::filesystem::file_time_type last_write_time_;
-    bool running_{false};
+    std::atomic<bool> running_{false};
 };
 
 } // namespace apex::gateway

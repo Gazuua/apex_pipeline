@@ -119,8 +119,11 @@ class MockPgPool
 
     // --- Test inspection ---
 
-    [[nodiscard]] const std::vector<PgQuery>& queries() const
+    /// Returns a snapshot copy of recorded queries (thread-safe).
+    /// Use query_count() for lightweight size checks without copying.
+    [[nodiscard]] std::vector<PgQuery> queries() const
     {
+        std::lock_guard lock(mu_);
         return queries_;
     }
 

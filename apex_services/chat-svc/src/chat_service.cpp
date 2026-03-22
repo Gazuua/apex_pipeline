@@ -722,9 +722,14 @@ ChatService::on_global_broadcast(const apex::core::KafkaMessageMeta& meta, uint3
     auto content = req->content();
 
     // 1. Input validation
-    if (!content || content->size() == 0)
+    auto msg_validation = validate_message_content(content ? content->size() : 0, config_.max_message_length);
+    if (msg_validation == MessageValidation::EMPTY)
     {
         co_return co_await send_global_broadcast_error(meta, fbs::ChatMessageError_EMPTY_MESSAGE);
+    }
+    if (msg_validation == MessageValidation::TOO_LONG)
+    {
+        co_return co_await send_global_broadcast_error(meta, fbs::ChatMessageError_MESSAGE_TOO_LONG);
     }
 
     auto content_str = std::string(content->string_view());
