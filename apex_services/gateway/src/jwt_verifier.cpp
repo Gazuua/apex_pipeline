@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
+#include <charconv>
 #include <fstream>
 #include <sstream>
 
@@ -64,7 +65,15 @@ apex::core::Result<JwtClaims> JwtVerifier::verify(std::string_view token) const
 
         JwtClaims claims;
         // Auth service stores uid as string (avoids double precision loss for large IDs)
-        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
+        {
+            auto uid_str = decoded.get_payload_claim("uid").as_string();
+            auto [ptr, ec] = std::from_chars(uid_str.data(), uid_str.data() + uid_str.size(), claims.user_id);
+            if (ec != std::errc{})
+            {
+                spdlog::debug("JWT uid claim parsing failed: '{}'", uid_str);
+                return apex::core::error(apex::core::ErrorCode::ServiceError);
+            }
+        }
         // Auth service sets sub = email
         claims.email = decoded.get_subject();
         if (decoded.has_payload_claim("jti"))
