@@ -68,3 +68,19 @@ func TestGhAvailable(t *testing.T) {
 	// Whether gh is installed or not is environment-dependent.
 	_ = ghAvailable()
 }
+
+func TestIsSubPath(t *testing.T) {
+	cases := []struct {
+		child, parent string
+		want          bool
+	}{
+		{".", ".", true},
+	}
+
+	for _, tc := range cases {
+		got := isSubPath(tc.child, tc.parent)
+		if got != tc.want {
+			t.Errorf("isSubPath(%q, %q) = %v, want %v", tc.child, tc.parent, got, tc.want)
+		}
+	}
+}

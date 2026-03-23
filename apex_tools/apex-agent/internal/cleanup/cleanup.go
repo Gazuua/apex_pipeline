@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -37,9 +38,10 @@ var protectedBranches = map[string]bool{
 }
 
 // Run performs the 3-phase branch cleanup.
+// activeBranches contains git branch names that have active handoff records — these are skipped.
 // If execute is false the run is a dry-run: all targets are collected and
 // returned but nothing is deleted.
-func Run(repoRoot string, execute bool) (*Result, error) {
+func Run(repoRoot string, execute bool, activeBranches map[string]bool) (*Result, error) {
 	// Resolve repo root from git if not provided.
 	if repoRoot == "" {
 		out, err := runGit(repoRoot, "rev-parse", "--show-toplevel")
@@ -48,21 +50,24 @@ func Run(repoRoot string, execute bool) (*Result, error) {
 		}
 		repoRoot = strings.TrimSpace(out)
 	}
+	if activeBranches == nil {
+		activeBranches = map[string]bool{}
+	}
 
 	result := &Result{}
-	ml.Info("cleanup started", "repo", repoRoot, "execute", execute)
+	ml.Info("cleanup started", "repo", repoRoot, "execute", execute, "active_branches", len(activeBranches))
 
 	// Refresh remote refs.
 	_, _ = runGit(repoRoot, "fetch", "--prune", "origin")
 
 	// Phase 1: worktrees.
-	dirtyBranches, err := processWorktrees(repoRoot, execute, result)
+	dirtyBranches, err := processWorktrees(repoRoot, execute, activeBranches, result)
 	if err != nil {
 		return nil, fmt.Errorf("worktree phase: %w", err)
 	}
 
 	// Phase 2: local branches.
-	if err := processLocalBranches(repoRoot, execute, dirtyBranches, result); err != nil {
+	if err := processLocalBranches(repoRoot, execute, dirtyBranches, activeBranches, result); err != nil {
 		return nil, fmt.Errorf("local branch phase: %w", err)
 	}
 
@@ -70,7 +75,7 @@ func Run(repoRoot string, execute bool) (*Result, error) {
 	processEmptyWorktreeDirs(repoRoot, execute, result)
 
 	// Phase 3: remote branches.
-	if err := processRemoteBranches(repoRoot, execute, result); err != nil {
+	if err := processRemoteBranches(repoRoot, execute, activeBranches, result); err != nil {
 		return nil, fmt.Errorf("remote branch phase: %w", err)
 	}
 
@@ -81,8 +86,9 @@ func Run(repoRoot string, execute bool) (*Result, error) {
 
 // processWorktrees lists git worktrees and removes merged, clean ones.
 // Returns the set of branches that have dirty worktrees (for Phase 2 skip).
-func processWorktrees(repoRoot string, execute bool, result *Result) (map[string]bool, error) {
+func processWorktrees(repoRoot string, execute bool, activeBranches map[string]bool, result *Result) (map[string]bool, error) {
 	dirtyBranches := map[string]bool{}
+	cwd, _ := os.Getwd()
 
 	out, err := runGit(repoRoot, "worktree", "list")
 	if err != nil {
@@ -97,6 +103,20 @@ func processWorktrees(repoRoot string, execute bool, result *Result) (map[string
 
 		wtPath, wtBranch := parseWorktreeLine(line)
 		if wtBranch == "" || protectedBranches[wtBranch] {
+			continue
+		}
+
+		// Defense-in-depth: CWD protection.
+		if isSubPath(cwd, wtPath) {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("현재 작업 디렉토리: %s [%s] — 스킵", wtPath, wtBranch))
+			continue
+		}
+
+		// Active handoff protection.
+		if activeBranches[wtBranch] {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("활성 핸드오프: %s [%s] — 스킵", wtPath, wtBranch))
 			continue
 		}
 
@@ -129,6 +149,25 @@ func processWorktrees(repoRoot string, execute bool, result *Result) (map[string
 	}
 
 	return dirtyBranches, nil
+}
+
+// isSubPath returns true if child is inside or equal to parent.
+// Handles Windows case-insensitivity and drive letter normalization.
+func isSubPath(child, parent string) bool {
+	absChild, err1 := filepath.Abs(child)
+	absParent, err2 := filepath.Abs(parent)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		absChild = strings.ToLower(absChild)
+		absParent = strings.ToLower(absParent)
+	}
+	rel, err := filepath.Rel(absParent, absChild)
+	if err != nil {
+		return false
+	}
+	return !strings.HasPrefix(rel, "..")
 }
 
 // parseWorktreeLine extracts the path and branch from a `git worktree list` output line.
@@ -182,7 +221,7 @@ func removeWorktree(repoRoot, wtPath string) error {
 
 // ── Phase 2: Local Branches ───────────────────────────────────────────────────
 
-func processLocalBranches(repoRoot string, execute bool, dirtyBranches map[string]bool, result *Result) error {
+func processLocalBranches(repoRoot string, execute bool, dirtyBranches, activeBranches map[string]bool, result *Result) error {
 	out, err := runGit(repoRoot, "branch")
 	if err != nil {
 		return nil // non-fatal
@@ -193,6 +232,12 @@ func processLocalBranches(repoRoot string, execute bool, dirtyBranches map[strin
 		branch := strings.TrimLeft(line, "*+ ")
 		branch = strings.TrimSpace(branch)
 		if branch == "" || protectedBranches[branch] {
+			continue
+		}
+
+		// Active handoff protection.
+		if activeBranches[branch] {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("활성 핸드오프: %s — 스킵", branch))
 			continue
 		}
 
@@ -275,7 +320,7 @@ func processEmptyWorktreeDirs(repoRoot string, execute bool, result *Result) {
 
 // ── Phase 3: Remote Branches ─────────────────────────────────────────────────
 
-func processRemoteBranches(repoRoot string, execute bool, result *Result) error {
+func processRemoteBranches(repoRoot string, execute bool, activeBranches map[string]bool, result *Result) error {
 	if execute {
 		// Prune stale remote refs first.
 		_, _ = runGit(repoRoot, "remote", "prune", "origin")
@@ -299,6 +344,12 @@ func processRemoteBranches(repoRoot string, execute bool, result *Result) error 
 		branch := strings.TrimPrefix(ref, "origin/")
 
 		if protectedBranches[branch] {
+			continue
+		}
+
+		// Active handoff protection.
+		if activeBranches[branch] {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("활성 핸드오프: origin/%s — 스킵", branch))
 			continue
 		}
 
