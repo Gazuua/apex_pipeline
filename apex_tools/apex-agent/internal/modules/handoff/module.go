@@ -218,7 +218,7 @@ func (m *Module) OnStop() error                   { return nil }
 type notifyStartParams struct {
 	Branch     string `json:"branch"`
 	Workspace  string `json:"workspace"`
-	GitBranch  string `json:"git_branch"`
+	BranchName string `json:"branch_name"` // git 브랜치명 (브랜치 생성 전이므로 git_branch 대신 사용)
 	Summary    string `json:"summary"`
 	BacklogIDs []int  `json:"backlog_ids"`
 	Scopes     string `json:"scopes"`
@@ -261,7 +261,7 @@ func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.GitBranch, p.BacklogIDs, p.Scopes, p.SkipDesign)
+	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign)
 	if err != nil {
 		return nil, err
 	}

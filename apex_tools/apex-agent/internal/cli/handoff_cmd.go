@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -34,6 +36,7 @@ func handoffCmd() *cobra.Command {
 	notify.AddCommand(handoffNotifyDesignCmd())
 	notify.AddCommand(handoffNotifyPlanCmd())
 	notify.AddCommand(handoffNotifyMergeCmd())
+	notify.AddCommand(handoffNotifyDropCmd())
 
 	cmd.AddCommand(notify)
 	cmd.AddCommand(handoffCheckCmd())
@@ -48,6 +51,7 @@ func handoffCmd() *cobra.Command {
 func handoffNotifyStartCmd() *cobra.Command {
 	var (
 		summary    string
+		branchName string
 		backlogs   []int
 		scopes     string
 		skipDesign bool
@@ -60,33 +64,18 @@ func handoffNotifyStartCmd() *cobra.Command {
 			if len(backlogs) == 0 {
 				return fmt.Errorf("백로그 작업은 --backlog 필수. 비백로그 작업은 'notify start job' 사용")
 			}
-			branch := getBranchID()
-			gitBranch, _ := gitCurrentBranch("")
-			params := map[string]any{
-				"branch":      branch,
-				"workspace":   branch,
-				"git_branch":  gitBranch,
-				"summary":     summary,
-				"backlog_ids": backlogs,
-				"scopes":      scopes,
-				"skip_design": skipDesign,
-			}
-			result, err := sendHandoffRequest("notify-start", params)
-			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
-			}
-			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, scopes=%s)\n",
-				notifID, branch, gitBranch, scopes)
-			return nil
+			return doNotifyStart(branchName, summary, backlogs, scopes, skipDesign)
 		},
 	}
 
 	cmd.Flags().StringVar(&summary, "summary", "", "작업 요약 (필수)")
+	cmd.Flags().StringVar(&branchName, "branch-name", "", "git 브랜치명 (필수, feature/* 또는 bugfix/*)")
 	cmd.Flags().IntSliceVar(&backlogs, "backlog", nil, "백로그 번호 (복수 가능)")
 	cmd.Flags().StringVar(&scopes, "scopes", "", "영향 스코프 (예: core,shared)")
 	cmd.Flags().BoolVar(&skipDesign, "skip-design", false, "설계 단계 스킵 (바로 implementing)")
 	_ = cmd.MarkFlagRequired("summary")
+	_ = cmd.MarkFlagRequired("branch-name")
+	_ = cmd.MarkFlagRequired("scopes")
 
 	return cmd
 }
@@ -96,6 +85,7 @@ func handoffNotifyStartCmd() *cobra.Command {
 func handoffNotifyStartJobCmd() *cobra.Command {
 	var (
 		summary    string
+		branchName string
 		scopes     string
 		skipDesign bool
 	)
@@ -104,34 +94,68 @@ func handoffNotifyStartJobCmd() *cobra.Command {
 		Use:   "job",
 		Short: "비백로그 작업 착수 알림",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			branch := getBranchID()
-			gitBranch, _ := gitCurrentBranch("")
-			params := map[string]any{
-				"branch":      branch,
-				"workspace":   branch,
-				"git_branch":  gitBranch,
-				"summary":     summary,
-				"backlog_ids": []int{},
-				"scopes":      scopes,
-				"skip_design": skipDesign,
-			}
-			result, err := sendHandoffRequest("notify-start", params)
-			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
-			}
-			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, job mode)\n",
-				notifID, branch, gitBranch)
-			return nil
+			return doNotifyStart(branchName, summary, nil, scopes, skipDesign)
 		},
 	}
 
 	cmd.Flags().StringVar(&summary, "summary", "", "작업 요약 (필수)")
+	cmd.Flags().StringVar(&branchName, "branch-name", "", "git 브랜치명 (필수, feature/* 또는 bugfix/*)")
 	cmd.Flags().StringVar(&scopes, "scopes", "", "영향 스코프 (예: core,shared)")
 	cmd.Flags().BoolVar(&skipDesign, "skip-design", false, "설계 단계 스킵 (바로 implementing)")
 	_ = cmd.MarkFlagRequired("summary")
+	_ = cmd.MarkFlagRequired("branch-name")
+	_ = cmd.MarkFlagRequired("scopes")
 
 	return cmd
+}
+
+// doNotifyStart handles the common logic for notify start and notify start job.
+func doNotifyStart(branchName, summary string, backlogs []int, scopes string, skipDesign bool) error {
+	branch := getBranchID()
+
+	// Phase 0: git 브랜치 존재 확인
+	if err := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branchName).Run(); err == nil {
+		return fmt.Errorf("로컬 git 브랜치 '%s'가 이미 존재합니다", branchName)
+	}
+	if out, _ := exec.Command("git", "ls-remote", "--heads", "origin", branchName).Output(); len(strings.TrimSpace(string(out))) > 0 {
+		return fmt.Errorf("리모트 git 브랜치 'origin/%s'가 이미 존재합니다", branchName)
+	}
+
+	// Phase 1: DB TX (IPC)
+	if backlogs == nil {
+		backlogs = []int{}
+	}
+	params := map[string]any{
+		"branch":      branch,
+		"workspace":   branch,
+		"branch_name": branchName,
+		"summary":     summary,
+		"backlog_ids": backlogs,
+		"scopes":      scopes,
+		"skip_design": skipDesign,
+	}
+	result, err := sendHandoffRequest("notify-start", params)
+	if err != nil {
+		return fmt.Errorf("daemon unavailable: %w", err)
+	}
+	notifID, _ := result["notification_id"].(float64)
+
+	// Phase 2: Git branch creation
+	if err := exec.Command("git", "checkout", "-b", branchName).Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "경고: git checkout -b 실패: %v (DB 레코드는 생성됨 — 재시도 가능)\n", err)
+		return fmt.Errorf("git checkout -b 실패: %w", err)
+	}
+	if err := exec.Command("git", "push", "-u", "origin", branchName).Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "경고: git push 실패: %v (재시도 필요)\n", err)
+	}
+
+	mode := "scopes=" + scopes
+	if len(backlogs) == 0 {
+		mode = "job mode"
+	}
+	fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, %s)\n",
+		notifID, branch, branchName, mode)
+	return nil
 }
 
 // ── handoff notify design ──
@@ -213,16 +237,19 @@ func handoffNotifyMergeCmd() *cobra.Command {
 			params := map[string]any{
 				"branch":    branch,
 				"workspace": branch,
-				"type":      "merge",
 				"summary":   summary,
 			}
-			result, err := sendHandoffRequest("notify-transition", params)
+			// Phase 1: DB TX (IPC)
+			_, err := sendHandoffRequest("notify-merge", params)
 			if err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
-			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] merge notification published: #%.0f (branch=%s)\n",
-				notifID, branch)
+			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)
+
+			// Phase 2: git checkout main
+			if err := gitCheckoutMain(); err != nil {
+				fmt.Fprintf(os.Stderr, "경고: git checkout main 실패: %v\n", err)
+			}
 			return nil
 		},
 	}
@@ -231,6 +258,52 @@ func handoffNotifyMergeCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("summary")
 
 	return cmd
+}
+
+// ── handoff notify drop ──
+
+func handoffNotifyDropCmd() *cobra.Command {
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "drop",
+		Short: "작업 중도 포기",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := getBranchID()
+			params := map[string]any{
+				"branch":    branch,
+				"workspace": branch,
+				"reason":    reason,
+			}
+			_, err := sendHandoffRequest("notify-drop", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			fmt.Printf("[handoff] branch dropped (branch=%s, reason=%s)\n", branch, reason)
+
+			// Phase 2: git checkout main
+			if err := gitCheckoutMain(); err != nil {
+				fmt.Fprintf(os.Stderr, "경고: git checkout main 실패: %v\n", err)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&reason, "reason", "", "포기 사유 (필수)")
+	_ = cmd.MarkFlagRequired("reason")
+
+	return cmd
+}
+
+// gitCheckoutMain switches to main and pulls latest.
+func gitCheckoutMain() error {
+	if _, err := exec.Command("git", "checkout", "main").Output(); err != nil {
+		return fmt.Errorf("checkout main: %w", err)
+	}
+	if _, err := exec.Command("git", "pull", "origin", "main").Output(); err != nil {
+		return fmt.Errorf("pull main: %w", err)
+	}
+	return nil
 }
 
 // ── handoff check ──
@@ -332,13 +405,13 @@ func handoffStatusCmd() *cobra.Command {
 			}
 
 			var b struct {
-				Branch     string  `json:"Branch"`
-				Workspace  string  `json:"Workspace"`
-				Status     string  `json:"Status"`
-				BacklogIDs []int   `json:"BacklogIDs"`
-				Summary    string  `json:"Summary"`
-				CreatedAt  string  `json:"CreatedAt"`
-				UpdatedAt  string  `json:"UpdatedAt"`
+				Branch     string `json:"Branch"`
+				Workspace  string `json:"Workspace"`
+				Status     string `json:"Status"`
+				BacklogIDs []int  `json:"BacklogIDs"`
+				Summary    string `json:"Summary"`
+				CreatedAt  string `json:"CreatedAt"`
+				UpdatedAt  string `json:"UpdatedAt"`
 			}
 			if err := json.Unmarshal(raw, &b); err != nil {
 				return fmt.Errorf("parse response: %w", err)
