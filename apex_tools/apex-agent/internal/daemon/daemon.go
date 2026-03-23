@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
@@ -33,7 +34,7 @@ type Daemon struct {
 	store      *store.Store
 	router     *Router
 	server     *ipc.Server
-	httpServer *httpd.Server
+	httpServer atomic.Pointer[httpd.Server]
 	modules    []Module
 	shutdownCh chan struct{}
 }
@@ -63,10 +64,11 @@ func (d *Daemon) Store() *store.Store { return d.store }
 
 // HTTPAddr returns the actual HTTP server address, or "" if not running.
 func (d *Daemon) HTTPAddr() string {
-	if d.httpServer == nil {
+	s := d.httpServer.Load()
+	if s == nil {
 		return ""
 	}
-	return d.httpServer.Addr()
+	return s.Addr()
 }
 
 func (d *Daemon) Run(ctx context.Context) error {
@@ -133,12 +135,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// 5b. Start HTTP server (optional).
 	if d.cfg.HTTP.Enabled && d.cfg.HTTP.Addr != "" {
-		d.httpServer = httpd.New(d.store, d.router, d.cfg.HTTP.Addr)
-		if err := d.httpServer.Start(); err != nil {
+		hs := httpd.New(d.store, d.router, d.cfg.HTTP.Addr)
+		if err := hs.Start(); err != nil {
 			ml.Warn("HTTP server failed to start, dashboard unavailable", "error", err)
-			d.httpServer = nil
 		} else {
-			ml.Info("HTTP server started", "addr", d.httpServer.Addr())
+			d.httpServer.Store(hs)
+			ml.Info("HTTP server started", "addr", hs.Addr())
 		}
 	}
 
@@ -164,8 +166,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 			goto shutdown
 		case <-idleTicker.C:
 			last := d.server.LastRequestTime()
-			if d.httpServer != nil {
-				if httpLast := d.httpServer.LastRequestTime(); httpLast > last {
+			if hs := d.httpServer.Load(); hs != nil {
+				if httpLast := hs.LastRequestTime(); httpLast > last {
 					last = httpLast
 				}
 			}
@@ -181,8 +183,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 shutdown:
 	// Graceful shutdown: HTTP → IPC → Modules
-	if d.httpServer != nil {
-		if err := d.httpServer.Stop(); err != nil {
+	if hs := d.httpServer.Load(); hs != nil {
+		if err := hs.Stop(); err != nil {
 			ml.Warn("HTTP server stop error", "error", err)
 		}
 	}
