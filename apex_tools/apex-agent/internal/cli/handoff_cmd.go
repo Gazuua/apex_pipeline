@@ -38,8 +38,6 @@ func handoffCmd() *cobra.Command {
 	notify.AddCommand(handoffNotifyDropCmd())
 
 	cmd.AddCommand(notify)
-	cmd.AddCommand(handoffCheckCmd())
-	cmd.AddCommand(handoffAckCmd())
 	cmd.AddCommand(handoffStatusCmd())
 	cmd.AddCommand(handoffBacklogCheckCmd())
 	return cmd
@@ -138,8 +136,7 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 		defer cleanup()
 	}
 
-	notifID, err := workflow.StartPipeline(branchName, params, root, mgr, ipcWrapper)
-	if err != nil {
+	if err := workflow.StartPipeline(branchName, params, root, mgr, ipcWrapper); err != nil {
 		return err
 	}
 
@@ -147,8 +144,8 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 	if len(backlogs) == 0 {
 		mode = "job mode"
 	}
-	fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, %s)\n",
-		notifID, branch, branchName, mode)
+	fmt.Printf("[handoff] branch started (branch=%s, git=%s, %s)\n",
+		branch, branchName, mode)
 	return nil
 }
 
@@ -173,13 +170,10 @@ func handoffNotifyDesignCmd() *cobra.Command {
 				"type":      "design",
 				"summary":   summary,
 			}
-			result, err := sendHandoffRequest("notify-transition", params)
-			if err != nil {
+			if _, err := sendHandoffRequest("notify-transition", params); err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
-			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] Tier 2 notification published: #%.0f (branch=%s)\n",
-				notifID, branch)
+			fmt.Printf("[handoff] status → design-notified (branch=%s)\n", branch)
 			return nil
 		},
 	}
@@ -206,13 +200,10 @@ func handoffNotifyPlanCmd() *cobra.Command {
 				"type":      "plan",
 				"summary":   summary,
 			}
-			result, err := sendHandoffRequest("notify-transition", params)
-			if err != nil {
+			if _, err := sendHandoffRequest("notify-transition", params); err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
-			notifID, _ := result["notification_id"].(float64)
-			fmt.Printf("[handoff] status → implementing (branch=%s, notif=#%.0f)\n",
-				branch, notifID)
+			fmt.Printf("[handoff] status → implementing (branch=%s)\n", branch)
 			return nil
 		},
 	}
@@ -296,85 +287,6 @@ func handoffNotifyDropCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&reason, "reason", "", "포기 사유 (필수)")
 	_ = cmd.MarkFlagRequired("reason")
-
-	return cmd
-}
-
-// ── handoff check ──
-
-func handoffCheckCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "check",
-		Short: "미확인 알림 조회",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			branch := getBranchID()
-			result, err := sendHandoffRequest("check", map[string]any{"branch": branch})
-			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
-			}
-
-			rawNotifs, _ := result["notifications"].([]any)
-			if len(rawNotifs) == 0 {
-				fmt.Println("No new notifications.")
-				return nil
-			}
-
-			for _, raw := range rawNotifs {
-				data, _ := json.Marshal(raw)
-				var n struct {
-					ID        float64 `json:"ID"`
-					Branch    string  `json:"Branch"`
-					Workspace string  `json:"Workspace"`
-					Type      string  `json:"Type"`
-					Summary   string  `json:"Summary"`
-					CreatedAt string  `json:"CreatedAt"`
-				}
-				if err := json.Unmarshal(data, &n); err != nil {
-					continue
-				}
-				fmt.Printf("[#%.0f] type=%-12s branch=%-30s %s\n",
-					n.ID, n.Type, n.Branch, n.Summary)
-				if n.CreatedAt != "" {
-					fmt.Printf("       at=%s\n", n.CreatedAt)
-				}
-			}
-			return nil
-		},
-	}
-}
-
-// ── handoff ack ──
-
-func handoffAckCmd() *cobra.Command {
-	var (
-		id     int
-		action string
-	)
-
-	cmd := &cobra.Command{
-		Use:   "ack",
-		Short: "알림 확인 처리",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			branch := getBranchID()
-			params := map[string]any{
-				"notification_id": id,
-				"branch":          branch,
-				"action":          action,
-			}
-			_, err := sendHandoffRequest("ack", params)
-			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
-			}
-			fmt.Printf("[handoff] acked notification #%d with action=%s (branch=%s)\n",
-				id, action, branch)
-			return nil
-		},
-	}
-
-	cmd.Flags().IntVar(&id, "id", 0, "알림 번호 (필수)")
-	cmd.Flags().StringVar(&action, "action", "", "처리 방식: no-impact|will-rebase|rebased|design-adjusted|deferred (필수)")
-	_ = cmd.MarkFlagRequired("id")
-	_ = cmd.MarkFlagRequired("action")
 
 	return cmd
 }

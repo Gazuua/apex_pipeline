@@ -36,8 +36,8 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 	if err := json.Unmarshal(resp.Data, &startData); err != nil {
 		t.Fatalf("notify-start: unmarshal: %v", err)
 	}
-	if _, ok := startData["notification_id"]; !ok {
-		t.Error("notify-start: response missing 'notification_id'")
+	if startData["status"] != "started" {
+		t.Errorf("notify-start: expected status='started', got %v", startData["status"])
 	}
 
 	// Step 2: get-status → "STARTED"
@@ -204,11 +204,10 @@ func TestHandoff_GateEnforcement(t *testing.T) {
 	}
 }
 
-// TestHandoff_MultiWorkspace verifies cross-workspace notification and ack flow.
+// TestHandoff_MultiWorkspace verifies cross-workspace state management and merge gate.
 //
 // Scenario: branch-A starts, branch-B starts; branch-A transitions to design.
-// branch-B sees branch-A's notifications. Branch-A wants to merge — it must ack
-// branch-B's start notification first. Then validate-merge-gate is allowed.
+// Two branches registered. Branch-A transitions to design then merge gate passes.
 func TestHandoff_MultiWorkspace(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
@@ -242,7 +241,7 @@ func TestHandoff_MultiWorkspace(t *testing.T) {
 		t.Fatalf("notify-start branch-B: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 3: transition branch-A to design (creates a notification visible to branch-B)
+	// Step 3: transition branch-A to design
 	resp, err = env.Client.Send(ctx, "handoff", "notify-transition", map[string]any{
 		"branch":    branchA,
 		"workspace": "ws1",
@@ -256,103 +255,7 @@ func TestHandoff_MultiWorkspace(t *testing.T) {
 		t.Fatalf("notify-transition design branch-A: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 4: check for branch-B → should see notifications from branch-A
-	resp, err = env.Client.Send(ctx, "handoff", "check", map[string]any{
-		"branch": branchB,
-	}, "")
-	if err != nil {
-		t.Fatalf("check branch-B: transport error: %v", err)
-	}
-	if !resp.OK {
-		t.Fatalf("check branch-B: expected OK, got error: %s", resp.Error)
-	}
-	var checkData map[string]any
-	if err := json.Unmarshal(resp.Data, &checkData); err != nil {
-		t.Fatalf("check branch-B: unmarshal: %v", err)
-	}
-	notifsRaw, ok := checkData["notifications"]
-	if !ok {
-		t.Fatal("check branch-B: response missing 'notifications'")
-	}
-	notifList, ok := notifsRaw.([]any)
-	if !ok {
-		t.Fatalf("check branch-B: 'notifications' is not array, got %T", notifsRaw)
-	}
-	// branch-B should see notifications from branch-A (start + design)
-	if len(notifList) == 0 {
-		t.Error("check branch-B: expected notifications from branch-A, got none")
-	}
-
-	// Step 5: branch-B acks all notifications from branch-A
-	for _, n := range notifList {
-		nm, ok := n.(map[string]any)
-		if !ok {
-			continue
-		}
-		var nid int
-		if idRaw, ok2 := nm["ID"]; ok2 {
-			nid = int(idRaw.(float64))
-		} else if idRaw, ok2 := nm["id"]; ok2 {
-			nid = int(idRaw.(float64))
-		} else {
-			t.Fatal("notification missing ID field")
-		}
-
-		ackResp, ackErr := env.Client.Send(ctx, "handoff", "ack", map[string]any{
-			"notification_id": nid,
-			"branch":          branchB,
-			"action":          "no-impact",
-		}, "")
-		if ackErr != nil {
-			t.Fatalf("ack notif %d: transport error: %v", nid, ackErr)
-		}
-		if !ackResp.OK {
-			t.Fatalf("ack notif %d: expected OK, got error: %s", nid, ackResp.Error)
-		}
-		var ackData map[string]any
-		if err := json.Unmarshal(ackResp.Data, &ackData); err != nil {
-			t.Fatalf("ack notif %d: unmarshal: %v", nid, err)
-		}
-		if ackData["status"] != "acked" {
-			t.Errorf("ack notif %d: expected status=acked, got %v", nid, ackData["status"])
-		}
-	}
-
-	// validate-merge-gate for branch-A:
-	// branch-A needs to ack branch-B's start notification before merging.
-	// First, check what branch-A has unacked.
-	resp, err = env.Client.Send(ctx, "handoff", "check", map[string]any{
-		"branch": branchA,
-	}, "")
-	if err != nil {
-		t.Fatalf("check branch-A: transport error: %v", err)
-	}
-	if !resp.OK {
-		t.Fatalf("check branch-A: expected OK, got error: %s", resp.Error)
-	}
-	var checkDataA map[string]any
-	if err := json.Unmarshal(resp.Data, &checkDataA); err != nil {
-		t.Fatalf("check branch-A: unmarshal: %v", err)
-	}
-	notifsARaw := checkDataA["notifications"].([]any)
-
-	// Step 6: branch-A acks all pending notifications (branch-B's start)
-	for _, n := range notifsARaw {
-		nm := n.(map[string]any)
-		var nid int
-		if idRaw, ok := nm["ID"]; ok {
-			nid = int(idRaw.(float64))
-		} else if idRaw, ok := nm["id"]; ok {
-			nid = int(idRaw.(float64))
-		}
-		env.Client.Send(ctx, "handoff", "ack", map[string]any{ //nolint:errcheck
-			"notification_id": nid,
-			"branch":          branchA,
-			"action":          "no-impact",
-		}, "")
-	}
-
-	// validate-merge-gate for branch-A → allowed (all notifications acked)
+	// Step 4: validate-merge-gate for branch-A → allowed (no FIXING backlogs)
 	resp, err = env.Client.Send(ctx, "handoff", "validate-merge-gate", map[string]any{
 		"branch": branchA,
 	}, "")
@@ -560,7 +463,7 @@ func TestHandoff_StartJob(t *testing.T) {
 		t.Errorf("expected git_branch 'feature/job-test', got %v", info["GitBranch"])
 	}
 
-	// Merge gate should pass (no backlogs, no notifications from others)
+	// Merge gate should pass (no FIXING backlogs)
 	resp, err = env.Client.Send(ctx, "handoff", "validate-merge-gate", map[string]any{
 		"branch": branch,
 	}, "")

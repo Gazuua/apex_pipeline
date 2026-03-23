@@ -41,25 +41,6 @@ type BacklogOperator interface {
 	ListFixingForBranch(branch string, backlogIDs []int) ([]int, error)
 }
 
-// Notification represents a handoff notification event.
-type Notification struct {
-	ID        int
-	Branch    string
-	Workspace string
-	Type      string
-	Summary   string
-	Payload   string
-	CreatedAt string
-}
-
-// Ack represents an acknowledgement of a notification by a branch.
-type Ack struct {
-	NotificationID int
-	Branch         string
-	Action         string
-	AckedAt        string
-}
-
 // Manager provides handoff business logic.
 type Manager struct {
 	store          *store.Store
@@ -71,11 +52,10 @@ func NewManager(s *store.Store, bm BacklogOperator) *Manager {
 	return &Manager{store: s, backlogManager: bm}
 }
 
-// NotifyStart registers a new branch and creates a start notification.
+// NotifyStart registers a new branch.
 // If skipDesign is true, sets status to "implementing" directly.
 // gitBranch is stored for fallback lookups by hook system.
-// Returns the notification ID.
-func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, backlogIDs []int, scopes string, skipDesign bool) (int, error) {
+func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, backlogIDs []int, scopes string, skipDesign bool) error {
 	status := StatusStarted
 	if skipDesign {
 		status = StatusImplementing
@@ -89,18 +69,17 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 			}
 			exists, bStatus, checkErr := m.backlogManager.Check(bid)
 			if checkErr != nil {
-				return 0, fmt.Errorf("check backlog %d: %w", bid, checkErr)
+				return fmt.Errorf("check backlog %d: %w", bid, checkErr)
 			}
 			if !exists {
-				return 0, fmt.Errorf("backlog item %d not found", bid)
+				return fmt.Errorf("backlog item %d not found", bid)
 			}
 			if bStatus == "FIXING" {
-				return 0, fmt.Errorf("backlog item %d is already FIXING", bid)
+				return fmt.Errorf("backlog item %d is already FIXING", bid)
 			}
 		}
 	}
 
-	var notifID int
 	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
 		// 기존 항목이 있으면 정리 후 재등록 허용
 		var existingStatus string
@@ -118,12 +97,6 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 			// 이전 작업의 잔여 데이터 정리
 			if _, err := tx.Exec(`DELETE FROM branch_backlogs WHERE branch = ?`, branch); err != nil {
 				return fmt.Errorf("delete branch_backlogs: %w", err)
-			}
-			if _, err := tx.Exec(`DELETE FROM notification_acks WHERE branch = ? OR notification_id IN (SELECT id FROM notifications WHERE branch = ?)`, branch, branch); err != nil {
-				return fmt.Errorf("delete notification_acks: %w", err)
-			}
-			if _, err := tx.Exec(`DELETE FROM notifications WHERE branch = ?`, branch); err != nil {
-				return fmt.Errorf("delete notifications: %w", err)
 			}
 			if _, err := tx.Exec(`DELETE FROM active_branches WHERE branch = ?`, branch); err != nil {
 				return fmt.Errorf("delete active_branches: %w", err)
@@ -154,21 +127,6 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 			}
 		}
 
-		res, err := tx.Exec(
-			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
-			 VALUES (?, ?, 'start', ?, datetime('now','localtime'))`,
-			branch, workspace, summary,
-		)
-		if err != nil {
-			return fmt.Errorf("insert notification: %w", err)
-		}
-
-		id, err := res.LastInsertId()
-		if err != nil {
-			return fmt.Errorf("last insert id: %w", err)
-		}
-		notifID = int(id)
-
 		// FIXING 상태 전이 — 트랜잭션 내에서 실행하여 원자성 보장
 		if m.backlogManager != nil {
 			for _, bid := range backlogIDs {
@@ -184,61 +142,39 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status, "notification_id", notifID)
-	return notifID, nil
+	ml.Audit("branch registered", "branch", branch, "workspace", workspace, "status", status)
+	return nil
 }
 
-// NotifyTransition applies a state transition (design/plan) and creates a notification.
+// NotifyTransition applies a state transition (design/plan).
 // Note: merge/drop are handled by NotifyMerge/NotifyDrop, not through NotifyTransition.
-func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string) (int, error) {
+func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string) error {
 	currentStatus, err := m.GetStatus(branch)
 	if err != nil {
-		return 0, fmt.Errorf("get status: %w", err)
+		return fmt.Errorf("get status: %w", err)
 	}
 	if currentStatus == "" {
-		return 0, fmt.Errorf("branch %q is not registered", branch)
+		return fmt.Errorf("branch %q is not registered", branch)
 	}
 
 	nextStatus, err := NextStatus(currentStatus, notifyType)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	var notifID int
-	err = m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
-		_, err := tx.Exec(
-			`UPDATE active_branches SET status = ?, updated_at = datetime('now','localtime') WHERE branch = ?`,
-			nextStatus, branch,
-		)
-		if err != nil {
-			return fmt.Errorf("update branch status: %w", err)
-		}
-
-		res, err := tx.Exec(
-			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
-			 VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
-			branch, workspace, notifyType, summary,
-		)
-		if err != nil {
-			return fmt.Errorf("insert notification: %w", err)
-		}
-
-		id, err := res.LastInsertId()
-		if err != nil {
-			return fmt.Errorf("last insert id: %w", err)
-		}
-		notifID = int(id)
-		return nil
-	})
+	_, err = m.store.Exec(
+		`UPDATE active_branches SET status = ?, updated_at = datetime('now','localtime') WHERE branch = ?`,
+		nextStatus, branch,
+	)
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("update branch status: %w", err)
 	}
 
-	ml.Audit("state transition", "branch", branch, "from", currentStatus, "to", nextStatus, "type", notifyType, "notification_id", notifID)
-	return notifID, nil
+	ml.Audit("state transition", "branch", branch, "from", currentStatus, "to", nextStatus, "type", notifyType)
+	return nil
 }
 
 // ── Merge / Drop ──────────────────────────────────────────────────────────────
@@ -300,25 +236,8 @@ func (m *Manager) finalizeBranch(branch, workspace, summary, historyStatus, noti
 		if _, err := tx.Exec(`DELETE FROM branch_backlogs WHERE branch = ?`, branch); err != nil {
 			return fmt.Errorf("delete branch_backlogs: %w", err)
 		}
-		if _, err := tx.Exec(
-			`DELETE FROM notification_acks WHERE branch = ? OR notification_id IN (SELECT id FROM notifications WHERE branch = ?)`,
-			branch, branch); err != nil {
-			return fmt.Errorf("delete notification_acks: %w", err)
-		}
-		if _, err := tx.Exec(`DELETE FROM notifications WHERE branch = ?`, branch); err != nil {
-			return fmt.Errorf("delete notifications: %w", err)
-		}
 		if _, err := tx.Exec(`DELETE FROM active_branches WHERE branch = ?`, branch); err != nil {
 			return fmt.Errorf("delete active_branches: %w", err)
-		}
-
-		// 알림 생성 (type은 lowercase: "merge" or "drop")
-		if _, err := tx.Exec(
-			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
-			 VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
-			branch, workspace, notifType, summary,
-		); err != nil {
-			return fmt.Errorf("insert notification: %w", err)
 		}
 
 		return nil
@@ -378,55 +297,6 @@ func (m *Manager) ListActive() ([]ActiveBranchInfo, error) {
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
-
-// CheckNotifications returns unacked notifications for a branch.
-// Excludes notifications sent by the branch itself.
-func (m *Manager) CheckNotifications(branch string) ([]Notification, error) {
-	rows, err := m.store.Query(
-		`SELECT n.id, n.branch, n.workspace, n.type, n.summary, n.payload, n.created_at
-		 FROM notifications n
-		 WHERE n.branch != ?
-		 AND n.id NOT IN (
-		     SELECT notification_id FROM notification_acks WHERE branch = ?
-		 )
-		 ORDER BY n.id`,
-		branch, branch,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query notifications: %w", err)
-	}
-	defer rows.Close()
-
-	var notifs []Notification
-	for rows.Next() {
-		var n Notification
-		var summary, payload sql.NullString
-		if err := rows.Scan(&n.ID, &n.Branch, &n.Workspace, &n.Type, &summary, &payload, &n.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan notification: %w", err)
-		}
-		n.Summary = summary.String
-		n.Payload = payload.String
-		notifs = append(notifs, n)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
-	}
-
-	return notifs, nil
-}
-
-// Ack acknowledges a notification for a branch.
-func (m *Manager) Ack(notificationID int, branch, action string) error {
-	_, err := m.store.Exec(
-		`INSERT OR REPLACE INTO notification_acks (notification_id, branch, action, acked_at)
-		 VALUES (?, ?, ?, datetime('now','localtime'))`,
-		notificationID, branch, action,
-	)
-	if err != nil {
-		return fmt.Errorf("insert ack: %w", err)
-	}
-	return nil
-}
 
 // BacklogCheck checks if a backlog item is being worked on by any active branch.
 // All records in active_branches are active, so no status filter needed.

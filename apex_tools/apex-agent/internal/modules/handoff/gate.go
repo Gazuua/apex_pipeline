@@ -21,20 +21,9 @@ func (m *Manager) ValidateCommit(branch string) error {
 	return nil
 }
 
-// ValidateMergeGate checks if all notifications are acked before merge.
-// Also blocks if there are FIXING backlogs attached to this branch.
+// ValidateMergeGate checks if there are FIXING backlogs before merge.
 // Returns nil if allowed, error if blocked.
 func (m *Manager) ValidateMergeGate(branch string) error {
-	notifications, err := m.CheckNotifications(branch)
-	if err != nil {
-		return err
-	}
-	if len(notifications) > 0 {
-		ml.Warn("gate blocked", "op", "merge", "branch", branch, "unacked", len(notifications))
-		return fmt.Errorf("차단: 미ack 알림 %d건. 먼저 ack 처리 후 머지 재시도", len(notifications))
-	}
-
-	// FIXING 백로그 체크 (공용 함수 사용)
 	fixingIDs, err := m.checkFixingBacklogs(branch)
 	if err != nil {
 		return fmt.Errorf("check fixing backlogs: %w", err)
@@ -77,23 +66,4 @@ func (m *Manager) ValidateEdit(branch, filePath string) error {
 
 	ml.Debug("gate check", "op", "edit", "branch", branch, "file", filePath, "allowed", true)
 	return nil
-}
-
-// ProbeNotifications checks for unacked notifications and returns a formatted message.
-// Returns empty string if no new notifications.
-func (m *Manager) ProbeNotifications(branch string) (string, error) {
-	notifications, err := m.CheckNotifications(branch)
-	if err != nil {
-		return "", err
-	}
-	if len(notifications) == 0 {
-		return "", nil
-	}
-
-	msg := "─── 핸드오프 알림 ───\n"
-	for _, n := range notifications {
-		msg += fmt.Sprintf("#%d [%s] %s: %s\n", n.ID, n.Type, n.Branch, n.Summary)
-	}
-	msg += "────────────────────"
-	return msg, nil
 }

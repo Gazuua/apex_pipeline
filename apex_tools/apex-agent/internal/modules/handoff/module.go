@@ -189,6 +189,20 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 		return nil
 	})
+	mig.Register("handoff", 6, func(tx *store.TxStore) error {
+		// 알림 시스템 제거 — notifications/notification_acks 테이블 DROP
+		for _, q := range []string{
+			`DROP TABLE IF EXISTS notification_acks`,
+			`DROP TABLE IF EXISTS notifications`,
+			`DROP INDEX IF EXISTS idx_notifications_branch`,
+			`DROP INDEX IF EXISTS idx_acks_branch`,
+		} {
+			if _, err := tx.Exec(q); err != nil {
+				return fmt.Errorf("drop notification tables: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 // RegisterRoutes registers handoff action handlers.
@@ -198,8 +212,6 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("notify-merge", m.handleNotifyMerge)
 	reg.Handle("notify-drop", m.handleNotifyDrop)
 	reg.Handle("list-active", m.handleListActive)
-	reg.Handle("check", m.handleCheck)
-	reg.Handle("ack", m.handleAck)
 	reg.Handle("backlog-check", m.handleBacklogCheck)
 	reg.Handle("get-branch", m.handleGetBranch)
 	reg.Handle("get-status", m.handleGetStatus)
@@ -207,7 +219,6 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("validate-commit", m.handleValidateCommit)
 	reg.Handle("validate-merge-gate", m.handleValidateMergeGate)
 	reg.Handle("validate-edit", m.handleValidateEdit)
-	reg.Handle("probe", m.handleProbe)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -232,16 +243,6 @@ type notifyTransitionParams struct {
 	Summary   string `json:"summary"`
 }
 
-type checkParams struct {
-	Branch string `json:"branch"`
-}
-
-type ackParams struct {
-	NotificationID int    `json:"notification_id"`
-	Branch         string `json:"branch"`
-	Action         string `json:"action"`
-}
-
 type backlogCheckParams struct {
 	BacklogID int `json:"backlog_id"`
 }
@@ -261,11 +262,10 @@ func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign)
-	if err != nil {
+	if err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign); err != nil {
 		return nil, err
 	}
-	return map[string]any{"notification_id": id}, nil
+	return map[string]string{"status": "started"}, nil
 }
 
 func (m *Module) handleNotifyTransition(_ context.Context, params json.RawMessage, _ string) (any, error) {
@@ -273,34 +273,10 @@ func (m *Module) handleNotifyTransition(_ context.Context, params json.RawMessag
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyTransition(p.Branch, p.Workspace, p.Type, p.Summary)
-	if err != nil {
+	if err := m.manager.NotifyTransition(p.Branch, p.Workspace, p.Type, p.Summary); err != nil {
 		return nil, err
 	}
-	return map[string]any{"notification_id": id}, nil
-}
-
-func (m *Module) handleCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {
-	var p checkParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
-	notifs, err := m.manager.CheckNotifications(p.Branch)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{"notifications": notifs}, nil
-}
-
-func (m *Module) handleAck(_ context.Context, params json.RawMessage, _ string) (any, error) {
-	var p ackParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
-	if err := m.manager.Ack(p.NotificationID, p.Branch, p.Action); err != nil {
-		return nil, err
-	}
-	return map[string]string{"status": "acked"}, nil
+	return map[string]string{"status": "transitioned"}, nil
 }
 
 func (m *Module) handleBacklogCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {
@@ -373,10 +349,6 @@ type validateEditParams struct {
 	FilePath string `json:"file_path"`
 }
 
-type probeParams struct {
-	Branch string `json:"branch"`
-}
-
 // --- Gate handlers ---
 
 func (m *Module) handleValidateCommit(_ context.Context, params json.RawMessage, _ string) (any, error) {
@@ -410,18 +382,6 @@ func (m *Module) handleValidateEdit(_ context.Context, params json.RawMessage, _
 		return nil, err
 	}
 	return map[string]string{"status": "allowed"}, nil
-}
-
-func (m *Module) handleProbe(_ context.Context, params json.RawMessage, _ string) (any, error) {
-	var p probeParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
-	msg, err := m.manager.ProbeNotifications(p.Branch)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]any{"message": msg, "has_notifications": msg != ""}, nil
 }
 
 // --- Merge / Drop / ListActive handlers ---

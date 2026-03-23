@@ -50,16 +50,7 @@ func hookValidateHandoffCmd() *cobra.Command {
 				return nil // 미등록 시 Bash는 통과 (Edit/Write만 차단)
 			}
 
-			// 1) 알림 프로브 (매 Bash 호출 시, 비차단 경고)
-			if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
-				if has, _ := msg["has_notifications"].(bool); has {
-					if m, _ := msg["message"].(string); m != "" {
-						fmt.Fprintln(os.Stderr, m)
-					}
-				}
-			}
-
-			// 2) commit 게이트
+			// 1) commit 게이트
 			if isGitCommit(command) {
 				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
 				if err != nil {
@@ -72,7 +63,7 @@ func hookValidateHandoffCmd() *cobra.Command {
 				}
 			}
 
-			// 3) gh pr merge 게이트
+			// 2) gh pr merge 게이트
 			if strings.Contains(command, "gh pr merge") {
 				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
 				if err != nil {
@@ -89,10 +80,9 @@ func hookValidateHandoffCmd() *cobra.Command {
 	}
 }
 
-// hookHandoffProbeCmd handles the Edit|Write PreToolUse hook for handoff probe:
+// hookHandoffProbeCmd handles the Edit|Write PreToolUse hook:
 //  1. Registration check (block all edits if not registered)
 //  2. Status-based source gate (started/design-notified → block source files)
-//  3. Notification warning (non-blocking)
 func hookHandoffProbeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "handoff-probe",
@@ -122,7 +112,7 @@ func hookHandoffProbeCmd() *cobra.Command {
 				os.Exit(2)
 			}
 
-			// 1+2) 등록 확인 + 상태 기반 소스 게이트
+			// 등록 확인 + 상태 기반 소스 게이트
 			resp, err := sendHandoffRaw("validate-edit", map[string]any{
 				"branch":    branch,
 				"file_path": filePath,
@@ -133,15 +123,6 @@ func hookHandoffProbeCmd() *cobra.Command {
 			if resp.Error != "" {
 				fmt.Fprintln(os.Stderr, resp.Error)
 				os.Exit(2)
-			}
-
-			// 3) 알림 프로브 (비차단 경고)
-			if msg, probeErr := sendHandoffRequest("probe", map[string]any{"branch": branch}); probeErr == nil {
-				if has, _ := msg["has_notifications"].(bool); has {
-					if m, _ := msg["message"].(string); m != "" {
-						fmt.Fprintln(os.Stderr, m)
-					}
-				}
 			}
 
 			return nil
