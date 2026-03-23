@@ -3,16 +3,16 @@
 package hook
 
 import (
-	"fmt"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
+
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 // EnforceRebase checks if the current branch needs rebasing on origin/main.
-// If behind, attempts auto-rebase. Returns nil if OK, error if blocked (conflict).
-// projectRoot is the git working directory.
+// Only triggers on git push and gh pr create commands.
+// Delegates actual rebase to workflow.RebaseOnMain().
 func EnforceRebase(command, projectRoot string) (string, error) {
 	// Only intercept git push and gh pr create
 	if !isGitPush(command) && !isGHPRCreate(command) {
@@ -30,31 +30,8 @@ func EnforceRebase(command, projectRoot string) (string, error) {
 		return "", nil
 	}
 
-	// Fetch origin main
-	if err := exec.Command("git", "-C", projectRoot, "fetch", "origin", "main", "--quiet").Run(); err != nil {
-		ml.Warn("git fetch failed, using stale origin/main", "err", err)
-	}
-
-	// Check how far behind
-	out, err := exec.Command("git", "-C", projectRoot, "rev-list", "--count", "HEAD..origin/main").Output()
-	if err != nil {
-		return "", nil
-	}
-
-	behind, _ := strconv.Atoi(strings.TrimSpace(string(out)))
-	if behind == 0 {
-		return "", nil
-	}
-
-	// Attempt rebase
-	rebaseCmd := exec.Command("git", "-C", projectRoot, "rebase", "origin/main", "--quiet")
-	if err := rebaseCmd.Run(); err != nil {
-		// Rebase failed — abort and block
-		exec.Command("git", "-C", projectRoot, "rebase", "--abort").Run() //nolint:errcheck
-		return "", fmt.Errorf("차단: origin/main rebase 중 충돌 발생. 수동으로 rebase 해결 후 다시 시도하세요.\n  git fetch origin main && git rebase origin/main")
-	}
-
-	return fmt.Sprintf("[enforce-rebase] origin/main 기준 rebase 완료 (%d개 커밋 반영)", behind), nil
+	// Delegate to workflow package (includes BACKLOG-157 abort error handling)
+	return workflow.RebaseOnMain(projectRoot)
 }
 
 var gitPushPattern = regexp.MustCompile(`\bgit\b.*\bpush\b`)
