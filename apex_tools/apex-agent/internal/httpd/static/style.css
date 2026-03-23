@@ -372,9 +372,55 @@ body {
 /* ── Filters ── */
 .filter-bar {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.multi-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 16px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chip:hover {
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.chip input[type="checkbox"] {
+  display: none;
+}
+
+.chip:has(input:checked) {
+  background: rgba(52,211,153,0.15);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
 }
 
 .filter-select {
@@ -391,6 +437,17 @@ body {
 .filter-select:focus {
   outline: none;
   border-color: var(--accent-green);
+}
+
+/* ── Sortable Headers ── */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.sortable:hover {
+  color: var(--accent-green);
 }
 
 /* ── Error Banner ── */

@@ -27,16 +27,10 @@
     <div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted)">
       Backlogs:
       {{range .BacklogIDs}}
-      <span style="display:inline-block;margin-right:4px;margin-bottom:4px">
-        <span class="badge badge-amber mono backlog-link"
-          hx-get="/partials/backlog-inline/{{.}}"
-          hx-target="next .backlog-expand"
-          hx-swap="innerHTML"
-          onclick="var t=this.closest('span').querySelector('.backlog-expand')||this.parentElement.nextElementSibling;if(t)t.hidden=!t.hidden">#{{.}}</span>
-      </span>
+      <span class="badge badge-amber mono backlog-link" onclick="toggleHandoffBacklog(this, {{.}})">#{{.}}</span>
       {{end}}
-      <div class="backlog-expand" hidden></div>
     </div>
+    <div class="handoff-backlog-expand" data-branch="{{.Branch}}" hidden></div>
     {{end}}
     <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">Started: {{.CreatedAt}}</div>
   </div>
@@ -62,4 +56,31 @@
   </div>
 </div>
 {{end}}
+
+<script>
+function toggleHandoffBacklog(badge, id) {
+    // Find the expand div for this branch
+    var container = badge.closest('div[style*="padding"]');
+    var expand = container.querySelector('.handoff-backlog-expand');
+    if (!expand) return;
+
+    // Close all other expands
+    document.querySelectorAll('.handoff-backlog-expand').forEach(function(el) {
+        if (el !== expand) { el.hidden = true; el.innerHTML = ''; }
+    });
+
+    // If same backlog is already shown, toggle off
+    if (!expand.hidden && expand.dataset.currentId == id) {
+        expand.hidden = true;
+        expand.innerHTML = '';
+        expand.dataset.currentId = '';
+        return;
+    }
+
+    // Fetch and show
+    expand.dataset.currentId = id;
+    expand.hidden = false;
+    htmx.ajax('GET', '/partials/backlog-inline/' + id, {target: expand, swap: 'innerHTML'});
+}
+</script>
 {{end}}

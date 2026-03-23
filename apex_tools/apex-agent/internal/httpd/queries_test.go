@@ -114,7 +114,7 @@ func TestQueryBacklogList_Filter(t *testing.T) {
 	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('c','MAJOR','IN_VIEW','CORE','BUG','desc',3,'OPEN')`)
 
-	items, err := queryBacklogList(st, BacklogFilter{Severity: "CRITICAL"})
+	items, err := queryBacklogList(st, BacklogFilter{Severity: []string{"CRITICAL"}})
 	if err != nil {
 		t.Fatalf("queryBacklogList: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestQueryBacklogList_Filter(t *testing.T) {
 		t.Errorf("expected 2 critical items, got %d", len(items))
 	}
 
-	items2, err := queryBacklogList(st, BacklogFilter{Scope: "CORE"})
+	items2, err := queryBacklogList(st, BacklogFilter{Scope: []string{"CORE"}})
 	if err != nil {
 		t.Fatalf("queryBacklogList: %v", err)
 	}

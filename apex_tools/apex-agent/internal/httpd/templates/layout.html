@@ -45,6 +45,27 @@ document.addEventListener('DOMContentLoaded', function() {
     var saved = localStorage.getItem('apexPollRate');
     if (saved) setPollRate(saved);
 });
+
+// Elapsed time updater for queue entries
+function updateElapsed() {
+    document.querySelectorAll('.elapsed[data-since]').forEach(function(el) {
+        var since = el.dataset.since;
+        if (!since) return;
+        var start = new Date(since.replace(' ', 'T'));
+        var diff = Math.floor((Date.now() - start.getTime()) / 1000);
+        if (diff < 0) diff = 0;
+        var h = Math.floor(diff / 3600);
+        var m = Math.floor((diff % 3600) / 60);
+        var s = diff % 60;
+        var text = '';
+        if (h > 0) text += h + 'h ';
+        if (m > 0 || h > 0) text += m + 'm ';
+        text += s + 's';
+        el.textContent = '(' + text + ')';
+    });
+}
+setInterval(updateElapsed, 1000);
+updateElapsed();
 </script>
 
 </body>

@@ -2,40 +2,24 @@
 <h1 class="page-title">Backlog</h1>
 
 <div class="filter-bar" id="backlog-filters">
-  <select name="status" class="filter-select"
-    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
-    <option value="">All Status</option>
-    <option value="OPEN">Open</option>
-    <option value="FIXING">Fixing</option>
-    <option value="RESOLVED">Resolved</option>
-  </select>
-  <select name="severity" class="filter-select"
-    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
-    <option value="">All Severity</option>
-    <option value="CRITICAL">Critical</option>
-    <option value="MAJOR">Major</option>
-    <option value="MINOR">Minor</option>
-  </select>
-  <select name="timeframe" class="filter-select"
-    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
-    <option value="">All Timeframe</option>
-    <option value="NOW">Now</option>
-    <option value="IN_VIEW">In View</option>
-    <option value="DEFERRED">Deferred</option>
-  </select>
-  <select name="scope" class="filter-select"
-    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
-    <option value="">All Scope</option>
-    <option value="CORE">Core</option>
-    <option value="SHARED">Shared</option>
-    <option value="GATEWAY">Gateway</option>
-    <option value="AUTH_SVC">Auth</option>
-    <option value="CHAT_SVC">Chat</option>
-    <option value="INFRA">Infra</option>
-    <option value="CI">CI</option>
-    <option value="DOCS">Docs</option>
-    <option value="TOOLS">Tools</option>
-  </select>
+  <div class="multi-filter">
+    <span class="filter-label">Status:</span>
+    <label class="chip"><input type="checkbox" name="status" value="OPEN" onchange="applyFilters()"> Open</label>
+    <label class="chip"><input type="checkbox" name="status" value="FIXING" onchange="applyFilters()"> Fixing</label>
+    <label class="chip"><input type="checkbox" name="status" value="RESOLVED" onchange="applyFilters()"> Resolved</label>
+  </div>
+  <div class="multi-filter">
+    <span class="filter-label">Severity:</span>
+    <label class="chip"><input type="checkbox" name="severity" value="CRITICAL" onchange="applyFilters()"> Critical</label>
+    <label class="chip"><input type="checkbox" name="severity" value="MAJOR" onchange="applyFilters()"> Major</label>
+    <label class="chip"><input type="checkbox" name="severity" value="MINOR" onchange="applyFilters()"> Minor</label>
+  </div>
+  <div class="multi-filter">
+    <span class="filter-label">Timeframe:</span>
+    <label class="chip"><input type="checkbox" name="timeframe" value="NOW" onchange="applyFilters()"> Now</label>
+    <label class="chip"><input type="checkbox" name="timeframe" value="IN_VIEW" onchange="applyFilters()"> In View</label>
+    <label class="chip"><input type="checkbox" name="timeframe" value="DEFERRED" onchange="applyFilters()"> Deferred</label>
+  </div>
   <button class="rate-btn" onclick="resetBacklogFilters()" style="margin-left:auto;padding:6px 14px;font-size:0.82rem">Reset</button>
 </div>
 
@@ -44,9 +28,41 @@
 </div>
 
 <script>
+var currentSort = '';
+var currentDir = '';
+
+function applyFilters() {
+    var params = new URLSearchParams();
+    document.querySelectorAll('#backlog-filters input[type=checkbox]:checked').forEach(function(cb) {
+        params.append(cb.name, cb.value);
+    });
+    if (currentSort) { params.set('sort', currentSort); params.set('dir', currentDir); }
+    htmx.ajax('GET', '/partials/backlog-table?' + params.toString(), {target:'#backlog-table'});
+}
+
+function sortBy(col) {
+    if (currentSort === col) {
+        currentDir = currentDir === 'ASC' ? 'DESC' : 'ASC';
+    } else {
+        currentSort = col;
+        currentDir = col === 'id' ? 'DESC' : 'ASC';
+    }
+    applyFilters();
+}
+
 function resetBacklogFilters() {
-    document.querySelectorAll('#backlog-filters select').forEach(function(s) { s.value = ''; });
+    document.querySelectorAll('#backlog-filters input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
+    currentSort = '';
+    currentDir = '';
     htmx.ajax('GET', '/partials/backlog-table', {target:'#backlog-table'});
+}
+
+function toggleBacklogDetail(id) {
+    document.querySelectorAll('.backlog-detail-row').forEach(function(row) {
+        if (row.id !== 'detail-' + id) row.hidden = true;
+    });
+    var el = document.getElementById('detail-' + id);
+    if (el) el.hidden = !el.hidden;
 }
 </script>
 {{end}}

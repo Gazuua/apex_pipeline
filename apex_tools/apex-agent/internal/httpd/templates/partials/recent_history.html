@@ -5,8 +5,8 @@
   <div class="tl-item">
     <div class="tl-title">{{.GitBranch}}</div>
     <div class="tl-meta">
-      <span class="badge {{if eq .Action "merged"}}badge-green{{else}}badge-red{{end}}">{{.Action}}</span>
-      {{.CompletedAt}}
+      <span class="badge {{if eq .Status "MERGED"}}badge-green{{else}}badge-red{{end}}">{{.Status}}</span>
+      {{.FinishedAt}}
     </div>
   </div>
 {{end}}

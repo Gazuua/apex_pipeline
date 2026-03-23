@@ -39,11 +39,11 @@ type BacklogItem struct {
 }
 
 type BacklogFilter struct {
-	Status    string
-	Severity  string
-	Timeframe string
-	Scope     string
-	Type      string
+	Status    []string
+	Severity  []string
+	Timeframe []string
+	Scope     []string
+	Type      []string
 	SortBy    string
 	SortDir   string
 }
@@ -144,26 +144,22 @@ func queryBacklogList(st *store.Store, f BacklogFilter) ([]BacklogItem, error) {
 	var where []string
 	var args []any
 
-	if f.Status != "" {
-		where = append(where, "status = ?")
-		args = append(args, f.Status)
+	addInFilter := func(col string, vals []string) {
+		if len(vals) == 0 {
+			return
+		}
+		placeholders := make([]string, len(vals))
+		for i, v := range vals {
+			placeholders[i] = "?"
+			args = append(args, v)
+		}
+		where = append(where, col+" IN ("+strings.Join(placeholders, ",")+")")
 	}
-	if f.Severity != "" {
-		where = append(where, "severity = ?")
-		args = append(args, f.Severity)
-	}
-	if f.Timeframe != "" {
-		where = append(where, "timeframe = ?")
-		args = append(args, f.Timeframe)
-	}
-	if f.Scope != "" {
-		where = append(where, "scope = ?")
-		args = append(args, f.Scope)
-	}
-	if f.Type != "" {
-		where = append(where, "type = ?")
-		args = append(args, f.Type)
-	}
+	addInFilter("status", f.Status)
+	addInFilter("severity", f.Severity)
+	addInFilter("timeframe", f.Timeframe)
+	addInFilter("scope", f.Scope)
+	addInFilter("type", f.Type)
 
 	query := `SELECT id, title, severity, timeframe, scope, type, status, description,
 	          COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at

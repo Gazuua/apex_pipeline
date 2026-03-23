@@ -5,11 +5,14 @@
   {{range .Entries}}{{if eq .Channel "build"}}{{$hasBuild = true}}
   <div class="lock-card">
     <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else}}free{{end}}"></div>
-    <div>
-      <div style="font-weight:600">{{.Branch}}</div>
-      <div class="tl-meta">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">{{.Branch}}</span>
         <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else}}badge-amber{{end}}">{{.Status}}</span>
+      </div>
+      <div class="tl-meta">
         {{.CreatedAt}}
+        <span class="elapsed" data-since="{{.CreatedAt}}"></span>
       </div>
     </div>
   </div>
@@ -17,10 +20,7 @@
   {{if not $hasBuild}}
   <div class="lock-card">
     <div class="lock-indicator free"></div>
-    <div>
-      <div style="font-weight:600">Free</div>
-      <div class="tl-meta">No active build locks</div>
-    </div>
+    <div><div style="font-weight:600">Free</div><div class="tl-meta">No active build locks</div></div>
   </div>
   {{end}}
 </div>
@@ -31,11 +31,14 @@
   {{range .Entries}}{{if eq .Channel "merge"}}{{$hasMerge = true}}
   <div class="lock-card">
     <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else}}free{{end}}"></div>
-    <div>
-      <div style="font-weight:600">{{.Branch}}</div>
-      <div class="tl-meta">
+    <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-weight:600">{{.Branch}}</span>
         <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else}}badge-amber{{end}}">{{.Status}}</span>
+      </div>
+      <div class="tl-meta">
         {{.CreatedAt}}
+        <span class="elapsed" data-since="{{.CreatedAt}}"></span>
       </div>
     </div>
   </div>
@@ -43,10 +46,7 @@
   {{if not $hasMerge}}
   <div class="lock-card">
     <div class="lock-indicator free"></div>
-    <div>
-      <div style="font-weight:600">Free</div>
-      <div class="tl-meta">No active merge locks</div>
-    </div>
+    <div><div style="font-weight:600">Free</div><div class="tl-meta">No active merge locks</div></div>
   </div>
   {{end}}
 </div>

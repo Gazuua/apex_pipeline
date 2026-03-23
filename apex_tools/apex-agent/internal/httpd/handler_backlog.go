@@ -105,11 +105,11 @@ func statusBadge(s string) string {
 func parseBacklogFilter(r *http.Request) BacklogFilter {
 	q := r.URL.Query()
 	return BacklogFilter{
-		Status:    q.Get("status"),
-		Severity:  q.Get("severity"),
-		Timeframe: q.Get("timeframe"),
-		Scope:     q.Get("scope"),
-		Type:      q.Get("type"),
+		Status:    q["status"],
+		Severity:  q["severity"],
+		Timeframe: q["timeframe"],
+		Scope:     q["scope"],
+		Type:      q["type"],
 		SortBy:    q.Get("sort"),
 		SortDir:   q.Get("dir"),
 	}
