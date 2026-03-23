@@ -74,6 +74,7 @@ add_library(apex_core STATIC
     src/tcp_acceptor.cpp
     src/config.cpp
     src/logging.cpp
+    src/scoped_logger.cpp
     src/server.cpp
     src/periodic_task_scheduler.cpp
 )

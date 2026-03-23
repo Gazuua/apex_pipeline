@@ -57,6 +57,7 @@ apex_add_unit_test(test_drain_tick test_drain_tick.cpp)
 # Phase 5: Config, Logging
 apex_add_unit_test(test_config test_config.cpp)
 apex_add_unit_test(test_logging test_logging.cpp)
+apex_add_unit_test(test_scoped_logger test_scoped_logger.cpp)
 
 # v0.5: 단위 테스트 (E-1)
 apex_add_unit_test(test_connection_handler test_connection_handler.cpp)
@@ -112,6 +113,7 @@ set_tests_properties(
     test_drain_tick
     test_config
     test_logging
+    test_scoped_logger
     test_server_adapter
     test_bump_allocator
     test_arena_allocator
