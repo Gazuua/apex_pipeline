@@ -434,3 +434,51 @@ body {
   line-height: 1.7;
   white-space: pre-wrap;
 }
+
+/* ── Backlog Detail ── */
+.backlog-detail {
+  background: var(--bg-base);
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+}
+
+.backlog-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+
+.backlog-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Backlog Expand in Handoff ── */
+.backlog-inline {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.backlog-inline-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.backlog-link {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.backlog-link:hover {
+  text-decoration: underline;
+}

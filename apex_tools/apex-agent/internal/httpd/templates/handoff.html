@@ -6,9 +6,10 @@
   {{if .Branches}}
   {{range .Branches}}
   <div style="padding:16px;border-bottom:1px solid var(--border)">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap">
       <span class="mono" style="font-weight:700;color:var(--accent-blue)">{{.GitBranch}}</span>
       <span class="badge {{if eq .Status "IMPLEMENTING"}}badge-green{{else if eq .Status "STARTED"}}badge-amber{{else}}badge-purple{{end}}">{{.Status}}</span>
+      <span style="font-size:0.78rem;color:var(--text-muted);margin-left:auto">workspace: <span class="mono">{{.WorkspaceID}}</span></span>
     </div>
     {{if .Summary}}<div style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:8px">{{.Summary}}</div>{{end}}
 
@@ -23,11 +24,21 @@
     </div>
 
     {{if .BacklogIDs}}
-    <div style="margin-top:8px;font-size:0.82rem;color:var(--text-muted)">
-      Backlogs: {{range .BacklogIDs}}<span class="badge badge-amber mono" style="margin-right:4px">#{{.}}</span>{{end}}
+    <div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted)">
+      Backlogs:
+      {{range .BacklogIDs}}
+      <span style="display:inline-block;margin-right:4px;margin-bottom:4px">
+        <span class="badge badge-amber mono backlog-link"
+          hx-get="/partials/backlog-inline/{{.}}"
+          hx-target="next .backlog-expand"
+          hx-swap="innerHTML"
+          onclick="var t=this.closest('span').querySelector('.backlog-expand')||this.parentElement.nextElementSibling;if(t)t.hidden=!t.hidden">#{{.}}</span>
+      </span>
+      {{end}}
+      <div class="backlog-expand" hidden></div>
     </div>
     {{end}}
-    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">Started: {{.CreatedAt}}</div>
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px">Started: {{.CreatedAt}}</div>
   </div>
   {{end}}
   {{else}}

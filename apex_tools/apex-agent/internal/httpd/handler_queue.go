@@ -19,6 +19,19 @@ func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 	s.renderPage(w, "queue", data)
 }
 
+func (s *Server) handlePartialQueuePage(w http.ResponseWriter, _ *http.Request) {
+	data := map[string]any{}
+	if s.store != nil {
+		entries, err := queryQueueStatus(s.store)
+		if err != nil {
+			s.renderHTMXError(w, err.Error())
+			return
+		}
+		data["Entries"] = entries
+	}
+	s.renderPartial(w, "partial-queue-page", data)
+}
+
 func (s *Server) handleAPIQueue(w http.ResponseWriter, r *http.Request) {
 	if s.store == nil {
 		s.renderError(w, http.StatusServiceUnavailable, "store not available")

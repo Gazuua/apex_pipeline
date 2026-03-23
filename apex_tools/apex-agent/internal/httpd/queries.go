@@ -172,19 +172,30 @@ func queryBacklogList(st *store.Store, f BacklogFilter) ([]BacklogItem, error) {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
 
-	// Sort — only allow known columns
-	sortCol := "id"
+	// Sort — default: FIXING first → timeframe urgency → severity → ID
 	if f.SortBy != "" {
+		sortCol := "id"
 		allowed := map[string]bool{"id": true, "severity": true, "created_at": true, "updated_at": true, "status": true}
 		if allowed[f.SortBy] {
 			sortCol = f.SortBy
 		}
+		sortDir := "DESC"
+		if f.SortDir == "ASC" {
+			sortDir = "ASC"
+		}
+		query += " ORDER BY " + sortCol + " " + sortDir
+	} else {
+		// Default smart sort:
+		// 1. FIXING first (actively being worked on)
+		// 2. Timeframe urgency: NOW > IN_VIEW > DEFERRED > others
+		// 3. Severity: CRITICAL > MAJOR > MINOR
+		// 4. ID descending (newest first)
+		query += ` ORDER BY
+			CASE status WHEN 'FIXING' THEN 0 WHEN 'OPEN' THEN 1 ELSE 2 END,
+			CASE timeframe WHEN 'NOW' THEN 0 WHEN 'IN_VIEW' THEN 1 WHEN 'DEFERRED' THEN 2 ELSE 3 END,
+			CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'MAJOR' THEN 1 WHEN 'MINOR' THEN 2 ELSE 3 END,
+			id DESC`
 	}
-	sortDir := "DESC"
-	if f.SortDir == "ASC" {
-		sortDir = "ASC"
-	}
-	query += " ORDER BY " + sortCol + " " + sortDir
 
 	rows, err := st.Query(query, args...)
 	if err != nil {
@@ -273,7 +284,7 @@ func queryQueueStatus(st *store.Store) ([]QueueEntry, error) {
 	rows, err := st.Query(`
 		SELECT channel, branch, status, created_at
 		FROM queue
-		ORDER BY channel, created_at`)
+		ORDER BY channel, created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("queue status: %w", err)
 	}

@@ -36,9 +36,17 @@
     <option value="DOCS">Docs</option>
     <option value="TOOLS">Tools</option>
   </select>
+  <button class="rate-btn" onclick="resetBacklogFilters()" style="margin-left:auto;padding:6px 14px;font-size:0.82rem">Reset</button>
 </div>
 
 <div id="backlog-table">
   {{template "partial-backlog-table" .}}
 </div>
+
+<script>
+function resetBacklogFilters() {
+    document.querySelectorAll('#backlog-filters select').forEach(function(s) { s.value = ''; });
+    htmx.ajax('GET', '/partials/backlog-table', {target:'#backlog-table'});
+}
+</script>
 {{end}}

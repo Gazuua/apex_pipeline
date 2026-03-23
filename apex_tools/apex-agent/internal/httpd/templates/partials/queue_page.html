@@ -1,0 +1,53 @@
+{{define "partial-queue-page"}}
+<div class="card">
+  <div class="card-header">Build Channel</div>
+  {{$hasBuild := false}}
+  {{range .Entries}}{{if eq .Channel "build"}}{{$hasBuild = true}}
+  <div class="lock-card">
+    <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else}}free{{end}}"></div>
+    <div>
+      <div style="font-weight:600">{{.Branch}}</div>
+      <div class="tl-meta">
+        <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else}}badge-amber{{end}}">{{.Status}}</span>
+        {{.CreatedAt}}
+      </div>
+    </div>
+  </div>
+  {{end}}{{end}}
+  {{if not $hasBuild}}
+  <div class="lock-card">
+    <div class="lock-indicator free"></div>
+    <div>
+      <div style="font-weight:600">Free</div>
+      <div class="tl-meta">No active build locks</div>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<div class="card">
+  <div class="card-header blue">Merge Channel</div>
+  {{$hasMerge := false}}
+  {{range .Entries}}{{if eq .Channel "merge"}}{{$hasMerge = true}}
+  <div class="lock-card">
+    <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else}}free{{end}}"></div>
+    <div>
+      <div style="font-weight:600">{{.Branch}}</div>
+      <div class="tl-meta">
+        <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else}}badge-amber{{end}}">{{.Status}}</span>
+        {{.CreatedAt}}
+      </div>
+    </div>
+  </div>
+  {{end}}{{end}}
+  {{if not $hasMerge}}
+  <div class="lock-card">
+    <div class="lock-indicator free"></div>
+    <div>
+      <div style="font-weight:600">Free</div>
+      <div class="tl-meta">No active merge locks</div>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}

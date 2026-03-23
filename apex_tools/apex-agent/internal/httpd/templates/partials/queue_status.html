@@ -2,14 +2,14 @@
 {{if .Queue}}
 {{range .Queue}}
 <div class="lock-card">
-  <div class="lock-indicator {{if .Locked}}locked{{else}}free{{end}}"></div>
+  <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else}}free{{end}}"></div>
   <div>
     <div style="font-weight:600">{{.Channel}}</div>
-    <div class="tl-meta">{{if .Locked}}Locked by {{.Owner}} ({{.LockedAt}}){{else}}Free{{end}}</div>
+    <div class="tl-meta">{{if eq .Status "HOLDING"}}Locked by {{.Branch}}{{else}}{{.Status}}{{end}} — {{.CreatedAt}}</div>
   </div>
 </div>
 {{end}}
 {{else}}
-<div class="empty-state">No queue channels</div>
+<div class="empty-state">No queue entries</div>
 {{end}}
 {{end}}
