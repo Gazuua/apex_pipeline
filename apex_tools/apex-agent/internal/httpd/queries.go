@@ -130,11 +130,11 @@ func queryDashboardSummary(st *store.Store) (*DashboardSummary, error) {
 
 	// Queue lock status
 	var buildHolding int
-	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='build' AND status='HOLDING'`).Scan(&buildHolding) //nolint:errcheck
+	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='build' AND status='ACTIVE'`).Scan(&buildHolding) //nolint:errcheck
 	s.BuildLocked = buildHolding > 0
 
 	var mergeHolding int
-	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='merge' AND status='HOLDING'`).Scan(&mergeHolding) //nolint:errcheck
+	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='merge' AND status='ACTIVE'`).Scan(&mergeHolding) //nolint:errcheck
 	s.MergeLocked = mergeHolding > 0
 
 	return s, nil

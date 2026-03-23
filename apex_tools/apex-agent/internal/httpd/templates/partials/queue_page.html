@@ -4,15 +4,15 @@
   {{$hasBuild := false}}
   {{range .Entries}}{{if eq .Channel "build"}}{{$hasBuild = true}}
   <div class="lock-card">
-    <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
+    <div class="lock-indicator {{if eq .Status "ACTIVE"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:600">{{.Branch}}</span>
-        <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
+        <span class="badge {{if eq .Status "ACTIVE"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
       </div>
       <div class="tl-meta">
         {{.CreatedAt}}
-        {{if or (eq .Status "HOLDING") (eq .Status "WAITING")}}<span class="elapsed" data-since="{{.CreatedAt}}"></span>{{end}}
+        {{if or (eq .Status "ACTIVE") (eq .Status "WAITING")}}<span class="elapsed" data-since="{{.CreatedAt}}"></span>{{end}}
       </div>
     </div>
   </div>
@@ -30,15 +30,15 @@
   {{$hasMerge := false}}
   {{range .Entries}}{{if eq .Channel "merge"}}{{$hasMerge = true}}
   <div class="lock-card">
-    <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
+    <div class="lock-indicator {{if eq .Status "ACTIVE"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
     <div style="flex:1">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:600">{{.Branch}}</span>
-        <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
+        <span class="badge {{if eq .Status "ACTIVE"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
       </div>
       <div class="tl-meta">
         {{.CreatedAt}}
-        {{if or (eq .Status "HOLDING") (eq .Status "WAITING")}}<span class="elapsed" data-since="{{.CreatedAt}}"></span>{{end}}
+        {{if or (eq .Status "ACTIVE") (eq .Status "WAITING")}}<span class="elapsed" data-since="{{.CreatedAt}}"></span>{{end}}
       </div>
     </div>
   </div>
