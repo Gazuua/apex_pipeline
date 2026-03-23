@@ -308,7 +308,7 @@ func TestCleanup_MergedBranchDetection(t *testing.T) {
 		// Dry-run: Run will attempt `git fetch --prune origin` but there's no remote —
 		// the function is tolerant of that (non-fatal). Phase 3 (remote) will be empty.
 		// Phase 2 (local branches) should detect feature/merged.
-		result, err := cleanup.Run(repoDir, false /* dry-run */)
+		result, err := cleanup.Run(repoDir, false /* dry-run */, nil)
 		if err != nil {
 			t.Fatalf("cleanup.Run dry-run: %v", err)
 		}
@@ -337,7 +337,7 @@ func TestCleanup_MergedBranchDetection(t *testing.T) {
 
 	t.Run("Run_execute_removes_merged", func(t *testing.T) {
 		// Verify that executing cleanup actually removes the merged branch.
-		result, err := cleanup.Run(repoDir, true /* execute */)
+		result, err := cleanup.Run(repoDir, true /* execute */, nil)
 		if err != nil {
 			t.Fatalf("cleanup.Run execute: %v", err)
 		}
