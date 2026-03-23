@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 
 #include <cstdint>
@@ -28,6 +29,7 @@ class ChatDbConsumer
 
   private:
     apex::shared::adapters::pg::PgAdapter& pg_;
+    apex::core::ScopedLogger logger_{"ChatDbConsumer", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::chat_svc

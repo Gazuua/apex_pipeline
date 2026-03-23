@@ -2,8 +2,6 @@
 
 #include <apex/gateway/jwt_blacklist.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
 #include <format>
 #include <string>
@@ -33,7 +31,7 @@ boost::asio::awaitable<apex::core::Result<bool>> JwtBlacklist::is_blacklisted(st
 {
     if (!detail::is_valid_jti(jti))
     {
-        spdlog::warn("JWT blacklist: invalid jti format, rejecting");
+        logger_.warn("JWT blacklist: invalid jti format, rejecting");
         co_return true; // Reject invalid JTI
     }
 
@@ -42,7 +40,7 @@ boost::asio::awaitable<apex::core::Result<bool>> JwtBlacklist::is_blacklisted(st
     auto result = co_await redis_.command("EXISTS %s", key.c_str());
     if (!result)
     {
-        spdlog::warn("JWT blacklist Redis check failed for jti={}", jti);
+        logger_.warn("JWT blacklist Redis check failed for jti={}", jti);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     co_return result->integer > 0;

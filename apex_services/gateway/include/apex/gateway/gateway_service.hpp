@@ -13,8 +13,6 @@
 #include <apex/gateway/message_router.hpp>
 #include <apex/gateway/pending_requests.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/unordered/unordered_flat_map.hpp>
 
 #include <memory>
@@ -149,7 +147,6 @@ class GatewayService : public apex::core::ServiceBase<GatewayService>
     void schedule_sweep(apex::core::WireContext& ctx);
 
     GatewayConfig config_;
-    std::shared_ptr<spdlog::logger> logger_;
 
     // on_configure에서 바인딩 — 생성자에서는 미설정
     apex::shared::adapters::kafka::KafkaAdapter* kafka_{nullptr};

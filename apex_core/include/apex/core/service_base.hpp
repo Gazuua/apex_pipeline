@@ -9,6 +9,7 @@
 #include <apex/core/kafka_message_meta.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_context.hpp>
 
@@ -21,7 +22,6 @@
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <flatbuffers/flatbuffers.h>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cassert>
@@ -189,6 +189,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     {
         per_core_ = &ctx.per_core_state;
         // io_ctx_는 bind_io_context()에서 이미 바인딩됨
+        logger_ = ScopedLogger(std::string(name_), ctx.core_id, "app");
         static_cast<Derived*>(this)->on_configure(ctx);
     }
 
@@ -240,8 +241,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 flatbuffers::Verifier verifier(payload.data(), payload.size());
                 if (!verifier.VerifyBuffer<FbsType>())
                 {
-                    spdlog::warn("[ServiceBase] FlatBuffers verify failed (msg_id={}, session={})", id,
-                                 session ? session->id() : make_session_id(0));
+                    self->logger_.warn(session, id, "FlatBuffers verify failed");
                     // 자동 error frame 전송 후 ok() 반환
                     if (session)
                     {
@@ -321,7 +321,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 }
                 catch (const std::exception& e)
                 {
-                    spdlog::error("[{}] spawn() coroutine exception: {}", name_, e.what());
+                    this->logger_.error("spawn() coroutine exception: {}", e.what());
                 }
                 outstanding_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
@@ -342,40 +342,9 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
         return io_ctx_->get_executor();
     }
 
-    // ── Logging helpers ──────────────────────────────────────────────────
-    // core_id + service name이 자동 주입된다.
-    // 3가지 오버로드: 기본 / +session / +session+msg_id
-
-#define APEX_SVC_LOG_METHODS(level_name, spdlog_level)                                                                 \
-    template <typename... Args> void log_##level_name(fmt::format_string<Args...> fmt, Args&&... args)                 \
-    {                                                                                                                  \
-        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}] {}", core_id_for_log(), name_,                     \
-                        fmt::format(fmt, std::forward<Args>(args)...));                                                \
-    }                                                                                                                  \
-    template <typename... Args>                                                                                        \
-    void log_##level_name(const SessionPtr& session, fmt::format_string<Args...> fmt, Args&&... args)                  \
-    {                                                                                                                  \
-        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}] {}", core_id_for_log(), name_,            \
-                        session ? session->id() : make_session_id(0), fmt::format(fmt, std::forward<Args>(args)...));  \
-    }                                                                                                                  \
-    template <typename... Args>                                                                                        \
-    void log_##level_name(const SessionPtr& session, uint32_t msg_id, fmt::format_string<Args...> fmt, Args&&... args) \
-    {                                                                                                                  \
-        if (spdlog::should_log(spdlog::level::spdlog_level))                                                           \
-            spdlog::log(spdlog::level::spdlog_level, "[core={}][{}][sess={}][msg=0x{:04X}] {}", core_id_for_log(),     \
-                        name_, session ? session->id() : make_session_id(0), msg_id,                                   \
-                        fmt::format(fmt, std::forward<Args>(args)...));                                                \
-    }
-
-    APEX_SVC_LOG_METHODS(trace, trace)
-    APEX_SVC_LOG_METHODS(debug, debug)
-    APEX_SVC_LOG_METHODS(info, info)
-    APEX_SVC_LOG_METHODS(warn, warn)
-    APEX_SVC_LOG_METHODS(error, err)
-
-#undef APEX_SVC_LOG_METHODS
+    // ── ScopedLogger ────────────────────────────────────────────────────
+    // internal_configure()에서 초기화. 그 전에는 inert (no-op).
+    ScopedLogger logger_;
 
   public:
     // ── Kafka 핸들러 접근자 (D2: ServiceBaseInterface override) ──────────

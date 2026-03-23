@@ -20,7 +20,7 @@
 #include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 #include <apex/shared/protocols/websocket/websocket_protocol.hpp>
 
-#include <spdlog/spdlog.h>
+#include <apex/core/scoped_logger.hpp>
 
 #include <cstdlib>
 #include <memory>
@@ -38,12 +38,13 @@ int main(int argc, char* argv[])
     auto app_config = apex::core::AppConfig::from_file(config_path);
     apex::core::init_logging(app_config.logging);
 
-    spdlog::info("Apex Gateway starting...");
+    apex::core::ScopedLogger logger{"Main", apex::core::ScopedLogger::NO_CORE, "app"};
+    logger.info("Apex Gateway starting...");
 
     auto config_result = apex::gateway::parse_gateway_config(config_path);
     if (!config_result)
     {
-        spdlog::error("Failed to parse config: {}", config_path);
+        logger.error("Failed to parse config: {}", config_path);
         return EXIT_FAILURE;
     }
     auto& gw_config = *config_result;
@@ -52,7 +53,7 @@ int main(int argc, char* argv[])
     auto route_table_result = apex::gateway::RouteTable::build(gw_config.routes);
     if (!route_table_result)
     {
-        spdlog::error("Failed to build route table");
+        logger.error("Failed to build route table");
         return EXIT_FAILURE;
     }
     auto route_table = std::make_shared<const apex::gateway::RouteTable>(std::move(*route_table_result));
@@ -91,7 +92,7 @@ int main(int argc, char* argv[])
     if (gw_config.tcp_port > 0)
     {
         server.listen<apex::shared::protocols::tcp::TcpBinaryProtocol>(gw_config.tcp_port);
-        spdlog::info("TCP Binary listener on port {}", gw_config.tcp_port);
+        logger.info("TCP Binary listener on port {}", gw_config.tcp_port);
     }
 
     // 어댑터 등록 (role 기반 다중 등록)
@@ -119,6 +120,6 @@ int main(int argc, char* argv[])
 
     server.run();
 
-    spdlog::info("Apex Gateway stopped.");
+    logger.info("Apex Gateway stopped.");
     return EXIT_SUCCESS;
 }

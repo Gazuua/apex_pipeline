@@ -4,7 +4,6 @@
 
 #include <apex/core/cross_core_call.hpp>
 #include <boost/asio/post.hpp>
-#include <spdlog/spdlog.h>
 
 #include <cstring>
 
@@ -25,14 +24,14 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
     // 1. Parse Routing Header (stateless — safe on any thread)
     if (payload.size() < ENVELOPE_HEADER_SIZE)
     {
-        spdlog::warn("Response too short: {} bytes", payload.size());
+        logger_.warn("Response too short: {} bytes", payload.size());
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
     auto rh_result = RoutingHeader::parse(payload.subspan(0, RoutingHeader::SIZE));
     if (!rh_result)
     {
-        spdlog::warn("Invalid routing header in response");
+        logger_.warn("Invalid routing header in response");
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
@@ -40,7 +39,7 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
     auto meta_result = MetadataPrefix::parse(payload.subspan(RoutingHeader::SIZE, MetadataPrefix::SIZE));
     if (!meta_result)
     {
-        spdlog::warn("Invalid metadata in response");
+        logger_.warn("Invalid metadata in response");
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
@@ -51,7 +50,7 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
     uint16_t target_core = meta.core_id;
     if (target_core >= pending_maps_.size())
     {
-        spdlog::warn("Invalid core_id {} in response", target_core);
+        logger_.warn("Invalid core_id {} in response", target_core);
         return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
@@ -82,7 +81,7 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
                     envelope_payload_offset(routing_copy.flags, std::span<const uint8_t>(*payload_copy));
                 if (payload_offset > payload_copy->size())
                 {
-                    spdlog::warn("Push payload offset {} exceeds size {}", payload_offset, payload_copy->size());
+                    logger_.warn("Push payload offset {} exceeds size {}", payload_offset, payload_copy->size());
                     return;
                 }
                 auto fbs_payload = std::span<const uint8_t>(payload_copy->data() + payload_offset,
@@ -100,7 +99,7 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
         auto pending = pending_maps_[target_core]->extract(corr_id);
         if (!pending)
         {
-            spdlog::debug("No pending request for corr_id: {}", corr_id);
+            logger_.debug("No pending request for corr_id: {}", corr_id);
             return;
         }
 
@@ -108,7 +107,7 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
         auto payload_offset = envelope_payload_offset(routing_copy.flags, std::span<const uint8_t>(*payload_copy));
         if (payload_offset > payload_copy->size())
         {
-            spdlog::warn("Response payload offset {} exceeds size {}", payload_offset, payload_copy->size());
+            logger_.warn("Response payload offset {} exceeds size {}", payload_offset, payload_copy->size());
             return;
         }
         auto fbs_payload =

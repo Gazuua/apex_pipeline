@@ -72,7 +72,8 @@ ScopedLogger ScopedLogger::with_trace(uint64_t corr_id) const
     return copy;
 }
 
-void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_location& loc, std::string_view message)
+void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_location& loc,
+                            std::string_view message) const
 {
     if (!logger_)
         return;
@@ -83,7 +84,7 @@ void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_l
 }
 
 void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_location& loc, SessionId session_id,
-                            std::string_view message)
+                            std::string_view message) const
 {
     if (!logger_)
         return;
@@ -95,7 +96,7 @@ void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_l
 }
 
 void ScopedLogger::log_impl(spdlog::level::level_enum level, const std::source_location& loc, SessionId session_id,
-                            uint32_t msg_id, std::string_view message)
+                            uint32_t msg_id, std::string_view message) const
 {
     if (!logger_)
         return;

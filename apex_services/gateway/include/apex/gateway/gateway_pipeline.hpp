@@ -10,8 +10,9 @@
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_error.hpp>
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <boost/asio/awaitable.hpp>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
@@ -62,7 +63,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
                                                                            const apex::core::WireHeader& header,
                                                                            AuthState& state, std::string_view remote_ip)
     {
-        spdlog::debug("pipeline::process (session={}, msg_id=0x{:04X})", session->id(), header.msg_id);
+        logger_.debug("pipeline::process (session={}, msg_id=0x{:04X})", session->id(), header.msg_id);
 
         auto send_error = [&](GatewayError gw_err) {
             auto frame = apex::core::ErrorSender::build_error_frame(header.msg_id, apex::core::ErrorCode::ServiceError,
@@ -74,7 +75,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto ip_result = check_ip_rate_limit(remote_ip);
         if (!ip_result)
         {
-            spdlog::debug("pipeline::process denied at IP rate-limit (session={}, msg_id=0x{:04X}, ip={})",
+            logger_.debug("pipeline::process denied at IP rate-limit (session={}, msg_id=0x{:04X}, ip={})",
                           session->id(), header.msg_id, remote_ip);
             send_error(ip_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
@@ -84,7 +85,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto auth_result = co_await authenticate(session, header, state);
         if (!auth_result)
         {
-            spdlog::debug("pipeline::process denied at authentication (session={}, msg_id=0x{:04X})", session->id(),
+            logger_.debug("pipeline::process denied at authentication (session={}, msg_id=0x{:04X})", session->id(),
                           header.msg_id);
             send_error(auth_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
@@ -96,7 +97,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             auto user_result = co_await check_user_rate_limit(state.user_id);
             if (!user_result)
             {
-                spdlog::debug("pipeline::process denied at user rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
+                logger_.debug("pipeline::process denied at user rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
                               session->id(), header.msg_id, state.user_id);
                 send_error(user_result.error());
                 co_return apex::core::error(apex::core::ErrorCode::ServiceError);
@@ -105,7 +106,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             auto ep_result = co_await check_endpoint_rate_limit(state.user_id, header.msg_id);
             if (!ep_result)
             {
-                spdlog::debug(
+                logger_.debug(
                     "pipeline::process denied at endpoint rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
                     session->id(), header.msg_id, state.user_id);
                 send_error(ep_result.error());
@@ -129,7 +130,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         // 2. Token must be present (set by handshake/login response handler)
         if (state.token.empty())
         {
-            spdlog::debug("authenticate: no JWT token for msg_id={}", header.msg_id);
+            logger_.debug("authenticate: no JWT token for msg_id={}", header.msg_id);
             co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
         }
 
@@ -137,7 +138,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto claims_result = jwt_verifier_.verify(state.token);
         if (!claims_result)
         {
-            spdlog::debug("authenticate: JWT verify failed for msg_id={}, error={}", header.msg_id,
+            logger_.debug("authenticate: JWT verify failed for msg_id={}, error={}", header.msg_id,
                           static_cast<uint16_t>(claims_result.error()));
             co_return GatewayResult{std::unexpected(GatewayError::JwtVerifyFailed)};
         }
@@ -148,19 +149,19 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             auto bl_result = co_await blacklist_->is_blacklisted(claims_result->jti);
             if (bl_result && *bl_result)
             {
-                spdlog::info("authenticate: blacklisted JWT jti={} for msg_id={}", claims_result->jti, header.msg_id);
+                logger_.info("authenticate: blacklisted JWT jti={} for msg_id={}", claims_result->jti, header.msg_id);
                 co_return GatewayResult{std::unexpected(GatewayError::JwtBlacklisted)};
             }
             if (!bl_result)
             {
                 if (config_.auth.blacklist_fail_open)
                 {
-                    spdlog::warn("authenticate: blacklist check failed (Redis error), allowing jti={}",
+                    logger_.warn("authenticate: blacklist check failed (Redis error), allowing jti={}",
                                  claims_result->jti);
                 }
                 else
                 {
-                    spdlog::warn("authenticate: blacklist check failed (Redis error), rejecting jti={}",
+                    logger_.warn("authenticate: blacklist check failed (Redis error), rejecting jti={}",
                                  claims_result->jti);
                     co_return GatewayResult{std::unexpected(GatewayError::BlacklistCheckFailed)};
                 }
@@ -187,7 +188,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto now = std::chrono::steady_clock::now();
         if (!limiter->check_ip(remote_ip, now))
         {
-            spdlog::debug("Per-IP rate limit exceeded: {}", remote_ip);
+            logger_.debug("Per-IP rate limit exceeded: {}", remote_ip);
             return std::unexpected(GatewayError::RateLimitedIp);
         }
 
@@ -206,13 +207,13 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto result = co_await limiter->check_user(user_id, now_ms());
         if (!result)
         {
-            spdlog::warn("Per-User rate limit check failed (Redis error), allowing: user_id={}", user_id);
+            logger_.warn("Per-User rate limit check failed (Redis error), allowing: user_id={}", user_id);
             co_return GatewayResult{};
         }
 
         if (!result->allowed)
         {
-            spdlog::debug("Per-User rate limit exceeded: user_id={}, retry_after={}ms", user_id,
+            logger_.debug("Per-User rate limit exceeded: user_id={}, retry_after={}ms", user_id,
                           result->retry_after_ms);
             co_return GatewayResult{std::unexpected(GatewayError::RateLimitedUser)};
         }
@@ -232,7 +233,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto result = co_await limiter->check_endpoint(user_id, msg_id, now_ms());
         if (!result)
         {
-            spdlog::warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
+            logger_.warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
                          "user_id={}, msg_id={}",
                          user_id, msg_id);
             co_return GatewayResult{};
@@ -240,7 +241,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
 
         if (!result->allowed)
         {
-            spdlog::debug("Per-Endpoint rate limit exceeded: user_id={}, msg_id={}, "
+            logger_.debug("Per-Endpoint rate limit exceeded: user_id={}, msg_id={}, "
                           "retry_after={}ms",
                           user_id, msg_id, result->retry_after_ms);
             co_return GatewayResult{std::unexpected(GatewayError::RateLimitedEndpoint)};
@@ -267,6 +268,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     const VerifierT& jwt_verifier_;
     BlacklistT* blacklist_;
     std::atomic<LimiterT*> rate_limiter_;
+    apex::core::ScopedLogger logger_{"GatewayPipeline", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

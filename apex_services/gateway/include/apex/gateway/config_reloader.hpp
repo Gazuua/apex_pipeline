@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/gateway/file_watcher.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_config_parser.hpp>
@@ -67,6 +68,7 @@ class ConfigReloader
     RouteUpdateCallback on_route_update_;
     RateLimitUpdateCallback on_rate_limit_update_;
     std::unique_ptr<FileWatcher> watcher_;
+    apex::core::ScopedLogger logger_{"ConfigReloader", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

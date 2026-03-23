@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
@@ -62,6 +63,7 @@ class PendingRequestsMap
     size_t max_entries_;
     std::chrono::milliseconds timeout_;
     NowFn now_fn_;
+    apex::core::ScopedLogger logger_{"PendingRequests", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

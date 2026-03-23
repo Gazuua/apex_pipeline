@@ -4,8 +4,6 @@
 
 #include <apex/gateway/gateway_error.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <chrono>
 #include <cstring>
 
@@ -30,7 +28,7 @@ apex::core::Result<void> MessageRouter::route(apex::core::SessionPtr session, co
     auto topic = table->resolve(header.msg_id);
     if (!topic)
     {
-        spdlog::warn("No route for msg_id: {}", header.msg_id);
+        logger_.warn("No route for msg_id: {}", header.msg_id);
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 

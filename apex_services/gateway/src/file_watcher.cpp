@@ -2,8 +2,6 @@
 
 #include <apex/gateway/file_watcher.hpp>
 
-#include <spdlog/spdlog.h>
-
 namespace apex::gateway
 {
 
@@ -20,7 +18,7 @@ FileWatcher::FileWatcher(boost::asio::io_context& io_ctx, std::string path, Call
     last_write_time_ = std::filesystem::last_write_time(path_, ec);
     if (ec)
     {
-        spdlog::warn("FileWatcher: cannot stat {}: {}", path_, ec.message());
+        logger_.warn("FileWatcher: cannot stat {}: {}", path_, ec.message());
     }
 }
 
@@ -33,7 +31,7 @@ void FileWatcher::start()
 {
     running_ = true;
     schedule_check();
-    spdlog::info("FileWatcher started: {}", path_);
+    logger_.info("FileWatcher started: {}", path_);
 }
 
 void FileWatcher::stop()
@@ -69,14 +67,14 @@ void FileWatcher::check_file()
     auto current = std::filesystem::last_write_time(path_, ec);
     if (ec)
     {
-        spdlog::debug("FileWatcher: stat failed for {}: {}", path_, ec.message());
+        logger_.debug("FileWatcher: stat failed for {}: {}", path_, ec.message());
         return;
     }
 
     if (current != last_write_time_)
     {
         last_write_time_ = current;
-        spdlog::info("FileWatcher: change detected in {}", path_);
+        logger_.info("FileWatcher: change detected in {}", path_);
         if (callback_)
         {
             callback_(path_);

@@ -2,8 +2,6 @@
 
 #include <apex/gateway/pubsub_listener.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <chrono>
 #include <thread>
 
@@ -30,11 +28,11 @@ void PubSubListener::start()
 {
     if (running_.exchange(true))
     {
-        spdlog::warn("PubSubListener::start() called while already running -- ignoring");
+        logger_.warn("PubSubListener::start() called while already running -- ignoring");
         return;
     }
     thread_ = std::thread([this] { run_thread(); });
-    spdlog::info("PubSubListener started ({}:{})", config_.host, config_.port);
+    logger_.info("PubSubListener started ({}:{})", config_.host, config_.port);
 }
 
 void PubSubListener::stop()
@@ -47,7 +45,7 @@ void PubSubListener::stop()
     {
         thread_.join();
     }
-    spdlog::info("PubSubListener stopped");
+    logger_.info("PubSubListener stopped");
 }
 
 void PubSubListener::subscribe(const std::string& channel)
@@ -75,7 +73,7 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
         {
             redisAppendCommand(ctx, "SUBSCRIBE %s", ch.c_str());
             active_subs.insert(ch);
-            spdlog::info("PubSub subscribing to '{}'", ch);
+            logger_.info("PubSub subscribing to '{}'", ch);
         }
     }
 
@@ -87,7 +85,7 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
         {
             redisAppendCommand(ctx, "UNSUBSCRIBE %s", ch.c_str());
             to_remove.push_back(ch);
-            spdlog::info("PubSub unsubscribing from '{}'", ch);
+            logger_.info("PubSub unsubscribing from '{}'", ch);
         }
     }
     for (const auto& ch : to_remove)
@@ -103,7 +101,7 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
     {
         if (redisBufferWrite(ctx, &wdone) == REDIS_ERR)
         {
-            spdlog::warn("PubSub write error during subscription update");
+            logger_.warn("PubSub write error during subscription update");
             break;
         }
     }
@@ -118,7 +116,7 @@ void PubSubListener::run_thread()
         redisContext* sync_ctx = redisConnect(config_.host.c_str(), config_.port);
         if (!sync_ctx || sync_ctx->err)
         {
-            spdlog::error("PubSub connect failed: {}", sync_ctx ? sync_ctx->errstr : "null context");
+            logger_.error("PubSub connect failed: {}", sync_ctx ? sync_ctx->errstr : "null context");
             if (sync_ctx)
                 redisFree(sync_ctx);
             std::this_thread::sleep_for(std::chrono::milliseconds{config_.reconnect_interval_ms});
@@ -157,7 +155,7 @@ void PubSubListener::run_thread()
             has_pending_subs_.store(false, std::memory_order_release);
         }
 
-        spdlog::info("PubSub connected, subscribed to {} channels", active_subs.size());
+        logger_.info("PubSub connected, subscribed to {} channels", active_subs.size());
 
         // Message receive loop — select() based (no socket timeout).
         while (running_)
@@ -168,7 +166,7 @@ void PubSubListener::run_thread()
                 apply_pending_subscriptions(sync_ctx, active_subs);
                 if (sync_ctx->err)
                 {
-                    spdlog::warn("PubSub error after subscription update, "
+                    logger_.warn("PubSub error after subscription update, "
                                  "reconnecting...");
                     break;
                 }
@@ -193,7 +191,7 @@ void PubSubListener::run_thread()
 
             if (ready < 0)
             {
-                spdlog::warn("PubSub select() error, reconnecting...");
+                logger_.warn("PubSub select() error, reconnecting...");
                 break;
             }
             if (ready == 0)
@@ -205,7 +203,7 @@ void PubSubListener::run_thread()
             // 3. Data available — read from socket into hiredis buffer
             if (redisBufferRead(sync_ctx) != REDIS_OK)
             {
-                spdlog::warn("PubSub read error (err={}), reconnecting...", sync_ctx->err);
+                logger_.warn("PubSub read error (err={}), reconnecting...", sync_ctx->err);
                 break;
             }
 
@@ -245,7 +243,7 @@ void PubSubListener::run_thread()
 
         if (running_)
         {
-            spdlog::info("PubSub reconnecting in {}ms...", config_.reconnect_interval_ms);
+            logger_.info("PubSub reconnecting in {}ms...", config_.reconnect_interval_ms);
             std::this_thread::sleep_for(std::chrono::milliseconds{config_.reconnect_interval_ms});
         }
     }

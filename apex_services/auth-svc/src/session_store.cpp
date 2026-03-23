@@ -3,7 +3,6 @@
 #include <apex/auth_svc/session_store.hpp>
 
 #include <apex/core/core_engine.hpp>
-#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <format>
@@ -45,7 +44,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::set(uint64_t user
 
     if (!result.has_value())
     {
-        spdlog::error("[SessionStore] Failed to set session for user {}", user_id);
+        logger_.error("Failed to set session for user {}", user_id);
         co_return apex::core::error(result.error());
     }
 
@@ -83,7 +82,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::remove(uint64_t u
 
     if (!result.has_value())
     {
-        spdlog::error("[SessionStore] Failed to remove session for user {}", user_id);
+        logger_.error("Failed to remove session for user {}", user_id);
         co_return apex::core::error(result.error());
     }
 
@@ -102,7 +101,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::set_user_session_
     auto result = co_await mux.command("SETEX %s %d %s", key.c_str(), ttl_sec, value.c_str());
     if (!result.has_value())
     {
-        spdlog::error("[SessionStore] Failed to set user session_id for user {}", user_id);
+        logger_.error("Failed to set user session_id for user {}", user_id);
         co_return apex::core::error(result.error());
     }
     co_return apex::core::ok();
@@ -117,7 +116,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::remove_user_sessi
     auto result = co_await mux.command("DEL %s", key.c_str());
     if (!result.has_value())
     {
-        spdlog::error("[SessionStore] Failed to remove user session_id for user {}", user_id);
+        logger_.error("Failed to remove user session_id for user {}", user_id);
         co_return apex::core::error(result.error());
     }
     co_return apex::core::ok();
@@ -128,7 +127,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::blacklist_token(s
 {
     if (!is_valid_token_hash(token_hash))
     {
-        spdlog::warn("[SessionStore] Invalid token_hash format, rejecting blacklist");
+        logger_.warn("Invalid token_hash format, rejecting blacklist");
         co_return apex::core::error(apex::core::ErrorCode::InvalidMessage);
     }
 
@@ -141,7 +140,7 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::blacklist_token(s
 
     if (!result.has_value())
     {
-        spdlog::error("[SessionStore] Failed to blacklist token");
+        logger_.error("Failed to blacklist token");
         co_return apex::core::error(result.error());
     }
 
@@ -152,7 +151,7 @@ boost::asio::awaitable<apex::core::Result<bool>> SessionStore::is_blacklisted(st
 {
     if (!is_valid_token_hash(token_hash))
     {
-        spdlog::warn("[SessionStore] Invalid token_hash format, rejecting as blacklisted");
+        logger_.warn("Invalid token_hash format, rejecting as blacklisted");
         co_return true; // Reject invalid hash (conservative)
     }
 

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/core_engine.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/channel_session_map.hpp>
@@ -54,6 +55,7 @@ class BroadcastFanout
     uint32_t num_cores_;
     std::vector<apex::core::SessionManager*> session_mgrs_;
     std::vector<ChannelSessionMap>* channel_maps_{nullptr};
+    apex::core::ScopedLogger logger_{"BroadcastFanout", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

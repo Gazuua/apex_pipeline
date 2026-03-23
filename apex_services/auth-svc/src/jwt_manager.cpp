@@ -4,8 +4,9 @@
 #include <apex/auth_svc/crypto_util.hpp>
 #include <apex/auth_svc/jwt_manager.hpp>
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <jwt-cpp/jwt.h>
-#include <spdlog/spdlog.h>
 
 #include <charconv>
 #include <fstream>
@@ -17,12 +18,14 @@ namespace apex::auth_svc
 namespace
 {
 
+apex::core::ScopedLogger s_logger{"JwtManager", apex::core::ScopedLogger::NO_CORE, "app"};
+
 std::string read_file(std::string_view path)
 {
     std::ifstream file{std::string{path}};
     if (!file.is_open())
     {
-        spdlog::error("[JwtManager] Failed to open key file: {}", path);
+        s_logger.error("Failed to open key file: {}", path);
         return {};
     }
     std::ostringstream ss;
@@ -37,7 +40,7 @@ std::string generate_jti()
     auto result = generate_secure_token(16);
     if (!result.has_value())
     {
-        spdlog::error("[JwtManager] CSPRNG failure in generate_jti");
+        s_logger.error("CSPRNG failure in generate_jti");
         return {};
     }
     return std::move(*result);
@@ -54,11 +57,11 @@ JwtManager::JwtManager(std::string_view private_key_path, std::string_view publi
 {
     if (private_key_.empty())
     {
-        spdlog::warn("[JwtManager] Private key not loaded -- token creation disabled");
+        logger_.warn("Private key not loaded -- token creation disabled");
     }
     if (public_key_.empty())
     {
-        spdlog::warn("[JwtManager] Public key not loaded -- token verification disabled");
+        logger_.warn("Public key not loaded -- token verification disabled");
     }
 }
 
@@ -66,7 +69,7 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
 {
     if (private_key_.empty())
     {
-        spdlog::error("[JwtManager] Cannot create token -- private key not loaded");
+        logger_.error("Cannot create token -- private key not loaded");
         return {};
     }
 
@@ -78,7 +81,7 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
         auto jti = generate_jti();
         if (jti.empty())
         {
-            spdlog::error("[JwtManager] Cannot create token -- JTI generation failed (CSPRNG)");
+            logger_.error("Cannot create token -- JTI generation failed (CSPRNG)");
             return {};
         }
 
@@ -96,7 +99,7 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
     }
     catch (const std::exception& e)
     {
-        spdlog::error("[JwtManager] Token creation failed: {}", e.what());
+        logger_.error("Token creation failed: {}", e.what());
         return {};
     }
 }
@@ -121,7 +124,7 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(std::stri
             auto [ptr, ec] = std::from_chars(uid_str.data(), uid_str.data() + uid_str.size(), claims.user_id);
             if (ec != std::errc{})
             {
-                spdlog::debug("[JwtManager] uid claim parsing failed: '{}'", uid_str);
+                logger_.debug("uid claim parsing failed: '{}'", uid_str);
                 return apex::core::error(apex::core::ErrorCode::ServiceError);
             }
         }
@@ -137,12 +140,12 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(std::stri
     }
     catch (const jwt::error::token_verification_exception& e)
     {
-        spdlog::debug("[JwtManager] Token verification failed: {}", e.what());
+        logger_.debug("Token verification failed: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const std::exception& e)
     {
-        spdlog::error("[JwtManager] Unexpected error: {}", e.what());
+        logger_.error("Unexpected error: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::AdapterError);
     }
 }

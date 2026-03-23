@@ -4,6 +4,7 @@
 
 #include <apex/core/core_engine.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/pending_requests.hpp>
@@ -43,6 +44,7 @@ class ResponseDispatcher
     apex::core::CoreEngine& engine_;
     std::vector<PendingRequestsMap*> pending_maps_;
     std::vector<apex::core::SessionManager*> session_mgrs_;
+    apex::core::ScopedLogger logger_{"ResponseDispatcher", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

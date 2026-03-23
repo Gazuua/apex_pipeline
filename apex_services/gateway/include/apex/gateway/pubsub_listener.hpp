@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/core_engine.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_manager.hpp>
 
 #include <hiredis/hiredis.h>
@@ -84,6 +85,8 @@ class PubSubListener
 
     /// Signals run_thread() to check for new subscribe/unsubscribe requests.
     std::atomic<bool> has_pending_subs_{false};
+
+    apex::core::ScopedLogger logger_{"PubSubListener", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

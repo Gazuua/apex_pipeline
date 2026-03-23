@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
@@ -56,6 +58,7 @@ class FileWatcher
     std::unique_ptr<boost::asio::steady_timer> timer_;
     std::filesystem::file_time_type last_write_time_;
     std::atomic<bool> running_{false};
+    apex::core::ScopedLogger logger_{"FileWatcher", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

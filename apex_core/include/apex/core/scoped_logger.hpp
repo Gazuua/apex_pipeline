@@ -83,19 +83,20 @@ class ScopedLogger
 
     // NOLINTBEGIN(cppcoreguidelines-macro-usage) — internal code-gen, immediately #undef'd
 #define APEX_SCOPED_LOG_(level_name, spdlog_level)                                                                     \
-    template <typename... Args> void level_name(log_fmt<Args...> fmt, Args&&... args)                                  \
+    template <typename... Args> void level_name(log_fmt<Args...> fmt, Args&&... args) const                            \
     {                                                                                                                  \
         if (!should_log(spdlog::level::spdlog_level))                                                                  \
             return;                                                                                                    \
         log_impl(spdlog::level::spdlog_level, fmt.loc, fmt::format(fmt.fmt, std::forward<Args>(args)...));             \
     }                                                                                                                  \
-    template <typename... Args> void level_name(SessionId sid, log_fmt<Args...> fmt, Args&&... args)                   \
+    template <typename... Args> void level_name(SessionId sid, log_fmt<Args...> fmt, Args&&... args) const             \
     {                                                                                                                  \
         if (!should_log(spdlog::level::spdlog_level))                                                                  \
             return;                                                                                                    \
         log_impl(spdlog::level::spdlog_level, fmt.loc, sid, fmt::format(fmt.fmt, std::forward<Args>(args)...));        \
     }                                                                                                                  \
-    template <typename... Args> void level_name(SessionId sid, uint32_t msg_id, log_fmt<Args...> fmt, Args&&... args)  \
+    template <typename... Args>                                                                                        \
+    void level_name(SessionId sid, uint32_t msg_id, log_fmt<Args...> fmt, Args&&... args) const                        \
     {                                                                                                                  \
         if (!should_log(spdlog::level::spdlog_level))                                                                  \
             return;                                                                                                    \
@@ -104,7 +105,7 @@ class ScopedLogger
     }                                                                                                                  \
     template <typename S, typename... Args>                                                                            \
         requires detail::HasSessionId<S>                                                                               \
-    void level_name(const S& session, log_fmt<Args...> fmt, Args&&... args)                                            \
+    void level_name(const S& session, log_fmt<Args...> fmt, Args&&... args) const                                      \
     {                                                                                                                  \
         if (!should_log(spdlog::level::spdlog_level))                                                                  \
             return;                                                                                                    \
@@ -113,7 +114,7 @@ class ScopedLogger
     }                                                                                                                  \
     template <typename S, typename... Args>                                                                            \
         requires detail::HasSessionId<S>                                                                               \
-    void level_name(const S& session, uint32_t msg_id, log_fmt<Args...> fmt, Args&&... args)                           \
+    void level_name(const S& session, uint32_t msg_id, log_fmt<Args...> fmt, Args&&... args) const                     \
     {                                                                                                                  \
         if (!should_log(spdlog::level::spdlog_level))                                                                  \
             return;                                                                                                    \
@@ -139,13 +140,13 @@ class ScopedLogger
 
     /// Format context prefix + message and log via spdlog.
     /// Output: [file:line Func] [core=N][Component][trace=hex] message
-    void log_impl(spdlog::level::level_enum level, const std::source_location& loc, std::string_view message);
+    void log_impl(spdlog::level::level_enum level, const std::source_location& loc, std::string_view message) const;
 
     void log_impl(spdlog::level::level_enum level, const std::source_location& loc, SessionId session_id,
-                  std::string_view message);
+                  std::string_view message) const;
 
     void log_impl(spdlog::level::level_enum level, const std::source_location& loc, SessionId session_id,
-                  uint32_t msg_id, std::string_view message);
+                  uint32_t msg_id, std::string_view message) const;
 };
 
 } // namespace apex::core

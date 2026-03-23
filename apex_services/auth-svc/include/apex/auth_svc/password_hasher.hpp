@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -24,6 +26,7 @@ class PasswordHasher
 
   private:
     uint32_t work_factor_;
+    apex::core::ScopedLogger logger_{"PasswordHasher", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::auth_svc

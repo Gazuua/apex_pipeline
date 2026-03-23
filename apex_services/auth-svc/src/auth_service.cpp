@@ -18,7 +18,6 @@
 #include <logout_response_generated.h>
 
 #include <flatbuffers/flatbuffers.h>
-#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <array>
@@ -56,12 +55,12 @@ void AuthService::on_configure(apex::core::ConfigureContext& ctx)
     session_store_ = std::make_unique<SessionStore>(*redis_, config_.redis_session_prefix,
                                                     config_.redis_blacklist_prefix, config_.session_ttl);
 
-    spdlog::info("[AuthService] on_configure: 어댑터 바인딩 완료 (core_id={})", ctx.core_id);
+    logger_.info("on_configure: 어댑터 바인딩 완료 (core_id={})", ctx.core_id);
 }
 
 void AuthService::on_start()
 {
-    spdlog::info("[AuthService] on_start: kafka_route 핸들러 등록");
+    logger_.info("on_start: kafka_route 핸들러 등록");
 
     // kafka_route로 FlatBuffers 타입 핸들러 등록
     kafka_route<apex::auth_svc::schemas::LoginRequest>(msg_ids::LOGIN_REQUEST, &AuthService::on_login);
@@ -81,22 +80,22 @@ void AuthService::on_start()
                     "UPDATE users SET password_hash = $1 WHERE password_hash = 'PENDING'", params);
                 if (result.has_value())
                 {
-                    spdlog::info("[AuthService] Seeded test user passwords");
+                    logger_.info("Seeded test user passwords");
                 }
                 else
                 {
-                    spdlog::warn("[AuthService] Password seed failed (may already be set)");
+                    logger_.warn("Password seed failed (may already be set)");
                 }
             }
         });
     }
 
-    spdlog::info("[AuthService] on_start 완료. Consuming from: {}", config_.request_topic);
+    logger_.info("on_start 완료. Consuming from: {}", config_.request_topic);
 }
 
 void AuthService::on_stop()
 {
-    spdlog::info("[AuthService] on_stop — cleaning up");
+    logger_.info("on_stop — cleaning up");
 
     // SessionStore 해제 — shutdown 후 Redis 접근 방지
     session_store_.reset();
@@ -126,7 +125,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     auto email = std::string(req->email()->string_view());
     auto password = std::string(req->password()->string_view());
 
-    spdlog::info("[AuthService] on_login (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
+    logger_.info("on_login (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
 
     // --- Step 1: PG query — lookup user by email ---
     std::array<std::string, 1> login_params = {email};
@@ -135,15 +134,14 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
 
     if (!user_result.has_value())
     {
-        spdlog::error("[AuthService] PG query failed for login: {}", apex::core::error_code_name(user_result.error()));
+        logger_.error("PG query failed for login: {}", apex::core::error_code_name(user_result.error()));
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
 
     auto& pg_res = *user_result;
     if (pg_res.row_count() == 0)
     {
-        spdlog::warn("[AuthService] Login failed: user not found (email: {}***)",
-                     email.substr(0, std::min(email.size(), size_t{3})));
+        logger_.warn("Login failed: user not found (email: {}***)", email.substr(0, std::min(email.size(), size_t{3})));
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
     }
 
@@ -157,33 +155,33 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
         auto [ptr, ec] = std::from_chars(user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
         if (ec != std::errc{})
         {
-            spdlog::error("[AuthService] Failed to parse user_id: '{}'", user_id_str);
+            logger_.error("Failed to parse user_id: '{}'", user_id_str);
             co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
         }
     }
     // locked_until > NOW(): NULL → 잠금 없음, "f" → 만료됨, "t" → 현재 잠금 중
     // PG timestamp comparison in SQL — timezone-safe (기존 C++ 문자열 비교의 타임존 버그 수정).
     bool is_locked = (!pg_res.is_null(0, 2) && pg_res.value(0, 2) == "t");
-    log_trace("on_login: PG user lookup success (user_id={}, locked={})", user_id, is_locked);
+    logger_.trace("on_login: PG user lookup success (user_id={}, locked={})", user_id, is_locked);
 
     // --- Step 3: Account lock check ---
     if (is_locked)
     {
-        spdlog::warn("[AuthService] Login failed: account locked (user_id: {})", user_id);
+        logger_.warn("Login failed: account locked (user_id: {})", user_id);
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_ACCOUNT_LOCKED);
     }
 
     // --- Step 4: bcrypt password verification ---
-    log_debug("on_login: bcrypt verify start (user_id={})", user_id);
+    logger_.debug("on_login: bcrypt verify start (user_id={})", user_id);
     auto bcrypt_start = std::chrono::steady_clock::now();
     auto bcrypt_ok = password_hasher_.verify(password, password_hash);
     auto bcrypt_elapsed =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - bcrypt_start);
-    log_debug("on_login: bcrypt verify done (user_id={}, elapsed={}ms, result={})", user_id, bcrypt_elapsed.count(),
-              bcrypt_ok ? "pass" : "fail");
+    logger_.debug("on_login: bcrypt verify done (user_id={}, elapsed={}ms, result={})", user_id, bcrypt_elapsed.count(),
+                  bcrypt_ok ? "pass" : "fail");
     if (!bcrypt_ok)
     {
-        spdlog::warn("[AuthService] Login failed: bad credentials (user_id: {})", user_id);
+        logger_.warn("Login failed: bad credentials (user_id: {})", user_id);
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_BAD_CREDENTIALS);
     }
 
@@ -191,16 +189,16 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     auto access_token = jwt_manager_.create_access_token(user_id, email);
     if (access_token.empty())
     {
-        spdlog::error("[AuthService] Failed to create access token (user_id: {})", user_id);
+        logger_.error("Failed to create access token (user_id: {})", user_id);
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
-    log_debug("on_login: access token issued (user_id={})", user_id);
+    logger_.debug("on_login: access token issued (user_id={})", user_id);
 
     // --- Step 6: Opaque refresh token generation ---
     auto refresh_token_result = generate_secure_token();
     if (!refresh_token_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to generate refresh token (CSPRNG failure)");
+        logger_.error("Failed to generate refresh token (CSPRNG failure)");
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_INTERNAL_ERROR);
     }
     auto& refresh_token = *refresh_token_result;
@@ -216,8 +214,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
 
     if (!rt_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to store refresh token in PG: {}",
-                      apex::core::error_code_name(rt_result.error()));
+        logger_.error("Failed to store refresh token in PG: {}", apex::core::error_code_name(rt_result.error()));
         // Non-fatal: login still succeeds, refresh may fail later
     }
 
@@ -229,8 +226,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     auto session_result = co_await session_store_->set(user_id, session_data);
     if (!session_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to create Redis session: {}",
-                      apex::core::error_code_name(session_result.error()));
+        logger_.error("Failed to create Redis session: {}", apex::core::error_code_name(session_result.error()));
         // Non-fatal: login still succeeds
     }
 
@@ -239,7 +235,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     auto user_session_result = co_await session_store_->set_user_session_id(user_id, meta.session_id);
     if (!user_session_result.has_value())
     {
-        spdlog::error("[AuthService] set_user_session_id failed for user_id={}: {}", user_id,
+        logger_.error("set_user_session_id failed for user_id={}: {}", user_id,
                       apex::core::error_code_name(user_session_result.error()));
     }
 
@@ -254,7 +250,7 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
     send_response(msg_ids::LOGIN_RESPONSE, meta.corr_id, meta.core_id, meta.session_id,
                   {builder.GetBufferPointer(), builder.GetSize()}, {});
 
-    spdlog::info("[AuthService] Login success (user_id: {}, email: {})", user_id, email);
+    logger_.info("Login success (user_id: {}, email: {})", user_id, email);
     co_return apex::core::ok();
 }
 
@@ -274,13 +270,13 @@ AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_
     // co_await 전에 로컬 복사
     auto access_token = std::string(req->access_token()->string_view());
 
-    spdlog::info("[AuthService] on_logout (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
+    logger_.info("on_logout (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
 
     // --- Step 1: JWT verification — extract claims ---
     auto verify_result = jwt_manager_.verify_access_token(access_token);
     if (!verify_result.has_value())
     {
-        spdlog::warn("[AuthService] Logout failed: invalid token");
+        logger_.warn("Logout failed: invalid token");
         co_return co_await send_logout_error(meta, apex::auth_svc::schemas::LogoutError_INVALID_TOKEN);
     }
 
@@ -293,8 +289,7 @@ AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_
         auto bl_result = co_await session_store_->blacklist_token(claims.jti, remaining);
         if (!bl_result.has_value())
         {
-            spdlog::error("[AuthService] Failed to blacklist token: {}",
-                          apex::core::error_code_name(bl_result.error()));
+            logger_.error("Failed to blacklist token: {}", apex::core::error_code_name(bl_result.error()));
             // Non-fatal: proceed with logout
         }
     }
@@ -303,14 +298,14 @@ AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_
     auto remove_result = co_await session_store_->remove(claims.user_id);
     if (!remove_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to remove session: {}", apex::core::error_code_name(remove_result.error()));
+        logger_.error("Failed to remove session: {}", apex::core::error_code_name(remove_result.error()));
         // Non-fatal: token is blacklisted, session will expire naturally
     }
     // Also remove session:user:{uid} mapping
     auto remove_user_session = co_await session_store_->remove_user_session_id(claims.user_id);
     if (!remove_user_session.has_value())
     {
-        spdlog::error("[AuthService] remove_user_session_id failed for user_id={}: {}", claims.user_id,
+        logger_.error("remove_user_session_id failed for user_id={}: {}", claims.user_id,
                       apex::core::error_code_name(remove_user_session.error()));
     }
 
@@ -321,7 +316,7 @@ AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_
     send_response(msg_ids::LOGOUT_RESPONSE, meta.corr_id, meta.core_id, meta.session_id,
                   {builder.GetBufferPointer(), builder.GetSize()}, {});
 
-    spdlog::info("[AuthService] Logout success (user_id: {})", claims.user_id);
+    logger_.info("Logout success (user_id: {})", claims.user_id);
     co_return apex::core::ok();
 }
 
@@ -335,7 +330,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
 {
     namespace rt_schemas = apex::shared::schemas;
 
-    spdlog::info("[AuthService] on_refresh_token (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
+    logger_.info("on_refresh_token (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
 
     if (!req->refresh_token())
     {
@@ -354,15 +349,14 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
 
     if (!lookup_result.has_value())
     {
-        spdlog::error("[AuthService] PG query failed for refresh token: {}",
-                      apex::core::error_code_name(lookup_result.error()));
+        logger_.error("PG query failed for refresh token: {}", apex::core::error_code_name(lookup_result.error()));
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
     auto& pg_res = *lookup_result;
     if (pg_res.row_count() == 0)
     {
-        spdlog::warn("[AuthService] Refresh token not found");
+        logger_.warn("Refresh token not found");
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_TOKEN_INVALID);
     }
 
@@ -373,21 +367,21 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
         auto [ptr, ec] = std::from_chars(user_id_str.data(), user_id_str.data() + user_id_str.size(), user_id);
         if (ec != std::errc{})
         {
-            spdlog::error("[AuthService] Failed to parse user_id in refresh: '{}'", user_id_str);
+            logger_.error("Failed to parse user_id in refresh: '{}'", user_id_str);
             co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
         }
     }
     bool is_revoked = !pg_res.is_null(0, 1); // revoked_at != NULL
     auto token_family_sv = pg_res.value(0, 3);
     auto token_family = std::string(token_family_sv);
-    log_trace("on_refresh_token: PG lookup success (user_id={}, revoked={})", user_id, is_revoked);
+    logger_.trace("on_refresh_token: PG lookup success (user_id={}, revoked={})", user_id, is_revoked);
 
     // --- Step 3: Reuse Detection ---
     // If this token has already been revoked, it's a reuse attempt.
     // Revoke ALL tokens in the same family for security.
     if (is_revoked)
     {
-        spdlog::warn("[AuthService] Refresh token reuse detected! "
+        logger_.warn("Refresh token reuse detected! "
                      "Revoking entire token family (user_id: {})",
                      user_id);
         // Revoke all tokens in this family
@@ -397,21 +391,20 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
                                                 family_params);
         if (!revoke_all.has_value())
         {
-            spdlog::warn("[AuthService] Best-effort revoke_all failed: {}",
-                         apex::core::error_code_name(revoke_all.error()));
+            logger_.warn("Best-effort revoke_all failed: {}", apex::core::error_code_name(revoke_all.error()));
         }
 
         // Also remove Redis sessions for safety
         auto remove_result = co_await session_store_->remove(user_id);
         if (!remove_result.has_value())
         {
-            spdlog::error("[AuthService] Failed to remove session during reuse detection (user_id={}): {}", user_id,
+            logger_.error("Failed to remove session during reuse detection (user_id={}): {}", user_id,
                           apex::core::error_code_name(remove_result.error()));
         }
         auto remove_user_sid = co_await session_store_->remove_user_session_id(user_id);
         if (!remove_user_sid.has_value())
         {
-            spdlog::error("[AuthService] remove_user_session_id failed for user_id={}: {}", user_id,
+            logger_.error("remove_user_session_id failed for user_id={}: {}", user_id,
                           apex::core::error_code_name(remove_user_sid.error()));
         }
 
@@ -427,14 +420,13 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
 
     if (!expiry_result.has_value())
     {
-        spdlog::error("[AuthService] PG expiry check query failed: {}",
-                      apex::core::error_code_name(expiry_result.error()));
+        logger_.error("PG expiry check query failed: {}", apex::core::error_code_name(expiry_result.error()));
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
     if (expiry_result->row_count() > 0)
     {
-        spdlog::warn("[AuthService] Refresh token expired (user_id: {})", user_id);
+        logger_.warn("Refresh token expired (user_id: {})", user_id);
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_TOKEN_EXPIRED);
     }
 
@@ -445,15 +437,14 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
         co_await pg_->execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1", revoke_params);
     if (!revoke_result.has_value())
     {
-        spdlog::warn("[AuthService] Best-effort revoke_result failed: {}",
-                     apex::core::error_code_name(revoke_result.error()));
+        logger_.warn("Best-effort revoke_result failed: {}", apex::core::error_code_name(revoke_result.error()));
     }
 
     // Generate new refresh token
     auto new_rt_result = generate_secure_token();
     if (!new_rt_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to generate new refresh token");
+        logger_.error("Failed to generate new refresh token");
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
     auto& new_refresh_token = *new_rt_result;
@@ -469,8 +460,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
                               insert_params);
     if (!insert_result.has_value())
     {
-        spdlog::error("[AuthService] Failed to insert new refresh token: {}",
-                      apex::core::error_code_name(insert_result.error()));
+        logger_.error("Failed to insert new refresh token: {}", apex::core::error_code_name(insert_result.error()));
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
@@ -486,17 +476,17 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     }
     if (user_email.empty())
     {
-        spdlog::error("[AuthService] Failed to retrieve email for user_id={} during refresh", user_id);
+        logger_.error("Failed to retrieve email for user_id={} during refresh", user_id);
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
 
     auto new_access_token = jwt_manager_.create_access_token(user_id, user_email);
     if (new_access_token.empty())
     {
-        spdlog::error("[AuthService] Failed to create access token for refresh (user_id: {})", user_id);
+        logger_.error("Failed to create access token for refresh (user_id: {})", user_id);
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
     }
-    log_debug("on_refresh_token: new access token issued (user_id={})", user_id);
+    logger_.debug("on_refresh_token: new access token issued (user_id={})", user_id);
 
     // Update Redis session
     auto session_data = std::format(
@@ -505,7 +495,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     auto session_set = co_await session_store_->set(user_id, session_data);
     if (!session_set.has_value())
     {
-        spdlog::error("[AuthService] Failed to update Redis session during refresh: {}",
+        logger_.error("Failed to update Redis session during refresh: {}",
                       apex::core::error_code_name(session_set.error()));
         // Non-fatal: refresh still succeeds
     }
@@ -513,7 +503,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     auto refresh_user_session = co_await session_store_->set_user_session_id(user_id, meta.session_id);
     if (!refresh_user_session.has_value())
     {
-        spdlog::error("[AuthService] set_user_session_id failed for user_id={}: {}", user_id,
+        logger_.error("set_user_session_id failed for user_id={}: {}", user_id,
                       apex::core::error_code_name(refresh_user_session.error()));
     }
 
@@ -528,7 +518,7 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     send_response(msg_ids::REFRESH_TOKEN_RESPONSE, meta.corr_id, meta.core_id, meta.session_id,
                   {builder.GetBufferPointer(), builder.GetSize()}, {});
 
-    spdlog::info("[AuthService] Refresh token rotated (user_id: {})", user_id);
+    logger_.info("Refresh token rotated (user_id: {})", user_id);
     co_return apex::core::ok();
 }
 
@@ -557,8 +547,7 @@ void AuthService::send_response(uint32_t msg_id, uint64_t corr_id, uint16_t core
 
     if (!result.has_value())
     {
-        spdlog::error("[AuthService] Failed to produce response to '{}' (msg_id: {}, corr_id: {})", target_topic,
-                      msg_id, corr_id);
+        logger_.error("Failed to produce response to '{}' (msg_id: {}, corr_id: {})", target_topic, msg_id, corr_id);
     }
 }
 
