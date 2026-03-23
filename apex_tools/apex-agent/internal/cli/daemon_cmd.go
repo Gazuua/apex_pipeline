@@ -76,6 +76,7 @@ func daemonRunCmd() *cobra.Command {
 				PIDFilePath: platform.PIDFilePath(),
 				SocketAddr:  appCfg.Daemon.SocketPath,
 				IdleTimeout: appCfg.Daemon.IdleTimeout,
+				HTTP:        appCfg.HTTP,
 			}
 			// Fill empty values with platform defaults
 			if daemonCfg.DBPath == "" {

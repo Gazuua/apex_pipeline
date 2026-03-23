@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/httpd"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -23,6 +25,7 @@ type Config struct {
 	PIDFilePath string
 	SocketAddr  string
 	IdleTimeout time.Duration
+	HTTP        config.HTTPConfig
 }
 
 type Daemon struct {
@@ -30,6 +33,7 @@ type Daemon struct {
 	store      *store.Store
 	router     *Router
 	server     *ipc.Server
+	httpServer *httpd.Server
 	modules    []Module
 	shutdownCh chan struct{}
 }
@@ -119,6 +123,17 @@ func (d *Daemon) Run(ctx context.Context) error {
 	serverDone := make(chan error, 1)
 	go func() { serverDone <- d.server.Serve(serverCtx) }()
 
+	// 5b. Start HTTP server (optional).
+	if d.cfg.HTTP.Enabled && d.cfg.HTTP.Addr != "" {
+		d.httpServer = httpd.New(d.store, d.router, d.cfg.HTTP.Addr)
+		if err := d.httpServer.Start(); err != nil {
+			ml.Warn("HTTP server failed to start, dashboard unavailable", "error", err)
+			d.httpServer = nil
+		} else {
+			ml.Info("HTTP server started", "addr", d.httpServer.Addr())
+		}
+	}
+
 	ml.Info("daemon started",
 		"pid", os.Getpid(),
 		"socket", d.cfg.SocketAddr,
@@ -141,6 +156,11 @@ func (d *Daemon) Run(ctx context.Context) error {
 			goto shutdown
 		case <-idleTicker.C:
 			last := d.server.LastRequestTime()
+			if d.httpServer != nil {
+				if httpLast := d.httpServer.LastRequestTime(); httpLast > last {
+					last = httpLast
+				}
+			}
 			if last == 0 {
 				last = startTime
 			}
@@ -152,6 +172,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 shutdown:
+	// Graceful shutdown: HTTP → IPC → Modules
+	if d.httpServer != nil {
+		if err := d.httpServer.Stop(); err != nil {
+			ml.Warn("HTTP server stop error", "error", err)
+		}
+	}
+
 	serverCancel()
 	<-serverDone
 

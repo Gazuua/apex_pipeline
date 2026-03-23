@@ -4,20 +4,25 @@ package httpd
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
 
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+// Dispatcher routes requests to module handlers (satisfied by daemon.Router).
+type Dispatcher interface {
+	Dispatch(ctx context.Context, module, action string, params json.RawMessage, workspace string) (any, error)
+}
 
 // Server is the HTTP dashboard server embedded in the daemon.
 type Server struct {
 	store       *store.Store
-	router      *daemon.Router
+	router      Dispatcher
 	httpSrv     *http.Server
 	listener    net.Listener
 	lastRequest atomic.Int64
@@ -26,7 +31,7 @@ type Server struct {
 }
 
 // New creates a new HTTP server. store and router may be nil for health-only mode.
-func New(st *store.Store, router *daemon.Router, addr string) *Server {
+func New(st *store.Store, router Dispatcher, addr string) *Server {
 	s := &Server{
 		store:  st,
 		router: router,
