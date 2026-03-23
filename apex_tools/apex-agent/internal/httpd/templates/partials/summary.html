@@ -1,0 +1,28 @@
+{{define "partial-summary"}}
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-value val-green">{{if .Summary}}{{.Summary.BacklogOpen}}{{else}}0{{end}}</div>
+    <div class="stat-label">Open</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value val-amber">{{if .Summary}}{{.Summary.BacklogFixing}}{{else}}0{{end}}</div>
+    <div class="stat-label">Fixing</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value val-blue">{{if .Summary}}{{.Summary.BacklogResolved}}{{else}}0{{end}}</div>
+    <div class="stat-label">Resolved</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value val-purple">{{if .Summary}}{{.Summary.ActiveBranches}}{{else}}0{{end}}</div>
+    <div class="stat-label">Active Branches</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value val-red">{{if .Summary}}{{.Summary.CriticalCount}}{{else}}0{{end}}</div>
+    <div class="stat-label">Critical</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value val-amber">{{if .Summary}}{{.Summary.MajorCount}}{{else}}0{{end}}</div>
+    <div class="stat-label">Major</div>
+  </div>
+</div>
+{{end}}

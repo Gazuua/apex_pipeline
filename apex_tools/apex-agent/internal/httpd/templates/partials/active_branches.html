@@ -1,0 +1,15 @@
+{{define "partial-active-branches"}}
+{{if .Branches}}
+{{range .Branches}}
+<div class="tl-item">
+  <div class="tl-title">{{.GitBranch}}</div>
+  <div class="tl-meta">
+    <span class="badge badge-{{if eq .Status "implementing"}}green{{else if eq .Status "started"}}amber{{else}}purple{{end}}">{{.Status}}</span>
+    {{if .Summary}} — {{.Summary}}{{end}}
+  </div>
+</div>
+{{end}}
+{{else}}
+<div class="empty-state">No active branches</div>
+{{end}}
+{{end}}

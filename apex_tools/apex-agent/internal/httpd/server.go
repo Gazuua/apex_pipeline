@@ -26,7 +26,7 @@ type Server struct {
 	httpSrv     *http.Server
 	listener    net.Listener
 	lastRequest atomic.Int64
-	tmpl        *template.Template
+	pages       map[string]*template.Template
 	addr        string
 }
 
@@ -40,6 +40,13 @@ func New(st *store.Store, router Dispatcher, addr string) *Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(StaticSubFS())))
+
+	// Load templates (non-fatal — health/static still work without them).
+	if err := s.InitTemplates(); err != nil {
+		// Templates will be nil; renderPage/renderPartial return error banners.
+		_ = err
+	}
 
 	s.httpSrv = &http.Server{
 		Handler:      s.idleResetMiddleware(mux),

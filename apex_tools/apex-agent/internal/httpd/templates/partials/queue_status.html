@@ -1,0 +1,15 @@
+{{define "partial-queue-status"}}
+{{if .Queue}}
+{{range .Queue}}
+<div class="lock-card">
+  <div class="lock-indicator {{if .Locked}}locked{{else}}free{{end}}"></div>
+  <div>
+    <div style="font-weight:600">{{.Channel}}</div>
+    <div class="tl-meta">{{if .Locked}}Locked by {{.Owner}} ({{.LockedAt}}){{else}}Free{{end}}</div>
+  </div>
+</div>
+{{end}}
+{{else}}
+<div class="empty-state">No queue channels</div>
+{{end}}
+{{end}}

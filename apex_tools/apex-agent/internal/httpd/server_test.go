@@ -4,7 +4,9 @@ package httpd
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -55,6 +57,45 @@ func TestServer_LastRequestTime(t *testing.T) {
 	last := srv.LastRequestTime()
 	if last < before || last > after {
 		t.Fatalf("LastRequestTime %d not in [%d, %d]", last, before, after)
+	}
+}
+
+func TestServer_StaticFiles(t *testing.T) {
+	srv := New(nil, nil, "localhost:0")
+	if err := srv.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer srv.Stop()
+
+	resp, err := http.Get("http://" + srv.Addr() + "/static/htmx.min.js")
+	if err != nil {
+		t.Fatalf("GET /static/htmx.min.js failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "htmx") {
+		t.Fatal("response doesn't contain htmx")
+	}
+}
+
+func TestServer_StaticCSS(t *testing.T) {
+	srv := New(nil, nil, "localhost:0")
+	if err := srv.Start(); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+	defer srv.Stop()
+
+	resp, err := http.Get("http://" + srv.Addr() + "/static/style.css")
+	if err != nil {
+		t.Fatalf("GET /static/style.css failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 }
 
