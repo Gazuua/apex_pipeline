@@ -4,7 +4,9 @@ package workflow
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 )
@@ -103,10 +105,14 @@ func MergePipeline(params map[string]any,
 // autoCommitExport stages and commits backlog export results.
 // No-op if there are no changes to commit.
 func autoCommitExport(projectRoot string) error {
-	// Stage
-	if out, err := exec.Command("git", "-C", projectRoot, "add",
-		"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md").CombinedOutput(); err != nil {
-		return fmt.Errorf("git add: %w\n%s", err, out)
+	// Stage — 존재하는 파일만 add (HISTORY가 없을 수 있음)
+	for _, f := range []string{"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md"} {
+		if _, statErr := os.Stat(filepath.Join(projectRoot, f)); statErr != nil {
+			continue
+		}
+		if out, err := exec.Command("git", "-C", projectRoot, "add", f).CombinedOutput(); err != nil {
+			return fmt.Errorf("git add %s: %w\n%s", f, err, out)
+		}
 	}
 
 	// Check if anything staged
@@ -121,10 +127,10 @@ func autoCommitExport(projectRoot string) error {
 		return fmt.Errorf("git commit: %w\n%s", err, out)
 	}
 
-	// Push
+	// Push (best-effort — 에이전트가 push --force-with-lease를 별도 실행할 수 있음)
 	if out, err := exec.Command("git", "-C", projectRoot,
 		"push").CombinedOutput(); err != nil {
-		return fmt.Errorf("git push: %w\n%s", err, out)
+		ml.Warn("autoCommitExport push 실패 (수동 push 필요)", "err", err, "output", string(out))
 	}
 
 	ml.Info("backlog export 자동 커밋+푸시 완료")
