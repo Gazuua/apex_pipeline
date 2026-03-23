@@ -670,6 +670,84 @@ func TestUpdate_NotFound(t *testing.T) {
 	}
 }
 
+func TestUpdate_EmptyFields(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{})
+	if err == nil {
+		t.Fatal("expected error for empty fields map")
+	}
+}
+
+func TestUpdate_UnknownField(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"nonexistent": "value"})
+	if err == nil {
+		t.Fatal("expected error for unknown field")
+	}
+}
+
+func TestUpdate_ScopeField(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"scope": "CORE"})
+	if err != nil {
+		t.Fatalf("Update scope: %v", err)
+	}
+
+	got, _ := mgr.Get(1)
+	if got.Scope != "CORE" {
+		t.Errorf("expected scope=CORE, got %s", got.Scope)
+	}
+}
+
+func TestUpdate_RelatedField(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"related": "42,99"})
+	if err != nil {
+		t.Fatalf("Update related: %v", err)
+	}
+
+	got, _ := mgr.Get(1)
+	if got.Related != "42,99" {
+		t.Errorf("expected related=42,99, got %s", got.Related)
+	}
+}
+
 func TestUpdate_InvalidEnum(t *testing.T) {
 	s := setupTestDB(t)
 	defer s.Close()
@@ -684,5 +762,66 @@ func TestUpdate_InvalidEnum(t *testing.T) {
 	err := mgr.Update(1, map[string]string{"severity": "INVALID"})
 	if err == nil {
 		t.Fatal("expected error for invalid severity")
+	}
+}
+
+func TestUpdate_InvalidScope(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"scope": "INVALID_SCOPE"})
+	if err == nil {
+		t.Fatal("expected error for invalid scope")
+	}
+}
+
+func TestUpdate_PositionReorder(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	// 3개 항목: position 1, 2, 3
+	mgr.Add(&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
+	mgr.Add(&BacklogItem{ID: 2, Title: "B", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "b"})
+	mgr.Add(&BacklogItem{ID: 3, Title: "C", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "c"})
+
+	// item 3을 position 1로 이동 → 기존 1,2가 2,3으로 밀림
+	err := mgr.Update(3, map[string]string{"position": "1"})
+	if err != nil {
+		t.Fatalf("Update position: %v", err)
+	}
+
+	items, _ := mgr.List(ListFilter{Timeframe: "NOW", Status: "OPEN"})
+	if len(items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(items))
+	}
+	// position 순: C(1), A(2), B(3)
+	if items[0].ID != 3 || items[1].ID != 1 || items[2].ID != 2 {
+		t.Errorf("reorder failed: got IDs %d,%d,%d (expected 3,1,2)",
+			items[0].ID, items[1].ID, items[2].ID)
+	}
+}
+
+func TestUpdate_PositionInvalid(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
+
+	err := mgr.Update(1, map[string]string{"position": "0"})
+	if err == nil {
+		t.Fatal("expected error for position=0")
+	}
+	err = mgr.Update(1, map[string]string{"position": "abc"})
+	if err == nil {
+		t.Fatal("expected error for non-numeric position")
 	}
 }

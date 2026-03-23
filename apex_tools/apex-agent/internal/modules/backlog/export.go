@@ -157,7 +157,11 @@ func (mgr *Manager) ExportHistory(existingHistory string) (string, error) {
 		return existingHistory + "\n" + marker + "\n\n" + insertion.String(), nil
 	}
 
-	insertPos := idx + len(marker) + 1
+	insertPos := idx + len(marker)
+	// 마커 뒤 개행이 있으면 포함, 없으면 마커 직후에 삽입
+	if insertPos < len(existingHistory) && existingHistory[insertPos] == '\n' {
+		insertPos++
+	}
 	return existingHistory[:insertPos] + "\n" + insertion.String() + existingHistory[insertPos:], nil
 }
 

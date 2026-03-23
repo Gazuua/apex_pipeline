@@ -162,6 +162,16 @@ func TestValidateBacklog_AllowsSubdirBacklog(t *testing.T) {
 	}
 }
 
+func TestValidateBacklog_CaseSensitiveAllowsLowercase(t *testing.T) {
+	// Current implementation is case-sensitive: lowercase variants pass through.
+	// On case-insensitive filesystems (Windows), this means "backlog.md" bypasses the hook.
+	// This test documents the current behavior.
+	err := ValidateBacklog("/project/docs/backlog.md")
+	if err != nil {
+		t.Errorf("lowercase backlog.md is currently allowed (case-sensitive match), got: %v", err)
+	}
+}
+
 func TestValidateBacklog_WindowsPath(t *testing.T) {
 	err := ValidateBacklog(`D:\project\docs\BACKLOG.md`)
 	if err == nil {

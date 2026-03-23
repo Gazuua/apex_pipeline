@@ -118,6 +118,26 @@ func TestExport_ResolvedExcluded(t *testing.T) {
 	}
 }
 
+func TestExport_FixingItemIncluded(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "작업 중 이슈", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "진행 중",
+	})
+	mgr.SetStatus(1, "FIXING")
+
+	out, err := mgr.Export()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "### #1. 작업 중 이슈") {
+		t.Error("FIXING item should be included in export")
+	}
+}
+
 func TestExport_RelatedFormatting(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
@@ -242,6 +262,29 @@ func TestExportHistory_NoMarker(t *testing.T) {
 	}
 }
 
+func TestExportHistory_MarkerNoTrailingNewline(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "이슈", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+	mgr.Resolve(1, "FIXED")
+
+	// 마커 뒤에 \n 없이 EOF
+	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->"
+
+	result, err := mgr.ExportHistory(existingHistory)
+	if err != nil {
+		t.Fatalf("ExportHistory: %v", err)
+	}
+	if !strings.Contains(result, "이슈") {
+		t.Error("should contain resolved item")
+	}
+}
+
 func TestExportHistory_NoResolved(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
@@ -260,6 +303,55 @@ func TestExportHistory_NoResolved(t *testing.T) {
 	}
 	if result != existingHistory {
 		t.Errorf("should not modify history when no resolved items\ngot: %q", result)
+	}
+}
+
+func TestExportHistory_EmptyExistingHistory(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "새 이슈", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+	mgr.Resolve(1, "FIXED")
+
+	result, err := mgr.ExportHistory("")
+	if err != nil {
+		t.Fatalf("ExportHistory with empty input: %v", err)
+	}
+	if !strings.Contains(result, "<!-- NEW_ENTRY_BELOW -->") {
+		t.Error("should insert marker into empty history")
+	}
+	if !strings.Contains(result, "새 이슈") {
+		t.Error("should contain resolved item")
+	}
+}
+
+func TestExportHistory_MarkerOnlyHistory(t *testing.T) {
+	s, mgr := setupExportTestDB(t)
+	defer s.Close()
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "이슈", Severity: "MINOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "설명",
+	})
+	mgr.Resolve(1, "FIXED")
+
+	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n"
+
+	result, err := mgr.ExportHistory(existingHistory)
+	if err != nil {
+		t.Fatalf("ExportHistory: %v", err)
+	}
+	if !strings.Contains(result, "이슈") {
+		t.Error("should contain resolved item after marker-only history")
+	}
+	// Marker should still be present
+	if !strings.Contains(result, "<!-- NEW_ENTRY_BELOW -->") {
+		t.Error("marker should be preserved")
 	}
 }
 

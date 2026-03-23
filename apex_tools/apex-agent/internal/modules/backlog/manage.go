@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -378,6 +379,7 @@ var allowedUpdateFields = map[string]string{
 	"type":        "type",
 	"description": "description",
 	"related":     "related",
+	"position":    "position",
 }
 
 // Update modifies specified fields of an existing item.
@@ -408,6 +410,38 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 	if v, ok := fields["type"]; ok {
 		if err := ValidateType(v); err != nil {
 			return err
+		}
+	}
+	if v, ok := fields["scope"]; ok {
+		if err := ValidateScope(v); err != nil {
+			return err
+		}
+	}
+
+	// position 재배치: 같은 timeframe 내 다른 항목들을 밀어줌
+	if newPosStr, ok := fields["position"]; ok {
+		newPos, convErr := strconv.Atoi(newPosStr)
+		if convErr != nil || newPos < 1 {
+			return fmt.Errorf("position must be a positive integer: %s", newPosStr)
+		}
+		// timeframe 동시 변경 여부 확인
+		targetTimeframe := ""
+		if tf, tfOK := fields["timeframe"]; tfOK {
+			targetTimeframe = tf
+		} else {
+			item, getErr := m.Get(id)
+			if getErr != nil {
+				return getErr
+			}
+			targetTimeframe = item.Timeframe
+		}
+		// 같은 timeframe 내에서 newPos 이상인 항목들의 position을 +1
+		if _, shiftErr := m.q.Exec(`
+			UPDATE backlog_items
+			SET position = position + 1
+			WHERE timeframe = ? AND position >= ? AND id != ? AND status != ?`,
+			targetTimeframe, newPos, id, StatusResolved); shiftErr != nil {
+			return fmt.Errorf("reorder position: %w", shiftErr)
 		}
 	}
 

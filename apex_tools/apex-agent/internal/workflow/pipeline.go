@@ -104,8 +104,10 @@ func MergePipeline(params map[string]any,
 // No-op if there are no changes to commit.
 func autoCommitExport(projectRoot string) error {
 	// Stage
-	exec.Command("git", "-C", projectRoot, "add",
-		"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md").Run()
+	if out, err := exec.Command("git", "-C", projectRoot, "add",
+		"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md").CombinedOutput(); err != nil {
+		return fmt.Errorf("git add: %w\n%s", err, out)
+	}
 
 	// Check if anything staged
 	if err := exec.Command("git", "-C", projectRoot,
