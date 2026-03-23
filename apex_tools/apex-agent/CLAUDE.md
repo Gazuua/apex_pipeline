@@ -59,6 +59,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)
+- **idle timeout 30분** — 마지막 IPC 요청 후 30분간 요청 없으면 자동 종료. 설계 논의 등 장시간 IPC 미사용 후 hook 실패 시 `daemon start`로 재시작
 - **데몬 죽으면 모든 hook 차단** — "핸드오프 미등록" 에러가 나오면 `daemon start`부터 실행. IPC 파이프가 없으면 handoff-probe/validate-handoff 모두 실패
 
 ### 모듈 등록 순서
