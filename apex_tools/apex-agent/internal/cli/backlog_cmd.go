@@ -24,6 +24,7 @@ func backlogCmd() *cobra.Command {
 		Short: "백로그 관리",
 	}
 	cmd.AddCommand(backlogAddCmd())
+	cmd.AddCommand(backlogShowCmd())
 	cmd.AddCommand(backlogListCmd())
 	cmd.AddCommand(backlogResolveCmd())
 	cmd.AddCommand(backlogExportCmd())
@@ -99,6 +100,81 @@ func backlogAddCmd() *cobra.Command {
 	return cmd
 }
 
+// ── backlog show ──
+
+func backlogShowCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show <ID>",
+		Short: "백로그 항목 상세 조회",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			resp, err := sendBacklogRequest("get", map[string]any{"id": json.Number(id)})
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			if resp.Error != "" {
+				return fmt.Errorf("backlog show: %s", resp.Error)
+			}
+			if resp.Data == nil || string(resp.Data) == "null" {
+				return fmt.Errorf("backlog item %s not found", id)
+			}
+			var item struct {
+				ID          int    `json:"id"`
+				Title       string `json:"title"`
+				Severity    string `json:"severity"`
+				Timeframe   string `json:"timeframe"`
+				Scope       string `json:"scope"`
+				Type        string `json:"type"`
+				Description string `json:"description"`
+				Related     string `json:"related"`
+				Status      string `json:"status"`
+				Resolution  string `json:"resolution"`
+				ResolvedAt  string `json:"resolved_at"`
+				CreatedAt   string `json:"created_at"`
+				UpdatedAt   string `json:"updated_at"`
+			}
+			if err := json.Unmarshal(resp.Data, &item); err != nil {
+				return fmt.Errorf("parse response: %w", err)
+			}
+
+			fmt.Printf("ID:          %d\n", item.ID)
+			fmt.Printf("Title:       %s\n", item.Title)
+			fmt.Printf("Severity:    %s\n", item.Severity)
+			fmt.Printf("Timeframe:   %s\n", item.Timeframe)
+			fmt.Printf("Scope:       %s\n", item.Scope)
+			fmt.Printf("Type:        %s\n", item.Type)
+			fmt.Printf("Status:      %s\n", item.Status)
+			if item.Related != "" {
+				// "50,89" → "#50, #89"
+				parts := strings.Split(item.Related, ",")
+				var refs []string
+				for _, p := range parts {
+					p = strings.TrimSpace(p)
+					if p != "" {
+						refs = append(refs, "#"+p)
+					}
+				}
+				fmt.Printf("Related:     %s\n", strings.Join(refs, ", "))
+			}
+			if item.Resolution != "" {
+				fmt.Printf("Resolution:  %s\n", item.Resolution)
+			}
+			if item.ResolvedAt != "" {
+				fmt.Printf("Resolved:    %s\n", item.ResolvedAt)
+			}
+			fmt.Printf("Created:     %s\n", item.CreatedAt)
+			fmt.Printf("Updated:     %s\n", item.UpdatedAt)
+			fmt.Printf("Description:\n")
+			// Indent description lines
+			for _, line := range strings.Split(item.Description, "\n") {
+				fmt.Printf("  %s\n", line)
+			}
+			return nil
+		},
+	}
+}
+
 // ── backlog list ──
 
 func backlogListCmd() *cobra.Command {
@@ -106,6 +182,7 @@ func backlogListCmd() *cobra.Command {
 		timeframe string
 		severity  string
 		status    string
+		verbose   bool
 	)
 
 	cmd := &cobra.Command{
@@ -125,14 +202,14 @@ func backlogListCmd() *cobra.Command {
 				return fmt.Errorf("backlog list: %s", resp.Error)
 			}
 			var items []struct {
-				ID          int    `json:"ID"`
-				Title       string `json:"Title"`
-				Severity    string `json:"Severity"`
-				Timeframe   string `json:"Timeframe"`
-				Scope       string `json:"Scope"`
-				Type        string `json:"Type"`
-				Description string `json:"Description"`
-				Status      string `json:"Status"`
+				ID          int    `json:"id"`
+				Title       string `json:"title"`
+				Severity    string `json:"severity"`
+				Timeframe   string `json:"timeframe"`
+				Scope       string `json:"scope"`
+				Type        string `json:"type"`
+				Description string `json:"description"`
+				Status      string `json:"status"`
 			}
 			if err := json.Unmarshal(resp.Data, &items); err != nil {
 				return fmt.Errorf("parse response: %w", err)
@@ -147,6 +224,17 @@ func backlogListCmd() *cobra.Command {
 			for _, item := range items {
 				fmt.Printf("%-6d %-10s %-10s %-10s %-10s %s\n",
 					item.ID, item.Severity, item.Timeframe, item.Scope, item.Type, item.Title)
+				if verbose && item.Description != "" {
+					// Show first line of description, indented
+					firstLine := item.Description
+					if idx := strings.Index(firstLine, "\n"); idx > 0 {
+						firstLine = firstLine[:idx]
+					}
+					if len(firstLine) > 80 {
+						firstLine = firstLine[:77] + "..."
+					}
+					fmt.Printf("       %s\n", firstLine)
+				}
 			}
 			return nil
 		},
@@ -155,6 +243,7 @@ func backlogListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&timeframe, "timeframe", "", "필터: NOW, IN_VIEW, DEFERRED")
 	cmd.Flags().StringVar(&severity, "severity", "", "필터: CRITICAL, MAJOR, MINOR")
 	cmd.Flags().StringVar(&status, "status", "OPEN", "필터: OPEN, FIXING, RESOLVED")
+	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "description 첫 줄 표시")
 
 	return cmd
 }
@@ -222,9 +311,10 @@ func backlogExportCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "DB → BACKLOG.md + BACKLOG_HISTORY.md 동기화",
-		Long: `DB 내용을 docs/BACKLOG.md + BACKLOG_HISTORY.md에 직접 씁니다.
---stdout 플래그로 기존처럼 stdout 출력할 수 있습니다 (디버깅용).`,
+		Short: "DB → docs/BACKLOG.json 동기화",
+		Long: `DB 내용을 docs/BACKLOG.json에 직접 씁니다.
+레거시 BACKLOG.md/BACKLOG_HISTORY.md가 있으면 import 후 JSON으로 마이그레이션합니다.
+--stdout 플래그로 JSON을 stdout에 출력합니다 (디버깅용).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if stdout {
 				_, mgr, cleanup, err := openBacklogStore()
@@ -237,23 +327,31 @@ func backlogExportCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 				}
-				backlogPath := filepath.Join(root, "docs", "BACKLOG.md")
-				historyPath := filepath.Join(root, "docs", "BACKLOG_HISTORY.md")
-				backlogData, _ := os.ReadFile(backlogPath)
-				historyData, _ := os.ReadFile(historyPath)
+				jsonPath := filepath.Join(root, "docs", "BACKLOG.json")
+				backlogMDPath := filepath.Join(root, "docs", "BACKLOG.md")
+				historyMDPath := filepath.Join(root, "docs", "BACKLOG_HISTORY.md")
+				jsonData, _ := os.ReadFile(jsonPath)
+				legacyBacklogMD := ""
+				legacyHistoryMD := ""
+				if data, readErr := os.ReadFile(backlogMDPath); readErr == nil {
+					legacyBacklogMD = string(data)
+				}
+				if data, readErr := os.ReadFile(historyMDPath); readErr == nil {
+					legacyHistoryMD = string(data)
+				}
 
-				content, imported, err := mgr.SafeExport(string(backlogData), string(historyData))
+				out, imported, err := mgr.SafeExportJSON(jsonData, legacyBacklogMD, legacyHistoryMD)
 				if err != nil {
 					return err
 				}
 				if imported > 0 {
 					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
 				}
-				fmt.Fprint(os.Stdout, content)
+				fmt.Fprint(os.Stdout, string(out))
 				return nil
 			}
 
-			// 기본: 파일 직접 쓰기 (SyncExport)
+			// 기본: 파일 직접 쓰기 (SyncExport → JSON)
 			_, mgr, cleanup, err := openBacklogStore()
 			if err != nil {
 				return err
@@ -269,7 +367,7 @@ func backlogExportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("[export] docs/BACKLOG.md + BACKLOG_HISTORY.md 갱신 완료 (import: %d)\n", n)
+			fmt.Printf("[export] docs/BACKLOG.json 갱신 완료 (import: %d)\n", n)
 			return nil
 		},
 	}

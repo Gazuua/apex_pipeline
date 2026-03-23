@@ -17,20 +17,26 @@ var ml = log.WithModule("backlog")
 
 // BacklogItem represents a single entry in the backlog_items table.
 type BacklogItem struct {
-	ID          int
-	Title       string
-	Severity    string // CRITICAL, MAJOR, MINOR
-	Timeframe   string // NOW, IN_VIEW, DEFERRED
-	Scope       string
-	Type        string
-	Description string
-	Related     string
-	Position    int
-	Status      string // OPEN, FIXING, RESOLVED
-	Resolution  string
-	ResolvedAt  string
-	CreatedAt   string
-	UpdatedAt   string
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Severity    string `json:"severity"`             // CRITICAL, MAJOR, MINOR
+	Timeframe   string `json:"timeframe"`            // NOW, IN_VIEW, DEFERRED
+	Scope       string `json:"scope"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+	Related     string `json:"related,omitempty"`
+	Position    int    `json:"position"`
+	Status      string `json:"status"`               // OPEN, FIXING, RESOLVED
+	Resolution  string `json:"resolution,omitempty"`
+	ResolvedAt  string `json:"resolved_at,omitempty"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// BacklogJSON is the top-level structure for docs/BACKLOG.json.
+type BacklogJSON struct {
+	NextID int           `json:"next_id"`
+	Items  []BacklogItem `json:"items"`
 }
 
 // ListFilter specifies optional filters for List queries.
@@ -224,6 +230,54 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("List rows: %w", err)
+	}
+	return items, nil
+}
+
+// ListAll retrieves all backlog items ordered for JSON export:
+// OPEN items first (NOW → IN_VIEW → DEFERRED, by position),
+// then RESOLVED items (by resolved_at DESC).
+func (m *Manager) ListAll() ([]BacklogItem, error) {
+	query := `
+		SELECT id, title, severity, timeframe, scope, type, description,
+		       COALESCE(related, ''), position, status,
+		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
+		       created_at, updated_at
+		FROM backlog_items
+		ORDER BY
+			CASE status
+				WHEN 'OPEN'     THEN 1
+				WHEN 'FIXING'   THEN 1
+				WHEN 'RESOLVED' THEN 2
+				ELSE 3
+			END ASC,
+			CASE WHEN status != 'RESOLVED' THEN
+				CASE timeframe
+					WHEN 'NOW'      THEN 1
+					WHEN 'IN_VIEW'  THEN 2
+					WHEN 'DEFERRED' THEN 3
+					ELSE 4
+				END
+			ELSE 999 END ASC,
+			CASE WHEN status != 'RESOLVED' THEN position ELSE 0 END ASC,
+			CASE WHEN status = 'RESOLVED' THEN resolved_at ELSE NULL END DESC`
+
+	rows, err := m.q.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("ListAll: %w", err)
+	}
+	defer rows.Close()
+
+	var items []BacklogItem
+	for rows.Next() {
+		item, err := scanBacklogItem(rows)
+		if err != nil {
+			return nil, fmt.Errorf("ListAll scan: %w", err)
+		}
+		items = append(items, *item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ListAll rows: %w", err)
 	}
 	return items, nil
 }

@@ -3,9 +3,9 @@
 package workflow
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
@@ -38,6 +38,7 @@ func TestSyncImport_NewItems(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
 
+	// Legacy MD format — SyncImport should fall back to it
 	md := `# BACKLOG
 
 다음 발번: 3
@@ -82,6 +83,33 @@ func TestSyncImport_NewItems(t *testing.T) {
 	}
 	if status != "OPEN" {
 		t.Errorf("expected OPEN, got %s", status)
+	}
+}
+
+func TestSyncImport_JSON(t *testing.T) {
+	dir, mgr, cleanup := setupSyncTest(t)
+	defer cleanup()
+
+	data := backlog.BacklogJSON{
+		NextID: 3,
+		Items: []backlog.BacklogItem{
+			{ID: 1, Title: "JSON 이슈", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "JSON 설명", Status: "OPEN", Position: 1},
+			{ID: 2, Title: "두번째 JSON", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "CORE", Type: "PERF", Description: "설명2", Status: "OPEN", Position: 1},
+		},
+	}
+	jsonData, _ := json.MarshalIndent(data, "", "  ")
+	os.WriteFile(filepath.Join(dir, "docs", "BACKLOG.json"), jsonData, 0o644)
+
+	n, err := SyncImport(dir, mgr)
+	if err != nil {
+		t.Fatalf("SyncImport JSON: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("expected 2 imported, got %d", n)
+	}
+	exists, _, _ := mgr.Check(1)
+	if !exists {
+		t.Fatal("item #1 not found in DB")
 	}
 }
 
@@ -146,7 +174,7 @@ func TestSyncImport_Idempotent(t *testing.T) {
 
 // ── SyncExport ──
 
-func TestSyncExport_WritesFile(t *testing.T) {
+func TestSyncExport_WritesJSON(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
 
@@ -164,21 +192,24 @@ func TestSyncExport_WritesFile(t *testing.T) {
 		t.Fatalf("SyncExport: %v", err)
 	}
 
-	outPath := filepath.Join(dir, "docs", "BACKLOG.md")
+	outPath := filepath.Join(dir, "docs", "BACKLOG.json")
 	data, err := os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("read exported file: %v", err)
 	}
-	content := string(data)
-	if !strings.Contains(content, "테스트") {
-		t.Error("exported file should contain item title")
+	var exported backlog.BacklogJSON
+	if err := json.Unmarshal(data, &exported); err != nil {
+		t.Fatalf("unmarshal exported JSON: %v", err)
 	}
-	if !strings.Contains(content, "## NOW") {
-		t.Error("exported file should contain section headers")
+	if len(exported.Items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(exported.Items))
+	}
+	if exported.Items[0].Title != "테스트" {
+		t.Errorf("expected title '테스트', got %q", exported.Items[0].Title)
 	}
 }
 
-func TestSyncExport_WritesHistory(t *testing.T) {
+func TestSyncExport_IncludesResolved(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
 
@@ -189,17 +220,24 @@ func TestSyncExport_WritesHistory(t *testing.T) {
 	})
 	mgr.Resolve(1, "FIXED")
 
-	historyPath := filepath.Join(dir, "docs", "BACKLOG_HISTORY.md")
-	os.WriteFile(historyPath, []byte("# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n"), 0o644)
-
 	_, err := SyncExport(dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncExport: %v", err)
 	}
 
-	data, _ := os.ReadFile(historyPath)
-	if !strings.Contains(string(data), "해결됨") {
-		t.Error("HISTORY should contain resolved item")
+	outPath := filepath.Join(dir, "docs", "BACKLOG.json")
+	data, _ := os.ReadFile(outPath)
+	var exported backlog.BacklogJSON
+	json.Unmarshal(data, &exported)
+
+	if len(exported.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(exported.Items))
+	}
+	if exported.Items[0].Status != "RESOLVED" {
+		t.Error("resolved item should be in JSON export")
+	}
+	if exported.Items[0].Resolution != "FIXED" {
+		t.Error("resolution should be FIXED")
 	}
 }
 
@@ -215,15 +253,15 @@ func TestSyncExport_RoundTrip(t *testing.T) {
 	}
 	mgr.Add(item)
 
-	// Export → 파일 생성
+	// Export → JSON 파일 생성
 	SyncExport(dir, mgr)
 
 	// 새 DB로 import → 동일 항목 존재해야 함
 	dir2, mgr2, cleanup2 := setupSyncTest(t)
 	defer cleanup2()
 
-	exported, _ := os.ReadFile(filepath.Join(dir, "docs", "BACKLOG.md"))
-	os.WriteFile(filepath.Join(dir2, "docs", "BACKLOG.md"), exported, 0o644)
+	exported, _ := os.ReadFile(filepath.Join(dir, "docs", "BACKLOG.json"))
+	os.WriteFile(filepath.Join(dir2, "docs", "BACKLOG.json"), exported, 0o644)
 
 	n, err := SyncImport(dir2, mgr2)
 	if err != nil {
@@ -235,5 +273,56 @@ func TestSyncExport_RoundTrip(t *testing.T) {
 	exists, _, _ := mgr2.Check(42)
 	if !exists {
 		t.Error("item #42 not found after round-trip")
+	}
+}
+
+func TestSyncExport_MigrateLegacyMD(t *testing.T) {
+	dir, mgr, cleanup := setupSyncTest(t)
+	defer cleanup()
+
+	// Write legacy MD file
+	md := `# BACKLOG
+
+다음 발번: 2
+
+---
+
+## NOW
+
+### #1. 레거시 이슈
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: BUG
+- **설명**: 레거시 설명
+
+---
+
+## IN VIEW
+
+---
+
+## DEFERRED
+`
+	backlogMDPath := filepath.Join(dir, "docs", "BACKLOG.md")
+	os.WriteFile(backlogMDPath, []byte(md), 0o644)
+
+	// SyncImport from MD → DB
+	SyncImport(dir, mgr)
+
+	// SyncExport → should create BACKLOG.json and delete BACKLOG.md
+	_, err := SyncExport(dir, mgr)
+	if err != nil {
+		t.Fatalf("SyncExport: %v", err)
+	}
+
+	// JSON should exist
+	jsonPath := filepath.Join(dir, "docs", "BACKLOG.json")
+	if _, err := os.Stat(jsonPath); os.IsNotExist(err) {
+		t.Fatal("BACKLOG.json should exist after migration")
+	}
+
+	// Legacy MD should be deleted
+	if _, err := os.Stat(backlogMDPath); !os.IsNotExist(err) {
+		t.Error("BACKLOG.md should be deleted after migration")
 	}
 }

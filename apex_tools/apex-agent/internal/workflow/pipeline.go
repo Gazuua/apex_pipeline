@@ -105,13 +105,17 @@ func MergePipeline(params map[string]any,
 // autoCommitExport stages and commits backlog export results.
 // No-op if there are no changes to commit.
 func autoCommitExport(projectRoot string) error {
-	// Stage — 존재하는 파일만 add (HISTORY가 없을 수 있음)
-	for _, f := range []string{"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md"} {
-		if _, statErr := os.Stat(filepath.Join(projectRoot, f)); statErr != nil {
-			continue
-		}
-		if out, err := exec.Command("git", "-C", projectRoot, "add", f).CombinedOutput(); err != nil {
-			return fmt.Errorf("git add %s: %w\n%s", f, err, out)
+	// Stage — JSON + 레거시 MD (삭제분 포함). 존재하는 파일만 add, 삭제된 파일은 git rm --cached.
+	for _, f := range []string{"docs/BACKLOG.json", "docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md"} {
+		fullPath := filepath.Join(projectRoot, f)
+		if _, statErr := os.Stat(fullPath); statErr == nil {
+			// 파일 존재 → git add
+			if out, err := exec.Command("git", "-C", projectRoot, "add", f).CombinedOutput(); err != nil {
+				return fmt.Errorf("git add %s: %w\n%s", f, err, out)
+			}
+		} else {
+			// 파일 없음 → git rm --cached (이미 인덱스에 없으면 무시)
+			exec.Command("git", "-C", projectRoot, "rm", "--cached", "--ignore-unmatch", f).Run()
 		}
 	}
 
