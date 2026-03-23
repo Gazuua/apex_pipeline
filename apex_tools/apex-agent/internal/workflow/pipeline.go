@@ -4,6 +4,9 @@ package workflow
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 )
@@ -50,15 +53,13 @@ func StartPipeline(branchName string, params map[string]any,
 	return notifID, nil
 }
 
-// MergePipeline orchestrates the notify-merge pre-processing:
+// MergePipeline orchestrates the full merge workflow:
 //  1. RebaseOnMain(projectRoot)
-//  2. SyncImport(projectRoot, mgr) — fatal
-//  3. SyncExport(projectRoot, mgr) — fatal
-//  4. ipcFn("notify-merge", params) — fatal
-//
-// CheckoutMain is NOT included — caller must commit export results
-// and handle checkout main separately. Export writes docs/BACKLOG.md
-// which needs to be committed before switching branches.
+//  2. SyncImport(projectRoot, mgr) — rebase 후 최신 MD → DB
+//  3. SyncExport(projectRoot, mgr) — DB → MD + HISTORY
+//  4. autoCommitExport — export 결과 커밋+푸시
+//  5. CheckoutMain — main 브랜치 전환
+//  6. ipcFn("notify-merge") — 마지막: active에서 삭제, history로 이관
 func MergePipeline(params map[string]any,
 	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
@@ -76,18 +77,63 @@ func MergePipeline(params map[string]any,
 		}
 	}
 
-	// Phase 3: export (DB → MD)
+	// Phase 3: export (DB → MD + HISTORY)
 	if mgr != nil {
 		if _, err := SyncExport(projectRoot, mgr); err != nil {
 			return fmt.Errorf("머지 전 backlog export 실패: %w", err)
 		}
 	}
 
-	// Phase 4: DB TX
+	// Phase 4: auto-commit + push (export 결과)
+	if err := autoCommitExport(projectRoot); err != nil {
+		return fmt.Errorf("export 결과 커밋 실패: %w", err)
+	}
+
+	// Phase 5: checkout main
+	if err := CheckoutMain(projectRoot); err != nil {
+		return fmt.Errorf("checkout main 실패: %w", err)
+	}
+
+	// Phase 6: IPC notify-merge (마지막 — active에서 삭제)
 	if _, err := ipcFn("notify-merge", params); err != nil {
 		return fmt.Errorf("notify-merge 실패: %w", err)
 	}
 
+	return nil
+}
+
+// autoCommitExport stages and commits backlog export results.
+// No-op if there are no changes to commit.
+func autoCommitExport(projectRoot string) error {
+	// Stage — 존재하는 파일만 add (HISTORY가 없을 수 있음)
+	for _, f := range []string{"docs/BACKLOG.md", "docs/BACKLOG_HISTORY.md"} {
+		if _, statErr := os.Stat(filepath.Join(projectRoot, f)); statErr != nil {
+			continue
+		}
+		if out, err := exec.Command("git", "-C", projectRoot, "add", f).CombinedOutput(); err != nil {
+			return fmt.Errorf("git add %s: %w\n%s", f, err, out)
+		}
+	}
+
+	// Check if anything staged
+	if err := exec.Command("git", "-C", projectRoot,
+		"diff", "--cached", "--quiet").Run(); err == nil {
+		return nil // nothing to commit
+	}
+
+	// Commit
+	if out, err := exec.Command("git", "-C", projectRoot,
+		"commit", "-m", "docs: backlog export (auto-sync)").CombinedOutput(); err != nil {
+		return fmt.Errorf("git commit: %w\n%s", err, out)
+	}
+
+	// Push (best-effort — 에이전트가 push --force-with-lease를 별도 실행할 수 있음)
+	if out, err := exec.Command("git", "-C", projectRoot,
+		"push").CombinedOutput(); err != nil {
+		ml.Warn("autoCommitExport push 실패 (수동 push 필요)", "err", err, "output", string(out))
+	}
+
+	ml.Info("backlog export 자동 커밋+푸시 완료")
 	return nil
 }
 

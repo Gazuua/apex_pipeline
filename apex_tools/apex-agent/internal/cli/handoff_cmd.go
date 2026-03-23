@@ -255,7 +255,6 @@ func handoffNotifyMergeCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)
-			fmt.Println("[handoff] docs/BACKLOG.md 갱신됨 — 커밋+푸시 후 머지 진행하세요")
 			return nil
 		},
 	}

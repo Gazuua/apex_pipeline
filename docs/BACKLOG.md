@@ -118,7 +118,7 @@
 - **연관**: #1(HISTORY), #126(HISTORY)
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. **[FSD 분석 2026-03-23]** Go 백엔드 기능 추가로 C++ 백로그 번들과 스코프 상이. 별도 작업으로 착수 권장.
 
-### #154. CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀
+### #154. apex-agent git CLI 서브커맨드 그룹
 - **등급**: MAJOR
 - **스코프**: TOOLS
 - **타입**: INFRA
@@ -136,12 +136,6 @@
 - **타입**: PERF
 - **설명**: Queue.Acquire에서 락 획득 실패 시 500ms 고정 sleep. exponential backoff(100ms→200ms→400ms→max 2s) 또는 context.WithTimeout 전체 대기 시간 제한 추가.
 
-### #157. git 명령어 에러 핸들링 — rebase abort 에러 무시
-- **등급**: MAJOR
-- **스코프**: TOOLS
-- **타입**: BUG
-- **설명**: EnforceRebase에서 rebase 실패 시 --abort 호출의 에러를 무시(//nolint:errcheck). abort 자체가 실패하면(dirty working tree 등) 반쪽짜리 rebase 상태에 빠질 수 있음. 최소 경고 로그 기록 필요.
-
 ### #159. CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀
 - **등급**: MAJOR
 - **스코프**: TOOLS
@@ -149,17 +143,11 @@
 - **연관**: #146, #154
 - **설명**: 현재 start/merge/drop만 workflow 패키지로 추출됨. 나머지 CLI 기능(design, plan, backlog CRUD, queue, cleanup, ack 등)도 전부 workflow 기반 파이프라인으로 추상화하여 HTTP 대시보드(BACKLOG-146)에서 동일 기능 수행 가능하도록 기틀 마련. IPCFunc 패턴 확장, 각 커맨드별 파이프라인 함수 작성, 단위+E2E 테스트 동반.
 
-### #160. backlog UpdateFromImport에 title 갱신 누락
-- **등급**: MAJOR
-- **스코프**: TOOLS
-- **타입**: BUG
-- **설명**: `UpdateFromImport()`가 severity, timeframe, scope, type, description, related, position은 갱신하지만 title을 갱신하지 않음. import 전에 동일 ID로 `backlog add`가 실행되면 title이 오염된 채 남음. title도 메타데이터이므로 import 시 MD 기준으로 갱신해야 한다.
-
 ### #158. Plugin 시스템 Claude Code 포맷 버전 체크 부재
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- ---
+- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- --- ---
 
 
 ---

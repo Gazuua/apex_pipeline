@@ -467,6 +467,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.10.6 RedisAdapter close UAF 방어 (CancellationToken + AdapterBase 인프라 + shutdown 재배치)
          v0.5.10.7 ASAN UAF 수정 (socket executor ≠ core executor timer service UAF)
          [도구] apex-agent Go 백엔드 완전 재작성 (bash 11종→Go 단일 바이너리, 데몬+SQLite+IPC, 14K LOC)
+         [도구] 백로그 정합성 강화 (ExportHistory, backlog update, validate-backlog hook, MergePipeline 자동 커밋)
               └──→ v0.6 ── Wave 3: 운영 인프라
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스

@@ -5,6 +5,7 @@ package backlog
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -115,6 +116,84 @@ func (mgr *Manager) Export() (string, error) {
 	}
 
 	return b.String(), nil
+}
+
+// ExportHistory generates updated BACKLOG_HISTORY.md content.
+// New RESOLVED items (not already in existingHistory) are prepended
+// after the <!-- NEW_ENTRY_BELOW --> marker.
+func (mgr *Manager) ExportHistory(existingHistory string) (string, error) {
+	resolved, err := mgr.List(ListFilter{Status: StatusResolved})
+	if err != nil {
+		return existingHistory, fmt.Errorf("list resolved: %w", err)
+	}
+	if len(resolved) == 0 {
+		return existingHistory, nil
+	}
+
+	existingIDs := parseHistoryIDs(existingHistory)
+
+	var newItems []BacklogItem
+	for _, item := range resolved {
+		if !existingIDs[item.ID] {
+			newItems = append(newItems, item)
+		}
+	}
+	if len(newItems) == 0 {
+		return existingHistory, nil
+	}
+
+	var insertion strings.Builder
+	for _, item := range newItems {
+		writeHistoryItem(&insertion, &item)
+	}
+
+	const marker = "<!-- NEW_ENTRY_BELOW -->"
+	idx := strings.Index(existingHistory, marker)
+	if idx < 0 {
+		header := "# BACKLOG HISTORY\n\n"
+		if strings.HasPrefix(existingHistory, header) {
+			return header + marker + "\n\n" + insertion.String() + existingHistory[len(header):], nil
+		}
+		return existingHistory + "\n" + marker + "\n\n" + insertion.String(), nil
+	}
+
+	insertPos := idx + len(marker)
+	// 마커 뒤 개행이 있으면 포함, 없으면 마커 직후에 삽입
+	if insertPos < len(existingHistory) && existingHistory[insertPos] == '\n' {
+		insertPos++
+	}
+	return existingHistory[:insertPos] + "\n" + insertion.String() + existingHistory[insertPos:], nil
+}
+
+func parseHistoryIDs(content string) map[int]bool {
+	ids := make(map[int]bool)
+	for _, line := range strings.Split(content, "\n") {
+		if m := itemHeaderRe.FindStringSubmatch(line); m != nil {
+			id, _ := strconv.Atoi(m[1])
+			ids[id] = true
+		}
+	}
+	return ids
+}
+
+func writeHistoryItem(b *strings.Builder, item *BacklogItem) {
+	fmt.Fprintf(b, "### #%d. %s\n", item.ID, item.Title)
+	fmt.Fprintf(b, "- **등급**: %s | **스코프**: %s | **타입**: %s\n",
+		item.Severity, item.Scope, item.Type)
+	resolvedAt := item.ResolvedAt
+	if resolvedAt == "" {
+		resolvedAt = "—"
+	}
+	resolution := item.Resolution
+	if resolution == "" {
+		resolution = "—"
+	}
+	fmt.Fprintf(b, "- **해결**: %s | **방식**: %s\n", resolvedAt, resolution)
+	desc := item.Description
+	if desc == "" {
+		desc = "—"
+	}
+	fmt.Fprintf(b, "- **비고**: %s\n\n", desc)
 }
 
 func writeItem(b *strings.Builder, item *BacklogItem) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 func backlogCmd() *cobra.Command {
@@ -27,6 +29,7 @@ func backlogCmd() *cobra.Command {
 	cmd.AddCommand(backlogExportCmd())
 	cmd.AddCommand(backlogCheckCmd())
 	cmd.AddCommand(backlogReleaseCmd())
+	cmd.AddCommand(backlogUpdateCmd())
 	return cmd
 }
 
@@ -215,61 +218,135 @@ func openBacklogStore() (*store.Store, *backlog.Manager, func(), error) {
 // ── backlog export ──
 
 func backlogExportCmd() *cobra.Command {
-	var backlogPath, historyPath string
-	var unsafe bool
+	var stdout bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "BACKLOG.md 형식으로 출력 (import-first 안전 모드)",
-		Long: `DB 내용을 BACKLOG.md 형식으로 출력합니다.
-
-기본 동작 (안전 모드):
-  1. 현재 BACKLOG.md + BACKLOG_HISTORY.md를 DB에 import (메타데이터만, 상태 불변)
-  2. DB에서 export
-
-이렇게 하면 DB가 유실되어도 MD 파일에서 복원 후 export하므로 데이터 손실이 없습니다.
---unsafe 플래그로 import 단계를 건너뛸 수 있습니다.`,
+		Short: "DB → BACKLOG.md + BACKLOG_HISTORY.md 동기화",
+		Long: `DB 내용을 docs/BACKLOG.md + BACKLOG_HISTORY.md에 직접 씁니다.
+--stdout 플래그로 기존처럼 stdout 출력할 수 있습니다 (디버깅용).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 직접 DB 접근 (daemon 불필요)
+			if stdout {
+				_, mgr, cleanup, err := openBacklogStore()
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+
+				root, err := projectRoot()
+				if err != nil {
+					return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
+				}
+				backlogPath := filepath.Join(root, "docs", "BACKLOG.md")
+				historyPath := filepath.Join(root, "docs", "BACKLOG_HISTORY.md")
+				backlogData, _ := os.ReadFile(backlogPath)
+				historyData, _ := os.ReadFile(historyPath)
+
+				content, imported, err := mgr.SafeExport(string(backlogData), string(historyData))
+				if err != nil {
+					return err
+				}
+				if imported > 0 {
+					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
+				}
+				fmt.Fprint(os.Stdout, content)
+				return nil
+			}
+
+			// 기본: 파일 직접 쓰기 (SyncExport)
 			_, mgr, cleanup, err := openBacklogStore()
 			if err != nil {
 				return err
 			}
 			defer cleanup()
 
-			var content string
-
-			if unsafe {
-				// unsafe 모드: import 없이 바로 export
-				var exportErr error
-				content, exportErr = mgr.Export()
-				if exportErr != nil {
-					return exportErr
-				}
-			} else {
-				// 안전 모드: SafeExport (import-first + 단일 트랜잭션)
-				backlogData, _ := os.ReadFile(backlogPath)
-				historyData, _ := os.ReadFile(historyPath)
-
-				var imported int
-				var exportErr error
-				content, imported, exportErr = mgr.SafeExport(string(backlogData), string(historyData))
-				if exportErr != nil {
-					return exportErr
-				}
-				if imported > 0 {
-					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
-				}
+			root, err := projectRoot()
+			if err != nil {
+				return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 			}
 
-			fmt.Fprint(os.Stdout, content)
+			n, err := workflow.SyncExport(root, mgr)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("[export] docs/BACKLOG.md + BACKLOG_HISTORY.md 갱신 완료 (import: %d)\n", n)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&backlogPath, "backlog", "docs/BACKLOG.md", "BACKLOG.md 파일 경로")
-	cmd.Flags().StringVar(&historyPath, "history", "docs/BACKLOG_HISTORY.md", "BACKLOG_HISTORY.md 파일 경로")
-	cmd.Flags().BoolVar(&unsafe, "unsafe", false, "import 단계 건너뛰기 (DB 유실 시 데이터 손실 위험)")
+	cmd.Flags().BoolVar(&stdout, "stdout", false, "stdout 출력 (디버깅용, 파일 쓰기 안 함)")
+	return cmd
+}
+
+// ── backlog update ──
+
+func backlogUpdateCmd() *cobra.Command {
+	var title, severity, timeframe, scope, itemType, description, related string
+	var position int
+
+	cmd := &cobra.Command{
+		Use:   "update ID",
+		Short: "백로그 항목 메타데이터 수정",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var id int
+			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+				return fmt.Errorf("ID must be an integer: %s", args[0])
+			}
+
+			fields := make(map[string]string)
+			if cmd.Flags().Changed("title") {
+				fields["title"] = title
+			}
+			if cmd.Flags().Changed("severity") {
+				fields["severity"] = strings.ToUpper(severity)
+			}
+			if cmd.Flags().Changed("timeframe") {
+				fields["timeframe"] = strings.ToUpper(strings.ReplaceAll(timeframe, " ", "_"))
+			}
+			if cmd.Flags().Changed("scope") {
+				fields["scope"] = scope
+			}
+			if cmd.Flags().Changed("type") {
+				fields["type"] = strings.ToUpper(strings.ReplaceAll(itemType, "-", "_"))
+			}
+			if cmd.Flags().Changed("description") {
+				fields["description"] = description
+			}
+			if cmd.Flags().Changed("related") {
+				fields["related"] = related
+			}
+			if cmd.Flags().Changed("position") {
+				fields["position"] = fmt.Sprintf("%d", position)
+			}
+
+			if len(fields) == 0 {
+				return fmt.Errorf("최소 1개 필드를 지정하세요 (--title, --severity, --description 등)")
+			}
+
+			_, mgr, cleanup, err := openBacklogStore()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			if err := mgr.Update(id, fields); err != nil {
+				return err
+			}
+			fmt.Printf("Updated #%d: %d fields\n", id, len(fields))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&title, "title", "", "제목")
+	cmd.Flags().StringVar(&severity, "severity", "", "등급 (CRITICAL/MAJOR/MINOR)")
+	cmd.Flags().StringVar(&timeframe, "timeframe", "", "시간축 (NOW/IN_VIEW/DEFERRED)")
+	cmd.Flags().StringVar(&scope, "scope", "", "스코프")
+	cmd.Flags().StringVar(&itemType, "type", "", "타입 (BUG/DESIGN_DEBT/...)")
+	cmd.Flags().StringVar(&description, "description", "", "설명")
+	cmd.Flags().StringVar(&related, "related", "", "연관 (예: 150,151)")
+	cmd.Flags().IntVar(&position, "position", 0, "섹션 내 순서 (같은 timeframe 내 다른 항목 자동 재배치)")
+
 	return cmd
 }
 

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -231,14 +232,14 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 // The caller (ImportItems) passes the DB's current status as the status parameter,
 // so the DB status is preserved — import never changes status.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
-func (m *Manager) UpdateFromImport(id int, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
+func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
 	_, err := m.q.Exec(`
 		UPDATE backlog_items
-		SET severity = ?, timeframe = ?, scope = ?, type = ?,
+		SET title = ?, severity = ?, timeframe = ?, scope = ?, type = ?,
 		    description = ?, related = ?, position = ?, status = ?,
 		    updated_at = datetime('now','localtime')
 		WHERE id = ?`,
-		severity, timeframe, scope, itemType,
+		title, severity, timeframe, scope, itemType,
 		description, related, position, status, id,
 	)
 	if err != nil {
@@ -367,6 +368,103 @@ func (m *Manager) Check(id int) (exists bool, status string, err error) {
 		return false, "", fmt.Errorf("Check: %w", err)
 	}
 	return true, status, nil
+}
+
+// allowedUpdateFields maps CLI flag names to DB column names.
+var allowedUpdateFields = map[string]string{
+	"title":       "title",
+	"severity":    "severity",
+	"timeframe":   "timeframe",
+	"scope":       "scope",
+	"type":        "type",
+	"description": "description",
+	"related":     "related",
+	"position":    "position",
+}
+
+// Update modifies specified fields of an existing item.
+// Only fields present in the map are updated; others are preserved.
+func (m *Manager) Update(id int, fields map[string]string) error {
+	if len(fields) == 0 {
+		return fmt.Errorf("최소 1개 필드를 지정해야 합니다")
+	}
+
+	exists, _, err := m.Check(id)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("backlog item %d not found", id)
+	}
+
+	if v, ok := fields["severity"]; ok {
+		if err := ValidateSeverity(v); err != nil {
+			return err
+		}
+	}
+	if v, ok := fields["timeframe"]; ok {
+		if err := ValidateTimeframe(v); err != nil {
+			return err
+		}
+	}
+	if v, ok := fields["type"]; ok {
+		if err := ValidateType(v); err != nil {
+			return err
+		}
+	}
+	if v, ok := fields["scope"]; ok {
+		if err := ValidateScope(v); err != nil {
+			return err
+		}
+	}
+
+	// position 재배치: 같은 timeframe 내 다른 항목들을 밀어줌
+	if newPosStr, ok := fields["position"]; ok {
+		newPos, convErr := strconv.Atoi(newPosStr)
+		if convErr != nil || newPos < 1 {
+			return fmt.Errorf("position must be a positive integer: %s", newPosStr)
+		}
+		// timeframe 동시 변경 여부 확인
+		targetTimeframe := ""
+		if tf, tfOK := fields["timeframe"]; tfOK {
+			targetTimeframe = tf
+		} else {
+			item, getErr := m.Get(id)
+			if getErr != nil {
+				return getErr
+			}
+			targetTimeframe = item.Timeframe
+		}
+		// 같은 timeframe 내에서 newPos 이상인 항목들의 position을 +1
+		if _, shiftErr := m.q.Exec(`
+			UPDATE backlog_items
+			SET position = position + 1
+			WHERE timeframe = ? AND position >= ? AND id != ? AND status != ?`,
+			targetTimeframe, newPos, id, StatusResolved); shiftErr != nil {
+			return fmt.Errorf("reorder position: %w", shiftErr)
+		}
+	}
+
+	var setClauses []string
+	var args []any
+	for field, value := range fields {
+		col, ok := allowedUpdateFields[field]
+		if !ok {
+			return fmt.Errorf("unknown field: %s", field)
+		}
+		setClauses = append(setClauses, col+" = ?")
+		args = append(args, value)
+	}
+	setClauses = append(setClauses, "updated_at = datetime('now','localtime')")
+	args = append(args, id)
+
+	query := fmt.Sprintf("UPDATE backlog_items SET %s WHERE id = ?", strings.Join(setClauses, ", "))
+	_, err = m.q.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("Update #%d: %w", id, err)
+	}
+	ml.Info("item updated", "id", id, "fields", len(fields))
+	return nil
 }
 
 // ListFixingForBranch returns backlog IDs from the given list that have status FIXING.

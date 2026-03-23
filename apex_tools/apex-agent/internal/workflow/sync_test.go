@@ -178,6 +178,31 @@ func TestSyncExport_WritesFile(t *testing.T) {
 	}
 }
 
+func TestSyncExport_WritesHistory(t *testing.T) {
+	dir, mgr, cleanup := setupSyncTest(t)
+	defer cleanup()
+
+	mgr.Add(&backlog.BacklogItem{
+		ID: 1, Title: "해결됨", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+	mgr.Resolve(1, "FIXED")
+
+	historyPath := filepath.Join(dir, "docs", "BACKLOG_HISTORY.md")
+	os.WriteFile(historyPath, []byte("# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n"), 0o644)
+
+	_, err := SyncExport(dir, mgr)
+	if err != nil {
+		t.Fatalf("SyncExport: %v", err)
+	}
+
+	data, _ := os.ReadFile(historyPath)
+	if !strings.Contains(string(data), "해결됨") {
+		t.Error("HISTORY should contain resolved item")
+	}
+}
+
 func TestSyncExport_RoundTrip(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()

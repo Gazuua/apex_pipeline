@@ -239,6 +239,13 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 
 ### 완료
 
+- **도구: 백로그 정합성 강화 (BACKLOG-160)**
+  - ExportHistory: RESOLVED 항목 → BACKLOG_HISTORY.md 자동 이관 (중복 방지, 마커 복원)
+  - backlog update CLI: 필드별 메타 수정 + `--position` 섹션 내 재배치
+  - validate-backlog hook: BACKLOG 파일 직접 편집 차단 (대소문자 무관)
+  - MergePipeline 자동 커밋: export→commit→push→checkout main→IPC 일괄 처리
+  - backlog export: stdout 출력 → 파일 직접 쓰기로 전환
+
 - **도구: apex-agent workflow 공유 레이어 (#119)**
   - CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (HTTP 대시보드 기틀)
   - IPCFunc 추상화 — CLI/HTTP 동일 파이프라인 호출 가능
@@ -250,7 +257,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - bash 11종(~2,080줄) → Go 단일 바이너리(14,000+ LOC) 전면 재작성
   - 데몬 모드 (Named Pipe/Unix Socket IPC) + SQLite WAL 상태 저장소
   - 4개 모듈: Hook Gate, Backlog 강타입 관리, Handoff 상태머신, Queue FIFO 빌드·머지 큐
-  - 5개 hook 게이트 + E2E 테스트 14 패키지 전체 PASS + CI Go 파이프라인
+  - 6개 hook 게이트 + E2E 테스트 14 패키지 전체 PASS + CI Go 파이프라인
 
 - **v0.5.10.6 — RedisAdapter close UAF 방어**
   - CancellationToken per-core 프리미티브 (어댑터 코루틴 추적/취소)
