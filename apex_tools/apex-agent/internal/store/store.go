@@ -34,6 +34,11 @@ func Open(dsn string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	// In-memory SQLite: each connection gets its own database.
+	// Limit to 1 connection so all goroutines share the same in-memory DB.
+	if dsn == ":memory:" {
+		db.SetMaxOpenConns(1)
+	}
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
 		db.Close()
 		return nil, err

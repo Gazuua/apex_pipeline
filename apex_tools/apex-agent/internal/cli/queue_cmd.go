@@ -271,16 +271,22 @@ func queueBenchmarkCmd() *cobra.Command {
 			if !strings.HasPrefix(base, "bench_") {
 				return fmt.Errorf("benchmark executable must start with 'bench_' prefix, got %q", base)
 			}
-			// 절대 경로인 경우 프로젝트 루트 하위인지 확인
-			if filepath.IsAbs(exe) {
-				root, rootErr := projectRoot()
-				if rootErr != nil {
-					return fmt.Errorf("cannot verify benchmark path: %w", rootErr)
+			// 프로젝트 루트 하위인지 확인 (절대경로·상대경로 모두 검증)
+			root, rootErr := projectRoot()
+			if rootErr != nil {
+				return fmt.Errorf("cannot verify benchmark path: %w", rootErr)
+			}
+			exeAbs := exe
+			if !filepath.IsAbs(exe) {
+				absPath, absErr := filepath.Abs(exe)
+				if absErr != nil {
+					return fmt.Errorf("cannot resolve relative benchmark path %q: %w", exe, absErr)
 				}
-				rel, relErr := filepath.Rel(root, exe)
-				if relErr != nil || strings.HasPrefix(rel, "..") {
-					return fmt.Errorf("benchmark executable must be under project root %q, got %q", root, exe)
-				}
+				exeAbs = absPath
+			}
+			rel, relErr := filepath.Rel(root, exeAbs)
+			if relErr != nil || strings.HasPrefix(rel, "..") {
+				return fmt.Errorf("benchmark executable must be under project root %q, got %q", root, exeAbs)
 			}
 
 			fmt.Printf("[queue-lock] benchmark requested: exe=%s, args=%s, branch=%s\n",

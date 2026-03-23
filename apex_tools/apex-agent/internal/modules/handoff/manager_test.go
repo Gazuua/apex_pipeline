@@ -555,3 +555,132 @@ func (m *mockBacklogManagerForReplace) Check(id int) (bool, string, error) {
 func (m *mockBacklogManagerForReplace) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
 	return nil, nil
 }
+
+// ── NotifyDrop ──
+
+func TestNotifyDrop_OK(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
+
+	// implementing 상태로 등록
+	if err := mgr.NotifyStart("feature/drop-ok", "ws1", "drop test", "git-drop", nil, "", true); err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// drop 실행
+	if err := mgr.NotifyDrop("feature/drop-ok", "ws1", "no longer needed"); err != nil {
+		t.Fatalf("NotifyDrop: %v", err)
+	}
+
+	// active_branches에서 사라져야 함
+	status, err := mgr.GetStatus("feature/drop-ok")
+	if err != nil {
+		t.Fatalf("GetStatus: %v", err)
+	}
+	if status != "" {
+		t.Errorf("expected empty status (removed from active), got %q", status)
+	}
+
+	// branch_history에 DROPPED로 기록되어야 함
+	var historyStatus, historySummary string
+	row := mgr.store.QueryRow(
+		`SELECT status, summary FROM branch_history WHERE branch = ?`, "feature/drop-ok",
+	)
+	if err := row.Scan(&historyStatus, &historySummary); err != nil {
+		t.Fatalf("scan branch_history: %v", err)
+	}
+	if historyStatus != HistoryDropped {
+		t.Errorf("expected history status %q, got %q", HistoryDropped, historyStatus)
+	}
+	if historySummary != "no longer needed" {
+		t.Errorf("expected history summary %q, got %q", "no longer needed", historySummary)
+	}
+}
+
+func TestNotifyDrop_WithFixingBacklogs(t *testing.T) {
+	bm := &mockBacklogManager{
+		items: map[int]string{50: "OPEN"},
+	}
+	_, mgr := setupHandoffTestDBWithBacklog(t, bm)
+
+	// 백로그 50 연결하여 등록 → FIXING 전이
+	if err := mgr.NotifyStart("feature/drop-fixing", "ws1", "has fixing", "", []int{50}, "", true); err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// 백로그 50이 FIXING인지 확인
+	if bm.items[50] != "FIXING" {
+		t.Fatalf("expected backlog 50 FIXING, got %q", bm.items[50])
+	}
+
+	// drop 시도 → FIXING 백로그 때문에 차단되어야 함
+	err := mgr.NotifyDrop("feature/drop-fixing", "ws1", "try drop")
+	if err == nil {
+		t.Fatal("expected error due to FIXING backlog, got nil")
+	}
+
+	// 브랜치는 여전히 active여야 함
+	status, getErr := mgr.GetStatus("feature/drop-fixing")
+	if getErr != nil {
+		t.Fatalf("GetStatus: %v", getErr)
+	}
+	if status != StatusImplementing {
+		t.Errorf("expected status %q (still active), got %q", StatusImplementing, status)
+	}
+}
+
+func TestNotifyDrop_NotFound(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
+
+	// 미등록 브랜치에서 drop 시도 → 에러
+	err := mgr.NotifyDrop("feature/nonexistent", "ws1", "reason")
+	if err == nil {
+		t.Fatal("expected error for unregistered branch, got nil")
+	}
+}
+
+func TestNotifyDrop_BacklogRelease(t *testing.T) {
+	bm := &mockBacklogManager{
+		items: map[int]string{60: "OPEN", 70: "OPEN"},
+	}
+	_, mgr := setupHandoffTestDBWithBacklog(t, bm)
+
+	// 백로그 60, 70 연결하여 등록 → FIXING 전이
+	if err := mgr.NotifyStart("feature/drop-release", "ws1", "release test", "", []int{60, 70}, "", true); err != nil {
+		t.Fatalf("NotifyStart: %v", err)
+	}
+
+	// 둘 다 FIXING인지 확인
+	if bm.items[60] != "FIXING" || bm.items[70] != "FIXING" {
+		t.Fatalf("expected both backlogs FIXING, got 60=%q 70=%q", bm.items[60], bm.items[70])
+	}
+
+	// 백로그를 resolve/release 처리하여 FIXING 해제
+	bm.items[60] = "RESOLVED"
+	bm.items[70] = "OPEN"
+
+	// FIXING이 없으므로 drop 성공해야 함
+	if err := mgr.NotifyDrop("feature/drop-release", "ws1", "all backlogs cleared"); err != nil {
+		t.Fatalf("NotifyDrop: %v", err)
+	}
+
+	// active에서 사라져야 함
+	status, err := mgr.GetStatus("feature/drop-release")
+	if err != nil {
+		t.Fatalf("GetStatus: %v", err)
+	}
+	if status != "" {
+		t.Errorf("expected empty status after drop, got %q", status)
+	}
+
+	// history에 DROPPED 기록
+	var historyStatus string
+	row := mgr.store.QueryRow(
+		`SELECT status FROM branch_history WHERE branch = ?`, "feature/drop-release",
+	)
+	if err := row.Scan(&historyStatus); err != nil {
+		t.Fatalf("scan branch_history: %v", err)
+	}
+	if historyStatus != HistoryDropped {
+		t.Errorf("expected history status %q, got %q", HistoryDropped, historyStatus)
+	}
+}

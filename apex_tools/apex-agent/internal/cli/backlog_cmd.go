@@ -422,14 +422,16 @@ func backlogUpdateCmd() *cobra.Command {
 				return fmt.Errorf("최소 1개 필드를 지정하세요 (--title, --severity, --description 등)")
 			}
 
-			_, mgr, cleanup, err := openBacklogStore()
-			if err != nil {
-				return err
+			params := map[string]any{
+				"id":     id,
+				"fields": fields,
 			}
-			defer cleanup()
-
-			if err := mgr.Update(id, fields); err != nil {
-				return err
+			resp, err := sendBacklogRequest("update", params)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			if resp.Error != "" {
+				return fmt.Errorf("backlog update: %s", resp.Error)
 			}
 			fmt.Printf("Updated #%d: %d fields\n", id, len(fields))
 			return nil

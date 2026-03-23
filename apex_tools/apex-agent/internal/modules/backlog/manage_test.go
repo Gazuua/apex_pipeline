@@ -825,3 +825,127 @@ func TestUpdate_PositionInvalid(t *testing.T) {
 		t.Fatal("expected error for non-numeric position")
 	}
 }
+
+// ── ListFixingForBranch ──
+
+func TestListFixingForBranch_Empty(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	// backlogIDs에 포함된 항목들이 FIXING이 아닌 경우 빈 리스트 반환
+	item := &BacklogItem{
+		ID: 1, Title: "Not fixing", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "OPEN status item",
+	}
+	if err := m.Add(item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	fixing, err := m.ListFixingForBranch("feature/test", []int{1})
+	if err != nil {
+		t.Fatalf("ListFixingForBranch: %v", err)
+	}
+	if len(fixing) != 0 {
+		t.Errorf("expected empty list, got %v", fixing)
+	}
+}
+
+func TestListFixingForBranch_Mixed(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	items := []*BacklogItem{
+		{ID: 10, Title: "Open item", Severity: "MAJOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 20, Title: "Fixing item", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 30, Title: "Resolved item", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "SHARED", Type: "TEST", Description: "d"},
+	}
+	for _, item := range items {
+		if err := m.Add(item); err != nil {
+			t.Fatalf("Add failed: %v", err)
+		}
+	}
+
+	// 20번만 FIXING 상태로 전이
+	if err := m.SetStatus(20, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING: %v", err)
+	}
+	// 30번은 RESOLVED
+	if err := m.Resolve(30, "FIXED"); err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	fixing, err := m.ListFixingForBranch("feature/test", []int{10, 20, 30})
+	if err != nil {
+		t.Fatalf("ListFixingForBranch: %v", err)
+	}
+	if len(fixing) != 1 {
+		t.Fatalf("expected 1 FIXING item, got %d: %v", len(fixing), fixing)
+	}
+	if fixing[0] != 20 {
+		t.Errorf("expected FIXING item ID 20, got %d", fixing[0])
+	}
+}
+
+func TestListFixingForBranch_AllFixing(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	items := []*BacklogItem{
+		{ID: 100, Title: "Fixing 1", Severity: "MAJOR", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d"},
+		{ID: 200, Title: "Fixing 2", Severity: "CRITICAL", Timeframe: "NOW", Scope: "SHARED", Type: "BUG", Description: "d"},
+	}
+	for _, item := range items {
+		if err := m.Add(item); err != nil {
+			t.Fatalf("Add failed: %v", err)
+		}
+	}
+
+	// 둘 다 FIXING
+	if err := m.SetStatus(100, "FIXING"); err != nil {
+		t.Fatalf("SetStatus 100: %v", err)
+	}
+	if err := m.SetStatus(200, "FIXING"); err != nil {
+		t.Fatalf("SetStatus 200: %v", err)
+	}
+
+	fixing, err := m.ListFixingForBranch("feature/test", []int{100, 200})
+	if err != nil {
+		t.Fatalf("ListFixingForBranch: %v", err)
+	}
+	if len(fixing) != 2 {
+		t.Fatalf("expected 2 FIXING items, got %d: %v", len(fixing), fixing)
+	}
+
+	// 반환된 ID들이 100, 200을 포함하는지 확인 (순서 무관)
+	idSet := map[int]bool{}
+	for _, id := range fixing {
+		idSet[id] = true
+	}
+	if !idSet[100] || !idSet[200] {
+		t.Errorf("expected IDs {100, 200}, got %v", fixing)
+	}
+}
+
+func TestListFixingForBranch_NoBacklogs(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	// backlogIDs가 빈 슬라이스일 때 nil 반환 (early return)
+	fixing, err := m.ListFixingForBranch("feature/test", nil)
+	if err != nil {
+		t.Fatalf("ListFixingForBranch: %v", err)
+	}
+	if fixing != nil {
+		t.Errorf("expected nil for empty backlogIDs, got %v", fixing)
+	}
+
+	// 빈 슬라이스도 동일하게 nil 반환
+	fixing, err = m.ListFixingForBranch("feature/test", []int{})
+	if err != nil {
+		t.Fatalf("ListFixingForBranch with empty slice: %v", err)
+	}
+	if fixing != nil {
+		t.Errorf("expected nil for empty slice, got %v", fixing)
+	}
+}

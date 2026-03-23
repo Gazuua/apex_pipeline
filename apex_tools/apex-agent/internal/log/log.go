@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
 
 // LogConfig is passed from the config package.
@@ -14,6 +16,10 @@ type LogConfig struct {
 	Level  string
 	Writer io.Writer // nil = os.Stderr (for testing, override with buffer)
 }
+
+// initGeneration is bumped every time Init() is called.
+// ModuleLogger uses this to detect when its cached logger is stale.
+var initGeneration atomic.Int64
 
 // Init sets up the global logger. Call once at daemon start.
 func Init(cfg LogConfig) {
@@ -23,8 +29,14 @@ func Init(cfg LogConfig) {
 	}
 
 	level := parseLevel(cfg.Level)
-	handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: level})
+	handler := slog.NewTextHandler(w, &slog.HandlerOptions{
+		Level:     level,
+		AddSource: true,
+	})
 	slog.SetDefault(slog.New(handler))
+
+	// Bump generation to invalidate all cached ModuleLoggers.
+	initGeneration.Add(1)
 }
 
 // Package-level wrapper functions (spdlog-style ergonomics)
@@ -38,31 +50,51 @@ func Audit(msg string, args ...any) {
 }
 
 // ModuleLogger adds a "module" field to all log entries.
-// IMPORTANT: resolves slog.Default() at each call, NOT at creation time.
-// This ensures package-level `var ml = log.WithModule("handoff")` works
-// correctly even though Init() hasn't been called yet at var-init time.
+// Caches the derived *slog.Logger after first use (or after Init() is called)
+// to avoid per-call allocation from slog.Default().With().
 type ModuleLogger struct {
 	name string
+
+	mu     sync.Mutex
+	cached *slog.Logger
+	gen    int64 // generation when cached was created
 }
 
+// WithModule creates a ModuleLogger. The cached logger is lazily built on first
+// use and automatically invalidated when Init() bumps the generation counter.
 func WithModule(name string) *ModuleLogger {
 	return &ModuleLogger{name: name}
 }
 
+// logger returns the cached *slog.Logger, rebuilding it if Init() was called
+// since the last cache.
+func (ml *ModuleLogger) logger() *slog.Logger {
+	currentGen := initGeneration.Load()
+
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
+	if ml.cached == nil || ml.gen != currentGen {
+		ml.cached = slog.Default().With("module", ml.name)
+		ml.gen = currentGen
+	}
+	return ml.cached
+}
+
 func (ml *ModuleLogger) Debug(msg string, args ...any) {
-	slog.Default().With("module", ml.name).Debug(msg, args...)
+	ml.logger().Debug(msg, args...)
 }
 func (ml *ModuleLogger) Info(msg string, args ...any) {
-	slog.Default().With("module", ml.name).Info(msg, args...)
+	ml.logger().Info(msg, args...)
 }
 func (ml *ModuleLogger) Warn(msg string, args ...any) {
-	slog.Default().With("module", ml.name).Warn(msg, args...)
+	ml.logger().Warn(msg, args...)
 }
 func (ml *ModuleLogger) Error(msg string, args ...any) {
-	slog.Default().With("module", ml.name).Error(msg, args...)
+	ml.logger().Error(msg, args...)
 }
 func (ml *ModuleLogger) Audit(msg string, args ...any) {
-	slog.Default().With("module", ml.name).Info(msg, append(args, "audit", true)...)
+	ml.logger().Info(msg, append(args, "audit", true)...)
 }
 
 func parseLevel(s string) slog.Level {

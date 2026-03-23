@@ -29,38 +29,95 @@ var readOnlyPrefixes = []string{
 	"cat", "head", "tail", "grep", "less", "more", "type", "echo", "ls", "dir", "file", "wc", "read",
 }
 
+// chainSeparatorRe splits shell commands by chain operators (&&, ||, ;, |).
+// Pipe (|) is included because `echo apex-agent | ninja` should not bypass the gate.
+var chainSeparatorRe = regexp.MustCompile(`\s*(\&\&|\|\||\||\;)\s*`)
+
+// splitChainedCommands splits a shell command string by chain operators.
+// Returns individual sub-commands. A single (non-chained) command returns a
+// one-element slice.
+func splitChainedCommands(command string) []string {
+	parts := chainSeparatorRe.Split(command, -1)
+	var result []string
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return []string{command}
+	}
+	return result
+}
+
+// isAllowedSubCommand checks whether a single (non-chained) sub-command is on
+// the whitelist. Returns true if it should bypass blocked-pattern checks.
+func isAllowedSubCommand(sub string) bool {
+	// Approved wrappers / GitHub CLI.
+	if strings.Contains(sub, "queue-lock.sh") ||
+		strings.Contains(sub, "apex-agent") ||
+		strings.Contains(sub, "run-hook") ||
+		strings.Contains(sub, "gh pr") ||
+		strings.Contains(sub, "gh run") {
+		return true
+	}
+
+	// Go toolchain.
+	if hasGoToolCommand(sub) {
+		return true
+	}
+
+	// Read-only commands.
+	trimmed := strings.TrimSpace(sub)
+	for _, prefix := range readOnlyPrefixes {
+		if strings.HasPrefix(trimmed, prefix+" ") || trimmed == prefix {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ValidateBuild checks if a command is a direct build tool invocation.
 // Returns nil if allowed, error with reason if blocked.
+//
+// For chained commands (&&, ||, ;, |), each sub-command is validated
+// independently. If ANY sub-command is blocked, the entire command is rejected.
+// Whitelist patterns are also checked per sub-command, so
+// `echo apex-agent && ninja build` is correctly blocked.
 func ValidateBuild(command string) error {
 	if command == "" {
 		return nil
 	}
 
-	// Allow approved build/benchmark wrappers and GitHub CLI.
-	if strings.Contains(command, "queue-lock.sh") ||
-		strings.Contains(command, "apex-agent") ||
-		strings.Contains(command, "run-hook") ||
-		strings.Contains(command, "gh pr") ||
-		strings.Contains(command, "gh run") {
-		return nil
-	}
+	subCommands := splitChainedCommands(command)
 
-	// Allow Go toolchain commands (not C++ build tools).
-	// NOTE: strings.Contains 방식은 체인 명령(&&, ||, ;)에서 우회 가능하나,
-	// hook 컨텍스트에서 오탐 위험이 극히 낮으므로 허용.
-	// first-token 보조 체크로 "go" 단독 실행도 허용.
-	if hasGoToolCommand(command) {
-		return nil
-	}
-
-	// Allow read-only commands.
-	trimmed := strings.TrimSpace(command)
-	for _, prefix := range readOnlyPrefixes {
-		if strings.HasPrefix(trimmed, prefix+" ") || trimmed == prefix {
+	// Fast path: single command with no chain operators — preserve original
+	// behaviour where a whitelisted command bypasses all checks.
+	if len(subCommands) == 1 {
+		if isAllowedSubCommand(subCommands[0]) {
 			return nil
+		}
+		return validateSingleCommand(subCommands[0])
+	}
+
+	// Chained command: each sub-command must pass independently.
+	for _, sub := range subCommands {
+		if isAllowedSubCommand(sub) {
+			continue
+		}
+		if err := validateSingleCommand(sub); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+// validateSingleCommand checks a single (non-chained) command against blocked
+// patterns. It is called only after whitelist checks have already been applied.
+func validateSingleCommand(command string) error {
 	// Check git branch creation commands.
 	if isBlockedGitBranch(command) {
 		ml.Warn("git branch creation blocked", "command", command)
