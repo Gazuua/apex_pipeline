@@ -66,6 +66,8 @@ function updateElapsed() {
 }
 setInterval(updateElapsed, 1000);
 updateElapsed();
+// Re-run after HTMX swaps (polling replaces elements)
+document.body.addEventListener('htmx:afterSwap', updateElapsed);
 </script>
 
 </body>

@@ -319,6 +319,8 @@ body {
 
 .lock-indicator.free { background: var(--accent-green); box-shadow: 0 0 8px rgba(52,211,153,0.4); }
 .lock-indicator.locked { background: var(--accent-red); box-shadow: 0 0 8px rgba(248,113,113,0.4); }
+.lock-indicator.waiting { background: var(--accent-amber); box-shadow: 0 0 8px rgba(245,158,11,0.4); }
+.lock-indicator.done { background: var(--accent-blue); opacity: 0.5; }
 
 /* ── Timeline ── */
 .timeline {

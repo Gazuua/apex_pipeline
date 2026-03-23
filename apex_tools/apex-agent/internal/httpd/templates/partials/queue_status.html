@@ -2,11 +2,11 @@
 {{if .Queue}}
 {{range .Queue}}
 <div class="lock-card">
-  <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else if eq .Status "WAITING"}}locked{{else}}free{{end}}"></div>
+  <div class="lock-indicator {{if eq .Status "HOLDING"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
   <div>
     <div style="font-weight:600">{{.Channel}} — {{.Branch}}</div>
     <div class="tl-meta">
-      <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-gray{{end}}">{{.Status}}</span>
+      <span class="badge {{if eq .Status "HOLDING"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
       {{.CreatedAt}}
       {{if or (eq .Status "HOLDING") (eq .Status "WAITING")}}<span class="elapsed" data-since="{{.CreatedAt}}"></span>{{end}}
     </div>
