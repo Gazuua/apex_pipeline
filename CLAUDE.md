@@ -31,7 +31,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ⑤ 리뷰 | 문서 전용 작업, 또는 변경 범위가 극히 작아 리뷰 ROI가 없는 경우 |
 | ①⑥⑦ | **스킵 불가** — 모든 작업에 필수 |
 
-기존 hook 5개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
+기존 hook 6개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스, 백로그 편집). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
 
 ## 모노레포 구조
 
@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료 — CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (IPCFunc 추상화, Start/Merge/Drop 파이프라인), 백로그 import/export 자동 동기화, BACKLOG-157 rebase abort 에러 핸들링
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료 — CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (IPCFunc 추상화, Start/Merge/Drop 파이프라인), 백로그 import/export 자동 동기화, BACKLOG-157 rebase abort 에러 핸들링. 백로그 정합성 강화 완료 — ExportHistory(RESOLVED→HISTORY 이관), backlog update CLI(필드별 수정+position 재배치), validate-backlog hook(MD 직접 편집 차단), MergePipeline 자동 커밋
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 

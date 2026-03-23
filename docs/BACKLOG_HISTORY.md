@@ -5,6 +5,12 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #160. backlog UpdateFromImport에 title 갱신 누락
+- **등급**: MAJOR | **스코프**: TOOLS | **타입**: BUG
+- **해결**: 2026-03-23 19:31:13 | **방식**: FIXED
+- **비고**: `UpdateFromImport()`가 severity, timeframe, scope, type, description, related, position은 갱신하지만 title을 갱신하지 않음. import 전에 동일 ID로 `backlog add`가 실행되면 title이 오염된 채 남음. title도 메타데이터이므로 import 시 MD 기준으로 갱신해야 한다. ---
+
+
 ### #136. 실기동 테스트 항목
 - **등급**: MAJOR | **스코프**: SHARED | **타입**: DESIGN_DEBT
 - **해결**: 2026-03-22 21:06:23 | **방식**: FIXED

@@ -149,12 +149,6 @@
 - **타입**: INFRA
 - **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- ---
 
-### #160. backlog UpdateFromImport에 title 갱신 누락
-- **등급**: MAJOR
-- **스코프**: TOOLS
-- **타입**: BUG
-- **설명**: `UpdateFromImport()`가 severity, timeframe, scope, type, description, related, position은 갱신하지만 title을 갱신하지 않음. import 전에 동일 ID로 `backlog add`가 실행되면 title이 오염된 채 남음. title도 메타데이터이므로 import 시 MD 기준으로 갱신해야 한다.
-
 
 ---
 
