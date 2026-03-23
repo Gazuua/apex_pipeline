@@ -20,8 +20,8 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 	var content string
 	var imported int
 
-	err := mgr.store.RunInTx(context.Background(), func(txs *store.Store) error {
-		txMgr := &Manager{store: txs}
+	err := mgr.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		txMgr := mgr.withQuerier(tx)
 
 		// 1) Import current MD into DB (idempotent — existing items keep their status).
 		if backlogMD != "" {

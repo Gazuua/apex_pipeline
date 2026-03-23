@@ -27,8 +27,8 @@ func (m *Module) Name() string { return "queue" }
 
 // RegisterSchema registers the queue table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
-	mig.Register("queue", 1, func(s *store.Store) error {
-		_, err := s.Exec(`CREATE TABLE queue (
+	mig.Register("queue", 1, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`CREATE TABLE queue (
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel    TEXT    NOT NULL,
 			branch     TEXT    NOT NULL,
@@ -39,11 +39,11 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		if err != nil {
 			return err
 		}
-		_, err = s.Exec(`CREATE INDEX idx_queue_channel_status ON queue(channel, status)`)
+		_, err = tx.Exec(`CREATE INDEX idx_queue_channel_status ON queue(channel, status)`)
 		return err
 	})
-	mig.Register("queue", 2, func(s *store.Store) error {
-		_, err := s.Exec(`UPDATE queue SET status = UPPER(status)`)
+	mig.Register("queue", 2, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`UPDATE queue SET status = UPPER(status)`)
 		return err
 	})
 }

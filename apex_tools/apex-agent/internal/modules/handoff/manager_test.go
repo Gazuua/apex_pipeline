@@ -436,7 +436,7 @@ func (m *mockBacklogManager) SetStatus(id int, status string) error {
 	return nil
 }
 
-func (m *mockBacklogManager) SetStatusWith(txs *store.Store, id int, status string) error {
+func (m *mockBacklogManager) SetStatusWith(q store.Querier, id int, status string) error {
 	if m.failSetStatus {
 		return fmt.Errorf("mock SetStatusWith error for id=%d", id)
 	}
@@ -653,8 +653,8 @@ func (m *mockBacklogManagerForReplace) SetStatus(id int, status string) error {
 	return err
 }
 
-func (m *mockBacklogManagerForReplace) SetStatusWith(txs *store.Store, id int, status string) error {
-	_, err := txs.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+func (m *mockBacklogManagerForReplace) SetStatusWith(q store.Querier, id int, status string) error {
+	_, err := q.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
 	return err
 }
 

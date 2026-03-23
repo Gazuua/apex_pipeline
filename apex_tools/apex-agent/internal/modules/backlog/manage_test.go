@@ -515,8 +515,8 @@ func TestSetStatusWith_UsesTxStore(t *testing.T) {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	err := s.RunInTx(context.Background(), func(txs *store.Store) error {
-		return m.SetStatusWith(txs, 1, "FIXING")
+	err := s.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		return m.SetStatusWith(tx, 1, "FIXING")
 	})
 	if err != nil {
 		t.Fatalf("RunInTx + SetStatusWith failed: %v", err)

@@ -8,7 +8,7 @@ import (
 	"sort"
 )
 
-type MigrateFunc func(s *Store) error
+type MigrateFunc func(tx *TxStore) error
 
 type migration struct {
 	module  string
@@ -60,11 +60,11 @@ func (m *Migrator) Migrate() error {
 		}
 
 		// 각 마이그레이션을 트랜잭션으로 감싸서 원자적으로 실행
-		if err := m.store.RunInTx(context.Background(), func(txs *Store) error {
-			if err := mig.fn(txs); err != nil {
+		if err := m.store.RunInTx(context.Background(), func(tx *TxStore) error {
+			if err := mig.fn(tx); err != nil {
 				return fmt.Errorf("migrate %s v%d: %w", mig.module, mig.version, err)
 			}
-			if _, err := txs.Exec(
+			if _, err := tx.Exec(
 				"INSERT INTO _migrations (module, version) VALUES (?, ?)",
 				mig.module, mig.version,
 			); err != nil {

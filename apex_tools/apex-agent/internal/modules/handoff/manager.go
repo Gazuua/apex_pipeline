@@ -29,7 +29,7 @@ type Branch struct {
 // BacklogOperator is the interface handoff needs from backlog.
 type BacklogOperator interface {
 	SetStatus(id int, status string) error
-	SetStatusWith(txs *store.Store, id int, status string) error
+	SetStatusWith(q store.Querier, id int, status string) error
 	Check(id int) (exists bool, status string, err error)
 	ListFixingForBranch(branch string, backlogIDs []int) ([]int, error)
 }
@@ -96,31 +96,31 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 	}
 
 	var notifID int
-	err := m.store.RunInTx(context.Background(), func(txs *store.Store) error {
+	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
 		// 기존 항목이 있으면 정리 후 재등록 허용
 		// - MERGE_NOTIFIED: 머지 완료 후 같은 workspace에서 새 작업 시작
 		// - 그 외 상태: 중도 포기 후 새 작업 시작 (연결된 FIXING 백로그를 OPEN으로 복귀)
 		var existingStatus string
-		row := txs.QueryRow(`SELECT status FROM branches WHERE branch = ?`, branch)
+		row := tx.QueryRow(`SELECT status FROM branches WHERE branch = ?`, branch)
 		if scanErr := row.Scan(&existingStatus); scanErr == nil {
 			// 이전 작업에 연결된 FIXING 백로그가 있으면 OPEN으로 복귀
 			if existingStatus != StatusMergeNotified && m.backlogManager != nil {
-				oldIDs := m.getBacklogIDs(txs, branch)
+				oldIDs := m.getBacklogIDs(tx, branch)
 				for _, oldID := range oldIDs {
-					if releaseErr := m.backlogManager.SetStatusWith(txs, oldID, "OPEN"); releaseErr != nil {
+					if releaseErr := m.backlogManager.SetStatusWith(tx, oldID, "OPEN"); releaseErr != nil {
 						ml.Warn("failed to release backlog on branch replace", "backlog_id", oldID, "err", releaseErr)
 					}
 				}
 			}
 			// 이전 작업의 잔여 데이터 정리: junction → notifications/acks → branch
-			txs.Exec(`DELETE FROM branch_backlogs WHERE branch = ?`, branch)
-			txs.Exec(`DELETE FROM notification_acks WHERE branch = ? OR notification_id IN (SELECT id FROM notifications WHERE branch = ?)`, branch, branch)
-			txs.Exec(`DELETE FROM notifications WHERE branch = ?`, branch)
-			txs.Exec(`DELETE FROM branches WHERE branch = ?`, branch)
+			tx.Exec(`DELETE FROM branch_backlogs WHERE branch = ?`, branch)
+			tx.Exec(`DELETE FROM notification_acks WHERE branch = ? OR notification_id IN (SELECT id FROM notifications WHERE branch = ?)`, branch, branch)
+			tx.Exec(`DELETE FROM notifications WHERE branch = ?`, branch)
+			tx.Exec(`DELETE FROM branches WHERE branch = ?`, branch)
 			ml.Info("cleared stale entry for re-registration", "branch", branch, "previous_status", existingStatus)
 		}
 
-		_, err := txs.Exec(
+		_, err := tx.Exec(
 			`INSERT INTO branches (branch, workspace, git_branch, status, summary, created_at, updated_at)
 			 VALUES (?, ?, ?, ?, ?, datetime('now','localtime'), datetime('now','localtime'))`,
 			branch, workspace, store.NullableString(gitBranch), status, summary,
@@ -134,7 +134,7 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 			if bid == 0 {
 				continue
 			}
-			_, err = txs.Exec(
+			_, err = tx.Exec(
 				`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
 				branch, bid,
 			)
@@ -143,7 +143,7 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 			}
 		}
 
-		res, err := txs.Exec(
+		res, err := tx.Exec(
 			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
 			 VALUES (?, ?, 'start', ?, datetime('now','localtime'))`,
 			branch, workspace, summary,
@@ -164,7 +164,7 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 				if bid == 0 {
 					continue
 				}
-				if err := m.backlogManager.SetStatusWith(txs, bid, "FIXING"); err != nil {
+				if err := m.backlogManager.SetStatusWith(tx, bid, "FIXING"); err != nil {
 					return fmt.Errorf("backlog FIXING 전이 실패 (backlog_id=%d): %w", bid, err)
 				}
 			}
@@ -198,8 +198,8 @@ func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string
 	}
 
 	var notifID int
-	err = m.store.RunInTx(context.Background(), func(txs *store.Store) error {
-		_, err := txs.Exec(
+	err = m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		_, err := tx.Exec(
 			`UPDATE branches SET status = ?, updated_at = datetime('now','localtime') WHERE branch = ?`,
 			nextStatus, branch,
 		)
@@ -207,7 +207,7 @@ func (m *Manager) NotifyTransition(branch, workspace, notifyType, summary string
 			return fmt.Errorf("update branch status: %w", err)
 		}
 
-		res, err := txs.Exec(
+		res, err := tx.Exec(
 			`INSERT INTO notifications (branch, workspace, type, summary, created_at)
 			 VALUES (?, ?, ?, ?, datetime('now','localtime'))`,
 			branch, workspace, notifyType, summary,
@@ -386,7 +386,7 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 
 // getBacklogIDs returns backlog IDs linked to a branch via junction table.
 // Uses the provided store (can be transaction-bound).
-func (m *Manager) getBacklogIDs(s *store.Store, branch string) []int {
+func (m *Manager) getBacklogIDs(s store.Querier, branch string) []int {
 	rows, err := s.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch)
 	if err != nil {
 		return nil

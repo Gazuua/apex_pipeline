@@ -25,7 +25,7 @@ func (m *Module) Name() string { return "handoff" }
 
 // RegisterSchema registers the branches, notifications, and notification_acks table migrations.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
-	mig.Register("handoff", 1, func(s *store.Store) error {
+	mig.Register("handoff", 1, func(tx *store.TxStore) error {
 		queries := []string{
 			`CREATE TABLE branches (
 				branch      TEXT    PRIMARY KEY,
@@ -56,15 +56,15 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			`CREATE INDEX idx_acks_branch ON notification_acks(branch)`,
 		}
 		for _, q := range queries {
-			if _, err := s.Exec(q); err != nil {
+			if _, err := tx.Exec(q); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
-	mig.Register("handoff", 2, func(s *store.Store) error {
+	mig.Register("handoff", 2, func(tx *store.TxStore) error {
 		// 1. junction 테이블 생성
-		_, err := s.Exec(`CREATE TABLE branch_backlogs (
+		_, err := tx.Exec(`CREATE TABLE branch_backlogs (
 			branch     TEXT    NOT NULL,
 			backlog_id INTEGER NOT NULL,
 			PRIMARY KEY (branch, backlog_id)
@@ -74,7 +74,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		}
 
 		// 2. 기존 branches.backlog_id 데이터 이관 (NULL 스킵)
-		_, err = s.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO branch_backlogs (branch, backlog_id)
 			SELECT branch, backlog_id FROM branches WHERE backlog_id IS NOT NULL
 		`)
@@ -84,7 +84,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 		// 3. branches 재생성 (backlog_id 컬럼 제거)
 		// 개별 Exec()로 분리 — partial failure 시 명확한 에러 반환
-		if _, err = s.Exec(`CREATE TABLE branches_v2 (
+		if _, err = tx.Exec(`CREATE TABLE branches_v2 (
 			branch      TEXT    PRIMARY KEY,
 			workspace   TEXT    NOT NULL,
 			status      TEXT    NOT NULL,
@@ -94,26 +94,26 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		)`); err != nil {
 			return fmt.Errorf("create branches_v2: %w", err)
 		}
-		if _, err = s.Exec(`INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
+		if _, err = tx.Exec(`INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
 			SELECT branch, workspace, status, summary, created_at, updated_at FROM branches`); err != nil {
 			return fmt.Errorf("copy to branches_v2: %w", err)
 		}
-		if _, err = s.Exec(`DROP TABLE branches`); err != nil {
+		if _, err = tx.Exec(`DROP TABLE branches`); err != nil {
 			return fmt.Errorf("drop old branches: %w", err)
 		}
-		if _, err = s.Exec(`ALTER TABLE branches_v2 RENAME TO branches`); err != nil {
+		if _, err = tx.Exec(`ALTER TABLE branches_v2 RENAME TO branches`); err != nil {
 			return fmt.Errorf("rename branches_v2: %w", err)
 		}
 		return nil
 	})
-	mig.Register("handoff", 3, func(s *store.Store) error {
+	mig.Register("handoff", 3, func(tx *store.TxStore) error {
 		// git_branch 컬럼 추가 — hook fallback 조회용
-		_, err := s.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
+		_, err := tx.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
 		return err
 	})
-	mig.Register("handoff", 4, func(s *store.Store) error {
+	mig.Register("handoff", 4, func(tx *store.TxStore) error {
 		// status를 UPPER_SNAKE_CASE로 정규화
-		_, err := s.Exec(`UPDATE branches SET status = CASE status
+		_, err := tx.Exec(`UPDATE branches SET status = CASE status
 			WHEN 'started' THEN 'STARTED'
 			WHEN 'design-notified' THEN 'DESIGN_NOTIFIED'
 			WHEN 'implementing' THEN 'IMPLEMENTING'

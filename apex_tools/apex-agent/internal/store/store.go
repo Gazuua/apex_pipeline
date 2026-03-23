@@ -9,11 +9,24 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Store wraps a SQLite database. When tx is set (via RunInTx), all
-// Exec/Query/QueryRow calls are routed through the transaction.
+// Querier is the common interface for Store and TxStore.
+// Use this when a function needs to work with both transactional and non-transactional contexts.
+type Querier interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// Store wraps a SQLite database for non-transactional operations.
+// Use RunInTx for transactional operations — the callback receives a TxStore.
 type Store struct {
 	db *sql.DB
-	tx *sql.Tx // non-nil inside RunInTx callback — routes ops through transaction
+}
+
+// TxStore wraps a sql.Tx for transactional operations.
+// Only exists inside RunInTx callbacks — prevents misuse of closed transactions.
+type TxStore struct {
+	tx *sql.Tx
 }
 
 func Open(dsn string) (*Store, error) {
@@ -35,44 +48,46 @@ func Open(dsn string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
-	if s.tx != nil {
-		return s.tx.Exec(query, args...)
-	}
 	return s.db.Exec(query, args...)
 }
 
 func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
-	if s.tx != nil {
-		return s.tx.Query(query, args...)
-	}
 	return s.db.Query(query, args...)
 }
 
 func (s *Store) QueryRow(query string, args ...any) *sql.Row {
-	if s.tx != nil {
-		return s.tx.QueryRow(query, args...)
-	}
 	return s.db.QueryRow(query, args...)
 }
 
-func (s *Store) BeginTx(ctx context.Context) (*sql.Tx, error) { return s.db.BeginTx(ctx, nil) }
-
-// RunInTx executes fn within a transaction. A transaction-bound Store copy is
-// passed to fn — all Exec/Query/QueryRow calls on it go through the transaction.
-// The original Store is NOT modified, so concurrent goroutines are safe.
+// RunInTx executes fn within a transaction. A TxStore is passed to fn —
+// all Exec/Query/QueryRow calls on it go through the transaction.
 // Commits on success, rolls back on error.
-func (s *Store) RunInTx(ctx context.Context, fn func(txs *Store) error) error {
+func (s *Store) RunInTx(ctx context.Context, fn func(tx *TxStore) error) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	txs := &Store{db: s.db, tx: tx}
+	txs := &TxStore{tx: tx}
 
 	if err := fn(txs); err != nil {
 		tx.Rollback() //nolint:errcheck
 		return err
 	}
 	return tx.Commit()
+}
+
+// --- TxStore methods ---
+
+func (ts *TxStore) Exec(query string, args ...any) (sql.Result, error) {
+	return ts.tx.Exec(query, args...)
+}
+
+func (ts *TxStore) Query(query string, args ...any) (*sql.Rows, error) {
+	return ts.tx.Query(query, args...)
+}
+
+func (ts *TxStore) QueryRow(query string, args ...any) *sql.Row {
+	return ts.tx.QueryRow(query, args...)
 }
 
 // NullableString returns nil for empty strings, otherwise the string itself.
