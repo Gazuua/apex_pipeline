@@ -147,7 +147,7 @@
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- ---
+- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- --- ---
 
 
 ---
