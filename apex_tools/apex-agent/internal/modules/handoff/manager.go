@@ -87,7 +87,7 @@ func (m *Manager) NotifyStart(branch, workspace, summary, gitBranch string, back
 		if scanErr := row.Scan(&existingStatus); scanErr == nil {
 			// 이전 작업에 연결된 FIXING 백로그가 있으면 OPEN으로 복귀
 			if m.backlogManager != nil {
-				oldIDs := m.getBacklogIDs(tx, branch)
+				oldIDs, _ := m.getBacklogIDs(tx, branch)
 				for _, oldID := range oldIDs {
 					if releaseErr := m.backlogManager.SetStatusWith(tx, oldID, "OPEN"); releaseErr != nil {
 						ml.Warn("failed to release backlog on branch replace", "backlog_id", oldID, "err", releaseErr)
@@ -206,7 +206,7 @@ func (m *Manager) checkFixingBacklogs(branch string) ([]int, error) {
 }
 
 // finalizeBranch moves an active branch to history and cleans up related records.
-func (m *Manager) finalizeBranch(branch, workspace, summary, historyStatus, notifType string) error {
+func (m *Manager) finalizeBranch(branch, workspace, summary, historyStatus string) error {
 	return m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
 		// 현재 브랜치 정보 조회
 		var b Branch
@@ -219,15 +219,22 @@ func (m *Manager) finalizeBranch(branch, workspace, summary, historyStatus, noti
 		}
 
 		// backlog IDs 스냅샷
-		backlogIDs := m.getBacklogIDs(tx, branch)
+		backlogIDs, idsErr := m.getBacklogIDs(tx, branch)
+		if idsErr != nil {
+			return fmt.Errorf("snapshot backlog IDs: %w", idsErr)
+		}
 		backlogJSON, _ := json.Marshal(backlogIDs)
 
-		// branch_history 삽입
+		// branch_history 삽입 — merge/drop 시 전달받은 summary 우선, 없으면 DB의 기존 summary fallback
+		historySummary := summary
+		if historySummary == "" {
+			historySummary = dbSummary.String
+		}
 		if _, err := tx.Exec(
 			`INSERT INTO branch_history (branch, workspace, git_branch, status, summary, backlog_ids, started_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			b.Branch, b.Workspace, store.NullableString(b.GitBranch),
-			historyStatus, dbSummary.String, string(backlogJSON), b.CreatedAt,
+			historyStatus, historySummary, string(backlogJSON), b.CreatedAt,
 		); err != nil {
 			return fmt.Errorf("insert branch_history: %w", err)
 		}
@@ -254,7 +261,7 @@ func (m *Manager) NotifyMerge(branch, workspace, summary string) error {
 	if len(fixingIDs) > 0 {
 		return fmt.Errorf("FIXING 상태 백로그가 남아있습니다: %v\n먼저 backlog resolve 또는 release로 처리하세요", fixingIDs)
 	}
-	if err := m.finalizeBranch(branch, workspace, summary, HistoryMerged, TypeMerge); err != nil {
+	if err := m.finalizeBranch(branch, workspace, summary, HistoryMerged); err != nil {
 		return err
 	}
 	ml.Audit("branch merged", "branch", branch)
@@ -271,7 +278,7 @@ func (m *Manager) NotifyDrop(branch, workspace, reason string) error {
 	if len(fixingIDs) > 0 {
 		return fmt.Errorf("FIXING 상태 백로그가 남아있습니다: %v\n먼저 backlog release로 처리하세요", fixingIDs)
 	}
-	if err := m.finalizeBranch(branch, workspace, reason, HistoryDropped, TypeDrop); err != nil {
+	if err := m.finalizeBranch(branch, workspace, reason, HistoryDropped); err != nil {
 		return err
 	}
 	ml.Audit("branch dropped", "branch", branch, "reason", reason)
@@ -376,7 +383,11 @@ func (m *Manager) ResolveBranch(workspaceID, gitBranch string) (string, error) {
 			`SELECT branch FROM active_branches WHERE git_branch = ?`, gitBranch,
 		)
 		var branch string
-		if scanErr := row.Scan(&branch); scanErr == nil {
+		if scanErr := row.Scan(&branch); scanErr != nil {
+			if !errors.Is(scanErr, sql.ErrNoRows) {
+				return "", fmt.Errorf("resolve by git_branch: %w", scanErr)
+			}
+		} else {
 			return branch, nil
 		}
 	}
@@ -401,18 +412,22 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 }
 
 // getBacklogIDs returns backlog IDs linked to a branch via junction table.
-func (m *Manager) getBacklogIDs(s store.Querier, branch string) []int {
+func (m *Manager) getBacklogIDs(s store.Querier, branch string) ([]int, error) {
 	rows, err := s.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("query branch_backlogs for %s: %w", branch, err)
 	}
 	defer rows.Close()
 	var ids []int
 	for rows.Next() {
 		var id int
-		if rows.Scan(&id) == nil {
-			ids = append(ids, id)
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan backlog_id for %s: %w", branch, err)
 		}
+		ids = append(ids, id)
 	}
-	return ids
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate backlog_ids for %s: %w", branch, err)
+	}
+	return ids, nil
 }

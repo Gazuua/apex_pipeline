@@ -80,7 +80,9 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 	if err := ReadMessage(conn, &req); err != nil {
 		ml.Error("read request failed", "err", err)
 		resp := Response{OK: false, Error: err.Error()}
-		WriteMessage(conn, &resp)
+		if wErr := WriteMessage(conn, &resp); wErr != nil {
+			ml.Error("write read-error response failed", "err", wErr)
+		}
 		return
 	}
 

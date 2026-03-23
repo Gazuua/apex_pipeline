@@ -77,6 +77,10 @@ func (mgr *Manager) ExportJSON() ([]byte, error) {
 		return nil, fmt.Errorf("list all: %w", err)
 	}
 
+	// nil → empty slice 변환: JSON 출력에서 "items": null 대신 "items": [] 보장
+	if items == nil {
+		items = []BacklogItem{}
+	}
 	data := BacklogJSON{
 		NextID: nextID,
 		Items:  items,

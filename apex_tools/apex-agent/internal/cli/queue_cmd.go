@@ -3,14 +3,13 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -44,18 +43,7 @@ func sendQueueRequestMap(action string, params any) (map[string]any, error) {
 // sendQueueAcquire sends a blocking acquire request with extended timeout (35min).
 // queue.acquire can block up to 30min waiting for lock, so 10s default timeout is insufficient.
 func sendQueueAcquire(params any) (map[string]any, error) {
-	resp, err := sendRequestWithTimeout("queue", "acquire", params, getBranchID(), 35*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Error != "" {
-		return nil, fmt.Errorf("%s", resp.Error)
-	}
-	var result map[string]any
-	if err := json.Unmarshal(resp.Data, &result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-	return result, nil
+	return sendRequestMapWithTimeout("queue", "acquire", params, getBranchID(), 35*time.Minute)
 }
 
 // projectRoot returns the project root directory.

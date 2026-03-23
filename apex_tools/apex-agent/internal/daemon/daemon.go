@@ -102,7 +102,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		if err := m.OnStart(ctx); err != nil {
 			// Rollback: stop already-started modules in reverse order.
 			for i := len(started) - 1; i >= 0; i-- {
-				started[i].OnStop()
+				if stopErr := started[i].OnStop(); stopErr != nil {
+					ml.Error("rollback module stop failed", "module", started[i].Name(), "err", stopErr)
+				}
 			}
 			return fmt.Errorf("start module %s: %w", m.Name(), err)
 		}
@@ -155,7 +157,9 @@ shutdown:
 
 	// Stop modules in reverse order.
 	for i := len(d.modules) - 1; i >= 0; i-- {
-		d.modules[i].OnStop()
+		if err := d.modules[i].OnStop(); err != nil {
+			ml.Error("module stop failed", "module", d.modules[i].Name(), "err", err)
+		}
 	}
 
 	d.store.Close()

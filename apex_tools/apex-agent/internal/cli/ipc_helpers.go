@@ -34,6 +34,21 @@ func sendRequestMap(module, action string, params any, workspace string) (map[st
 	if err != nil {
 		return nil, err
 	}
+	return parseResponseMap(resp)
+}
+
+// sendRequestMapWithTimeout sends an IPC request with a custom timeout and
+// parses the response Data as map[string]any.
+func sendRequestMapWithTimeout(module, action string, params any, workspace string, timeout time.Duration) (map[string]any, error) {
+	resp, err := sendRequestWithTimeout(module, action, params, workspace, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return parseResponseMap(resp)
+}
+
+// parseResponseMap extracts the response Data as map[string]any, checking for errors.
+func parseResponseMap(resp *ipc.Response) (map[string]any, error) {
 	if resp.Error != "" {
 		return nil, fmt.Errorf("%s", resp.Error)
 	}
