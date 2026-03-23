@@ -47,14 +47,19 @@ RedisConnection::~RedisConnection()
 
 std::unique_ptr<RedisConnection> RedisConnection::create(boost::asio::io_context& io_ctx, const RedisConfig& config)
 {
+    apex::core::ScopedLogger create_logger{"RedisConnection", apex::core::ScopedLogger::NO_CORE, "app"};
+    create_logger.info("connecting to {}:{}", config.host, config.port);
+
     auto* ac = redisAsyncConnect(config.host.c_str(), static_cast<int>(config.port));
     if (!ac)
     {
+        create_logger.error("redisAsyncConnect returned null");
         return nullptr;
     }
 
     if (ac->err)
     {
+        create_logger.error("connect failed: {}", ac->errstr);
         redisAsyncFree(ac);
         return nullptr;
     }
@@ -63,6 +68,7 @@ std::unique_ptr<RedisConnection> RedisConnection::create(boost::asio::io_context
     auto conn = std::unique_ptr<RedisConnection>(new RedisConnection(io_ctx, ac));
     conn->asio_adapter_ = std::make_unique<HiredisAsioAdapter>(io_ctx, ac);
 
+    create_logger.info("connected to {}:{}", config.host, config.port);
     return conn;
 }
 
@@ -75,6 +81,7 @@ void RedisConnection::disconnect()
 {
     if (connected_ && ac_)
     {
+        logger_.info("disconnect");
         connected_ = false;
         // redisAsyncFree가 on_cleanup 콜백을 호출하므로
         // adapter가 살아있는 동안 먼저 호출해야 한다.

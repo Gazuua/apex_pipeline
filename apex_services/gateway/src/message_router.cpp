@@ -31,6 +31,7 @@ apex::core::Result<void> MessageRouter::route(apex::core::SessionPtr session, co
         logger_.warn("No route for msg_id: {}", header.msg_id);
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
+    logger_.debug("route msg_id={} -> topic={}", header.msg_id, *topic);
 
     // 2. Serialize Kafka Envelope (wire boundary: SessionId → uint64_t)
     auto envelope =

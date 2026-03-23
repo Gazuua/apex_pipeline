@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 
 #include <boost/asio/awaitable.hpp>
 
@@ -61,6 +62,7 @@ class CircuitBreaker
     uint32_t half_open_calls_ = 0;     // 허용된 시험 호출 수 (rate limiting)
     uint32_t half_open_successes_ = 0; // 연속 성공 수 (CLOSED 전이 기준)
     std::chrono::steady_clock::time_point open_since_;
+    apex::core::ScopedLogger logger_{"CircuitBreaker", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 // Template implementation

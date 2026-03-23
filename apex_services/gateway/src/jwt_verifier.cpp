@@ -82,6 +82,7 @@ apex::core::Result<JwtClaims> JwtVerifier::verify(std::string_view token) const
         }
         claims.expires_at = decoded.get_expires_at();
 
+        logger_.debug("verify ok uid={}", claims.user_id);
         return claims;
     }
     catch (const jwt::error::token_verification_exception& e)

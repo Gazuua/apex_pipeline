@@ -38,7 +38,9 @@ std::string PasswordHasher::hash(std::string_view password) const
 bool PasswordHasher::verify(std::string_view password, std::string_view stored_hash) const
 {
     // apex_bcrypt_checkpw: 0 = match
+    logger_.trace("verify: hash_len={}", stored_hash.size());
     int ret = apex_bcrypt_checkpw(std::string(password).c_str(), std::string(stored_hash).c_str());
+    logger_.trace("verify: result={}", ret == 0 ? "match" : "mismatch");
     return ret == 0;
 }
 

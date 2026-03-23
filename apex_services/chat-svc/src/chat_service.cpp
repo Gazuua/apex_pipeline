@@ -146,6 +146,7 @@ void ChatService::send_response_with_flags(uint32_t msg_id, uint16_t flags, uint
 
     // Use session_id as Kafka key (design doc section 7.1)
     auto key = std::to_string(apex::core::to_underlying(session_id));
+    logger_.trace("kafka produce topic={} msg_id={} size={}", target_topic, msg_id, envelope_buf.size());
     auto result = kafka_->produce(target_topic, key, std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value())
@@ -232,6 +233,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
     }
 
     // 4. Send CreateRoomResponse with actual room_id
+    logger_.debug("room created id={} name={} owner={}", room_id, room_name_str, user_id);
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name_off = fbb.CreateString(room_name_str);
     auto resp = fbs::CreateCreateRoomResponse(fbb, fbs::ChatRoomError_NONE, room_id, name_off);
@@ -310,6 +312,7 @@ return redis.call('SCARD', KEYS[1])
     }
 
     auto member_count = static_cast<uint32_t>(lua_result);
+    logger_.debug("join_room ok room={} user={} members={}", room_id, user_id, member_count);
 
     // 6. Send JoinRoomResponse
     flatbuffers::FlatBufferBuilder fbb(256);
@@ -359,6 +362,7 @@ return 1
     {
         co_return co_await send_leave_room_error(meta, fbs::ChatRoomError_NOT_IN_ROOM, room_id);
     }
+    logger_.debug("leave_room ok room={} user={}", room_id, user_id);
 
     // 3. Send LeaveRoomResponse
     flatbuffers::FlatBufferBuilder fbb(128);

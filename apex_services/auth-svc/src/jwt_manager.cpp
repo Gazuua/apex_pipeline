@@ -95,6 +95,7 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
                          .set_payload_claim("jti", jwt::claim(std::string(jti)))
                          .sign(jwt::algorithm::rs256(public_key_, private_key_));
 
+        logger_.debug("token issued uid={} jti={} ttl={}s", user_id, jti, access_token_ttl_.count());
         return token;
     }
     catch (const std::exception& e)

@@ -3,6 +3,7 @@
 #include <apex/core/frame_codec.hpp>
 
 #include <apex/core/error_code.hpp>
+#include <apex/core/scoped_logger.hpp>
 
 #include <algorithm>
 #include <array>
@@ -10,6 +11,11 @@
 
 namespace apex::core
 {
+
+namespace
+{
+ScopedLogger s_logger{"FrameCodec", ScopedLogger::NO_CORE};
+} // anonymous namespace
 
 Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
 {
@@ -31,6 +37,7 @@ Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
     if (!parse_result)
     {
         auto err = parse_result.error();
+        s_logger.debug("try_decode parse failed err={}", static_cast<int>(err));
         switch (err)
         {
             case ParseError::BodyTooLarge:
@@ -59,6 +66,7 @@ Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
     }
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 
+    s_logger.trace("try_decode ok msg_id={} body={}", header.msg_id, header.body_size);
     return Frame{header, payload};
 }
 

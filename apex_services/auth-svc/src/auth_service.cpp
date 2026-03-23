@@ -292,6 +292,10 @@ AuthService::on_logout(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg_
             logger_.error("Failed to blacklist token: {}", apex::core::error_code_name(bl_result.error()));
             // Non-fatal: proceed with logout
         }
+        else
+        {
+            logger_.info("blacklist add jti={} ttl={}s", claims.jti, remaining.count());
+        }
     }
 
     // --- Step 3: Remove Redis sessions ---

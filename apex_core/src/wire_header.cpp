@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <bit>
@@ -45,6 +46,11 @@ inline uint32_t ntoh32(uint32_t v)
 
 } // anonymous namespace
 
+namespace
+{
+ScopedLogger s_logger{"WireHeader", ScopedLogger::NO_CORE};
+} // anonymous namespace
+
 std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t> data)
 {
     if (data.size() < SIZE)
@@ -57,6 +63,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
 
     if (h.version != CURRENT_VERSION)
     {
+        s_logger.debug("parse unsupported version={}", h.version);
         return std::unexpected(ParseError::UnsupportedVersion);
     }
 
@@ -75,6 +82,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
 
     if (h.body_size > MAX_BODY_SIZE)
     {
+        s_logger.debug("parse body_too_large size={} max={}", h.body_size, MAX_BODY_SIZE);
         return std::unexpected(ParseError::BodyTooLarge);
     }
 

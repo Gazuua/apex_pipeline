@@ -2,8 +2,15 @@
 
 #include <apex/shared/adapters/cancellation_token.hpp>
 
+#include <apex/core/scoped_logger.hpp>
+
 namespace apex::shared::adapters
 {
+
+namespace
+{
+apex::core::ScopedLogger s_logger{"CancellationToken", apex::core::ScopedLogger::NO_CORE, "app"};
+} // anonymous namespace
 
 #ifndef NDEBUG
 void CancellationToken::assert_owner_thread()
@@ -19,7 +26,8 @@ void CancellationToken::assert_owner_thread()
 boost::asio::cancellation_slot CancellationToken::new_slot()
 {
     assert_owner_thread();
-    outstanding_.fetch_add(1, std::memory_order_relaxed);
+    auto prev = outstanding_.fetch_add(1, std::memory_order_relaxed);
+    s_logger.debug("new_slot outstanding={}", prev + 1);
     auto& slot = slots_.emplace_back(std::make_unique<Slot>());
     return slot->signal.slot();
 }
@@ -27,6 +35,7 @@ boost::asio::cancellation_slot CancellationToken::new_slot()
 void CancellationToken::cancel_all()
 {
     assert_owner_thread();
+    s_logger.info("cancel_all slots={} outstanding={}", slots_.size(), outstanding_.load(std::memory_order_relaxed));
     for (auto& s : slots_)
         s->signal.emit(boost::asio::cancellation_type::terminal);
 }
