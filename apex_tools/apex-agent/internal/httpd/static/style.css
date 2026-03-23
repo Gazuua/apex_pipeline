@@ -450,6 +450,28 @@ body {
   color: var(--accent-green);
 }
 
+.sortable::after {
+  content: ' ⇅';
+  font-size: 0.7em;
+  opacity: 0.4;
+}
+
+.sortable.sort-asc::after {
+  content: ' ↑';
+  opacity: 1;
+  color: var(--accent-green);
+}
+
+.sortable.sort-desc::after {
+  content: ' ↓';
+  opacity: 1;
+  color: var(--accent-green);
+}
+
+/* ── Scope/Type Badges ── */
+.badge-scope { background: rgba(56,189,248,0.12); color: var(--accent-blue); }
+.badge-type  { background: rgba(167,139,250,0.12); color: var(--accent-purple); }
+
 /* ── Error Banner ── */
 .error-banner {
   background: rgba(248,113,113,0.1);

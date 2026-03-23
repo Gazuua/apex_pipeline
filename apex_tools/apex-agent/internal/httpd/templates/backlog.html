@@ -20,6 +20,24 @@
     <label class="chip"><input type="checkbox" name="timeframe" value="IN_VIEW" onchange="applyFilters()"> In View</label>
     <label class="chip"><input type="checkbox" name="timeframe" value="DEFERRED" onchange="applyFilters()"> Deferred</label>
   </div>
+  <div class="multi-filter">
+    <span class="filter-label">Scope:</span>
+    <label class="chip"><input type="checkbox" name="scope" value="CORE" onchange="applyFilters()"> Core</label>
+    <label class="chip"><input type="checkbox" name="scope" value="SHARED" onchange="applyFilters()"> Shared</label>
+    <label class="chip"><input type="checkbox" name="scope" value="TOOLS" onchange="applyFilters()"> Tools</label>
+    <label class="chip"><input type="checkbox" name="scope" value="INFRA" onchange="applyFilters()"> Infra</label>
+    <label class="chip"><input type="checkbox" name="scope" value="CI" onchange="applyFilters()"> CI</label>
+    <label class="chip"><input type="checkbox" name="scope" value="DOCS" onchange="applyFilters()"> Docs</label>
+  </div>
+  <div class="multi-filter">
+    <span class="filter-label">Type:</span>
+    <label class="chip"><input type="checkbox" name="type" value="BUG" onchange="applyFilters()"> Bug</label>
+    <label class="chip"><input type="checkbox" name="type" value="DESIGN_DEBT" onchange="applyFilters()"> Design Debt</label>
+    <label class="chip"><input type="checkbox" name="type" value="INFRA" onchange="applyFilters()"> Infra</label>
+    <label class="chip"><input type="checkbox" name="type" value="TEST" onchange="applyFilters()"> Test</label>
+    <label class="chip"><input type="checkbox" name="type" value="PERF" onchange="applyFilters()"> Perf</label>
+    <label class="chip"><input type="checkbox" name="type" value="DOCS" onchange="applyFilters()"> Docs</label>
+  </div>
   <button class="rate-btn" onclick="resetBacklogFilters()" style="margin-left:auto;padding:6px 14px;font-size:0.82rem">Reset</button>
 </div>
 

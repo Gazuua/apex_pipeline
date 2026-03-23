@@ -3,14 +3,14 @@
 <table class="table">
   <thead>
     <tr>
-      <th class="sortable" style="width:60px" onclick="sortBy('id')">ID</th>
+      <th class="sortable" style="width:60px" data-col="id" onclick="sortBy('id')">ID</th>
       <th>Title</th>
-      <th class="sortable" style="width:90px" onclick="sortBy('severity')">Severity</th>
-      <th class="sortable" style="width:80px" onclick="sortBy('status')">Status</th>
+      <th class="sortable" style="width:90px" data-col="severity" onclick="sortBy('severity')">Severity</th>
+      <th class="sortable" style="width:80px" data-col="status" onclick="sortBy('status')">Status</th>
       <th style="width:90px">Timeframe</th>
       <th style="width:80px">Scope</th>
       <th style="width:80px">Type</th>
-      <th class="sortable" style="width:130px" onclick="sortBy('updated_at')">Updated</th>
+      <th class="sortable" style="width:130px" data-col="updated_at" onclick="sortBy('updated_at')">Updated</th>
     </tr>
   </thead>
   <tbody>
@@ -21,8 +21,8 @@
       <td><span class="badge {{if eq .Severity "CRITICAL"}}badge-red{{else if eq .Severity "MAJOR"}}badge-amber{{else}}badge-gray{{end}}">{{.Severity}}</span></td>
       <td><span class="badge {{if eq .Status "OPEN"}}badge-green{{else if eq .Status "FIXING"}}badge-purple{{else}}badge-blue{{end}}">{{.Status}}</span></td>
       <td>{{if eq .Status "RESOLVED"}}<span style="color:var(--text-muted)">—</span>{{else}}<span class="badge {{if eq .Timeframe "NOW"}}badge-red{{else if eq .Timeframe "IN_VIEW"}}badge-amber{{else}}badge-gray{{end}}">{{.Timeframe}}</span>{{end}}</td>
-      <td class="mono" style="font-size:0.82rem">{{.Scope}}</td>
-      <td class="mono" style="font-size:0.82rem">{{.Type}}</td>
+      <td><span class="badge badge-scope">{{.Scope}}</span></td>
+      <td><span class="badge badge-type">{{.Type}}</span></td>
       <td class="mono" style="font-size:0.78rem">{{.UpdatedAt}}</td>
     </tr>
     <tr id="detail-{{.ID}}" class="backlog-detail-row" hidden>
@@ -37,6 +37,19 @@
     {{end}}
   </tbody>
 </table>
+<script>
+// Update sort indicators after HTMX swap
+(function() {
+    if (typeof currentSort !== 'undefined' && currentSort) {
+        document.querySelectorAll('.sortable').forEach(function(th) {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.dataset.col === currentSort) {
+                th.classList.add(currentDir === 'ASC' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+    }
+})();
+</script>
 {{else}}
 <div class="empty-state">No backlog items match the current filters</div>
 {{end}}
