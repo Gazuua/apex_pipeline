@@ -36,10 +36,12 @@ func ValidateBuild(command string) error {
 		return nil
 	}
 
-	// Allow approved build/benchmark wrappers.
+	// Allow approved build/benchmark wrappers and GitHub CLI.
 	if strings.Contains(command, "queue-lock.sh") ||
 		strings.Contains(command, "apex-agent") ||
-		strings.Contains(command, "run-hook") {
+		strings.Contains(command, "run-hook") ||
+		strings.Contains(command, "gh pr") ||
+		strings.Contains(command, "gh run") {
 		return nil
 	}
 
