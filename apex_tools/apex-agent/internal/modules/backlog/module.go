@@ -177,6 +177,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("next-id", m.handleNextID)
 	reg.Handle("export", m.handleExport)
 	reg.Handle("release", m.handleRelease)
+	reg.Handle("update", m.handleUpdate)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -265,6 +266,20 @@ func (m *Module) handleExport(_ context.Context, _ json.RawMessage, _ string) (a
 		return nil, err
 	}
 	return map[string]string{"content": content}, nil
+}
+
+func (m *Module) handleUpdate(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		ID     int               `json:"id"`
+		Fields map[string]string `json:"fields"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("backlog.update: decode params: %w", err)
+	}
+	if err := m.manager.Update(p.ID, p.Fields); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "updated"}, nil
 }
 
 func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ string) (any, error) {

@@ -29,6 +29,7 @@ func backlogCmd() *cobra.Command {
 	cmd.AddCommand(backlogExportCmd())
 	cmd.AddCommand(backlogCheckCmd())
 	cmd.AddCommand(backlogReleaseCmd())
+	cmd.AddCommand(backlogUpdateCmd())
 	return cmd
 }
 
@@ -274,6 +275,73 @@ func backlogExportCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&stdout, "stdout", false, "stdout 출력 (디버깅용, 파일 쓰기 안 함)")
+	return cmd
+}
+
+// ── backlog update ──
+
+func backlogUpdateCmd() *cobra.Command {
+	var title, severity, timeframe, scope, itemType, description, related string
+
+	cmd := &cobra.Command{
+		Use:   "update ID",
+		Short: "백로그 항목 메타데이터 수정",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var id int
+			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
+				return fmt.Errorf("ID must be an integer: %s", args[0])
+			}
+
+			fields := make(map[string]string)
+			if cmd.Flags().Changed("title") {
+				fields["title"] = title
+			}
+			if cmd.Flags().Changed("severity") {
+				fields["severity"] = strings.ToUpper(severity)
+			}
+			if cmd.Flags().Changed("timeframe") {
+				fields["timeframe"] = strings.ToUpper(strings.ReplaceAll(timeframe, " ", "_"))
+			}
+			if cmd.Flags().Changed("scope") {
+				fields["scope"] = scope
+			}
+			if cmd.Flags().Changed("type") {
+				fields["type"] = strings.ToUpper(strings.ReplaceAll(itemType, "-", "_"))
+			}
+			if cmd.Flags().Changed("description") {
+				fields["description"] = description
+			}
+			if cmd.Flags().Changed("related") {
+				fields["related"] = related
+			}
+
+			if len(fields) == 0 {
+				return fmt.Errorf("최소 1개 필드를 지정하세요 (--title, --severity, --description 등)")
+			}
+
+			_, mgr, cleanup, err := openBacklogStore()
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			if err := mgr.Update(id, fields); err != nil {
+				return err
+			}
+			fmt.Printf("Updated #%d: %d fields\n", id, len(fields))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&title, "title", "", "제목")
+	cmd.Flags().StringVar(&severity, "severity", "", "등급 (CRITICAL/MAJOR/MINOR)")
+	cmd.Flags().StringVar(&timeframe, "timeframe", "", "시간축 (NOW/IN_VIEW/DEFERRED)")
+	cmd.Flags().StringVar(&scope, "scope", "", "스코프")
+	cmd.Flags().StringVar(&itemType, "type", "", "타입 (BUG/DESIGN_DEBT/...)")
+	cmd.Flags().StringVar(&description, "description", "", "설명")
+	cmd.Flags().StringVar(&related, "related", "", "연관 (예: 150,151)")
+
 	return cmd
 }
 

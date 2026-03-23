@@ -606,3 +606,83 @@ func TestRelease_AppendsDescription(t *testing.T) {
 		t.Errorf("Description should start with original text, got: %q", got.Description)
 	}
 }
+
+// ── Update ──
+
+func TestUpdate_SingleField(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "원래 제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "원래 설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"title": "수정된 제목"})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	items, _ := mgr.List(ListFilter{Status: "OPEN"})
+	if len(items) != 1 || items[0].Title != "수정된 제목" {
+		t.Errorf("expected '수정된 제목', got '%s'", items[0].Title)
+	}
+	if items[0].Severity != "MAJOR" {
+		t.Errorf("severity should be preserved, got '%s'", items[0].Severity)
+	}
+}
+
+func TestUpdate_MultipleFields(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{
+		"severity":    "MINOR",
+		"description": "수정된 설명",
+	})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	items, _ := mgr.List(ListFilter{Status: "OPEN"})
+	if items[0].Severity != "MINOR" || items[0].Description != "수정된 설명" {
+		t.Errorf("fields not updated: severity=%s desc=%s", items[0].Severity, items[0].Description)
+	}
+}
+
+func TestUpdate_NotFound(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	err := mgr.Update(999, map[string]string{"title": "x"})
+	if err == nil {
+		t.Fatal("expected error for non-existent item")
+	}
+}
+
+func TestUpdate_InvalidEnum(t *testing.T) {
+	s := setupTestDB(t)
+	defer s.Close()
+	mgr := NewManager(s)
+
+	mgr.Add(&BacklogItem{
+		ID: 1, Title: "제목", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
+		Description: "설명",
+	})
+
+	err := mgr.Update(1, map[string]string{"severity": "INVALID"})
+	if err == nil {
+		t.Fatal("expected error for invalid severity")
+	}
+}
