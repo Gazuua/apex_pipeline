@@ -36,10 +36,12 @@ func ValidateBuild(command string) error {
 		return nil
 	}
 
-	// Allow approved build/benchmark wrappers.
+	// Allow approved build/benchmark wrappers and GitHub CLI.
 	if strings.Contains(command, "queue-lock.sh") ||
 		strings.Contains(command, "apex-agent") ||
-		strings.Contains(command, "run-hook") {
+		strings.Contains(command, "run-hook") ||
+		strings.Contains(command, "gh pr") ||
+		strings.Contains(command, "gh run") {
 		return nil
 	}
 
@@ -59,6 +61,12 @@ func ValidateBuild(command string) error {
 		}
 	}
 
+	// Check git branch creation commands.
+	if isBlockedGitBranch(command) {
+		ml.Warn("git branch creation blocked", "command", command)
+		return fmt.Errorf("차단: 직접 브랜치 생성 금지. 'apex-agent handoff notify start --branch-name <name>' 을 사용하세요")
+	}
+
 	// Check blocked patterns.
 	for _, pat := range blockedBuildPatterns {
 		if pat.MatchString(command) {
@@ -68,6 +76,44 @@ func ValidateBuild(command string) error {
 	}
 
 	return nil
+}
+
+// blockedGitBranchPatterns detect git branch creation commands.
+var blockedGitBranchPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`\bgit\s+checkout\s+-[bB]\b`),
+	regexp.MustCompile(`\bgit\s+switch\s+(-c|--create)\b`),
+	regexp.MustCompile(`\bgit\s+worktree\s+add\s+.*-b\b`),
+}
+
+// isBlockedGitBranch returns true if the command creates a git branch.
+func isBlockedGitBranch(command string) bool {
+	for _, pat := range blockedGitBranchPatterns {
+		if pat.MatchString(command) {
+			return true
+		}
+	}
+	return isGitBranchCreate(command)
+}
+
+// isGitBranchCreate detects `git branch <name>` (creation, not query).
+// Allowed: git branch, git branch -a, git branch -D, git branch -d, git branch -v, git branch --list
+// Blocked: git branch feature/foo (non-flag argument = branch creation)
+func isGitBranchCreate(command string) bool {
+	fields := strings.Fields(command)
+	for i := 0; i < len(fields)-1; i++ {
+		if fields[i] != "git" || fields[i+1] != "branch" {
+			continue
+		}
+		// Found "git branch" — check remaining args
+		for _, arg := range fields[i+2:] {
+			if strings.HasPrefix(arg, "-") {
+				return false // flag present → query or delete command
+			}
+			return true // non-flag argument → branch creation
+		}
+		return false // "git branch" with no args → list
+	}
+	return false
 }
 
 // hasGoToolCommand checks if the command contains a Go toolchain invocation.

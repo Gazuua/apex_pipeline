@@ -308,7 +308,7 @@ func TestCleanup_MergedBranchDetection(t *testing.T) {
 		// Dry-run: Run will attempt `git fetch --prune origin` but there's no remote —
 		// the function is tolerant of that (non-fatal). Phase 3 (remote) will be empty.
 		// Phase 2 (local branches) should detect feature/merged.
-		result, err := cleanup.Run(repoDir, false /* dry-run */)
+		result, err := cleanup.Run(repoDir, false /* dry-run */, nil)
 		if err != nil {
 			t.Fatalf("cleanup.Run dry-run: %v", err)
 		}
@@ -337,7 +337,7 @@ func TestCleanup_MergedBranchDetection(t *testing.T) {
 
 	t.Run("Run_execute_removes_merged", func(t *testing.T) {
 		// Verify that executing cleanup actually removes the merged branch.
-		result, err := cleanup.Run(repoDir, true /* execute */)
+		result, err := cleanup.Run(repoDir, true /* execute */, nil)
 		if err != nil {
 			t.Fatalf("cleanup.Run execute: %v", err)
 		}
@@ -360,6 +360,104 @@ func TestCleanup_MergedBranchDetection(t *testing.T) {
 		_, err = runGitInRepoNoFail(repoDir, "rev-parse", "--verify", "feature/merged")
 		if err == nil {
 			t.Error("feature/merged should have been deleted but still exists in git")
+		}
+	})
+}
+
+// TestCleanup_ActiveBranchProtection verifies that branches in activeBranches map
+// are skipped by cleanup even when they are merged to main.
+func TestCleanup_ActiveBranchProtection(t *testing.T) {
+	repoDir := filepath.Join(t.TempDir(), "cleanup-active-test")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	runGitInRepo(t, repoDir, "init", "-b", "main")
+	runGitInRepo(t, repoDir, "config", "user.email", "test@test.com")
+	runGitInRepo(t, repoDir, "config", "user.name", "Test")
+
+	// Commit on main.
+	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("# repo\n"), 0o644)
+	runGitInRepo(t, repoDir, "add", ".")
+	runGitInRepo(t, repoDir, "commit", "-m", "initial")
+
+	// Create feature/protected — merged to main but in activeBranches.
+	runGitInRepo(t, repoDir, "checkout", "-b", "feature/protected")
+	os.WriteFile(filepath.Join(repoDir, "protected.txt"), []byte("protected\n"), 0o644)
+	runGitInRepo(t, repoDir, "add", ".")
+	runGitInRepo(t, repoDir, "commit", "-m", "feature: protected")
+	runGitInRepo(t, repoDir, "checkout", "main")
+	runGitInRepo(t, repoDir, "merge", "feature/protected", "--no-edit")
+
+	// Create feature/unprotected — also merged to main, NOT in activeBranches.
+	runGitInRepo(t, repoDir, "checkout", "-b", "feature/unprotected")
+	os.WriteFile(filepath.Join(repoDir, "unprotected.txt"), []byte("unprotected\n"), 0o644)
+	runGitInRepo(t, repoDir, "add", ".")
+	runGitInRepo(t, repoDir, "commit", "-m", "feature: unprotected")
+	runGitInRepo(t, repoDir, "checkout", "main")
+	runGitInRepo(t, repoDir, "merge", "feature/unprotected", "--no-edit")
+
+	// activeBranches: feature/protected만 포함
+	active := map[string]bool{
+		"feature/protected": true,
+	}
+
+	t.Run("dryrun_skips_active_branch", func(t *testing.T) {
+		result, err := cleanup.Run(repoDir, false, active)
+		if err != nil {
+			t.Fatalf("cleanup.Run: %v", err)
+		}
+
+		// feature/unprotected는 Local에 나와야 함 (삭제 대상)
+		foundUnprotected := false
+		for _, action := range result.Local {
+			if action.Branch == "feature/unprotected" {
+				foundUnprotected = true
+			}
+			// feature/protected는 Local에 있으면 안 됨!
+			if action.Branch == "feature/protected" {
+				t.Error("feature/protected is in activeBranches but appeared in cleanup Local list")
+			}
+		}
+		if !foundUnprotected {
+			t.Error("feature/unprotected should be in cleanup Local list")
+		}
+
+		// feature/protected는 Warnings에 "활성 핸드오프" 메시지로 있어야 함
+		foundProtectedWarning := false
+		for _, w := range result.Warnings {
+			if strings.Contains(w, "활성 핸드오프") && strings.Contains(w, "feature/protected") {
+				foundProtectedWarning = true
+			}
+		}
+		if !foundProtectedWarning {
+			t.Error("feature/protected should appear in warnings as active handoff")
+		}
+	})
+
+	t.Run("execute_preserves_active_branch", func(t *testing.T) {
+		result, err := cleanup.Run(repoDir, true, active)
+		if err != nil {
+			t.Fatalf("cleanup.Run execute: %v", err)
+		}
+
+		// feature/unprotected 삭제됨
+		for _, action := range result.Local {
+			if action.Branch == "feature/unprotected" && !action.Done {
+				t.Error("feature/unprotected should have been deleted")
+			}
+		}
+
+		// feature/protected는 여전히 존재
+		_, err = runGitInRepoNoFail(repoDir, "rev-parse", "--verify", "feature/protected")
+		if err != nil {
+			t.Error("feature/protected should still exist (protected by activeBranches)")
+		}
+
+		// feature/unprotected는 삭제됨
+		_, err = runGitInRepoNoFail(repoDir, "rev-parse", "--verify", "feature/unprotected")
+		if err == nil {
+			t.Error("feature/unprotected should have been deleted")
 		}
 	})
 }

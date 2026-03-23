@@ -77,22 +77,21 @@ func TestHandoff_FullLifecycle(t *testing.T) {
 	// Step 6: get-status → "IMPLEMENTING"
 	assertStatus(t, env, ctx, branch, "IMPLEMENTING")
 
-	// Step 7: notify-transition type="merge"
-	resp, err = env.Client.Send(ctx, "handoff", "notify-transition", map[string]any{
+	// Step 7: notify-merge
+	resp, err = env.Client.Send(ctx, "handoff", "notify-merge", map[string]any{
 		"branch":    branch,
 		"workspace": workspace,
-		"type":      "merge",
 		"summary":   "ready to merge",
 	}, "")
 	if err != nil {
-		t.Fatalf("notify-transition merge: transport error: %v", err)
+		t.Fatalf("notify-merge: transport error: %v", err)
 	}
 	if !resp.OK {
-		t.Fatalf("notify-transition merge: expected OK, got error: %s", resp.Error)
+		t.Fatalf("notify-merge: expected OK, got error: %s", resp.Error)
 	}
 
-	// Step 8: get-status → "MERGE_NOTIFIED"
-	assertStatus(t, env, ctx, branch, "MERGE_NOTIFIED")
+	// Step 8: get-status → "" (removed from active_branches)
+	assertStatus(t, env, ctx, branch, "")
 }
 
 // TestHandoff_GateEnforcement verifies gate rules for commit and edit validation.
@@ -370,12 +369,12 @@ func TestHandoff_ResolveBranch(t *testing.T) {
 	env := testenv.New(t)
 	ctx := context.Background()
 
-	// Register with git_branch
+	// Register with branch_name
 	resp, err := env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
-		"branch":     "ws_01",
-		"workspace":  "ws_01",
-		"git_branch": "feature/test-resolve",
-		"summary":    "resolve test",
+		"branch":      "ws_01",
+		"workspace":   "ws_01",
+		"branch_name": "feature/test-resolve",
+		"summary":     "resolve test",
 	}, "")
 	if err != nil || !resp.OK {
 		t.Fatalf("notify-start: %v / %s", err, resp.Error)
@@ -528,11 +527,11 @@ func TestHandoff_StartJob(t *testing.T) {
 	// Register without backlog
 	resp, err := env.Client.Send(ctx, "handoff", "notify-start", map[string]any{
 		"branch":      branch,
-		"workspace":   "ws1",
-		"git_branch":  "feature/job-test",
-		"summary":     "job mode test",
-		"backlog_ids": []int{},
-		"skip_design": true,
+		"workspace":    "ws1",
+		"branch_name":  "feature/job-test",
+		"summary":      "job mode test",
+		"backlog_ids":  []int{},
+		"skip_design":  true,
 	}, "")
 	if err != nil || !resp.OK {
 		t.Fatalf("notify-start job: %v / %s", err, resp.Error)

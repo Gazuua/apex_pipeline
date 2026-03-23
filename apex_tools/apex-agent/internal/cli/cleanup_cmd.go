@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -42,15 +43,35 @@ func cleanupCmd() *cobra.Command {
 			}
 			fmt.Println()
 
+			// 핸드오프 활성 브랜치 조회
+			activeBranches := map[string]bool{}
+			activeResult, listErr := sendHandoffRequest("list-active", nil)
+			if listErr == nil {
+				if branches, ok := activeResult["branches"].([]any); ok {
+					for _, raw := range branches {
+						data, _ := json.Marshal(raw)
+						var info struct {
+							GitBranch string `json:"git_branch"`
+						}
+						if json.Unmarshal(data, &info) == nil && info.GitBranch != "" {
+							activeBranches[info.GitBranch] = true
+						}
+					}
+				}
+			}
+			if len(activeBranches) > 0 {
+				fmt.Printf("활성 핸드오프 브랜치: %d개 (보호됨)\n", len(activeBranches))
+			}
+
 			fmt.Println("리모트 정보 갱신 중...")
 			fmt.Println()
 
-			result, err := cleanup.Run(cwd, execute)
+			cleanupResult, err := cleanup.Run(cwd, execute, activeBranches)
 			if err != nil {
 				return err
 			}
 
-			printCleanupResults(result, execute)
+			printCleanupResults(cleanupResult, execute)
 			return nil
 		},
 	}

@@ -136,22 +136,23 @@ func TestNotifyTransition_Plan(t *testing.T) {
 	}
 }
 
-func TestNotifyTransition_Merge(t *testing.T) {
+func TestNotifyMerge(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	_, _ = mgr.NotifyStart("feature/merge", "ws1", "summary", "", nil, "", true) // skipDesign → implementing
 
-	_, err := mgr.NotifyTransition("feature/merge", "ws1", TypeMerge, "merge summary")
+	err := mgr.NotifyMerge("feature/merge", "ws1", "merge summary")
 	if err != nil {
-		t.Fatalf("NotifyTransition merge: %v", err)
+		t.Fatalf("NotifyMerge: %v", err)
 	}
 
+	// 머지 후 active_branches에서 사라져야 함
 	status, err := mgr.GetStatus("feature/merge")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
-	if status != StatusMergeNotified {
-		t.Errorf("expected status %q, got %q", StatusMergeNotified, status)
+	if status != "" {
+		t.Errorf("expected empty status (removed from active), got %q", status)
 	}
 }
 
@@ -436,7 +437,7 @@ func (m *mockBacklogManager) SetStatus(id int, status string) error {
 	return nil
 }
 
-func (m *mockBacklogManager) SetStatusWith(txs *store.Store, id int, status string) error {
+func (m *mockBacklogManager) SetStatusWith(q store.Querier, id int, status string) error {
 	if m.failSetStatus {
 		return fmt.Errorf("mock SetStatusWith error for id=%d", id)
 	}
@@ -528,25 +529,25 @@ func TestNotifyStart_BacklogAlreadyFixing(t *testing.T) {
 	}
 }
 
-func TestNotifyStart_ReplaceMergeNotified(t *testing.T) {
-	s, mgr := setupHandoffTestDB(t)
+func TestNotifyStart_AfterMerge(t *testing.T) {
+	_, mgr := setupHandoffTestDB(t)
 
-	// 1. 첫 번째 작업 등록 → implementing → merge-notified
+	// 1. 첫 번째 작업 등록 → implementing → merge
 	_, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "first work", "git-branch-1", nil, "", true)
 	if err != nil {
 		t.Fatalf("first NotifyStart: %v", err)
 	}
-	if _, err := mgr.NotifyTransition("feature/ws-reuse", "ws1", "merge", "merge done"); err != nil {
-		t.Fatalf("NotifyTransition merge: %v", err)
+	if err := mgr.NotifyMerge("feature/ws-reuse", "ws1", "merge done"); err != nil {
+		t.Fatalf("NotifyMerge: %v", err)
 	}
 
-	// 상태 확인: MERGE_NOTIFIED
+	// 머지 후 active에서 사라졌는지 확인
 	status, _ := mgr.GetStatus("feature/ws-reuse")
-	if status != StatusMergeNotified {
-		t.Fatalf("expected %q, got %q", StatusMergeNotified, status)
+	if status != "" {
+		t.Fatalf("expected empty status after merge, got %q", status)
 	}
 
-	// 2. 같은 workspace에서 새 작업 시작 — MERGE_NOTIFIED 자동 정리 후 등록
+	// 2. 같은 workspace에서 새 작업 시작 — 정상 등록
 	notifID, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "second work", "git-branch-2", nil, "", true)
 	if err != nil {
 		t.Fatalf("second NotifyStart should succeed but got: %v", err)
@@ -568,19 +569,6 @@ func TestNotifyStart_ReplaceMergeNotified(t *testing.T) {
 	}
 	if b.Summary != "second work" {
 		t.Errorf("expected summary %q, got %q", "second work", b.Summary)
-	}
-
-	// 이전 notification은 정리되고 새 notification만 존재하는지 확인
-	rows, err := s.Query(`SELECT COUNT(*) FROM notifications WHERE branch = ?`, "feature/ws-reuse")
-	if err != nil {
-		t.Fatalf("query notifications: %v", err)
-	}
-	defer rows.Close()
-	rows.Next()
-	var count int
-	rows.Scan(&count)
-	if count != 1 {
-		t.Errorf("expected 1 notification (new start), got %d", count)
 	}
 }
 
@@ -653,8 +641,8 @@ func (m *mockBacklogManagerForReplace) SetStatus(id int, status string) error {
 	return err
 }
 
-func (m *mockBacklogManagerForReplace) SetStatusWith(txs *store.Store, id int, status string) error {
-	_, err := txs.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+func (m *mockBacklogManagerForReplace) SetStatusWith(q store.Querier, id int, status string) error {
+	_, err := q.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
 	return err
 }
 

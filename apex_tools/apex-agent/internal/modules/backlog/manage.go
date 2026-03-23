@@ -41,17 +41,24 @@ type ListFilter struct {
 
 // Manager handles CRUD operations on the backlog_items table.
 type Manager struct {
-	store *store.Store
+	store *store.Store   // for RunInTx (top-level only)
+	q     store.Querier  // for all queries (Store or TxStore)
 }
 
 // NewManager creates a new Manager backed by the given store.
 func NewManager(s *store.Store) *Manager {
-	return &Manager{store: s}
+	return &Manager{store: s, q: s}
+}
+
+// withQuerier creates a Manager copy that uses the given Querier for queries.
+// Used inside RunInTx to route queries through the transaction.
+func (m *Manager) withQuerier(q store.Querier) *Manager {
+	return &Manager{store: m.store, q: q}
 }
 
 // NextID returns the next available backlog item ID (max(id)+1, or 1 if empty).
 func (m *Manager) NextID() (int, error) {
-	row := m.store.QueryRow("SELECT COALESCE(MAX(id), 0) FROM backlog_items")
+	row := m.q.QueryRow("SELECT COALESCE(MAX(id), 0) FROM backlog_items")
 	var maxID int
 	if err := row.Scan(&maxID); err != nil {
 		return 0, fmt.Errorf("NextID: %w", err)
@@ -76,7 +83,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 	}
 
 	if item.Position == 0 {
-		row := m.store.QueryRow(
+		row := m.q.QueryRow(
 			"SELECT COALESCE(MAX(position), 0) FROM backlog_items WHERE timeframe = ?",
 			item.Timeframe,
 		)
@@ -94,7 +101,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 
 	if item.ID == 0 {
 		// AUTOINCREMENT: id 생략 시 SQLite가 자동 할당
-		result, err := m.store.Exec(`
+		result, err := m.q.Exec(`
 			INSERT INTO backlog_items
 				(title, severity, timeframe, scope, type, description, related,
 				 position, status, resolution, resolved_at)
@@ -112,7 +119,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 		}
 		item.ID = int(id)
 	} else {
-		_, err := m.store.Exec(`
+		_, err := m.q.Exec(`
 			INSERT INTO backlog_items
 				(id, title, severity, timeframe, scope, type, description, related,
 				 position, status, resolution, resolved_at)
@@ -146,7 +153,7 @@ func scanBacklogItem(scanner interface{ Scan(dest ...any) error }) (*BacklogItem
 // Get retrieves a single backlog item by ID.
 // Returns nil, nil if the item does not exist.
 func (m *Manager) Get(id int) (*BacklogItem, error) {
-	row := m.store.QueryRow(`
+	row := m.q.QueryRow(`
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
 		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
@@ -200,7 +207,7 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 			END,
 			position ASC`
 
-	rows, err := m.store.Query(query, args...)
+	rows, err := m.q.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("List: %w", err)
 	}
@@ -225,7 +232,7 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 // so the DB status is preserved — import never changes status.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
 func (m *Manager) UpdateFromImport(id int, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
-	_, err := m.store.Exec(`
+	_, err := m.q.Exec(`
 		UPDATE backlog_items
 		SET severity = ?, timeframe = ?, scope = ?, type = ?,
 		    description = ?, related = ?, position = ?, status = ?,
@@ -247,7 +254,7 @@ func (m *Manager) Resolve(id int, resolution string) error {
 	if err := ValidateResolution(resolution); err != nil {
 		return err
 	}
-	result, err := m.store.Exec(`
+	result, err := m.q.Exec(`
 		UPDATE backlog_items
 		SET status = ?,
 		    resolution = ?,
@@ -272,13 +279,13 @@ func (m *Manager) Resolve(id int, resolution string) error {
 
 // SetStatus updates the status of a backlog item.
 func (m *Manager) SetStatus(id int, status string) error {
-	return m.SetStatusWith(m.store, id, status)
+	return m.SetStatusWith(m.q, id, status)
 }
 
 // SetStatusWith updates the status of a backlog item using the provided store
 // (which may be a transaction-bound copy from RunInTx).
 // FIXING 전이 시 이미 FIXING인 항목은 DB 레벨에서 차단 (rows affected=0).
-func (m *Manager) SetStatusWith(txs *store.Store, id int, status string) error {
+func (m *Manager) SetStatusWith(q store.Querier, id int, status string) error {
 	if err := ValidateStatus(status); err != nil {
 		return err
 	}
@@ -292,7 +299,7 @@ func (m *Manager) SetStatusWith(txs *store.Store, id int, status string) error {
 		args = append(args, StatusFixing)
 	}
 
-	result, err := txs.Exec(query, args...)
+	result, err := q.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("SetStatus: %w", err)
 	}
@@ -325,7 +332,7 @@ func (m *Manager) Release(id int, reason, branch string) error {
 	// Append release history to description
 	appendDesc := fmt.Sprintf("\n[RELEASED] %s: %s", branch, reason)
 
-	_, err = m.store.Exec(`
+	_, err = m.q.Exec(`
 		UPDATE backlog_items
 		SET status = CASE WHEN status = ? THEN ? ELSE status END,
 		    description = description || ?,
@@ -340,7 +347,7 @@ func (m *Manager) Release(id int, reason, branch string) error {
 	// Cross-table 접근: branch_backlogs는 handoff 모듈 소유 테이블이지만,
 	// release 시 해당 백로그의 브랜치 연결을 해제해야 함. 같은 SQLite DB 내
 	// 테이블이라 물리적 경계가 없고, 인터페이스 추가 비용 대비 ROI가 낮아 직접 접근 유지.
-	if _, delErr := m.store.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id); delErr != nil {
+	if _, delErr := m.q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id); delErr != nil {
 		ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
 	}
 
@@ -351,7 +358,7 @@ func (m *Manager) Release(id int, reason, branch string) error {
 // Check returns whether a backlog item exists and its current status.
 // Returns exists=false, status="", nil if the item does not exist.
 func (m *Manager) Check(id int) (exists bool, status string, err error) {
-	row := m.store.QueryRow("SELECT status FROM backlog_items WHERE id = ?", id)
+	row := m.q.QueryRow("SELECT status FROM backlog_items WHERE id = ?", id)
 	err = row.Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, "", nil
@@ -383,7 +390,7 @@ func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, e
 	)
 	args = append(args, StatusFixing)
 
-	rows, err := m.store.Query(query, args...)
+	rows, err := m.q.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("ListFixingForBranch: %w", err)
 	}

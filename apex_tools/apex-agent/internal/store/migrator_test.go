@@ -9,8 +9,8 @@ func TestMigrate_NewDB(t *testing.T) {
 	defer s.Close()
 
 	m := NewMigrator(s)
-	m.Register("test_module", 1, func(s *Store) error {
-		_, err := s.Exec("CREATE TABLE test_items (id INTEGER PRIMARY KEY)")
+	m.Register("test_module", 1, func(tx *TxStore) error {
+		_, err := tx.Exec("CREATE TABLE test_items (id INTEGER PRIMARY KEY)")
 		return err
 	})
 
@@ -30,9 +30,9 @@ func TestMigrate_Idempotent(t *testing.T) {
 
 	called := 0
 	m := NewMigrator(s)
-	m.Register("test_module", 1, func(s *Store) error {
+	m.Register("test_module", 1, func(tx *TxStore) error {
 		called++
-		_, err := s.Exec("CREATE TABLE test_items (id INTEGER PRIMARY KEY)")
+		_, err := tx.Exec("CREATE TABLE test_items (id INTEGER PRIMARY KEY)")
 		return err
 	})
 
@@ -49,12 +49,12 @@ func TestMigrate_MultiVersion(t *testing.T) {
 	defer s.Close()
 
 	m := NewMigrator(s)
-	m.Register("mod", 1, func(s *Store) error {
-		_, err := s.Exec("CREATE TABLE items (id INTEGER PRIMARY KEY)")
+	m.Register("mod", 1, func(tx *TxStore) error {
+		_, err := tx.Exec("CREATE TABLE items (id INTEGER PRIMARY KEY)")
 		return err
 	})
-	m.Register("mod", 2, func(s *Store) error {
-		_, err := s.Exec("ALTER TABLE items ADD COLUMN name TEXT")
+	m.Register("mod", 2, func(tx *TxStore) error {
+		_, err := tx.Exec("ALTER TABLE items ADD COLUMN name TEXT")
 		return err
 	})
 
@@ -73,12 +73,12 @@ func TestMigrate_MultipleModules(t *testing.T) {
 	defer s.Close()
 
 	m := NewMigrator(s)
-	m.Register("alpha", 1, func(s *Store) error {
-		_, err := s.Exec("CREATE TABLE alpha_t (id INTEGER PRIMARY KEY)")
+	m.Register("alpha", 1, func(tx *TxStore) error {
+		_, err := tx.Exec("CREATE TABLE alpha_t (id INTEGER PRIMARY KEY)")
 		return err
 	})
-	m.Register("beta", 1, func(s *Store) error {
-		_, err := s.Exec("CREATE TABLE beta_t (id INTEGER PRIMARY KEY)")
+	m.Register("beta", 1, func(tx *TxStore) error {
+		_, err := tx.Exec("CREATE TABLE beta_t (id INTEGER PRIMARY KEY)")
 		return err
 	})
 

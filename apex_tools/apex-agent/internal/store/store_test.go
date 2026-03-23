@@ -63,7 +63,7 @@ func TestQuery_SelectRows(t *testing.T) {
 	}
 }
 
-func TestBeginTx_CommitAndRollback(t *testing.T) {
+func TestRunInTx_CommitAndRollback(t *testing.T) {
 	s, err := Open(":memory:")
 	if err != nil {
 		t.Fatal(err)
@@ -72,15 +72,23 @@ func TestBeginTx_CommitAndRollback(t *testing.T) {
 
 	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
-	// Commit
-	tx, _ := s.BeginTx(context.Background())
-	tx.Exec("INSERT INTO test (val) VALUES (?)", "committed")
-	tx.Commit()
+	// Commit via RunInTx
+	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "committed")
+		return err
+	})
+	if err != nil {
+		t.Fatalf("RunInTx commit error: %v", err)
+	}
 
-	// Rollback
-	tx2, _ := s.BeginTx(context.Background())
-	tx2.Exec("INSERT INTO test (val) VALUES (?)", "rolled_back")
-	tx2.Rollback()
+	// Rollback via RunInTx
+	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+		tx.Exec("INSERT INTO test (val) VALUES (?)", "rolled_back")
+		return errors.New("rollback")
+	})
+	if err == nil {
+		t.Fatal("expected error from rollback")
+	}
 
 	rows, _ := s.Query("SELECT val FROM test")
 	defer rows.Close()
@@ -104,8 +112,8 @@ func TestRunInTx_Commit(t *testing.T) {
 
 	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
-	err = s.RunInTx(context.Background(), func(txs *Store) error {
-		_, err := txs.Exec("INSERT INTO test (val) VALUES (?)", "committed")
+	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "committed")
 		return err
 	})
 	if err != nil {
@@ -133,8 +141,8 @@ func TestRunInTx_Rollback(t *testing.T) {
 	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
 	testErr := errors.New("deliberate error")
-	err = s.RunInTx(context.Background(), func(txs *Store) error {
-		txs.Exec("INSERT INTO test (val) VALUES (?)", "should_rollback")
+	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+		tx.Exec("INSERT INTO test (val) VALUES (?)", "should_rollback")
 		return testErr
 	})
 	if !errors.Is(err, testErr) {
@@ -161,27 +169,44 @@ func TestRunInTx_TxStoreIsolation(t *testing.T) {
 
 	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
-	// Verify the original Store's tx field remains nil after RunInTx
-	err = s.RunInTx(context.Background(), func(txs *Store) error {
-		// Inside the callback, txs should have a non-nil tx
-		if txs.tx == nil {
-			t.Error("txs.tx should be non-nil inside RunInTx callback")
+	// Verify TxStore is properly isolated — it's a separate type from Store
+	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+		if tx.tx == nil {
+			t.Error("tx.tx should be non-nil inside RunInTx callback")
 		}
-		// The original Store's tx should still be nil
-		if s.tx != nil {
-			t.Error("original Store's tx should remain nil inside RunInTx callback")
-		}
-		_, err := txs.Exec("INSERT INTO test (val) VALUES (?)", "isolated")
+		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "isolated")
 		return err
 	})
 	if err != nil {
 		t.Fatalf("RunInTx returned error: %v", err)
 	}
+}
 
-	// After RunInTx, original Store's tx should still be nil
-	if s.tx != nil {
-		t.Error("original Store's tx should remain nil after RunInTx")
+// ── Querier interface ──
+
+func TestQuerier_StoreImplements(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer s.Close()
+
+	var q Querier = s // Store must satisfy Querier
+	_ = q
+}
+
+func TestQuerier_TxStoreImplements(t *testing.T) {
+	s, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	s.RunInTx(context.Background(), func(tx *TxStore) error {
+		var q Querier = tx // TxStore must satisfy Querier
+		_ = q
+		return nil
+	})
 }
 
 // ── NullableString ──

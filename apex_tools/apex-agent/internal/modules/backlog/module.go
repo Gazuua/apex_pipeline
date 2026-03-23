@@ -28,8 +28,8 @@ func (m *Module) Manager() *Manager { return m.manager }
 
 // RegisterSchema registers the backlog_items table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
-	mig.Register("backlog", 1, func(s *store.Store) error {
-		_, err := s.Exec(`CREATE TABLE backlog_items (
+	mig.Register("backlog", 1, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`CREATE TABLE backlog_items (
 			id          INTEGER PRIMARY KEY,
 			title       TEXT    NOT NULL,
 			severity    TEXT    NOT NULL,
@@ -47,9 +47,9 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		)`)
 		return err
 	})
-	mig.Register("backlog", 2, func(s *store.Store) error {
+	mig.Register("backlog", 2, func(tx *store.TxStore) error {
 		// id를 AUTOINCREMENT로 변경 — 삭제된 ID 재사용 방지
-		_, err := s.Exec(`
+		_, err := tx.Exec(`
 			CREATE TABLE backlog_items_new (
 				id          INTEGER PRIMARY KEY AUTOINCREMENT,
 				title       TEXT    NOT NULL,
@@ -72,7 +72,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		`)
 		return err
 	})
-	mig.Register("backlog", 3, func(s *store.Store) error {
+	mig.Register("backlog", 3, func(tx *store.TxStore) error {
 		// 1. 기존 데이터 대문자 정규화
 		updates := []string{
 			`UPDATE backlog_items SET status = UPPER(status) WHERE status != UPPER(status)`,
@@ -80,13 +80,13 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			`UPDATE backlog_items SET type = UPPER(REPLACE(type, '-', '_')) WHERE type != UPPER(REPLACE(type, '-', '_'))`,
 		}
 		for _, q := range updates {
-			if _, err := s.Exec(q); err != nil {
+			if _, err := tx.Exec(q); err != nil {
 				return fmt.Errorf("normalize: %w", err)
 			}
 		}
 
 		// scope: 쉼표 구분 각각 정규화 (Go에서 처리)
-		rows, err := s.Query("SELECT id, scope FROM backlog_items")
+		rows, err := tx.Query("SELECT id, scope FROM backlog_items")
 		if err != nil {
 			return err
 		}
@@ -107,14 +107,14 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		for _, p := range pairs {
 			normalized := NormalizeScope(p.scope)
 			if normalized != p.scope {
-				if _, execErr := s.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id); execErr != nil {
+				if _, execErr := tx.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id); execErr != nil {
 					return fmt.Errorf("update scope id=%d: %w", p.id, execErr)
 				}
 			}
 		}
 
 		// resolution 오염 데이터 정리
-		resRows, err := s.Query("SELECT id, resolution FROM backlog_items WHERE resolution IS NOT NULL")
+		resRows, err := tx.Query("SELECT id, resolution FROM backlog_items WHERE resolution IS NOT NULL")
 		if err != nil {
 			return err
 		}
@@ -135,14 +135,14 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		for _, p := range resPairs {
 			normalized := NormalizeResolution(p.res)
 			if normalized != p.res {
-				if _, execErr := s.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id); execErr != nil {
+				if _, execErr := tx.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id); execErr != nil {
 					return fmt.Errorf("update resolution id=%d: %w", p.id, execErr)
 				}
 			}
 		}
 
 		// 2. 스키마 재생성 (DEFAULT 'OPEN')
-		_, err = s.Exec(`
+		_, err = tx.Exec(`
 			CREATE TABLE backlog_items_v3 (
 				id          INTEGER PRIMARY KEY AUTOINCREMENT,
 				title       TEXT    NOT NULL,

@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC)
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료 — TxStore 분리, active_branches/branch_history 스키마, notify merge/drop/start 원자적 브랜치 생성
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -85,14 +85,19 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ### 브랜치 인수인계 (Branch Handoff)
 - **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
 - **착수 전**: `apex-agent handoff backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
-- **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge`
+- **브랜치 생성**: `notify start --branch-name feature/foo` — 핸드오프 등록과 git 브랜치 생성이 원자적으로 수행. `git checkout -b` 직접 호출 금지 (hook 차단)
+- **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge` (active에서 삭제, history로 이관)
   - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
+  - `notify drop --reason "..."`: 작업 중도 포기 (active에서 삭제, history에 DROPPED 기록)
   - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
+- **DB 구조**: `active_branches` (활성 작업), `branch_history` (머지/포기 이력). 머지/포기 시 active에서 삭제 → history로 이관
 - **강제 메커니즘** (Hook 기반):
   - **active 미등록** → 모든 Edit/Write/git commit **차단** (예외 없음)
   - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h) 편집 **차단**, 비소스(문서 등) 허용
   - **status=implementing** → 모든 파일 허용
   - **main/master 브랜치** → 핸드오프 체크 스킵
+  - **git checkout -b / git branch <name>** → validate-build hook이 차단 (notify start 경유 강제)
+  - **cleanup** → `active_branches` 조회하여 활성 브랜치 보호 + CWD 보호
 - **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
 - **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 미ack 알림은 경고 표시, 머지 시점은 hook이 자동 차단
 - **ack**: 알림 수신 시 `apex-agent handoff ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
@@ -126,6 +131,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### 문서/프로세스 규칙
 - **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
+- **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
 

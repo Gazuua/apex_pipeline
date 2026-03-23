@@ -51,32 +51,32 @@ func NewManager(s *store.Store) *Manager {
 // Entire operation is wrapped in a transaction to prevent TOCTOU races.
 func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 	var acquired bool
-	err := m.store.RunInTx(context.Background(), func(txs *store.Store) error {
+	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
 		// Check if there is already an active entry for this channel.
-		hasActive, err := m.hasActiveEntry(txs, channel)
+		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
 			return fmt.Errorf("status check: %w", err)
 		}
 
 		if hasActive {
 			// Channel is busy — register as waiting (skip duplicate).
-			return m.insertEntryTx(txs, channel, branch, pid, StatusWaiting)
+			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 		}
 
 		// Channel appears free. Check if there are already waiting entries.
-		first, err := m.firstWaitingTx(txs, channel)
+		first, err := m.firstWaitingTx(tx, channel)
 		if err != nil {
 			return fmt.Errorf("first waiting: %w", err)
 		}
 
 		// If there's a waiter with a different branch already queued ahead, we must wait.
 		if first != nil && first.Branch != branch {
-			return m.insertEntryTx(txs, channel, branch, pid, StatusWaiting)
+			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 		}
 
 		// If there's a waiting entry for this branch, promote it to active.
 		if first != nil && first.Branch == branch {
-			_, err := txs.Exec(`UPDATE queue SET status=? WHERE id=?`, StatusActive, first.ID)
+			_, err := tx.Exec(`UPDATE queue SET status=? WHERE id=?`, StatusActive, first.ID)
 			if err != nil {
 				return fmt.Errorf("promote waiting to active: %w", err)
 			}
@@ -85,7 +85,7 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 		}
 
 		// No waiters at all — insert directly as active.
-		if err := m.insertEntryTx(txs, channel, branch, pid, StatusActive); err != nil {
+		if err := m.insertEntryTx(tx, channel, branch, pid, StatusActive); err != nil {
 			return err
 		}
 		acquired = true
@@ -146,8 +146,8 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 // then promotes the waiting entry to active. Returns true if promoted.
 func (m *Manager) tryPromote(channel, branch string) (bool, error) {
 	var promoted bool
-	err := m.store.RunInTx(context.Background(), func(txs *store.Store) error {
-		hasActive, err := m.hasActiveEntry(txs, channel)
+	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (m *Manager) tryPromote(channel, branch string) (bool, error) {
 			return nil
 		}
 
-		first, err := m.firstWaitingTx(txs, channel)
+		first, err := m.firstWaitingTx(tx, channel)
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func (m *Manager) tryPromote(channel, branch string) (bool, error) {
 		}
 
 		// CAS: only promote if still WAITING (prevents double-promote)
-		res, err := txs.Exec(
+		res, err := tx.Exec(
 			`UPDATE queue SET status=? WHERE id=? AND status=?`,
 			StatusActive, first.ID, StatusWaiting,
 		)
@@ -273,7 +273,7 @@ func (m *Manager) insertEntry(channel, branch string, pid int, status string) er
 }
 
 // insertEntryTx inserts a new queue entry using the given store (transaction-safe).
-func (m *Manager) insertEntryTx(s *store.Store, channel, branch string, pid int, status string) error {
+func (m *Manager) insertEntryTx(s store.Querier, channel, branch string, pid int, status string) error {
 	_, err := s.Exec(
 		`INSERT INTO queue (channel, branch, pid, status) VALUES (?, ?, ?, ?)`,
 		channel, branch, pid, status,
@@ -282,7 +282,7 @@ func (m *Manager) insertEntryTx(s *store.Store, channel, branch string, pid int,
 }
 
 // hasActiveEntry checks if there is an active entry for the channel (transaction-safe).
-func (m *Manager) hasActiveEntry(s *store.Store, channel string) (bool, error) {
+func (m *Manager) hasActiveEntry(s store.Querier, channel string) (bool, error) {
 	row := s.QueryRow(
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND status=?`,
 		channel, StatusActive,
@@ -300,7 +300,7 @@ func (m *Manager) firstWaiting(channel string) (*QueueEntry, error) {
 }
 
 // firstWaitingTx returns the waiting entry with the lowest ID for channel (transaction-safe).
-func (m *Manager) firstWaitingTx(s *store.Store, channel string) (*QueueEntry, error) {
+func (m *Manager) firstWaitingTx(s store.Querier, channel string) (*QueueEntry, error) {
 	row := s.QueryRow(
 		`SELECT id, channel, branch, pid, status, created_at
 		 FROM queue

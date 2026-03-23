@@ -25,7 +25,7 @@ func (m *Module) Name() string { return "handoff" }
 
 // RegisterSchema registers the branches, notifications, and notification_acks table migrations.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
-	mig.Register("handoff", 1, func(s *store.Store) error {
+	mig.Register("handoff", 1, func(tx *store.TxStore) error {
 		queries := []string{
 			`CREATE TABLE branches (
 				branch      TEXT    PRIMARY KEY,
@@ -56,15 +56,15 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			`CREATE INDEX idx_acks_branch ON notification_acks(branch)`,
 		}
 		for _, q := range queries {
-			if _, err := s.Exec(q); err != nil {
+			if _, err := tx.Exec(q); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
-	mig.Register("handoff", 2, func(s *store.Store) error {
+	mig.Register("handoff", 2, func(tx *store.TxStore) error {
 		// 1. junction 테이블 생성
-		_, err := s.Exec(`CREATE TABLE branch_backlogs (
+		_, err := tx.Exec(`CREATE TABLE branch_backlogs (
 			branch     TEXT    NOT NULL,
 			backlog_id INTEGER NOT NULL,
 			PRIMARY KEY (branch, backlog_id)
@@ -74,7 +74,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		}
 
 		// 2. 기존 branches.backlog_id 데이터 이관 (NULL 스킵)
-		_, err = s.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO branch_backlogs (branch, backlog_id)
 			SELECT branch, backlog_id FROM branches WHERE backlog_id IS NOT NULL
 		`)
@@ -84,7 +84,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 		// 3. branches 재생성 (backlog_id 컬럼 제거)
 		// 개별 Exec()로 분리 — partial failure 시 명확한 에러 반환
-		if _, err = s.Exec(`CREATE TABLE branches_v2 (
+		if _, err = tx.Exec(`CREATE TABLE branches_v2 (
 			branch      TEXT    PRIMARY KEY,
 			workspace   TEXT    NOT NULL,
 			status      TEXT    NOT NULL,
@@ -94,26 +94,26 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		)`); err != nil {
 			return fmt.Errorf("create branches_v2: %w", err)
 		}
-		if _, err = s.Exec(`INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
+		if _, err = tx.Exec(`INSERT INTO branches_v2 (branch, workspace, status, summary, created_at, updated_at)
 			SELECT branch, workspace, status, summary, created_at, updated_at FROM branches`); err != nil {
 			return fmt.Errorf("copy to branches_v2: %w", err)
 		}
-		if _, err = s.Exec(`DROP TABLE branches`); err != nil {
+		if _, err = tx.Exec(`DROP TABLE branches`); err != nil {
 			return fmt.Errorf("drop old branches: %w", err)
 		}
-		if _, err = s.Exec(`ALTER TABLE branches_v2 RENAME TO branches`); err != nil {
+		if _, err = tx.Exec(`ALTER TABLE branches_v2 RENAME TO branches`); err != nil {
 			return fmt.Errorf("rename branches_v2: %w", err)
 		}
 		return nil
 	})
-	mig.Register("handoff", 3, func(s *store.Store) error {
+	mig.Register("handoff", 3, func(tx *store.TxStore) error {
 		// git_branch 컬럼 추가 — hook fallback 조회용
-		_, err := s.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
+		_, err := tx.Exec(`ALTER TABLE branches ADD COLUMN git_branch TEXT`)
 		return err
 	})
-	mig.Register("handoff", 4, func(s *store.Store) error {
+	mig.Register("handoff", 4, func(tx *store.TxStore) error {
 		// status를 UPPER_SNAKE_CASE로 정규화
-		_, err := s.Exec(`UPDATE branches SET status = CASE status
+		_, err := tx.Exec(`UPDATE branches SET status = CASE status
 			WHEN 'started' THEN 'STARTED'
 			WHEN 'design-notified' THEN 'DESIGN_NOTIFIED'
 			WHEN 'implementing' THEN 'IMPLEMENTING'
@@ -122,12 +122,82 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		END`)
 		return err
 	})
+	mig.Register("handoff", 5, func(tx *store.TxStore) error {
+		// 1. branches → active_branches 리네이밍
+		if _, err := tx.Exec(`ALTER TABLE branches RENAME TO active_branches`); err != nil {
+			return fmt.Errorf("rename branches: %w", err)
+		}
+
+		// 2. branch_history 테이블 생성
+		if _, err := tx.Exec(`CREATE TABLE branch_history (
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
+			branch      TEXT    NOT NULL,
+			workspace   TEXT    NOT NULL,
+			git_branch  TEXT,
+			status      TEXT    NOT NULL,
+			summary     TEXT,
+			backlog_ids TEXT,
+			started_at  TEXT    NOT NULL,
+			finished_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+		)`); err != nil {
+			return fmt.Errorf("create branch_history: %w", err)
+		}
+
+		// 3. MERGE_NOTIFIED → branch_history (MERGED) 이관
+		if _, err := tx.Exec(`INSERT INTO branch_history (branch, workspace, git_branch, status, summary, started_at)
+			SELECT branch, workspace, git_branch, 'MERGED', summary, created_at
+			FROM active_branches WHERE status = 'MERGE_NOTIFIED'`); err != nil {
+			return fmt.Errorf("migrate merge_notified: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM active_branches WHERE status = 'MERGE_NOTIFIED'`); err != nil {
+			return fmt.Errorf("delete merge_notified: %w", err)
+		}
+
+		// 4. 나머지 전부 → branch_history (DROPPED) 이관
+		if _, err := tx.Exec(`INSERT INTO branch_history (branch, workspace, git_branch, status, summary, started_at)
+			SELECT branch, workspace, git_branch, 'DROPPED', summary, created_at
+			FROM active_branches`); err != nil {
+			return fmt.Errorf("migrate remaining: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM active_branches`); err != nil {
+			return fmt.Errorf("delete remaining: %w", err)
+		}
+
+		// 5. git_branch UNIQUE 제약 추가 (테이블 재생성)
+		if _, err := tx.Exec(`CREATE TABLE active_branches_v2 (
+			branch      TEXT PRIMARY KEY,
+			workspace   TEXT NOT NULL,
+			git_branch  TEXT UNIQUE,
+			status      TEXT NOT NULL,
+			summary     TEXT,
+			created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+			updated_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+		)`); err != nil {
+			return fmt.Errorf("create active_branches_v2: %w", err)
+		}
+		if _, err := tx.Exec(`DROP TABLE active_branches`); err != nil {
+			return fmt.Errorf("drop active_branches: %w", err)
+		}
+		if _, err := tx.Exec(`ALTER TABLE active_branches_v2 RENAME TO active_branches`); err != nil {
+			return fmt.Errorf("rename active_branches_v2: %w", err)
+		}
+
+		// 6. 고아 branch_backlogs 정리
+		if _, err := tx.Exec(`DELETE FROM branch_backlogs WHERE branch NOT IN (SELECT branch FROM active_branches)`); err != nil {
+			return fmt.Errorf("cleanup branch_backlogs: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // RegisterRoutes registers handoff action handlers.
 func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("notify-start", m.handleNotifyStart)
 	reg.Handle("notify-transition", m.handleNotifyTransition)
+	reg.Handle("notify-merge", m.handleNotifyMerge)
+	reg.Handle("notify-drop", m.handleNotifyDrop)
+	reg.Handle("list-active", m.handleListActive)
 	reg.Handle("check", m.handleCheck)
 	reg.Handle("ack", m.handleAck)
 	reg.Handle("backlog-check", m.handleBacklogCheck)
@@ -148,7 +218,7 @@ func (m *Module) OnStop() error                   { return nil }
 type notifyStartParams struct {
 	Branch     string `json:"branch"`
 	Workspace  string `json:"workspace"`
-	GitBranch  string `json:"git_branch"`
+	BranchName string `json:"branch_name"` // git 브랜치명 (브랜치 생성 전이므로 git_branch 대신 사용)
 	Summary    string `json:"summary"`
 	BacklogIDs []int  `json:"backlog_ids"`
 	Scopes     string `json:"scopes"`
@@ -191,7 +261,7 @@ func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.GitBranch, p.BacklogIDs, p.Scopes, p.SkipDesign)
+	id, err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign)
 	if err != nil {
 		return nil, err
 	}
@@ -352,4 +422,48 @@ func (m *Module) handleProbe(_ context.Context, params json.RawMessage, _ string
 		return nil, err
 	}
 	return map[string]any{"message": msg, "has_notifications": msg != ""}, nil
+}
+
+// --- Merge / Drop / ListActive handlers ---
+
+type notifyMergeParams struct {
+	Branch    string `json:"branch"`
+	Workspace string `json:"workspace"`
+	Summary   string `json:"summary"`
+}
+
+func (m *Module) handleNotifyMerge(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p notifyMergeParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.NotifyMerge(p.Branch, p.Workspace, p.Summary); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "merged"}, nil
+}
+
+type notifyDropParams struct {
+	Branch    string `json:"branch"`
+	Workspace string `json:"workspace"`
+	Reason    string `json:"reason"`
+}
+
+func (m *Module) handleNotifyDrop(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p notifyDropParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("decode params: %w", err)
+	}
+	if err := m.manager.NotifyDrop(p.Branch, p.Workspace, p.Reason); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "dropped"}, nil
+}
+
+func (m *Module) handleListActive(_ context.Context, _ json.RawMessage, _ string) (any, error) {
+	list, err := m.manager.ListActive()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"branches": list}, nil
 }

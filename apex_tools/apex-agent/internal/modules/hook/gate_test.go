@@ -93,3 +93,41 @@ func TestValidateBuild_AllowNormalCommand(t *testing.T) {
 
 // ValidateMerge tests removed — file-based lock replaced by daemon IPC (hook_cmd.go).
 // Merge lock validation is now tested via E2E (TestHook_ValidateMergeRequiresLock).
+
+// ── Git branch creation blocking ──
+
+func TestValidateBuild_BlocksGitBranchCreation(t *testing.T) {
+	blocked := []string{
+		"git checkout -b feature/foo",
+		"git checkout -B feature/foo",
+		"git switch -c feature/foo",
+		"git switch --create feature/foo",
+		"git branch feature/foo",
+		"git worktree add -b feature/foo ../worktree",
+	}
+	for _, cmd := range blocked {
+		if err := ValidateBuild(cmd); err == nil {
+			t.Errorf("expected block for %q", cmd)
+		}
+	}
+}
+
+func TestValidateBuild_AllowsGitBranchQueries(t *testing.T) {
+	allowed := []string{
+		"git branch",
+		"git branch -a",
+		"git branch -v",
+		"git branch --list",
+		"git branch -D feature/foo",
+		"git branch -d feature/foo",
+		"git checkout main",
+		"git checkout feature/existing",
+		"git status",
+		"git push origin --delete feature/foo",
+	}
+	for _, cmd := range allowed {
+		if err := ValidateBuild(cmd); err != nil {
+			t.Errorf("unexpected block for %q: %v", cmd, err)
+		}
+	}
+}
