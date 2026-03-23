@@ -16,7 +16,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ③ | **구현** | 코드 작성, clang-format | 소스 변경 |
 | ④ | **검증** | 로컬 빌드+테스트 (`apex-agent queue build`) → PR → CI 검증, 실패 시 재수정. rebase는 `enforce-rebase` hook이 push/PR 시 자동 강제. **CI 재대기 불필요 조건**: 이전 CI에서 코드 변경이 통과했고 추가 push가 문서/지침만이면 재대기 스킵 (auto-review에서 코드를 수정했다면 코드 변경이므로 CI 재대기 필수). **CI 폴링**: `gh run watch` 사용 시 `--interval 30` 필수 (기본 3초 폴링은 API rate limit 소진). **④⑤ 병렬화**: CI 폴링 시작 직후 auto-review를 병렬로 디스패치 — CI 대기 시간에 리뷰를 동시 진행. CI 실패와 리뷰 이슈를 합산하여 한 번에 수정 | 빌드+CI 성공 |
 | ⑤ | **리뷰** | auto-review 실행, 이슈 수정 | `docs/{project}/review/` |
-| ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.md, README, progress 등 | 갱신된 문서 |
+| ⑥ | **문서 갱신** | CLAUDE.md, Apex_Pipeline.md, BACKLOG.json(export), README, progress 등 | 갱신된 문서 |
 | ⑦ | **머지** | 상세: § Git/브랜치 머지 참조 | main에 머지 |
 
 **① 착수 필수 순서**: 브랜치 생성 → 핸드오프 등록 → 이후 모든 작업. 상태 확인·분석·논의 등 어떤 작업이든 브랜치가 먼저 존재해야 한다. 브랜치 없이 코드 탐색이나 설계 논의를 시작하지 않는다.
@@ -31,7 +31,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ⑤ 리뷰 | 문서 전용 작업, 또는 변경 범위가 극히 작아 리뷰 ROI가 없는 경우 |
 | ①⑥⑦ | **스킵 불가** — 모든 작업에 필수 |
 
-기존 hook 6개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스, 백로그 편집). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
+기존 hook 7개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스, 백로그 편집/읽기). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
 
 ## 모노레포 구조
 
@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료 — CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (IPCFunc 추상화, Start/Merge/Drop 파이프라인), 백로그 import/export 자동 동기화, BACKLOG-157 rebase abort 에러 핸들링. 백로그 정합성 강화 완료 — ExportHistory(RESOLVED→HISTORY 이관), backlog update CLI(필드별 수정+position 재배치), validate-backlog hook(MD 직접 편집 차단), MergePipeline 자동 커밋
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료. 백로그 JSON 통합 완료 (#163) — BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합, backlog show/list --verbose CLI 추가, validate-backlog hook Read 차단, 레거시 MD 자동 마이그레이션
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -78,7 +78,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   5. `gh pr merge --squash --admin`
   6. `apex-agent queue merge release`
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
@@ -133,8 +133,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
 ### 문서/프로세스 규칙
-- **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
-- **백로그 파일 직접 편집 금지** — `docs/BACKLOG.md`, `docs/BACKLOG_HISTORY.md`는 `validate-backlog` hook이 차단. `backlog add/update/resolve/release/export` CLI 사용 필수
+- **백로그**: `docs/BACKLOG.json`에 JSON 포맷으로 저장 (DB가 source of truth, JSON은 git 백업). 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
+- **백로그 파일 직접 접근 금지** — `docs/BACKLOG.json` (및 레거시 MD)는 `validate-backlog` hook이 Read/Edit/Write 모두 차단. 조회: `backlog list/show`, 수정: `backlog add/update/resolve/release/export` CLI 사용 필수
 - **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
@@ -147,7 +147,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **작업 간 발견 이슈 처리** (유저에게 묻지 않고 자체 판단):
   1. 자기 작업으로 인한 이슈 → **즉시 수정** (컨텍스트가 살아있을 때 비용 최저)
   2. 기존·스코프 외라도 수정 비용 낮거나 ROI 높은 이슈 → **즉시 수정**
-  3. 나머지 → `docs/BACKLOG.md`에 등급·시간축 분류 완료하여 등록
+  3. 나머지 → `backlog add`로 등급·시간축 분류 완료하여 등록
 
 ## 프로젝트 정보
 
