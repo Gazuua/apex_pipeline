@@ -31,7 +31,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | ⑤ 리뷰 | 문서 전용 작업, 또는 변경 범위가 극히 작아 리뷰 ROI가 없는 경우 |
 | ①⑥⑦ | **스킵 불가** — 모든 작업에 필수 |
 
-기존 hook 7개가 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스, 백로그 편집/읽기). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
+기존 6종 hook이 도구 호출 시 핵심 게이트를 강제한다 (빌드 경로, 머지 lock, 핸드오프, 리베이스, 백로그 편집/읽기). 상세: `.claude/settings.json` — 모든 hook은 `apex-agent` Go 바이너리가 처리.
 
 ## 모노레포 구조
 
@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126). 백로그 JSON 통합 완료 (#163). notification 시스템 제거 완료 (#164) — 알림/ack/probe 전면 삭제, 상태 전이+FIXING 백로그 체크만 유지
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164) — 알림/ack/probe 전면 삭제, 상태 전이+FIXING 백로그 체크만 유지
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 

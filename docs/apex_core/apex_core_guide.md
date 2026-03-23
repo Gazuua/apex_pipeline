@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.10.6 | **최종 갱신**: 2026-03-22
+**버전**: v0.5.10.7 | **최종 갱신**: 2026-03-24
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
@@ -169,6 +169,7 @@ private:
 
 ```cpp
 struct ServerConfig {
+    std::string bind_address = "0.0.0.0";             // 바인드 주소 (예: "127.0.0.1" = 루프백만)
     bool tcp_nodelay = true;                          // Nagle 비활성화 (저지연)
     uint32_t num_cores = 1;                           // io_context 수 (0 = hardware_concurrency)
     size_t spsc_queue_capacity = 1024;                 // 코어 간 SPSC 큐 크기 (per-pair)
@@ -177,6 +178,7 @@ struct ServerConfig {
     size_t recv_buf_capacity = 8192;                  // per-session 수신 버퍼 크기
     size_t session_max_queue_depth = 256;             // per-session write queue depth 제한
     size_t timer_wheel_slots = 1024;                  // TimingWheel 슬롯 수
+    uint32_t max_connections = 0;                      // 최대 동시 연결 수 (0 = 무제한)
     bool reuseport = false;                           // Linux: per-core SO_REUSEPORT
     bool handle_signals = true;                       // SIGINT/SIGTERM 자동 처리
     std::chrono::seconds drain_timeout{25};            // Graceful Shutdown drain timeout
