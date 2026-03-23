@@ -42,6 +42,9 @@ func New(st *store.Store, router Dispatcher, addr string) *Server {
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(StaticSubFS())))
 
+	// Register page/partial/API routes.
+	s.registerRoutes(mux)
+
 	// Load templates (non-fatal — health/static still work without them).
 	if err := s.InitTemplates(); err != nil {
 		// Templates will be nil; renderPage/renderPartial return error banners.

@@ -1,0 +1,41 @@
+{{define "partial-backlog-table"}}
+{{if .Items}}
+<table class="table">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Severity</th>
+      <th>Status</th>
+      <th>Timeframe</th>
+      <th>Scope</th>
+      <th>Type</th>
+      <th>Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Items}}
+    <tr class="detail-toggle" onclick="this.nextElementSibling.hidden=!this.nextElementSibling.hidden">
+      <td class="mono">#{{.ID}}</td>
+      <td>{{.Title}}</td>
+      <td><span class="badge {{if eq .Severity "CRITICAL"}}badge-red{{else if eq .Severity "MAJOR"}}badge-amber{{else}}badge-gray{{end}}">{{.Severity}}</span></td>
+      <td><span class="badge {{if eq .Status "OPEN"}}badge-green{{else if eq .Status "FIXING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span></td>
+      <td>{{.Timeframe}}</td>
+      <td>{{.Scope}}</td>
+      <td>{{.Type}}</td>
+      <td class="mono" style="font-size:0.78rem">{{.UpdatedAt}}</td>
+    </tr>
+    <tr hidden>
+      <td colspan="8">
+        <div class="detail-content">{{.Description}}{{if .Related}}
+Related: {{.Related}}{{end}}{{if .Resolution}}
+Resolution: {{.Resolution}}{{end}}</div>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty-state">No backlog items match the current filters</div>
+{{end}}
+{{end}}

@@ -1,4 +1,54 @@
 {{define "content"}}
 <h1 class="page-title">Handoff</h1>
-<div class="empty-state">Coming soon</div>
+
+<div class="card">
+  <div class="card-header">Active Branches</div>
+  {{if .Branches}}
+  {{range .Branches}}
+  <div style="padding:16px;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <span class="mono" style="font-weight:700;color:var(--accent-blue)">{{.GitBranch}}</span>
+      <span class="badge {{if eq .Status "IMPLEMENTING"}}badge-green{{else if eq .Status "STARTED"}}badge-amber{{else}}badge-purple{{end}}">{{.Status}}</span>
+    </div>
+    {{if .Summary}}<div style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:8px">{{.Summary}}</div>{{end}}
+
+    <div class="state-machine">
+      <div class="sm-state {{if eq .Status "STARTED"}}active{{else}}completed{{end}}">started</div>
+      <span class="sm-arrow">→</span>
+      <div class="sm-state {{if eq .Status "DESIGN_NOTIFIED"}}active{{else if or (eq .Status "IMPLEMENTING") (eq .Status "MERGE_NOTIFIED")}}completed{{end}}">design</div>
+      <span class="sm-arrow">→</span>
+      <div class="sm-state {{if eq .Status "IMPLEMENTING"}}active{{else if eq .Status "MERGE_NOTIFIED"}}completed{{end}}">implementing</div>
+      <span class="sm-arrow">→</span>
+      <div class="sm-state {{if eq .Status "MERGE_NOTIFIED"}}active{{end}}">merge</div>
+    </div>
+
+    {{if .BacklogIDs}}
+    <div style="margin-top:8px;font-size:0.82rem;color:var(--text-muted)">
+      Backlogs: {{range .BacklogIDs}}<span class="badge badge-amber mono" style="margin-right:4px">#{{.}}</span>{{end}}
+    </div>
+    {{end}}
+    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">Started: {{.CreatedAt}}</div>
+  </div>
+  {{end}}
+  {{else}}
+  <div class="empty-state">No active branches</div>
+  {{end}}
+</div>
+
+{{if .History}}
+<div class="card" style="margin-top:16px">
+  <div class="card-header purple">History</div>
+  <div class="timeline">
+    {{range .History}}
+    <div class="tl-item">
+      <div class="tl-title">
+        <span class="mono" style="color:var(--accent-blue)">{{.GitBranch}}</span>
+        <span class="badge {{if eq .Status "MERGED"}}badge-green{{else}}badge-red{{end}}" style="margin-left:8px">{{.Status}}</span>
+      </div>
+      <div class="tl-meta">{{if .Summary}}{{.Summary}} — {{end}}{{.FinishedAt}}</div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
 {{end}}

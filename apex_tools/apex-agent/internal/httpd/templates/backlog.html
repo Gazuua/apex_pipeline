@@ -1,4 +1,44 @@
 {{define "content"}}
 <h1 class="page-title">Backlog</h1>
-<div class="empty-state">Coming soon</div>
+
+<div class="filter-bar" id="backlog-filters">
+  <select name="status" class="filter-select"
+    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
+    <option value="">All Status</option>
+    <option value="OPEN">Open</option>
+    <option value="FIXING">Fixing</option>
+    <option value="RESOLVED">Resolved</option>
+  </select>
+  <select name="severity" class="filter-select"
+    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
+    <option value="">All Severity</option>
+    <option value="CRITICAL">Critical</option>
+    <option value="MAJOR">Major</option>
+    <option value="MINOR">Minor</option>
+  </select>
+  <select name="timeframe" class="filter-select"
+    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
+    <option value="">All Timeframe</option>
+    <option value="NOW">Now</option>
+    <option value="IN_VIEW">In View</option>
+    <option value="DEFERRED">Deferred</option>
+  </select>
+  <select name="scope" class="filter-select"
+    hx-get="/partials/backlog-table" hx-target="#backlog-table" hx-include="#backlog-filters">
+    <option value="">All Scope</option>
+    <option value="CORE">Core</option>
+    <option value="SHARED">Shared</option>
+    <option value="GATEWAY">Gateway</option>
+    <option value="AUTH_SVC">Auth</option>
+    <option value="CHAT_SVC">Chat</option>
+    <option value="INFRA">Infra</option>
+    <option value="CI">CI</option>
+    <option value="DOCS">Docs</option>
+    <option value="TOOLS">Tools</option>
+  </select>
+</div>
+
+<div id="backlog-table">
+  {{template "partial-backlog-table" .}}
+</div>
 {{end}}
