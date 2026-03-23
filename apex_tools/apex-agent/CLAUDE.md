@@ -155,7 +155,9 @@ MD (git-tracked)           DB (로컬 SQLite)
 |------|------|------|
 | 착수 시 (①) | `migrate backlog` | MD → DB 메타데이터 싱크 |
 | 작업 중 (③) | `backlog resolve/release` | CLI로 상태 변경 (에이전트 판단) |
-| 머지 전 (⑥) | `backlog export > docs/BACKLOG.md` | DB → MD 전체 덤프 |
+| 머지 전 (⑥) | `migrate backlog && backlog export --unsafe > /tmp/bl.md && mv /tmp/bl.md docs/BACKLOG.md` | DB → MD 전체 덤프 |
+
+**경고**: `backlog export > docs/BACKLOG.md` 직접 리다이렉션 금지 — 셸이 파일을 먼저 truncate하여 import-first가 빈 파일을 읽음. 반드시 임시 파일 경유 또는 `--unsafe` + 사전 `migrate backlog` 조합 사용
 
 ### 머지 전 백로그 정리 (에이전트 수행)
 

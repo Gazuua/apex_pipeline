@@ -10,13 +10,6 @@
 
 ## NOW
 
-### #146. apex-agent 시스템 현황 대시보드 프론트엔드
-- **등급**: MAJOR
-- **스코프**: TOOLS
-- **타입**: INFRA
-- **설명**: apex-agent Go 데몬의 시스템 현황을 실시간으로 파악할 수 있는 대시보드 웹 페이지 개발. 표시 대상: ① 핸드오프 상태 (활성 브랜치, 상태머신 단계, 연결된 백로그) ② 큐 현황 (build/merge 채널 잠금 상태, 대기열) ③ 백로그 요약 (severity/timeframe별 OPEN/FIXING 건수) ④ 데몬 헬스 (가동 시간, 모듈 상태, 최근 IPC 요청) ⑤ 알림/ack 이력. 데몬 IPC를 통해 데이터를 조회하거나 SQLite DB를 직접 읽는 방식. 정적 HTML+JS 또는 Go 내장 HTTP 서버 방식 검토 필요.
-
-
 ---
 
 ## IN VIEW
@@ -75,14 +68,7 @@
 - **연관**: #4(HISTORY)
 - **설명**: `crash_handler.cpp`의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치.
 
-### #65. auto-review 가이드 검증 자동화
-- **등급**: MINOR
-- **스코프**: TOOLS
-- **타입**: INFRA
-- **연관**: #1(HISTORY), #126
-- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. ---
-
-### #146. AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹
+### #146. apex-agent 시스템 현황 대시보드 프론트엔드
 - **등급**: MAJOR
 - **스코프**: AUTH_SVC
 - **타입**: PERF
@@ -173,7 +159,8 @@
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환.
+- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. ---
+
 
 ---
 
@@ -233,4 +220,5 @@
 - **스코프**: TOOLS
 - **타입**: BUG
 - **설명**: `docs/BACKLOG.md`를 직접 수정(항목 추가/삭제/편집)해도 apex-agent Go 백엔드의 SQLite DB에 반영되지 않음. 다음 에이전트가 `apex-agent backlog import`/`export`를 실행해야 동기화됨. 단순 BACKLOG.md 수정 시에도 정식 import/export 워크플로우가 자동 트리거되어야 함. pre-commit hook 또는 파일 감시 기반 자동 동기화 검토 필요.
+
 
