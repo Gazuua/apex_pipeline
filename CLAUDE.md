@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료. 백로그 JSON 통합 완료 (#163) — BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합, backlog show/list --verbose CLI 추가, validate-backlog hook Read 차단, 레거시 MD 자동 마이그레이션
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126). 백로그 JSON 통합 완료 (#163). notification 시스템 제거 완료 (#164) — 알림/ack/probe 전면 삭제, 상태 전이+FIXING 백로그 체크만 유지
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -101,9 +101,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - **main/master 브랜치** → 핸드오프 체크 스킵
   - **git checkout -b / git branch <name>** → validate-build hook이 차단 (notify start 경유 강제)
   - **cleanup** → `active_branches` 조회하여 활성 브랜치 보호 + CWD 보호
-- **알림**: 설계 확정 시 `notify design` (방향 변경 시 재발행), 머지 완료 시 `notify merge`
-- **알림 감지**: PreToolUse probe가 Edit/Write/Bash 호출 시 자동 감지 (수동 `check` 불필요). 미ack 알림은 경고 표시, 머지 시점은 hook이 자동 차단
-- **ack**: 알림 수신 시 `apex-agent handoff ack --id <N> --action <no-impact|will-rebase|rebased|design-adjusted|deferred>`
+- **상태 전이**: 설계 확정 시 `notify design`, 계획 확정 시 `notify plan`, 머지 완료 시 `notify merge`
 
 ### 설계 원칙
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지

@@ -22,23 +22,21 @@ type IPCFunc func(action string, params map[string]any) (map[string]any, error)
 //  3. CreateAndPushBranch(branchName)
 //  4. SyncImport(projectRoot, mgr) — non-fatal
 func StartPipeline(branchName string, params map[string]any,
-	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) (float64, error) {
+	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
 	// Phase 1: git 사전 검증
 	if err := ValidateNewBranch(projectRoot, branchName); err != nil {
-		return 0, err
+		return err
 	}
 
 	// Phase 2: DB TX
-	result, err := ipcFn("notify-start", params)
-	if err != nil {
-		return 0, fmt.Errorf("notify-start 실패: %w", err)
+	if _, err := ipcFn("notify-start", params); err != nil {
+		return fmt.Errorf("notify-start 실패: %w", err)
 	}
-	notifID, _ := result["notification_id"].(float64)
 
 	// Phase 3: git 브랜치 생성
 	if err := CreateAndPushBranch(projectRoot, branchName); err != nil {
-		return notifID, fmt.Errorf("브랜치 생성 실패: %w", err)
+		return fmt.Errorf("브랜치 생성 실패: %w", err)
 	}
 
 	// Phase 4: backlog import (non-fatal)
@@ -50,7 +48,7 @@ func StartPipeline(branchName string, params map[string]any,
 		}
 	}
 
-	return notifID, nil
+	return nil
 }
 
 // MergePipeline orchestrates the full merge workflow:

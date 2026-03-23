@@ -28,12 +28,9 @@ func setupHandoffTestDB(t *testing.T) (*store.Store, *Manager) {
 func TestNotifyStart_Basic(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	notifID, err := mgr.NotifyStart("feature/test", "ws1", "test summary", "", nil, "", false)
+	err := mgr.NotifyStart("feature/test", "ws1", "test summary", "", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
-	}
-	if notifID <= 0 {
-		t.Fatalf("expected positive notification ID, got %d", notifID)
 	}
 
 	b, err := mgr.GetBranch("feature/test")
@@ -57,7 +54,7 @@ func TestNotifyStart_Basic(t *testing.T) {
 func TestNotifyStart_SkipDesign(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/skip", "ws1", "skip design", "", nil, "", true)
+	err := mgr.NotifyStart("feature/skip", "ws1", "skip design", "", nil, "", true)
 	if err != nil {
 		t.Fatalf("NotifyStart with skipDesign: %v", err)
 	}
@@ -74,7 +71,7 @@ func TestNotifyStart_SkipDesign(t *testing.T) {
 func TestNotifyStart_WithBacklog(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/backlog-126", "ws1", "backlog item", "", []int{126}, "", false)
+	err := mgr.NotifyStart("feature/backlog-126", "ws1", "backlog item", "", []int{126}, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -94,17 +91,13 @@ func TestNotifyStart_WithBacklog(t *testing.T) {
 func TestNotifyTransition_Design(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, err := mgr.NotifyStart("feature/trans", "ws1", "summary", "", nil, "", false)
+	err := mgr.NotifyStart("feature/trans", "ws1", "summary", "", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 
-	notifID, err := mgr.NotifyTransition("feature/trans", "ws1", TypeDesign, "design summary")
-	if err != nil {
+	if err = mgr.NotifyTransition("feature/trans", "ws1", TypeDesign, "design summary"); err != nil {
 		t.Fatalf("NotifyTransition design: %v", err)
-	}
-	if notifID <= 0 {
-		t.Fatalf("expected positive notification ID, got %d", notifID)
 	}
 
 	status, err := mgr.GetStatus("feature/trans")
@@ -119,10 +112,10 @@ func TestNotifyTransition_Design(t *testing.T) {
 func TestNotifyTransition_Plan(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/plan", "ws1", "summary", "", nil, "", false)
-	_, _ = mgr.NotifyTransition("feature/plan", "ws1", TypeDesign, "design")
+	_ = mgr.NotifyStart("feature/plan", "ws1", "summary", "", nil, "", false)
+	_ = mgr.NotifyTransition("feature/plan", "ws1", TypeDesign, "design")
 
-	_, err := mgr.NotifyTransition("feature/plan", "ws1", TypePlan, "plan summary")
+	err := mgr.NotifyTransition("feature/plan", "ws1", TypePlan, "plan summary")
 	if err != nil {
 		t.Fatalf("NotifyTransition plan: %v", err)
 	}
@@ -139,7 +132,7 @@ func TestNotifyTransition_Plan(t *testing.T) {
 func TestNotifyMerge(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/merge", "ws1", "summary", "", nil, "", true) // skipDesign → implementing
+	_ = mgr.NotifyStart("feature/merge", "ws1", "summary", "", nil, "", true) // skipDesign → implementing
 
 	err := mgr.NotifyMerge("feature/merge", "ws1", "merge summary")
 	if err != nil {
@@ -159,105 +152,12 @@ func TestNotifyMerge(t *testing.T) {
 func TestNotifyTransition_Invalid(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/invalid", "ws1", "summary", "", nil, "", false)
+	_ = mgr.NotifyStart("feature/invalid", "ws1", "summary", "", nil, "", false)
 
 	// started → plan is invalid (must go through design first)
-	_, err := mgr.NotifyTransition("feature/invalid", "ws1", TypePlan, "skip design")
+	err := mgr.NotifyTransition("feature/invalid", "ws1", TypePlan, "skip design")
 	if err == nil {
 		t.Fatal("expected error for invalid transition started→plan, got nil")
-	}
-}
-
-func TestCheckNotifications_None(t *testing.T) {
-	_, mgr := setupHandoffTestDB(t)
-
-	notifs, err := mgr.CheckNotifications("feature/checker")
-	if err != nil {
-		t.Fatalf("CheckNotifications: %v", err)
-	}
-	if len(notifs) != 0 {
-		t.Errorf("expected 0 notifications, got %d", len(notifs))
-	}
-}
-
-func TestCheckNotifications_ExcludesOwn(t *testing.T) {
-	_, mgr := setupHandoffTestDB(t)
-
-	// Branch A creates a notification
-	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
-
-	// Branch A checks — should NOT see its own notification
-	notifs, err := mgr.CheckNotifications("feature/branchA")
-	if err != nil {
-		t.Fatalf("CheckNotifications: %v", err)
-	}
-	if len(notifs) != 0 {
-		t.Errorf("expected 0 notifications (own excluded), got %d", len(notifs))
-	}
-}
-
-func TestCheckNotifications_SeesOthers(t *testing.T) {
-	_, mgr := setupHandoffTestDB(t)
-
-	// Branch A creates a notification
-	_, _ = mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
-
-	// Branch B checks — should see Branch A's notification
-	notifs, err := mgr.CheckNotifications("feature/branchB")
-	if err != nil {
-		t.Fatalf("CheckNotifications: %v", err)
-	}
-	if len(notifs) == 0 {
-		t.Fatal("expected branch B to see branch A's notification")
-	}
-	if notifs[0].Branch != "feature/branchA" {
-		t.Errorf("expected notification from branchA, got %q", notifs[0].Branch)
-	}
-}
-
-func TestCheckNotifications_ExcludesAcked(t *testing.T) {
-	_, mgr := setupHandoffTestDB(t)
-
-	// Branch A creates a notification
-	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
-
-	// Branch B acks it
-	err := mgr.Ack(notifID, "feature/branchB", "no-impact")
-	if err != nil {
-		t.Fatalf("Ack: %v", err)
-	}
-
-	// Branch B checks — acked notification should be excluded
-	notifs, err := mgr.CheckNotifications("feature/branchB")
-	if err != nil {
-		t.Fatalf("CheckNotifications after ack: %v", err)
-	}
-	if len(notifs) != 0 {
-		t.Errorf("expected 0 notifications after ack, got %d", len(notifs))
-	}
-}
-
-func TestAck_Basic(t *testing.T) {
-	_, mgr := setupHandoffTestDB(t)
-
-	notifID, _ := mgr.NotifyStart("feature/branchA", "ws1", "summary A", "", nil, "", false)
-
-	err := mgr.Ack(notifID, "feature/branchB", "no-impact")
-	if err != nil {
-		t.Fatalf("Ack: %v", err)
-	}
-
-	// Verify in notification_acks
-	var count int
-	row := mgr.store.QueryRow(
-		"SELECT COUNT(*) FROM notification_acks WHERE notification_id=? AND branch=? AND action=?",
-		notifID, "feature/branchB", "no-impact",
-	)
-	if err := row.Scan(&count); err != nil {
-		t.Fatalf("query acks: %v", err)
-	}
-	if count != 1 {
-		t.Errorf("expected 1 ack record, got %d", count)
 	}
 }
 
@@ -279,7 +179,7 @@ func TestBacklogCheck_Available(t *testing.T) {
 func TestBacklogCheck_InUse(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/backlog-42", "ws1", "summary", "", []int{42}, "", false)
+	_ = mgr.NotifyStart("feature/backlog-42", "ws1", "summary", "", []int{42}, "", false)
 
 	available, branch, err := mgr.BacklogCheck(42)
 	if err != nil {
@@ -308,7 +208,7 @@ func TestGetBranch_NotFound(t *testing.T) {
 func TestGetBranch_Found(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/found", "ws2", "found summary", "", []int{7}, "", false)
+	_ = mgr.NotifyStart("feature/found", "ws2", "found summary", "", []int{7}, "", false)
 
 	b, err := mgr.GetBranch("feature/found")
 	if err != nil {
@@ -349,7 +249,7 @@ func TestGetStatus_NotRegistered(t *testing.T) {
 func TestGetStatus_Registered(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	_, _ = mgr.NotifyStart("feature/present", "ws1", "summary", "", nil, "", false)
+	_ = mgr.NotifyStart("feature/present", "ws1", "summary", "", nil, "", false)
 
 	status, err := mgr.GetStatus("feature/present")
 	if err != nil {
@@ -366,7 +266,7 @@ func TestResolveBranch_ByWorkspace(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// Register with workspace "branch_02"
-	_, err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
+	err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -385,7 +285,7 @@ func TestResolveBranch_FallbackGitBranch(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// Register with workspace "branch_02" and git_branch "feature/test-branch"
-	_, err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
+	err := mgr.NotifyStart("branch_02", "ws1", "summary", "feature/test-branch", nil, "", false)
 	if err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
@@ -478,7 +378,7 @@ func TestNotifyStart_BacklogSetStatusFails(t *testing.T) {
 	}
 	s, mgr := setupHandoffTestDBWithBacklog(t, bm)
 
-	_, err := mgr.NotifyStart("feature/fail-backlog", "ws1", "summary", "", []int{100}, "", false)
+	err := mgr.NotifyStart("feature/fail-backlog", "ws1", "summary", "", []int{100}, "", false)
 	if err == nil {
 		t.Fatal("expected error when SetStatusWith fails, got nil")
 	}
@@ -514,7 +414,7 @@ func TestNotifyStart_BacklogAlreadyFixing(t *testing.T) {
 	}
 	_, mgr := setupHandoffTestDBWithBacklog(t, bm)
 
-	_, err := mgr.NotifyStart("feature/already-fixing", "ws1", "summary", "", []int{200}, "", false)
+	err := mgr.NotifyStart("feature/already-fixing", "ws1", "summary", "", []int{200}, "", false)
 	if err == nil {
 		t.Fatal("expected error when backlog is already FIXING, got nil")
 	}
@@ -533,7 +433,7 @@ func TestNotifyStart_AfterMerge(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// 1. 첫 번째 작업 등록 → implementing → merge
-	_, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "first work", "git-branch-1", nil, "", true)
+	err := mgr.NotifyStart("feature/ws-reuse", "ws1", "first work", "git-branch-1", nil, "", true)
 	if err != nil {
 		t.Fatalf("first NotifyStart: %v", err)
 	}
@@ -548,12 +448,9 @@ func TestNotifyStart_AfterMerge(t *testing.T) {
 	}
 
 	// 2. 같은 workspace에서 새 작업 시작 — 정상 등록
-	notifID, err := mgr.NotifyStart("feature/ws-reuse", "ws1", "second work", "git-branch-2", nil, "", true)
+	err = mgr.NotifyStart("feature/ws-reuse", "ws1", "second work", "git-branch-2", nil, "", true)
 	if err != nil {
 		t.Fatalf("second NotifyStart should succeed but got: %v", err)
-	}
-	if notifID <= 0 {
-		t.Fatalf("expected positive notification ID, got %d", notifID)
 	}
 
 	// 새 작업의 상태 확인
@@ -594,7 +491,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 	mgrWithBacklog := NewManager(s, mock)
 
 	// 1. 백로그 연결하여 첫 작업 시작 (FIXING으로 전이됨)
-	_, err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "first work", "", []int{200}, "", true)
+	err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "first work", "", []int{200}, "", true)
 	if err != nil {
 		t.Fatalf("first NotifyStart: %v", err)
 	}
@@ -607,7 +504,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 	}
 
 	// 2. 중도 포기 — 같은 branch에서 새 작업 시작 (FIXING 백로그 → OPEN 복귀)
-	_, err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "new work after abandon", "", nil, "", true)
+	err = mgrWithBacklog.NotifyStart("feature/abandon", "ws1", "new work after abandon", "", nil, "", true)
 	if err != nil {
 		t.Fatalf("second NotifyStart should succeed (abandon+replace): %v", err)
 	}

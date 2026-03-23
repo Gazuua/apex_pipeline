@@ -121,12 +121,9 @@ func TestStartPipeline_OK(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{"notification_id": float64(1)}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	notifID, err := StartPipeline("feature/start-test", params, dir, mgr, mock.fn)
+	err := StartPipeline("feature/start-test", params, dir, mgr, mock.fn)
 	if err != nil {
 		t.Fatalf("StartPipeline: %v", err)
-	}
-	if notifID != 1 {
-		t.Errorf("expected notifID=1, got %.0f", notifID)
 	}
 	// 브랜치가 생성되었는지 확인
 	branch := runGit(t, dir, "branch", "--show-current")
@@ -143,7 +140,7 @@ func TestStartPipeline_BranchExists(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	_, err := StartPipeline("feature/exists", params, dir, nil, mock.fn)
+	err := StartPipeline("feature/exists", params, dir, nil, mock.fn)
 	if err == nil {
 		t.Fatal("expected error for existing branch")
 	}
@@ -159,7 +156,7 @@ func TestStartPipeline_IPCFails(t *testing.T) {
 	mock := &mockIPC{err: fmt.Errorf("daemon unavailable")}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	_, err := StartPipeline("feature/ipc-fail", params, dir, nil, mock.fn)
+	err := StartPipeline("feature/ipc-fail", params, dir, nil, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when IPC fails")
 	}
