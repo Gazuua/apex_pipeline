@@ -35,6 +35,9 @@ func StartPipeline(branchName string, params map[string]any,
 	}
 
 	// Phase 3: git 브랜치 생성
+	// NOTE: Phase 2(DB TX) 성공 후 여기서 실패하면 DB에는 등록되어 있지만
+	// git 브랜치가 없는 불일치 상태가 된다. 이 경우 재시도 시 NotifyStart의
+	// 기존 항목 정리 로직(branch replace)이 자동 복구한다.
 	if err := CreateAndPushBranch(projectRoot, branchName); err != nil {
 		return fmt.Errorf("브랜치 생성 실패: %w", err)
 	}

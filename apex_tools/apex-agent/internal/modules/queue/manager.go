@@ -60,7 +60,10 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		if hasActive {
 			// Channel is busy — register as waiting (skip duplicate).
-			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+			}
+			return nil
 		}
 
 		// Channel appears free. Check if there are already waiting entries.
@@ -71,7 +74,10 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		// If there's a waiter with a different branch already queued ahead, we must wait.
 		if first != nil && first.Branch != branch {
-			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+			}
+			return nil
 		}
 
 		// If there's a waiting entry for this branch, promote it to active.
@@ -104,9 +110,11 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 // It inserts a waiting entry then polls until it becomes first in queue
 // and no active entry exists. Promote uses CAS pattern to prevent TOCTOU races.
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
-	// Register as waiting first.
-	if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
-		return fmt.Errorf("queue.Acquire: insert: %w", err)
+	// Register as waiting first (skip if already queued).
+	if exists, _ := m.hasWaitingEntryForBranch(m.store, channel, branch); !exists {
+		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
+			return fmt.Errorf("queue.Acquire: insert: %w", err)
+		}
 	}
 
 	for {
@@ -286,6 +294,19 @@ func (m *Manager) hasActiveEntry(s store.Querier, channel string) (bool, error) 
 	row := s.QueryRow(
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND status=?`,
 		channel, StatusActive,
+	)
+	var count int
+	if err := row.Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// hasWaitingEntryForBranch checks if a waiting entry already exists for channel+branch (transaction-safe).
+func (m *Manager) hasWaitingEntryForBranch(s store.Querier, channel, branch string) (bool, error) {
+	row := s.QueryRow(
+		`SELECT COUNT(*) FROM queue WHERE channel=? AND branch=? AND status=?`,
+		channel, branch, StatusWaiting,
 	)
 	var count int
 	if err := row.Scan(&count); err != nil {

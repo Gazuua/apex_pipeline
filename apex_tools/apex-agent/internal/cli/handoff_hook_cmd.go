@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -135,10 +134,7 @@ func hookHandoffProbeCmd() *cobra.Command {
 func resolveHandoffBranch(cwd, gitBranch string) (string, error) {
 	wsID := getBranchID()
 	if cwd != "" {
-		wsID = filepath.Base(cwd)
-		if strings.HasPrefix(wsID, "apex_pipeline_") {
-			wsID = strings.TrimPrefix(wsID, "apex_pipeline_")
-		}
+		wsID = platform.WorkspaceID(cwd)
 	}
 
 	resp, err := sendHandoffRaw("resolve-branch", map[string]any{

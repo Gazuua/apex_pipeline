@@ -100,6 +100,10 @@ func ParseBacklogMD(content string) ([]BacklogItem, error) {
 		items = append(items, *current)
 	}
 
+	if err := scanner.Err(); err != nil {
+		return items, fmt.Errorf("scan BACKLOG.md: %w", err)
+	}
+
 	return items, nil
 }
 
@@ -175,6 +179,10 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 
 	if current != nil {
 		items = append(items, *current)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return items, fmt.Errorf("scan BACKLOG_HISTORY.md: %w", err)
 	}
 
 	return items, nil

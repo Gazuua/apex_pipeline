@@ -1,5 +1,5 @@
 {
-  "next_id": 165,
+  "next_id": 170,
   "items": [
     {
       "id": 163,
@@ -8,14 +8,14 @@
       "timeframe": "NOW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "backlog show \u003cID\u003e 커맨드 신설, backlog list --verbose 개선, BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합(JSON 포맷), export/import 시스템 갱신, validate-backlog hook에 Read 차단 추가. DB가 source of truth이므로 MD 가독성 불필요, JSON으로 구조화하여 HTTP 대시보드(#146) 재활용 가능.",
+      "description": "backlog show <ID> 커맨드 신설, backlog list --verbose 개선, BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합(JSON 포맷), export/import 시스템 갱신, validate-backlog hook에 Read 차단 추가. DB가 source of truth이므로 MD 가독성 불필요, JSON으로 구조화하여 HTTP 대시보드(#146) 재활용 가능.",
       "related": "153,159",
       "position": 1,
       "status": "OPEN",
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:01:24",
       "created_at": "2026-03-23 20:26:31",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 164,
@@ -26,9 +26,11 @@
       "type": "INFRA",
       "description": "상태 전이(notify start/design/plan/merge/drop)는 유지하고 알림 발행+ack+미ack 차단만 제거. notifications/notification_acks 테이블 DROP, CheckNotifications/Ack/ProbeNotifications 삭제, handleCheck/handleAck/handleProbe 삭제, CLI check/ack 명령 삭제, ValidateMergeGate 미ack 부분 제거(FIXING 체크만 유지), hook probe 호출 제거.",
       "position": 2,
-      "status": "FIXING",
+      "status": "OPEN",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 22:08:52",
       "created_at": "2026-03-23 21:47:26",
-      "updated_at": "2026-03-23 21:47:39"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 133,
@@ -37,12 +39,12 @@
       "timeframe": "IN_VIEW",
       "scope": "CORE, SHARED",
       "type": "DESIGN_DEBT",
-      "description": "`TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr\u003cSocketBase\u003e` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener\u003cP, TlsTcpTransport\u003e가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md` **[FSD 분석 2026-03-23]** SocketBase virtual interface + TcpSocket/TlsSocket 구현체 + Session 소유권 변경 등 다중 파일 대규모 리팩터링. 설계는 확정되었으나 구현 범위가 FSD 자동화 한계 초과.",
+      "description": "`TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md` **[FSD 분석 2026-03-23]** SocketBase virtual interface + TcpSocket/TlsSocket 구현체 + Session 소유권 변경 등 다중 파일 대규모 리팩터링. 설계는 확정되었으나 구현 범위가 FSD 자동화 한계 초과.",
       "related": "130(이번PR에서도입)",
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 135,
@@ -56,7 +58,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 113,
@@ -70,7 +72,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 114,
@@ -84,7 +86,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 51,
@@ -97,7 +99,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 104,
@@ -110,7 +112,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 137,
@@ -124,7 +126,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 142,
@@ -138,7 +140,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 146,
@@ -151,7 +153,7 @@
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 147,
@@ -165,7 +167,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 148,
@@ -174,11 +176,11 @@
       "timeframe": "IN_VIEW",
       "scope": "CORE, SHARED",
       "type": "TEST",
-      "description": "auto-review에서 식별된 미테스트 경로: ① AdapterBase init 실패 복구 ② CircuitBreaker 동시 호출 ③ CrossCoreCall 동일 코어 호출 ④ Session 동시 write ⑤ TimingWheel 용량 1 ⑥ FrameCodec UnsupportedProtocolVersion ⑦ RedisMultiplexer close 중 콜백 안전성 ⑧ ConfigTest num_cores=0 ⑨ SpscMesh 자기 코어 post. 우선순위: ①⑦(프로덕션 장애 직결) \u003e ②③(동시성) \u003e 나머지.",
+      "description": "auto-review에서 식별된 미테스트 경로: ① AdapterBase init 실패 복구 ② CircuitBreaker 동시 호출 ③ CrossCoreCall 동일 코어 호출 ④ Session 동시 write ⑤ TimingWheel 용량 1 ⑥ FrameCodec UnsupportedProtocolVersion ⑦ RedisMultiplexer close 중 콜백 안전성 ⑧ ConfigTest num_cores=0 ⑨ SpscMesh 자기 코어 post. 우선순위: ①⑦(프로덕션 장애 직결) > ②③(동시성) > 나머지.",
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 150,
@@ -191,7 +193,7 @@
       "position": 12,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 151,
@@ -200,11 +202,11 @@
       "timeframe": "IN_VIEW",
       "scope": "CORE",
       "type": "DESIGN_DEBT",
-      "description": "`FrameCodec::try_decode()`는 `expected\u003cFrame, FrameError\u003e`를, `Protocol` concept은 `Result\u003cFrame\u003e` (`expected\u003cFrame, ErrorCode\u003e`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.",
+      "description": "`FrameCodec::try_decode()`는 `expected<Frame, FrameError>`를, `Protocol` concept은 `Result<Frame>` (`expected<Frame, ErrorCode>`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.",
       "position": 13,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 152,
@@ -217,7 +219,7 @@
       "position": 14,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 149,
@@ -230,7 +232,7 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 65,
@@ -244,7 +246,7 @@
       "position": 16,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 154,
@@ -257,7 +259,7 @@
       "position": 17,
       "status": "OPEN",
       "created_at": "2026-03-23 16:36:03",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 155,
@@ -270,7 +272,7 @@
       "position": 18,
       "status": "OPEN",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 156,
@@ -283,7 +285,7 @@
       "position": 19,
       "status": "OPEN",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 159,
@@ -297,7 +299,7 @@
       "position": 20,
       "status": "OPEN",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 158,
@@ -310,7 +312,7 @@
       "position": 21,
       "status": "OPEN",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 161,
@@ -323,7 +325,7 @@
       "position": 22,
       "status": "OPEN",
       "created_at": "2026-03-23 20:01:33",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 162,
@@ -336,7 +338,72 @@
       "position": 23,
       "status": "OPEN",
       "created_at": "2026-03-23 20:01:38",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
+    },
+    {
+      "id": 165,
+      "title": "backlogUpdateCmd DB 직접 접근 → IPC 경유로 전환",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "backlog_cmd.go의 backlogUpdateCmd만 openBacklogStore()로 DB에 직접 접근. 다른 모든 backlog 명령(add, list, resolve, release)은 데몬 IPC 경유. 데몬 실행 중 SQLite lock 경합 가능성 + 접근 패턴 불일치. IPC 경로에 update 라우트가 이미 module.go에 등록되어 있어 전환 가능.",
+      "position": 24,
+      "status": "OPEN",
+      "created_at": "2026-03-23 22:48:58",
+      "updated_at": "2026-03-23 22:48:58"
+    },
+    {
+      "id": 166,
+      "title": "validate-build 화이트리스트 체인 명령 우회 방어 강화",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "gate.go의 validate-build에서 strings.Contains(command, 'apex-agent') 방식으로 허용 패턴을 체크하므로, 체인 명령에 해당 문자열이 포함되면 어떤 명령이든 통과. 예: 'echo apex-agent && ninja build'. 첫 토큰 또는 세미콜론/&&/파이프 분리 후 각 서브커맨드를 개별 검증하는 방식으로 강화 필요.",
+      "position": 25,
+      "status": "OPEN",
+      "created_at": "2026-03-23 22:49:03",
+      "updated_at": "2026-03-23 22:49:03"
+    },
+    {
+      "id": 167,
+      "title": "benchmark 명령 상대경로 path traversal 방어",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "queue_cmd.go의 benchmark 명령에서 상대경로일 때 filepath.IsAbs(exe)가 false이므로 프로젝트 루트 하위 검증을 스킵. ../../some/bench_malicious 같은 상대경로로 프로젝트 외부 바이너리 실행 가능. filepath.Abs() 후 프로젝트 루트 하위 확인 추가로 해결.",
+      "position": 26,
+      "status": "OPEN",
+      "created_at": "2026-03-23 22:49:08",
+      "updated_at": "2026-03-23 22:49:08"
+    },
+    {
+      "id": 168,
+      "title": "NotifyDrop 단위 테스트 추가",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "handoff/manager.go의 NotifyDrop()에 전용 단위 테스트가 없음. Drop 후 active_branches 삭제, branch_history DROPPED 이관, FIXING 백로그 잔존 시 차단 경로가 단위 테스트로 커버되지 않음. NotifyMerge는 TestNotifyMerge로 검증되지만 Drop은 E2E에서만 간접 검증.",
+      "position": 27,
+      "status": "OPEN",
+      "created_at": "2026-03-23 22:49:13",
+      "updated_at": "2026-03-23 22:49:13"
+    },
+    {
+      "id": 169,
+      "title": "ListFixingForBranch 단위 테스트 추가",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "backlog/manage.go의 ListFixingForBranch()에 단위 테스트가 없음. merge gate의 핵심 쿼리 함수인데 gate_test.go에서 mock으로만 대체. 다수 backlog ID 중 일부만 FIXING인 경우, 빈 backlogIDs 슬라이스, 존재하지 않는 ID 등의 분기가 미테스트.",
+      "position": 28,
+      "status": "OPEN",
+      "created_at": "2026-03-23 22:49:18",
+      "updated_at": "2026-03-23 22:49:18"
     },
     {
       "id": 59,
@@ -349,7 +416,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 50,
@@ -363,7 +430,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 36,
@@ -376,7 +443,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 40,
@@ -389,7 +456,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 41,
@@ -402,7 +469,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 42,
@@ -415,7 +482,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 43,
@@ -428,7 +495,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 44,
@@ -441,7 +508,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 132,
@@ -456,7 +523,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 138,
@@ -471,7 +538,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 153,
@@ -486,7 +553,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 20:11:02",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 160,
@@ -501,7 +568,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 19:31:13",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 157,
@@ -516,7 +583,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 17:16:11",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 141,
@@ -531,7 +598,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 143,
@@ -546,7 +613,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 144,
@@ -555,13 +622,13 @@
       "timeframe": "",
       "scope": "CORE",
       "type": "DESIGN_DEBT",
-      "description": "State → std::atomic\u003cState\u003e, memory_order_relaxed 사용. intrusive_ptr_release의 acq_rel이 cross-thread 가시성 보장.",
+      "description": "State → std::atomic<State>, memory_order_relaxed 사용. intrusive_ptr_release의 acq_rel이 cross-thread 가시성 보장.",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 145,
@@ -576,7 +643,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 139,
@@ -585,13 +652,13 @@
       "timeframe": "",
       "scope": "AUTH_SVC",
       "type": "BUG",
-      "description": "C++ 문자열 비교를 SQL `locked_until \u003e NOW()`로 전환. `is_account_locked()` 함수 및 테스트 삭제. refresh_token 만료 체크와 동일 패턴.",
+      "description": "C++ 문자열 비교를 SQL `locked_until > NOW()`로 전환. `is_account_locked()` 함수 및 테스트 삭제. refresh_token 만료 체크와 동일 패턴.",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 140,
@@ -606,7 +673,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 126,
@@ -621,7 +688,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 00:53:31",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 136,
@@ -636,7 +703,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 21:06:23",
       "created_at": "2026-03-22 21:06:09",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 1,
@@ -651,7 +718,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 2,
@@ -666,7 +733,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 3,
@@ -681,7 +748,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 4,
@@ -696,7 +763,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 5,
@@ -711,7 +778,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 6,
@@ -726,7 +793,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 7,
@@ -741,7 +808,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 8,
@@ -756,7 +823,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 9,
@@ -771,7 +838,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 10,
@@ -786,22 +853,22 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 11,
-      "title": "CircuitBreaker::call() Result\u003cvoid\u003e 타입 제한",
+      "title": "CircuitBreaker::call() Result<void> 타입 제한",
       "severity": "MAJOR",
       "timeframe": "",
       "scope": "SHARED",
       "type": "DESIGN_DEBT",
-      "description": "`CircuitCallable` concept 도입 + `call()` 반환 타입 `std::invoke_result_t\u003cF\u003e` 제네릭화",
+      "description": "`CircuitCallable` concept 도입 + `call()` 반환 타입 `std::invoke_result_t<F>` 제네릭화",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 12,
@@ -816,11 +883,11 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 13,
-      "title": "Listener\u003cP\u003e 단위 테스트 부재",
+      "title": "Listener<P> 단위 테스트 부재",
       "severity": "MAJOR",
       "timeframe": "",
       "scope": "CORE",
@@ -831,7 +898,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 14,
@@ -846,7 +913,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 15,
@@ -861,7 +928,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 16,
@@ -876,7 +943,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 17,
@@ -891,7 +958,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 18,
@@ -906,7 +973,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 19,
@@ -921,7 +988,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 20,
@@ -936,7 +1003,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 21,
@@ -951,7 +1018,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 22,
@@ -966,7 +1033,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 23,
@@ -981,7 +1048,7 @@
       "resolution": "DUPLICATE",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 24,
@@ -996,7 +1063,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 25,
@@ -1011,7 +1078,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 26,
@@ -1020,13 +1087,13 @@
       "timeframe": "",
       "scope": "SHARED",
       "type": "DESIGN_DEBT",
-      "description": "반환 타입을 std::expected\u003cvector, EnvelopeError\u003e로 변경. TopicTooLong 에러 추가. 호출처+테스트 갱신",
+      "description": "반환 타입을 std::expected<vector, EnvelopeError>로 변경. TopicTooLong 에러 추가. 호출처+테스트 갱신",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 27,
@@ -1041,7 +1108,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 28,
@@ -1050,13 +1117,13 @@
       "timeframe": "",
       "scope": "CORE",
       "type": "DESIGN_DEBT",
-      "description": "당초 WONTFIX 판단(멤버 역순 소멸 안전)이 잘못됨. ~io_context()가 미완료 코루틴 프레임을 파괴하면서 intrusive_ptr\\\u003cSession\\\u003e이 이미 파괴된 slab 메모리에 접근하는 UAF 발견. v0.5.10.2에서 Server::~Server()에 명시적 파괴 순서(listeners→schedulers→core_engine) 추가하여 해결.",
+      "description": "당초 WONTFIX 판단(멤버 역순 소멸 안전)이 잘못됨. ~io_context()가 미완료 코루틴 프레임을 파괴하면서 intrusive_ptr\\<Session\\>이 이미 파괴된 slab 메모리에 접근하는 UAF 발견. v0.5.10.2에서 Server::~Server()에 명시적 파괴 순서(listeners→schedulers→core_engine) 추가하여 해결.",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 29,
@@ -1071,7 +1138,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 31,
@@ -1086,7 +1153,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 33,
@@ -1101,7 +1168,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 34,
@@ -1116,7 +1183,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 35,
@@ -1131,7 +1198,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 37,
@@ -1146,7 +1213,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 38,
@@ -1161,7 +1228,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 39,
@@ -1176,7 +1243,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 45,
@@ -1191,7 +1258,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 46,
@@ -1206,7 +1273,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 47,
@@ -1221,7 +1288,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 48,
@@ -1230,13 +1297,13 @@
       "timeframe": "",
       "scope": "CORE, GATEWAY, AUTH_SVC, CHAT_SVC, SHARED",
       "type": "DESIGN_DEBT",
-      "description": "4그룹 병렬 리뷰(Core-API/Architecture/Safety/Sweep) → 46건 발견. Phase 2: 즉시 수정 25건. Phase A: 코어 인프라 확장 D3(server.global\u0026lt;T\u0026gt;) + D2(wire_services 자동 배선) + D7(spawn tracked API). Phase B: GatewayGlobals 소유권 이관, post_init_callback 완전 제거, ChannelSessionMap per-core(shared_mutex 제거), send_error 헬퍼 11개 추출. Phase C: ConsumerPayloadPool. Auto-review 5명 → CRITICAL 4 + MAJOR 5 추가 수정(보안 취약점 1건 포함). 총 ~45파일 변경, 71/71 테스트 통과. 잔여 이슈 #66~#72로 분리 등록.",
+      "description": "4그룹 병렬 리뷰(Core-API/Architecture/Safety/Sweep) → 46건 발견. Phase 2: 즉시 수정 25건. Phase A: 코어 인프라 확장 D3(server.global&lt;T&gt;) + D2(wire_services 자동 배선) + D7(spawn tracked API). Phase B: GatewayGlobals 소유권 이관, post_init_callback 완전 제거, ChannelSessionMap per-core(shared_mutex 제거), send_error 헬퍼 11개 추출. Phase C: ConsumerPayloadPool. Auto-review 5명 → CRITICAL 4 + MAJOR 5 추가 수정(보안 취약점 1건 포함). 총 ~45파일 변경, 71/71 테스트 통과. 잔여 이슈 #66~#72로 분리 등록.",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 49,
@@ -1251,7 +1318,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 52,
@@ -1266,7 +1333,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 54,
@@ -1281,7 +1348,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 55,
@@ -1296,7 +1363,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 56,
@@ -1311,7 +1378,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 58,
@@ -1326,7 +1393,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 60,
@@ -1341,7 +1408,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 61,
@@ -1356,7 +1423,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 62,
@@ -1371,7 +1438,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 63,
@@ -1386,7 +1453,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 64,
@@ -1401,7 +1468,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 66,
@@ -1416,22 +1483,22 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 67,
-      "title": "server.global\u003cT\u003e() / ConsumerPayloadPool / wire_services() 단위 테스트",
+      "title": "server.global<T>() / ConsumerPayloadPool / wire_services() 단위 테스트",
       "severity": "MAJOR",
       "timeframe": "",
       "scope": "CORE, SHARED",
       "type": "TEST",
-      "description": "server.global\u003cT\u003e() 4 TC, ConsumerPayloadPool 7 TC, wire_services() 2 TC. Batch B 코어/공유 테스트 소탕 일괄 작업.",
+      "description": "server.global<T>() 4 TC, ConsumerPayloadPool 7 TC, wire_services() 2 TC. Batch B 코어/공유 테스트 소탕 일괄 작업.",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 68,
@@ -1440,13 +1507,13 @@
       "timeframe": "",
       "scope": "GATEWAY",
       "type": "DESIGN_DEBT",
-      "description": "83줄 인라인 람다 → `set_default_handler(\u0026GatewayService::on_default_message)` + 멤버 함수 3개 추출 (`handle_authenticate_session`, `handle_subscribe_channel`, `handle_unsubscribe_channel`)",
+      "description": "83줄 인라인 람다 → `set_default_handler(&GatewayService::on_default_message)` + 멤버 함수 3개 추출 (`handle_authenticate_session`, `handle_subscribe_channel`, `handle_unsubscribe_channel`)",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 69,
@@ -1461,7 +1528,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 70,
@@ -1470,13 +1537,13 @@
       "timeframe": "",
       "scope": "DOCS",
       "type": "DOCS",
-      "description": "§4.1 `ctx.local_registry.get\u003cT\u003e()` → `ctx.local_registry.find\u003cT\u003e()` 변경 + API 주석 추가",
+      "description": "§4.1 `ctx.local_registry.get<T>()` → `ctx.local_registry.find<T>()` 변경 + API 주석 추가",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 71,
@@ -1491,22 +1558,22 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 72,
-      "title": "safe_parse_u64 Result\u003cuint64_t\u003e 반환 개선",
+      "title": "safe_parse_u64 Result<uint64_t> 반환 개선",
       "severity": "MINOR",
       "timeframe": "",
       "scope": "CHAT_SVC",
       "type": "DESIGN_DEBT",
-      "description": "`safe_parse_u64` 반환 `Result\u003cuint64_t\u003e`로 변경, 호출부 10곳 에러 핸들링 패턴(early return/continue) 적용",
+      "description": "`safe_parse_u64` 반환 `Result<uint64_t>`로 변경, 호출부 10곳 에러 핸들링 패턴(early return/continue) 적용",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 73,
@@ -1521,7 +1588,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 74,
@@ -1536,7 +1603,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 75,
@@ -1551,7 +1618,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 76,
@@ -1566,7 +1633,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 77,
@@ -1581,7 +1648,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 78,
@@ -1596,7 +1663,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 79,
@@ -1611,7 +1678,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 80,
@@ -1626,7 +1693,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 81,
@@ -1641,7 +1708,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 82,
@@ -1656,7 +1723,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 83,
@@ -1671,7 +1738,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 84,
@@ -1686,7 +1753,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 85,
@@ -1701,7 +1768,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 86,
@@ -1716,7 +1783,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 87,
@@ -1731,7 +1798,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 88,
@@ -1746,7 +1813,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 89,
@@ -1761,7 +1828,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 90,
@@ -1776,7 +1843,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 91,
@@ -1791,7 +1858,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 92,
@@ -1806,7 +1873,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 93,
@@ -1821,7 +1888,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 94,
@@ -1836,7 +1903,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 95,
@@ -1851,7 +1918,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 96,
@@ -1866,7 +1933,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 97,
@@ -1881,7 +1948,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 98,
@@ -1896,7 +1963,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 99,
@@ -1911,7 +1978,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 100,
@@ -1926,7 +1993,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 101,
@@ -1941,7 +2008,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 102,
@@ -1956,7 +2023,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 103,
@@ -1971,7 +2038,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 105,
@@ -1986,7 +2053,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 106,
@@ -2001,7 +2068,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 107,
@@ -2016,7 +2083,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 108,
@@ -2031,7 +2098,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 109,
@@ -2046,7 +2113,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 110,
@@ -2061,7 +2128,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 111,
@@ -2076,7 +2143,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 112,
@@ -2091,7 +2158,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 115,
@@ -2106,7 +2173,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 116,
@@ -2121,7 +2188,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 117,
@@ -2130,13 +2197,13 @@
       "timeframe": "",
       "scope": "GATEWAY",
       "type": "DESIGN_DEBT",
-      "description": "dynamic_cast\u003cGatewayService*\u003e(state.services[0].get()) → state.registry.find\u003cGatewayService\u003e() 타입 기반 조회로 교체. D1 원칙 준수",
+      "description": "dynamic_cast<GatewayService*>(state.services[0].get()) → state.registry.find<GatewayService>() 타입 기반 조회로 교체. D1 원칙 준수",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 118,
@@ -2151,7 +2218,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 119,
@@ -2166,7 +2233,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 120,
@@ -2181,7 +2248,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 121,
@@ -2196,7 +2263,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 122,
@@ -2211,7 +2278,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 123,
@@ -2226,7 +2293,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 124,
@@ -2241,7 +2308,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 125,
@@ -2256,7 +2323,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 127,
@@ -2271,7 +2338,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 128,
@@ -2280,13 +2347,13 @@
       "timeframe": "",
       "scope": "AUTH_SVC",
       "type": "BUG",
-      "description": "C++ 측 시간 비교 추가 (locked_str \u003e 현재 UTC 문자열). PR #96에서 해결. FSD 소탕에서 히스토리 이전",
+      "description": "C++ 측 시간 비교 추가 (locked_str > 현재 UTC 문자열). PR #96에서 해결. FSD 소탕에서 히스토리 이전",
       "position": 0,
       "status": "RESOLVED",
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 129,
@@ -2301,7 +2368,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 130,
@@ -2316,7 +2383,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 131,
@@ -2331,7 +2398,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     },
     {
       "id": 134,
@@ -2346,7 +2413,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:07:51"
+      "updated_at": "2026-03-23 22:50:52"
     }
   ]
 }
