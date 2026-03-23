@@ -134,6 +134,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### 문서/프로세스 규칙
 - **백로그**: `docs/BACKLOG.md`에 기록. 별도 백로그 파일 생성 금지. 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
+- **백로그 파일 직접 편집 금지** — `docs/BACKLOG.md`, `docs/BACKLOG_HISTORY.md`는 `validate-backlog` hook이 차단. `backlog add/update/resolve/release/export` CLI 사용 필수
 - **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
