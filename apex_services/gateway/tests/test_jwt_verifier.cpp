@@ -197,6 +197,24 @@ TEST_F(JwtVerifierTest, MissingKeyFile_VerifyFails)
     EXPECT_FALSE(result.has_value());
 }
 
+TEST_F(JwtVerifierTest, MalformedUidClaim)
+{
+    // Token with non-numeric uid -> from_chars returns errc, not an exception
+    JwtVerifier verifier(config_);
+    auto now = std::chrono::system_clock::now();
+    auto token = jwt::create()
+                     .set_issuer("apex-auth")
+                     .set_type("JWT")
+                     .set_subject("bad-uid@example.com")
+                     .set_payload_claim("uid", jwt::claim(std::string("not-a-number")))
+                     .set_payload_claim("jti", jwt::claim(std::string("jti-bad-uid")))
+                     .set_issued_at(now)
+                     .set_expires_at(now + std::chrono::hours{1})
+                     .sign(jwt::algorithm::rs256(kTestPublicKey, kTestPrivateKey));
+    auto result = verifier.verify(token);
+    EXPECT_FALSE(result.has_value());
+}
+
 TEST_F(JwtVerifierTest, MissingUidClaim)
 {
     // Token without uid claim -> claim_not_present_exception path
