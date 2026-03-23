@@ -231,14 +231,14 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 // The caller (ImportItems) passes the DB's current status as the status parameter,
 // so the DB status is preserved — import never changes status.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
-func (m *Manager) UpdateFromImport(id int, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
+func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
 	_, err := m.q.Exec(`
 		UPDATE backlog_items
-		SET severity = ?, timeframe = ?, scope = ?, type = ?,
+		SET title = ?, severity = ?, timeframe = ?, scope = ?, type = ?,
 		    description = ?, related = ?, position = ?, status = ?,
 		    updated_at = datetime('now','localtime')
 		WHERE id = ?`,
-		severity, timeframe, scope, itemType,
+		title, severity, timeframe, scope, itemType,
 		description, related, position, status, id,
 	)
 	if err != nil {
