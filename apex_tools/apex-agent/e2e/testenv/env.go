@@ -4,6 +4,7 @@ package testenv
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -25,6 +27,7 @@ type TestEnv struct {
 	ConfigPath string
 	DBPath     string
 	SocketAddr string
+	HTTPAddr   string // actual HTTP server address (e.g., "127.0.0.1:12345")
 	Client     *ipc.Client
 	Cancel     context.CancelFunc
 
@@ -52,6 +55,10 @@ func New(t *testing.T) *TestEnv {
 		PIDFilePath: filepath.Join(dir, "test.pid"),
 		SocketAddr:  socketAddr,
 		IdleTimeout: 5 * time.Minute,
+		HTTP: config.HTTPConfig{
+			Enabled: true,
+			Addr:    "localhost:0", // random port
+		},
 	}
 
 	d, err := daemon.New(cfg)
@@ -73,6 +80,9 @@ func New(t *testing.T) *TestEnv {
 	// Wait for readiness — poll until socket is connectable (max 5s)
 	waitForSocket(t, socketAddr)
 
+	// Wait for HTTP server readiness
+	httpAddr := waitForHTTP(t, d)
+
 	client := ipc.NewClient(socketAddr)
 
 	env := &TestEnv{
@@ -80,6 +90,7 @@ func New(t *testing.T) *TestEnv {
 		ConfigPath: filepath.Join(dir, "config.toml"),
 		DBPath:     dbPath,
 		SocketAddr: socketAddr,
+		HTTPAddr:   httpAddr,
 		Client:     client,
 		Cancel:     cancel,
 		daemon:     d,
@@ -166,6 +177,25 @@ func (e *TestEnv) InitGitRepo(t *testing.T) string {
 	run(t, repoDir, "git", "commit", "-m", "initial commit")
 
 	return repoDir
+}
+
+// waitForHTTP polls until the daemon's HTTP server is ready (max 5s).
+func waitForHTTP(t *testing.T, d *daemon.Daemon) string {
+	t.Helper()
+	for i := 0; i < 100; i++ {
+		time.Sleep(50 * time.Millisecond)
+		addr := d.HTTPAddr()
+		if addr == "" {
+			continue
+		}
+		resp, err := http.Get("http://" + addr + "/health")
+		if err == nil {
+			resp.Body.Close()
+			return addr
+		}
+	}
+	t.Fatalf("HTTP server not ready after 5s")
+	return ""
 }
 
 // waitForSocket polls the IPC socket until it's connectable (max 5s).

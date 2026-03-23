@@ -61,6 +61,14 @@ func (d *Daemon) Register(m Module) {
 // Store returns the daemon's underlying data store.
 func (d *Daemon) Store() *store.Store { return d.store }
 
+// HTTPAddr returns the actual HTTP server address, or "" if not running.
+func (d *Daemon) HTTPAddr() string {
+	if d.httpServer == nil {
+		return ""
+	}
+	return d.httpServer.Addr()
+}
+
 func (d *Daemon) Run(ctx context.Context) error {
 	// 1. Write PID file.
 	if err := d.writePID(); err != nil {
