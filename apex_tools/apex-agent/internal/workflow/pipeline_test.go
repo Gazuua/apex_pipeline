@@ -152,3 +152,51 @@ func TestStartPipeline_BranchExists(t *testing.T) {
 		t.Errorf("IPC should not be called, got: %v", mock.calls)
 	}
 }
+
+func TestStartPipeline_IPCFails(t *testing.T) {
+	dir := initTestRepo(t)
+
+	mock := &mockIPC{err: fmt.Errorf("daemon unavailable")}
+	params := map[string]any{"branch": "test", "summary": "start"}
+
+	_, err := StartPipeline("feature/ipc-fail", params, dir, nil, mock.fn)
+	if err == nil {
+		t.Fatal("expected error when IPC fails")
+	}
+	// 브랜치가 생성되지 않아야 함 (IPC 실패 → Phase 3 미도달)
+	branch := runGit(t, dir, "branch", "--show-current")
+	if branch != "main" {
+		t.Errorf("branch should remain main after IPC failure, got %s", branch)
+	}
+}
+
+func TestMergePipeline_RebaseFails(t *testing.T) {
+	repoDir, bareDir := initRepoWithOrigin(t)
+	// 충돌 시나리오 생성
+	runGit(t, repoDir, "checkout", "-b", "feature/rebase-fail")
+	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("feature version\n"), 0o644)
+	runGit(t, repoDir, "add", ".")
+	runGit(t, repoDir, "commit", "-m", "feature change")
+	runGit(t, repoDir, "checkout", "main")
+	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("main version\n"), 0o644)
+	runGit(t, repoDir, "add", ".")
+	runGit(t, repoDir, "commit", "-m", "main change")
+	runGit(t, repoDir, "push", bareDir, "main")
+	runGit(t, repoDir, "checkout", "feature/rebase-fail")
+
+	mock := &mockIPC{result: map[string]any{}}
+	params := map[string]any{"branch": "test", "summary": "merge"}
+
+	err := MergePipeline(params, repoDir, nil, mock.fn)
+	if err == nil {
+		t.Fatal("expected error when rebase fails")
+	}
+	// IPC가 호출되지 않아야 함 (rebase 실패 → Phase 4 미도달)
+	if len(mock.calls) != 0 {
+		t.Errorf("IPC should not be called after rebase failure, got: %v", mock.calls)
+	}
+	// IPC가 호출되지 않아야 함
+	if len(mock.calls) != 0 {
+		t.Errorf("IPC should not be called, got: %v", mock.calls)
+	}
+}

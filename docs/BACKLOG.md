@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 159
+다음 발번: 161
 
 ---
 
@@ -155,6 +155,19 @@
 - **스코프**: TOOLS
 - **타입**: BUG
 - **설명**: EnforceRebase에서 rebase 실패 시 --abort 호출의 에러를 무시(//nolint:errcheck). abort 자체가 실패하면(dirty working tree 등) 반쪽짜리 rebase 상태에 빠질 수 있음. 최소 경고 로그 기록 필요.
+
+### #159. CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: INFRA
+- **연관**: #146, #154
+- **설명**: 현재 start/merge/drop만 workflow 패키지로 추출됨. 나머지 CLI 기능(design, plan, backlog CRUD, queue, cleanup, ack 등)도 전부 workflow 기반 파이프라인으로 추상화하여 HTTP 대시보드(BACKLOG-146)에서 동일 기능 수행 가능하도록 기틀 마련. IPCFunc 패턴 확장, 각 커맨드별 파이프라인 함수 작성, 단위+E2E 테스트 동반.
+
+### #160. backlog UpdateFromImport에 title 갱신 누락
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: BUG
+- **설명**: `UpdateFromImport()`가 severity, timeframe, scope, type, description, related, position은 갱신하지만 title을 갱신하지 않음. import 전에 동일 ID로 `backlog add`가 실행되면 title이 오염된 채 남음. title도 메타데이터이므로 import 시 MD 기준으로 갱신해야 한다.
 
 ### #158. Plugin 시스템 Claude Code 포맷 버전 체크 부재
 - **등급**: MINOR
