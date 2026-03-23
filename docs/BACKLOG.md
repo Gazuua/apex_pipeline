@@ -4,7 +4,7 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 154
+다음 발번: 159
 
 ---
 
@@ -131,6 +131,36 @@
 - **타입**: INFRA
 - **연관**: #1(HISTORY), #126(HISTORY)
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. **[FSD 분석 2026-03-23]** Go 백엔드 기능 추가로 C++ 백로그 번들과 스코프 상이. 별도 작업으로 착수 권장.
+
+### #154. apex-agent git CLI 서브커맨드 그룹
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: INFRA
+- **설명**: apex-agent에 `git` 서브커맨드 그룹 추가 (checkout-main, switch, rebase). validate-build hook이 git 브랜치 생성을 차단하므로, 데몬 기반 안전한 git 조작 경로 필요. 나중에 핸드오프 검증 연동(switch 시 해당 브랜치의 handoff 상태 확인) 가능.
+
+### #155. ModuleLogger .With() 매 호출 allocation 개선
+- **등급**: MINOR
+- **스코프**: TOOLS
+- **타입**: PERF
+- **설명**: ModuleLogger.Debug/Info/Warn/Error가 매 호출마다 slog.Default().With("module", ml.name)으로 새 Logger를 생성. hot path 아니지만 sync.Once 기반 lazy init 또는 slog.LogAttrs로 allocation 절감 가능.
+
+### #156. Queue polling exponential backoff
+- **등급**: MINOR
+- **스코프**: TOOLS
+- **타입**: PERF
+- **설명**: Queue.Acquire에서 락 획득 실패 시 500ms 고정 sleep. exponential backoff(100ms→200ms→400ms→max 2s) 또는 context.WithTimeout 전체 대기 시간 제한 추가.
+
+### #157. git 명령어 에러 핸들링 — rebase abort 에러 무시
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: BUG
+- **설명**: EnforceRebase에서 rebase 실패 시 --abort 호출의 에러를 무시(//nolint:errcheck). abort 자체가 실패하면(dirty working tree 등) 반쪽짜리 rebase 상태에 빠질 수 있음. 최소 경고 로그 기록 필요.
+
+### #158. Plugin 시스템 Claude Code 포맷 버전 체크 부재
+- **등급**: MINOR
+- **스코프**: TOOLS
+- **타입**: INFRA
+- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환.
 
 ---
 
