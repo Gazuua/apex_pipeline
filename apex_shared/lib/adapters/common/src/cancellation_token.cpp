@@ -34,7 +34,7 @@ void CancellationToken::cancel_all()
 void CancellationToken::on_complete()
 {
     assert_owner_thread();
-    auto prev = outstanding_.fetch_sub(1, std::memory_order_release);
+    [[maybe_unused]] auto prev = outstanding_.fetch_sub(1, std::memory_order_release);
     assert(prev > 0 && "on_complete called more times than new_slot");
 }
 
