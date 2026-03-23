@@ -199,6 +199,24 @@ func (m *Manager) tryPromote(channel, branch string) (bool, error) {
 	return promoted, err
 }
 
+// UpdatePID updates the PID of the active entry for a channel.
+// Used to transfer lock ownership from parent (CLI) to child (build process).
+func (m *Manager) UpdatePID(channel string, newPID int) error {
+	res, err := m.store.Exec(
+		`UPDATE queue SET pid=? WHERE channel=? AND status=?`,
+		newPID, channel, StatusActive,
+	)
+	if err != nil {
+		return fmt.Errorf("queue.UpdatePID: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("queue.UpdatePID: no active entry for channel %q", channel)
+	}
+	ml.Audit("lock pid updated", "channel", channel, "new_pid", newPID)
+	return nil
+}
+
 // Release marks the active entry for channel as done.
 func (m *Manager) Release(channel string) error {
 	_, err := m.store.Exec(

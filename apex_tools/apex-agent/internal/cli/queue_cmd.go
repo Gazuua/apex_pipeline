@@ -191,7 +191,23 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 
 	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
 
-	runErr := execCmd.Run()
+	// Use Start+Wait instead of Run to transfer lock PID to child process.
+	// This ensures CleanupStale checks the build process, not the wrapper.
+	if err := execCmd.Start(); err != nil {
+		return fmt.Errorf("[queue-lock] failed to start %s: %w", label, err)
+	}
+
+	// Transfer lock ownership: parent PID → child (build) PID.
+	// If parent is killed, CleanupStale will check child PID (still alive).
+	childPID := execCmd.Process.Pid
+	updateParams := map[string]any{"channel": "build", "pid": childPID}
+	if _, err := sendQueueRequestMap("update-pid", updateParams); err != nil {
+		fmt.Fprintf(os.Stderr, "[queue-lock] warning: failed to update lock PID to child %d: %v\n", childPID, err)
+	} else {
+		fmt.Printf("[queue-lock] lock PID transferred to child process %d\n", childPID)
+	}
+
+	runErr := execCmd.Wait()
 
 	// Release lock explicitly before printing result.
 	releaseParams := map[string]any{"channel": "build"}
