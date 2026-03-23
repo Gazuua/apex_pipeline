@@ -59,6 +59,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)
+- **데몬 죽으면 모든 hook 차단** — "핸드오프 미등록" 에러가 나오면 `daemon start`부터 실행. IPC 파이프가 없으면 handoff-probe/validate-handoff 모두 실패
 
 ### 모듈 등록 순서
 
@@ -226,6 +227,18 @@ apex-agent queue status <channel>                   # 채널 상태 조회
 
 - `queue build`와 `queue benchmark`는 동일한 "build" 채널 lock 공유 — 빌드/벤치마크 상호배제
 - `queue merge`는 독립 "merge" 채널 — build 잠금과 무관
+
+## Cleanup CLI
+
+```bash
+apex-agent cleanup              # dry-run (기본) — 삭제 대상만 표시
+apex-agent cleanup --execute    # 실제 삭제 수행
+```
+
+- **기본 동작이 dry-run** — 플래그 없이 실행하면 삭제 없이 대상만 출력. `--dry-run` 플래그는 없음
+- 활성 핸드오프 브랜치 자동 보호 (active_branches 조회)
+- CWD 브랜치 보호 (현재 체크아웃된 브랜치 삭제 안 함)
+- 정리 대상: 머지 완료 로컬/리모트 브랜치, 고아 워크트리
 
 ### 착수 필수 플래그
 

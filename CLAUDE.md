@@ -80,12 +80,15 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
-- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리
+- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
 ### 브랜치 인수인계 (Branch Handoff)
 - **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
 - **착수 전**: `apex-agent handoff backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
-- **브랜치 생성**: `notify start --branch-name feature/foo` — 핸드오프 등록과 git 브랜치 생성이 원자적으로 수행. `git checkout -b` 직접 호출 금지 (hook 차단)
+- **브랜치 생성** (`git checkout -b` 직접 호출 금지 — hook 차단):
+  - 백로그 연결: `notify start --branch-name feature/foo --backlog N --summary "..." --scopes core,shared`
+  - 비백로그: `notify start job --branch-name feature/foo --summary "..." --scopes tools`
+  - `--summary`, `--scopes` 필수. 핸드오프 등록과 git 브랜치 생성이 원자적으로 수행
 - **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge` (active에서 삭제, history로 이관)
   - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
   - `notify drop --reason "..."`: 작업 중도 포기 (active에서 삭제, history에 DROPPED 기록)
