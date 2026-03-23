@@ -16,6 +16,10 @@ var ml = log.WithModule("plugin")
 const (
 	pluginID      = "apex-auto-review@apex-local"
 	marketplaceID = "apex-local"
+
+	// supportedVersions: known installed_plugins.json format versions.
+	// 0 = initial (no version field), 2 = current format.
+	installedPluginsCurrentVersion = 2
 )
 
 // Setup ensures the apex-auto-review plugin is registered in the user's Claude
@@ -128,14 +132,26 @@ func updateKnownMarketplaces(knownFile, marketplacePath string) error {
 
 // updateInstalledPlugins updates the installed_plugins.json with the new path
 // and version, creating or updating the entry as needed.
+// Validates the format version: 0 (initial) and 2 (current) are known.
+// Unknown versions produce a warning but proceed (fail-open).
 func updateInstalledPlugins(installedFile, pluginPath, version string) error {
 	var installed installedPluginsFile
 	if data, err := os.ReadFile(installedFile); err == nil {
 		_ = json.Unmarshal(data, &installed)
 	}
-	if installed.Version == 0 {
-		installed.Version = 2
+
+	// Format version check (fail-open: unknown versions produce warning, not error)
+	switch installed.Version {
+	case 0:
+		// Initial format (no version field) — upgrade to current
+		installed.Version = installedPluginsCurrentVersion
+	case installedPluginsCurrentVersion:
+		// Current format — no action needed
+	default:
+		ml.Warn("unknown installed_plugins.json format version, proceeding anyway",
+			"version", installed.Version, "expected", installedPluginsCurrentVersion)
 	}
+
 	if installed.Plugins == nil {
 		installed.Plugins = make(map[string][]pluginEntry)
 	}

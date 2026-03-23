@@ -1,37 +1,6 @@
 {
-  "next_id": 170,
+  "next_id": 171,
   "items": [
-    {
-      "id": 163,
-      "title": "백로그 CLI 강화 + JSON 포맷 통합 + Read 차단",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "backlog show <ID> 커맨드 신설, backlog list --verbose 개선, BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합(JSON 포맷), export/import 시스템 갱신, validate-backlog hook에 Read 차단 추가. DB가 source of truth이므로 MD 가독성 불필요, JSON으로 구조화하여 HTTP 대시보드(#146) 재활용 가능.",
-      "related": "153,159",
-      "position": 1,
-      "status": "OPEN",
-      "resolution": "FIXED",
-      "resolved_at": "2026-03-23 21:01:24",
-      "created_at": "2026-03-23 20:26:31",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 164,
-      "title": "notification 시스템 제거 — 알림 발행/ack/미ack 차단 전면 삭제",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "상태 전이(notify start/design/plan/merge/drop)는 유지하고 알림 발행+ack+미ack 차단만 제거. notifications/notification_acks 테이블 DROP, CheckNotifications/Ack/ProbeNotifications 삭제, handleCheck/handleAck/handleProbe 삭제, CLI check/ack 명령 삭제, ValidateMergeGate 미ack 부분 제거(FIXING 체크만 유지), hook probe 호출 제거.",
-      "position": 2,
-      "status": "OPEN",
-      "resolution": "FIXED",
-      "resolved_at": "2026-03-23 22:08:52",
-      "created_at": "2026-03-23 21:47:26",
-      "updated_at": "2026-03-23 22:50:52"
-    },
     {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
@@ -44,7 +13,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 135,
@@ -58,7 +27,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 113,
@@ -72,7 +41,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 114,
@@ -86,7 +55,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 51,
@@ -99,7 +68,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 104,
@@ -112,7 +81,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 137,
@@ -126,7 +95,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 142,
@@ -140,7 +109,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 146,
@@ -153,7 +122,7 @@
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 147,
@@ -167,7 +136,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 148,
@@ -180,7 +149,7 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 150,
@@ -193,7 +162,7 @@
       "position": 12,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 151,
@@ -206,7 +175,7 @@
       "position": 13,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 152,
@@ -219,7 +188,7 @@
       "position": 14,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 149,
@@ -232,7 +201,7 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 65,
@@ -246,7 +215,7 @@
       "position": 16,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 154,
@@ -259,33 +228,7 @@
       "position": 17,
       "status": "OPEN",
       "created_at": "2026-03-23 16:36:03",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 155,
-      "title": "ModuleLogger .With() 매 호출 allocation 개선",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "PERF",
-      "description": "ModuleLogger.Debug/Info/Warn/Error가 매 호출마다 slog.Default().With(\"module\", ml.name)으로 새 Logger를 생성. hot path 아니지만 sync.Once 기반 lazy init 또는 slog.LogAttrs로 allocation 절감 가능.",
-      "position": 18,
-      "status": "OPEN",
-      "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 156,
-      "title": "Queue polling exponential backoff",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "PERF",
-      "description": "Queue.Acquire에서 락 획득 실패 시 500ms 고정 sleep. exponential backoff(100ms→200ms→400ms→max 2s) 또는 context.WithTimeout 전체 대기 시간 제한 추가.",
-      "position": 19,
-      "status": "OPEN",
-      "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 159,
@@ -299,20 +242,7 @@
       "position": 20,
       "status": "OPEN",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 158,
-      "title": "Plugin 시스템 Claude Code 포맷 버전 체크 부재",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- --- --- ---",
-      "position": 21,
-      "status": "OPEN",
-      "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 161,
@@ -325,85 +255,20 @@
       "position": 22,
       "status": "OPEN",
       "created_at": "2026-03-23 20:01:33",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
-      "id": 162,
-      "title": "apex-agent Go slog 로그 출력에 함수명/라인 번호 추가",
+      "id": 170,
+      "title": "cleanup이 복사본(branch_01~10) 로컬 브랜치도 정리하도록 개선",
       "severity": "MINOR",
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "현재 slog.HandlerOptions에 AddSource 미설정으로 caller 정보 미출력. AddSource: true 활성화하면 runtime.Caller()로 파일명/함수명/라인 자동 포함. ModuleLogger의 wrapper 특성상 slog.NewRecord + Record.AddAttrs 또는 LogAttrs로 올바른 caller depth 설정 필요 (기본 AddSource가 ModuleLogger 래퍼를 가리키는 문제 방지).",
-      "position": 23,
+      "description": "현재 cleanup은 agent 레포만 정리하고 branch_01~10 독립 복사본은 건드리지 않음. 머지 완료된 로컬 브랜치 포인터가 복사본에 잔존하여 GitHub Desktop 등에서 계속 보이는 문제 발생. cleanup 시 워크스페이스 내 모든 복사본을 순회하며 main 제외 머지 완료 로컬 브랜치를 일괄 정리해야 함.",
+      "position": 29,
       "status": "OPEN",
-      "created_at": "2026-03-23 20:01:38",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 165,
-      "title": "backlogUpdateCmd DB 직접 접근 → IPC 경유로 전환",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "DESIGN_DEBT",
-      "description": "backlog_cmd.go의 backlogUpdateCmd만 openBacklogStore()로 DB에 직접 접근. 다른 모든 backlog 명령(add, list, resolve, release)은 데몬 IPC 경유. 데몬 실행 중 SQLite lock 경합 가능성 + 접근 패턴 불일치. IPC 경로에 update 라우트가 이미 module.go에 등록되어 있어 전환 가능.",
-      "position": 24,
-      "status": "OPEN",
-      "created_at": "2026-03-23 22:48:58",
-      "updated_at": "2026-03-23 22:48:58"
-    },
-    {
-      "id": 166,
-      "title": "validate-build 화이트리스트 체인 명령 우회 방어 강화",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "SECURITY",
-      "description": "gate.go의 validate-build에서 strings.Contains(command, 'apex-agent') 방식으로 허용 패턴을 체크하므로, 체인 명령에 해당 문자열이 포함되면 어떤 명령이든 통과. 예: 'echo apex-agent && ninja build'. 첫 토큰 또는 세미콜론/&&/파이프 분리 후 각 서브커맨드를 개별 검증하는 방식으로 강화 필요.",
-      "position": 25,
-      "status": "OPEN",
-      "created_at": "2026-03-23 22:49:03",
-      "updated_at": "2026-03-23 22:49:03"
-    },
-    {
-      "id": 167,
-      "title": "benchmark 명령 상대경로 path traversal 방어",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "SECURITY",
-      "description": "queue_cmd.go의 benchmark 명령에서 상대경로일 때 filepath.IsAbs(exe)가 false이므로 프로젝트 루트 하위 검증을 스킵. ../../some/bench_malicious 같은 상대경로로 프로젝트 외부 바이너리 실행 가능. filepath.Abs() 후 프로젝트 루트 하위 확인 추가로 해결.",
-      "position": 26,
-      "status": "OPEN",
-      "created_at": "2026-03-23 22:49:08",
-      "updated_at": "2026-03-23 22:49:08"
-    },
-    {
-      "id": 168,
-      "title": "NotifyDrop 단위 테스트 추가",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "TEST",
-      "description": "handoff/manager.go의 NotifyDrop()에 전용 단위 테스트가 없음. Drop 후 active_branches 삭제, branch_history DROPPED 이관, FIXING 백로그 잔존 시 차단 경로가 단위 테스트로 커버되지 않음. NotifyMerge는 TestNotifyMerge로 검증되지만 Drop은 E2E에서만 간접 검증.",
-      "position": 27,
-      "status": "OPEN",
-      "created_at": "2026-03-23 22:49:13",
-      "updated_at": "2026-03-23 22:49:13"
-    },
-    {
-      "id": 169,
-      "title": "ListFixingForBranch 단위 테스트 추가",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "TEST",
-      "description": "backlog/manage.go의 ListFixingForBranch()에 단위 테스트가 없음. merge gate의 핵심 쿼리 함수인데 gate_test.go에서 mock으로만 대체. 다수 backlog ID 중 일부만 FIXING인 경우, 빈 backlogIDs 슬라이스, 존재하지 않는 ID 등의 분기가 미테스트.",
-      "position": 28,
-      "status": "OPEN",
-      "created_at": "2026-03-23 22:49:18",
-      "updated_at": "2026-03-23 22:49:18"
+      "created_at": "2026-03-23 23:05:23",
+      "updated_at": "2026-03-23 23:05:23"
     },
     {
       "id": 59,
@@ -416,21 +281,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
-    },
-    {
-      "id": 50,
-      "title": "apex_tools/scripts 폴더 신설 + 스크립트 정리",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지. **[FSD 분석 2026-03-22]** #126 Go 백엔드 재작성 완료(2026-03-23)로 bash 스크립트 5종 삭제됨. 잔여 스크립트 유무 재평가 후 착수 여부 결정.",
-      "related": "126",
-      "position": 2,
-      "status": "OPEN",
-      "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 36,
@@ -443,7 +294,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 40,
@@ -456,7 +307,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 41,
@@ -469,7 +320,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 42,
@@ -482,7 +333,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 43,
@@ -495,7 +346,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 44,
@@ -508,7 +359,189 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 166,
+      "title": "validate-build 화이트리스트 체인 명령 우회 방어 강화",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "gate.go의 validate-build에서 strings.Contains(command, 'apex-agent') 방식으로 허용 패턴을 체크하므로, 체인 명령에 해당 문자열이 포함되면 어떤 명령이든 통과. 예: 'echo apex-agent && ninja build'. 첫 토큰 또는 세미콜론/&&/파이프 분리 후 각 서브커맨드를 개별 검증하는 방식으로 강화 필요.",
+      "position": 25,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:15",
+      "created_at": "2026-03-23 22:49:03",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 167,
+      "title": "benchmark 명령 상대경로 path traversal 방어",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "queue_cmd.go의 benchmark 명령에서 상대경로일 때 filepath.IsAbs(exe)가 false이므로 프로젝트 루트 하위 검증을 스킵. ../../some/bench_malicious 같은 상대경로로 프로젝트 외부 바이너리 실행 가능. filepath.Abs() 후 프로젝트 루트 하위 확인 추가로 해결.",
+      "position": 26,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:15",
+      "created_at": "2026-03-23 22:49:08",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 168,
+      "title": "NotifyDrop 단위 테스트 추가",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "handoff/manager.go의 NotifyDrop()에 전용 단위 테스트가 없음. Drop 후 active_branches 삭제, branch_history DROPPED 이관, FIXING 백로그 잔존 시 차단 경로가 단위 테스트로 커버되지 않음. NotifyMerge는 TestNotifyMerge로 검증되지만 Drop은 E2E에서만 간접 검증.",
+      "position": 27,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:15",
+      "created_at": "2026-03-23 22:49:13",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 169,
+      "title": "ListFixingForBranch 단위 테스트 추가",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "backlog/manage.go의 ListFixingForBranch()에 단위 테스트가 없음. merge gate의 핵심 쿼리 함수인데 gate_test.go에서 mock으로만 대체. 다수 backlog ID 중 일부만 FIXING인 경우, 빈 backlogIDs 슬라이스, 존재하지 않는 ID 등의 분기가 미테스트.",
+      "position": 28,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:15",
+      "created_at": "2026-03-23 22:49:18",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 158,
+      "title": "Plugin 시스템 Claude Code 포맷 버전 체크 부재",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- --- --- --- ---",
+      "position": 21,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:14",
+      "created_at": "2026-03-23 16:36:39",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 162,
+      "title": "apex-agent Go slog 로그 출력에 함수명/라인 번호 추가",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "현재 slog.HandlerOptions에 AddSource 미설정으로 caller 정보 미출력. AddSource: true 활성화하면 runtime.Caller()로 파일명/함수명/라인 자동 포함. ModuleLogger의 wrapper 특성상 slog.NewRecord + Record.AddAttrs 또는 LogAttrs로 올바른 caller depth 설정 필요 (기본 AddSource가 ModuleLogger 래퍼를 가리키는 문제 방지).",
+      "position": 23,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:14",
+      "created_at": "2026-03-23 20:01:38",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 165,
+      "title": "backlogUpdateCmd DB 직접 접근 → IPC 경유로 전환",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "backlog_cmd.go의 backlogUpdateCmd만 openBacklogStore()로 DB에 직접 접근. 다른 모든 backlog 명령(add, list, resolve, release)은 데몬 IPC 경유. 데몬 실행 중 SQLite lock 경합 가능성 + 접근 패턴 불일치. IPC 경로에 update 라우트가 이미 module.go에 등록되어 있어 전환 가능.",
+      "position": 24,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:14",
+      "created_at": "2026-03-23 22:48:58",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 155,
+      "title": "ModuleLogger .With() 매 호출 allocation 개선",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "PERF",
+      "description": "ModuleLogger.Debug/Info/Warn/Error가 매 호출마다 slog.Default().With(\"module\", ml.name)으로 새 Logger를 생성. hot path 아니지만 sync.Once 기반 lazy init 또는 slog.LogAttrs로 allocation 절감 가능.",
+      "position": 18,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:13",
+      "created_at": "2026-03-23 16:36:39",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 156,
+      "title": "Queue polling exponential backoff",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "PERF",
+      "description": "Queue.Acquire에서 락 획득 실패 시 500ms 고정 sleep. exponential backoff(100ms→200ms→400ms→max 2s) 또는 context.WithTimeout 전체 대기 시간 제한 추가.",
+      "position": 19,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:13:13",
+      "created_at": "2026-03-23 16:36:39",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 50,
+      "title": "apex_tools/scripts 폴더 신설 + 스크립트 정리",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "독립 실행형 스크립트 3종을 `apex_tools/scripts/`로 이동. 경로 민감 스크립트는 유지. **[FSD 분석 2026-03-22]** #126 Go 백엔드 재작성 완료(2026-03-23)로 bash 스크립트 5종 삭제됨. 잔여 스크립트 유무 재평가 후 착수 여부 결정.",
+      "related": "126",
+      "position": 2,
+      "status": "RESOLVED",
+      "resolution": "SUPERSEDED",
+      "resolved_at": "2026-03-23 23:04:16",
+      "created_at": "2026-03-22 17:32:29",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 163,
+      "title": "백로그 CLI 강화 + JSON 포맷 통합 + Read 차단",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "backlog show <ID> 커맨드 신설, backlog list --verbose 개선, BACKLOG.md+BACKLOG_HISTORY.md를 단일 BACKLOG.json으로 통합(JSON 포맷), export/import 시스템 갱신, validate-backlog hook에 Read 차단 추가. DB가 source of truth이므로 MD 가독성 불필요, JSON으로 구조화하여 HTTP 대시보드(#146) 재활용 가능.",
+      "related": "153,159",
+      "position": 1,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:01:06",
+      "created_at": "2026-03-23 20:26:31",
+      "updated_at": "2026-03-23 23:13:24"
+    },
+    {
+      "id": 164,
+      "title": "notification 시스템 제거 — 알림 발행/ack/미ack 차단 전면 삭제",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "상태 전이(notify start/design/plan/merge/drop)는 유지하고 알림 발행+ack+미ack 차단만 제거. notifications/notification_acks 테이블 DROP, CheckNotifications/Ack/ProbeNotifications 삭제, handleCheck/handleAck/handleProbe 삭제, CLI check/ack 명령 삭제, ValidateMergeGate 미ack 부분 제거(FIXING 체크만 유지), hook probe 호출 제거.",
+      "position": 2,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-23 23:01:06",
+      "created_at": "2026-03-23 21:47:26",
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 132,
@@ -523,7 +556,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 138,
@@ -538,7 +571,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 153,
@@ -553,7 +586,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 20:11:02",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 160,
@@ -568,7 +601,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 19:31:13",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 157,
@@ -583,7 +616,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 17:16:11",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 141,
@@ -598,7 +631,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 143,
@@ -613,7 +646,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 144,
@@ -628,7 +661,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 145,
@@ -643,7 +676,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 139,
@@ -658,7 +691,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 140,
@@ -673,7 +706,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 126,
@@ -688,7 +721,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 00:53:31",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 136,
@@ -703,7 +736,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 21:06:23",
       "created_at": "2026-03-22 21:06:09",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 1,
@@ -718,7 +751,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 2,
@@ -733,7 +766,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 3,
@@ -748,7 +781,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 4,
@@ -763,7 +796,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 5,
@@ -778,7 +811,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 6,
@@ -793,7 +826,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 7,
@@ -808,7 +841,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 8,
@@ -823,7 +856,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 9,
@@ -838,7 +871,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 10,
@@ -853,7 +886,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 11,
@@ -868,7 +901,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 12,
@@ -883,7 +916,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 13,
@@ -898,7 +931,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 14,
@@ -913,7 +946,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 15,
@@ -928,7 +961,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 16,
@@ -943,7 +976,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 17,
@@ -958,7 +991,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 18,
@@ -973,7 +1006,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 19,
@@ -988,7 +1021,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 20,
@@ -1003,7 +1036,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 21,
@@ -1018,7 +1051,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 22,
@@ -1033,7 +1066,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 23,
@@ -1048,7 +1081,7 @@
       "resolution": "DUPLICATE",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 24,
@@ -1063,7 +1096,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 25,
@@ -1078,7 +1111,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 26,
@@ -1093,7 +1126,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 27,
@@ -1108,7 +1141,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 28,
@@ -1123,7 +1156,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 29,
@@ -1138,7 +1171,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 31,
@@ -1153,7 +1186,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 33,
@@ -1168,7 +1201,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 34,
@@ -1183,7 +1216,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 35,
@@ -1198,7 +1231,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 37,
@@ -1213,7 +1246,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 38,
@@ -1228,7 +1261,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 39,
@@ -1243,7 +1276,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 45,
@@ -1258,7 +1291,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 46,
@@ -1273,7 +1306,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 47,
@@ -1288,7 +1321,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 48,
@@ -1303,7 +1336,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 49,
@@ -1318,7 +1351,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 52,
@@ -1333,7 +1366,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 54,
@@ -1348,7 +1381,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 55,
@@ -1363,7 +1396,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 56,
@@ -1378,7 +1411,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 58,
@@ -1393,7 +1426,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 60,
@@ -1408,7 +1441,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 61,
@@ -1423,7 +1456,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 62,
@@ -1438,7 +1471,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 63,
@@ -1453,7 +1486,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 64,
@@ -1468,7 +1501,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 66,
@@ -1483,7 +1516,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 67,
@@ -1498,7 +1531,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 68,
@@ -1513,7 +1546,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 69,
@@ -1528,7 +1561,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 70,
@@ -1543,7 +1576,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 71,
@@ -1558,7 +1591,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 72,
@@ -1573,7 +1606,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 73,
@@ -1588,7 +1621,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 74,
@@ -1603,7 +1636,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 75,
@@ -1618,7 +1651,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 76,
@@ -1633,7 +1666,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 77,
@@ -1648,7 +1681,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 78,
@@ -1663,7 +1696,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 79,
@@ -1678,7 +1711,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 80,
@@ -1693,7 +1726,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 81,
@@ -1708,7 +1741,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 82,
@@ -1723,7 +1756,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 83,
@@ -1738,7 +1771,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 84,
@@ -1753,7 +1786,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 85,
@@ -1768,7 +1801,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 86,
@@ -1783,7 +1816,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 87,
@@ -1798,7 +1831,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 88,
@@ -1813,7 +1846,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 89,
@@ -1828,7 +1861,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 90,
@@ -1843,7 +1876,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 91,
@@ -1858,7 +1891,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 92,
@@ -1873,7 +1906,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 93,
@@ -1888,7 +1921,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 94,
@@ -1903,7 +1936,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 95,
@@ -1918,7 +1951,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 96,
@@ -1933,7 +1966,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 97,
@@ -1948,7 +1981,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 98,
@@ -1963,7 +1996,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 99,
@@ -1978,7 +2011,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 100,
@@ -1993,7 +2026,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 101,
@@ -2008,7 +2041,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 102,
@@ -2023,7 +2056,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 103,
@@ -2038,7 +2071,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 105,
@@ -2053,7 +2086,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 106,
@@ -2068,7 +2101,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 107,
@@ -2083,7 +2116,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 108,
@@ -2098,7 +2131,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 109,
@@ -2113,7 +2146,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 110,
@@ -2128,7 +2161,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 111,
@@ -2143,7 +2176,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 112,
@@ -2158,7 +2191,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 115,
@@ -2173,7 +2206,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 116,
@@ -2188,7 +2221,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 117,
@@ -2203,7 +2236,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 118,
@@ -2218,7 +2251,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 119,
@@ -2233,7 +2266,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 120,
@@ -2248,7 +2281,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 121,
@@ -2263,7 +2296,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 122,
@@ -2278,7 +2311,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 123,
@@ -2293,7 +2326,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 124,
@@ -2308,7 +2341,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 125,
@@ -2323,7 +2356,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 127,
@@ -2338,7 +2371,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 128,
@@ -2353,7 +2386,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 129,
@@ -2368,7 +2401,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 130,
@@ -2383,7 +2416,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 131,
@@ -2398,7 +2431,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     },
     {
       "id": 134,
@@ -2413,7 +2446,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-23 22:50:52"
+      "updated_at": "2026-03-23 23:13:24"
     }
   ]
 }

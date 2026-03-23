@@ -106,9 +106,17 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 	return acquired, nil
 }
 
+// Backoff constants for Acquire polling.
+const (
+	backoffInitial = 100 * time.Millisecond
+	backoffMax     = 2 * time.Second
+	backoffFactor  = 2
+)
+
 // Acquire acquires the lock for channel, blocking until it succeeds.
 // It inserts a waiting entry then polls until it becomes first in queue
 // and no active entry exists. Promote uses CAS pattern to prevent TOCTOU races.
+// Polling uses exponential backoff: 100ms → 200ms → 400ms → ... → 2s (cap).
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first (skip if already queued).
 	if exists, _ := m.hasWaitingEntryForBranch(m.store, channel, branch); !exists {
@@ -117,6 +125,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		}
 	}
 
+	delay := backoffInitial
 	for {
 		select {
 		case <-ctx.Done():
@@ -146,7 +155,11 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 			return nil
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(delay)
+		delay *= backoffFactor
+		if delay > backoffMax {
+			delay = backoffMax
+		}
 	}
 }
 
