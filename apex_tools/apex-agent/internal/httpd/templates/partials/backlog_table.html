@@ -1,0 +1,56 @@
+{{define "partial-backlog-table"}}
+{{if .Items}}
+<table class="table">
+  <thead>
+    <tr>
+      <th class="sortable" style="width:60px" data-col="id" onclick="sortBy('id')">ID</th>
+      <th>Title</th>
+      <th class="sortable" style="width:90px" data-col="severity" onclick="sortBy('severity')">Severity</th>
+      <th class="sortable" style="width:80px" data-col="status" onclick="sortBy('status')">Status</th>
+      <th style="width:90px">Timeframe</th>
+      <th style="width:80px">Scope</th>
+      <th style="width:80px">Type</th>
+      <th class="sortable" style="width:130px" data-col="updated_at" onclick="sortBy('updated_at')">Updated</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Items}}
+    <tr class="detail-toggle" onclick="toggleBacklogDetail({{.ID}})">
+      <td class="mono">#{{.ID}}</td>
+      <td>{{.Title}}</td>
+      <td><span class="badge {{if eq .Severity "CRITICAL"}}badge-red{{else if eq .Severity "MAJOR"}}badge-amber{{else}}badge-gray{{end}}">{{.Severity}}</span></td>
+      <td><span class="badge {{if eq .Status "OPEN"}}badge-green{{else if eq .Status "FIXING"}}badge-purple{{else}}badge-blue{{end}}">{{.Status}}</span></td>
+      <td>{{if eq .Status "RESOLVED"}}<span style="color:var(--text-muted)">—</span>{{else}}<span class="badge {{if eq .Timeframe "NOW"}}badge-red{{else if eq .Timeframe "IN_VIEW"}}badge-amber{{else}}badge-gray{{end}}">{{.Timeframe}}</span>{{end}}</td>
+      <td><span class="badge badge-scope">{{.Scope}}</span></td>
+      <td><span class="badge badge-type">{{.Type}}</span></td>
+      <td class="mono" style="font-size:0.78rem">{{.UpdatedAt}}</td>
+    </tr>
+    <tr id="detail-{{.ID}}" class="backlog-detail-row" hidden>
+      <td colspan="8" style="padding:0">
+        <div class="backlog-detail">
+          <div class="backlog-desc">{{.Description}}</div>
+          {{if .Related}}<div class="backlog-meta">Related: {{.Related}}</div>{{end}}
+          {{if .Resolution}}<div class="backlog-meta">Resolution: <span class="badge badge-blue">{{.Resolution}}</span></div>{{end}}
+        </div>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+<script>
+// Update sort indicators after HTMX swap
+(function() {
+    if (typeof currentSort !== 'undefined' && currentSort) {
+        document.querySelectorAll('.sortable').forEach(function(th) {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.dataset.col === currentSort) {
+                th.classList.add(currentDir === 'ASC' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+    }
+})();
+</script>
+{{else}}
+<div class="empty-state">No backlog items match the current filters</div>
+{{end}}
+{{end}}

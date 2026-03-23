@@ -1,0 +1,32 @@
+{{define "content"}}
+<h1 class="page-title">Dashboard</h1>
+
+<div hx-get="/partials/summary" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
+  {{template "partial-summary" .}}
+</div>
+
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <div class="card-header">Active Branches</div>
+      <div hx-get="/partials/active-branches" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
+        {{template "partial-active-branches" .}}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header purple">Recent History</div>
+      <div hx-get="/partials/recent-history" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
+        {{template "partial-recent-history" .}}
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-header blue">Queue Status</div>
+      <div hx-get="/partials/queue-status" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
+        {{template "partial-queue-status" .}}
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}

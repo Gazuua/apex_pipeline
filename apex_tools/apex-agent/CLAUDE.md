@@ -59,8 +59,25 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)
-- **idle timeout 30분** — 마지막 IPC 요청 후 30분간 요청 없으면 자동 종료. 설계 논의 등 장시간 IPC 미사용 후 hook 실패 시 `daemon start`로 재시작
+- **idle timeout 30분** — 마지막 IPC/HTTP 요청 후 30분간 요청 없으면 자동 종료. HTTP 대시보드가 열려있으면 1초 폴링이 타이머를 리셋하므로 데몬 유지. 설계 논의 등 장시간 미사용 후 hook 실패 시 `daemon start`로 재시작
 - **데몬 죽으면 데몬 의존 hook 우회** — validate-merge, validate-handoff, handoff-probe는 데몬 IPC 실패 시 fail-open(허용). validate-build만 로컬 검증으로 데몬 비의존. "핸드오프 미등록" 에러가 나오면 `daemon start`부터 실행
+
+### HTTP 대시보드
+
+데몬 내장 HTTP 서버. 브라우저에서 시스템 상태를 실시간 모니터링.
+
+```bash
+# 데몬 시작 시 자동 기동 (별도 명령 불필요)
+# 브라우저에서 접속:
+http://localhost:7600
+```
+
+- **4개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세), Handoff (상태 머신), Queue (실시간 경과 시간)
+- **Go 템플릿 + HTMX** — 1초 폴링 실시간 갱신, 폴링 속도 조절 (Fast 0.5s / Normal 1s / Slow 2s)
+- **JSON API**: `/api/backlog`, `/api/handoff`, `/api/queue`
+- **설정**: `config.toml`의 `[http]` 섹션 (`enabled`, `addr`). 기본: `localhost:7600`
+- 포트 충돌 시 경고 로그 + IPC만으로 계속 운영 (데몬 종료 안 함)
+- localhost 바인딩 전용 — 인증 불필요
 
 ### 모듈 등록 순서
 

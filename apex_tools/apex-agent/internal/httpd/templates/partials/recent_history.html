@@ -1,0 +1,17 @@
+{{define "partial-recent-history"}}
+{{if .History}}
+<div class="timeline">
+{{range .History}}
+  <div class="tl-item">
+    <div class="tl-title">{{.GitBranch}}</div>
+    <div class="tl-meta">
+      <span class="badge {{if eq .Status "MERGED"}}badge-green{{else}}badge-red{{end}}">{{.Status}}</span>
+      {{.FinishedAt}}
+    </div>
+  </div>
+{{end}}
+</div>
+{{else}}
+<div class="empty-state">No recent history</div>
+{{end}}
+{{end}}

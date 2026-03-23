@@ -1,0 +1,7 @@
+{{define "content"}}
+<h1 class="page-title">Queue</h1>
+
+<div class="grid-2" hx-get="/partials/queue-page" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
+  {{template "partial-queue-page" .}}
+</div>
+{{end}}

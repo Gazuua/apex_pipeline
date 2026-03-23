@@ -46,6 +46,10 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		_, err := tx.Exec(`UPDATE queue SET status = UPPER(status)`)
 		return err
 	})
+	mig.Register("queue", 3, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`ALTER TABLE queue ADD COLUMN finished_at TEXT`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all queue action handlers.
@@ -55,6 +59,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("release", m.handleRelease)
 	reg.Handle("status", m.handleStatus)
 	reg.Handle("cleanup-stale", m.handleCleanupStale)
+	reg.Handle("update-pid", m.handleUpdatePID)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -137,6 +142,22 @@ func (m *Module) handleStatus(_ context.Context, params json.RawMessage, _ strin
 		"active":  active,
 		"waiting": waiting,
 	}, nil
+}
+
+type updatePIDParams struct {
+	Channel string `json:"channel"`
+	PID     int    `json:"pid"`
+}
+
+func (m *Module) handleUpdatePID(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p updatePIDParams
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("queue.update-pid: decode params: %w", err)
+	}
+	if err := m.manager.UpdatePID(p.Channel, p.PID); err != nil {
+		return nil, err
+	}
+	return map[string]any{"updated": true, "channel": p.Channel, "pid": p.PID}, nil
 }
 
 func (m *Module) handleCleanupStale(_ context.Context, _ json.RawMessage, _ string) (any, error) {
