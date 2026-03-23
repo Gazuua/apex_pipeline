@@ -162,13 +162,15 @@ func TestValidateBacklog_AllowsSubdirBacklog(t *testing.T) {
 	}
 }
 
-func TestValidateBacklog_CaseSensitiveAllowsLowercase(t *testing.T) {
-	// Current implementation is case-sensitive: lowercase variants pass through.
-	// On case-insensitive filesystems (Windows), this means "backlog.md" bypasses the hook.
-	// This test documents the current behavior.
+func TestValidateBacklog_CaseInsensitiveBlocks(t *testing.T) {
+	// Case-insensitive matching to prevent Windows bypass (NTFS is case-insensitive).
 	err := ValidateBacklog("/project/docs/backlog.md")
-	if err != nil {
-		t.Errorf("lowercase backlog.md is currently allowed (case-sensitive match), got: %v", err)
+	if err == nil {
+		t.Fatal("expected block for lowercase backlog.md")
+	}
+	err = ValidateBacklog("/project/docs/Backlog.Md")
+	if err == nil {
+		t.Fatal("expected block for mixed-case Backlog.Md")
 	}
 }
 

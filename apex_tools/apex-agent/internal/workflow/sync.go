@@ -71,12 +71,13 @@ func SyncExport(projectRoot string, mgr *backlog.Manager) (int, error) {
 	}
 
 	// HISTORY 쓰기 — RESOLVED 항목 자동 이관
-	existingHistory, _ := os.ReadFile(historyPath)
-	updatedHistory, err := mgr.ExportHistory(string(existingHistory))
+	// SafeExport는 history를 import만 하므로 파일 내용은 변경되지 않음 → historyData 재사용
+	historyStr := string(historyData)
+	updatedHistory, err := mgr.ExportHistory(historyStr)
 	if err != nil {
 		return imported, fmt.Errorf("export history: %w", err)
 	}
-	if updatedHistory != string(existingHistory) {
+	if updatedHistory != historyStr {
 		if err := os.WriteFile(historyPath, []byte(updatedHistory), 0o644); err != nil {
 			return imported, fmt.Errorf("write history: %w", err)
 		}

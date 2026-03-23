@@ -136,9 +136,9 @@ func hasGoToolCommand(command string) bool {
 // ValidateBacklog blocks direct editing of docs/BACKLOG.md and docs/BACKLOG_HISTORY.md.
 // All backlog modifications must go through CLI (backlog add/update/resolve/release/export).
 func ValidateBacklog(filePath string) error {
-	normalized := strings.ReplaceAll(filePath, "\\", "/")
-	if strings.HasSuffix(normalized, "/docs/BACKLOG.md") ||
-		strings.HasSuffix(normalized, "/docs/BACKLOG_HISTORY.md") {
+	normalized := strings.ToUpper(strings.ReplaceAll(filePath, "\\", "/"))
+	if strings.HasSuffix(normalized, "/DOCS/BACKLOG.MD") ||
+		strings.HasSuffix(normalized, "/DOCS/BACKLOG_HISTORY.MD") {
 		return fmt.Errorf("차단: BACKLOG 파일 직접 편집 금지.\n" +
 			"  backlog add/update/resolve/release/export CLI를 사용하세요")
 	}
