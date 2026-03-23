@@ -23,6 +23,7 @@ func hookCmd() *cobra.Command {
 	cmd.AddCommand(hookValidateHandoffCmd())
 	cmd.AddCommand(hookHandoffProbeCmd())
 	cmd.AddCommand(hookEnforceRebaseCmd())
+	cmd.AddCommand(hookValidateBacklogCmd())
 	return cmd
 }
 
@@ -123,4 +124,22 @@ func readHookInput() (string, string, error) {
 		return "", "", err
 	}
 	return input.ToolInput.Command, input.Cwd, nil
+}
+
+func hookValidateBacklogCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate-backlog",
+		Short: "BACKLOG 파일 직접 편집 차단",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filePath, _, err := readHandoffProbeInput()
+			if err != nil {
+				return nil // parse error → allow
+			}
+			if err := hook.ValidateBacklog(filePath); err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				os.Exit(2)
+			}
+			return nil
+		},
+	}
 }

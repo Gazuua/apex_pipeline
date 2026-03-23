@@ -41,6 +41,11 @@
             "type": "command",
             "command": "bash ./apex_tools/apex-agent/run-hook hook handoff-probe",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-backlog",
+            "timeout": 15
           }
         ]
       }

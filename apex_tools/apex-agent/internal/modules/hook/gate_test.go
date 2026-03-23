@@ -131,3 +131,40 @@ func TestValidateBuild_AllowsGitBranchQueries(t *testing.T) {
 		}
 	}
 }
+
+// ── ValidateBacklog ──
+
+func TestValidateBacklog_BlocksBacklogMD(t *testing.T) {
+	err := ValidateBacklog("/project/docs/BACKLOG.md")
+	if err == nil {
+		t.Fatal("expected block for BACKLOG.md")
+	}
+}
+
+func TestValidateBacklog_BlocksHistoryMD(t *testing.T) {
+	err := ValidateBacklog("/project/docs/BACKLOG_HISTORY.md")
+	if err == nil {
+		t.Fatal("expected block for BACKLOG_HISTORY.md")
+	}
+}
+
+func TestValidateBacklog_AllowsOtherFiles(t *testing.T) {
+	err := ValidateBacklog("/project/docs/CLAUDE.md")
+	if err != nil {
+		t.Errorf("should allow other files, got: %v", err)
+	}
+}
+
+func TestValidateBacklog_AllowsSubdirBacklog(t *testing.T) {
+	err := ValidateBacklog("/project/docs/apex_tools/BACKLOG.md")
+	if err != nil {
+		t.Errorf("should allow subdirectory backlog, got: %v", err)
+	}
+}
+
+func TestValidateBacklog_WindowsPath(t *testing.T) {
+	err := ValidateBacklog(`D:\project\docs\BACKLOG.md`)
+	if err == nil {
+		t.Fatal("expected block for Windows path BACKLOG.md")
+	}
+}
