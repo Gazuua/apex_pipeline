@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/error_code.hpp>
 #include <apex/core/frame_codec.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/wire_header.hpp>
@@ -39,7 +40,7 @@ TEST(FrameCodec, DecodeEmptyBuffer)
     RingBuffer buf(4096);
     auto result = FrameCodec::try_decode(buf);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST(FrameCodec, DecodeIncompleteHeader)
@@ -50,7 +51,7 @@ TEST(FrameCodec, DecodeIncompleteHeader)
 
     auto result = FrameCodec::try_decode(buf);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST(FrameCodec, DecodeCompleteFrame)
@@ -129,7 +130,7 @@ TEST(FrameCodec, DecodeHeaderPresentButBodyIncomplete)
 
     auto result = FrameCodec::try_decode(buf);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST(FrameCodec, DecodeZeroBodyFrame)
@@ -181,7 +182,7 @@ TEST(FrameCodec, DecodeBodyTooLarge)
 
     auto result = FrameCodec::try_decode(buf);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), FrameError::BodyTooLarge);
+    EXPECT_EQ(result.error(), ErrorCode::BodyTooLarge);
 }
 
 // T7: encode_to with body_size mismatch

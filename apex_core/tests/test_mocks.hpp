@@ -34,21 +34,7 @@ struct MockProtocol
 
     [[nodiscard]] static apex::core::Result<Frame> try_decode(apex::core::RingBuffer& buf)
     {
-        auto result = apex::core::FrameCodec::try_decode(buf);
-        if (result.has_value())
-            return std::move(*result);
-        switch (result.error())
-        {
-            case apex::core::FrameError::InsufficientData:
-                return std::unexpected(apex::core::ErrorCode::InsufficientData);
-            case apex::core::FrameError::HeaderParseError:
-                return std::unexpected(apex::core::ErrorCode::InvalidMessage);
-            case apex::core::FrameError::BodyTooLarge:
-                return std::unexpected(apex::core::ErrorCode::BufferFull);
-            case apex::core::FrameError::UnsupportedProtocolVersion:
-                return std::unexpected(apex::core::ErrorCode::UnsupportedProtocolVersion);
-        }
-        return std::unexpected(apex::core::ErrorCode::Unknown);
+        return apex::core::FrameCodec::try_decode(buf);
     }
 
     static void consume_frame(apex::core::RingBuffer& buf, const Frame& frame)

@@ -2,11 +2,11 @@
 
 #pragma once
 
+#include <apex/core/result.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <cstdint>
-#include <expected>
 #include <span>
 
 namespace apex::core
@@ -27,14 +27,6 @@ struct Frame
     }
 };
 
-enum class FrameError : uint8_t
-{
-    InsufficientData,
-    HeaderParseError,
-    BodyTooLarge,
-    UnsupportedProtocolVersion,
-};
-
 /// Stateless frame codec. Extracts complete frames from a RingBuffer.
 /// Uses RingBuffer::linearize() for zero-copy access when possible.
 ///
@@ -48,7 +40,7 @@ enum class FrameError : uint8_t
 class FrameCodec
 {
   public:
-    [[nodiscard]] static std::expected<Frame, FrameError> try_decode(RingBuffer& buf);
+    [[nodiscard]] static Result<Frame> try_decode(RingBuffer& buf);
 
     static void consume_frame(RingBuffer& buf, const Frame& frame);
 

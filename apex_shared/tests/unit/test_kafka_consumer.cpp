@@ -70,17 +70,17 @@ TEST(KafkaConsumer, StartStopConsuming)
     boost::asio::io_context io_ctx;
     KafkaConfig config;
     config.brokers = "localhost:9092";
-    KafkaConsumer consumer(config, 0, io_ctx);
+    auto consumer = std::make_shared<KafkaConsumer>(config, 0, io_ctx);
 
-    auto result = consumer.init();
+    auto result = consumer->init();
     if (!result.has_value())
     {
         GTEST_SKIP() << "librdkafka init failed";
     }
 
-    consumer.start_consuming();
-    EXPECT_TRUE(consumer.consuming());
+    consumer->start_consuming();
+    EXPECT_TRUE(consumer->consuming());
 
-    consumer.stop_consuming();
-    EXPECT_FALSE(consumer.consuming());
+    consumer->stop_consuming();
+    EXPECT_FALSE(consumer->consuming());
 }

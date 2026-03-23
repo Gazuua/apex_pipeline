@@ -274,19 +274,21 @@ void KafkaConsumer::schedule_async_wait()
     if (!consuming_ || !pipe_desc_)
         return;
 
+    std::weak_ptr<KafkaConsumer> weak_self = shared_from_this();
     pipe_desc_->async_wait(boost::asio::posix::stream_descriptor::wait_read,
-                           [this](const boost::system::error_code& ec) {
-                               if (ec || !consuming_)
+                           [weak_self](const boost::system::error_code& ec) {
+                               auto self = weak_self.lock();
+                               if (!self || ec || !self->consuming_)
                                    return;
 
                                // Consume event bytes from pipe
                                char buf[64];
-                               (void)::read(pipe_fds_[0], buf, sizeof(buf));
+                               (void)::read(self->pipe_fds_[0], buf, sizeof(buf));
 
-                               poll_messages();
+                               self->poll_messages();
 
                                // Wait for next event
-                               schedule_async_wait();
+                               self->schedule_async_wait();
                            });
 #endif
 }
@@ -301,11 +303,13 @@ void KafkaConsumer::schedule_timer_poll()
         poll_timer_ = std::make_unique<boost::asio::steady_timer>(io_ctx_);
     }
     poll_timer_->expires_after(config_.consumer_poll_interval);
-    poll_timer_->async_wait([this](const boost::system::error_code& ec) {
-        if (ec || !consuming_)
+    std::weak_ptr<KafkaConsumer> weak_self = shared_from_this();
+    poll_timer_->async_wait([weak_self](const boost::system::error_code& ec) {
+        auto self = weak_self.lock();
+        if (!self || ec || !self->consuming_)
             return;
-        poll_messages();
-        schedule_timer_poll();
+        self->poll_messages();
+        self->schedule_timer_poll();
     });
 }
 
