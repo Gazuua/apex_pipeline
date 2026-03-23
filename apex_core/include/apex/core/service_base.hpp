@@ -129,12 +129,16 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     ServiceBase(const ServiceBase&) = delete;
     ServiceBase& operator=(const ServiceBase&) = delete;
 
+    // on_start/on_stop are virtual but dispatched asymmetrically:
+    //   start() → CRTP static dispatch (devirtualization for handler registration hot-path)
+    //   stop()  → virtual dispatch (shutdown path; vtable overhead irrelevant)
+    // This is intentional — do not "fix" the asymmetry.
     virtual void on_start() {}
     virtual void on_stop() {}
 
     void start() override
     {
-        static_cast<Derived*>(this)->on_start();
+        static_cast<Derived*>(this)->on_start(); // CRTP dispatch
         started_ = true;
     }
 
@@ -150,7 +154,7 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
             }
         }
         registered_msg_ids_.clear();
-        on_stop();
+        on_stop(); // virtual dispatch (shutdown path)
     }
 
     [[nodiscard]] std::string_view name() const noexcept override

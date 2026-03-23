@@ -7,6 +7,7 @@
 #include <jwt-cpp/jwt.h>
 #include <spdlog/spdlog.h>
 
+#include <charconv>
 #include <fstream>
 #include <sstream>
 
@@ -115,7 +116,15 @@ apex::core::Result<JwtManager::Claims> JwtManager::verify_access_token(std::stri
         verifier.verify(decoded);
 
         Claims claims;
-        claims.user_id = std::stoull(decoded.get_payload_claim("uid").as_string());
+        {
+            auto uid_str = decoded.get_payload_claim("uid").as_string();
+            auto [ptr, ec] = std::from_chars(uid_str.data(), uid_str.data() + uid_str.size(), claims.user_id);
+            if (ec != std::errc{})
+            {
+                spdlog::debug("[JwtManager] uid claim parsing failed: '{}'", uid_str);
+                return apex::core::error(apex::core::ErrorCode::ServiceError);
+            }
+        }
         claims.email = decoded.get_subject();
         if (decoded.has_payload_claim("jti"))
         {
