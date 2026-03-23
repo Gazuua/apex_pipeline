@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 func backlogCmd() *cobra.Command {
@@ -215,61 +217,63 @@ func openBacklogStore() (*store.Store, *backlog.Manager, func(), error) {
 // ── backlog export ──
 
 func backlogExportCmd() *cobra.Command {
-	var backlogPath, historyPath string
-	var unsafe bool
+	var stdout bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "BACKLOG.md 형식으로 출력 (import-first 안전 모드)",
-		Long: `DB 내용을 BACKLOG.md 형식으로 출력합니다.
-
-기본 동작 (안전 모드):
-  1. 현재 BACKLOG.md + BACKLOG_HISTORY.md를 DB에 import (메타데이터만, 상태 불변)
-  2. DB에서 export
-
-이렇게 하면 DB가 유실되어도 MD 파일에서 복원 후 export하므로 데이터 손실이 없습니다.
---unsafe 플래그로 import 단계를 건너뛸 수 있습니다.`,
+		Short: "DB → BACKLOG.md + BACKLOG_HISTORY.md 동기화",
+		Long: `DB 내용을 docs/BACKLOG.md + BACKLOG_HISTORY.md에 직접 씁니다.
+--stdout 플래그로 기존처럼 stdout 출력할 수 있습니다 (디버깅용).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 직접 DB 접근 (daemon 불필요)
+			if stdout {
+				_, mgr, cleanup, err := openBacklogStore()
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+
+				root, err := projectRoot()
+				if err != nil {
+					return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
+				}
+				backlogPath := filepath.Join(root, "docs", "BACKLOG.md")
+				historyPath := filepath.Join(root, "docs", "BACKLOG_HISTORY.md")
+				backlogData, _ := os.ReadFile(backlogPath)
+				historyData, _ := os.ReadFile(historyPath)
+
+				content, imported, err := mgr.SafeExport(string(backlogData), string(historyData))
+				if err != nil {
+					return err
+				}
+				if imported > 0 {
+					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
+				}
+				fmt.Fprint(os.Stdout, content)
+				return nil
+			}
+
+			// 기본: 파일 직접 쓰기 (SyncExport)
 			_, mgr, cleanup, err := openBacklogStore()
 			if err != nil {
 				return err
 			}
 			defer cleanup()
 
-			var content string
-
-			if unsafe {
-				// unsafe 모드: import 없이 바로 export
-				var exportErr error
-				content, exportErr = mgr.Export()
-				if exportErr != nil {
-					return exportErr
-				}
-			} else {
-				// 안전 모드: SafeExport (import-first + 단일 트랜잭션)
-				backlogData, _ := os.ReadFile(backlogPath)
-				historyData, _ := os.ReadFile(historyPath)
-
-				var imported int
-				var exportErr error
-				content, imported, exportErr = mgr.SafeExport(string(backlogData), string(historyData))
-				if exportErr != nil {
-					return exportErr
-				}
-				if imported > 0 {
-					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
-				}
+			root, err := projectRoot()
+			if err != nil {
+				return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 			}
 
-			fmt.Fprint(os.Stdout, content)
+			n, err := workflow.SyncExport(root, mgr)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("[export] docs/BACKLOG.md + BACKLOG_HISTORY.md 갱신 완료 (import: %d)\n", n)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&backlogPath, "backlog", "docs/BACKLOG.md", "BACKLOG.md 파일 경로")
-	cmd.Flags().StringVar(&historyPath, "history", "docs/BACKLOG_HISTORY.md", "BACKLOG_HISTORY.md 파일 경로")
-	cmd.Flags().BoolVar(&unsafe, "unsafe", false, "import 단계 건너뛰기 (DB 유실 시 데이터 손실 위험)")
+	cmd.Flags().BoolVar(&stdout, "stdout", false, "stdout 출력 (디버깅용, 파일 쓰기 안 함)")
 	return cmd
 }
 
