@@ -79,10 +79,10 @@ d.Register(handoff.New(d.Store(), backlogMod.Manager()))
 |------|--------|------|:---:|
 | `validate-build` | Bash | cmake/ninja/build.bat/bench_* 직접 호출 차단 | 2 |
 | `validate-merge` | Bash | merge lock 미획득 시 `gh pr merge` 차단 | 2 |
-| `validate-handoff` | Bash | 미등록 커밋 차단 + 머지 시 미ack/FIXING 차단 | 2 |
+| `validate-handoff` | Bash | 미등록 커밋 차단 + 머지 시 FIXING 백로그 차단 | 2 |
 | `enforce-rebase` | Bash | push 전 자동 리베이스 | 2 |
 | `handoff-probe` | Edit/Write | 미등록 편집 차단 + 상태별 소스 게이트 | 2 |
-| `validate-backlog` | Edit/Write | docs/BACKLOG.md, BACKLOG_HISTORY.md 직접 편집 차단 | 2 |
+| `validate-backlog` | Edit/Write/Read | docs/BACKLOG.json 직접 접근 차단 | 2 |
 
 ### 브랜치 조회 순서 (hook)
 
@@ -202,7 +202,6 @@ apex-agent handoff notify merge --summary "..."
 # 조회/확인
 apex-agent handoff status
 apex-agent handoff check
-apex-agent handoff ack --id N --action no-impact
 apex-agent handoff backlog-check N
 ```
 
@@ -284,8 +283,9 @@ go test ./e2e/... -run TestBacklog_Enum    # 특정 테스트
 | backlog | v1 | backlog_items 테이블 생성 |
 | backlog | v2 | AUTOINCREMENT 전환 |
 | backlog | v3 | 대문자 정규화 + DEFAULT 'OPEN' |
-| handoff | v1 | branches + notifications + acks 테이블 |
+| handoff | v1 | branches + notifications + acks 테이블 (v6에서 notifications/acks DROP) |
 | handoff | v2 | branch_backlogs junction + branches에서 backlog_id 제거 |
+| handoff | v6 | notifications + notification_acks 테이블 DROP (알림 시스템 제거) |
 | handoff | v3 | branches.git_branch 컬럼 추가 |
 
 daemon 시작 시 자동 실행. 롤백 미지원 — 항상 전진 마이그레이션.
