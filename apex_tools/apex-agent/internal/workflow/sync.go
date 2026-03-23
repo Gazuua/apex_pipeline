@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -67,6 +68,19 @@ func SyncExport(projectRoot string, mgr *backlog.Manager) (int, error) {
 	}
 	if err := os.WriteFile(backlogPath, []byte(content), 0o644); err != nil {
 		return imported, err
+	}
+
+	// HISTORY 쓰기 — RESOLVED 항목 자동 이관
+	existingHistory, _ := os.ReadFile(historyPath)
+	updatedHistory, err := mgr.ExportHistory(string(existingHistory))
+	if err != nil {
+		return imported, fmt.Errorf("export history: %w", err)
+	}
+	if updatedHistory != string(existingHistory) {
+		if err := os.WriteFile(historyPath, []byte(updatedHistory), 0o644); err != nil {
+			return imported, fmt.Errorf("write history: %w", err)
+		}
+		ml.Info("backlog history 갱신 완료")
 	}
 
 	ml.Info("backlog export 완료", "imported", imported)
