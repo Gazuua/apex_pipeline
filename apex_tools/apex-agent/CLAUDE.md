@@ -59,6 +59,8 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)
+- **idle timeout 30분** — 마지막 IPC 요청 후 30분간 요청 없으면 자동 종료. 설계 논의 등 장시간 IPC 미사용 후 hook 실패 시 `daemon start`로 재시작
+- **데몬 죽으면 모든 hook 차단** — "핸드오프 미등록" 에러가 나오면 `daemon start`부터 실행. IPC 파이프가 없으면 handoff-probe/validate-handoff 모두 실패
 
 ### 모듈 등록 순서
 
@@ -153,7 +155,9 @@ MD (git-tracked)           DB (로컬 SQLite)
 |------|------|------|
 | 착수 시 (①) | `migrate backlog` | MD → DB 메타데이터 싱크 |
 | 작업 중 (③) | `backlog resolve/release` | CLI로 상태 변경 (에이전트 판단) |
-| 머지 전 (⑥) | `backlog export > docs/BACKLOG.md` | DB → MD 전체 덤프 |
+| 머지 전 (⑥) | `migrate backlog && backlog export --unsafe > /tmp/bl.md && mv /tmp/bl.md docs/BACKLOG.md` | DB → MD 전체 덤프 |
+
+**경고**: `backlog export > docs/BACKLOG.md` 직접 리다이렉션 금지 — 셸이 파일을 먼저 truncate하여 import-first가 빈 파일을 읽음. 반드시 임시 파일 경유 또는 `--unsafe` + 사전 `migrate backlog` 조합 사용
 
 ### 머지 전 백로그 정리 (에이전트 수행)
 
@@ -226,6 +230,18 @@ apex-agent queue status <channel>                   # 채널 상태 조회
 
 - `queue build`와 `queue benchmark`는 동일한 "build" 채널 lock 공유 — 빌드/벤치마크 상호배제
 - `queue merge`는 독립 "merge" 채널 — build 잠금과 무관
+
+## Cleanup CLI
+
+```bash
+apex-agent cleanup              # dry-run (기본) — 삭제 대상만 표시
+apex-agent cleanup --execute    # 실제 삭제 수행
+```
+
+- **기본 동작이 dry-run** — 플래그 없이 실행하면 삭제 없이 대상만 출력. `--dry-run` 플래그는 없음
+- 활성 핸드오프 브랜치 자동 보호 (active_branches 조회)
+- CWD 브랜치 보호 (현재 체크아웃된 브랜치 삭제 안 함)
+- 정리 대상: 머지 완료 로컬/리모트 브랜치, 고아 워크트리
 
 ### 착수 필수 플래그
 

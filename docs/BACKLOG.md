@@ -4,18 +4,11 @@
 완료 항목은 즉시 삭제 후 `docs/BACKLOG_HISTORY.md`에 기록.
 운영 규칙: `docs/CLAUDE.md` § 백로그 운영 참조.
 
-다음 발번: 159
+다음 발번: 161
 
 ---
 
 ## NOW
-
-### #146. apex-agent 시스템 현황 대시보드 프론트엔드
-- **등급**: MAJOR
-- **스코프**: TOOLS
-- **타입**: INFRA
-- **설명**: apex-agent Go 데몬의 시스템 현황을 실시간으로 파악할 수 있는 대시보드 웹 페이지 개발. 표시 대상: ① 핸드오프 상태 (활성 브랜치, 상태머신 단계, 연결된 백로그) ② 큐 현황 (build/merge 채널 잠금 상태, 대기열) ③ 백로그 요약 (severity/timeframe별 OPEN/FIXING 건수) ④ 데몬 헬스 (가동 시간, 모듈 상태, 최근 IPC 요청) ⑤ 알림/ack 이력. 데몬 IPC를 통해 데이터를 조회하거나 SQLite DB를 직접 읽는 방식. 정적 HTML+JS 또는 Go 내장 HTTP 서버 방식 검토 필요.
-
 
 ---
 
@@ -75,14 +68,7 @@
 - **연관**: #4(HISTORY)
 - **설명**: `crash_handler.cpp`의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치.
 
-### #65. auto-review 가이드 검증 자동화
-- **등급**: MINOR
-- **스코프**: TOOLS
-- **타입**: INFRA
-- **연관**: #1(HISTORY), #126
-- **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. ---
-
-### #146. AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹
+### #146. apex-agent 시스템 현황 대시보드 프론트엔드
 - **등급**: MAJOR
 - **스코프**: AUTH_SVC
 - **타입**: PERF
@@ -132,7 +118,7 @@
 - **연관**: #1(HISTORY), #126(HISTORY)
 - **설명**: 코어 인터페이스 변경 시 `apex_core_guide.md` 갱신 누락을 auto-review 스크립트에서 자동 탐지. CLAUDE.md 유지보수 규칙의 "머지 전 체크" 항목을 코드 레벨로 강제. **[FSD 설계 확정 2026-03-22]** C안 채택: #126 Go 백엔드에 리뷰 검증 기능 통합. #126 완료(2026-03-23), 착수 가능. **[FSD 분석 2026-03-23]** Go 백엔드 기능 추가로 C++ 백로그 번들과 스코프 상이. 별도 작업으로 착수 권장.
 
-### #154. apex-agent git CLI 서브커맨드 그룹
+### #154. CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀
 - **등급**: MAJOR
 - **스코프**: TOOLS
 - **타입**: INFRA
@@ -156,11 +142,25 @@
 - **타입**: BUG
 - **설명**: EnforceRebase에서 rebase 실패 시 --abort 호출의 에러를 무시(//nolint:errcheck). abort 자체가 실패하면(dirty working tree 등) 반쪽짜리 rebase 상태에 빠질 수 있음. 최소 경고 로그 기록 필요.
 
+### #159. CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: INFRA
+- **연관**: #146, #154
+- **설명**: 현재 start/merge/drop만 workflow 패키지로 추출됨. 나머지 CLI 기능(design, plan, backlog CRUD, queue, cleanup, ack 등)도 전부 workflow 기반 파이프라인으로 추상화하여 HTTP 대시보드(BACKLOG-146)에서 동일 기능 수행 가능하도록 기틀 마련. IPCFunc 패턴 확장, 각 커맨드별 파이프라인 함수 작성, 단위+E2E 테스트 동반.
+
+### #160. backlog UpdateFromImport에 title 갱신 누락
+- **등급**: MAJOR
+- **스코프**: TOOLS
+- **타입**: BUG
+- **설명**: `UpdateFromImport()`가 severity, timeframe, scope, type, description, related, position은 갱신하지만 title을 갱신하지 않음. import 전에 동일 ID로 `backlog add`가 실행되면 title이 오염된 채 남음. title도 메타데이터이므로 import 시 MD 기준으로 갱신해야 한다.
+
 ### #158. Plugin 시스템 Claude Code 포맷 버전 체크 부재
 - **등급**: MINOR
 - **스코프**: TOOLS
 - **타입**: INFRA
-- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환.
+- **설명**: plugin.Setup()이 ~/.claude/ 디렉토리 구조, installed_plugins.json, settings.json 포맷에 직접 의존. 포맷 변경 시 무조건 깨짐. 파일 포맷 버전 체크를 추가하여 호환성 깨질 때 명시적 에러 반환. --- ---
+
 
 ---
 
@@ -220,4 +220,5 @@
 - **스코프**: TOOLS
 - **타입**: BUG
 - **설명**: `docs/BACKLOG.md`를 직접 수정(항목 추가/삭제/편집)해도 apex-agent Go 백엔드의 SQLite DB에 반영되지 않음. 다음 에이전트가 `apex-agent backlog import`/`export`를 실행해야 동기화됨. 단순 BACKLOG.md 수정 시에도 정식 import/export 워크플로우가 자동 트리거되어야 함. pre-commit hook 또는 파일 감시 기반 자동 동기화 검토 필요.
+
 

@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 // getBranchID extracts the workspace branch identifier from the current directory.
@@ -113,15 +112,6 @@ func handoffNotifyStartJobCmd() *cobra.Command {
 func doNotifyStart(branchName, summary string, backlogs []int, scopes string, skipDesign bool) error {
 	branch := getBranchID()
 
-	// Phase 0: git 브랜치 존재 확인
-	if err := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branchName).Run(); err == nil {
-		return fmt.Errorf("로컬 git 브랜치 '%s'가 이미 존재합니다", branchName)
-	}
-	if out, _ := exec.Command("git", "ls-remote", "--heads", "origin", branchName).Output(); len(strings.TrimSpace(string(out))) > 0 {
-		return fmt.Errorf("리모트 git 브랜치 'origin/%s'가 이미 존재합니다", branchName)
-	}
-
-	// Phase 1: DB TX (IPC)
 	if backlogs == nil {
 		backlogs = []int{}
 	}
@@ -134,19 +124,23 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 		"scopes":      scopes,
 		"skip_design": skipDesign,
 	}
-	result, err := sendHandoffRequest("notify-start", params)
-	if err != nil {
-		return fmt.Errorf("daemon unavailable: %w", err)
-	}
-	notifID, _ := result["notification_id"].(float64)
 
-	// Phase 2: Git branch creation
-	if err := exec.Command("git", "checkout", "-b", branchName).Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "경고: git checkout -b 실패: %v (DB 레코드는 생성됨 — 재시도 가능)\n", err)
-		return fmt.Errorf("git checkout -b 실패: %w", err)
+	root, err := projectRoot()
+	if err != nil {
+		return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 	}
-	if err := exec.Command("git", "push", "-u", "origin", branchName).Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "경고: git push 실패: %v (재시도 필요)\n", err)
+
+	// backlog manager (best-effort — import은 non-fatal)
+	_, mgr, cleanup, mgrErr := openBacklogStore()
+	if mgrErr != nil {
+		mgr = nil
+	} else {
+		defer cleanup()
+	}
+
+	notifID, err := workflow.StartPipeline(branchName, params, root, mgr, ipcWrapper)
+	if err != nil {
+		return err
 	}
 
 	mode := "scopes=" + scopes
@@ -156,6 +150,11 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 	fmt.Printf("[handoff] Tier 1 notification published: #%.0f (branch=%s, git=%s, %s)\n",
 		notifID, branch, branchName, mode)
 	return nil
+}
+
+// ipcWrapper adapts sendHandoffRequest to workflow.IPCFunc.
+func ipcWrapper(action string, params map[string]any) (map[string]any, error) {
+	return sendHandoffRequest(action, params)
 }
 
 // ── handoff notify design ──
@@ -239,17 +238,24 @@ func handoffNotifyMergeCmd() *cobra.Command {
 				"workspace": branch,
 				"summary":   summary,
 			}
-			// Phase 1: DB TX (IPC)
-			_, err := sendHandoffRequest("notify-merge", params)
+
+			root, err := projectRoot()
 			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
+				root = "."
+			}
+
+			_, mgr, cleanup, mgrErr := openBacklogStore()
+			if mgrErr != nil {
+				mgr = nil
+			} else {
+				defer cleanup()
+			}
+
+			if err := workflow.MergePipeline(params, root, mgr, ipcWrapper); err != nil {
+				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)
-
-			// Phase 2: git checkout main
-			if err := gitCheckoutMain(); err != nil {
-				fmt.Fprintf(os.Stderr, "경고: git checkout main 실패: %v\n", err)
-			}
+			fmt.Println("[handoff] docs/BACKLOG.md 갱신됨 — 커밋+푸시 후 머지 진행하세요")
 			return nil
 		},
 	}
@@ -275,16 +281,16 @@ func handoffNotifyDropCmd() *cobra.Command {
 				"workspace": branch,
 				"reason":    reason,
 			}
-			_, err := sendHandoffRequest("notify-drop", params)
+
+			root, err := projectRoot()
 			if err != nil {
-				return fmt.Errorf("daemon unavailable: %w", err)
+				root = "."
+			}
+
+			if err := workflow.DropPipeline(params, root, ipcWrapper); err != nil {
+				return err
 			}
 			fmt.Printf("[handoff] branch dropped (branch=%s, reason=%s)\n", branch, reason)
-
-			// Phase 2: git checkout main
-			if err := gitCheckoutMain(); err != nil {
-				fmt.Fprintf(os.Stderr, "경고: git checkout main 실패: %v\n", err)
-			}
 			return nil
 		},
 	}
@@ -293,17 +299,6 @@ func handoffNotifyDropCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("reason")
 
 	return cmd
-}
-
-// gitCheckoutMain switches to main and pulls latest.
-func gitCheckoutMain() error {
-	if _, err := exec.Command("git", "checkout", "main").Output(); err != nil {
-		return fmt.Errorf("checkout main: %w", err)
-	}
-	if _, err := exec.Command("git", "pull", "origin", "main").Output(); err != nil {
-		return fmt.Errorf("pull main: %w", err)
-	}
-	return nil
 }
 
 // ── handoff check ──
