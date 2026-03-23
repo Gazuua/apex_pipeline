@@ -3,8 +3,6 @@
 #include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/shared/adapters/pg/pg_result.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/asio/redirect_error.hpp>
 #include <boost/asio/socket_base.hpp>
 #include <boost/asio/use_awaitable.hpp>
@@ -128,7 +126,7 @@ PgConnection& PgConnection::operator=(PgConnection&& other) noexcept
 
 boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std::string_view conninfo)
 {
-    spdlog::debug("[pg_connection] connect_async: initiating connection");
+    logger_.debug("connect_async: initiating connection");
 
     // Ensure clean state
     if (conn_)
@@ -147,7 +145,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std
     // 2. Check initial status
     if (PQstatus(conn_) == CONNECTION_BAD)
     {
-        spdlog::error("PgConnection: PQconnectStart failed: {}", PQerrorMessage(conn_));
+        logger_.error("PQconnectStart failed: {}", PQerrorMessage(conn_));
         PQfinish(conn_);
         conn_ = nullptr;
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -156,7 +154,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std
     // 3. Set non-blocking mode
     if (PQsetnonblocking(conn_, 1) != 0)
     {
-        spdlog::error("PgConnection: PQsetnonblocking failed");
+        logger_.error("PQsetnonblocking failed");
         PQfinish(conn_);
         conn_ = nullptr;
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -166,7 +164,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std
     int fd = PQsocket(conn_);
     if (fd < 0)
     {
-        spdlog::error("PgConnection: PQsocket returned invalid fd");
+        logger_.error("PQsocket returned invalid fd");
         PQfinish(conn_);
         conn_ = nullptr;
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
@@ -177,7 +175,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::connect_async(std
     socket_->assign(boost::asio::ip::tcp::v4(), static_cast<boost::asio::ip::tcp::socket::native_handle_type>(fd), ec);
     if (ec)
     {
-        spdlog::error("PgConnection: socket assign failed: {}", ec.message());
+        logger_.error("socket assign failed: {}", ec.message());
         socket_.reset();
         PQfinish(conn_);
         conn_ = nullptr;
@@ -220,7 +218,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::poll_connect()
 
             case PGRES_POLLING_FAILED:
             default:
-                spdlog::error("PgConnection: connect poll failed: {}", PQerrorMessage(conn_));
+                logger_.error("connect poll failed: {}", PQerrorMessage(conn_));
                 co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
     }
@@ -228,7 +226,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::poll_connect()
 
 boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::query_async(std::string_view sql)
 {
-    spdlog::debug("[pg_connection] query_async: sending query (length={})", sql.size());
+    logger_.debug("query_async: sending query (length={})", sql.size());
 
     if (!connected_ || !conn_)
     {
@@ -239,7 +237,7 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::query_async(s
     std::string sql_str(sql);
     if (PQsendQuery(conn_, sql_str.c_str()) == 0)
     {
-        spdlog::error("PgConnection: PQsendQuery failed: {}", PQerrorMessage(conn_));
+        logger_.error("PQsendQuery failed: {}", PQerrorMessage(conn_));
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -304,7 +302,7 @@ PgConnection::query_params_async(std::string_view sql, std::span<const std::stri
 
     if (ret == 0)
     {
-        spdlog::error("PgConnection: PQsendQueryParams failed: {}", PQerrorMessage(conn_));
+        logger_.error("PQsendQueryParams failed: {}", PQerrorMessage(conn_));
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -345,7 +343,7 @@ boost::asio::awaitable<apex::core::Result<void>> PgConnection::prepare_async(std
     int ret = PQsendPrepare(conn_, name_str.c_str(), sql_str.c_str(), 0, nullptr);
     if (ret == 0)
     {
-        spdlog::error("PgConnection: PQsendPrepare failed: {}", PQerrorMessage(conn_));
+        logger_.error("PQsendPrepare failed: {}", PQerrorMessage(conn_));
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -378,7 +376,7 @@ PgConnection::query_prepared_async(std::string_view name, std::span<const std::s
                                   nullptr, nullptr, 0);
     if (ret == 0)
     {
-        spdlog::error("PgConnection: PQsendQueryPrepared failed: {}", PQerrorMessage(conn_));
+        logger_.error("PQsendQueryPrepared failed: {}", PQerrorMessage(conn_));
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -387,7 +385,7 @@ PgConnection::query_prepared_async(std::string_view name, std::span<const std::s
 
 boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::collect_result()
 {
-    spdlog::trace("[pg_connection] collect_result: waiting for query result");
+    logger_.trace("collect_result: waiting for query result");
 
     PgResult last_result;
 
@@ -405,7 +403,7 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::collect_resul
         // Consume input from the socket
         if (PQconsumeInput(conn_) == 0)
         {
-            spdlog::error("PgConnection: PQconsumeInput failed: {}", PQerrorMessage(conn_));
+            logger_.error("PQconsumeInput failed: {}", PQerrorMessage(conn_));
             co_return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
 
@@ -421,8 +419,7 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgConnection::collect_resul
                     // No results at all
                     co_return std::unexpected(apex::core::ErrorCode::AdapterError);
                 }
-                spdlog::trace("[pg_connection] collect_result: rows={}, cols={}", last_result.row_count(),
-                              last_result.column_count());
+                logger_.trace("collect_result: rows={}, cols={}", last_result.row_count(), last_result.column_count());
                 co_return std::move(last_result);
             }
 

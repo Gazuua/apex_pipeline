@@ -1,8 +1,12 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/kafka/consumer_payload_pool.hpp>
 
-#include <spdlog/spdlog.h>
+namespace
+{
+const apex::core::ScopedLogger s_logger{"ConsumerPayloadPool", apex::core::ScopedLogger::NO_CORE, "app"};
+} // namespace
 
 namespace apex::shared::adapters::kafka
 {
@@ -19,8 +23,7 @@ ConsumerPayloadPool::ConsumerPayloadPool(size_t initial_count, size_t buffer_siz
     }
     total_created_ = initial_count;
 
-    spdlog::debug("ConsumerPayloadPool: pre-allocated {} buffers ({}B each, max={})", initial_count, buffer_size,
-                  max_count);
+    s_logger.debug("pre-allocated {} buffers ({}B each, max={})", initial_count, buffer_size, max_count);
 }
 
 ConsumerPayloadPool::PayloadPtr ConsumerPayloadPool::acquire(std::span<const uint8_t> payload)

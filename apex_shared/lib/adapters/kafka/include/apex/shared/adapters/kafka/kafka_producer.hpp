@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
 
 #include <librdkafka/rdkafka.h>
@@ -92,6 +93,7 @@ class KafkaProducer
     /// rd_kafka_topic_t cache (per topic)
     rd_kafka_topic_t* get_or_create_topic(std::string_view topic);
 
+    apex::core::ScopedLogger logger_{"KafkaProducer", apex::core::ScopedLogger::NO_CORE, "app"};
     KafkaConfig config_;
     rd_kafka_t* rk_ = nullptr; ///< librdkafka handle
 

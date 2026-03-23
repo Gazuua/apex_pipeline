@@ -4,6 +4,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/shared/adapters/pool_concept.hpp>
 #include <boost/asio/awaitable.hpp>
@@ -67,6 +68,7 @@ class PgPool
         std::chrono::steady_clock::time_point returned_at;
     };
 
+    apex::core::ScopedLogger logger_{"PgPool", apex::core::ScopedLogger::NO_CORE, "app"};
     boost::asio::io_context& io_ctx_;
     const PgAdapterConfig& config_;
     PoolConfig pool_config_;

@@ -4,8 +4,6 @@
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 #include <chrono>
 #include <stdexcept>
@@ -45,7 +43,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine)
     auto result = producer_->init();
     if (!result.has_value())
     {
-        spdlog::error("KafkaAdapter: Producer init failed — aborting adapter init");
+        logger_.error("Producer init failed — aborting adapter init");
         throw std::runtime_error("KafkaAdapter: Producer init failed");
     }
 
@@ -62,7 +60,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine)
         auto init_result = consumer->init();
         if (!init_result.has_value())
         {
-            spdlog::error("KafkaAdapter: Consumer[core={}] init failed — aborting adapter init", i);
+            logger_.error("Consumer[core={}] init failed — aborting adapter init", i);
             throw std::runtime_error("KafkaAdapter: Consumer[core=" + std::to_string(i) + "] init failed");
         }
         consumers_.push_back(std::move(consumer));
@@ -80,7 +78,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine)
     // 4. Start Producer poll timer (on core 0's io_context)
     start_producer_poll_timer(engine.io_context(0));
 
-    spdlog::info("KafkaAdapter initialized: {} cores, brokers={}, payload_pool(init={}, buf={}B, max={})", num_cores,
+    logger_.info("initialized: {} cores, brokers={}, payload_pool(init={}, buf={}B, max={})", num_cores,
                  config_.brokers, config_.payload_pool_initial_count, config_.payload_pool_buffer_size,
                  config_.payload_pool_max_count);
 }
@@ -93,7 +91,7 @@ void KafkaAdapter::do_drain()
     {
         consumer->stop_consuming();
     }
-    spdlog::info("KafkaAdapter: drain started");
+    logger_.info("drain started");
 }
 
 void KafkaAdapter::do_close()
@@ -108,11 +106,11 @@ void KafkaAdapter::do_close()
     // Flush Producer
     if (producer_->initialized())
     {
-        spdlog::info("KafkaAdapter: flushing producer (outq={})", producer_->outq_len());
+        logger_.info("flushing producer (outq={})", producer_->outq_len());
         auto flushed = producer_->flush(std::chrono::milliseconds{config_.flush_timeout_ms});
         if (!flushed)
         {
-            spdlog::warn("KafkaAdapter: producer flush timed out ({}ms)", config_.flush_timeout_ms);
+            logger_.warn("producer flush timed out ({}ms)", config_.flush_timeout_ms);
         }
     }
 
@@ -123,11 +121,11 @@ void KafkaAdapter::do_close()
     producer_.reset();
 
     // Payload pool metrics
-    spdlog::info("KafkaAdapter: payload_pool stats — acquired={}, fallback={}, peak_in_use={}, free={}",
+    logger_.info("payload_pool stats — acquired={}, fallback={}, peak_in_use={}, free={}",
                  payload_pool_.acquire_count(), payload_pool_.fallback_alloc_count(), payload_pool_.peak_in_use(),
                  payload_pool_.free_count());
 
-    spdlog::info("KafkaAdapter: closed");
+    logger_.info("closed");
 }
 
 apex::core::Result<void> KafkaAdapter::produce(std::string_view topic, std::string_view key,
@@ -181,18 +179,18 @@ void KafkaAdapter::wire_services(std::vector<std::unique_ptr<apex::core::Service
             auto pooled_buf = payload_pool_.acquire(payload);
 
             // spawn_tracked로 코루틴 실행 — bridge->dispatch가 파싱+핸들러 호출 수행
-            engine.spawn_tracked(0, [bridge, buf = std::move(pooled_buf)]() -> boost::asio::awaitable<void> {
+            engine.spawn_tracked(0, [this, bridge, buf = std::move(pooled_buf)]() -> boost::asio::awaitable<void> {
                 auto result = co_await bridge->dispatch(buf->span());
                 if (!result.has_value())
                 {
-                    spdlog::warn("[KafkaAdapter] auto-wired dispatch failed: {}", static_cast<int>(result.error()));
+                    logger_.warn("auto-wired dispatch failed: {}", static_cast<int>(result.error()));
                 }
             });
 
             return apex::core::ok();
         });
 
-        spdlog::info("[KafkaAdapter] Auto-wired KafkaDispatchBridge for service '{}'", svc->name());
+        logger_.info("Auto-wired KafkaDispatchBridge for service '{}'", svc->name());
         break; // 현재 1 adapter = 1 service 패턴 (multi-service는 v0.6+)
     }
 }

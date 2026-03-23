@@ -3,8 +3,6 @@
 #include <apex/shared/adapters/kafka/kafka_consumer.hpp>
 #include <apex/shared/adapters/kafka/kafka_producer.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cstring>
 #include <string>
 
@@ -17,7 +15,8 @@ namespace apex::shared::adapters::kafka
 
 KafkaConsumer::KafkaConsumer(const KafkaConfig& config, uint32_t core_id, boost::asio::io_context& io_ctx,
                              KafkaProducer* producer)
-    : config_(config)
+    : logger_("KafkaConsumer", core_id, "app")
+    , config_(config)
     , core_id_(core_id)
     , io_ctx_(io_ctx)
     , producer_(producer)
@@ -60,7 +59,7 @@ apex::core::Result<void> KafkaConsumer::init()
         if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
         {
             const bool sensitive = std::strcmp(key, "sasl.password") == 0;
-            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
+            logger_.warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
             return false;
         }
         return true;
@@ -80,7 +79,7 @@ apex::core::Result<void> KafkaConsumer::init()
     auto sec_set = [&](const char* key, const char* val) -> bool {
         if (!conf_set(key, val))
         {
-            spdlog::error("KafkaConsumer[core={}]: security config '{}' failed — aborting init", core_id_, key);
+            logger_.error("security config '{}' failed — aborting init", key);
             rd_kafka_conf_destroy(conf);
             return false;
         }
@@ -117,7 +116,7 @@ apex::core::Result<void> KafkaConsumer::init()
     rk_ = rd_kafka_new(RD_KAFKA_CONSUMER, conf, errstr, sizeof(errstr));
     if (!rk_)
     {
-        spdlog::error("KafkaConsumer[core={}] init failed: {}", core_id_, errstr);
+        logger_.error("init failed: {}", errstr);
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -139,7 +138,7 @@ apex::core::Result<void> KafkaConsumer::init()
 
         if (err != RD_KAFKA_RESP_ERR_NO_ERROR)
         {
-            spdlog::error("KafkaConsumer[core={}] subscribe failed: {}", core_id_, rd_kafka_err2str(err));
+            logger_.error("subscribe failed: {}", rd_kafka_err2str(err));
             return std::unexpected(apex::core::ErrorCode::AdapterError);
         }
     }
@@ -148,14 +147,14 @@ apex::core::Result<void> KafkaConsumer::init()
     // Linux: pipe fd -> rd_kafka_queue_io_event_enable
     if (pipe(pipe_fds_) == -1)
     {
-        spdlog::error("KafkaConsumer[core={}] pipe() failed", core_id_);
+        logger_.error("pipe() failed");
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     rd_kafka_queue_io_event_enable(rkqu_, pipe_fds_[1], "1", 1);
     pipe_desc_ = std::make_unique<boost::asio::posix::stream_descriptor>(io_ctx_, pipe_fds_[0]);
 #endif
 
-    spdlog::info("KafkaConsumer[core={}] initialized: group={}", core_id_, config_.consumer_group);
+    logger_.info("initialized: group={}", config_.consumer_group);
     return {};
 }
 
@@ -225,14 +224,14 @@ void KafkaConsumer::poll_messages()
                 // DLQ routing: failed callback + producer available
                 if (!result.has_value() && !producer_)
                 {
-                    spdlog::warn("Message processing failed (topic={}, offset={}) "
+                    logger_.warn("Message processing failed (topic={}, offset={}) "
                                  "but no DLQ producer configured — message dropped",
                                  rd_kafka_topic_name(msg->rkt), msg->offset);
                 }
                 if (!result.has_value() && producer_)
                 {
                     auto dlq_topic = std::string(rd_kafka_topic_name(msg->rkt)) + "-dlq";
-                    spdlog::warn("Message processing failed (topic={}, offset={}), "
+                    logger_.warn("Message processing failed (topic={}, offset={}), "
                                  "routing to DLQ: {}",
                                  rd_kafka_topic_name(msg->rkt), msg->offset,
                                  apex::core::error_code_name(result.error()));
@@ -245,7 +244,7 @@ void KafkaConsumer::poll_messages()
                     auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
                     if (!dlq_result.has_value())
                     {
-                        spdlog::error("DLQ produce failed (topic={}, offset={}): "
+                        logger_.error("DLQ produce failed (topic={}, offset={}): "
                                       "message permanently lost",
                                       dlq_topic, msg->offset);
                     }
@@ -256,15 +255,14 @@ void KafkaConsumer::poll_messages()
         }
         else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF)
         {
-            spdlog::warn("KafkaConsumer[core={}] poll error: {}", core_id_, rd_kafka_message_errstr(msg));
+            logger_.warn("poll error: {}", rd_kafka_message_errstr(msg));
         }
         rd_kafka_message_destroy(msg);
     }
 
     if (consumed_count > 0)
     {
-        spdlog::trace("[kafka_consumer] poll_messages: core={}, batch_size={}, consumed={}", core_id_, max_batch,
-                      consumed_count);
+        logger_.trace("poll_messages: batch_size={}, consumed={}", max_batch, consumed_count);
     }
 }
 

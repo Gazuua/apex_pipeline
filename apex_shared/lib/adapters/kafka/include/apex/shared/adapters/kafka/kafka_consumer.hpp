@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
 
 #include <boost/asio/io_context.hpp>
@@ -103,6 +104,7 @@ class KafkaConsumer : public std::enable_shared_from_this<KafkaConsumer>
     /// Windows: timer-based poll loop
     void schedule_timer_poll();
 
+    apex::core::ScopedLogger logger_{"KafkaConsumer", apex::core::ScopedLogger::NO_CORE, "app"};
     KafkaConfig config_;
     uint32_t core_id_;
     boost::asio::io_context& io_ctx_;

@@ -2,8 +2,6 @@
 
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 #include <stdexcept>
 
@@ -24,12 +22,12 @@ void RedisAdapter::do_init(apex::core::CoreEngine& engine)
     // Validate configuration before creating multiplexers
     if (config_.host.empty())
     {
-        spdlog::error("RedisAdapter: host is empty — aborting adapter init");
+        logger_.error("host is empty — aborting adapter init");
         throw std::runtime_error("RedisAdapter: host is empty");
     }
     if (config_.port == 0)
     {
-        spdlog::error("RedisAdapter: port is 0 — aborting adapter init");
+        logger_.error("port is 0 — aborting adapter init");
         throw std::runtime_error("RedisAdapter: port must be > 0");
     }
 
@@ -44,18 +42,18 @@ void RedisAdapter::do_init(apex::core::CoreEngine& engine)
         per_core_.push_back(std::move(mux));
     }
 
-    spdlog::info("RedisAdapter initialized: {} cores, host={}:{}", engine.core_count(), config_.host, config_.port);
+    logger_.info("initialized: {} cores, host={}:{}", engine.core_count(), config_.host, config_.port);
 }
 
 void RedisAdapter::do_drain()
 {
-    spdlog::info("RedisAdapter: drain started");
+    logger_.info("drain started");
 }
 
 void RedisAdapter::do_close()
 {
     per_core_.clear();
-    spdlog::info("RedisAdapter: closed");
+    logger_.info("closed");
 }
 
 void RedisAdapter::do_close_per_core(uint32_t core_id)

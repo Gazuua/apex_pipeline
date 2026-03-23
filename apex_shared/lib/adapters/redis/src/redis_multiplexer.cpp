@@ -3,8 +3,6 @@
 #include <apex/shared/adapters/redis/redis_connection.hpp>
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -20,7 +18,8 @@ namespace apex::shared::adapters::redis
 
 RedisMultiplexer::RedisMultiplexer(boost::asio::io_context& io_ctx, const RedisConfig& config, uint32_t core_id,
                                    SpawnCallback spawn_cb)
-    : io_ctx_(io_ctx)
+    : logger_("RedisMultiplexer", core_id, "app")
+    , io_ctx_(io_ctx)
     , config_(config)
     , slab_(64, {.auto_grow = true, .grow_chunk_size = {}, .max_total_count = config_.max_pending_commands})
     , backoff_timer_(io_ctx)
@@ -44,8 +43,7 @@ void RedisMultiplexer::connect()
     }
     else
     {
-        spdlog::warn("RedisMultiplexer: initial connect failed ({}:{}), starting reconnect", config_.host,
-                     config_.port);
+        logger_.warn("initial connect failed ({}:{}), starting reconnect", config_.host, config_.port);
         conn_.reset(); // Ensure null on failure
         reconnect_active_ = true;
         spawn_callback_(core_id_, reconnect_loop());
@@ -59,7 +57,7 @@ RedisMultiplexer::~RedisMultiplexer()
     // 테스트나 예외 경로에서 close() 없이 파괴될 수 있다.
     if (conn_)
     {
-        spdlog::warn("RedisMultiplexer destroyed with active connection — calling close() in destructor");
+        logger_.warn("destroyed with active connection — calling close() in destructor");
         close();
     }
     // 소멸자 경로: cancel_all_pending 대신 직접 slab 해제.
@@ -75,7 +73,7 @@ boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command
     // Log only the command verb (e.g. "SET", "GET") — never the full string,
     // which may contain passwords, tokens, or other sensitive values.
     auto verb_end = cmd.find(' ');
-    spdlog::debug("[redis_multiplexer] command: {}", cmd.substr(0, verb_end));
+    logger_.debug("command: {}", cmd.substr(0, verb_end));
 
     if (!conn_ || !conn_->is_connected())
     {
@@ -220,7 +218,7 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
 
     if (self->pending_.empty())
     {
-        spdlog::trace("[redis_multiplexer] static_on_reply: no pending commands (orphan reply)");
+        self->logger_.trace("static_on_reply: no pending commands (orphan reply)");
         return;
     }
 
@@ -233,19 +231,19 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
 
     if (front->timed_out)
     {
-        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} already timed out, destroying", front->sequence);
+        self->logger_.trace("static_on_reply: seq={} already timed out, destroying", front->sequence);
         self->slab_.destroy(front);
         return;
     }
 
     if (r && r->type != REDIS_REPLY_ERROR)
     {
-        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} matched successfully", front->sequence);
+        self->logger_.trace("static_on_reply: seq={} matched successfully", front->sequence);
         front->result = RedisReply{r};
     }
     else
     {
-        spdlog::trace("[redis_multiplexer] static_on_reply: seq={} matched with error", front->sequence);
+        self->logger_.trace("static_on_reply: seq={} matched with error", front->sequence);
         front->result = std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     front->resolver.cancel(); // Resume coroutine
@@ -274,7 +272,7 @@ boost::asio::awaitable<void> RedisMultiplexer::initial_auth()
     auto result = co_await authenticate(*conn_);
     if (!result.has_value())
     {
-        spdlog::warn("RedisMultiplexer: initial AUTH failed ({}:{}), reconnecting", config_.host, config_.port);
+        logger_.warn("initial AUTH failed ({}:{}), reconnecting", config_.host, config_.port);
         conn_.reset();
         on_disconnect();
     }
@@ -324,7 +322,7 @@ boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(
 
     if (!result.has_value())
     {
-        spdlog::warn("Redis AUTH failed");
+        logger_.warn("AUTH failed");
         conn.disconnect();
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
@@ -334,7 +332,7 @@ boost::asio::awaitable<apex::core::Result<void>> RedisMultiplexer::authenticate(
 
 boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
 {
-    spdlog::debug("[redis_multiplexer] reconnect_loop started ({}:{})", config_.host, config_.port);
+    logger_.debug("reconnect_loop started ({}:{})", config_.host, config_.port);
 
     auto backoff = std::chrono::milliseconds{100};
     const auto max_backoff = config_.reconnect_max_backoff;
@@ -352,7 +350,7 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
     for (;;)
     {
         ++reconnect_attempts_;
-        spdlog::info("Redis reconnect attempt {} (backoff {}ms)", reconnect_attempts_, backoff.count());
+        logger_.info("reconnect attempt {} (backoff {}ms)", reconnect_attempts_, backoff.count());
 
         conn_ = RedisConnection::create(io_ctx_, config_);
         if (conn_ && conn_->is_connected())
@@ -369,7 +367,7 @@ boost::asio::awaitable<void> RedisMultiplexer::reconnect_loop()
                 continue;
             }
             reconnect_attempts_ = 0;
-            spdlog::info("Redis reconnected successfully ({}:{}){}", config_.host, config_.port,
+            logger_.info("reconnected successfully ({}:{}){}", config_.host, config_.port,
                          config_.password.empty() ? "" : " (authenticated)");
             co_return;
         }

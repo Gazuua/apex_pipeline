@@ -6,6 +6,7 @@
 #include <apex/core/adapter_state.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
 #include <apex/shared/adapters/cancellation_token.hpp>
 
@@ -14,7 +15,6 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <chrono>
@@ -59,7 +59,7 @@ template <typename Derived> class AdapterBase
     {
         if (state_.load(std::memory_order_acquire) == AdapterState::RUNNING)
         {
-            spdlog::warn("AdapterBase::init() called on already-running adapter — skipping");
+            base_logger_.warn("init() called on already-running adapter — skipping");
             return;
         }
         // Phase 1: 인프라 초기화 (파생 클래스보다 먼저)
@@ -108,8 +108,8 @@ template <typename Derived> class AdapterBase
             {
                 if (std::chrono::steady_clock::now() > deadline)
                 {
-                    spdlog::warn("AdapterBase::close() timed out ({} cores remaining)",
-                                 remaining->load(std::memory_order_relaxed));
+                    base_logger_.warn("close() timed out ({} cores remaining)",
+                                      remaining->load(std::memory_order_relaxed));
                     break;
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds{1});
@@ -167,8 +167,7 @@ template <typename Derived> class AdapterBase
     {
         if (state_.load(std::memory_order_acquire) != AdapterState::RUNNING)
         {
-            spdlog::warn("{}: spawn_adapter_coro rejected — adapter not RUNNING",
-                         static_cast<Derived*>(this)->do_name());
+            base_logger_.warn("spawn_adapter_coro rejected — adapter not RUNNING");
             return;
         }
         boost::asio::post(*io_ctxs_[core_id], [this, core_id, c = std::move(coro)]() mutable {
@@ -193,6 +192,7 @@ template <typename Derived> class AdapterBase
     void do_close_per_core([[maybe_unused]] uint32_t core_id) {}
 
     apex::core::CoreEngine* base_engine_{nullptr};
+    apex::core::ScopedLogger base_logger_{"AdapterBase", apex::core::ScopedLogger::NO_CORE, "app"};
 
   private:
     void cancel_all_coros()

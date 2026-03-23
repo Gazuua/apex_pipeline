@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_pool.hpp>
@@ -84,6 +85,7 @@ class PgAdapter : public AdapterBase<PgAdapter>
     /// Return the PgPool for the current core
     [[nodiscard]] PgPool& current_pool();
 
+    apex::core::ScopedLogger logger_{"PgAdapter", apex::core::ScopedLogger::NO_CORE, "app"};
     PgAdapterConfig config_;
     /// pools_[core_id] = per-core PgPool
     std::vector<std::unique_ptr<PgPool>> pools_;

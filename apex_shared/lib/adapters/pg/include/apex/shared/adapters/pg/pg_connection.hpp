@@ -4,6 +4,7 @@
 
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/adapter_error.hpp>
 #include <apex/shared/adapters/pg/pg_config.hpp>
 #include <apex/shared/adapters/pg/pg_result.hpp>
@@ -111,6 +112,7 @@ class PgConnection
     /// Release Asio socket without closing the fd (libpq owns the socket)
     void release_socket() noexcept;
 
+    apex::core::ScopedLogger logger_{"PgConnection", apex::core::ScopedLogger::NO_CORE, "app"};
     boost::asio::io_context& io_ctx_;
     apex::core::BumpAllocator* request_alloc_{nullptr};
     PGconn* conn_ = nullptr;
