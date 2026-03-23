@@ -261,11 +261,11 @@ func (m *Module) handleNextID(_ context.Context, _ json.RawMessage, _ string) (a
 }
 
 func (m *Module) handleExport(_ context.Context, _ json.RawMessage, _ string) (any, error) {
-	content, err := m.manager.Export()
+	out, err := m.manager.ExportJSON()
 	if err != nil {
 		return nil, err
 	}
-	return map[string]string{"content": content}, nil
+	return map[string]string{"content": string(out)}, nil
 }
 
 func (m *Module) handleUpdate(_ context.Context, params json.RawMessage, _ string) (any, error) {

@@ -84,17 +84,17 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 	if err := json.Unmarshal(resp.Data, &getItem); err != nil {
 		t.Fatalf("backlog.get: unmarshal: %v", err)
 	}
-	if getItem["Title"] != "Test Bug" {
-		t.Errorf("backlog.get: expected Title='Test Bug', got %v", getItem["Title"])
+	if getItem["title"] != "Test Bug" {
+		t.Errorf("backlog.get: expected Title='Test Bug', got %v", getItem["title"])
 	}
-	if getItem["Severity"] != "MAJOR" {
-		t.Errorf("backlog.get: expected Severity='MAJOR', got %v", getItem["Severity"])
+	if getItem["severity"] != "MAJOR" {
+		t.Errorf("backlog.get: expected Severity='MAJOR', got %v", getItem["severity"])
 	}
-	if getItem["Timeframe"] != "NOW" {
-		t.Errorf("backlog.get: expected Timeframe='NOW', got %v", getItem["Timeframe"])
+	if getItem["timeframe"] != "NOW" {
+		t.Errorf("backlog.get: expected Timeframe='NOW', got %v", getItem["timeframe"])
 	}
-	if getItem["Status"] != "OPEN" {
-		t.Errorf("backlog.get: expected Status='open', got %v", getItem["Status"])
+	if getItem["status"] != "OPEN" {
+		t.Errorf("backlog.get: expected Status='open', got %v", getItem["status"])
 	}
 
 	// Step 5: resolve → check status
@@ -127,7 +127,7 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 		"description": "Verify export output",
 	}, "")
 
-	// Step 6: export → verify markdown content includes title
+	// Step 6: export → verify content includes both open AND resolved items (JSON format)
 	resp, err = env.Client.Send(ctx, "backlog", "export", nil, "")
 	if err != nil {
 		t.Fatalf("backlog.export: transport error: %v", err)
@@ -143,15 +143,12 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 	if content == "" {
 		t.Fatal("backlog.export: content is empty")
 	}
-	if !strings.Contains(content, "# BACKLOG") {
-		t.Error("backlog.export: content missing '# BACKLOG' header")
-	}
 	if !strings.Contains(content, "Export Verification Item") {
 		t.Error("backlog.export: content missing open item title")
 	}
-	// Resolved item (Test Bug) should not appear in export (export shows only open items)
-	if strings.Contains(content, "Test Bug") {
-		t.Error("backlog.export: resolved item 'Test Bug' should not appear in export")
+	// JSON export includes ALL items (open + resolved)
+	if !strings.Contains(content, "Test Bug") {
+		t.Error("backlog.export: content should include resolved item 'Test Bug'")
 	}
 }
 
@@ -236,13 +233,13 @@ func TestBacklog_MigrationRoundtrip(t *testing.T) {
 		}
 		if len(filtered) > 0 {
 			item := filtered[0].(map[string]any)
-			if item["Title"] != tc.title {
-				t.Errorf("backlog.list timeframe=%s: expected Title=%q, got %v", tc.filter, tc.title, item["Title"])
+			if item["title"] != tc.title {
+				t.Errorf("backlog.list timeframe=%s: expected Title=%q, got %v", tc.filter, tc.title, item["title"])
 			}
 		}
 	}
 
-	// Step 4: Export → verify all 3 appear in markdown
+	// Step 4: Export → verify all 3 appear in JSON content
 	resp, err = env.Client.Send(ctx, "backlog", "export", nil, "")
 	if err != nil {
 		t.Fatalf("backlog.export: transport error: %v", err)
@@ -261,15 +258,9 @@ func TestBacklog_MigrationRoundtrip(t *testing.T) {
 			t.Errorf("backlog.export: content missing item %q", title)
 		}
 	}
-	// Verify section headers
-	if !strings.Contains(content, "## NOW") {
-		t.Error("backlog.export: missing '## NOW' section")
-	}
-	if !strings.Contains(content, "## IN VIEW") {
-		t.Error("backlog.export: missing '## IN VIEW' section")
-	}
-	if !strings.Contains(content, "## DEFERRED") {
-		t.Error("backlog.export: missing '## DEFERRED' section")
+	// JSON format should contain next_id
+	if !strings.Contains(content, "next_id") {
+		t.Error("backlog.export: missing 'next_id' field in JSON")
 	}
 }
 
@@ -311,14 +302,14 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 	}
 
 	checks := map[string]string{
-		"Title":       "Full Field Test",
-		"Severity":    "CRITICAL",
-		"Timeframe":   "NOW",
-		"Scope":       "GATEWAY",
-		"Type":        "BUG",
-		"Description": "All fields populated for fidelity test",
-		"Related":     "2,3",
-		"Status":      "OPEN",
+		"title":       "Full Field Test",
+		"severity":    "CRITICAL",
+		"timeframe":   "NOW",
+		"scope":       "GATEWAY",
+		"type":        "BUG",
+		"description": "All fields populated for fidelity test",
+		"related":     "2,3",
+		"status":      "OPEN",
 	}
 	for field, want := range checks {
 		got, ok := item[field]
@@ -355,13 +346,13 @@ func TestBacklog_RoundtripFidelity(t *testing.T) {
 	if err := json.Unmarshal(resp.Data, &resolvedItem); err != nil {
 		t.Fatalf("backlog.get after resolve: unmarshal: %v", err)
 	}
-	if resolvedItem["Status"] != "RESOLVED" {
-		t.Errorf("backlog.get after resolve: expected Status='RESOLVED', got %v", resolvedItem["Status"])
+	if resolvedItem["status"] != "RESOLVED" {
+		t.Errorf("backlog.get after resolve: expected Status='RESOLVED', got %v", resolvedItem["status"])
 	}
-	if resolvedItem["Resolution"] != "WONTFIX" {
-		t.Errorf("backlog.get after resolve: expected Resolution='WONTFIX', got %v", resolvedItem["Resolution"])
+	if resolvedItem["resolution"] != "WONTFIX" {
+		t.Errorf("backlog.get after resolve: expected Resolution='WONTFIX', got %v", resolvedItem["resolution"])
 	}
-	if resolvedItem["ResolvedAt"] == "" {
+	if resolvedItem["resolved_at"] == "" {
 		t.Error("backlog.get after resolve: expected non-empty ResolvedAt")
 	}
 
@@ -504,7 +495,7 @@ func TestBacklog_Release(t *testing.T) {
 	}
 	var item map[string]any
 	json.Unmarshal(resp.Data, &item)
-	desc, _ := item["Description"].(string)
+	desc, _ := item["description"].(string)
 	if !strings.Contains(desc, "[RELEASED]") {
 		t.Errorf("description should contain [RELEASED], got: %s", desc)
 	}

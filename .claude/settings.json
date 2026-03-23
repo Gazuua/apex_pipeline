@@ -48,6 +48,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./apex_tools/apex-agent/run-hook hook validate-backlog",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "SessionStart": [

@@ -4,11 +4,21 @@ package backlog
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+// ParseBacklogJSON parses a BACKLOG.json file into BacklogItems.
+func ParseBacklogJSON(data []byte) ([]BacklogItem, error) {
+	var backlog BacklogJSON
+	if err := json.Unmarshal(data, &backlog); err != nil {
+		return nil, fmt.Errorf("unmarshal BACKLOG.json: %w", err)
+	}
+	return backlog.Items, nil
+}
 
 var itemHeaderRe = regexp.MustCompile(`^###\s+#(\d+)\.\s+(.+)$`)
 var fieldRe = regexp.MustCompile(`^-\s+\*\*(.+?)\*\*:\s*(.+)$`)

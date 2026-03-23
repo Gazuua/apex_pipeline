@@ -9,8 +9,8 @@
 - **문서 위치**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 걸치는 문서 → 양쪽에 관점 조정하여 작성 (단순 복사 금지)
 - **progress 문서**: 작업 결과 요약 필수 — 빈 껍데기 금지
 
-- 리뷰·progress 문서에서 발견된 TODO/백로그 → `docs/BACKLOG.md`에 추가
-- 원본 문서(review/progress)에 TODO·백로그·향후 과제 섹션 잔류 금지 — 발견 즉시 `docs/BACKLOG.md`로 이전 후 원본에서 제거
+- 리뷰·progress 문서에서 발견된 TODO/백로그 → `backlog add` CLI로 등록
+- 원본 문서(review/progress)에 TODO·백로그·향후 과제 섹션 잔류 금지 — 발견 즉시 `backlog add`로 이전 후 원본에서 제거
 
 ## 코드 리뷰
 
@@ -21,7 +21,7 @@
 
 ## 브레인스토밍
 
-- 브레인스토밍 시 `docs/Apex_Pipeline.md`, `docs/BACKLOG.md` 사전 확인 필수
+- 브레인스토밍 시 `docs/Apex_Pipeline.md`, `backlog list` 사전 확인 필수
 
 ## 백로그 운영
 
@@ -69,8 +69,8 @@
 
 - Auto-increment 정수. 자릿수 패딩 없음 (`#1`, `#12`, `#100`)
 - 한 번 발번된 ID는 재사용하지 않음. ID 갭 허용
-- `다음 발번` 카운터를 `docs/BACKLOG.md` 헤더에서 관리
-- 머지 충돌 시: 높은 쪽 번호 + 1로 재발번
+- `다음 발번` 카운터는 DB(SQLite)가 관리 — `docs/BACKLOG.json`의 `next_id` 필드는 export 시 자동 반영
+- ID 충돌 시: DB의 AUTOINCREMENT가 자동 처리
 
 ### 섹션 내 우선순위
 
@@ -91,18 +91,15 @@
 
 BACKLOG 항목을 추가·수정·착수·리뷰할 때, 반드시 실제 구현 상태(코드베이스, git 이력, 테스트 결과 등)를 검증하여 사실관계를 확인한다. 문서에 적힌 상태를 그대로 신뢰하지 않는다.
 
-### 히스토리 운영 (`docs/BACKLOG_HISTORY.md`)
+### 히스토리 운영
 
-- 완료된 항목은 BACKLOG.md에서 삭제 → BACKLOG_HISTORY.md에 prepend
-- 삽입 위치: `<!-- NEW_ENTRY_BELOW -->` 마커 바로 아래. 마커 누락 시 파일 상단(헤더 직후)에 복원 후 작업
-- 해결 시점: `YYYY-MM-DD HH:MM:SS` 형식
-- 커밋 필드: 선택 (해당 없는 경우 생략)
-- 해결 방식: FIXED(코드 수정) | DOCUMENTED(문서/주석 보강) | WONTFIX(수정 불필요) | DUPLICATE(중복, 비고에 대상) | SUPERSEDED(다른 작업으로 해소)
+- 완료된 항목: `backlog resolve ID --resolution FIXED` → DB에서 RESOLVED 처리
+- `backlog export` 시 RESOLVED 항목도 `docs/BACKLOG.json`에 포함 (단일 파일)
+- 해결 방식: FIXED | DOCUMENTED | WONTFIX | DUPLICATE | SUPERSEDED
+- **별도 히스토리 파일 없음** — 단일 `BACKLOG.json`에 전체 이력 보존
 
-히스토리 항목 템플릿:
-```
-### #{ID}. 이슈 제목
-- **등급**: {등급} | **스코프**: {스코프} | **타입**: {타입}
-- **해결**: YYYY-MM-DD HH:MM:SS | **방식**: {방식} | **커밋**: {short hash, 선택}
-- **비고**: {특이사항 또는 —}
-```
+### 파일 접근 정책
+
+- `docs/BACKLOG.json` (및 레거시 `BACKLOG.md`, `BACKLOG_HISTORY.md`): **Read/Edit/Write 모두 차단** (validate-backlog hook)
+- 조회: `backlog list`, `backlog show <ID>`
+- 수정: `backlog add/update/resolve/release/export`

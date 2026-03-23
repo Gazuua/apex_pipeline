@@ -3,7 +3,9 @@
 package backlog
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
+// Deprecated: SafeExport is the legacy MD-based export. Use SafeExportJSON instead.
+// Retained for existing test coverage; will be removed after full JSON migration.
 // SafeExport runs Import first (MD → DB) to ensure DB is a superset of the
 // current MD, then exports. This prevents data loss if the local DB was
 // deleted or corrupted — Import restores from MD before Export overwrites it.
@@ -60,6 +64,99 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 	return content, imported, nil
 }
 
+// ExportJSON generates BACKLOG.json content from the database.
+// All items (OPEN + FIXING + RESOLVED) are included with full detail.
+func (mgr *Manager) ExportJSON() ([]byte, error) {
+	nextID, err := mgr.NextID()
+	if err != nil {
+		return nil, fmt.Errorf("next id: %w", err)
+	}
+
+	items, err := mgr.ListAll()
+	if err != nil {
+		return nil, fmt.Errorf("list all: %w", err)
+	}
+
+	data := BacklogJSON{
+		NextID: nextID,
+		Items:  items,
+	}
+
+	// Pretty-print for git diff readability.
+	// SetEscapeHTML(false) prevents <, >, & from being escaped to \u003c etc.
+	// — description contains C++ templates, URLs, and markdown markup.
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		return nil, fmt.Errorf("marshal JSON: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// SafeExportJSON runs Import first to ensure DB is a superset of the
+// current files, then exports as JSON. Handles both legacy MD files
+// and the new JSON format. Import + Export in a single transaction.
+//
+// Returns (jsonBytes, importCount, error).
+func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHistoryMD string) ([]byte, int, error) {
+	var out []byte
+	var imported int
+
+	err := mgr.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		txMgr := mgr.withQuerier(tx)
+
+		// 1) Import: prefer JSON if available, else fall back to legacy MD.
+		if len(backlogJSON) > 0 {
+			items, err := ParseBacklogJSON(backlogJSON)
+			if err != nil {
+				return fmt.Errorf("parse BACKLOG.json: %w", err)
+			}
+			n, err := txMgr.ImportItems(items)
+			if err != nil {
+				return fmt.Errorf("import BACKLOG.json: %w", err)
+			}
+			imported += n
+		} else {
+			// Legacy MD import
+			if legacyBacklogMD != "" {
+				items, err := ParseBacklogMD(legacyBacklogMD)
+				if err != nil {
+					return fmt.Errorf("parse BACKLOG.md: %w", err)
+				}
+				n, err := txMgr.ImportItems(items)
+				if err != nil {
+					return fmt.Errorf("import BACKLOG.md: %w", err)
+				}
+				imported += n
+			}
+			if legacyHistoryMD != "" {
+				items, err := ParseBacklogHistoryMD(legacyHistoryMD)
+				if err != nil {
+					return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
+				}
+				n, err := txMgr.ImportItems(items)
+				if err != nil {
+					return fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
+				}
+				imported += n
+			}
+		}
+
+		// 2) Export as JSON.
+		var exportErr error
+		out, exportErr = txMgr.ExportJSON()
+		return exportErr
+	})
+	if err != nil {
+		return nil, imported, err
+	}
+
+	return out, imported, nil
+}
+
+// Deprecated: Export generates legacy BACKLOG.md content. Use ExportJSON instead.
 // Export generates BACKLOG.md content from the database.
 func (mgr *Manager) Export() (string, error) {
 	nextID, err := mgr.NextID()
@@ -118,6 +215,7 @@ func (mgr *Manager) Export() (string, error) {
 	return b.String(), nil
 }
 
+// Deprecated: ExportHistory generates legacy BACKLOG_HISTORY.md. JSON export includes all items.
 // ExportHistory generates updated BACKLOG_HISTORY.md content.
 // New RESOLVED items (not already in existingHistory) are prepended
 // after the <!-- NEW_ENTRY_BELOW --> marker.
