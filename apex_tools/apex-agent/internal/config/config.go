@@ -30,6 +30,12 @@ type Config struct {
 	Queue  QueueConfig  `toml:"queue"`
 	Log    LogConfig    `toml:"log"`
 	Build  BuildConfig  `toml:"build"`
+	HTTP   HTTPConfig   `toml:"http"`
+}
+
+type HTTPConfig struct {
+	Enabled bool   `toml:"enabled"`
+	Addr    string `toml:"addr"`
 }
 
 type DaemonConfig struct {
@@ -85,6 +91,10 @@ func Defaults() *Config {
 		Build: BuildConfig{
 			Command: buildCommand(),
 			Presets: []string{"debug", "release"},
+		},
+		HTTP: HTTPConfig{
+			Enabled: true,
+			Addr:    "localhost:7600",
 		},
 	}
 }
@@ -158,6 +168,10 @@ audit = true                # 감사 로그 (lock, 상태 전이 등)
 [build]
 command = "cmd.exe /c build.bat"
 presets = ["debug", "release"]
+
+[http]
+enabled = true
+addr = "localhost:7600"     # 대시보드 바인딩 주소
 `
 	return os.WriteFile(path, []byte(content), 0o644)
 }
