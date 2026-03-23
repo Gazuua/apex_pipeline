@@ -50,7 +50,8 @@ func CreateAndPushBranch(branchName string) error
 // On conflict: aborts rebase (with error logging) and returns error.
 // On abort failure: logs warning with current git state for manual recovery.
 // This also fixes BACKLOG-157 (rebase abort error handling).
-func RebaseOnMain(projectRoot string) error
+// Returns (message, error). Empty message if already up-to-date.
+func RebaseOnMain(projectRoot string) (string, error)
 
 // CheckoutMain switches to main and pulls latest.
 func CheckoutMain(projectRoot string) error
@@ -97,7 +98,7 @@ type IPCFunc func(action string, params map[string]any) (map[string]any, error)
 //
 // Phase 4 (SyncImport) failure is non-fatal — logs warning, does not block start.
 func StartPipeline(branchName string, params map[string]any,
-    projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) (notifID int, err error)
+    projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) (notifID float64, err error)
 
 // MergePipeline orchestrates the full notify-merge workflow:
 //   1. RebaseOnMain(projectRoot)        — 최신 main 반영
