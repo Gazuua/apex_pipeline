@@ -1,5 +1,5 @@
 {
-  "next_id": 174,
+  "next_id": 180,
   "items": [
     {
       "id": 133,
@@ -13,7 +13,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 135,
@@ -27,7 +27,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 113,
@@ -41,7 +41,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 114,
@@ -55,7 +55,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 51,
@@ -68,7 +68,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 104,
@@ -81,21 +81,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
-    },
-    {
-      "id": 137,
-      "title": "KafkaConsumer 소멸자 경로 handler lifetime 보호",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "SHARED",
-      "type": "DESIGN_DEBT",
-      "description": "`KafkaAdapter::~KafkaAdapter()` 소멸자에서 `stop_consuming()` 후 `consumers_.clear()` 사이에 이미 큐잉된 async handler가 소멸된 KafkaConsumer에 접근 가능. `do_close()` 경로는 shutdown 시퀀스로 보호되나 소멸자 방어 경로에서는 미보호. 비정상 종료 또는 테스트 경로에서 간헐적 크래시 가능.",
-      "related": "136",
-      "position": 7,
-      "status": "OPEN",
-      "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 142,
@@ -109,7 +95,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 146,
@@ -122,7 +108,7 @@
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 147,
@@ -136,7 +122,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 148,
@@ -149,20 +135,7 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
-    },
-    {
-      "id": 151,
-      "title": "FrameCodec vs Protocol concept 에러 타입 이원화 통일",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "DESIGN_DEBT",
-      "description": "`FrameCodec::try_decode()`는 `expected<Frame, FrameError>`를, `Protocol` concept은 `Result<Frame>` (`expected<Frame, ErrorCode>`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.",
-      "position": 13,
-      "status": "OPEN",
-      "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 149,
@@ -175,34 +148,7 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
-    },
-    {
-      "id": 154,
-      "title": "apex-agent git CLI 서브커맨드 그룹",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "apex-agent에 `git` 서브커맨드 그룹 추가 (checkout-main, switch, rebase). validate-build hook이 git 브랜치 생성을 차단하므로, 데몬 기반 안전한 git 조작 경로 필요. 나중에 핸드오프 검증 연동(switch 시 해당 브랜치의 handoff 상태 확인) 가능.",
-      "position": 17,
-      "status": "FIXING",
-      "created_at": "2026-03-23 16:36:03",
-      "updated_at": "2026-03-24 00:24:30"
-    },
-    {
-      "id": 159,
-      "title": "CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "현재 start/merge/drop만 workflow 패키지로 추출됨. 나머지 CLI 기능(design, plan, backlog CRUD, queue, cleanup, ack 등)도 전부 workflow 기반 파이프라인으로 추상화하여 HTTP 대시보드(BACKLOG-146)에서 동일 기능 수행 가능하도록 기틀 마련. IPCFunc 패턴 확장, 각 커맨드별 파이프라인 함수 작성, 단위+E2E 테스트 동반.",
-      "related": "146,154",
-      "position": 20,
-      "status": "FIXING",
-      "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 161,
@@ -213,9 +159,9 @@
       "type": "INFRA",
       "description": "현재 spdlog 패턴이 %Y-%m-%d %H:%M:%S.%e [%l] [%n] %v로 함수명/라인 미포함. spdlog의 source location 지원(%s %! %# 등)을 활용하여 디버깅 효율을 높여야 함. 방법: ① 패턴에 %!/%# 추가 ② SPDLOG_LOGGER_CALL 매크로 전환 또는 std::source_location 활용. 성능 영향(핫패스에서 __FILE__/__LINE__ 오버헤드) 고려하여 디버그 빌드 전용 또는 레벨별 분리 검토.",
       "position": 22,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-23 20:01:33",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 170,
@@ -228,7 +174,7 @@
       "position": 29,
       "status": "OPEN",
       "created_at": "2026-03-23 23:05:23",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 171,
@@ -241,7 +187,86 @@
       "position": 30,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:41",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
+    },
+    {
+      "id": 174,
+      "title": "서비스 레이어 로그 충실화 — Gateway, Auth, Chat 서비스 로그 밀도 개선",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "GATEWAY,AUTH_SVC,CHAT_SVC",
+      "type": "INFRA",
+      "description": "## 배경\nScopedLogger 통합(BACKLOG-161 확장) 완료 후, 코어+shared 레이어 로그 충실화가 끝난 상태에서 서비스 레이어도 동일 기준으로 로그를 보강해야 함.\n\n## 전제조건\n- ScopedLogger 클래스가 apex_core에 구현 완료 (std::source_location + corr_id trace 포함)\n- ServiceBase가 ScopedLogger 멤버를 보유하고, 기존 log_info() 스타일은 폐기됨\n- 서비스 코드는 logger_.info(session, ...) 형태로 마이그레이션 완료 상태\n\n## 작업 내용\n1. **Gateway**: 라우팅 결정(msg_id → 토픽 매핑), JWT 검증 결과, rate limit 트리거, 세션 생명주기 로그 보강. 현재 ~50문 → 핵심 경로에 trace/debug 추가\n2. **Auth 서비스**: bcrypt 검증 타이밍, 토큰 발급/갱신/블랙리스트 상세, Redis 세션 조회 경로. 현재 ~50문 → 에러 경로 debug/warn 보강\n3. **Chat 서비스**: 방 생성/참가/퇴장 상태 전이, Kafka publish 결과, Redis pub/sub 이벤트. 현재 ~60문 → 메시지 흐름 trace 보강\n\n## 로그 레벨 기준\n- trace: 개별 메시지/요청 흐름, 반복 호출\n- debug: 분기 결정, 상태 전이\n- info: 컴포넌트 생명주기\n- warn: 비정상 복구 가능\n- error: 실패, 데이터 손실 위험\n\n## 핵심 파일\n- apex_services/gateway/src/*.cpp\n- apex_services/auth-svc/src/*.cpp\n- apex_services/chat-svc/src/*.cpp",
+      "position": 31,
+      "status": "FIXING",
+      "created_at": "2026-03-24 01:33:24",
+      "updated_at": "2026-03-24 01:42:29"
+    },
+    {
+      "id": 175,
+      "title": "v0.6.1 Prometheus 메트릭 노출 — 서비스/프레임워크 메트릭 HTTP 엔드포인트",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE,SHARED,INFRA",
+      "type": "INFRA",
+      "description": "## 개요\nv0.6 운영 인프라 첫 번째 마일스톤. 모든 서비스에서 Prometheus가 스크레이핑할 수 있는 /metrics HTTP 엔드포인트를 노출한다.\n\n## 현재 상태\n- Prometheus + Grafana 컨테이너가 docker-compose.yml에 이미 구성됨 (--profile observability)\n- prometheus.yml에 서비스 엔드포인트가 주석으로 예약됨\n- Grafana 데이터소스(Prometheus) 프로비저닝 완료, 대시보드 미구성\n- CoreMetrics 구조체(post_total, post_failures) 2개 atomic 카운터만 존재\n- CollectMetrics 크로스코어 오퍼레이션 예약됨 (미구현)\n- prometheus-cpp 라이브러리 미설치 (vcpkg.json에 없음)\n\n## 작업 내용\n1. vcpkg에 prometheus-cpp 추가 (apex_core/vcpkg.json, apex_shared/vcpkg.json)\n2. MetricsRegistry 클래스 구현 (Counter, Gauge, Histogram)\n3. HTTP /metrics 엔드포인트 (prometheus-cpp 내장 or Boost.Beast)\n4. CollectMetrics 크로스코어 집계 구현 (Phase 5.5 §1.6.4 예약 슬롯)\n5. prometheus.yml 활성화 + 스크레이핑 타겟 추가\n6. Grafana 기본 대시보드 4종 (처리량, 지연, 에러율, 리소스)\n\n## 의존성\n- Phase 5.5 코어 성능 최적화 완료 후 착수 권장\n- ScopedLogger 완료 필수\n\n## 핵심 파일\n- apex_core/include/apex/core/core_engine.hpp (CoreMetrics 확장)\n- apex_infra/docker-compose.yml, apex_infra/prometheus/prometheus.yml\n- apex_infra/grafana/provisioning/\n\n## 참고\n- Phase 5.5 설계: docs/apex_common/plans/20260312_070255_phase5_5_v6.md §1.6.2, §1.6.4\n- v1.0 게이트: Prometheus + Grafana 기본 메트릭 4종",
+      "position": 32,
+      "status": "OPEN",
+      "created_at": "2026-03-24 01:34:43",
+      "updated_at": "2026-03-24 01:34:43"
+    },
+    {
+      "id": 176,
+      "title": "v0.6.2 Docker 멀티스테이지 프로덕션 빌드 — 서비스 이미지 최적화",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "## 개요\nv0.6 운영 인프라 두 번째 마일스톤. 프로덕션용 최소 Docker 이미지 빌드. 현재 멀티스테이지 Dockerfile이 있으나 최적화 필요.\n\n## 현재 상태\n- 3개 서비스 Dockerfile 존재: gateway.Dockerfile, auth-svc.Dockerfile, chat-svc.Dockerfile\n- 각각 builder + runtime + valgrind 3단계 멀티스테이지\n- ci.Dockerfile: GCC 14 + CMake + Ninja + vcpkg 기반 CI 이미지 (GHCR 호스팅)\n- docker-compose.yml: dev/E2E/Valgrind 3종 구성\n- BACKLOG-147: 테스트용 RSA 키가 런타임 이미지에 번들링되는 보안 이슈 존재\n\n## 작업 내용\n1. 런타임 이미지 최소화 — distroless 또는 Alpine 기반으로 교체, 빌드 아티팩트만 복사\n2. BACKLOG-147 해결 — RSA 키를 빌드 시 주입(ARG/secret mount)으로 전환, 런타임 이미지에서 제거\n3. .dockerignore 최적화 — 불필요한 소스/docs/tests 제외\n4. 레이어 캐싱 최적화 — vcpkg install → 소스 복사 → 빌드 순서로 레이어 분리\n5. 이미지 태깅 전략 — git SHA + semver 이중 태그\n6. docker-compose.prod.yml 추가 — 프로덕션 환경 구성 (리소스 제한, 로그 드라이버, 헬스체크)\n7. 보안 스캔 — Trivy 또는 Grype로 이미지 취약점 검사 CI 단계 추가\n\n## 의존성\n- v0.6.1 (Prometheus) 완료 후 착수 — /metrics 엔드포인트가 헬스체크에 활용됨\n- 관련: BACKLOG-147 (RSA 키 보안)\n\n## 핵심 파일\n- apex_infra/docker/*.Dockerfile\n- apex_infra/docker-compose.yml, docker-compose.e2e.yml\n- apex_infra/.env.prod.example\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.2.0",
+      "position": 33,
+      "status": "OPEN",
+      "created_at": "2026-03-24 01:34:58",
+      "updated_at": "2026-03-24 01:34:58"
+    },
+    {
+      "id": 177,
+      "title": "v0.6.3 Kubernetes manifests + Helm 차트 — 서비스 오케스트레이션",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "## 개요\nv0.6 운영 인프라 세 번째 마일스톤. K8s 배포 매니페스트와 Helm 차트로 서비스 오케스트레이션 구성.\n\n## 현재 상태\n- k8s/ 디렉토리 존재하나 모든 서비스 폴더가 비어있음 (.gitkeep만)\n  - k8s/gateway/, k8s/auth-svc/, k8s/chat-svc/, k8s/log-svc/\n- Helm 차트 없음\n- 인프라 서비스(Kafka, Redis, PostgreSQL, PgBouncer)는 docker-compose로만 구성\n- Prometheus/Grafana도 docker-compose 프로필로만 구성\n\n## 작업 내용\n1. Helm 차트 구조 생성 — apex-pipeline umbrella chart + 서비스별 sub-chart\n2. 서비스 Deployment + Service 매니페스트:\n   - Gateway: LoadBalancer/Ingress, TLS termination, HPA\n   - Auth/Chat: ClusterIP, resource limits, readiness/liveness probes\n3. 인프라 의존성 — Bitnami Helm charts로 Kafka, Redis, PostgreSQL 구성 (또는 외부 관리형 서비스 포인터)\n4. ConfigMap/Secret 관리 — TOML 설정 파일 ConfigMap 마운트, 크레덴셜 Secret\n5. Prometheus ServiceMonitor CRD — 자동 스크레이핑 타겟 등록\n6. minikube/k3s 로컬 검증 스크립트\n7. Namespace 전략 — apex-system (인프라) + apex-services (앱)\n8. 롤링 업데이트 + graceful shutdown 검증 (v1.0 게이트 기준)\n\n## 의존성\n- v0.6.2 (Docker 프로덕션 이미지) 완료 필수 — K8s가 이미지를 pull\n- v0.6.1 (Prometheus) 완료 필수 — ServiceMonitor + probes 연계\n\n## 핵심 파일\n- k8s/ (현재 비어있음, 여기에 생성)\n- apex_infra/docker-compose.yml (참고용)\n- 각 서비스의 config/*.toml (ConfigMap 소스)\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.3.0\n- v1.0 게이트: K8s 롤링 업데이트 + graceful shutdown 검증",
+      "position": 34,
+      "status": "OPEN",
+      "created_at": "2026-03-24 01:35:29",
+      "updated_at": "2026-03-24 01:35:29"
+    },
+    {
+      "id": 178,
+      "title": "v0.6.4 CI/CD 고도화 — Docker 이미지 빌드 + 자동 배포 파이프라인",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA,TOOLS",
+      "type": "INFRA",
+      "description": "## 개요\nv0.6 운영 인프라 네 번째 마일스톤. CI에서 서비스 Docker 이미지를 자동 빌드하고 K8s에 배포하는 파이프라인 구성.\n\n## 현재 상태\n- GitHub Actions CI: format-check → build(GCC, ASAN, TSAN, UBSAN) → e2e → go-test\n- Docker CI 이미지만 GHCR에 빌드/푸시 (서비스 이미지는 미포함)\n- docker-build.yml: 재사용 워크플로, CI 이미지 전용\n- nightly.yml: Valgrind 메모리 검사 (unit + e2e)\n- 서비스 이미지 빌드/푸시 자동화 없음\n- 배포 자동화 없음\n\n## 작업 내용\n1. 서비스 이미지 빌드 워크플로 — PR/main push 시 gateway, auth-svc, chat-svc 이미지 빌드 + GHCR 푸시\n2. 이미지 태깅 — main: latest + sha-{SHA}, 태그: semver\n3. 취약점 스캔 단계 — Trivy/Grype 이미지 스캔 (CRITICAL/HIGH 시 빌드 실패)\n4. docker-compose 통합 테스트 — CI에서 docker-compose up으로 전체 시스템 스모크 테스트\n5. K8s 배포 자동화 (선택) — Helm upgrade --install via GitHub Actions, staging 환경\n6. 배포 전략 — canary 또는 blue-green (Argo Rollouts 검토)\n7. 알림 — 배포 성공/실패 시 Slack/Discord 웹훅\n\n## 의존성\n- v0.6.2 (Docker 프로덕션 이미지) 완료 필수\n- v0.6.3 (K8s + Helm) 완료 시 배포 자동화 가능\n\n## 핵심 파일\n- .github/workflows/ci.yml (확장)\n- .github/workflows/docker-build.yml (서비스 이미지 추가)\n- apex_infra/docker/*.Dockerfile\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.4.0\n- 현재 CI 구조: .github/CLAUDE.md",
+      "position": 35,
+      "status": "OPEN",
+      "created_at": "2026-03-24 01:35:42",
+      "updated_at": "2026-03-24 01:35:42"
+    },
+    {
+      "id": 179,
+      "title": "런타임 로그 레벨 동적 전환 — ScopedLogger 기반 핫 리로드",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "INFRA",
+      "description": "## 개요\n운영 중 재시작 없이 로그 레벨을 변경할 수 있는 기능. 프로덕션에서 이슈 발생 시 trace/debug 레벨로 전환하여 실시간 진단.\n\n## 현재 상태\n- 로그 레벨은 TOML 설정 파일에서 초기화 시 1회 설정 (init_logging)\n- 런타임 변경 미지원 (BACKLOG-117 스코프)\n- ScopedLogger 구현 완료 후 착수 가능\n\n## 작업 내용\n1. 레벨 변경 API — HTTP /admin/log-level 엔드포인트 또는 TOML hot-reload 연계\n2. ScopedLogger가 참조하는 레벨을 atomic으로 관리\n3. 프레임워크(apex) 로거와 앱(app) 로거 독립 레벨 전환\n4. 보안 — admin 엔드포인트 인증 (내부 네트워크 전용 또는 토큰)\n\n## 의존성\n- ScopedLogger 통합 완료 필수\n- 관련: BACKLOG-117\n\n## 핵심 파일\n- apex_core/src/logging.cpp\n- apex_core/include/apex/core/scoped_logger.hpp (신규)",
+      "related": "117",
+      "position": 36,
+      "status": "OPEN",
+      "created_at": "2026-03-24 01:35:51",
+      "updated_at": "2026-03-24 01:35:51"
     },
     {
       "id": 59,
@@ -254,7 +279,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 36,
@@ -267,7 +292,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 40,
@@ -280,7 +305,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 41,
@@ -293,7 +318,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 42,
@@ -306,7 +331,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 43,
@@ -319,7 +344,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 44,
@@ -332,7 +357,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 172,
@@ -345,7 +370,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:47",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 173,
@@ -358,7 +383,69 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-24 00:06:01",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
+    },
+    {
+      "id": 154,
+      "title": "apex-agent git CLI 서브커맨드 그룹",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "apex-agent에 `git` 서브커맨드 그룹 추가 (checkout-main, switch, rebase). validate-build hook이 git 브랜치 생성을 차단하므로, 데몬 기반 안전한 git 조작 경로 필요. 나중에 핸드오프 검증 연동(switch 시 해당 브랜치의 handoff 상태 확인) 가능.",
+      "position": 17,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 03:06:14",
+      "created_at": "2026-03-23 16:36:03",
+      "updated_at": "2026-03-24 03:06:25"
+    },
+    {
+      "id": 159,
+      "title": "CLI 전체 워크플로우 workflow 패키지 이관 — HTTP 대시보드 기틀",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "현재 start/merge/drop만 workflow 패키지로 추출됨. 나머지 CLI 기능(design, plan, backlog CRUD, queue, cleanup, ack 등)도 전부 workflow 기반 파이프라인으로 추상화하여 HTTP 대시보드(BACKLOG-146)에서 동일 기능 수행 가능하도록 기틀 마련. IPCFunc 패턴 확장, 각 커맨드별 파이프라인 함수 작성, 단위+E2E 테스트 동반.",
+      "related": "146,154",
+      "position": 20,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 03:06:14",
+      "created_at": "2026-03-23 17:09:01",
+      "updated_at": "2026-03-24 03:06:25"
+    },
+    {
+      "id": 151,
+      "title": "FrameCodec vs Protocol concept 에러 타입 이원화 통일",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "DESIGN_DEBT",
+      "description": "`FrameCodec::try_decode()`는 `expected<Frame, FrameError>`를, `Protocol` concept은 `Result<Frame>` (`expected<Frame, ErrorCode>`)을 요구. `TcpBinaryProtocol`에서 switch-case 변환이 필요하고, 새 프로토콜 구현 시 변환 누락 위험. `FrameCodec`이 직접 `ErrorCode`를 반환하면 인터페이스 통일.",
+      "position": 13,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 01:09:14",
+      "created_at": "2026-03-23 02:29:17",
+      "updated_at": "2026-03-24 03:06:25"
+    },
+    {
+      "id": 137,
+      "title": "KafkaConsumer 소멸자 경로 handler lifetime 보호",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "SHARED",
+      "type": "DESIGN_DEBT",
+      "description": "`KafkaAdapter::~KafkaAdapter()` 소멸자에서 `stop_consuming()` 후 `consumers_.clear()` 사이에 이미 큐잉된 async handler가 소멸된 KafkaConsumer에 접근 가능. `do_close()` 경로는 shutdown 시퀀스로 보호되나 소멸자 방어 경로에서는 미보호. 비정상 종료 또는 테스트 경로에서 간헐적 크래시 가능.",
+      "related": "136",
+      "position": 7,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 01:09:13",
+      "created_at": "2026-03-22 22:37:32",
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 152,
@@ -373,7 +460,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-24 00:19:29",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 150,
@@ -388,7 +475,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 00:19:23",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 65,
@@ -404,7 +491,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:41:25",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 166,
@@ -419,7 +506,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:03",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 167,
@@ -434,7 +521,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:08",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 168,
@@ -449,7 +536,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:13",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 169,
@@ -464,7 +551,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:18",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 158,
@@ -479,7 +566,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 162,
@@ -494,7 +581,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 20:01:38",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 165,
@@ -509,7 +596,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 22:48:58",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 155,
@@ -524,7 +611,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 156,
@@ -539,7 +626,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 50,
@@ -555,7 +642,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-23 23:04:16",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 163,
@@ -571,7 +658,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 20:26:31",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 164,
@@ -586,7 +673,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 21:47:26",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 132,
@@ -601,7 +688,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 138,
@@ -616,7 +703,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 153,
@@ -631,7 +718,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 20:11:02",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 160,
@@ -646,7 +733,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 19:31:13",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 157,
@@ -661,7 +748,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 17:16:11",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 141,
@@ -676,7 +763,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 143,
@@ -691,7 +778,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 144,
@@ -706,7 +793,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 145,
@@ -721,7 +808,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 139,
@@ -736,7 +823,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 140,
@@ -751,7 +838,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 126,
@@ -766,7 +853,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 00:53:31",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 136,
@@ -781,7 +868,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 21:06:23",
       "created_at": "2026-03-22 21:06:09",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 1,
@@ -796,7 +883,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 2,
@@ -811,7 +898,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 3,
@@ -826,7 +913,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 4,
@@ -841,7 +928,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 5,
@@ -856,7 +943,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 6,
@@ -871,7 +958,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 7,
@@ -886,7 +973,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 8,
@@ -901,7 +988,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 9,
@@ -916,7 +1003,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 10,
@@ -931,7 +1018,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 11,
@@ -946,7 +1033,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 12,
@@ -961,7 +1048,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 13,
@@ -976,7 +1063,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 14,
@@ -991,7 +1078,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 15,
@@ -1006,7 +1093,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 16,
@@ -1021,7 +1108,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 17,
@@ -1036,7 +1123,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 18,
@@ -1051,7 +1138,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 19,
@@ -1066,7 +1153,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 20,
@@ -1081,7 +1168,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 21,
@@ -1096,7 +1183,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 22,
@@ -1111,7 +1198,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 23,
@@ -1126,7 +1213,7 @@
       "resolution": "DUPLICATE",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 24,
@@ -1141,7 +1228,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 25,
@@ -1156,7 +1243,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 26,
@@ -1171,7 +1258,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 27,
@@ -1186,7 +1273,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 28,
@@ -1201,7 +1288,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 29,
@@ -1216,7 +1303,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 31,
@@ -1231,7 +1318,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 33,
@@ -1246,7 +1333,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 34,
@@ -1261,7 +1348,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 35,
@@ -1276,7 +1363,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 37,
@@ -1291,7 +1378,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 38,
@@ -1306,7 +1393,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 39,
@@ -1321,7 +1408,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 45,
@@ -1336,7 +1423,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 46,
@@ -1351,7 +1438,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 47,
@@ -1366,7 +1453,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 48,
@@ -1381,7 +1468,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 49,
@@ -1396,7 +1483,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 52,
@@ -1411,7 +1498,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 54,
@@ -1426,7 +1513,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 55,
@@ -1441,7 +1528,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 56,
@@ -1456,7 +1543,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 58,
@@ -1471,7 +1558,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 60,
@@ -1486,7 +1573,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 61,
@@ -1501,7 +1588,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 62,
@@ -1516,7 +1603,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 63,
@@ -1531,7 +1618,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 64,
@@ -1546,7 +1633,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 66,
@@ -1561,7 +1648,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 67,
@@ -1576,7 +1663,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 68,
@@ -1591,7 +1678,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 69,
@@ -1606,7 +1693,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 70,
@@ -1621,7 +1708,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 71,
@@ -1636,7 +1723,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 72,
@@ -1651,7 +1738,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 73,
@@ -1666,7 +1753,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 74,
@@ -1681,7 +1768,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 75,
@@ -1696,7 +1783,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 76,
@@ -1711,7 +1798,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 77,
@@ -1726,7 +1813,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 78,
@@ -1741,7 +1828,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 79,
@@ -1756,7 +1843,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 80,
@@ -1771,7 +1858,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 81,
@@ -1786,7 +1873,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 82,
@@ -1801,7 +1888,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 83,
@@ -1816,7 +1903,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 84,
@@ -1831,7 +1918,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 85,
@@ -1846,7 +1933,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 86,
@@ -1861,7 +1948,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 87,
@@ -1876,7 +1963,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 88,
@@ -1891,7 +1978,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 89,
@@ -1906,7 +1993,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 90,
@@ -1921,7 +2008,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 91,
@@ -1936,7 +2023,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 92,
@@ -1951,7 +2038,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 93,
@@ -1966,7 +2053,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 94,
@@ -1981,7 +2068,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 95,
@@ -1996,7 +2083,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 96,
@@ -2011,7 +2098,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 97,
@@ -2026,7 +2113,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 98,
@@ -2041,7 +2128,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 99,
@@ -2056,7 +2143,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 100,
@@ -2071,7 +2158,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 101,
@@ -2086,7 +2173,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 102,
@@ -2101,7 +2188,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 103,
@@ -2116,7 +2203,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 105,
@@ -2131,7 +2218,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 106,
@@ -2146,7 +2233,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 107,
@@ -2161,7 +2248,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 108,
@@ -2176,7 +2263,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 109,
@@ -2191,7 +2278,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 110,
@@ -2206,7 +2293,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 111,
@@ -2221,7 +2308,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 112,
@@ -2236,7 +2323,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 115,
@@ -2251,7 +2338,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 116,
@@ -2266,7 +2353,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 117,
@@ -2281,7 +2368,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 118,
@@ -2296,7 +2383,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 119,
@@ -2311,7 +2398,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 120,
@@ -2326,7 +2413,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 121,
@@ -2341,7 +2428,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 122,
@@ -2356,7 +2443,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 123,
@@ -2371,7 +2458,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 124,
@@ -2386,7 +2473,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 125,
@@ -2401,7 +2488,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 127,
@@ -2416,7 +2503,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 128,
@@ -2431,7 +2518,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 129,
@@ -2446,7 +2533,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 130,
@@ -2461,7 +2548,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 131,
@@ -2476,7 +2563,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     },
     {
       "id": 134,
@@ -2491,7 +2578,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 00:24:30"
+      "updated_at": "2026-03-24 03:06:25"
     }
   ]
 }
