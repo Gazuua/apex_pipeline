@@ -195,8 +195,4 @@ func TestMergePipeline_RebaseFails(t *testing.T) {
 	if len(mock.calls) != 0 {
 		t.Errorf("IPC should not be called after rebase failure, got: %v", mock.calls)
 	}
-	// IPC가 호출되지 않아야 함
-	if len(mock.calls) != 0 {
-		t.Errorf("IPC should not be called, got: %v", mock.calls)
-	}
 }

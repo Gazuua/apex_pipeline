@@ -52,6 +52,7 @@ func RebaseOnMain(projectRoot string) (string, error) {
 	out, err := exec.Command("git", "-C", projectRoot,
 		"rev-list", "--count", "HEAD..origin/main").Output()
 	if err != nil {
+		ml.Warn("git rev-list 실패 — rebase 필요 여부 판단 불가, 스킵", "err", err)
 		return "", nil
 	}
 	behind, _ := strconv.Atoi(strings.TrimSpace(string(out)))

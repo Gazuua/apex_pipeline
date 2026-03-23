@@ -127,7 +127,7 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 
 	root, err := projectRoot()
 	if err != nil {
-		root = "."
+		return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 	}
 
 	// backlog manager (best-effort — import은 non-fatal)
@@ -255,6 +255,7 @@ func handoffNotifyMergeCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)
+			fmt.Println("[handoff] docs/BACKLOG.md 갱신됨 — 커밋+푸시 후 머지 진행하세요")
 			return nil
 		},
 	}

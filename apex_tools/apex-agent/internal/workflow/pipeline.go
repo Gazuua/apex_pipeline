@@ -50,12 +50,15 @@ func StartPipeline(branchName string, params map[string]any,
 	return notifID, nil
 }
 
-// MergePipeline orchestrates the full notify-merge workflow:
+// MergePipeline orchestrates the notify-merge pre-processing:
 //  1. RebaseOnMain(projectRoot)
 //  2. SyncImport(projectRoot, mgr) — fatal
 //  3. SyncExport(projectRoot, mgr) — fatal
 //  4. ipcFn("notify-merge", params) — fatal
-//  5. CheckoutMain(projectRoot) — non-fatal
+//
+// CheckoutMain is NOT included — caller must commit export results
+// and handle checkout main separately. Export writes docs/BACKLOG.md
+// which needs to be committed before switching branches.
 func MergePipeline(params map[string]any,
 	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
@@ -83,11 +86,6 @@ func MergePipeline(params map[string]any,
 	// Phase 4: DB TX
 	if _, err := ipcFn("notify-merge", params); err != nil {
 		return fmt.Errorf("notify-merge 실패: %w", err)
-	}
-
-	// Phase 5: checkout main (non-fatal)
-	if err := CheckoutMain(projectRoot); err != nil {
-		ml.Warn("git checkout main 실패", "err", err)
 	}
 
 	return nil
