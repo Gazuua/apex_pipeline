@@ -5,6 +5,17 @@
 
 <!-- NEW_ENTRY_BELOW -->
 
+### #136. 실기동 테스트 항목
+- **등급**: MAJOR | **스코프**: SHARED | **타입**: DESIGN_DEBT
+- **해결**: 2026-03-22 21:06:23 | **방식**: FIXED
+- **비고**: `hiredis_asio_adapter.cpp`에서 `socket_.async_wait` handler가 `this`를 raw 캡처. `RedisConnection::disconnect()`에서 `redisAsyncFree()` 후 `asio_adapter_.reset()`으로 HiredisAsioAdapter 소멸 시, 이미 큐잉된 handler가 소멸된 객체에 접근하는 UAF 가능성. `cleaned_up_` 플래그는 객체 생존을 전제하므로 불완전. shared_ptr/weak_ptr 패턴으로 전환하거나 disconnect 시 io_context poll drain 추가 필요.
+
+### #157. git 명령어 에러 핸들링 — rebase abort 에러 무시
+- **등급**: MAJOR | **스코프**: TOOLS | **타입**: BUG
+- **해결**: 2026-03-23 17:16:11 | **방식**: FIXED
+- **비고**: EnforceRebase에서 rebase 실패 시 --abort 호출의 에러를 무시(//nolint:errcheck). abort 자체가 실패하면(dirty working tree 등) 반쪽짜리 rebase 상태에 빠질 수 있음. 최소 경고 로그 기록 필요.
+
+
 ### #139. auth_logic.hpp is_account_locked 타임존 비교 부정확
 - **등급**: MAJOR | **스코프**: AUTH_SVC | **타입**: BUG
 - **해결**: 2026-03-23 02:13:27 | **방식**: FIXED
