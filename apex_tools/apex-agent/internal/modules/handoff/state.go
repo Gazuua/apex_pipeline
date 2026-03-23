@@ -8,12 +8,17 @@ import (
 	"strings"
 )
 
-// Valid statuses
+// Valid statuses for active_branches.
 const (
 	StatusStarted        = "STARTED"
 	StatusDesignNotified = "DESIGN_NOTIFIED"
 	StatusImplementing   = "IMPLEMENTING"
-	StatusMergeNotified  = "MERGE_NOTIFIED"
+)
+
+// History statuses (branch_history only — never in active_branches).
+const (
+	HistoryMerged  = "MERGED"
+	HistoryDropped = "DROPPED"
 )
 
 // Valid notification types.
@@ -25,18 +30,19 @@ const (
 	TypeDesign = "design"
 	TypePlan   = "plan"
 	TypeMerge  = "merge"
+	TypeDrop   = "drop"
 )
 
 // NextStatus returns the new status after applying a notification type.
 // Returns error if the transition is invalid.
+// Note: merge/drop are handled by dedicated functions (NotifyMerge/NotifyDrop),
+// not through NextStatus.
 func NextStatus(current, notifyType string) (string, error) {
 	switch {
 	case current == StatusStarted && notifyType == TypeDesign:
 		return StatusDesignNotified, nil
 	case current == StatusDesignNotified && notifyType == TypePlan:
 		return StatusImplementing, nil
-	case current == StatusImplementing && notifyType == TypeMerge:
-		return StatusMergeNotified, nil
 	default:
 		return "", fmt.Errorf("invalid transition: %s + %s", current, notifyType)
 	}
@@ -44,7 +50,7 @@ func NextStatus(current, notifyType string) (string, error) {
 
 // CanEditSource returns whether source files (.cpp, .hpp, .h, .go) can be edited in the given status.
 func CanEditSource(status string) bool {
-	return status == StatusImplementing || status == StatusMergeNotified
+	return status == StatusImplementing
 }
 
 // CanEditAny returns whether any file can be edited in the given status.

@@ -34,38 +34,14 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 		return fmt.Errorf("차단: 미ack 알림 %d건. 먼저 ack 처리 후 머지 재시도", len(notifications))
 	}
 
-	// FIXING 백로그 체크 (backlog 모듈이 등록되지 않은 경우 스킵)
-	if m.backlogManager != nil {
-		// branch_backlogs (handoff 자체 테이블)에서 연결된 backlog ID 조회
-		bbRows, err := m.store.Query(
-			`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch,
-		)
-		if err != nil {
-			return fmt.Errorf("query branch_backlogs: %w", err)
-		}
-		defer bbRows.Close()
-		var backlogIDs []int
-		for bbRows.Next() {
-			var id int
-			if scanErr := bbRows.Scan(&id); scanErr != nil {
-				return fmt.Errorf("scan branch_backlog id: %w", scanErr)
-			}
-			backlogIDs = append(backlogIDs, id)
-		}
-		if err := bbRows.Err(); err != nil {
-			return fmt.Errorf("iterate branch_backlogs: %w", err)
-		}
-
-		fixingIDs, err := m.backlogManager.ListFixingForBranch(branch, backlogIDs)
-		if err != nil {
-			return fmt.Errorf("list fixing backlogs: %w", err)
-		}
-		if len(fixingIDs) > 0 {
-			ml.Warn("gate blocked", "op", "merge", "branch", branch, "fixing", fixingIDs)
-			return fmt.Errorf("차단: 미해결 백로그 %d건 (IDs: %v) — resolve 또는 release 후 재시도", len(fixingIDs), fixingIDs)
-		}
-	} else {
-		ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", true, "note", "backlog module not registered, skipping FIXING check")
+	// FIXING 백로그 체크 (공용 함수 사용)
+	fixingIDs, err := m.checkFixingBacklogs(branch)
+	if err != nil {
+		return fmt.Errorf("check fixing backlogs: %w", err)
+	}
+	if len(fixingIDs) > 0 {
+		ml.Warn("gate blocked", "op", "merge", "branch", branch, "fixing", fixingIDs)
+		return fmt.Errorf("차단: 미해결 백로그 %d건 (IDs: %v) — resolve 또는 release 후 재시도", len(fixingIDs), fixingIDs)
 	}
 
 	ml.Debug("gate check", "op", "merge", "branch", branch, "allowed", true)

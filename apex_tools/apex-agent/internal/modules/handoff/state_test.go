@@ -12,7 +12,6 @@ func TestNextStatus_ValidTransitions(t *testing.T) {
 	}{
 		{StatusStarted, TypeDesign, StatusDesignNotified},
 		{StatusDesignNotified, TypePlan, StatusImplementing},
-		{StatusImplementing, TypeMerge, StatusMergeNotified},
 	}
 
 	for _, tt := range tests {
@@ -32,11 +31,11 @@ func TestNextStatus_InvalidTransitions(t *testing.T) {
 		notifyType string
 	}{
 		{StatusStarted, TypePlan},          // can't skip design→plan
-		{StatusStarted, TypeMerge},         // can't jump to merge
+		{StatusStarted, TypeMerge},         // merge is handled by NotifyMerge, not NextStatus
 		{StatusDesignNotified, TypeDesign}, // already design-notified
 		{StatusDesignNotified, TypeMerge},  // must go through plan
 		{StatusImplementing, TypeDesign},   // can't go back
-		{StatusMergeNotified, TypeMerge},   // already merge-notified
+		{StatusImplementing, TypeMerge},    // merge is handled by NotifyMerge
 	}
 
 	for _, tt := range tests {
@@ -55,7 +54,6 @@ func TestCanEditSource(t *testing.T) {
 		{StatusStarted, false},
 		{StatusDesignNotified, false},
 		{StatusImplementing, true},
-		{StatusMergeNotified, true},
 		{"", false},
 	}
 
