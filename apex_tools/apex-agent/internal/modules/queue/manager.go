@@ -201,10 +201,10 @@ func (m *Manager) tryPromote(channel, branch string) (bool, error) {
 
 // UpdatePID updates the PID of the active entry for a channel.
 // Used to transfer lock ownership from parent (CLI) to child (build process).
-func (m *Manager) UpdatePID(channel string, newPID int) error {
+func (m *Manager) UpdatePID(channel, branch string, newPID int) error {
 	res, err := m.store.Exec(
-		`UPDATE queue SET pid=? WHERE channel=? AND status=?`,
-		newPID, channel, StatusActive,
+		`UPDATE queue SET pid=? WHERE channel=? AND branch=? AND status=?`,
+		newPID, channel, branch, StatusActive,
 	)
 	if err != nil {
 		return fmt.Errorf("queue.UpdatePID: %w", err)

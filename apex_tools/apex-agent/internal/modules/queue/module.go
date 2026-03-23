@@ -146,6 +146,7 @@ func (m *Module) handleStatus(_ context.Context, params json.RawMessage, _ strin
 
 type updatePIDParams struct {
 	Channel string `json:"channel"`
+	Branch  string `json:"branch"`
 	PID     int    `json:"pid"`
 }
 
@@ -154,7 +155,7 @@ func (m *Module) handleUpdatePID(_ context.Context, params json.RawMessage, _ st
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.update-pid: decode params: %w", err)
 	}
-	if err := m.manager.UpdatePID(p.Channel, p.PID); err != nil {
+	if err := m.manager.UpdatePID(p.Channel, p.Branch, p.PID); err != nil {
 		return nil, err
 	}
 	return map[string]any{"updated": true, "channel": p.Channel, "pid": p.PID}, nil

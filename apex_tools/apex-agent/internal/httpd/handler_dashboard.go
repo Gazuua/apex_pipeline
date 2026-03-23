@@ -20,13 +20,25 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		data["Summary"] = summary
 
-		branches, _ := queryActiveBranches(s.store)
+		branches, err := queryActiveBranches(s.store)
+		if err != nil {
+			s.renderHTMXError(w, "branches query failed: "+err.Error())
+			return
+		}
 		data["Branches"] = branches
 
-		queue, _ := queryQueueStatus(s.store)
+		queue, err := queryQueueStatus(s.store)
+		if err != nil {
+			s.renderHTMXError(w, "queue query failed: "+err.Error())
+			return
+		}
 		data["Queue"] = queue
 
-		history, _ := queryBranchHistory(s.store, 10)
+		history, err := queryBranchHistory(s.store, 10)
+		if err != nil {
+			s.renderHTMXError(w, "history query failed: "+err.Error())
+			return
+		}
 		data["History"] = history
 	}
 
