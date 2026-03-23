@@ -119,7 +119,7 @@ class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
     ConsumerPayloadPool payload_pool_;
 
     std::unique_ptr<KafkaProducer> producer_;
-    std::vector<std::unique_ptr<KafkaConsumer>> consumers_;
+    std::vector<std::shared_ptr<KafkaConsumer>> consumers_;
 
     // Producer poll timer
     std::unique_ptr<boost::asio::steady_timer> producer_poll_timer_;

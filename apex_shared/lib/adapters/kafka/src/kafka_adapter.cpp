@@ -54,7 +54,7 @@ void KafkaAdapter::do_init(apex::core::CoreEngine& engine)
     consumers_.reserve(num_cores);
     for (uint32_t i = 0; i < num_cores; ++i)
     {
-        auto consumer = std::make_unique<KafkaConsumer>(config_, i, engine.io_context(i), producer_.get());
+        auto consumer = std::make_shared<KafkaConsumer>(config_, i, engine.io_context(i), producer_.get());
         if (message_cb_)
         {
             consumer->set_message_callback(message_cb_);

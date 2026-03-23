@@ -117,7 +117,7 @@ TEST_F(TcpBinaryProtocolTest, BodyTooLargeReturnsError)
 
     auto result = TcpBinaryProtocol::try_decode(buf_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ErrorCode::BufferFull);
+    EXPECT_EQ(result.error(), ErrorCode::BodyTooLarge);
 }
 
 TEST_F(TcpBinaryProtocolTest, UnsupportedVersionReturnsError)

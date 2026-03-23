@@ -46,7 +46,7 @@ using MessageCallback =
 /// Asio integration:
 /// - Linux: rd_kafka_queue_io_event_enable() -> pipe fd -> Asio stream_descriptor
 /// - Windows: steady_timer-based periodic polling (5ms default)
-class KafkaConsumer
+class KafkaConsumer : public std::enable_shared_from_this<KafkaConsumer>
 {
   public:
     /// @param config Kafka configuration

@@ -24,6 +24,7 @@ enum class ErrorCode : uint16_t
     CrossCoreTimeout = 8,
     CrossCoreQueueFull = 9,
     CrossCoreFuncException = 17, // cross_core_call target func threw exception
+    BodyTooLarge = 18,           // frame body exceeds MAX_BODY_SIZE
     UnsupportedProtocolVersion = 10,
     HandlerException = 11, // dispatch handler threw exception
     SendFailed = 12,       // async_send network write failure
@@ -73,6 +74,8 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept
             return "CrossCoreQueueFull";
         case ErrorCode::CrossCoreFuncException:
             return "CrossCoreFuncException";
+        case ErrorCode::BodyTooLarge:
+            return "BodyTooLarge";
         case ErrorCode::UnsupportedProtocolVersion:
             return "UnsupportedProtocolVersion";
         case ErrorCode::HandlerException:

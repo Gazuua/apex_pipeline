@@ -2,6 +2,8 @@
 
 #include <apex/core/frame_codec.hpp>
 
+#include <apex/core/error_code.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -9,11 +11,11 @@
 namespace apex::core
 {
 
-std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
+Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
 {
     if (buf.readable_size() < WireHeader::SIZE)
     {
-        return std::unexpected(FrameError::InsufficientData);
+        return std::unexpected(ErrorCode::InsufficientData);
     }
 
     // I-08: Defensive copy — even when the header is already contiguous in the ring buffer,
@@ -32,11 +34,11 @@ std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
         switch (err)
         {
             case ParseError::BodyTooLarge:
-                return std::unexpected(FrameError::BodyTooLarge);
+                return std::unexpected(ErrorCode::BodyTooLarge);
             case ParseError::UnsupportedVersion:
-                return std::unexpected(FrameError::UnsupportedProtocolVersion);
+                return std::unexpected(ErrorCode::UnsupportedProtocolVersion);
             default:
-                return std::unexpected(FrameError::HeaderParseError);
+                return std::unexpected(ErrorCode::InvalidMessage);
         }
     }
 
@@ -45,7 +47,7 @@ std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
 
     if (buf.readable_size() < total)
     {
-        return std::unexpected(FrameError::InsufficientData);
+        return std::unexpected(ErrorCode::InsufficientData);
     }
 
     // NOTE: 이 linearize()는 hdr_span을 무효화할 수 있지만,
@@ -53,7 +55,7 @@ std::expected<Frame, FrameError> FrameCodec::try_decode(RingBuffer& buf)
     auto frame_span = buf.linearize(total);
     if (frame_span.empty())
     {
-        return std::unexpected(FrameError::InsufficientData);
+        return std::unexpected(ErrorCode::InsufficientData);
     }
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 

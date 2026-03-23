@@ -9,7 +9,7 @@ namespace apex::shared::protocols::tcp
 {
 
 /// TCP 바이너리 프로토콜 — Protocol concept 구현.
-/// FrameCodec를 래핑하여 FrameError → ErrorCode 변환을 수행한다.
+/// FrameCodec를 래핑하여 프레임 디코딩을 수행한다.
 struct TcpBinaryProtocol
 {
     struct Config
@@ -21,22 +21,7 @@ struct TcpBinaryProtocol
 
     [[nodiscard]] static apex::core::Result<Frame> try_decode(apex::core::RingBuffer& buf)
     {
-        auto result = apex::core::FrameCodec::try_decode(buf);
-        if (result.has_value())
-            return std::move(*result);
-        // FrameError -> ErrorCode 변환
-        switch (result.error())
-        {
-            case apex::core::FrameError::InsufficientData:
-                return std::unexpected(apex::core::ErrorCode::InsufficientData);
-            case apex::core::FrameError::HeaderParseError:
-                return std::unexpected(apex::core::ErrorCode::InvalidMessage);
-            case apex::core::FrameError::BodyTooLarge:
-                return std::unexpected(apex::core::ErrorCode::BufferFull);
-            case apex::core::FrameError::UnsupportedProtocolVersion:
-                return std::unexpected(apex::core::ErrorCode::UnsupportedProtocolVersion);
-        }
-        return std::unexpected(apex::core::ErrorCode::Unknown);
+        return apex::core::FrameCodec::try_decode(buf);
     }
 
     static void consume_frame(apex::core::RingBuffer& buf, const Frame& frame)
