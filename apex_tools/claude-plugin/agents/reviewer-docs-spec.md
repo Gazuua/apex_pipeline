@@ -17,6 +17,7 @@ color: blue
 - **프로젝트 가이드** (`CLAUDE.md` 루트 + 서브): 모노레포 구조, 빌드 명령, 워크플로우 규칙, 로드맵 현재 버전
 - **README.md** (루트 + 서브프로젝트): 프로젝트 설명, 빌드/실행 방법, 변경 내역
 - **문서 위치 적합성**: 프로젝트 전용 → `docs/<project>/`, 공통 → `docs/apex_common/`, 단순 복사 금지
+- **프레임워크 가이드 정합성** (`docs/apex_core/apex_core_guide.md`): 코어 인터페이스 변경(ServiceBase 훅, 핸들러 API, ConfigureContext/WireContext, ServerConfig, Phase, 어댑터 타입)이 있을 때 가이드가 함께 갱신되었는지 확인. 코어 영역(apex_core/) 코드 변경이 리뷰 대상에 포함되면, 해당 변경이 가이드의 레이어 1(API) 설명과 일치하는지 교차 검증
 
 ## 프로젝트 맥락
 
