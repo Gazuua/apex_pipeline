@@ -6,6 +6,7 @@
 #include <apex/core/cross_core_dispatcher.hpp>
 #include <apex/core/cross_core_op.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/spsc_mesh.hpp>
 
 #include <boost/asio/awaitable.hpp>
@@ -13,8 +14,6 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
-
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdint>
@@ -133,7 +132,7 @@ class CoreEngine
     template <typename F> void spawn_tracked(uint32_t core_id, F&& coro_factory)
     {
         assert(core_id < core_count() && "Invalid core_id for spawn_tracked");
-        spdlog::debug("[core={}] spawn_tracked infra coroutine", core_id);
+        logger_.debug("spawn_tracked infra coroutine core={}", core_id);
         outstanding_infra_coros_.fetch_add(1, std::memory_order_acq_rel);
         boost::asio::co_spawn(
             io_context(core_id),
@@ -144,11 +143,11 @@ class CoreEngine
                 }
                 catch (const std::exception& e)
                 {
-                    spdlog::error("[core={}] spawn_tracked coroutine exception: {}", core_id, e.what());
+                    logger_.error("spawn_tracked coroutine exception core={}: {}", core_id, e.what());
                 }
                 catch (...)
                 {
-                    spdlog::error("[core={}] spawn_tracked coroutine unknown exception", core_id);
+                    logger_.error("spawn_tracked coroutine unknown exception core={}", core_id);
                 }
                 outstanding_infra_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
@@ -167,6 +166,7 @@ class CoreEngine
     void schedule_drain(uint32_t target_core);
     void dispatch_message(uint32_t core_id, const CoreMessage& msg);
 
+    ScopedLogger logger_{"CoreEngine", ScopedLogger::NO_CORE};
     CoreEngineConfig config_;
     std::vector<std::unique_ptr<CoreContext>> cores_;
     std::vector<std::thread> threads_;

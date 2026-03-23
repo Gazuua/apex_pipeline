@@ -11,13 +11,12 @@
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/periodic_task_scheduler.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/server_config.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/core/service_registry.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/transport.hpp>
-
-#include <spdlog/spdlog.h>
 
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
@@ -345,7 +344,7 @@ class Server
     std::atomic<uint32_t> run_count_{0}; // I-21: prevent re-entry
     std::unique_ptr<boost::asio::steady_timer> shutdown_timer_;
     std::chrono::steady_clock::time_point shutdown_deadline_;
-    std::shared_ptr<spdlog::logger> logger_; // I-09: cached logger
+    ScopedLogger logger_{"Server", ScopedLogger::NO_CORE}; // I-09: ScopedLogger caches logger internally
 };
 
 // ── ServiceBase per-core 접근자 out-of-line 정의 ──────────────────────────

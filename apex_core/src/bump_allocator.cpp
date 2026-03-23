@@ -2,8 +2,6 @@
 
 #include <apex/core/bump_allocator.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -15,7 +13,7 @@ BumpAllocator::BumpAllocator(std::size_t capacity)
 {
     if (capacity == 0)
     {
-        spdlog::warn("BumpAllocator created with zero capacity — all allocations will return nullptr");
+        logger_.warn("created with zero capacity — all allocations will return nullptr");
         return;
     }
 

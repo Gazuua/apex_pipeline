@@ -6,12 +6,12 @@
 #include <apex/core/core_engine.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/protocol.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/tcp_acceptor.hpp>
 #include <apex/core/transport.hpp>
 
 #include <boost/asio/post.hpp>
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdint>
@@ -109,7 +109,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                             auto current = active_sessions();
                             if (current >= max_connections_)
                             {
-                                spdlog::warn("Connection rejected: max_connections limit ({}/{})", current,
+                                logger_.warn("Connection rejected: max_connections limit ({}/{})", current,
                                              max_connections_);
                                 boost::system::error_code ec;
                                 socket.close(ec);
@@ -223,7 +223,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
             auto current = active_sessions();
             if (current >= max_connections_)
             {
-                spdlog::warn("Connection rejected: max_connections limit ({}/{})", current, max_connections_);
+                logger_.warn("Connection rejected: max_connections limit ({}/{})", current, max_connections_);
                 boost::system::error_code ec;
                 socket.close(ec);
                 return;
@@ -239,6 +239,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         });
     }
 
+    ScopedLogger logger_{"Listener", ScopedLogger::NO_CORE};
     uint16_t port_;
     typename P::Config protocol_config_;
     CoreEngine& engine_;

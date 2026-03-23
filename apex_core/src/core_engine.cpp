@@ -5,10 +5,6 @@
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 
-#include <apex/core/log_helpers.hpp>
-
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 #include <chrono>
 #include <functional>
@@ -169,7 +165,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
     if (mesh_ && src != UINT32_MAX && src != target_core)
     {
         // Core thread → SPSC mesh (fast path, no CAS)
-        log::trace(src, "post_to core={} op={}", target_core, static_cast<uint32_t>(msg.op));
+        logger_.trace("post_to src={} dst={} op={}", src, target_core, static_cast<uint32_t>(msg.op));
         if (!mesh_->queue(src, target_core).try_enqueue(msg))
         {
             target.metrics.post_failures.fetch_add(1, std::memory_order_relaxed);
@@ -177,7 +173,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
             auto now = std::chrono::steady_clock::now();
             if (now - last_log > std::chrono::seconds{1})
             {
-                log::warn(src, "post_to core={} failed: SPSC queue full", target_core);
+                logger_.warn("post_to src={} dst={} failed: SPSC queue full", src, target_core);
                 last_log = now;
             }
             return error(ErrorCode::CrossCoreQueueFull);
@@ -187,7 +183,7 @@ Result<void> CoreEngine::post_to(uint32_t target_core, CoreMessage msg)
     }
 
     // Non-core thread, self-post, or single-core → asio::post fallback
-    log::trace(src != UINT32_MAX ? src : target_core, "post_to core={} via asio::post fallback", target_core);
+    logger_.trace("post_to dst={} via asio::post fallback", target_core);
     boost::asio::post(target.io_ctx, [this, target_core, msg] { dispatch_message(target_core, msg); });
     return ok();
 }
@@ -250,7 +246,8 @@ void CoreEngine::broadcast(CoreMessage msg)
 
 void CoreEngine::dispatch_message(uint32_t core_id, const CoreMessage& msg)
 {
-    log::trace(core_id, "dispatch_message op={} from_core={}", static_cast<uint32_t>(msg.op), msg.source_core);
+    logger_.trace("dispatch_message core={} op={} from_core={}", core_id, static_cast<uint32_t>(msg.op),
+                  msg.source_core);
 
     if (msg.op == CrossCoreOp::LegacyCrossCoreFn)
     {
@@ -263,11 +260,11 @@ void CoreEngine::dispatch_message(uint32_t core_id, const CoreMessage& msg)
             }
             catch (const std::exception& e)
             {
-                log::error(core_id, "cross-core task exception: {}", e.what());
+                logger_.error("cross-core task exception core={}: {}", core_id, e.what());
             }
             catch (...)
             {
-                log::error(core_id, "cross-core task unknown exception");
+                logger_.error("cross-core task unknown exception core={}", core_id);
             }
             delete task;
         }
@@ -355,11 +352,11 @@ void CoreEngine::start_tick_timer(uint32_t core_id)
             }
             catch (const std::exception& e)
             {
-                log::error(core_id, "tick_callback exception: {}", e.what());
+                logger_.error("tick_callback exception core={}: {}", core_id, e.what());
             }
             catch (...)
             {
-                log::error(core_id, "tick_callback unknown exception");
+                logger_.error("tick_callback unknown exception core={}", core_id);
             }
         }
 

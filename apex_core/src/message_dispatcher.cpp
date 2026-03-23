@@ -2,8 +2,6 @@
 
 #include <apex/core/message_dispatcher.hpp>
 
-#include <spdlog/spdlog.h>
-
 namespace apex::core
 {
 
@@ -30,7 +28,7 @@ void MessageDispatcher::clear_default_handler()
 boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr session, uint32_t msg_id,
                                                                  std::span<const uint8_t> payload) const
 {
-    spdlog::trace("[msg=0x{:04X}] dispatch payload_size={}", msg_id, payload.size());
+    logger_.trace("dispatch msg_id=0x{:04X} payload_size={}", msg_id, payload.size());
 
     auto it = handlers_.find(msg_id);
     if (it == handlers_.end())
@@ -43,20 +41,13 @@ boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr sess
             }
             catch (const std::exception& e)
             {
-                if (auto logger = spdlog::get("apex"))
-                {
-                    logger->error("MessageDispatcher: default handler for msg_id 0x{:08x} threw: {}",
-                                  static_cast<unsigned>(msg_id), e.what());
-                }
+                logger_.error("default handler for msg_id 0x{:08x} threw: {}", static_cast<unsigned>(msg_id), e.what());
                 co_return error(ErrorCode::HandlerException);
             }
             catch (...)
             {
-                if (auto logger = spdlog::get("apex"))
-                {
-                    logger->error("MessageDispatcher: default handler for msg_id 0x{:08x} threw unknown exception",
-                                  static_cast<unsigned>(msg_id));
-                }
+                logger_.error("default handler for msg_id 0x{:08x} threw unknown exception",
+                              static_cast<unsigned>(msg_id));
                 co_return error(ErrorCode::HandlerException);
             }
         }
@@ -68,20 +59,12 @@ boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr sess
     }
     catch (const std::exception& e)
     {
-        if (auto logger = spdlog::get("apex"))
-        {
-            logger->error("MessageDispatcher: handler for msg_id 0x{:08x} threw: {}", static_cast<unsigned>(msg_id),
-                          e.what());
-        }
+        logger_.error("handler for msg_id 0x{:08x} threw: {}", static_cast<unsigned>(msg_id), e.what());
         co_return error(ErrorCode::HandlerException);
     }
     catch (...)
     {
-        if (auto logger = spdlog::get("apex"))
-        {
-            logger->error("MessageDispatcher: handler for msg_id 0x{:08x} threw unknown exception",
-                          static_cast<unsigned>(msg_id));
-        }
+        logger_.error("handler for msg_id 0x{:08x} threw unknown exception", static_cast<unsigned>(msg_id));
         co_return error(ErrorCode::HandlerException);
     }
 }

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -50,6 +52,7 @@ class TcpAcceptor
     /// [this] capture dangling.
     boost::asio::awaitable<void> accept_loop();
 
+    ScopedLogger logger_{"TcpAcceptor", ScopedLogger::NO_CORE};
     boost::asio::io_context& io_ctx_;
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::steady_timer backoff_timer_; // Member — stop() can cancel

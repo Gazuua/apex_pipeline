@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/slab_allocator.hpp>
 #include <apex/core/timing_wheel.hpp>
@@ -77,6 +78,7 @@ class SessionManager
     void on_timer_expire(TimingWheel::EntryId entry_id);
 
     uint32_t core_id_;
+    ScopedLogger logger_{"SessionManager", core_id_};
     uint32_t heartbeat_timeout_ticks_;
     size_t recv_buf_capacity_;
     size_t max_queue_depth_;
