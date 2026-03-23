@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료 — TxStore 분리, active_branches/branch_history 스키마, notify merge/drop/start 원자적 브랜치 생성
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (#126) — bash 11종 → Go 단일 바이너리 (데몬+SQLite+IPC, 14K LOC). cleanup 핫픽스 + 핸드오프 구조 강화 완료. workflow 공유 레이어 완료 — CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (IPCFunc 추상화, Start/Merge/Drop 파이프라인), 백로그 import/export 자동 동기화, BACKLOG-157 rebase abort 에러 핸들링
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 

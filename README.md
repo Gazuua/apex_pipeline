@@ -239,6 +239,13 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 
 ### 완료
 
+- **도구: apex-agent workflow 공유 레이어 (#119)**
+  - CLI 인라인 로직을 `internal/workflow/` 패키지로 추출 (HTTP 대시보드 기틀)
+  - IPCFunc 추상화 — CLI/HTTP 동일 파이프라인 호출 가능
+  - 백로그 자동 동기화: notify start 시 import, notify merge 시 rebase→import→export
+  - BACKLOG-157: rebase abort 에러 핸들링 (경고 로그 + 수동 복구 안내)
+  - 단위 테스트 20개 + CI PASS
+
 - **도구: apex-agent Go 백엔드 완전 재작성 (#126)**
   - bash 11종(~2,080줄) → Go 단일 바이너리(14,000+ LOC) 전면 재작성
   - 데몬 모드 (Named Pipe/Unix Socket IPC) + SQLite WAL 상태 저장소
