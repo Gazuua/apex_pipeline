@@ -48,7 +48,8 @@ func setupTestStore(t *testing.T) *store.Store {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel TEXT NOT NULL, branch TEXT NOT NULL, pid INTEGER NOT NULL,
 			status TEXT NOT NULL DEFAULT 'WAITING',
-			created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+			created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+			finished_at TEXT
 		)`,
 	}
 	for _, ddl := range tables {

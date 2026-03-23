@@ -217,10 +217,10 @@ func (m *Manager) UpdatePID(channel string, newPID int) error {
 	return nil
 }
 
-// Release marks the active entry for channel as done.
+// Release marks the active entry for channel as done and records finish time.
 func (m *Manager) Release(channel string) error {
 	_, err := m.store.Exec(
-		`UPDATE queue SET status=? WHERE channel=? AND status=?`,
+		`UPDATE queue SET status=?, finished_at=datetime('now','localtime') WHERE channel=? AND status=?`,
 		StatusDone, channel, StatusActive,
 	)
 	if err != nil {

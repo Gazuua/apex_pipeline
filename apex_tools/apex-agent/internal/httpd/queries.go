@@ -70,10 +70,12 @@ type BranchHistory struct {
 }
 
 type QueueEntry struct {
-	Channel   string
-	Branch    string
-	Status    string
-	CreatedAt string
+	Channel    string
+	Branch     string
+	Status     string
+	CreatedAt  string
+	FinishedAt string
+	Duration   string // computed: finished_at - created_at
 }
 
 // ── Queries ──
@@ -278,7 +280,10 @@ func queryBranchHistory(st *store.Store, limit int) ([]BranchHistory, error) {
 
 func queryQueueStatus(st *store.Store) ([]QueueEntry, error) {
 	rows, err := st.Query(`
-		SELECT channel, branch, status, created_at
+		SELECT channel, branch, status, created_at, COALESCE(finished_at,''),
+		       CASE WHEN finished_at IS NOT NULL
+		            THEN CAST((julianday(finished_at) - julianday(created_at)) * 86400 AS INTEGER)
+		            ELSE 0 END as duration_sec
 		FROM queue
 		ORDER BY channel, created_at DESC`)
 	if err != nil {
@@ -289,8 +294,21 @@ func queryQueueStatus(st *store.Store) ([]QueueEntry, error) {
 	var entries []QueueEntry
 	for rows.Next() {
 		var q QueueEntry
-		if err := rows.Scan(&q.Channel, &q.Branch, &q.Status, &q.CreatedAt); err != nil {
+		var durSec int
+		if err := rows.Scan(&q.Channel, &q.Branch, &q.Status, &q.CreatedAt, &q.FinishedAt, &durSec); err != nil {
 			return nil, err
+		}
+		if durSec > 0 {
+			h := durSec / 3600
+			m := (durSec % 3600) / 60
+			s := durSec % 60
+			if h > 0 {
+				q.Duration = fmt.Sprintf("%dh %dm %ds", h, m, s)
+			} else if m > 0 {
+				q.Duration = fmt.Sprintf("%dm %ds", m, s)
+			} else {
+				q.Duration = fmt.Sprintf("%ds", s)
+			}
 		}
 		entries = append(entries, q)
 	}

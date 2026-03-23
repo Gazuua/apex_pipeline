@@ -9,6 +9,7 @@
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:600">{{.Branch}}</span>
         <span class="badge {{if eq .Status "ACTIVE"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
+        {{if .Duration}}<span class="mono" style="font-size:0.78rem;color:var(--text-muted)">{{.Duration}}</span>{{end}}
       </div>
       <div class="tl-meta">
         {{.CreatedAt}}
@@ -35,6 +36,7 @@
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-weight:600">{{.Branch}}</span>
         <span class="badge {{if eq .Status "ACTIVE"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
+        {{if .Duration}}<span class="mono" style="font-size:0.78rem;color:var(--text-muted)">{{.Duration}}</span>{{end}}
       </div>
       <div class="tl-meta">
         {{.CreatedAt}}

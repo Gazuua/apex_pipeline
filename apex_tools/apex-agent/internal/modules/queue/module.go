@@ -46,6 +46,10 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		_, err := tx.Exec(`UPDATE queue SET status = UPPER(status)`)
 		return err
 	})
+	mig.Register("queue", 3, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`ALTER TABLE queue ADD COLUMN finished_at TEXT`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all queue action handlers.
