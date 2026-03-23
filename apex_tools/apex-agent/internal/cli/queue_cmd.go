@@ -200,7 +200,7 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	// Transfer lock ownership: parent PID → child (build) PID.
 	// If parent is killed, CleanupStale will check child PID (still alive).
 	childPID := execCmd.Process.Pid
-	updateParams := map[string]any{"channel": "build", "pid": childPID}
+	updateParams := map[string]any{"channel": "build", "branch": branch, "pid": childPID}
 	if _, err := sendQueueRequestMap("update-pid", updateParams); err != nil {
 		fmt.Fprintf(os.Stderr, "[queue-lock] warning: failed to update lock PID to child %d: %v\n", childPID, err)
 	} else {

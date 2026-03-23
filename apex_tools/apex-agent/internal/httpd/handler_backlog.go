@@ -74,9 +74,9 @@ func (s *Server) handlePartialBacklogInline(w http.ResponseWriter, r *http.Reque
 		<div style="margin-top:6px;white-space:pre-wrap">%s</div>
 	</div>`,
 		b.ID, template.HTMLEscapeString(b.Title),
-		severityBadge(b.Severity), b.Severity,
-		statusBadge(b.Status), b.Status,
-		b.Scope,
+		severityBadge(b.Severity), template.HTMLEscapeString(b.Severity),
+		statusBadge(b.Status), template.HTMLEscapeString(b.Status),
+		template.HTMLEscapeString(b.Scope),
 		template.HTMLEscapeString(b.Description))
 }
 

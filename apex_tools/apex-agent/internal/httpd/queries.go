@@ -104,6 +104,9 @@ func queryDashboardSummary(st *store.Store) (*DashboardSummary, error) {
 			s.BacklogResolved = count
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("backlog status counts: rows: %w", err)
+	}
 
 	// Severity counts (non-resolved only)
 	rows2, err := st.Query(`SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
@@ -126,17 +129,26 @@ func queryDashboardSummary(st *store.Store) (*DashboardSummary, error) {
 			s.MinorCount = count
 		}
 	}
+	if err := rows2.Err(); err != nil {
+		return nil, fmt.Errorf("backlog severity counts: rows: %w", err)
+	}
 
 	// Active branches count
-	st.QueryRow(`SELECT COUNT(*) FROM active_branches`).Scan(&s.ActiveBranches) //nolint:errcheck
+	if err := st.QueryRow(`SELECT COUNT(*) FROM active_branches`).Scan(&s.ActiveBranches); err != nil {
+		return nil, fmt.Errorf("active branches count: %w", err)
+	}
 
 	// Queue lock status
 	var buildHolding int
-	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='build' AND status='ACTIVE'`).Scan(&buildHolding) //nolint:errcheck
+	if err := st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='build' AND status='ACTIVE'`).Scan(&buildHolding); err != nil {
+		return nil, fmt.Errorf("build lock status: %w", err)
+	}
 	s.BuildLocked = buildHolding > 0
 
 	var mergeHolding int
-	st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='merge' AND status='ACTIVE'`).Scan(&mergeHolding) //nolint:errcheck
+	if err := st.QueryRow(`SELECT COUNT(*) FROM queue WHERE channel='merge' AND status='ACTIVE'`).Scan(&mergeHolding); err != nil {
+		return nil, fmt.Errorf("merge lock status: %w", err)
+	}
 	s.MergeLocked = mergeHolding > 0
 
 	return s, nil
@@ -210,6 +222,9 @@ func queryBacklogList(st *store.Store, f BacklogFilter) ([]BacklogItem, error) {
 		}
 		items = append(items, b)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("backlog list: rows: %w", err)
+	}
 	return items, nil
 }
 
@@ -234,6 +249,10 @@ func queryActiveBranches(st *store.Store) ([]ActiveBranch, error) {
 			return nil, err
 		}
 		branches = append(branches, ab)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("active branches: rows: %w", err)
 	}
 	rows.Close()
 

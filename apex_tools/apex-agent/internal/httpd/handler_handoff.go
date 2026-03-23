@@ -15,7 +15,11 @@ func (s *Server) handleHandoff(w http.ResponseWriter, r *http.Request) {
 		}
 		data["Branches"] = branches
 
-		history, _ := queryBranchHistory(s.store, 20)
+		history, err := queryBranchHistory(s.store, 20)
+		if err != nil {
+			s.renderHTMXError(w, "history query failed: "+err.Error())
+			return
+		}
 		data["History"] = history
 	}
 

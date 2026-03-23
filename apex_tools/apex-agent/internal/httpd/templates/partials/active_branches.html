@@ -2,9 +2,12 @@
 {{if .Branches}}
 {{range .Branches}}
 <div class="tl-item">
-  <div class="tl-title">{{.GitBranch}}</div>
+  <div class="tl-title" style="display:flex;align-items:center;gap:8px">
+    {{.GitBranch}}
+    <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400">{{.WorkspaceID}}</span>
+  </div>
   <div class="tl-meta">
-    <span class="badge badge-{{if eq .Status "implementing"}}green{{else if eq .Status "started"}}amber{{else}}purple{{end}}">{{.Status}}</span>
+    <span class="badge badge-{{if eq .Status "IMPLEMENTING"}}green{{else if eq .Status "STARTED"}}amber{{else if eq .Status "DESIGN_NOTIFIED"}}purple{{else}}blue{{end}}">{{.Status}}</span>
     {{if .Summary}} — {{.Summary}}{{end}}
   </div>
 </div>
