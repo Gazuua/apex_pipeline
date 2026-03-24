@@ -143,10 +143,10 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 	for {
 		select {
 		case <-ctx.Done():
-			// 취소/타임아웃 시 대기+활성 엔트리 모두 정리
+			// 취소/타임아웃 시 대기 엔트리만 정리 (ACTIVE는 이미 promote된 상태이므로 보존)
 			if _, err := m.store.Exec(
-				`DELETE FROM queue WHERE channel=? AND branch=? AND status IN (?, ?)`,
-				channel, branch, StatusWaiting, StatusActive,
+				`DELETE FROM queue WHERE channel=? AND branch=? AND status=?`,
+				channel, branch, StatusWaiting,
 			); err != nil {
 				ml.Warn("failed to cleanup queue entry on cancel", "channel", channel, "branch", branch, "err", err)
 			}
@@ -237,15 +237,21 @@ func (m *Manager) UpdatePID(channel, branch string, newPID int) error {
 }
 
 // Release marks the active entry for channel as done and records finish time.
+// Idempotent: returns nil if no active entry exists (already released or cleaned up).
 func (m *Manager) Release(channel string) error {
-	_, err := m.store.Exec(
+	res, err := m.store.Exec(
 		`UPDATE queue SET status=?, finished_at=datetime('now','localtime') WHERE channel=? AND status=?`,
 		StatusDone, channel, StatusActive,
 	)
 	if err != nil {
 		return fmt.Errorf("queue.Release: %w", err)
 	}
-	ml.Audit("lock released", "channel", channel)
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		ml.Warn("release: no active entry found (already released or stale-cleaned)", "channel", channel)
+	} else {
+		ml.Audit("lock released", "channel", channel)
+	}
 	return nil
 }
 
@@ -323,6 +329,57 @@ func (m *Manager) CleanupStale() (int, error) {
 		count++
 	}
 	return count, nil
+}
+
+// ── Dashboard queries ─────────────────────────────────────────────────────────
+
+// DashboardEntry is a view for dashboard queue display.
+type DashboardEntry struct {
+	Channel    string
+	Branch     string
+	Status     string
+	CreatedAt  string
+	FinishedAt string
+	DurationSec int // computed: finished_at - created_at in seconds
+}
+
+// DashboardQueueAll returns all queue entries for dashboard display.
+func (m *Manager) DashboardQueueAll() ([]DashboardEntry, error) {
+	rows, err := m.store.Query(`
+		SELECT channel, branch, status, created_at, COALESCE(finished_at,''),
+		       CASE WHEN finished_at IS NOT NULL
+		            THEN CAST((julianday(finished_at) - julianday(created_at)) * 86400 AS INTEGER)
+		            ELSE 0 END as duration_sec
+		FROM queue
+		ORDER BY channel, created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardQueueAll: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []DashboardEntry
+	for rows.Next() {
+		var q DashboardEntry
+		if err := rows.Scan(&q.Channel, &q.Branch, &q.Status, &q.CreatedAt, &q.FinishedAt, &q.DurationSec); err != nil {
+			return nil, fmt.Errorf("DashboardQueueAll scan: %w", err)
+		}
+		entries = append(entries, q)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardQueueAll rows: %w", err)
+	}
+	return entries, nil
+}
+
+// DashboardLockStatus returns whether a channel has an active lock.
+func (m *Manager) DashboardLockStatus(channel string) (bool, error) {
+	var count int
+	if err := m.store.QueryRow(
+		`SELECT COUNT(*) FROM queue WHERE channel=? AND status='ACTIVE'`, channel,
+	).Scan(&count); err != nil {
+		return false, fmt.Errorf("DashboardLockStatus %s: %w", channel, err)
+	}
+	return count > 0, nil
 }
 
 // insertEntry inserts a new queue entry with the given status (non-transactional).

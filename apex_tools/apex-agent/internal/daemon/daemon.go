@@ -29,14 +29,20 @@ type Config struct {
 	HTTP        config.HTTPConfig
 }
 
+// HTTPServerFactory creates an httpd.Server.
+// The factory captures module managers and the daemon's router via closure.
+// Set via SetHTTPServerFactory before calling Run.
+type HTTPServerFactory func(addr string) *httpd.Server
+
 type Daemon struct {
-	cfg        Config
-	store      *store.Store
-	router     *Router
-	server     *ipc.Server
-	httpServer atomic.Pointer[httpd.Server]
-	modules    []Module
-	shutdownCh chan struct{}
+	cfg              Config
+	store            *store.Store
+	router           *Router
+	server           *ipc.Server
+	httpServer       atomic.Pointer[httpd.Server]
+	httpFactory      HTTPServerFactory
+	modules          []Module
+	shutdownCh       chan struct{}
 }
 
 func New(cfg Config) (*Daemon, error) {
@@ -59,8 +65,17 @@ func (d *Daemon) Register(m Module) {
 	d.modules = append(d.modules, m)
 }
 
+// SetHTTPServerFactory sets the factory function for creating the HTTP server.
+// Must be called before Run. If not set, daemon uses a nil-manager fallback.
+func (d *Daemon) SetHTTPServerFactory(f HTTPServerFactory) {
+	d.httpFactory = f
+}
+
 // Store returns the daemon's underlying data store.
 func (d *Daemon) Store() *store.Store { return d.store }
+
+// Router returns the daemon's request router (implements httpd.Dispatcher).
+func (d *Daemon) Router() *Router { return d.router }
 
 // HTTPAddr returns the actual HTTP server address, or "" if not running.
 func (d *Daemon) HTTPAddr() string {
@@ -93,12 +108,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 			return map[string]string{"version": version.Version}, nil
 		})
 		reg.Handle("shutdown", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
-			ml.Audit("shutdown requested via IPC")
 			select {
 			case d.shutdownCh <- struct{}{}:
+				ml.Audit("shutdown requested via IPC")
+				return map[string]string{"status": "shutting_down"}, nil
 			default:
+				ml.Info("duplicate shutdown request ignored")
+				return map[string]string{"status": "already_shutting_down"}, nil
 			}
-			return map[string]string{"status": "shutting_down"}, nil
 		})
 	})
 
@@ -135,7 +152,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// 5b. Start HTTP server (optional).
 	if d.cfg.HTTP.Enabled && d.cfg.HTTP.Addr != "" {
-		hs := httpd.New(d.store, d.router, d.cfg.HTTP.Addr)
+		var hs *httpd.Server
+		if d.httpFactory != nil {
+			hs = d.httpFactory(d.cfg.HTTP.Addr)
+		} else {
+			// Fallback: health-only mode (no module managers)
+			hs = httpd.New(nil, nil, nil, d.router, d.cfg.HTTP.Addr)
+		}
 		if err := hs.Start(); err != nil {
 			ml.Warn("HTTP server failed to start, dashboard unavailable", "error", err)
 		} else {

@@ -240,8 +240,13 @@ func processLocalBranches(repoRoot string, execute bool, dirtyBranches, activeBr
 	}
 
 	for _, line := range strings.Split(out, "\n") {
-		// Strip leading *, +, and spaces.
-		branch := strings.TrimLeft(line, "*+ ")
+		trimmedLine := strings.TrimSpace(line)
+		// Skip current branch (marked with * prefix by git branch).
+		if strings.HasPrefix(trimmedLine, "* ") {
+			continue
+		}
+		// Strip leading +, and spaces.
+		branch := strings.TrimLeft(trimmedLine, "+ ")
 		branch = strings.TrimSpace(branch)
 		if branch == "" || protectedBranches[branch] {
 			continue
@@ -565,13 +570,8 @@ func runGit(dir string, args ...string) (string, error) {
 
 // runGitCtx runs a git command in dir with the given context and returns stdout.
 func runGitCtx(ctx context.Context, dir string, args ...string) (string, error) {
-	var cmd *exec.Cmd
-	if len(args) > 0 && args[0] == "-C" {
-		cmd = exec.CommandContext(ctx, "git", args...)
-	} else {
-		fullArgs := append([]string{"-C", dir}, args...)
-		cmd = exec.CommandContext(ctx, "git", fullArgs...)
-	}
+	fullArgs := append([]string{"-C", dir}, args...)
+	cmd := exec.CommandContext(ctx, "git", fullArgs...)
 	out, err := cmd.Output()
 	return string(out), err
 }

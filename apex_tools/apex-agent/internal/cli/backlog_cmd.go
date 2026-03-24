@@ -13,10 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 func backlogCmd() *cobra.Command {
@@ -337,25 +333,6 @@ func backlogResolveCmd() *cobra.Command {
 	return cmd
 }
 
-// openBacklogStore opens the DB directly (no daemon) and returns Store + Manager.
-// The cleanup function must be called to close the store.
-func openBacklogStore() (*store.Store, *backlog.Manager, func(), error) {
-	if err := platform.EnsureDataDir(); err != nil {
-		return nil, nil, nil, err
-	}
-	s, err := store.Open(platform.DBPath())
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("open store: %w", err)
-	}
-	mig := store.NewMigrator(s)
-	mod := backlog.New(s)
-	mod.RegisterSchema(mig)
-	if err := mig.Migrate(); err != nil {
-		s.Close()
-		return nil, nil, nil, fmt.Errorf("migrate: %w", err)
-	}
-	return s, mod.Manager(), func() { s.Close() }, nil
-}
 
 // ── backlog export ──
 
@@ -366,61 +343,51 @@ func backlogExportCmd() *cobra.Command {
 		Use:   "export",
 		Short: "DB → docs/BACKLOG.json 동기화",
 		Long: `DB 내용을 docs/BACKLOG.json에 직접 씁니다.
-레거시 BACKLOG.md/BACKLOG_HISTORY.md가 있으면 import 후 JSON으로 마이그레이션합니다.
 --stdout 플래그로 JSON을 stdout에 출력합니다 (디버깅용).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// IPC로 데몬에서 export JSON을 가져옴
+			resp, err := sendBacklogRequest("export", nil)
+			if err != nil {
+				return fmt.Errorf("daemon unavailable: %w", err)
+			}
+			if resp.Error != "" {
+				return fmt.Errorf("backlog export: %s", resp.Error)
+			}
+			var result struct {
+				Content string `json:"content"`
+			}
+			if err := json.Unmarshal(resp.Data, &result); err != nil {
+				return fmt.Errorf("parse response: %w", err)
+			}
+
 			if stdout {
-				_, mgr, cleanup, err := openBacklogStore()
-				if err != nil {
-					return err
-				}
-				defer cleanup()
-
-				root, err := projectRoot()
-				if err != nil {
-					return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
-				}
-				jsonPath := filepath.Join(root, "docs", "BACKLOG.json")
-				backlogMDPath := filepath.Join(root, "docs", "BACKLOG.md")
-				historyMDPath := filepath.Join(root, "docs", "BACKLOG_HISTORY.md")
-				jsonData, _ := os.ReadFile(jsonPath)
-				legacyBacklogMD := ""
-				legacyHistoryMD := ""
-				if data, readErr := os.ReadFile(backlogMDPath); readErr == nil {
-					legacyBacklogMD = string(data)
-				}
-				if data, readErr := os.ReadFile(historyMDPath); readErr == nil {
-					legacyHistoryMD = string(data)
-				}
-
-				out, imported, err := mgr.SafeExportJSON(jsonData, legacyBacklogMD, legacyHistoryMD)
-				if err != nil {
-					return err
-				}
-				if imported > 0 {
-					fmt.Fprintf(os.Stderr, "[export] import-first: %d items synced\n", imported)
-				}
-				fmt.Fprint(os.Stdout, string(out))
+				fmt.Fprint(os.Stdout, result.Content)
 				return nil
 			}
 
-			// 기본: 파일 직접 쓰기 (SyncExport → JSON)
-			_, mgr, cleanup, err := openBacklogStore()
-			if err != nil {
-				return err
-			}
-			defer cleanup()
-
+			// 기본: 파일 직접 쓰기
 			root, err := projectRoot()
 			if err != nil {
 				return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 			}
 
-			n, err := workflow.SyncExport(root, mgr)
-			if err != nil {
-				return err
+			jsonPath := filepath.Join(root, "docs", "BACKLOG.json")
+			if mkErr := os.MkdirAll(filepath.Join(root, "docs"), 0o755); mkErr != nil {
+				return mkErr
 			}
-			fmt.Printf("[export] docs/BACKLOG.json 갱신 완료 (import: %d)\n", n)
+			if writeErr := os.WriteFile(jsonPath, []byte(result.Content), 0o644); writeErr != nil {
+				return writeErr
+			}
+
+			// 레거시 MD 마이그레이션: 존재하면 삭제
+			for _, f := range []string{"BACKLOG.md", "BACKLOG_HISTORY.md"} {
+				mdPath := filepath.Join(root, "docs", f)
+				if _, statErr := os.Stat(mdPath); statErr == nil {
+					os.Remove(mdPath)
+				}
+			}
+
+			fmt.Println("[export] docs/BACKLOG.json 갱신 완료")
 			return nil
 		},
 	}

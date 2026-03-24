@@ -85,7 +85,8 @@ func (s *Server) renderPage(w http.ResponseWriter, page string, data any) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, "layout", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ml.Error("template render failed", "page", page, "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
 }
 
@@ -98,7 +99,8 @@ func (s *Server) renderPartial(w http.ResponseWriter, name string, data any) {
 	tmpl := s.pages["_partials"]
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		ml.Error("partial render failed", "name", name, "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 	}
 }
 

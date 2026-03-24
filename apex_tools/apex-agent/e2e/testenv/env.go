@@ -12,14 +12,18 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/httpd"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 type TestEnv struct {
@@ -68,10 +72,26 @@ func New(t *testing.T) *TestEnv {
 
 	// Register all production modules
 	backlogMod := backlog.New(d.Store())
+	handoffMod := handoff.New(d.Store(), backlogMod.Manager())
+	queueMod := queue.New(d.Store())
 	d.Register(hook.New())
 	d.Register(backlogMod)
-	d.Register(handoff.New(d.Store(), backlogMod.Manager()))
-	d.Register(queue.New(d.Store()))
+	d.Register(handoffMod)
+	d.Register(queueMod)
+
+	// Junction cleaner (same as daemon_cmd.go)
+	backlogMod.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
+		_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+		return err
+	})
+
+	// HTTP server factory with module manager adapters
+	bqa := &testBacklogQuerier{mgr: backlogMod.Manager()}
+	hqa := &testHandoffQuerier{mgr: handoffMod.Manager()}
+	qqa := &testQueueQuerier{mgr: queueMod.Manager()}
+	d.SetHTTPServerFactory(func(addr string) *httpd.Server {
+		return httpd.New(bqa, hqa, qqa, d.Router(), addr)
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -138,10 +158,17 @@ func (e *TestEnv) Restart(t *testing.T) {
 		t.Fatalf("daemon.New on restart: %v", err)
 	}
 	backlogMod2 := backlog.New(d.Store())
+	handoffMod2 := handoff.New(d.Store(), backlogMod2.Manager())
+	queueMod2 := queue.New(d.Store())
 	d.Register(hook.New())
 	d.Register(backlogMod2)
-	d.Register(handoff.New(d.Store(), backlogMod2.Manager()))
-	d.Register(queue.New(d.Store()))
+	d.Register(handoffMod2)
+	d.Register(queueMod2)
+
+	backlogMod2.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
+		_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+		return err
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -238,4 +265,116 @@ func run(t *testing.T, dir string, cmd string, args ...string) {
 	if out, err := c.CombinedOutput(); err != nil {
 		t.Fatalf("%s %v failed: %v\n%s", cmd, args, err, out)
 	}
+}
+
+// ── httpd interface adapters (mirrors cli/httpd_adapters.go) ─────────────────
+
+type testBacklogQuerier struct{ mgr *backlog.Manager }
+
+func (a *testBacklogQuerier) DashboardStatusCounts() (map[string]int, error) {
+	return a.mgr.DashboardStatusCounts()
+}
+func (a *testBacklogQuerier) DashboardSeverityCounts() (map[string]int, error) {
+	return a.mgr.DashboardSeverityCounts()
+}
+func (a *testBacklogQuerier) DashboardListItems(f httpd.BacklogFilter) ([]httpd.BacklogItem, error) {
+	mf := backlog.DashboardFilter{
+		Status: f.Status, Severity: f.Severity, Timeframe: f.Timeframe,
+		Scope: f.Scope, Type: f.Type, SortBy: f.SortBy, SortDir: f.SortDir,
+	}
+	items, err := a.mgr.DashboardList(mf)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.BacklogItem, len(items))
+	for i, item := range items {
+		result[i] = httpd.BacklogItem{
+			ID: item.ID, Title: item.Title, Severity: item.Severity,
+			Timeframe: item.Timeframe, Scope: item.Scope, Type: item.Type,
+			Status: item.Status, Description: item.Description, Related: item.Related,
+			Resolution: item.Resolution, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+		}
+	}
+	return result, nil
+}
+func (a *testBacklogQuerier) DashboardGetItemByID(id int) (*httpd.BacklogItem, error) {
+	item, err := a.mgr.DashboardGetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil {
+		return nil, nil
+	}
+	return &httpd.BacklogItem{
+		ID: item.ID, Title: item.Title, Severity: item.Severity,
+		Timeframe: item.Timeframe, Scope: item.Scope, Type: item.Type,
+		Status: item.Status, Description: item.Description, Related: item.Related,
+		Resolution: item.Resolution, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt,
+	}, nil
+}
+
+type testHandoffQuerier struct{ mgr *handoff.Manager }
+
+func (a *testHandoffQuerier) DashboardActiveBranchesList() ([]httpd.ActiveBranch, error) {
+	branches, err := a.mgr.DashboardActiveBranches()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.ActiveBranch, len(branches))
+	for i, b := range branches {
+		result[i] = httpd.ActiveBranch{
+			Branch: b.Branch, WorkspaceID: b.WorkspaceID, GitBranch: b.GitBranch,
+			Summary: b.Summary, Status: b.Status, BacklogIDs: b.BacklogIDs, CreatedAt: b.CreatedAt,
+		}
+	}
+	return result, nil
+}
+func (a *testHandoffQuerier) DashboardActiveCount() (int, error) {
+	return a.mgr.DashboardActiveCount()
+}
+func (a *testHandoffQuerier) DashboardBranchHistoryList(limit int) ([]httpd.BranchHistory, error) {
+	history, err := a.mgr.DashboardBranchHistoryList(limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.BranchHistory, len(history))
+	for i, h := range history {
+		result[i] = httpd.BranchHistory{
+			ID: h.ID, Branch: h.Branch, GitBranch: h.GitBranch, Summary: h.Summary,
+			Status: h.Status, BacklogIDs: h.BacklogIDs, StartedAt: h.StartedAt, FinishedAt: h.FinishedAt,
+		}
+	}
+	return result, nil
+}
+
+type testQueueQuerier struct{ mgr *queue.Manager }
+
+func (a *testQueueQuerier) DashboardQueueAll() ([]httpd.QueueEntry, error) {
+	entries, err := a.mgr.DashboardQueueAll()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.QueueEntry, len(entries))
+	for i, e := range entries {
+		result[i] = httpd.QueueEntry{
+			Channel: e.Channel, Branch: e.Branch, Status: e.Status,
+			CreatedAt: e.CreatedAt, FinishedAt: e.FinishedAt,
+		}
+		if e.DurationSec > 0 {
+			h := e.DurationSec / 3600
+			m := (e.DurationSec % 3600) / 60
+			s := e.DurationSec % 60
+			if h > 0 {
+				result[i].Duration = fmt.Sprintf("%dh %dm %ds", h, m, s)
+			} else if m > 0 {
+				result[i].Duration = fmt.Sprintf("%dm %ds", m, s)
+			} else {
+				result[i].Duration = fmt.Sprintf("%ds", s)
+			}
+		}
+	}
+	return result, nil
+}
+func (a *testQueueQuerier) DashboardLockStatus(channel string) (bool, error) {
+	return a.mgr.DashboardLockStatus(channel)
 }

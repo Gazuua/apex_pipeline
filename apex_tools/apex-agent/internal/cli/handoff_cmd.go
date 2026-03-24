@@ -6,12 +6,54 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
+
+// syncImportViaIPC reads BACKLOG.json and sends it to the daemon for import.
+// Non-fatal: errors are logged but don't fail the caller.
+func syncImportViaIPC(projectRoot string) {
+	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return // file not found — nothing to import
+	}
+	resp, err := sendBacklogRequest("sync-import", map[string]any{
+		"json_data": string(data),
+	})
+	if err != nil || resp.Error != "" {
+		// non-fatal: best-effort import
+		return
+	}
+}
+
+// syncExportViaIPC fetches export JSON from daemon and writes to docs/BACKLOG.json.
+// Returns error on failure (export is critical for merge workflow).
+func syncExportViaIPC(projectRoot string) error {
+	resp, err := sendBacklogRequest("export", nil)
+	if err != nil {
+		return fmt.Errorf("daemon unavailable: %w", err)
+	}
+	if resp.Error != "" {
+		return fmt.Errorf("backlog export: %s", resp.Error)
+	}
+	var result struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return fmt.Errorf("parse export response: %w", err)
+	}
+
+	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
+	if mkErr := os.MkdirAll(filepath.Join(projectRoot, "docs"), 0o755); mkErr != nil {
+		return mkErr
+	}
+	return os.WriteFile(jsonPath, []byte(result.Content), 0o644)
+}
 
 // getBranchID extracts the workspace branch identifier from the current directory.
 func getBranchID() string {
@@ -128,17 +170,13 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 		return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 	}
 
-	// backlog manager (best-effort — import은 non-fatal)
-	_, mgr, cleanup, mgrErr := openBacklogStore()
-	if mgrErr != nil {
-		mgr = nil
-	} else {
-		defer cleanup()
-	}
-
-	if err := workflow.StartPipeline(branchName, params, root, mgr, ipcWrapper); err != nil {
+	// mgr=nil: SyncImport는 IPC 경유로 별도 실행 (CLI 직접 DB 연결 제거)
+	if err := workflow.StartPipeline(branchName, params, root, nil, ipcWrapper); err != nil {
 		return err
 	}
+
+	// Phase 4 대체: IPC로 backlog sync-import (non-fatal)
+	syncImportViaIPC(root)
 
 	mode := "scopes=" + scopes
 	if len(backlogs) == 0 {
@@ -235,14 +273,16 @@ func handoffNotifyMergeCmd() *cobra.Command {
 				root = "."
 			}
 
-			_, mgr, cleanup, mgrErr := openBacklogStore()
-			if mgrErr != nil {
-				mgr = nil
-			} else {
-				defer cleanup()
+			// IPC 경유 sync-import (Phase 2 대체)
+			syncImportViaIPC(root)
+
+			// IPC 경유 sync-export (Phase 3 대체)
+			if exportErr := syncExportViaIPC(root); exportErr != nil {
+				return fmt.Errorf("머지 전 backlog export 실패: %w", exportErr)
 			}
 
-			if err := workflow.MergePipeline(params, root, mgr, ipcWrapper); err != nil {
+			// mgr=nil: SyncImport/SyncExport는 위에서 IPC로 처리 완료
+			if err := workflow.MergePipeline(params, root, nil, ipcWrapper); err != nil {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)

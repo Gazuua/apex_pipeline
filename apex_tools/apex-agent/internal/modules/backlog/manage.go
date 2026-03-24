@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -46,10 +47,15 @@ type ListFilter struct {
 	Status    string // optional: filter by status; empty string means all open
 }
 
+// JunctionCleaner removes the backlog-branch junction record.
+// Injected by handoff module to avoid cross-module table access.
+type JunctionCleaner func(q store.Querier, backlogID int) error
+
 // Manager handles CRUD operations on the backlog_items table.
 type Manager struct {
-	store *store.Store   // for RunInTx (top-level only)
-	q     store.Querier  // for all queries (Store or TxStore)
+	store           *store.Store   // for RunInTx (top-level only)
+	q               store.Querier  // for all queries (Store or TxStore)
+	junctionCleaner JunctionCleaner
 }
 
 // NewManager creates a new Manager backed by the given store.
@@ -57,10 +63,16 @@ func NewManager(s *store.Store) *Manager {
 	return &Manager{store: s, q: s}
 }
 
+// SetJunctionCleaner sets the callback for cleaning up backlog-branch junction records.
+// Called by daemon setup after handoff module creation.
+func (m *Manager) SetJunctionCleaner(fn JunctionCleaner) {
+	m.junctionCleaner = fn
+}
+
 // withQuerier creates a Manager copy that uses the given Querier for queries.
 // Used inside RunInTx to route queries through the transaction.
 func (m *Manager) withQuerier(q store.Querier) *Manager {
-	return &Manager{store: m.store, q: q}
+	return &Manager{store: m.store, q: q, junctionCleaner: m.junctionCleaner}
 }
 
 // NextID returns the next available backlog item ID (max(id)+1, or 1 if empty).
@@ -78,6 +90,10 @@ func (m *Manager) NextID() (int, error) {
 func (m *Manager) Add(item *BacklogItem) error {
 	if err := ValidateSeverity(item.Severity); err != nil {
 		return err
+	}
+	// Reject empty timeframe at Add level (allowed only via import for history items).
+	if item.Timeframe == "" {
+		return fmt.Errorf("timeframe is required (use NOW, IN_VIEW, or DEFERRED)")
 	}
 	if err := ValidateTimeframe(item.Timeframe); err != nil {
 		return err
@@ -399,11 +415,12 @@ func (m *Manager) Release(id int, reason, branch string) error {
 		return fmt.Errorf("Release: %w", err)
 	}
 
-	// Cross-table 접근: branch_backlogs는 handoff 모듈 소유 테이블이지만,
-	// release 시 해당 백로그의 브랜치 연결을 해제해야 함. 같은 SQLite DB 내
-	// 테이블이라 물리적 경계가 없고, 인터페이스 추가 비용 대비 ROI가 낮아 직접 접근 유지.
-	if _, delErr := m.q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, id); delErr != nil {
-		ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
+	// Junction 정리: handoff 모듈이 주입한 콜백으로 branch_backlogs 레코드 삭제.
+	// 콜백 미설정 시(테스트 등) noop.
+	if m.junctionCleaner != nil {
+		if delErr := m.junctionCleaner(m.q, id); delErr != nil {
+			ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
+		}
 	}
 
 	ml.Info("item released", "id", id, "reason", reason)
@@ -536,15 +553,22 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 		}
 	}
 
+	// Sort field names for deterministic SQL generation (aids debugging).
+	fieldNames := make([]string, 0, len(fields))
+	for field := range fields {
+		fieldNames = append(fieldNames, field)
+	}
+	sort.Strings(fieldNames)
+
 	var setClauses []string
 	var args []any
-	for field, value := range fields {
+	for _, field := range fieldNames {
 		col, ok := allowedUpdateFields[field]
 		if !ok {
 			return fmt.Errorf("unknown field: %s", field)
 		}
 		setClauses = append(setClauses, col+" = ?")
-		args = append(args, value)
+		args = append(args, fields[field])
 	}
 	setClauses = append(setClauses, "updated_at = datetime('now','localtime')")
 	args = append(args, id)
@@ -597,5 +621,167 @@ func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, e
 		return nil, fmt.Errorf("ListFixingForBranch rows: %w", err)
 	}
 	return fixing, nil
+}
+
+// ── Dashboard queries ─────────────────────────────────────────────────────────
+
+// DashboardStatusCounts returns the count of items per status (OPEN, FIXING, RESOLVED).
+func (m *Manager) DashboardStatusCounts() (map[string]int, error) {
+	rows, err := m.q.Query(`SELECT status, COUNT(*) FROM backlog_items GROUP BY status`)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardStatusCounts: %w", err)
+	}
+	defer rows.Close()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("DashboardStatusCounts scan: %w", err)
+		}
+		counts[status] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardStatusCounts rows: %w", err)
+	}
+	return counts, nil
+}
+
+// DashboardSeverityCounts returns severity counts for non-resolved items.
+func (m *Manager) DashboardSeverityCounts() (map[string]int, error) {
+	rows, err := m.q.Query(`SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardSeverityCounts: %w", err)
+	}
+	defer rows.Close()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var sev string
+		var count int
+		if err := rows.Scan(&sev, &count); err != nil {
+			return nil, fmt.Errorf("DashboardSeverityCounts scan: %w", err)
+		}
+		counts[sev] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardSeverityCounts rows: %w", err)
+	}
+	return counts, nil
+}
+
+// DashboardItem is a lightweight view for dashboard/API display.
+type DashboardItem struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Severity    string `json:"severity"`
+	Timeframe   string `json:"timeframe"`
+	Scope       string `json:"scope"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	Description string `json:"description"`
+	Related     string `json:"related"`
+	Resolution  string `json:"resolution"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+// DashboardFilter specifies optional multi-value filters for dashboard queries.
+type DashboardFilter struct {
+	Status    []string
+	Severity  []string
+	Timeframe []string
+	Scope     []string
+	Type      []string
+	SortBy    string
+	SortDir   string
+}
+
+// DashboardList returns backlog items matching the filter for dashboard display.
+// Filter/sort logic mirrors the httpd queries.go behavior.
+func (m *Manager) DashboardList(f DashboardFilter) ([]DashboardItem, error) {
+	var where []string
+	var args []any
+
+	addInFilter := func(col string, vals []string) {
+		if len(vals) == 0 {
+			return
+		}
+		placeholders := make([]string, len(vals))
+		for i, v := range vals {
+			placeholders[i] = "?"
+			args = append(args, v)
+		}
+		where = append(where, col+" IN ("+strings.Join(placeholders, ",")+")")
+	}
+	addInFilter("status", f.Status)
+	addInFilter("severity", f.Severity)
+	addInFilter("timeframe", f.Timeframe)
+	addInFilter("scope", f.Scope)
+	addInFilter("type", f.Type)
+
+	query := `SELECT id, title, severity, timeframe, scope, type, status, description,
+	          COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
+	          FROM backlog_items`
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	// Sort — default: FIXING first → timeframe urgency → severity → ID
+	// SAFETY: sortCol and sortDir are always from hardcoded allowlists below.
+	if f.SortBy != "" {
+		sortCol := "id"
+		allowed := map[string]bool{"id": true, "severity": true, "created_at": true, "updated_at": true, "status": true}
+		if allowed[f.SortBy] {
+			sortCol = f.SortBy
+		}
+		sortDir := "DESC"
+		if f.SortDir == "ASC" {
+			sortDir = "ASC"
+		}
+		query += " ORDER BY " + sortCol + " " + sortDir
+	} else {
+		query += ` ORDER BY
+			CASE status WHEN 'FIXING' THEN 0 WHEN 'OPEN' THEN 1 ELSE 2 END,
+			CASE timeframe WHEN 'NOW' THEN 0 WHEN 'IN_VIEW' THEN 1 WHEN 'DEFERRED' THEN 2 ELSE 3 END,
+			CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'MAJOR' THEN 1 WHEN 'MINOR' THEN 2 ELSE 3 END,
+			id DESC`
+	}
+
+	rows, err := m.q.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardList: %w", err)
+	}
+	defer rows.Close()
+
+	var items []DashboardItem
+	for rows.Next() {
+		var b DashboardItem
+		if err := rows.Scan(&b.ID, &b.Title, &b.Severity, &b.Timeframe, &b.Scope, &b.Type,
+			&b.Status, &b.Description, &b.Related, &b.Resolution, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("DashboardList scan: %w", err)
+		}
+		items = append(items, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardList rows: %w", err)
+	}
+	return items, nil
+}
+
+// DashboardGetByID returns a single backlog item for inline display.
+func (m *Manager) DashboardGetByID(id int) (*DashboardItem, error) {
+	row := m.q.QueryRow(`SELECT id, title, severity, timeframe, scope, type, status, description,
+		COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
+		FROM backlog_items WHERE id = ?`, id)
+	var b DashboardItem
+	err := row.Scan(&b.ID, &b.Title, &b.Severity, &b.Timeframe, &b.Scope, &b.Type,
+		&b.Status, &b.Description, &b.Related, &b.Resolution, &b.CreatedAt, &b.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("DashboardGetByID: %w", err)
+	}
+	return &b, nil
 }
 

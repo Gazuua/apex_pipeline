@@ -114,12 +114,10 @@ func TestIsSubPath(t *testing.T) {
 
 // ── activeBranches protection ──
 
-func TestProcessLocalBranches_SkipsActiveBranches(t *testing.T) {
-	// processLocalBranches에서 activeBranches에 포함된 브랜치를 스킵하는지 검증.
-	// 실제 git을 사용하는 대신 로직의 핵심만 검증:
-	// activeBranches 맵에 있는 브랜치는 result.Local에 들어가면 안 됨.
-
-	// 이 테스트는 git 명령 없이 activeBranches 보호 로직만 검증.
+func TestActiveBranches_MapLookup(t *testing.T) {
+	// activeBranches map이 lookup을 올바르게 수행하는지 확인하는 단위 테스트.
+	// processLocalBranches는 git 명령이 필요하므로 E2E에서 커버된다.
+	// 여기서는 보호 로직의 핵심인 map lookup만 검증.
 	active := map[string]bool{
 		"feature/my-work":    true,
 		"bugfix/urgent-fix":  true,
@@ -142,16 +140,28 @@ func TestProcessLocalBranches_SkipsActiveBranches(t *testing.T) {
 // e2e/git_test.go에서 더 상세하게 검증.
 // 여기서는 Run 함수의 시그니처와 nil activeBranches 허용만 검증.
 func TestRunSignature_NilActiveBranches(t *testing.T) {
-	// nil activeBranches는 빈 맵으로 처리되어야 함 (panic 없이)
-	// 실제 git repo가 아니므로 Run은 에러를 반환하겠지만, panic은 안 돼야 함.
+	// nil activeBranches는 빈 맵으로 처리되어야 함 (panic 없이).
+	// git repo가 아닌 디렉토리에서도 Run은 graceful하게 처리되어야 한다.
 	tmp := t.TempDir()
-	_, err := Run(tmp, false, nil)
-	// git repo가 아니므로 에러는 예상되지만 panic은 안 돼야 함
-	_ = err
+	result, err := Run(tmp, false, nil)
+	if err != nil {
+		t.Errorf("Run should handle non-git directory gracefully, got error: %v", err)
+	}
+	// 결과가 반환되면 삭제 대상이 비어 있어야 함 (정리할 브랜치가 없으므로)
+	if result != nil && (len(result.Local) > 0 || len(result.Remote) > 0) {
+		t.Errorf("expected empty result in non-git directory, got local=%d remote=%d",
+			len(result.Local), len(result.Remote))
+	}
 }
 
 func TestRunSignature_EmptyActiveBranches(t *testing.T) {
 	tmp := t.TempDir()
-	_, err := Run(tmp, false, map[string]bool{})
-	_ = err
+	result, err := Run(tmp, false, map[string]bool{})
+	if err != nil {
+		t.Errorf("Run should handle non-git directory gracefully, got error: %v", err)
+	}
+	if result != nil && (len(result.Local) > 0 || len(result.Remote) > 0) {
+		t.Errorf("expected empty result in non-git directory, got local=%d remote=%d",
+			len(result.Local), len(result.Remote))
+	}
 }

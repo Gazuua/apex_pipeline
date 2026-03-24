@@ -40,11 +40,17 @@ func TestDaemon_StartStop(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
 
-	time.Sleep(100 * time.Millisecond)
-
-	// PID file should exist.
-	if _, err := os.Stat(cfg.PIDFilePath); os.IsNotExist(err) {
-		t.Error("PID file not created")
+	// Poll for PID file existence instead of fixed sleep.
+	pidReady := false
+	for i := 0; i < 100; i++ {
+		if _, err := os.Stat(cfg.PIDFilePath); err == nil {
+			pidReady = true
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !pidReady {
+		t.Fatal("PID file not created within timeout")
 	}
 
 	cancel()

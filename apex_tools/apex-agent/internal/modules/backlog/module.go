@@ -179,6 +179,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("release", m.handleRelease)
 	reg.Handle("update", m.handleUpdate)
 	reg.Handle("fix", m.handleFix)
+	reg.Handle("sync-import", m.handleSyncImport)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -320,4 +321,25 @@ func (m *Module) handleFix(_ context.Context, params json.RawMessage, _ string) 
 		return nil, err
 	}
 	return map[string]string{"status": "fixing"}, nil
+}
+
+func (m *Module) handleSyncImport(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		JSONData string `json:"json_data"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("backlog.sync-import: decode params: %w", err)
+	}
+	if p.JSONData == "" {
+		return map[string]any{"imported": 0}, nil
+	}
+	items, err := ParseBacklogJSON([]byte(p.JSONData))
+	if err != nil {
+		return nil, fmt.Errorf("backlog.sync-import: parse: %w", err)
+	}
+	n, err := m.manager.ImportItems(items)
+	if err != nil {
+		return nil, fmt.Errorf("backlog.sync-import: import: %w", err)
+	}
+	return map[string]any{"imported": n}, nil
 }

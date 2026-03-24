@@ -52,10 +52,14 @@ func TestServer_HandleRequest(t *testing.T) {
 	defer conn.Close()
 
 	req := &Request{Module: "echo", Action: "ping", Workspace: "test"}
-	WriteMessage(conn, req)
+	if err := WriteMessage(conn, req); err != nil {
+		t.Fatalf("WriteMessage: %v", err)
+	}
 
 	var resp Response
-	ReadMessage(conn, &resp)
+	if err := ReadMessage(conn, &resp); err != nil {
+		t.Fatalf("ReadMessage: %v", err)
+	}
 
 	if !resp.OK {
 		t.Fatalf("response not OK: %s", resp.Error)

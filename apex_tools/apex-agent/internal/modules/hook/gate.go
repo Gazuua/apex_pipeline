@@ -152,40 +152,80 @@ func isBlockedGitBranch(command string) bool {
 	return isGitBranchCreate(command)
 }
 
-// isGitBranchCreate detects `git branch <name>` (creation, not query).
-// Allowed: git branch, git branch -a, git branch -D, git branch -d, git branch -v, git branch --list
-// Blocked: git branch feature/foo (non-flag argument = branch creation)
+// branchMutationFlags are git branch flags that create or rename branches.
+var branchMutationFlags = map[string]bool{
+	"-m": true, "-M": true, // rename
+	"-c": true, "-C": true, // copy
+	"--move": true, "--copy": true,
+}
+
+// branchSafeFlags are git branch flags that indicate query or delete operations.
+// When these are present, non-flag arguments are operands (not new branch names).
+var branchSafeFlags = map[string]bool{
+	"-d": true, "-D": true, "--delete": true, // delete
+	"-a": true, "--all": true, // list all
+	"-v": true, "-vv": true, "--verbose": true, // verbose
+	"-l": true, "--list": true, // list
+	"-r": true, "--remotes": true, // remote list
+	"--merged": true, "--no-merged": true, // filter
+	"--contains": true, "--no-contains": true, // filter
+	"--sort": true, "--format": true, // sort/format
+}
+
+// isGitBranchCreate detects `git branch <name>` (creation, not query/delete).
+// Also blocks rename (-m/-M) and copy (-c/-C) which create new branch refs.
+// Allowed: git branch, git branch -a, git branch -D foo, git branch -d foo, git branch -v, git branch --list
+// Blocked: git branch feature/foo, git branch -m old new, git branch -c src dst
 func isGitBranchCreate(command string) bool {
 	fields := strings.Fields(command)
 	for i := 0; i < len(fields)-1; i++ {
 		if fields[i] != "git" || fields[i+1] != "branch" {
 			continue
 		}
-		// Found "git branch" — check remaining args
-		for _, arg := range fields[i+2:] {
+		// Found "git branch" — scan all remaining args
+		remaining := fields[i+2:]
+		hasNonFlag := false
+		hasMutationFlag := false
+		hasSafeFlag := false
+		for _, arg := range remaining {
 			if strings.HasPrefix(arg, "-") {
-				return false // flag present → query or delete command
+				if branchMutationFlags[arg] {
+					hasMutationFlag = true
+				}
+				if branchSafeFlags[arg] {
+					hasSafeFlag = true
+				}
+			} else {
+				hasNonFlag = true
 			}
-			return true // non-flag argument → branch creation
 		}
-		return false // "git branch" with no args → list
+		// Mutation flags (rename/copy) always create a new ref
+		if hasMutationFlag {
+			return true
+		}
+		// Safe flags (delete/query) with non-flag args → not creation
+		if hasSafeFlag {
+			return false
+		}
+		// Non-flag argument with no flags → branch creation
+		return hasNonFlag
 	}
 	return false
 }
 
-// hasGoToolCommand checks if the command contains a Go toolchain invocation.
-// Uses both strings.Contains (for chained commands) and first-token matching.
+// allowedGoSubCommands are Go toolchain sub-commands that are safe to run.
+// Excludes `go generate` (can execute arbitrary commands) and `go clean`/`go env -w`.
+var allowedGoSubCommands = []string{
+	"go build", "go test", "go run", "go install",
+	"go vet", "go fmt", "go mod", "go get", "go work",
+}
+
+// hasGoToolCommand checks if the command contains a safe Go toolchain invocation.
 func hasGoToolCommand(command string) bool {
-	goSubCommands := []string{"go build", "go test", "go run", "go install"}
-	for _, sub := range goSubCommands {
+	for _, sub := range allowedGoSubCommands {
 		if strings.Contains(command, sub) {
 			return true
 		}
-	}
-	// first-token check: 명령의 첫 토큰이 "go"이면 허용
-	firstToken := strings.Fields(strings.TrimSpace(command))
-	if len(firstToken) > 0 && firstToken[0] == "go" {
-		return true
 	}
 	return false
 }

@@ -7,15 +7,15 @@ import "net/http"
 func (s *Server) handleHandoff(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{"Page": "handoff"}
 
-	if s.store != nil {
-		branches, err := queryActiveBranches(s.store)
+	if s.handoffMgr != nil {
+		branches, err := queryActiveBranches(s.handoffMgr)
 		if err != nil {
 			s.renderHTMXError(w, "handoff query: "+err.Error())
 			return
 		}
 		data["Branches"] = branches
 
-		history, err := queryBranchHistory(s.store, 20)
+		history, err := queryBranchHistory(s.handoffMgr, 20)
 		if err != nil {
 			s.renderHTMXError(w, "history query failed: "+err.Error())
 			return
@@ -27,16 +27,16 @@ func (s *Server) handleHandoff(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAPIHandoff(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
+	if s.handoffMgr == nil {
 		s.renderError(w, http.StatusServiceUnavailable, "store not available")
 		return
 	}
-	branches, err := queryActiveBranches(s.store)
+	branches, err := queryActiveBranches(s.handoffMgr)
 	if err != nil {
 		s.renderError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	history, err := queryBranchHistory(s.store, 20)
+	history, err := queryBranchHistory(s.handoffMgr, 20)
 	if err != nil {
 		ml.Warn("API handoff: history query failed", "err", err)
 		history = []BranchHistory{}

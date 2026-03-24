@@ -51,7 +51,7 @@ func (c *Client) send(ctx context.Context, module, action string, params any, wo
 	if deadline, ok := ctx.Deadline(); ok {
 		conn.SetDeadline(deadline)
 	} else {
-		conn.SetDeadline(time.Now().Add(10 * time.Second))
+		conn.SetDeadline(time.Now().Add(30 * time.Second))
 	}
 
 	req := &Request{
@@ -74,8 +74,8 @@ func (c *Client) send(ctx context.Context, module, action string, params any, wo
 }
 
 // checkVersion queries the daemon version and triggers a graceful shutdown if
-// there is a mismatch. After shutdown the daemon will be auto-started with the
-// new binary on the next Send call.
+// there is a mismatch. The caller (run-hook wrapper or CLI daemon_helpers)
+// is responsible for auto-starting the daemon on subsequent dial failures.
 func (c *Client) checkVersion() {
 	if version.Version == "dev" {
 		return

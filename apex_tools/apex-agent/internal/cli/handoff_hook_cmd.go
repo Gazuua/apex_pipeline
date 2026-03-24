@@ -46,7 +46,12 @@ func hookValidateHandoffCmd() *cobra.Command {
 			// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
 			branch, _ := resolveHandoffBranch(cwd, gitBranch)
 			if branch == "" {
-				return nil // 미등록 시 Bash는 통과 (Edit/Write만 차단)
+				// 미등록 브랜치: git commit은 차단, 그 외는 통과
+				if isGitCommit(command) {
+					fmt.Fprintln(os.Stderr, "차단: 핸드오프 미등록 브랜치에서 커밋 불가. 'apex-agent handoff notify start'로 등록하세요.")
+					os.Exit(2)
+				}
+				return nil
 			}
 
 			// 1) commit 게이트

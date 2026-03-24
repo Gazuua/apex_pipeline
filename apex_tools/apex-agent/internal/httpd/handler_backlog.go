@@ -11,8 +11,8 @@ import (
 func (s *Server) handleBacklog(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{"Page": "backlog"}
 
-	if s.store != nil {
-		items, err := queryBacklogList(s.store, parseBacklogFilter(r))
+	if s.backlogMgr != nil {
+		items, err := queryBacklogList(s.backlogMgr, parseBacklogFilter(r))
 		if err != nil {
 			s.renderHTMXError(w, "backlog query: "+err.Error())
 			return
@@ -25,8 +25,8 @@ func (s *Server) handleBacklog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePartialBacklogTable(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		items, err := queryBacklogList(s.store, parseBacklogFilter(r))
+	if s.backlogMgr != nil {
+		items, err := queryBacklogList(s.backlogMgr, parseBacklogFilter(r))
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return
@@ -37,11 +37,11 @@ func (s *Server) handlePartialBacklogTable(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *Server) handleAPIBacklog(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
+	if s.backlogMgr == nil {
 		s.renderError(w, http.StatusServiceUnavailable, "store not available")
 		return
 	}
-	items, err := queryBacklogList(s.store, parseBacklogFilter(r))
+	items, err := queryBacklogList(s.backlogMgr, parseBacklogFilter(r))
 	if err != nil {
 		s.renderError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -51,18 +51,19 @@ func (s *Server) handleAPIBacklog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePartialBacklogInline(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	if s.store == nil || idStr == "" {
+	if s.backlogMgr == nil || idStr == "" {
 		s.renderHTMXError(w, "not available")
 		return
 	}
 
-	var b BacklogItem
-	err := s.store.QueryRow(`SELECT id, title, severity, timeframe, scope, type, status, description,
-		COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
-		FROM backlog_items WHERE id = ?`, idStr).Scan(
-		&b.ID, &b.Title, &b.Severity, &b.Timeframe, &b.Scope, &b.Type,
-		&b.Status, &b.Description, &b.Related, &b.Resolution, &b.CreatedAt, &b.UpdatedAt)
-	if err != nil {
+	var id int
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		s.renderHTMXError(w, "invalid id")
+		return
+	}
+
+	item, err := s.backlogMgr.DashboardGetItemByID(id)
+	if err != nil || item == nil {
 		s.renderHTMXError(w, "backlog not found")
 		return
 	}
@@ -73,11 +74,11 @@ func (s *Server) handlePartialBacklogInline(w http.ResponseWriter, r *http.Reque
 		<div><span class="badge %s">%s</span> <span class="badge %s">%s</span> %s</div>
 		<div style="margin-top:6px;white-space:pre-wrap">%s</div>
 	</div>`,
-		b.ID, template.HTMLEscapeString(b.Title),
-		severityBadge(b.Severity), template.HTMLEscapeString(b.Severity),
-		statusBadge(b.Status), template.HTMLEscapeString(b.Status),
-		template.HTMLEscapeString(b.Scope),
-		template.HTMLEscapeString(b.Description))
+		item.ID, template.HTMLEscapeString(item.Title),
+		severityBadge(item.Severity), template.HTMLEscapeString(item.Severity),
+		statusBadge(item.Status), template.HTMLEscapeString(item.Status),
+		template.HTMLEscapeString(item.Scope),
+		template.HTMLEscapeString(item.Description))
 }
 
 func severityBadge(s string) string {
