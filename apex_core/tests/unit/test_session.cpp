@@ -341,3 +341,110 @@ TEST_F(SessionTest, EnqueueWriteFIFOOrder)
 
     client.close();
 }
+
+// --- Concurrency Tests ---
+
+class SessionConcurrencyTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        io_ctx_.restart();
+    }
+
+    boost::asio::io_context io_ctx_;
+};
+
+TEST_F(SessionConcurrencyTest, ConcurrentAsyncSendAllDelivered)
+{
+    auto [server, client] = make_socket_pair(io_ctx_);
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0));
+
+    // Two distinct payloads
+    std::vector<uint8_t> payload_a = {0xAA, 0xBB, 0xCC, 0xDD};
+    std::vector<uint8_t> payload_b = {0x11, 0x22, 0x33, 0x44};
+
+    WireHeader header_a{.msg_id = 0x0001, .body_size = static_cast<uint32_t>(payload_a.size()), .reserved = {}};
+    WireHeader header_b{.msg_id = 0x0002, .body_size = static_cast<uint32_t>(payload_b.size()), .reserved = {}};
+
+    // Track results from each coroutine
+    Result<void> result_a = error(ErrorCode::SendFailed);
+    Result<void> result_b = error(ErrorCode::SendFailed);
+
+    // Spawn two concurrent async_send coroutines
+    boost::asio::co_spawn(
+        io_ctx_, [&]() -> awaitable<void> { result_a = co_await session->async_send(header_a, payload_a); },
+        boost::asio::detached);
+
+    boost::asio::co_spawn(
+        io_ctx_, [&]() -> awaitable<void> { result_b = co_await session->async_send(header_b, payload_b); },
+        boost::asio::detached);
+
+    // Run io_context to completion — both coroutines + write_pump execute
+    io_ctx_.run();
+    io_ctx_.restart();
+
+    // Both sends must succeed
+    ASSERT_TRUE(result_a.has_value()) << "async_send A failed";
+    ASSERT_TRUE(result_b.has_value()) << "async_send B failed";
+
+    // Read both frames from the client side
+    constexpr size_t kFrameSize = WireHeader::SIZE + 4; // header + 4 bytes payload
+    std::vector<uint8_t> received(kFrameSize * 2);
+    boost::asio::read(client, boost::asio::buffer(received));
+
+    // Parse both frames — order depends on scheduling, so check both are present
+    auto frame1 = WireHeader::parse(std::span<const uint8_t>(received.data(), kFrameSize));
+    auto frame2 = WireHeader::parse(std::span<const uint8_t>(received.data() + kFrameSize, kFrameSize));
+    ASSERT_TRUE(frame1.has_value());
+    ASSERT_TRUE(frame2.has_value());
+
+    // Extract payloads from received data
+    std::vector<uint8_t> body1(received.begin() + WireHeader::SIZE, received.begin() + kFrameSize);
+    std::vector<uint8_t> body2(received.begin() + kFrameSize + WireHeader::SIZE, received.end());
+
+    // Both frames must be present (order may vary)
+    bool order_ab = (frame1->msg_id == 0x0001 && frame2->msg_id == 0x0002);
+    bool order_ba = (frame1->msg_id == 0x0002 && frame2->msg_id == 0x0001);
+    ASSERT_TRUE(order_ab || order_ba) << "Expected both msg_ids (0x0001, 0x0002), got " << frame1->msg_id << " and "
+                                      << frame2->msg_id;
+
+    if (order_ab)
+    {
+        EXPECT_EQ(body1, payload_a);
+        EXPECT_EQ(body2, payload_b);
+    }
+    else
+    {
+        EXPECT_EQ(body1, payload_b);
+        EXPECT_EQ(body2, payload_a);
+    }
+
+    client.close();
+}
+
+TEST_F(SessionConcurrencyTest, EnqueueWriteMaxDepthReturnsBufferFull)
+{
+    auto [server, client] = make_socket_pair(io_ctx_);
+
+    // Small max_queue_depth for fast testing
+    constexpr size_t kMaxDepth = 4;
+    SessionPtr session(new Session(make_session_id(1), std::move(server), 0, 8192, kMaxDepth));
+
+    // Don't run io_context so write_pump doesn't drain the queue
+    for (size_t i = 0; i < kMaxDepth; ++i)
+    {
+        auto result = session->enqueue_write({static_cast<uint8_t>(i)});
+        ASSERT_TRUE(result.has_value()) << "enqueue failed at i=" << i;
+    }
+
+    // (max_queue_depth + 1)th enqueue should fail with BufferFull
+    auto overflow = session->enqueue_write({0xFF});
+    ASSERT_FALSE(overflow.has_value());
+    EXPECT_EQ(overflow.error(), ErrorCode::BufferFull);
+
+    // Clean up: drain the queue so session destruction is clean
+    io_ctx_.run();
+    io_ctx_.restart();
+    client.close();
+}
