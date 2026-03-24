@@ -5,6 +5,10 @@ services:
   gateway:
     build:
       target: valgrind
+      args:
+        CMAKE_TARGET: apex_gateway
+        SERVICE_DIR: gateway
+        CONFIG_FILE: gateway_e2e.toml
     environment:
       - APEX_REQUEST_TIMEOUT_MS=60000
     healthcheck:
@@ -16,10 +20,18 @@ services:
   auth-svc:
     build:
       target: valgrind
+      args:
+        CMAKE_TARGET: auth_svc_main
+        SERVICE_DIR: auth-svc
+        CONFIG_FILE: auth_svc_e2e.toml
 
   chat-svc:
     build:
       target: valgrind
+      args:
+        CMAKE_TARGET: chat_svc_main
+        SERVICE_DIR: chat-svc
+        CONFIG_FILE: chat_svc_e2e.toml
 
   kafka:
     healthcheck:
