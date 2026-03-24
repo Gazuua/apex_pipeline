@@ -149,3 +149,19 @@ func queryQueueStatus(qm QueueQuerier) ([]QueueEntry, error) {
 	}
 	return qm.DashboardQueueAll()
 }
+
+// QueueHistoryEntry is an event log entry for queue state transitions.
+type QueueHistoryEntry struct {
+	ID        int
+	Channel   string
+	Branch    string
+	Status    string
+	Timestamp string
+}
+
+func queryQueueHistory(qm QueueQuerier, channel string, offset, limit int, from, to string) ([]QueueHistoryEntry, error) {
+	if qm == nil {
+		return nil, nil
+	}
+	return qm.DashboardQueueHistory(channel, offset, limit, from, to)
+}

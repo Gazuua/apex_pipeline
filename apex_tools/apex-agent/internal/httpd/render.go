@@ -30,8 +30,21 @@ var pageFiles = map[string]string{
 // layout.html, all partials, and one page template — avoiding the
 // "content" block name collision when all pages are parsed together.
 func loadAllPages() (map[string]*template.Template, error) {
+	funcMap := template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"historyUrl": func(channel string, offset, limit int, from, to string) string {
+			url := fmt.Sprintf("/partials/queue-history?channel=%s&offset=%d&limit=%d", channel, offset, limit)
+			if from != "" {
+				url += "&from=" + from
+			}
+			if to != "" {
+				url += "&to=" + to
+			}
+			return url
+		},
+	}
 	// Parse partials first as a shared base.
-	partials, err := template.New("").ParseFS(templateFS, "templates/partials/*.html")
+	partials, err := template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/partials/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse partials: %w", err)
 	}

@@ -173,3 +173,21 @@ func (a *queueQuerierAdapter) DashboardQueueAll() ([]httpd.QueueEntry, error) {
 func (a *queueQuerierAdapter) DashboardLockStatus(channel string) (bool, error) {
 	return a.mgr.DashboardLockStatus(channel)
 }
+
+func (a *queueQuerierAdapter) DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]httpd.QueueHistoryEntry, error) {
+	entries, err := a.mgr.DashboardHistory(channel, offset, limit, from, to)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.QueueHistoryEntry, len(entries))
+	for i, e := range entries {
+		result[i] = httpd.QueueHistoryEntry{
+			ID:        e.ID,
+			Channel:   e.Channel,
+			Branch:    e.Branch,
+			Status:    e.Status,
+			Timestamp: e.Timestamp,
+		}
+	}
+	return result, nil
+}
