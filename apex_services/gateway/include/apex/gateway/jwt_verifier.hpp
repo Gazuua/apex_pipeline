@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/gateway/gateway_config.hpp>
 
 #include <jwt-cpp/jwt.h>
@@ -49,6 +50,7 @@ class JwtVerifier
     JwtConfig config_;
     std::string public_key_; // PEM public key (loaded from file)
     decltype(jwt::verify()) verifier_;
+    mutable apex::core::ScopedLogger logger_{"JwtVerifier", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

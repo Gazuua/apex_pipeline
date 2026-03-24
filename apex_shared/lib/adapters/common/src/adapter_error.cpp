@@ -3,10 +3,21 @@
 // apex_shared/lib/adapters/common/src/adapter_error.cpp
 #include <apex/shared/adapters/adapter_error.hpp>
 
+#include <apex/core/scoped_logger.hpp>
+
 #include <sstream>
 
 namespace apex::shared::adapters
 {
+
+namespace
+{
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"AdapterError", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
+} // anonymous namespace
 
 std::string AdapterError::to_string() const
 {
@@ -20,7 +31,9 @@ std::string AdapterError::to_string() const
     {
         oss << ": " << message;
     }
-    return oss.str();
+    auto result = oss.str();
+    s_logger().trace("to_string: {}", result);
+    return result;
 }
 
 } // namespace apex::shared::adapters

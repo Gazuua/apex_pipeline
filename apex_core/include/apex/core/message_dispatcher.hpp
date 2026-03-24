@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 
 #include <boost/asio/awaitable.hpp>
@@ -55,6 +56,7 @@ class MessageDispatcher
     }
 
   private:
+    ScopedLogger logger_{"MessageDispatcher", ScopedLogger::NO_CORE};
     boost::unordered_flat_map<uint32_t, Handler> handlers_;
     Handler default_handler_; // fallback for unmatched msg_ids
 };

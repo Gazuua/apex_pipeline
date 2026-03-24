@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_id.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 
@@ -59,6 +60,7 @@ class SessionStore
     std::string prefix_;
     std::string blacklist_prefix_;
     std::chrono::seconds ttl_;
+    apex::core::ScopedLogger logger_{"SessionStore", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::auth_svc

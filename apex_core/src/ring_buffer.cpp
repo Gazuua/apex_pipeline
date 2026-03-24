@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/ring_buffer.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <cassert>
 #include <cstdlib>
 #include <new>
@@ -14,6 +15,15 @@
 
 namespace apex::core
 {
+
+namespace
+{
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"RingBuffer", ScopedLogger::NO_CORE};
+    return instance;
+}
+} // anonymous namespace
 
 RingBuffer::RingBuffer(size_t capacity)
     : capacity_(detail::next_power_of_2(capacity < 1 ? 1 : capacity))
@@ -123,7 +133,10 @@ bool RingBuffer::write(std::span<const uint8_t> data) noexcept
     if (data.empty())
         return true;
     if (data.size() > writable_size())
+    {
+        s_logger().warn("write overflow requested={} writable={}", data.size(), writable_size());
         return false;
+    }
     auto w = writable();
     if (w.size() >= data.size())
     {

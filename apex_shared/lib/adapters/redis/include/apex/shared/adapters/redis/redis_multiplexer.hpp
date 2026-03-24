@@ -4,6 +4,7 @@
 
 #include <apex/core/assert.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/slab_allocator.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/redis/redis_connection.hpp>
@@ -152,6 +153,7 @@ class RedisMultiplexer
     /// Exponential backoff reconnect loop
     boost::asio::awaitable<void> reconnect_loop();
 
+    apex::core::ScopedLogger logger_{"RedisMultiplexer", apex::core::ScopedLogger::NO_CORE, "app"};
     std::deque<PendingCommand*> pending_;
     boost::asio::io_context& io_ctx_;
     RedisConfig config_;

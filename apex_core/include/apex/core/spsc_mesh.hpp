@@ -7,6 +7,7 @@
 
 #include <apex/core/core_message.hpp>
 #include <apex/core/cross_core_op.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/spsc_queue.hpp>
 
 #include <boost/asio/io_context.hpp>
@@ -64,6 +65,7 @@ class SpscMesh
     }
 
   private:
+    ScopedLogger logger_{"SpscMesh", ScopedLogger::NO_CORE};
     uint32_t num_cores_;
     std::vector<std::unique_ptr<SpscQueue<CoreMessage>>> queues_; // [src * N + dst]
     std::vector<uint32_t> drain_rotate_;                          // per-destination rotating start index

@@ -9,8 +9,6 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
-#include <spdlog/spdlog.h>
-
 #if !defined(_WIN32)
 #include <sys/socket.h> // SOL_SOCKET, SO_REUSEPORT
 #endif
@@ -30,7 +28,7 @@ TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptC
     auto addr = boost::asio::ip::make_address(bind_address, ec);
     if (ec)
     {
-        spdlog::critical("TcpAcceptor: invalid bind_address '{}' — {}", bind_address, ec.message());
+        logger_.critical("invalid bind_address '{}' — {}", bind_address, ec.message());
         throw boost::system::system_error(ec, "invalid bind_address");
     }
     auto protocol = addr.is_v4() ? boost::asio::ip::tcp::v4() : boost::asio::ip::tcp::v6();
@@ -48,7 +46,7 @@ TcpAcceptor::TcpAcceptor(boost::asio::io_context& io_ctx, uint16_t port, AcceptC
 
     acceptor_.bind(boost::asio::ip::tcp::endpoint(addr, port));
     acceptor_.listen();
-    spdlog::info("TcpAcceptor bound to {}:{}", bind_address, this->port());
+    logger_.info("bound to {}:{}", bind_address, this->port());
 }
 
 TcpAcceptor::~TcpAcceptor()

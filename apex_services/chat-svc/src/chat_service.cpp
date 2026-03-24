@@ -18,7 +18,6 @@
 #include <chat_room_generated.h>
 
 #include <flatbuffers/flatbuffers.h>
-#include <spdlog/spdlog.h>
 
 #include <array>
 #include <charconv>
@@ -34,6 +33,12 @@ namespace envelope = apex::shared::protocols::kafka;
 namespace
 {
 
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"ChatService", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
+
 /// Safe uint64 parsing from string_view. Returns Result<uint64_t> on failure (logs warning).
 apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_view context = "") noexcept
 {
@@ -41,7 +46,7 @@ apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_vie
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (ec != std::errc{})
     {
-        spdlog::warn("[ChatService] Failed to parse uint64 '{}' (context: {})", sv, context);
+        s_logger().warn("Failed to parse uint64 '{}' (context: {})", sv, context);
         return std::unexpected(apex::core::ErrorCode::InvalidMessage);
     }
     return value;
@@ -66,12 +71,12 @@ void ChatService::on_configure(apex::core::ConfigureContext& ctx)
     redis_pubsub_ = &ctx.server.adapter<apex::shared::adapters::redis::RedisAdapter>("pubsub");
     pg_ = &ctx.server.adapter<apex::shared::adapters::pg::PgAdapter>();
 
-    spdlog::info("[ChatService] on_configure: adapters acquired (core {})", ctx.core_id);
+    logger_.info("on_configure: adapters acquired (core {})", ctx.core_id);
 }
 
 void ChatService::on_start()
 {
-    spdlog::info("[ChatService] on_start: registering kafka_routes...");
+    logger_.info("on_start: registering kafka_routes...");
 
     // 7개 kafka_route 등록 (+ 1개 global_broadcast = 8)
     kafka_route<fbs::CreateRoomRequest>(msg_ids::CREATE_ROOM_REQUEST, &ChatService::on_create_room);
@@ -90,21 +95,21 @@ void ChatService::on_start()
             auto result = co_await pg_->query("SELECT 1");
             if (result.has_value())
             {
-                spdlog::info("[ChatService] PG connection warm-up OK");
+                logger_.info("PG connection warm-up OK");
             }
             else
             {
-                spdlog::warn("[ChatService] PG warm-up failed (will retry on first query)");
+                logger_.warn("PG warm-up failed (will retry on first query)");
             }
         });
     }
 
-    spdlog::info("[ChatService] Started. 8 kafka_routes registered. Consuming from: {}", config_.request_topic);
+    logger_.info("Started. 8 kafka_routes registered. Consuming from: {}", config_.request_topic);
 }
 
 void ChatService::on_stop()
 {
-    spdlog::info("[ChatService] on_stop — cleaning up");
+    logger_.info("on_stop — cleaning up");
     kafka_ = nullptr;
     redis_data_ = nullptr;
     redis_pubsub_ = nullptr;
@@ -145,12 +150,12 @@ void ChatService::send_response_with_flags(uint32_t msg_id, uint16_t flags, uint
 
     // Use session_id as Kafka key (design doc section 7.1)
     auto key = std::to_string(apex::core::to_underlying(session_id));
+    logger_.trace("kafka produce topic={} msg_id={} size={}", target_topic, msg_id, envelope_buf.size());
     auto result = kafka_->produce(target_topic, key, std::span<const uint8_t>(envelope_buf));
 
     if (!result.has_value())
     {
-        spdlog::error("[ChatService] Failed to produce response to '{}' (msg_id: {}, corr_id: {})", target_topic,
-                      msg_id, corr_id);
+        logger_.error("Failed to produce response to '{}' (msg_id: {}, corr_id: {})", target_topic, msg_id, corr_id);
     }
 }
 
@@ -195,8 +200,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
     auto max_members = req->max_members() > 0 ? req->max_members() : config_.max_room_members;
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_create_room (name: {}, max: {}, corr_id: {}, session: {})", room_name_str,
-                 max_members, meta.corr_id, meta.session_id);
+    logger_.info("on_create_room (name: {}, max: {}, corr_id: {}, session: {})", room_name_str, max_members,
+                 meta.corr_id, meta.session_id);
 
     // 2. PG INSERT -- create room record
     std::array<std::string, 3> insert_params = {room_name_str, std::to_string(max_members), std::to_string(user_id)};
@@ -206,7 +211,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
 
     if (!pg_result.has_value() || pg_result->row_count() == 0)
     {
-        spdlog::error("[ChatService] PG INSERT chat_rooms failed: {}",
+        logger_.error("PG INSERT chat_rooms failed: {}",
                       pg_result.has_value() ? "no rows returned" : apex::core::error_code_name(pg_result.error()));
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_INTERNAL_ERROR);
     }
@@ -214,7 +219,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
     auto room_id_result = safe_parse_u64(pg_result->value(0, 0), "create_room.room_id");
     if (!room_id_result.has_value())
     {
-        spdlog::error("[ChatService] PG returned invalid room_id for create_room");
+        logger_.error("PG returned invalid room_id for create_room");
         co_return co_await send_create_room_error(meta, fbs::ChatRoomError_INTERNAL_ERROR);
     }
     auto room_id = *room_id_result;
@@ -227,11 +232,12 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_create_room(con
         co_await redis_data_->multiplexer(core_id).command("SADD %s %s", members_key.c_str(), user_id_str.c_str());
     if (!redis_result.has_value())
     {
-        spdlog::warn("[ChatService] Redis SADD members failed for room {}", room_id);
+        logger_.warn("Redis SADD members failed for room {}", room_id);
         // Non-fatal: room created in PG, membership will be eventually consistent
     }
 
     // 4. Send CreateRoomResponse with actual room_id
+    logger_.debug("room created id={} name={} owner={}", room_id, room_name_str, user_id);
     flatbuffers::FlatBufferBuilder fbb(256);
     auto name_off = fbb.CreateString(room_name_str);
     auto resp = fbs::CreateCreateRoomResponse(fbb, fbs::ChatRoomError_NONE, room_id, name_off);
@@ -248,8 +254,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(const
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_join_room (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id,
-                 meta.session_id);
+    logger_.info("on_join_room (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
@@ -263,7 +268,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_join_room(const
 
     if (!room_result.has_value() || room_result->row_count() == 0)
     {
-        spdlog::warn("[ChatService] join_room: room {} not found", room_id);
+        logger_.warn("join_room: room {} not found", room_id);
         co_return co_await send_join_room_error(meta, fbs::ChatRoomError_ROOM_NOT_FOUND, room_id);
     }
 
@@ -294,12 +299,12 @@ return redis.call('SCARD', KEYS[1])
 
     if (!eval_result.has_value() || eval_result->is_error() || !eval_result->is_integer())
     {
-        spdlog::warn("[ChatService] Redis EVAL failed for join_room (room: {})", room_id);
+        logger_.warn("Redis EVAL failed for join_room (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
     auto lua_result = eval_result->integer;
-    log_trace("on_join_room: Lua EVAL result={} (room={}, user={})", lua_result, room_id, user_id);
+    logger_.trace("on_join_room: Lua EVAL result={} (room={}, user={})", lua_result, room_id, user_id);
     auto join_result = interpret_join_result(lua_result);
     if (join_result == JoinRoomResult::ALREADY_IN)
     {
@@ -311,6 +316,7 @@ return redis.call('SCARD', KEYS[1])
     }
 
     auto member_count = static_cast<uint32_t>(lua_result);
+    logger_.debug("join_room ok room={} user={} members={}", room_id, user_id, member_count);
 
     // 6. Send JoinRoomResponse
     flatbuffers::FlatBufferBuilder fbb(256);
@@ -329,8 +335,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_leave_room(cons
     auto room_id = req->room_id();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_leave_room (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id,
-                 meta.session_id);
+    logger_.info("on_leave_room (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
@@ -353,7 +358,7 @@ return 1
 
     if (!eval_result.has_value() || eval_result->is_error() || !eval_result->is_integer())
     {
-        spdlog::warn("[ChatService] Redis EVAL failed for leave_room (room: {})", room_id);
+        logger_.warn("Redis EVAL failed for leave_room (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -361,6 +366,7 @@ return 1
     {
         co_return co_await send_leave_room_error(meta, fbs::ChatRoomError_NOT_IN_ROOM, room_id);
     }
+    logger_.debug("leave_room ok room={} user={}", room_id, user_id);
 
     // 3. Send LeaveRoomResponse
     flatbuffers::FlatBufferBuilder fbb(128);
@@ -378,7 +384,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(cons
     auto offset = req->offset();
     auto limit = std::min(req->limit(), config_.max_list_rooms_limit);
 
-    spdlog::info("[ChatService] on_list_rooms (offset: {}, limit: {}, corr_id: {})", offset, limit, meta.corr_id);
+    logger_.info("on_list_rooms (offset: {}, limit: {}, corr_id: {})", offset, limit, meta.corr_id);
 
     // 1. PG: Get total count
     auto count_result = co_await pg_->query("SELECT COUNT(*) FROM chat_svc.chat_rooms WHERE is_active = true");
@@ -401,8 +407,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_list_rooms(cons
 
     if (!rooms_result.has_value())
     {
-        spdlog::error("[ChatService] PG query chat_rooms failed: {}",
-                      apex::core::error_code_name(rooms_result.error()));
+        logger_.error("PG query chat_rooms failed: {}", apex::core::error_code_name(rooms_result.error()));
         co_return co_await send_list_rooms_error(meta, fbs::ChatRoomError_INTERNAL_ERROR);
     }
 
@@ -477,8 +482,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
     auto timestamp = current_timestamp_ms();
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_send_message (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id,
-                 meta.session_id);
+    logger_.info("on_send_message (room: {}, corr_id: {}, session: {})", room_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
     auto members_key = std::format("chat:room:{}:members", room_id);
@@ -489,7 +493,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
         co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value())
     {
-        spdlog::warn("[ChatService] Redis SISMEMBER failed for send_message (room: {})", room_id);
+        logger_.warn("Redis SISMEMBER failed for send_message (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     if (is_member->integer == 0)
@@ -509,13 +513,13 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
         fbb_pub.Finish(chat_msg);
 
         auto pub_payload = build_pubsub_payload(msg_ids::CHAT_MESSAGE, {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
-        log_trace("on_send_message: Redis PUBLISH (channel={}, payload_size={})", channel, pub_payload.size());
+        logger_.trace("on_send_message: Redis PUBLISH (channel={}, payload_size={})", channel, pub_payload.size());
         auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", channel.c_str(), reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));
         if (!pub_result.has_value())
         {
-            spdlog::warn("[ChatService] Redis PUBLISH failed for room {}", room_id);
+            logger_.warn("Redis PUBLISH failed for room {}", room_id);
         }
     }
 
@@ -527,13 +531,13 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_send_message(co
         auto db_msg = fbs::CreateChatMessage(fbb_db, room_id, user_id, sender_off, content_off, 0, timestamp, 0);
         fbb_db.Finish(db_msg);
 
-        log_trace("on_send_message: Kafka produce (topic={}, payload_size={})", config_.persist_topic,
-                  fbb_db.GetSize());
+        logger_.trace("on_send_message: Kafka produce (topic={}, payload_size={})", config_.persist_topic,
+                      fbb_db.GetSize());
         auto produce_result = kafka_->produce(config_.persist_topic, std::to_string(room_id),
                                               std::span<const uint8_t>(fbb_db.GetBufferPointer(), fbb_db.GetSize()));
         if (!produce_result.has_value())
         {
-            spdlog::error("[ChatService] Kafka persist produce failed for room {}: {}", room_id,
+            logger_.error("Kafka persist produce failed for room {}: {}", room_id,
                           apex::core::error_code_name(produce_result.error()));
         }
     }
@@ -570,7 +574,7 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
 
     if (target_user_id == meta.user_id)
     {
-        spdlog::warn("[ChatService] Whisper to self rejected (user_id: {})", meta.user_id);
+        logger_.warn("Whisper to self rejected (user_id: {})", meta.user_id);
         co_return co_await send_whisper_error(meta, fbs::ChatMessageError_PERMISSION_DENIED);
     }
 
@@ -578,8 +582,7 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
     auto timestamp = current_timestamp_ms();
     auto sender_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_whisper (target: {}, corr_id: {}, session: {})", target_user_id, meta.corr_id,
-                 meta.session_id);
+    logger_.info("on_whisper (target: {}, corr_id: {}, session: {})", target_user_id, meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
@@ -589,7 +592,7 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
 
     if (!session_result.has_value() || session_result->is_nil())
     {
-        spdlog::info("[ChatService] Whisper target {} is offline", target_user_id);
+        logger_.info("Whisper target {} is offline", target_user_id);
         co_return co_await send_whisper_error(meta, fbs::ChatMessageError_TARGET_OFFLINE);
     }
 
@@ -637,8 +640,8 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
     auto limit = std::min(req->limit(), static_cast<uint32_t>(config_.history_page_size));
     auto user_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_chat_history (room: {}, before: {}, limit: {}, corr_id: {})", room_id,
-                 before_message_id, limit, meta.corr_id);
+    logger_.info("on_chat_history (room: {}, before: {}, limit: {}, corr_id: {})", room_id, before_message_id, limit,
+                 meta.corr_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
@@ -649,7 +652,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
         co_await redis_data_->multiplexer(core_id).command("SISMEMBER %s %s", members_key.c_str(), user_id_str.c_str());
     if (!is_member.has_value())
     {
-        spdlog::warn("[ChatService] Redis SISMEMBER failed for chat_history (room: {})", room_id);
+        logger_.warn("Redis SISMEMBER failed for chat_history (room: {})", room_id);
         co_return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
     if (is_member->integer == 0)
@@ -687,8 +690,7 @@ boost::asio::awaitable<apex::core::Result<void>> ChatService::on_chat_history(co
 
     if (!msg_result.has_value())
     {
-        spdlog::error("[ChatService] PG query chat_messages failed: {}",
-                      apex::core::error_code_name(msg_result.error()));
+        logger_.error("PG query chat_messages failed: {}", apex::core::error_code_name(msg_result.error()));
         co_return co_await send_history_error(meta, fbs::ChatMessageError_INTERNAL_ERROR);
     }
 
@@ -756,7 +758,7 @@ ChatService::on_global_broadcast(const apex::core::KafkaMessageMeta& meta, uint3
     auto timestamp = current_timestamp_ms();
     auto sender_id = meta.user_id;
 
-    spdlog::info("[ChatService] on_global_broadcast (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
+    logger_.info("on_global_broadcast (corr_id: {}, session: {})", meta.corr_id, meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
@@ -774,14 +776,14 @@ ChatService::on_global_broadcast(const apex::core::KafkaMessageMeta& meta, uint3
         // 3. Redis PUBLISH to global channel
         auto pub_payload =
             build_pubsub_payload(msg_ids::GLOBAL_CHAT_MESSAGE, {fbb_pub.GetBufferPointer(), fbb_pub.GetSize()});
-        log_trace("on_global_broadcast: Redis PUBLISH (channel={}, payload_size={})", global_channel,
-                  pub_payload.size());
+        logger_.trace("on_global_broadcast: Redis PUBLISH (channel={}, payload_size={})", global_channel,
+                      pub_payload.size());
         auto pub_result = co_await redis_pubsub_->multiplexer(core_id).command(
             "PUBLISH %s %b", global_channel.c_str(), reinterpret_cast<const char*>(pub_payload.data()),
             static_cast<size_t>(pub_payload.size()));
         if (!pub_result.has_value())
         {
-            spdlog::warn("[ChatService] Redis PUBLISH failed for global broadcast");
+            logger_.warn("Redis PUBLISH failed for global broadcast");
         }
     }
 

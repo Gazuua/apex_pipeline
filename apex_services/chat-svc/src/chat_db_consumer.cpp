@@ -5,7 +5,6 @@
 #include <chat_message_generated.h>
 
 #include <flatbuffers/flatbuffers.h>
-#include <spdlog/spdlog.h>
 
 #include <string>
 
@@ -24,7 +23,7 @@ apex::core::Result<void> ChatDbConsumer::on_message(std::string_view /*topic*/, 
     flatbuffers::Verifier verifier(payload.data(), payload.size());
     if (!verifier.VerifyBuffer<fbs::ChatMessage>())
     {
-        spdlog::error("[ChatDbConsumer] ChatMessage verification failed");
+        logger_.error("ChatMessage verification failed");
         return apex::core::error(apex::core::ErrorCode::FlatBuffersVerifyFailed);
     }
 
@@ -41,7 +40,7 @@ apex::core::Result<void> ChatDbConsumer::on_message(std::string_view /*topic*/, 
     // this would use co_spawn into a core's io_context or a synchronous
     // libpq call. Current implementation logs and returns success as
     // a placeholder -- full async integration in E2E phase (Plan 5).
-    spdlog::info("[ChatDbConsumer] Persisting message: room={}, sender={}, ts={}", room_id, sender_id, timestamp);
+    logger_.info("Persisting message: room={}, sender={}, ts={}", room_id, sender_id, timestamp);
 
     // The actual INSERT would be:
     // INSERT INTO chat_svc.chat_messages

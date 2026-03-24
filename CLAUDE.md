@@ -56,7 +56,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 추가, timer/write_pump executor 분리)
+- **현재**: v0.5.11.0 — ScopedLogger 로깅 인프라 (구조화 로그, source_location, 전 레이어 마이그레이션)
 - **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164). HTTP 대시보드 완료 (BACKLOG-154,159, PR #130) — `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정 포함
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10

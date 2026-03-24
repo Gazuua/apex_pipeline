@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -55,6 +56,7 @@ class JwtManager
     std::string public_key_;  // PEM string
     std::string issuer_;
     std::chrono::seconds access_token_ttl_;
+    apex::core::ScopedLogger logger_{"JwtManager", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::auth_svc

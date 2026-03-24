@@ -4,6 +4,7 @@
 
 #include <apex/core/config.hpp>
 #include <apex/core/logging.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
@@ -13,7 +14,6 @@
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/config_utils.hpp>
-#include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
 #include <cstdlib>
@@ -120,8 +120,9 @@ int main(int argc, char* argv[])
     auto app_config = apex::core::AppConfig::from_file(config_path);
     apex::core::init_logging(app_config.logging);
 
-    spdlog::info("Chat Service starting...");
-    spdlog::info("[ChatService] Loading config: {}", config_path);
+    apex::core::ScopedLogger logger{"Main", apex::core::ScopedLogger::NO_CORE, "app"};
+    logger.info("Chat Service starting...");
+    logger.info("Loading config: {}", config_path);
 
     ParsedConfig parsed;
     try
@@ -130,7 +131,7 @@ int main(int argc, char* argv[])
     }
     catch (const toml::parse_error& e)
     {
-        spdlog::error("[ChatService] Failed to parse config '{}': {}", config_path, e.what());
+        logger.error("Failed to parse config '{}': {}", config_path, e.what());
         return EXIT_FAILURE;
     }
 
@@ -149,9 +150,9 @@ int main(int argc, char* argv[])
     // post_init_callback 수동 와이어링 제거됨.
 
     // --- 3. Server 실행 (블로킹) ---
-    spdlog::info("[ChatService] Running. Press Ctrl+C to stop.");
+    logger.info("Running. Press Ctrl+C to stop.");
     server.run();
 
-    spdlog::info("Chat Service stopped.");
+    logger.info("Chat Service stopped.");
     return EXIT_SUCCESS;
 }

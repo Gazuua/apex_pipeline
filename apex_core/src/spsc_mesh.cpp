@@ -4,10 +4,6 @@
 #include <apex/core/cross_core_op.hpp>
 #include <apex/core/spsc_mesh.hpp>
 
-#include <apex/core/log_helpers.hpp>
-
-#include <spdlog/spdlog.h>
-
 #include <cassert>
 
 namespace apex::core
@@ -82,7 +78,7 @@ size_t SpscMesh::drain_all_for(uint32_t dst_core, const std::function<void(uint3
     drain_rotate_[dst_core] = (start + 1) % num_cores_;
 
     if (total > 0)
-        log::trace(dst_core, "SPSC drain consumed {} messages", total);
+        logger_.trace("SPSC drain consumed {} messages for core={}", total, dst_core);
 
     return total;
 }
@@ -104,11 +100,11 @@ size_t SpscMesh::drain_all_for(uint32_t dst_core, const CrossCoreDispatcher& dis
                 }
                 catch (const std::exception& e)
                 {
-                    log::error(core_id, "cross-core task exception: {}", e.what());
+                    logger_.error("cross-core task exception core={}: {}", core_id, e.what());
                 }
                 catch (...)
                 {
-                    log::error(core_id, "cross-core task unknown exception");
+                    logger_.error("cross-core task unknown exception core={}", core_id);
                 }
                 delete task;
             }

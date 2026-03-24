@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/slab_allocator.hpp>
 
@@ -10,10 +11,17 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 
-#include <spdlog/spdlog.h>
-
 namespace apex::core
 {
+
+namespace
+{
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"Session", ScopedLogger::NO_CORE};
+    return instance;
+}
+} // anonymous namespace
 
 void intrusive_ptr_release(Session* s) noexcept
 {
@@ -47,6 +55,7 @@ Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t cor
 // M-2: Simplified — close() already checks Closed state and is idempotent
 Session::~Session()
 {
+    s_logger().trace("~Session id={}", id_);
     close();
 }
 
@@ -80,17 +89,23 @@ awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data)
 
 void Session::close() noexcept
 {
-    if (state_.load(std::memory_order_relaxed) == State::Closed)
+    auto prev = state_.load(std::memory_order_relaxed);
+    if (prev == State::Closed)
         return;
     // Bypass set_state() which asserts on Closed->Closed transition
     // (already guarded by early return above)
     state_.store(State::Closed, std::memory_order_relaxed);
+    s_logger().debug("close id={} prev_state={}", id_, static_cast<int>(prev));
 
     boost::system::error_code ec;
     if (socket_.is_open())
     {
         socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         socket_.close(ec);
+        if (ec)
+        {
+            s_logger().warn("close id={} socket error: {}", id_, ec.message());
+        }
     }
 }
 
@@ -102,9 +117,10 @@ Result<void> Session::enqueue_write(std::vector<uint8_t> data)
         return error(ErrorCode::SessionClosed);
     if (write_queue_.size() >= max_queue_depth_)
     {
-        SPDLOG_WARN("Session {} write queue full (depth={})", id_, max_queue_depth_);
+        s_logger().warn("enqueue_write id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
         return error(ErrorCode::BufferFull);
     }
+    s_logger().trace("enqueue_write id={} size={} depth={}", id_, data.size(), write_queue_.size() + 1);
     write_queue_.push_back(WriteRequest{std::move(data), nullptr, nullptr});
     if (!pump_running_)
     {
@@ -154,6 +170,7 @@ awaitable<void> Session::write_pump()
 
         if (ec)
         {
+            s_logger().warn("write_pump id={} write error: {}", id_, ec.message());
             // Signal error to the awaiting coroutine if present
             if (req.completion_timer)
             {
@@ -171,6 +188,7 @@ awaitable<void> Session::write_pump()
                 }
             }
 
+            s_logger().debug("write_pump id={} draining {} pending requests", id_, write_queue_.size());
             write_queue_.clear(); // 에러 시 잔여 큐 정리
             close();
             break;
@@ -199,7 +217,7 @@ awaitable<Result<void>> Session::enqueue_and_await(std::vector<uint8_t> data)
     // Check queue depth (same as enqueue_write)
     if (write_queue_.size() >= max_queue_depth_)
     {
-        SPDLOG_WARN("Session {} write queue full (depth={})", id_, max_queue_depth_);
+        s_logger().warn("enqueue_and_await id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
         co_return error(ErrorCode::BufferFull);
     }
 

@@ -280,6 +280,40 @@ if (auto kafka = tbl["kafka"]; kafka) {
 }
 ```
 
+### §2.3.1 ScopedLogger (v0.5.11.0+)
+
+`ServiceBase`는 `logger_` (protected) 멤버를 제공한다. `internal_configure()`에서 자동 초기화되며, 서비스 코드에서 직접 사용:
+
+```cpp
+// 기본 — [file:line Func] [core=N][MyService] message
+logger_.info("handler registered");
+
+// + session — [sess=N] 태그 추가
+logger_.debug(session, "user lookup");
+
+// + session + msg_id — [sess=N][msg=0xHHHH] 태그 추가
+logger_.warn(session, msg_id, "FlatBuffers verify failed");
+
+// 요청 추적 — [trace=hex] 태그 추가 (copy semantics, 원본 불변)
+auto traced = logger_.with_trace(corr_id);
+traced.info("routing complete");
+```
+
+**로거 분리**: 프레임워크 컴포넌트는 `"apex"` 로거(기본), 서비스는 `"app"` 로거를 사용. `ServiceBase`가 `internal_configure()`에서 자동으로 `"app"` 로거로 초기화하므로 서비스 개발자가 신경 쓸 필요 없다. TOML의 `logging.level`이 app 로거, `logging.framework_level`이 apex 로거를 제어한다.
+
+**프레임워크 외부(비서비스) 사용**: 어댑터·유틸리티 등 `ServiceBase` 밖에서는 직접 생성:
+
+```cpp
+// 멤버 변수로 보유 (클래스 수명과 동일)
+ScopedLogger logger_{"MyComponent", ScopedLogger::NO_CORE, "app"};
+
+// 함수 스코프 static (namespace-scope static은 금지 — init_logging() 전 생성 시 no-op)
+const ScopedLogger& s_logger() {
+    static const ScopedLogger instance{"MyUtil", ScopedLogger::NO_CORE};
+    return instance;
+}
+```
+
 ### §2.4 Kafka 자동 배선 `[D2]`
 
 `kafka_route<T>()`를 1개 이상 등록한 서비스가 있으면, 코어가 `has_kafka_handlers()` 를 감지하여 KafkaDispatchBridge를 자동 생성한다. 서비스 개발자는 핸들러 등록만 하면 된다.

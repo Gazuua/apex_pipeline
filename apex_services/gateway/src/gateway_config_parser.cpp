@@ -4,13 +4,22 @@
 #include <apex/gateway/gateway_error.hpp>
 #include <apex/shared/config_utils.hpp>
 
-#include <spdlog/spdlog.h>
+#include <apex/core/scoped_logger.hpp>
 #include <toml++/toml.hpp>
 
 #include <cstdlib>
 
 namespace apex::gateway
 {
+
+namespace
+{
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"GatewayConfig", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
+} // anonymous namespace
 
 apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
 {
@@ -183,7 +192,7 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
                     }
                     catch (const std::exception& e)
                     {
-                        spdlog::warn("Invalid endpoint override key '{}': {}", key.str(), e.what());
+                        s_logger().warn("Invalid endpoint override key '{}': {}", key.str(), e.what());
                     }
                 }
             }
@@ -193,7 +202,7 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
     }
     catch (const toml::parse_error& e)
     {
-        spdlog::error("Gateway config parse error: {}", e.what());
+        s_logger().error("Gateway config parse error: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 }

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/config.hpp>
+#include <apex/core/scoped_logger.hpp>
 
 #include <toml++/toml.hpp>
 
@@ -15,11 +16,20 @@ namespace apex::core
 namespace
 {
 
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"Config", ScopedLogger::NO_CORE};
+    return instance;
+}
+
 template <typename T> T get_or(const toml::table& tbl, std::string_view key, const T& default_val)
 {
     auto node = tbl[key];
     if (!node)
+    {
+        s_logger().debug("key '{}' not set, using default", key);
         return default_val;
+    }
     auto val = node.value<T>();
     if (!val)
     {
@@ -170,6 +180,7 @@ LogConfig parse_logging(const toml::table& root)
 
 AppConfig AppConfig::from_file(const std::string& path)
 {
+    s_logger().info("loading config from '{}'", path);
     toml::table tbl;
     try
     {
@@ -184,6 +195,7 @@ AppConfig AppConfig::from_file(const std::string& path)
     AppConfig config;
     config.server = parse_server(tbl);
     config.logging = parse_logging(tbl);
+    s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
     return config;
 }
 

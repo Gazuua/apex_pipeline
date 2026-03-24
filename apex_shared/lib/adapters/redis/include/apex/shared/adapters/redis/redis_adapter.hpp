@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
@@ -70,6 +71,7 @@ class RedisAdapter : public AdapterBase<RedisAdapter>
     }
 
   private:
+    apex::core::ScopedLogger logger_{"RedisAdapter", apex::core::ScopedLogger::NO_CORE, "app"};
     RedisConfig config_;
     std::vector<std::unique_ptr<RedisMultiplexer>> per_core_;
 };

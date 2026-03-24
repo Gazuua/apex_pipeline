@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 
 #include <boost/asio/awaitable.hpp>
@@ -34,6 +35,7 @@ class JwtBlacklist
 
   private:
     apex::shared::adapters::redis::RedisMultiplexer& redis_;
+    apex::core::ScopedLogger logger_{"JwtBlacklist", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

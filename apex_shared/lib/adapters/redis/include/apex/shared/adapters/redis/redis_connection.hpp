@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/redis/hiredis_asio_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 
@@ -80,6 +81,7 @@ class RedisConnection
     redisAsyncContext* ac_;
     std::unique_ptr<HiredisAsioAdapter> asio_adapter_;
     bool connected_ = false;
+    apex::core::ScopedLogger logger_{"RedisConnection", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 // --- Template implementations ---

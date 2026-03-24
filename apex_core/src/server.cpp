@@ -6,8 +6,6 @@
 #include <apex/core/server.hpp>
 #include <apex/core/wire_context.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/signal_set.hpp>
@@ -79,7 +77,7 @@ Server::~Server()
     // running_이 true면 run() 진입 후 정상 종료 경로를 거치지 않은 것
     if (running_.load(std::memory_order_acquire))
     {
-        spdlog::warn("[Server] Destructor called while still running - "
+        logger_.warn("Destructor called while still running - "
                      "finalize_shutdown may not have been called");
     }
     for (auto& state : per_core_)
@@ -88,7 +86,7 @@ Server::~Server()
         {
             if (svc->started())
             {
-                spdlog::warn("[Server] Service '{}' still running in destructor", svc->name());
+                logger_.warn("Service '{}' still running in destructor", svc->name());
                 svc->stop();
             }
         }
@@ -137,9 +135,6 @@ void Server::run()
     // Independent of handle_signals — crash handlers are always active.
     install_crash_handlers();
 
-    // I-09: Cache spdlog logger for hot-path use (avoid mutex per call)
-    logger_ = spdlog::get("apex");
-
     control_io_.restart();
 
     // I-2: Clear leftover services from a previous run() cycle to prevent
@@ -150,14 +145,14 @@ void Server::run()
         state->services.clear();
     }
 
-    spdlog::info("[Server] starting with {} cores", config_.num_cores);
+    logger_.info("starting with {} cores", config_.num_cores);
 
     // 어댑터 초기화 — 서비스보다 먼저 (어댑터는 서비스의 인프라 의존성)
     for (auto& adapter : adapters_)
     {
         adapter->init(*core_engine_);
     }
-    spdlog::debug("[Server] adapters initialized ({})", adapters_.size());
+    logger_.debug("adapters initialized ({})", adapters_.size());
 
     // PeriodicTaskScheduler 초기화 — per-core io_context 기반
     for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id)
@@ -185,7 +180,7 @@ void Server::run()
         }
     }
 
-    spdlog::debug("[Server] Phase 1: on_configure");
+    logger_.debug("Phase 1: on_configure");
     // ── Phase 1: on_configure — 어댑터/설정 접근 단계 ──────────────────
     // 서비스가 어댑터, 설정, per-core 상태를 받아 초기화한다.
     // 다른 서비스에 접근 불가 (ServiceRegistry 미제공).
@@ -202,7 +197,7 @@ void Server::run()
         }
     }
 
-    spdlog::debug("[Server] Phase 2: on_wire");
+    logger_.debug("Phase 2: on_wire");
     // ── Phase 2: on_wire — 서비스 간 와이어링 단계 ─────────────────────
     // 모든 코어의 서비스 인스턴스가 생성 완료. 코어 스레드 시작 전이므로
     // ServiceRegistryView를 통한 전 코어 읽기 접근이 데이터 레이스 없이 안전.
@@ -227,7 +222,7 @@ void Server::run()
         }
     }
 
-    spdlog::debug("[Server] Phase 3: on_start");
+    logger_.debug("Phase 3: on_start");
     // ── Phase 3: on_start — 서비스 시작 ────────────────────────────────
     for (auto& state : per_core_)
     {
@@ -288,7 +283,7 @@ void Server::run()
         }
     });
 
-    spdlog::debug("[Server] starting CoreEngine");
+    logger_.debug("starting CoreEngine");
     // Start CoreEngine (non-blocking)
     core_engine_->start();
 
@@ -300,8 +295,7 @@ void Server::run()
     // listeners) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
     running_.store(true, std::memory_order_release);
-    spdlog::info("[Server] ready — {} cores, {} listeners, {} adapters", config_.num_cores, listeners_.size(),
-                 adapters_.size());
+    logger_.info("ready — {} cores, {} listeners, {} adapters", config_.num_cores, listeners_.size(), adapters_.size());
 
     // Work guard keeps control_io_ alive until shutdown completes.
     auto work = boost::asio::make_work_guard(control_io_);
@@ -338,7 +332,7 @@ void Server::stop()
 
 void Server::begin_shutdown()
 {
-    spdlog::info("[Server] shutdown initiated, drain_timeout={}s", config_.drain_timeout.count());
+    logger_.info("shutdown initiated, drain_timeout={}s", config_.drain_timeout.count());
     shutdown_deadline_ = std::chrono::steady_clock::now() + config_.drain_timeout;
 
     // close() is posted to core threads. Since each core runs a single-threaded
@@ -362,10 +356,7 @@ void Server::poll_shutdown()
 {
     if (total_active_sessions() == 0)
     {
-        if (logger_)
-        {
-            logger_->info("All sessions drained, shutting down");
-        }
+        logger_.info("All sessions drained, shutting down");
         finalize_shutdown();
         return;
     }
@@ -373,11 +364,8 @@ void Server::poll_shutdown()
     // Timeout check
     if (std::chrono::steady_clock::now() >= shutdown_deadline_)
     {
-        if (logger_)
-        {
-            logger_->warn("Drain timeout ({}s) expired, {} sessions remaining - forcing shutdown",
-                          config_.drain_timeout.count(), total_active_sessions());
-        }
+        logger_.warn("Drain timeout ({}s) expired, {} sessions remaining - forcing shutdown",
+                     config_.drain_timeout.count(), total_active_sessions());
         finalize_shutdown();
         return;
     }
@@ -393,7 +381,7 @@ void Server::poll_shutdown()
 
 void Server::finalize_shutdown()
 {
-    spdlog::debug("[Server] finalize_shutdown");
+    logger_.debug("finalize_shutdown");
     shutdown_timer_.reset();
 
     // 1. Stop listeners completely
@@ -453,7 +441,7 @@ void Server::finalize_shutdown()
     // INVARIANT: io_context 아직 실행 중 (CoreEngine stop은 Step 6)
     // INVARIANT: 새 요청 없음 (Step 2에서 DRAINING)
     // WARNING: Step 6 이후로 이동 금지 — close()의 per-core phase가 io_context에 post함
-    spdlog::info("[shutdown] step 5: closing adapters");
+    logger_.info("shutdown step 5: closing adapters");
     for (auto& adapter : adapters_)
     {
         adapter->close();
@@ -463,7 +451,7 @@ void Server::finalize_shutdown()
     // INVARIANT: 어댑터 리소스 정리 완료 — io_context에 어댑터 참조 핸들러 없음
     // Order matters: stop() signals threads, join() waits for exit,
     // drain_remaining() cleans up leftover SPSC messages.
-    spdlog::info("[shutdown] step 6: stopping core engine");
+    logger_.info("shutdown step 6: stopping core engine");
     core_engine_->stop();
     core_engine_->join();
     core_engine_->drain_remaining();

@@ -49,14 +49,11 @@ GatewayService::GatewayService(const GatewayConfig& config, const JwtVerifier& j
                                apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter)
     : ServiceBase("gateway")
     , config_(config)
-    , logger_(spdlog::default_logger()->clone("gateway"))
     , jwt_verifier_(&jwt_verifier)
     , route_table_(std::move(route_table))
     , pending_requests_(config_.max_pending_per_core, config_.request_timeout)
     , rl_redis_adapter_(rl_redis_adapter)
-{
-    logger_->info("GatewayService created (routes={})", config_.routes.size());
-}
+{}
 
 GatewayService::~GatewayService() = default;
 
@@ -71,7 +68,7 @@ void GatewayService::on_configure(apex::core::ConfigureContext& ctx)
     router_ = std::make_unique<MessageRouter>(*kafka_, route_table_, static_cast<uint16_t>(ctx.core_id),
                                               config_.kafka_response_topic);
 
-    logger_->info("GatewayService on_configure (core_id={})", ctx.core_id);
+    logger_.info("GatewayService on_configure (core_id={})", ctx.core_id);
 }
 
 // ── Phase 2: cross-core 와이어링 ─────────────────────────────────────────
@@ -111,7 +108,7 @@ void GatewayService::on_wire(apex::core::WireContext& ctx)
     // per-core 타임아웃 스윕 스케줄링
     schedule_sweep(ctx);
 
-    logger_->info("GatewayService on_wire (core_id={})", ctx.core_id);
+    logger_.info("GatewayService on_wire (core_id={})", ctx.core_id);
 }
 
 // ── Phase 3: 핸들러 등록 ────────────────────────────────────────────────
@@ -123,6 +120,8 @@ void GatewayService::on_start()
 boost::asio::awaitable<apex::core::Result<void>>
 GatewayService::on_default_message(apex::core::SessionPtr session, uint32_t msg_id, std::span<const uint8_t> payload)
 {
+    logger_.debug(session, msg_id, "on_default_message");
+
     if (msg_id == system_msg_ids::AUTHENTICATE_SESSION)
         co_return handle_authenticate_session(session, payload);
 
@@ -151,7 +150,7 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
             {
                 auto& state = auth_states_[session->id()];
                 state.token = token->str();
-                logger_->info("JWT bound to session {}", session->id());
+                logger_.info(session, "JWT bound");
             }
         }
     }
@@ -181,7 +180,7 @@ apex::core::Result<void> GatewayService::handle_subscribe_channel(apex::core::Se
                     {
                         pubsub_listener_->subscribe(ch->str());
                     }
-                    logger_->info("Session {} subscribed to '{}'", session->id(), ch->str());
+                    logger_.info(session, "subscribed to '{}'", ch->str());
                 }
             }
         }
@@ -204,7 +203,7 @@ apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::
             if (ch && verifier.VerifyString(ch) && ch->size() > 0)
             {
                 globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
-                logger_->info("Session {} unsubscribed from '{}'", session->id(), ch->str());
+                logger_.info(session, "unsubscribed from '{}'", ch->str());
             }
         }
     }
@@ -227,6 +226,7 @@ void GatewayService::on_stop()
 // ── 세션 종료 콜백 ──────────────────────────────────────────────────────
 void GatewayService::on_session_closed(apex::core::SessionId sid)
 {
+    logger_.info("session closed sid={}", sid);
     // per-session 인증 상태 제거
     auth_states_.erase(sid);
 
@@ -348,7 +348,7 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
             g.per_core_facade[core] = std::make_unique<apex::shared::rate_limit::RateLimitFacade>(
                 *g.per_core_ip[core], *g.per_core_redis_rl[core], ep_config);
         }
-        spdlog::info("Rate limiting enabled ({} cores)", num_cores);
+        logger_.info("Rate limiting enabled ({} cores)", num_cores);
     }
 
     return g;
@@ -406,6 +406,7 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     auto pipeline_result = co_await pipeline_->process(session, header, state, remote_ip);
     if (!pipeline_result)
     {
+        logger_.debug(session, msg_id, "pipeline denied");
         // Pipeline already sent error frame to client — don't propagate to connection_handler
         co_return apex::core::ok();
     }
@@ -417,6 +418,7 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     auto pending_result = pending_requests_.insert(corr_id, session->id(), msg_id);
     if (!pending_result)
     {
+        logger_.warn(session, msg_id, "pending map full");
         auto frame = apex::core::ErrorSender::build_error_frame(msg_id, apex::core::ErrorCode::ServiceError, "",
                                                                 static_cast<uint16_t>(GatewayError::PendingMapFull));
         (void)session->enqueue_write(std::move(frame));
@@ -427,7 +429,7 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     auto route_result = router_->route(session, header, payload, state.user_id, corr_id);
     if (!route_result)
     {
-        logger_->error("handle_request: route failed for msg_id={}", msg_id);
+        logger_.error("handle_request: route failed for msg_id={}", msg_id);
         // Remove pending entry on failure
         (void)pending_requests_.extract(corr_id);
         auto frame = apex::core::ErrorSender::build_error_frame(msg_id, apex::core::ErrorCode::ServiceError, "",
@@ -435,7 +437,7 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
         (void)session->enqueue_write(std::move(frame));
         co_return apex::core::ok();
     }
-    logger_->info("handle_request: msg_id={} routed successfully (corr_id={})", msg_id, corr_id);
+    logger_.info("handle_request: msg_id={} routed successfully (corr_id={})", msg_id, corr_id);
 
     co_return apex::core::ok();
 }

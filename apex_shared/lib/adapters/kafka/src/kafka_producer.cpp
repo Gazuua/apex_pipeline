@@ -2,8 +2,6 @@
 
 #include <apex/shared/adapters/kafka/kafka_producer.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cstring>
 #include <mutex>
 
@@ -44,7 +42,7 @@ apex::core::Result<void> KafkaProducer::init()
         if (rd_kafka_conf_set(conf, key, val, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK)
         {
             const bool sensitive = std::strcmp(key, "sasl.password") == 0;
-            spdlog::warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
+            logger_.warn("rd_kafka_conf_set({}, {}) failed: {}", key, sensitive ? "****" : val, errstr);
             return false;
         }
         return true;
@@ -68,7 +66,7 @@ apex::core::Result<void> KafkaProducer::init()
     auto sec_set = [&](const char* key, const char* val) -> bool {
         if (!conf_set(key, val))
         {
-            spdlog::error("KafkaProducer: security config '{}' failed — aborting init", key);
+            logger_.error("security config '{}' failed — aborting init", key);
             rd_kafka_conf_destroy(conf);
             return false;
         }
@@ -112,18 +110,18 @@ apex::core::Result<void> KafkaProducer::init()
     rk_ = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
     if (!rk_)
     {
-        spdlog::error("KafkaProducer::init failed: {}", errstr);
+        logger_.error("init failed: {}", errstr);
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
-    spdlog::info("KafkaProducer initialized: brokers={}", config_.brokers);
+    logger_.info("initialized: brokers={}", config_.brokers);
     return {};
 }
 
 apex::core::Result<void> KafkaProducer::produce(std::string_view topic, std::string_view key,
                                                 std::span<const uint8_t> payload)
 {
-    spdlog::trace("[kafka_producer] produce: topic={}, partition=UA, payload_size={}", topic, payload.size());
+    logger_.trace("produce: topic={}, partition=UA, payload_size={}", topic, payload.size());
 
     if (!rk_)
     {
@@ -147,7 +145,7 @@ apex::core::Result<void> KafkaProducer::produce(std::string_view topic, std::str
     if (err == -1)
     {
         rd_kafka_resp_err_t last_err = rd_kafka_last_error();
-        spdlog::warn("KafkaProducer::produce failed: topic={}, err={}", topic, rd_kafka_err2str(last_err));
+        logger_.warn("produce failed: topic={}, err={}", topic, rd_kafka_err2str(last_err));
         total_failed_.fetch_add(1, std::memory_order_relaxed);
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
@@ -188,8 +186,8 @@ void KafkaProducer::delivery_report_cb(rd_kafka_t* /*rk*/, const rd_kafka_messag
     auto* self = static_cast<KafkaProducer*>(opaque);
     if (msg->err)
     {
-        spdlog::warn("Kafka delivery failed: topic={}, err={}", rd_kafka_topic_name(msg->rkt),
-                     rd_kafka_err2str(msg->err));
+        self->logger_.warn("delivery failed: topic={}, err={}", rd_kafka_topic_name(msg->rkt),
+                           rd_kafka_err2str(msg->err));
         self->total_failed_.fetch_add(1, std::memory_order_relaxed);
     }
     else

@@ -3,14 +3,13 @@
 #pragma once
 
 #include <apex/core/assert.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/transport.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/use_awaitable.hpp>
-
-#include <spdlog/spdlog.h>
 
 #include <string>
 
@@ -70,7 +69,8 @@ struct TlsTcpTransport
             co_await acceptor.async_accept(sock.lowest_layer(), boost::asio::as_tuple(boost::asio::use_awaitable));
         if (ec)
         {
-            spdlog::warn("TLS accept failed: {}", ec.message());
+            static const apex::core::ScopedLogger s_logger{"TlsTcpTransport", apex::core::ScopedLogger::NO_CORE, "app"};
+            s_logger.warn("TLS accept failed: {}", ec.message());
             co_return apex::core::error(apex::core::ErrorCode::AcceptFailed);
         }
         co_return apex::core::ok();
@@ -82,7 +82,8 @@ struct TlsTcpTransport
                                                   boost::asio::as_tuple(boost::asio::use_awaitable));
         if (ec)
         {
-            spdlog::warn("TLS handshake failed: {}", ec.message());
+            static const apex::core::ScopedLogger s_logger{"TlsTcpTransport", apex::core::ScopedLogger::NO_CORE, "app"};
+            s_logger.warn("TLS handshake failed: {}", ec.message());
             co_return apex::core::error(apex::core::ErrorCode::HandshakeFailed);
         }
         co_return apex::core::ok();

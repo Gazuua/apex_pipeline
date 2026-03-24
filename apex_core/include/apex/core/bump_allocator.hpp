@@ -3,6 +3,8 @@
 #pragma once
 
 #include <apex/core/core_allocator.hpp>
+#include <apex/core/scoped_logger.hpp>
+
 #include <cstddef>
 #include <cstdlib>
 #include <new>
@@ -48,6 +50,7 @@ class BumpAllocator
     [[nodiscard]] std::size_t capacity() const noexcept;
 
   private:
+    ScopedLogger logger_{"BumpAllocator", ScopedLogger::NO_CORE};
     char* base_{nullptr};
     char* cursor_{nullptr};
     char* end_{nullptr};

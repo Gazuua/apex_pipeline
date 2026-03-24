@@ -4,8 +4,6 @@
 
 #include <apex/gateway/gateway_error.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <algorithm>
 #include <charconv>
 #include <fstream>
@@ -17,12 +15,18 @@ namespace apex::gateway
 namespace
 {
 
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"JwtVerifier", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
+
 std::string read_file(std::string_view path)
 {
     std::ifstream file{std::string{path}};
     if (!file.is_open())
     {
-        spdlog::error("[JwtVerifier] Failed to open key file: {}", path);
+        s_logger().error("Failed to open key file: {}", path);
         return {};
     }
     std::ostringstream ss;
@@ -39,7 +43,7 @@ JwtVerifier::JwtVerifier(const JwtConfig& config)
 {
     if (public_key_.empty())
     {
-        spdlog::error("[JwtVerifier] RS256 public key not loaded from '{}' "
+        logger_.error("RS256 public key not loaded from '{}' "
                       "-- token verification will fail",
                       config.public_key_file);
     }
@@ -51,7 +55,7 @@ JwtVerifier::JwtVerifier(const JwtConfig& config)
     verifier_.leeway(static_cast<uint64_t>(config.clock_skew.count()));
     if (config.issuer.empty())
     {
-        spdlog::error("[JwtVerifier] JWT issuer is empty "
+        logger_.error("JWT issuer is empty "
                       "-- token issuer validation is effectively disabled");
     }
 }
@@ -70,7 +74,7 @@ apex::core::Result<JwtClaims> JwtVerifier::verify(std::string_view token) const
             auto [ptr, ec] = std::from_chars(uid_str.data(), uid_str.data() + uid_str.size(), claims.user_id);
             if (ec != std::errc{})
             {
-                spdlog::debug("JWT uid claim parsing failed: '{}'", uid_str);
+                logger_.debug("uid claim parsing failed: '{}'", uid_str);
                 return apex::core::error(apex::core::ErrorCode::ServiceError);
             }
         }
@@ -82,21 +86,22 @@ apex::core::Result<JwtClaims> JwtVerifier::verify(std::string_view token) const
         }
         claims.expires_at = decoded.get_expires_at();
 
+        logger_.debug("verify ok uid={}", claims.user_id);
         return claims;
     }
     catch (const jwt::error::token_verification_exception& e)
     {
-        spdlog::debug("JWT verification failed: {}", e.what());
+        logger_.debug("verification failed: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const jwt::error::claim_not_present_exception& e)
     {
-        spdlog::debug("JWT missing claim: {}", e.what());
+        logger_.debug("missing claim: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
     catch (const std::exception& e)
     {
-        spdlog::warn("JWT unexpected error: {}", e.what());
+        logger_.warn("unexpected error: {}", e.what());
         return apex::core::error(apex::core::ErrorCode::ServiceError);
     }
 }

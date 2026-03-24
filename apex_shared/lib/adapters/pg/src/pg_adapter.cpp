@@ -2,8 +2,6 @@
 
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <boost/asio/use_awaitable.hpp>
 
 #include <cassert>
@@ -28,12 +26,12 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine)
     // Validate configuration before creating pools
     if (config_.connection_string.empty())
     {
-        spdlog::error("PgAdapter: connection_string is empty — aborting adapter init");
+        logger_.error("connection_string is empty — aborting adapter init");
         throw std::runtime_error("PgAdapter: connection_string is empty");
     }
     if (config_.pool_size_per_core == 0)
     {
-        spdlog::error("PgAdapter: pool_size_per_core is 0 — aborting adapter init");
+        logger_.error("pool_size_per_core is 0 — aborting adapter init");
         throw std::runtime_error("PgAdapter: pool_size_per_core must be > 0");
     }
 
@@ -53,14 +51,14 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine)
             end = masked.size();
         masked.replace(pos, end - pos, "password=***");
     }
-    spdlog::info("PgAdapter initialized: {} cores, conninfo={}", engine.core_count(), masked);
+    logger_.info("initialized: {} cores, conninfo={}", engine.core_count(), masked);
 }
 
 void PgAdapter::do_drain()
 {
     // AdapterBase가 state를 DRAINING으로 설정한 후 호출됨.
     // PgPool 추가 작업 불필요 — in-flight 쿼리는 자연 완료.
-    spdlog::info("PgAdapter: drain started");
+    logger_.info("drain started");
 }
 
 void PgAdapter::do_close()
@@ -70,7 +68,7 @@ void PgAdapter::do_close()
         pool->close_all();
     }
     pools_.clear();
-    spdlog::info("PgAdapter: closed");
+    logger_.info("closed");
 }
 
 PgPool& PgAdapter::current_pool()

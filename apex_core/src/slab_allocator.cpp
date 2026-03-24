@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <algorithm>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/slab_allocator.hpp>
 #include <cstdlib>
 #include <stdexcept>
@@ -11,6 +12,15 @@
 
 namespace apex::core
 {
+
+namespace
+{
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"SlabAllocator", ScopedLogger::NO_CORE};
+    return instance;
+}
+} // anonymous namespace
 
 // 슬롯 상태 마커 (allocated/freed 구분)
 static constexpr uint32_t SLAB_MAGIC_ALLOCATED = 0xA110CA7E;
@@ -76,6 +86,7 @@ void SlabAllocator::grow(size_t count)
         throw std::bad_alloc();
     }
 
+    s_logger().trace("grow count={} slot_size={} total={}", count, slot_size_, total_count_ + count);
     chunks_.push_back({chunk, count});
 
     // Build free-list from back to front so first allocate returns first slot
@@ -160,6 +171,7 @@ void SlabAllocator::deallocate(void* ptr) noexcept
     if (node->magic == SLAB_MAGIC_FREED)
     {
         // Release에서도 동작: 카운터 증가 + early return
+        s_logger().warn("double-free detected count={}", double_free_count_ + 1);
         ++double_free_count_;
         return;
     }

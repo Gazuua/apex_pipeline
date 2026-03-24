@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/consumer_payload_pool.hpp>
 #include <apex/shared/adapters/kafka/kafka_config.hpp>
@@ -114,6 +115,7 @@ class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
     void start_producer_poll_timer(boost::asio::io_context& io_ctx);
     void on_producer_poll_tick();
 
+    apex::core::ScopedLogger logger_{"KafkaAdapter", apex::core::ScopedLogger::NO_CORE, "app"};
     KafkaConfig config_;
     MessageCallback message_cb_;
     ConsumerPayloadPool payload_pool_;

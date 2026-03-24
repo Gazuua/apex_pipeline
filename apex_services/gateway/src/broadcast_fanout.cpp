@@ -6,8 +6,6 @@
 
 #include <boost/asio/post.hpp>
 
-#include <spdlog/spdlog.h>
-
 #include <cstring>
 
 namespace apex::gateway
@@ -31,7 +29,7 @@ void BroadcastFanout::fanout(std::string_view channel, std::span<const uint8_t> 
     auto frame = build_wire_frame(message);
     if (frame.empty())
     {
-        spdlog::warn("BroadcastFanout: failed to build wire frame for channel '{}'", channel);
+        logger_.warn("BroadcastFanout: failed to build wire frame for channel '{}'", channel);
         return;
     }
 
@@ -105,7 +103,8 @@ std::vector<uint8_t> BroadcastFanout::build_wire_frame(std::span<const uint8_t> 
     else if (!message.empty())
     {
         // Malformed — too short for msg_id prefix
-        spdlog::warn("BroadcastFanout: message too short ({} bytes) for msg_id prefix", message.size());
+        static const apex::core::ScopedLogger s_logger{"BroadcastFanout", apex::core::ScopedLogger::NO_CORE, "app"};
+        s_logger.warn("message too short ({} bytes) for msg_id prefix", message.size());
         return {};
     }
     // else: empty message -> msg_id=0, empty payload (e.g., heartbeat/signal)

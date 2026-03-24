@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/result.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/route_table.hpp>
@@ -55,6 +56,7 @@ class MessageRouter
     uint16_t core_id_;
     uint64_t corr_counter_{0};   // per-core, lock-free
     std::string response_topic_; // Reply-To: 서비스가 응답할 토픽
+    apex::core::ScopedLogger logger_{"MessageRouter", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
 } // namespace apex::gateway

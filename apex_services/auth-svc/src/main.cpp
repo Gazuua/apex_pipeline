@@ -5,6 +5,7 @@
 
 #include <apex/core/config.hpp>
 #include <apex/core/logging.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
@@ -14,7 +15,6 @@
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/adapters/redis/redis_config.hpp>
 #include <apex/shared/config_utils.hpp>
-#include <spdlog/spdlog.h>
 #include <toml++/toml.hpp>
 
 #include <chrono>
@@ -108,7 +108,8 @@ int main(int argc, char* argv[])
     auto app_config = apex::core::AppConfig::from_file(config_path);
     apex::core::init_logging(app_config.logging);
 
-    spdlog::info("Auth Service starting...");
+    apex::core::ScopedLogger logger{"Main", apex::core::ScopedLogger::NO_CORE, "app"};
+    logger.info("Auth Service starting...");
 
     // --- 2. Parse TOML config ---
     ParsedConfig parsed;
@@ -118,11 +119,11 @@ int main(int argc, char* argv[])
     }
     catch (const toml::parse_error& e)
     {
-        spdlog::error("Failed to parse config '{}': {}", config_path, e.what());
+        logger.error("Failed to parse config '{}': {}", config_path, e.what());
         return EXIT_FAILURE;
     }
 
-    spdlog::info("Config loaded from '{}'", config_path);
+    logger.info("Config loaded from '{}'", config_path);
 
     // --- 3. Server 구성 (CoreEngine 내장) ---
     apex::core::ServerConfig server_config;
@@ -141,9 +142,9 @@ int main(int argc, char* argv[])
     // --- 6. Server 실행 (블로킹) ---
     // Kafka auto-wiring [D2]: kafka_route() 등록만 하면 코어가 KafkaDispatchBridge를 자동 배선.
     // post_init_callback 수동 와이어링 제거됨.
-    spdlog::info("[AuthService] Running. Press Ctrl+C to stop.");
+    logger.info("Running. Press Ctrl+C to stop.");
     server.run();
 
-    spdlog::info("Auth Service stopped.");
+    logger.info("Auth Service stopped.");
     return EXIT_SUCCESS;
 }
