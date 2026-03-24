@@ -88,8 +88,7 @@ void MetricsHttpServer::start(net::io_context& io, uint16_t port, MetricsRegistr
     running_ = &running;
 
     auto endpoint = tcp::endpoint(tcp::v4(), port);
-    acceptor_storage_ = std::make_unique<tcp::acceptor>(io, endpoint);
-    acceptor_ = acceptor_storage_.get();
+    acceptor_ = std::make_unique<tcp::acceptor>(io, endpoint);
 
     logger_.info("started on port {}", port);
     do_accept();
@@ -103,7 +102,7 @@ void MetricsHttpServer::stop()
         acceptor_->close(ec);
         logger_.info("stopped");
     }
-    acceptor_ = nullptr;
+    acceptor_.reset();
 }
 
 void MetricsHttpServer::do_accept()

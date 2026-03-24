@@ -89,6 +89,13 @@ class MetricsRegistry
     /// Fn pattern — register a callback that returns a gauge value at scrape time.
     void gauge_fn(std::string_view name, std::string_view help, Labels labels, std::function<int64_t()> reader);
 
+    /// Freeze the registry — no more registrations allowed.
+    /// Called after all init-phase registrations complete. Asserts on post-freeze registration.
+    void freeze() noexcept
+    {
+        frozen_ = true;
+    }
+
     /// Serialize all registered metrics to Prometheus text exposition format.
     [[nodiscard]] std::string serialize() const;
 
@@ -112,6 +119,7 @@ class MetricsRegistry
     };
 
     std::vector<MetricEntry> entries_;
+    bool frozen_{false};
 
     /// Owned Counter/Gauge storage. Stable pointers via unique_ptr.
     std::vector<std::unique_ptr<Counter>> owned_counters_;

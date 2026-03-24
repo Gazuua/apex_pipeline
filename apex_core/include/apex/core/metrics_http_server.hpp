@@ -37,8 +37,7 @@ class MetricsHttpServer
   private:
     void do_accept();
 
-    boost::asio::ip::tcp::acceptor* acceptor_{nullptr};
-    std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_storage_;
+    std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
     MetricsRegistry* registry_{nullptr};
     const std::atomic<bool>* running_{nullptr};
     ScopedLogger logger_{"MetricsHttpServer", ScopedLogger::NO_CORE};

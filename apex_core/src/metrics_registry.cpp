@@ -4,13 +4,17 @@
 
 #include <fmt/format.h>
 
+#include <cassert>
 #include <iterator>
+#include <string>
+#include <unordered_set>
 
 namespace apex::core
 {
 
 Counter& MetricsRegistry::counter(std::string_view name, std::string_view help, Labels labels)
 {
+    assert(!frozen_ && "MetricsRegistry: registration after freeze()");
     auto& ptr = owned_counters_.emplace_back(std::make_unique<Counter>());
     entries_.push_back({std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), ptr.get()});
     return *ptr;
@@ -18,6 +22,7 @@ Counter& MetricsRegistry::counter(std::string_view name, std::string_view help, 
 
 Gauge& MetricsRegistry::gauge(std::string_view name, std::string_view help, Labels labels)
 {
+    assert(!frozen_ && "MetricsRegistry: registration after freeze()");
     auto& ptr = owned_gauges_.emplace_back(std::make_unique<Gauge>());
     entries_.push_back({std::string(name), std::string(help), MetricType::GAUGE, std::move(labels), ptr.get()});
     return *ptr;
@@ -26,17 +31,46 @@ Gauge& MetricsRegistry::gauge(std::string_view name, std::string_view help, Labe
 void MetricsRegistry::counter_from(std::string_view name, std::string_view help, Labels labels,
                                    const std::atomic<uint64_t>& source)
 {
+    assert(!frozen_ && "MetricsRegistry: registration after freeze()");
     entries_.push_back({std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), &source});
 }
 
 void MetricsRegistry::gauge_fn(std::string_view name, std::string_view help, Labels labels,
                                std::function<int64_t()> reader)
 {
+    assert(!frozen_ && "MetricsRegistry: registration after freeze()");
     entries_.push_back({std::string(name), std::string(help), MetricType::GAUGE, std::move(labels), std::move(reader)});
 }
 
 namespace
 {
+
+/// Escape label value per Prometheus text exposition format (RFC-like):
+/// \ -> \\, " -> \", newline -> \n
+void escape_label_value(fmt::memory_buffer& buf, std::string_view value)
+{
+    for (char c : value)
+    {
+        switch (c)
+        {
+            case '\\':
+                buf.push_back('\\');
+                buf.push_back('\\');
+                break;
+            case '"':
+                buf.push_back('\\');
+                buf.push_back('"');
+                break;
+            case '\n':
+                buf.push_back('\\');
+                buf.push_back('n');
+                break;
+            default:
+                buf.push_back(c);
+                break;
+        }
+    }
+}
 
 void format_labels(fmt::memory_buffer& buf, const Labels& labels)
 {
@@ -47,7 +81,9 @@ void format_labels(fmt::memory_buffer& buf, const Labels& labels)
     {
         if (i > 0)
             buf.push_back(',');
-        fmt::format_to(std::back_inserter(buf), "{}=\"{}\"", labels[i].first, labels[i].second);
+        fmt::format_to(std::back_inserter(buf), "{}=\"", labels[i].first);
+        escape_label_value(buf, labels[i].second);
+        buf.push_back('"');
     }
     buf.push_back('}');
 }
@@ -58,19 +94,17 @@ std::string MetricsRegistry::serialize() const
 {
     fmt::memory_buffer buf;
 
-    // Group entries by name for HELP/TYPE deduplication.
-    // Entries with same name but different labels share one HELP/TYPE header.
-    std::string_view prev_name;
+    // HELP/TYPE deduplication — handles non-contiguous same-name entries safely
+    std::unordered_set<std::string> emitted_names;
 
     for (const auto& entry : entries_)
     {
         // Emit HELP + TYPE only once per metric name
-        if (entry.name != prev_name)
+        if (emitted_names.insert(entry.name).second)
         {
             fmt::format_to(std::back_inserter(buf), "# HELP {} {}\n", entry.name, entry.help);
             fmt::format_to(std::back_inserter(buf), "# TYPE {} {}\n", entry.name,
                            entry.type == MetricType::COUNTER ? "counter" : "gauge");
-            prev_name = entry.name;
         }
 
         // Metric name + labels
@@ -95,7 +129,15 @@ std::string MetricsRegistry::serialize() const
                 }
                 else if constexpr (std::is_same_v<T, std::function<int64_t()>>)
                 {
-                    fmt::format_to(std::back_inserter(buf), " {}\n", src());
+                    // Guard against callback exceptions — one broken gauge must not poison entire scrape
+                    try
+                    {
+                        fmt::format_to(std::back_inserter(buf), " {}\n", src());
+                    }
+                    catch (...)
+                    {
+                        fmt::format_to(std::back_inserter(buf), " 0\n");
+                    }
                 }
             },
             entry.source);

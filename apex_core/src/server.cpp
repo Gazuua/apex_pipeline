@@ -297,6 +297,40 @@ void Server::run()
     for (auto& listener : listeners_)
         listener->start();
 
+    // Register framework metrics (per-core) — after all init phases, before freeze
+    for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id)
+    {
+        auto core_label = Labels{{"core", std::to_string(core_id)}};
+        auto& sm = per_core_[core_id]->session_mgr;
+        auto& cm = core_engine_->metrics(core_id);
+        auto& disp = listeners_.empty() ? per_core_[core_id]->fallback_dispatcher : listeners_[0]->dispatcher(core_id);
+
+        // SessionManager
+        metrics_registry_.gauge_fn("apex_sessions_active", "Current active session count", core_label,
+                                   [&sm]() { return static_cast<int64_t>(sm.active_session_count()); });
+        metrics_registry_.counter_from("apex_sessions_created_total", "Total sessions created", core_label,
+                                       sm.metric_sessions_created());
+        metrics_registry_.counter_from("apex_sessions_timeout_total", "Total session timeouts", core_label,
+                                       sm.metric_sessions_timeout());
+        metrics_registry_.counter_from("apex_session_pool_heap_fallback_total", "Session pool heap fallback count",
+                                       core_label, sm.metric_heap_fallback());
+
+        // MessageDispatcher
+        metrics_registry_.counter_from("apex_messages_dispatched_total", "Total messages dispatched", core_label,
+                                       disp.metric_dispatched());
+        metrics_registry_.counter_from("apex_handler_exceptions_total", "Total handler exceptions", core_label,
+                                       disp.metric_exceptions());
+
+        // CoreMetrics (cross-core messaging)
+        metrics_registry_.counter_from("apex_crosscore_post_total", "Total cross-core posts", core_label,
+                                       cm.post_total);
+        metrics_registry_.counter_from("apex_crosscore_post_failures_total", "Total cross-core post failures",
+                                       core_label, cm.post_failures);
+    }
+
+    // Freeze metrics registry — no more registrations allowed after init phase
+    metrics_registry_.freeze();
+
     // Start metrics HTTP server if enabled
     if (config_.metrics.enabled)
     {
