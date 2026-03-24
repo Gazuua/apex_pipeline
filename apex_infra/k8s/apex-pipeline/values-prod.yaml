@@ -1,0 +1,83 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Apex Pipeline — 프로덕션 오버라이드
+# 사용: helm install ... -f values.yaml -f values-prod.yaml
+
+# === Namespace (이미 존재하면 false) ===
+namespaces:
+  create: false
+
+# === RSA 키 (외부 Secret 참조) ===
+rsaKeys:
+  create: false
+  existingSecret: "apex-rsa-keys"  # 운영팀이 사전 생성
+
+# === 앱 서비스 ===
+gateway:
+  enabled: true
+  # image.tag: "v0.6.3"  # 릴리스 시 태그 지정
+  ingress:
+    host: apex.example.com
+    tls:
+      secretName: apex-tls  # cert-manager가 자동 생성
+  hpa:
+    enabled: true
+  pdb:
+    enabled: true
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+  secrets:
+    existingSecret: "apex-gateway-secrets"
+
+auth-svc:
+  enabled: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  secrets:
+    existingSecret: "apex-auth-secrets"
+
+chat-svc:
+  enabled: true
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  secrets:
+    existingSecret: "apex-chat-secrets"
+
+log-svc:
+  enabled: false  # 구현 완료 시 true로 전환
+
+# === 인프라 (프로덕션: 전부 비활성 — 관리형 서비스 사용) ===
+kafka:
+  enabled: false
+
+redis-auth:
+  enabled: false
+
+redis-ratelimit:
+  enabled: false
+
+redis-chat:
+  enabled: false
+
+redis-pubsub:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+pgbouncer:
+  enabled: false

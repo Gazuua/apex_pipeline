@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v2
+name: apex-pipeline
+description: Apex Pipeline — C++23 코루틴 기반 고성능 서버 프레임워크
+type: application
+version: 0.6.3
+appVersion: "0.6.3"
+
+dependencies:
+  # --- 앱 서비스 (로컬 sub-charts) ---
+  - name: gateway
+    version: "0.1.0"
+    condition: gateway.enabled
+  - name: auth-svc
+    version: "0.1.0"
+    condition: auth-svc.enabled
+  - name: chat-svc
+    version: "0.1.0"
+    condition: chat-svc.enabled
+  - name: log-svc
+    version: "0.1.0"
+    condition: log-svc.enabled
+
+  # --- 인프라 (Bitnami, 로컬 전용) ---
+  - name: kafka
+    version: "~32.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: kafka.enabled
+  - name: redis
+    alias: redis-auth
+    version: "~21.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis-auth.enabled
+  - name: redis
+    alias: redis-ratelimit
+    version: "~21.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis-ratelimit.enabled
+  - name: redis
+    alias: redis-chat
+    version: "~21.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis-chat.enabled
+  - name: redis
+    alias: redis-pubsub
+    version: "~21.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis-pubsub.enabled
+  - name: postgresql
+    version: "~16.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: pgbouncer
+    version: "0.1.0"
+    condition: pgbouncer.enabled

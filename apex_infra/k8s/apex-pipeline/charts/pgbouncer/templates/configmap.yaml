@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# PgBouncer ConfigMap — 현재 미사용.
+# Bitnami pgbouncer 이미지는 환경변수로 설정을 주입하므로 별도 ConfigMap이 불필요하다.
+# 향후 커스텀 pgbouncer.ini 또는 userlist.txt가 필요하면 이 파일에서 정의하고
+# Deployment에 volumeMount로 마운트한다.

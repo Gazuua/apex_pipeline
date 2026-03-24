@@ -1,0 +1,66 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# PgBouncer sub-chart values
+# Bitnami Helm chart가 존재하지 않으므로 Docker 이미지를 직접 사용하는 커스텀 차트.
+# docker-compose.yml PgBouncer 설정을 그대로 이관.
+
+replicaCount: 1
+
+image:
+  repository: bitnami/pgbouncer
+  tag: "1.23.1"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 6432
+
+# --- PostgreSQL 연결 ---
+postgresql:
+  host: "apex-infra-postgresql.apex-infra.svc.cluster.local"
+  port: 5432
+  username: "apex_user"
+  database: "apex_db"
+
+# --- PgBouncer 설정 (docker-compose.yml과 동일) ---
+pgbouncer:
+  database: "apex_db"
+  port: 6432
+  authType: "md5"
+  poolMode: "transaction"
+  defaultPoolSize: 20
+  minPoolSize: 5
+  maxClientConn: 200
+  maxDbConnections: 50
+  queryWaitTimeout: 120
+  serverIdleTimeout: 600
+  clientIdleTimeout: 300
+
+# --- Secret ---
+secrets:
+  # 기존 Secret 사용 시 이름 지정 (프로덕션)
+  existingSecret: ""
+  # 기본값 (로컬 개발용)
+  postgresPassword: "apex_pass"
+
+# --- Probes (pg_isready -h localhost -p 6432) ---
+probes:
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# --- 리소스 ---
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi

@@ -1,0 +1,243 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# Apex Gateway — Helm values (로컬 기본값)
+# K8s DNS 주소 + ${VAR:-default} 패턴으로 Secret 주입 (expand_env).
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/gazuua/apex-pipeline-gateway
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Service
+# ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  ports:
+    - name: ws
+      port: 8443
+      targetPort: 8443
+    - name: metrics
+      port: 8081
+      targetPort: 8081
+
+# ---------------------------------------------------------------------------
+# ConfigMap — K8s용 gateway.toml
+# ---------------------------------------------------------------------------
+config:
+  fileName: "gateway.toml"
+  mountPath: "/app"
+  content: |
+    # Apex Gateway Configuration (K8s)
+
+    [logging]
+    service_name = "gateway"
+
+    [logging.file]
+    enabled = true
+
+    [server]
+    ws_port = 8443
+    num_cores = 2
+
+    # [tls] 섹션 없음 — Ingress에서 TLS termination 수행, Gateway는 plain ws:// 수신
+
+    [jwt]
+    algorithm = "RS256"
+    public_key_file = "keys/auth_rs256_pub.pem"
+    issuer = "apex-auth"
+    clock_skew_seconds = 30
+    sensitive_msg_ids = []
+
+    [[routes]]
+    range_begin = 0
+    range_end = 999
+    kafka_topic = "system.requests"
+
+    [[routes]]
+    range_begin = 1000
+    range_end = 1999
+    kafka_topic = "auth.requests"
+
+    [[routes]]
+    range_begin = 2000
+    range_end = 2999
+    kafka_topic = "chat.requests"
+
+    [kafka]
+    brokers = "apex-infra-kafka.apex-infra.svc.cluster.local:9092"
+    consumer_group = "gateway"
+    response_topic = "gateway.responses"
+
+    [redis.auth]
+    host = "apex-infra-redis-auth-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_AUTH_PASSWORD:-dev_redis_pass}"
+
+    [redis.ratelimit]
+    host = "apex-infra-redis-ratelimit-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_RATELIMIT_PASSWORD:-dev_redis_pass}"
+
+    [redis.pubsub]
+    host = "apex-infra-redis-pubsub-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}"
+
+    [pubsub]
+    max_subscriptions_per_session = 50
+    global_channels = ["pub:global:chat"]
+
+    [timeouts]
+    request_timeout_ms = 5000
+    max_pending_per_core = 65536
+    heartbeat_timeout_ticks = 300
+    sweep_interval_ms = 1000
+
+    # --- Rate Limiting ---
+    [rate_limit.ip]
+    total_limit = 1000
+    window_size_seconds = 60
+    max_entries = 65536
+
+    [rate_limit.user]
+    default_limit = 100
+    window_size_seconds = 60
+
+    [rate_limit.endpoint]
+    default_limit = 60
+    window_size_seconds = 60
+
+    [rate_limit.endpoint.overrides]
+    1000 = 10
+    2011 = 200
+    2001 = 5
+
+    # --- Auth ---
+    [auth]
+    blacklist_fail_open = false
+
+    [auth.exempt]
+    LoginRequest = 1000
+    LogoutRequest = 1002
+    RefreshTokenRequest = 1004
+
+    # --- Metrics (K8s probes) ---
+    [metrics]
+    enabled = true
+    port = 8081
+
+# ---------------------------------------------------------------------------
+# Probes
+# ---------------------------------------------------------------------------
+probes:
+  startup:
+    tcpSocket:
+      port: 8443
+    failureThreshold: 30
+    periodSeconds: 5
+  liveness:
+    httpGet:
+      path: /health
+      port: 8081
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    httpGet:
+      path: /ready
+      port: 8081
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# Ingress (nginx — WebSocket)
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$remote_addr"
+  host: apex.local
+  tls:
+    enabled: true
+    secretName: apex-tls
+
+# ---------------------------------------------------------------------------
+# HPA (Horizontal Pod Autoscaler)
+# ---------------------------------------------------------------------------
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+# ---------------------------------------------------------------------------
+# PDB (PodDisruptionBudget)
+# ---------------------------------------------------------------------------
+pdb:
+  enabled: false
+  maxUnavailable: 1
+
+# ---------------------------------------------------------------------------
+# Secrets — 환경변수로 주입, expand_env가 TOML에서 ${VAR:-default} 치환
+# ---------------------------------------------------------------------------
+secrets:
+  # existingSecret: ""  # 프로덕션에서 사전 생성된 Secret 이름 지정
+  data:
+    REDIS_AUTH_PASSWORD: dev_redis_pass
+    REDIS_RATELIMIT_PASSWORD: dev_redis_pass
+    REDIS_PUBSUB_PASSWORD: dev_redis_pass
+
+# ---------------------------------------------------------------------------
+# Extra volumes — RSA 공개키 Secret 마운트
+# ---------------------------------------------------------------------------
+extraVolumes:
+  - name: rsa-keys
+    secret:
+      secretName: apex-rsa-keys
+      items:
+        - key: auth_rs256_pub.pem
+          path: auth_rs256_pub.pem
+
+extraVolumeMounts:
+  - name: rsa-keys
+    mountPath: /app/keys
+    readOnly: true
+
+extraEnv: []
+
+# ---------------------------------------------------------------------------
+# ServiceAccount
+# ---------------------------------------------------------------------------
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------
+# ServiceMonitor (Prometheus)
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  port: metrics
+  path: /metrics
+  interval: 15s

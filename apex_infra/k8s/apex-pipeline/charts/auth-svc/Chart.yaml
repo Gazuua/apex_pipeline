@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v2
+name: auth-svc
+description: Apex Auth Service — JWT 인증 + 세션 관리 (Kafka consumer)
+type: application
+version: 0.1.0
+appVersion: "0.6.3"
+dependencies:
+  - name: apex-common
+    version: "0.1.0"
+    repository: "file://../apex-common"

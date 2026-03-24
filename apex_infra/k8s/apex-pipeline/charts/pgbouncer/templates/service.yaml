@@ -1,0 +1,16 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "pgbouncer.fullname" . }}
+  labels:
+    {{- include "pgbouncer.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: pgbouncer
+      port: {{ .Values.service.port }}
+      targetPort: pgbouncer
+      protocol: TCP
+  selector:
+    {{- include "pgbouncer.selectorLabels" . | nindent 4 }}

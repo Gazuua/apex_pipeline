@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Helm chart 패키징에서 제외할 파일
+*.md
+scripts/
+.git/
+.gitignore

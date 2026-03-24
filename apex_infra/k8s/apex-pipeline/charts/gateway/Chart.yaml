@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v2
+name: gateway
+description: Apex Gateway — WebSocket 서버 + Kafka 라우터
+type: application
+version: 0.1.0
+appVersion: "0.6.3"
+dependencies:
+  - name: apex-common
+    version: "0.1.0"
+    repository: "file://../apex-common"
