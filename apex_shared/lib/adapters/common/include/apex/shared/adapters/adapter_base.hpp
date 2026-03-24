@@ -84,6 +84,9 @@ template <typename Derived> class AdapterBase
         catch (...)
         {
             state_.store(AdapterState::CLOSED, std::memory_order_release);
+            tokens_.clear();
+            io_ctxs_.clear();
+            base_engine_ = nullptr;
             base_logger_.error("do_init() threw — rolling back to CLOSED");
             throw;
         }
