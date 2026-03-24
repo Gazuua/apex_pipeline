@@ -63,7 +63,7 @@
   .container { max-width: 1200px; margin: 0 auto; padding: 48px 24px 60px; }
 
   /* ── Stats Grid ── */
-  .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; margin-bottom: 56px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 20px; margin-bottom: 56px; }
   .stat-card {
     background: #1E293B; border: 1px solid #334155; border-radius: 14px;
     padding: 28px 22px; text-align: center;
@@ -235,6 +235,7 @@
   .tl-item:nth-child(5)::before { background: #F59E0B; }
   .tl-item:nth-child(6)::before { background: #38BDF8; }
   .tl-item:nth-child(7)::before { background: #34D399; }
+  .tl-item:nth-child(8)::before { background: #34D399; }
   .tl-item .tl-t { font-size: 0.9rem; font-weight: 600; color: #E2E8F0; margin-bottom: 4px; }
   .tl-item .tl-d { font-size: 0.82rem; color: #94A3B8; }
   .tl-item .tl-cmd {
@@ -272,11 +273,52 @@
   .footer .sep { margin: 0 10px; }
   .footer b { color: #64748B; }
 
+  /* ── Dashboard Mock ── */
+  .dash-mock {
+    background: #0F172A; border: 2px solid rgba(52,211,153,0.15);
+    border-radius: 14px; overflow: hidden;
+  }
+  .dash-titlebar {
+    background: #1E293B; border-bottom: 1px solid #334155;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .dash-titlebar .dash-dots { display: flex; gap: 6px; }
+  .dash-titlebar .dash-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .dash-titlebar .dash-url {
+    background: #0F172A; border: 1px solid #334155; border-radius: 6px;
+    padding: 4px 12px; font-size: 0.72rem; color: #64748B; flex: 1;
+    font-family: 'Cascadia Code','Fira Code',monospace;
+  }
+  .dash-body { padding: 20px; }
+  .dash-nav {
+    display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .dash-tab {
+    background: #1E293B; border: 1px solid #334155; border-radius: 8px;
+    padding: 10px 16px; flex: 1; min-width: 120px; text-align: center;
+    transition: border-color .2s;
+  }
+  .dash-tab:hover { border-color: rgba(52,211,153,0.4); }
+  .dash-tab.active { border-color: #34D399; }
+  .dash-tab .dt-icon { font-size: 1.2rem; margin-bottom: 4px; }
+  .dash-tab .dt-name { font-size: 0.8rem; font-weight: 600; color: #E2E8F0; }
+  .dash-tab .dt-desc { font-size: 0.68rem; color: #64748B; margin-top: 2px; }
+  .dash-features {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .dash-feat {
+    background: #1E293B; border: 1px solid #334155; border-radius: 8px;
+    padding: 14px;
+  }
+  .dash-feat .df-title { font-size: 0.8rem; font-weight: 600; color: #34D399; margin-bottom: 6px; }
+  .dash-feat .df-desc { font-size: 0.75rem; color: #94A3B8; line-height: 1.6; }
+
   /* ── Responsive ── */
   @media (max-width: 960px) {
     .stats-grid { grid-template-columns: repeat(2,1fr); }
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
     .hero h1 { font-size: 2rem; }
+    .dash-features { grid-template-columns: 1fr; }
   }
   @media (max-width: 600px) {
     .stats-grid { grid-template-columns: 1fr; }
@@ -293,7 +335,7 @@
   <h1><span class="grad">AI Agent-Driven</span> Development</h1>
   <p class="subtitle">
     에이전트가 설계하고, 리뷰하고, 수정하고, 머지한다 &mdash; 사람은 방향만 정한다.<br>
-    Go 데몬 + 7개 병렬 리뷰어 + 자율 백로그 소탕이 만드는 완전 자동화 개발 생태계.
+    Go 데몬 + HTTP 대시보드 + 7개 병렬 리뷰어 + 자율 백로그 소탕이 만드는 완전 자동화 개발 생태계.
   </p>
   <div class="badge-row">
     <span class="tag green">apex-agent</span>
@@ -301,6 +343,8 @@
     <span class="tag blue">auto-review</span>
     <span class="sep">&middot;</span>
     <span class="tag purple">fsd-backlog</span>
+    <span class="sep">&middot;</span>
+    <span class="tag green">dashboard</span>
     <span class="sep">|</span>
     <span>Apex Pipeline Toolchain</span>
   </div>
@@ -311,7 +355,7 @@
 <!-- ═══════════════════ STATS ═══════════════════ -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="value val-green">4,273+</div>
+    <div class="value val-green">8,000+</div>
     <div class="label">Go Backend LOC</div>
   </div>
   <div class="stat-card">
@@ -319,8 +363,12 @@
     <div class="label">Parallel Reviewer Agents</div>
   </div>
   <div class="stat-card">
-    <div class="value val-amber">5</div>
+    <div class="value val-amber">6</div>
     <div class="label">Enforcement Hook Gates</div>
+  </div>
+  <div class="stat-card">
+    <div class="value val-green">4</div>
+    <div class="label">Dashboard Pages</div>
   </div>
   <div class="stat-card">
     <div class="value val-purple">0</div>
@@ -375,6 +423,7 @@
           <div class="arch-mod a">validate-handoff</div>
           <div class="arch-mod a">enforce-rebase</div>
           <div class="arch-mod a">handoff-probe</div>
+          <div class="arch-mod a">validate-backlog</div>
         </div>
       </div>
 
@@ -388,10 +437,11 @@
           <span style="color:#64748B; font-size:0.75rem; font-weight:400">&mdash; Go + SQLite 영속 상태 관리</span>
         </div>
         <div class="arch-mods">
-          <div class="arch-mod g">Backlog Module<br><span style="font-size:0.7rem;color:#64748B">MD ⇄ DB 동기화</span></div>
+          <div class="arch-mod g">Backlog Module<br><span style="font-size:0.7rem;color:#64748B">JSON ⇄ DB 동기화</span></div>
           <div class="arch-mod g">Handoff Module<br><span style="font-size:0.7rem;color:#64748B">브랜치 상태 머신</span></div>
           <div class="arch-mod g">Queue Module<br><span style="font-size:0.7rem;color:#64748B">빌드/머지 FIFO 락</span></div>
           <div class="arch-mod g">Hook Module<br><span style="font-size:0.7rem;color:#64748B">검증 패턴 매칭</span></div>
+          <div class="arch-mod g">HTTP Dashboard<br><span style="font-size:0.7rem;color:#64748B">localhost:7600 HTMX</span></div>
         </div>
       </div>
 
@@ -407,7 +457,7 @@
         <div class="arch-mods">
           <div class="arch-mod b">Auto-Review<br><span style="font-size:0.7rem;color:#64748B">7개 병렬 리뷰어</span></div>
           <div class="arch-mod p">FSD-Backlog<br><span style="font-size:0.7rem;color:#64748B">자율 백로그 소탕</span></div>
-          <div class="arch-mod r">Handoff Notify<br><span style="font-size:0.7rem;color:#64748B">브랜치 간 알림</span></div>
+          <div class="arch-mod g">HTTP Dashboard API<br><span style="font-size:0.7rem;color:#64748B">JSON + HTML 실시간</span></div>
         </div>
       </div>
     </div>
@@ -442,21 +492,20 @@
     <div class="card">
       <h3><span class="dot dot-g"></span>Backlog Module <span style="color:#64748B;font-size:0.8rem;font-weight:400">(1,928 LOC)</span></h3>
       <ul>
-        <li><span class="hl">이중 소스 관리</span>: MD 파일 = 메타데이터(구조), DB = 운영 상태(OPEN/FIXING/RESOLVED)</li>
-        <li><span class="hl">Import-first Export</span>: 내보내기 전에 반드시 MD→DB 임포트 선행 &mdash; 데이터 유실 원천 방지</li>
-        <li>트랜잭션 기반 상태 전이: <code>OPEN → FIXING → RESOLVED</code></li>
-        <li>스키마 마이그레이션 v1→v3: AUTOINCREMENT + 대소문자 정규화 + DEFAULT 값</li>
-        <li>Resolve / Release 양방향 전이: 작업 실패 시 <code>FIXING → OPEN</code> 롤백</li>
+        <li><span class="hl">이중 소스 관리</span>: JSON 파일 = git 백업(메타데이터), DB = 운영 상태(OPEN/FIXING/RESOLVED)</li>
+        <li><span class="hl">Import-first Export</span>: 내보내기 전에 반드시 JSON&#8594;DB 임포트 선행 &mdash; 데이터 유실 원천 방지</li>
+        <li>트랜잭션 기반 상태 전이: <code>OPEN &#8594; FIXING &#8594; RESOLVED</code></li>
+        <li>스키마 마이그레이션 v1&#8594;v3: AUTOINCREMENT + 대소문자 정규화 + DEFAULT 값</li>
+        <li>Resolve / Release 양방향 전이: 작업 실패 시 <code>FIXING &#8594; OPEN</code> 롤백</li>
       </ul>
     </div>
     <div class="card">
       <h3><span class="dot dot-g"></span>Handoff Module <span style="color:#64748B;font-size:0.8rem;font-weight:400">(1,131 LOC)</span></h3>
       <ul>
-        <li><span class="hl">브랜치 상태 머신</span>: 등록 → 설계 → 구현 → 머지까지 전체 라이프사이클 관리</li>
+        <li><span class="hl">브랜치 상태 머신</span>: 등록 &#8594; 설계 &#8594; 구현 &#8594; 머지까지 전체 라이프사이클 관리</li>
         <li>N:M 관계: 하나의 브랜치가 복수 백로그, 하나의 백로그가 복수 브랜치 가능</li>
-        <li>미응답 알림 감지: 머지 시점에 <span class="hl-a">unacked 알림이 있으면 자동 차단</span></li>
         <li>설계 단계 보호: 소스 파일(.cpp/.hpp) 편집을 <span class="hl-a">상태 기반으로 차단</span></li>
-        <li>Workspace ID → git branch 역참조로 fallback resolution</li>
+        <li>Workspace ID &#8594; git branch 역참조로 fallback resolution</li>
       </ul>
     </div>
     <div class="card">
@@ -464,8 +513,10 @@
       <ul>
         <li><span class="hl">FIFO 채널 락</span>: "build"와 "merge" 두 채널로 동시 빌드/머지 방지</li>
         <li>Blocking Acquire: 500ms 폴링으로 대기, 선행 작업 완료 시 자동 승격</li>
-        <li>Dead Process Cleanup: 비정상 종료 PID 감지 → 자동 해제</li>
+        <li>Dead Process Cleanup: 비정상 종료 PID 감지 &#8594; 자동 해제</li>
         <li>채널 공유: 빌드와 벤치마크가 "build" 채널을 공유해 리소스 충돌 방지</li>
+        <li><span class="hl">PID 이관</span>: 빌드 lock을 자식 프로세스 PID로 전이 &mdash; 고아 빌드 시 lock 유지</li>
+        <li><span class="hl">점유 시간 기록</span>: finished_at 컬럼으로 빌드/머지 소요 시간 추적</li>
       </ul>
     </div>
     <div class="card">
@@ -477,6 +528,16 @@
         <li>PreToolUse 이벤트에 바인딩 &mdash; 도구 실행 자체를 막는 선제적 방어</li>
       </ul>
     </div>
+    <div class="card full">
+      <h3><span class="dot dot-g"></span>HTTP Dashboard <span style="color:#64748B;font-size:0.8rem;font-weight:400">(httpd 패키지)</span></h3>
+      <ul>
+        <li><span class="hl">Go html/template + HTMX 2.0.4</span>: 외부 프레임워크 없이 net/http 표준 라이브러리만으로 구현</li>
+        <li><span class="hl">4개 페이지</span>: Dashboard(전체 현황), Backlog(이슈 목록), Handoff(브랜치 상태), Queue(빌드/머지 큐)</li>
+        <li>1초 폴링으로 DB 상태 실시간 반영 &mdash; 속도 조절(Fast/Normal/Slow) 지원</li>
+        <li>JSON API 엔드포인트: 각 모듈별 <code>/api/</code> 경로로 프로그래매틱 접근 가능</li>
+        <li>다크 테마 UI: 쇼케이스 페이지와 동일한 디자인 언어 적용</li>
+      </ul>
+    </div>
   </div>
 
   <!-- Handoff State Machine -->
@@ -484,17 +545,17 @@
     <h3><span class="dot dot-g"></span>Handoff 상태 머신</h3>
     <div class="sm">
       <div class="sm-state active">notify start</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state">started</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state">notify design</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state">design-notified</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state">notify plan</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state active">implementing</div>
-      <div class="sm-arr">→</div>
+      <div class="sm-arr">&#8594;</div>
       <div class="sm-state">notify merge</div>
     </div>
     <div class="callout g mt-16">
@@ -502,6 +563,83 @@
       설계가 불필요한 작업은 <code>notify start --skip-design</code>으로 바로 <b style="color:#E2E8F0">implementing</b> 상태에 진입.
       각 전이는 선행 상태를 검증하므로 잘못된 전환은 자동 차단된다.
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ HTTP DASHBOARD ═══════════════════ -->
+<div class="section">
+  <h2 class="section-title">HTTP 대시보드 &mdash; 실시간 모니터링</h2>
+
+  <div class="card mb-20">
+    <h3><span class="dot dot-g"></span>이게 뭔가</h3>
+    <p>
+      apex-agent 데몬에 내장된 <span class="hl">브라우저 기반 실시간 대시보드</span>.
+      Go <code>html/template</code> + HTMX 2.0.4로 구현하여 외부 프레임워크 의존 없이 <span class="hl">단일 바이너리에 내장</span>된다.
+      SQLite DB의 상태를 1초 간격으로 폴링하여 브라우저에 실시간 반영하며,
+      빌드 lock, 핸드오프 상태, 백로그 현황, 큐 점유를 한 눈에 파악할 수 있다.
+      idle timer 연동으로 비활성 탭에서는 폴링을 자동 중단하여 리소스를 절약한다.
+    </p>
+  </div>
+
+  <!-- Mock Dashboard -->
+  <div class="dash-mock mb-20">
+    <div class="dash-titlebar">
+      <div class="dash-dots">
+        <span style="background:#F87171;"></span>
+        <span style="background:#F59E0B;"></span>
+        <span style="background:#34D399;"></span>
+      </div>
+      <div class="dash-url">localhost:7600</div>
+    </div>
+    <div class="dash-body">
+      <div class="dash-nav">
+        <div class="dash-tab active">
+          <div class="dt-icon">&#9632;</div>
+          <div class="dt-name">Dashboard</div>
+          <div class="dt-desc">전체 현황 요약</div>
+        </div>
+        <div class="dash-tab">
+          <div class="dt-icon">&#9776;</div>
+          <div class="dt-name">Backlog</div>
+          <div class="dt-desc">이슈 목록 + 필터</div>
+        </div>
+        <div class="dash-tab">
+          <div class="dt-icon">&#8644;</div>
+          <div class="dt-name">Handoff</div>
+          <div class="dt-desc">브랜치 상태 머신</div>
+        </div>
+        <div class="dash-tab">
+          <div class="dt-icon">&#9654;</div>
+          <div class="dt-name">Queue</div>
+          <div class="dt-desc">빌드/머지 큐 상태</div>
+        </div>
+      </div>
+      <div class="dash-features">
+        <div class="dash-feat">
+          <div class="df-title">Go html/template + HTMX 2.0.4</div>
+          <div class="df-desc">외부 JS 프레임워크 없이 HTMX의 <code>hx-get</code> / <code>hx-trigger</code>로 서버 사이드 렌더링 + 부분 업데이트. 전체 페이지 새로고침 없이 실시간 갱신.</div>
+        </div>
+        <div class="dash-feat">
+          <div class="df-title">1-Second Polling + Speed Control</div>
+          <div class="df-desc">기본 1초 간격으로 DB 상태를 폴링. Fast(500ms) / Normal(1s) / Slow(3s) 속도 조절 가능. idle timer로 비활성 탭 자동 정지.</div>
+        </div>
+        <div class="dash-feat">
+          <div class="df-title">JSON API Endpoints</div>
+          <div class="df-desc"><code>/api/dashboard</code>, <code>/api/backlog</code>, <code>/api/handoff</code>, <code>/api/queue</code> &mdash; 프로그래매틱 접근을 위한 구조화된 JSON 응답.</div>
+        </div>
+        <div class="dash-feat">
+          <div class="df-title">Dark Theme + Single Binary</div>
+          <div class="df-desc">쇼케이스 페이지와 동일한 디자인 언어의 다크 테마. Go <code>embed</code>로 템플릿·CSS·JS를 바이너리에 내장 &mdash; 별도 파일 배포 불필요.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout g">
+    <b style="color:#34D399">모니터링이 시스템을 개선한다:</b>
+    대시보드를 통해 빌드 lock PID 버그를 발견하여 즉시 수정 &mdash;
+    <b style="color:#E2E8F0">모니터링 도구가 시스템 신뢰성을 직접 높인 사례</b>.
+    DB 상태를 시각화하는 것만으로도 CLI에서는 놓치기 쉬운 이상 패턴이 드러난다.
   </div>
 </div>
 
@@ -526,41 +664,41 @@
         <div class="ft">변경 분석</div>
         <div class="fd">git diff, 영향 범위</div>
       </div>
-      <div class="flow-arr b">→</div>
+      <div class="flow-arr b">&#8594;</div>
       <div class="flow-step b">
         <div class="ft">리뷰어 선별</div>
         <div class="fd">변경 스코프 기반</div>
       </div>
-      <div class="flow-arr b">→</div>
+      <div class="flow-arr b">&#8594;</div>
       <div class="par-box">
         <div class="par-label">7 Parallel Agents</div>
-        <div class="par-item">docs-spec &nbsp;— 설계서↔코드 정합성</div>
-        <div class="par-item">docs-records &nbsp;— 문서 포맷·완결성</div>
-        <div class="par-item">logic &nbsp;— 알고리즘, 상태 전이, 에지 케이스</div>
-        <div class="par-item">systems &nbsp;— 메모리 관리, RAII, 코루틴 안전성</div>
-        <div class="par-item">test &nbsp;— 테스트 커버리지, 격리성</div>
-        <div class="par-item">design &nbsp;— API 일관성, 모듈 경계, 의존성</div>
-        <div class="par-item">infra-security &nbsp;— CMake, CI, 보안, 입력 검증</div>
+        <div class="par-item">docs-spec &nbsp;&mdash; 설계서&#8596;코드 정합성</div>
+        <div class="par-item">docs-records &nbsp;&mdash; 문서 포맷·완결성</div>
+        <div class="par-item">logic &nbsp;&mdash; 알고리즘, 상태 전이, 에지 케이스</div>
+        <div class="par-item">systems &nbsp;&mdash; 메모리 관리, RAII, 코루틴 안전성</div>
+        <div class="par-item">test &nbsp;&mdash; 테스트 커버리지, 격리성</div>
+        <div class="par-item">design &nbsp;&mdash; API 일관성, 모듈 경계, 의존성</div>
+        <div class="par-item">infra-security &nbsp;&mdash; CMake, CI, 보안, 입력 검증</div>
       </div>
-      <div class="flow-arr b">→</div>
+      <div class="flow-arr b">&#8594;</div>
       <div class="flow-step b">
         <div class="ft">결과 통합</div>
         <div class="fd">교차 분석</div>
       </div>
-      <div class="flow-arr b">→</div>
+      <div class="flow-arr b">&#8594;</div>
       <div class="flow-step g">
         <div class="ft">자동 수정</div>
         <div class="fd">fix + backlog</div>
       </div>
-      <div class="flow-arr g">→</div>
+      <div class="flow-arr g">&#8594;</div>
       <div class="flow-step g">
         <div class="ft">빌드 검증</div>
         <div class="fd">clang-format + build</div>
       </div>
-      <div class="flow-arr g">→</div>
+      <div class="flow-arr g">&#8594;</div>
       <div class="flow-step g">
         <div class="ft">PR + CI</div>
-        <div class="fd">커밋 → 푸시</div>
+        <div class="fd">커밋 &#8594; 푸시</div>
       </div>
     </div>
   </div>
@@ -572,7 +710,7 @@
         <li><span class="hl-b">Zero-approval Fixing</span>: 리뷰어가 문제를 찾으면 확인 없이 바로 수정</li>
         <li><span class="hl-b">7개 도메인 동시 분석</span>: 순차 리뷰 대비 시간 1/7, 커버리지 7배</li>
         <li><span class="hl-b">자동 백로그 등록</span>: 수정 불가 이슈도 유실 없이 추적</li>
-        <li><span class="hl-b">main 브랜치 자동 처리</span>: main에서 실행 시 리뷰 브랜치 자동 생성→머지→삭제</li>
+        <li><span class="hl-b">main 브랜치 자동 처리</span>: main에서 실행 시 리뷰 브랜치 자동 생성&#8594;머지&#8594;삭제</li>
       </ul>
     </div>
     <div class="card">
@@ -594,7 +732,7 @@
   <div class="card mb-20">
     <h3><span class="dot dot-p"></span>이게 뭔가</h3>
     <p>
-      백로그에 쌓인 기계적 작업을 <span class="hl-p">사람의 개입 없이 스캔→선별→구현→머지</span>까지
+      백로그에 쌓인 기계적 작업을 <span class="hl-p">사람의 개입 없이 스캔&#8594;선별&#8594;구현&#8594;머지</span>까지
       완전 자율로 수행하는 시스템. 설계 판단이 필요한 항목은 자동으로 건너뛰고,
       확실한 항목만 골라서 처리한다. 자율주행차의 "확신이 없으면 멈춘다" 철학을 소프트웨어 개발에 적용.
     </p>
@@ -608,7 +746,7 @@
         <div class="ft">Phase 1: 스캔</div>
         <div class="fd">BACKLOG.md 전수 탐색</div>
       </div>
-      <div class="flow-arr p">→</div>
+      <div class="flow-arr p">&#8594;</div>
       <div class="par-box purple-par">
         <div class="par-label p">항목별 평가</div>
         <div class="par-item p">기존 FSD 분석 태그 확인</div>
@@ -616,25 +754,25 @@
         <div class="par-item p">코드 명확성 검증</div>
         <div class="par-item p">기존 패턴으로 해결 가능?</div>
       </div>
-      <div class="flow-arr p">→</div>
+      <div class="flow-arr p">&#8594;</div>
       <div class="flow-step p">
         <div class="ft">번들링</div>
         <div class="fd">스코프/파일 겹침 그룹화</div>
       </div>
-      <div class="flow-arr p">→</div>
+      <div class="flow-arr p">&#8594;</div>
       <div class="flow-step p">
         <div class="ft">Phase 2: 착수</div>
         <div class="fd">handoff + skip-design</div>
       </div>
-      <div class="flow-arr p">→</div>
+      <div class="flow-arr p">&#8594;</div>
       <div class="flow-step g">
         <div class="ft">Phase 3: 구현</div>
-        <div class="fd">format→build→test</div>
+        <div class="fd">format&#8594;build&#8594;test</div>
       </div>
-      <div class="flow-arr g">→</div>
+      <div class="flow-arr g">&#8594;</div>
       <div class="flow-step g">
         <div class="ft">Phase 4: 머지</div>
-        <div class="fd">PR → squash merge</div>
+        <div class="fd">PR &#8594; squash merge</div>
       </div>
     </div>
     <div class="callout p mt-16">
@@ -659,7 +797,7 @@
       <ul>
         <li><b style="color:#E2E8F0">Level 0</b>: 사람이 이슈 찾고, 선별하고, 수정하고, 리뷰하고, 머지</li>
         <li><b style="color:#E2E8F0">Level 2</b>: AI가 이슈를 찾지만, 사람이 수정·리뷰·머지 (일반 AI 어시스턴트)</li>
-        <li><b style="color:#A78BFA">Level 4</b>: AI가 스캔→선별→구현→머지. 사람은 방향 설정만 <b style="color:#A78BFA">(← FSD-Backlog)</b></li>
+        <li><b style="color:#A78BFA">Level 4</b>: AI가 스캔&#8594;선별&#8594;구현&#8594;머지. 사람은 방향 설정만 <b style="color:#A78BFA">(&#8592; FSD-Backlog)</b></li>
         <li><b style="color:#64748B">Level 5</b>: 방향 설정까지 자율 (미래 목표)</li>
       </ul>
     </div>
@@ -719,6 +857,12 @@
         <td>설계 단계에서 소스 파일(.cpp/.hpp) 편집 차단, 문서는 허용</td>
         <td><span class="hbadge probe">PROBE</span></td>
       </tr>
+      <tr>
+        <td><code>validate-backlog</code></td>
+        <td>Edit / Write / Read</td>
+        <td><code>docs/BACKLOG.json</code> 직접 접근 차단 &mdash; CLI(<code>backlog list/show/add/...</code>) 경유 필수</td>
+        <td><span class="hbadge block">BLOCK</span></td>
+      </tr>
     </tbody>
   </table>
 
@@ -739,39 +883,44 @@
 
   <div class="timeline">
     <div class="tl-item">
-      <div class="tl-t">① 착수 &mdash; 브랜치 등록</div>
+      <div class="tl-t">&#9312; 착수 &mdash; 브랜치 등록</div>
       <div class="tl-d">Handoff 데몬에 브랜치를 등록하고, 연결된 백로그 항목을 <span class="hl">FIXING</span> 상태로 전환</div>
       <div class="tl-cmd">apex-agent handoff notify start --backlog 126 --summary "..."</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">② 설계 &mdash; 소스 편집 차단</div>
+      <div class="tl-t">&#9313; 설계 &mdash; 소스 편집 차단</div>
       <div class="tl-d"><span class="hl-a">handoff-probe</span>가 .cpp/.hpp 편집을 차단. 문서와 설계서만 작성 가능. 설계 완료 시 상태 전환</div>
       <div class="tl-cmd">apex-agent handoff notify design --summary "..."</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">③ 구현 &mdash; 자유로운 코딩</div>
+      <div class="tl-t">&#9314; 구현 &mdash; 자유로운 코딩</div>
       <div class="tl-d">상태가 <span class="hl">implementing</span>이면 모든 파일 편집 허용. clang-format 후 빌드</div>
       <div class="tl-cmd">apex-agent queue build debug</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">④ 리뷰 &mdash; Auto-Review 실행</div>
-      <div class="tl-d">7개 리뷰어가 병렬로 코드 분석 → 자동 수정 → 백로그 등록 → 재빌드</div>
+      <div class="tl-t">&#9315; 리뷰 &mdash; Auto-Review 실행</div>
+      <div class="tl-d">7개 리뷰어가 병렬로 코드 분석 &#8594; 자동 수정 &#8594; 백로그 등록 &#8594; 재빌드</div>
       <div class="tl-cmd">/auto-review</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">⑤ 머지 준비 &mdash; Lock 획득</div>
+      <div class="tl-t">&#9316; 머지 준비 &mdash; Lock 획득</div>
       <div class="tl-d"><span class="hl-a">validate-merge</span>가 lock 없는 머지를 차단. <span class="hl-a">enforce-rebase</span>가 자동 rebase</div>
       <div class="tl-cmd">apex-agent queue merge acquire</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">⑥ 머지 게이트 검증</div>
-      <div class="tl-d">Handoff가 최종 검증: <span class="hl-a">unacked 알림 없음?</span> <span class="hl-a">FIXING 백로그 없음?</span> 통과 시 머지 허용</div>
+      <div class="tl-t">&#9317; 머지 게이트 검증</div>
+      <div class="tl-d">Handoff가 최종 검증: <span class="hl-a">FIXING 백로그 없음?</span> 통과 시 머지 허용</div>
       <div class="tl-cmd">gh pr merge --squash --admin</div>
     </div>
     <div class="tl-item">
-      <div class="tl-t">⑦ 완료 &mdash; 정리</div>
-      <div class="tl-d">머지 알림 발행, lock 해제, 백로그 상태를 <span class="hl">RESOLVED</span>로 전환, 브랜치 정리</div>
-      <div class="tl-cmd">apex-agent handoff notify merge && apex-agent queue merge release</div>
+      <div class="tl-t">&#9318; 완료 &mdash; 정리</div>
+      <div class="tl-d">lock 해제, 백로그 상태를 <span class="hl">RESOLVED</span>로 전환, 브랜치 정리</div>
+      <div class="tl-cmd">apex-agent handoff notify merge &amp;&amp; apex-agent queue merge release</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-t">&#9319; 대시보드 &mdash; 실시간 모니터링</div>
+      <div class="tl-d">HTTP 대시보드에서 전체 라이프사이클을 실시간으로 시각화. 브랜치 상태, 큐 점유, 백로그 현황이 1초 간격으로 갱신되어 병목과 이상 패턴을 즉시 파악</div>
+      <div class="tl-cmd">http://localhost:7600</div>
     </div>
   </div>
 </div>
@@ -781,9 +930,9 @@
   <h2 class="section-title">핵심 혁신</h2>
   <div class="grid-3 mb-28">
     <div class="card">
-      <h3><span class="dot dot-g"></span>이중 소스 분리</h3>
+      <h3><span class="dot dot-g"></span>JSON + SQLite 분리</h3>
       <p>
-        <span class="hl">MD 파일 = 구조적 진실</span> (제목, 등급, 스코프)<br>
+        <span class="hl">JSON 파일 = git 백업</span> (메타데이터: 제목, 등급, 스코프)<br>
         <span class="hl">SQLite DB = 운영적 진실</span> (상태, 타임스탬프)<br><br>
         Git 추적 가능한 메타데이터와 빠른 상태 쿼리를 동시에 달성.
         Import-first Export로 두 소스 간 데이터 불일치를 원천 방지한다.
@@ -792,7 +941,7 @@
     <div class="card">
       <h3><span class="dot dot-b"></span>자율 수정 리뷰</h3>
       <p>
-        기존: 리뷰어가 "여기 문제있음"이라고 코멘트 → 개발자가 수정<br>
+        기존: 리뷰어가 "여기 문제있음"이라고 코멘트 &#8594; 개발자가 수정<br>
         <span class="hl-b">혁신: 리뷰어가 문제를 찾으면 직접 코드를 고친다</span><br><br>
         7개 도메인 전문 에이전트가 병렬로 분석하므로
         사람 리뷰어 1명이 순차로 훑는 것보다 빠르고 빈틈이 없다.
@@ -806,6 +955,16 @@
         설계 판단이 필요한 건 태그를 달고 건너뛴다.<br><br>
         자동화의 범위를 점진적으로 넓히면서도
         사고를 일으키지 않는 안전한 확장이 가능하다.
+      </p>
+    </div>
+    <div class="card">
+      <h3><span class="dot dot-g"></span>실시간 대시보드</h3>
+      <p>
+        Go 템플릿 + HTMX로 구현한 <span class="hl">브라우저 대시보드</span>.
+        DB 상태를 1초 폴링으로 시각화.
+        외부 프레임워크 없이 <code>net/http</code> 표준 라이브러리만으로 단일 바이너리에 내장.<br><br>
+        대시보드를 통해 빌드 lock PID 버그를 발견하여 즉시 수정 &mdash;
+        <span class="hl">모니터링 도구가 시스템 신뢰성을 직접 높인 사례</span>.
       </p>
     </div>
     <div class="card">
@@ -848,8 +1007,8 @@
     <tbody>
       <tr>
         <td style="color:#34D399; font-weight:600">apex-agent</td>
-        <td>4,273+ LOC (Go)</td>
-        <td>Backlog 1,928 + Handoff 1,131 + Queue 393 + Hook 133 + IPC/daemon + CLI</td>
+        <td>8,000+ LOC (Go)</td>
+        <td>Backlog 1,928 + Handoff 1,131 + Queue 393 + Hook 133 + httpd + IPC/daemon + CLI</td>
       </tr>
       <tr>
         <td style="color:#38BDF8; font-weight:600">Auto-Review</td>
@@ -859,16 +1018,21 @@
       <tr>
         <td style="color:#A78BFA; font-weight:600">FSD-Backlog</td>
         <td>4-phase pipeline</td>
-        <td>Scan → Select → Implement → Merge (confidence-gated)</td>
+        <td>Scan &#8594; Select &#8594; Implement &#8594; Merge (confidence-gated)</td>
       </tr>
       <tr>
         <td style="color:#F59E0B; font-weight:600">Hook Gates</td>
-        <td>5 enforcement points</td>
-        <td>build, merge, handoff, rebase, edit-probe</td>
+        <td>6 enforcement points</td>
+        <td>build, merge, handoff, rebase, edit-probe, backlog</td>
+      </tr>
+      <tr>
+        <td style="color:#34D399; font-weight:600">HTTP Dashboard</td>
+        <td>4 pages</td>
+        <td>Dashboard, Backlog, Handoff, Queue &mdash; HTMX 1s polling, JSON API</td>
       </tr>
       <tr>
         <td style="color:#CBD5E1; font-weight:600">DB Migrations</td>
-        <td>v1 → v3</td>
+        <td>v1 &#8594; v3</td>
         <td>AUTOINCREMENT, case normalization, junction table, git_branch fallback</td>
       </tr>
       <tr>
@@ -901,23 +1065,23 @@
         <div style="text-align:center; font-size:0.8rem; font-weight:600; color:#94A3B8; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">Source of Truth</div>
         <div class="arch-layer" style="margin:0;">
           <div style="text-align:center;">
-            <div style="font-weight:600; color:#34D399; margin-bottom:6px;">BACKLOG.md</div>
-            <div style="font-size:0.75rem; color:#64748B;">메타데이터 (구조)</div>
+            <div style="font-weight:600; color:#34D399; margin-bottom:6px;">BACKLOG.json</div>
+            <div style="font-size:0.75rem; color:#64748B;">git 백업 (메타데이터)</div>
             <div style="font-size:0.72rem; color:#475569; margin-top:4px;">제목 · 등급 · 스코프 · 타입</div>
           </div>
         </div>
-        <div class="arch-connector">↕ Import / Export</div>
+        <div class="arch-connector">&#8597; Import / Export</div>
         <div class="arch-layer" style="margin:0;">
           <div style="text-align:center;">
             <div style="font-weight:600; color:#34D399; margin-bottom:6px;">SQLite DB</div>
             <div style="font-size:0.75rem; color:#64748B;">운영 상태</div>
-            <div style="font-size:0.72rem; color:#475569; margin-top:4px;">OPEN → FIXING → RESOLVED</div>
+            <div style="font-size:0.72rem; color:#475569; margin-top:4px;">OPEN &#8594; FIXING &#8594; RESOLVED</div>
           </div>
         </div>
       </div>
 
       <!-- Arrow -->
-      <div style="display:flex; align-items:center; height:100%; color:#475569; font-size:1.5rem; padding-top:60px;">⇄</div>
+      <div style="display:flex; align-items:center; height:100%; color:#475569; font-size:1.5rem; padding-top:60px;">&#8660;</div>
 
       <!-- Center: Daemon -->
       <div>
@@ -930,20 +1094,21 @@
               <span style="background:#0F172A; border:1px solid rgba(52,211,153,0.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; color:#34D399;">Handoff</span>
               <span style="background:#0F172A; border:1px solid rgba(52,211,153,0.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; color:#34D399;">Queue</span>
               <span style="background:#0F172A; border:1px solid rgba(52,211,153,0.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; color:#34D399;">Hook</span>
+              <span style="background:#0F172A; border:1px solid rgba(52,211,153,0.3); border-radius:6px; padding:4px 10px; font-size:0.72rem; color:#34D399;">httpd</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Arrow -->
-      <div style="display:flex; align-items:center; height:100%; color:#475569; font-size:1.5rem; padding-top:60px;">⇄</div>
+      <div style="display:flex; align-items:center; height:100%; color:#475569; font-size:1.5rem; padding-top:60px;">&#8660;</div>
 
       <!-- Right: Consumers -->
       <div>
         <div style="text-align:center; font-size:0.8rem; font-weight:600; color:#94A3B8; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">Consumers</div>
         <div class="arch-layer" style="margin:0 0 10px; border-color:rgba(245,158,11,0.3);">
           <div style="text-align:center;">
-            <div style="font-weight:600; color:#F59E0B; margin-bottom:4px;">5 Hooks</div>
+            <div style="font-weight:600; color:#F59E0B; margin-bottom:4px;">6 Hooks</div>
             <div style="font-size:0.72rem; color:#64748B;">PreToolUse 게이트</div>
           </div>
         </div>
@@ -953,10 +1118,16 @@
             <div style="font-size:0.72rem; color:#64748B;">7개 병렬 리뷰어</div>
           </div>
         </div>
-        <div class="arch-layer" style="margin:0; border-color:rgba(167,139,250,0.3);">
+        <div class="arch-layer" style="margin:0 0 10px; border-color:rgba(167,139,250,0.3);">
           <div style="text-align:center;">
             <div style="font-weight:600; color:#A78BFA; margin-bottom:4px;">FSD-Backlog</div>
             <div style="font-size:0.72rem; color:#64748B;">자율 백로그 소탕</div>
+          </div>
+        </div>
+        <div class="arch-layer" style="margin:0; border-color:rgba(52,211,153,0.3);">
+          <div style="text-align:center;">
+            <div style="font-weight:600; color:#34D399; margin-bottom:4px;">Dashboard</div>
+            <div style="font-size:0.72rem; color:#64748B;">localhost:7600</div>
           </div>
         </div>
       </div>
@@ -973,13 +1144,14 @@
     </p>
     <p style="margin-bottom:16px;">
       <span class="hl">apex-agent</span>는 영속 상태를 관리하는 <b style="color:#E2E8F0">뇌</b>이고,
-      <span class="hl-a">5개의 Hook</span>은 규칙을 물리적으로 강제하는 <b style="color:#E2E8F0">울타리</b>이며,
+      <span class="hl-a">6개의 Hook</span>은 규칙을 물리적으로 강제하는 <b style="color:#E2E8F0">울타리</b>이며,
       <span class="hl-b">Auto-Review</span>는 품질을 보장하는 <b style="color:#E2E8F0">눈</b>이고,
-      <span class="hl-p">FSD-Backlog</span>는 기계적 작업을 소화하는 <b style="color:#E2E8F0">손</b>이다.
+      <span class="hl-p">FSD-Backlog</span>는 기계적 작업을 소화하는 <b style="color:#E2E8F0">손</b>이며,
+      <span class="hl">Dashboard</span>는 전체를 조망하는 <b style="color:#E2E8F0">시야</b>다.
     </p>
     <p>
-      이 네 가지가 유기적으로 결합되어, 사람이 <span class="hl">"무엇을 만들 것인가"</span>에만 집중할 수 있는 환경을 만든다.
-      브랜치 생성부터 코드 리뷰, 백로그 정리, 머지까지 &mdash;
+      이 다섯 가지가 유기적으로 결합되어, 사람이 <span class="hl">"무엇을 만들 것인가"</span>에만 집중할 수 있는 환경을 만든다.
+      브랜치 생성부터 코드 리뷰, 백로그 정리, 실시간 모니터링, 머지까지 &mdash;
       <span class="hl">개발의 모든 기계적 단계를 에이전트가 자율적으로 수행</span>한다.
       이것이 AI Agent-Driven Development의 현재이자, 소프트웨어 개발의 미래다.
     </p>
@@ -992,9 +1164,10 @@
 <footer class="footer">
   <b>Apex Pipeline</b> &mdash; AI Agent-Driven Development Ecosystem
   <span class="sep">&middot;</span>Go + SQLite + Claude Code
-  <span class="sep">&middot;</span>4,273+ LOC
+  <span class="sep">&middot;</span>8,000+ LOC
   <span class="sep">&middot;</span>7 Parallel Reviewers
-  <span class="sep">&middot;</span>5 Enforcement Hooks
+  <span class="sep">&middot;</span>6 Enforcement Hooks
+  <span class="sep">&middot;</span>HTTP Dashboard
 </footer>
 
 </body>
