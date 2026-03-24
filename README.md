@@ -226,16 +226,16 @@ docker compose down -v                             # 초기화
 docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 ```
 
-### 서비스 Dockerfile
+### Docker 이미지
 
-| 서비스 | 파일 |
-|--------|------|
-| Gateway | `apex_infra/docker/gateway.Dockerfile` |
-| Auth Service | `apex_infra/docker/auth-svc.Dockerfile` |
-| Chat Service | `apex_infra/docker/chat-svc.Dockerfile` |
-| CI 빌드 | `apex_infra/docker/ci.Dockerfile` |
+| 이미지 | 파일 | 설명 |
+|--------|------|------|
+| Tools Base | `apex_infra/docker/tools-base.Dockerfile` | gcc14+cmake+sccache+vcpkg CLI |
+| CI | `apex_infra/docker/ci.Dockerfile` | tools-base + vcpkg 의존성 사전 설치 |
+| Services | `apex_infra/docker/service.Dockerfile` | 통합 서비스 (ARG 파라미터화) |
+| Bake | `apex_infra/docker/docker-bake.hcl` | 서비스 빌드 매트릭스 |
 
-## 현재 상태 — v0.5.11.0
+## 현재 상태 — v0.6.2.0
 
 ### 완료
 
