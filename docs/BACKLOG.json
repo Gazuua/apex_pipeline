@@ -284,15 +284,15 @@
     {
       "id": 40,
       "title": "NUMA 바인딩 + Core Affinity",
-      "severity": "MINOR",
+      "severity": "MAJOR",
       "timeframe": "DEFERRED",
       "scope": "CORE",
       "type": "PERF",
-      "description": "v1.0+ 멀티 소켓 배포 시 재평가. **[FSD 분석 2026-03-22]** v1.0+ 전제 조건 미충족. 트리거 대기.",
+      "description": "CPU Affinity 고정(P-Core 핀닝) + NUMA 바인딩 + 비대칭 워크로드 분배. v0.6.1 벤치마크(i7-14700, 20C/28T)에서 Per-Core 아키텍처가 8 P-Core까지 선형 확장 후 E-Core 구간에서 하락하는 '지각생 효과(Straggler Effect)' 확인. 원인: OS 스케줄러가 워커 스레드를 E-Core에 배정하면서 발생하는 P/E 비대칭. SetThreadAffinityMask(Win)/pthread_setaffinity_np(Linux)로 워커를 P-Core에 고정하고, 코어 성능 비례 워크로드 분배를 적용하면 피크 이후 하락을 완화할 수 있음. 서버 환경(Xeon/EPYC)에서는 NUMA 노드별 메모리 바인딩 필수. 관련 데이터: docs/apex_core/benchmark/v0.6.1.0/i7-14700-20C28T/",
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 00:02:44"
+      "updated_at": "2026-03-25 00:21:31"
     },
     {
       "id": 41,
