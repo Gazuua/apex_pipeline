@@ -136,7 +136,7 @@ TEST_F(SpscMeshDeathTest, SelfCoreQueueAsserts)
     std::vector<boost::asio::io_context*> ptrs = {&io_ctxs_raw[0], &io_ctxs_raw[1]};
     SpscMesh mesh(2, 64, ptrs);
 
-    EXPECT_DEATH(mesh.queue(0, 0), "");
+    EXPECT_DEATH((void)mesh.queue(0, 0), "");
 #endif
 }
 
