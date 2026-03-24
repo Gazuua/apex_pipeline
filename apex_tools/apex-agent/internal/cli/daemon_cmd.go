@@ -101,8 +101,8 @@ func daemonRunCmd() *cobra.Command {
 			d.Register(queueMod)
 
 			// Junction cleaner 주입: backlog.Release()가 handoff 소유 branch_backlogs를 정리할 때 사용
-			backlogMod.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
-				_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+			backlogMod.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
+				_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
 				return err
 			})
 

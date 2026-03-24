@@ -34,7 +34,7 @@ func TestNotifyStart_Basic(t *testing.T) {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 
-	b, err := mgr.GetBranch("feature/test")
+	b, err := mgr.GetBranch(context.Background(), "feature/test")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestNotifyStart_SkipDesign(t *testing.T) {
 		t.Fatalf("NotifyStart with skipDesign: %v", err)
 	}
 
-	status, err := mgr.GetStatus("feature/skip")
+	status, err := mgr.GetStatus(context.Background(), "feature/skip")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestNotifyStart_WithBacklog(t *testing.T) {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 
-	b, err := mgr.GetBranch("feature/backlog-126")
+	b, err := mgr.GetBranch(context.Background(), "feature/backlog-126")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestNotifyTransition_Design(t *testing.T) {
 		t.Fatalf("NotifyTransition design: %v", err)
 	}
 
-	status, err := mgr.GetStatus("feature/trans")
+	status, err := mgr.GetStatus(context.Background(), "feature/trans")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestNotifyTransition_Plan(t *testing.T) {
 		t.Fatalf("NotifyTransition plan: %v", err)
 	}
 
-	status, err := mgr.GetStatus("feature/plan")
+	status, err := mgr.GetStatus(context.Background(), "feature/plan")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestNotifyMerge(t *testing.T) {
 	}
 
 	// 머지 후 active_branches에서 사라져야 함
-	status, err := mgr.GetStatus("feature/merge")
+	status, err := mgr.GetStatus(context.Background(), "feature/merge")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestNotifyTransition_Invalid(t *testing.T) {
 func TestBacklogCheck_Available(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	available, branch, err := mgr.BacklogCheck(999)
+	available, branch, err := mgr.BacklogCheck(context.Background(), 999)
 	if err != nil {
 		t.Fatalf("BacklogCheck: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestBacklogCheck_InUse(t *testing.T) {
 
 	_ = mgr.NotifyStart(context.Background(), "feature/backlog-42", "ws1", "summary", "", []int{42}, "", false)
 
-	available, branch, err := mgr.BacklogCheck(42)
+	available, branch, err := mgr.BacklogCheck(context.Background(), 42)
 	if err != nil {
 		t.Fatalf("BacklogCheck: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestBacklogCheck_InUse(t *testing.T) {
 func TestGetBranch_NotFound(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	b, err := mgr.GetBranch("feature/nonexistent")
+	b, err := mgr.GetBranch(context.Background(), "feature/nonexistent")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestGetBranch_Found(t *testing.T) {
 
 	_ = mgr.NotifyStart(context.Background(), "feature/found", "ws2", "found summary", "", []int{7}, "", false)
 
-	b, err := mgr.GetBranch("feature/found")
+	b, err := mgr.GetBranch(context.Background(), "feature/found")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestGetBranch_Found(t *testing.T) {
 func TestGetStatus_NotRegistered(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
-	status, err := mgr.GetStatus("feature/ghost")
+	status, err := mgr.GetStatus(context.Background(), "feature/ghost")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestGetStatus_Registered(t *testing.T) {
 
 	_ = mgr.NotifyStart(context.Background(), "feature/present", "ws1", "summary", "", nil, "", false)
 
-	status, err := mgr.GetStatus("feature/present")
+	status, err := mgr.GetStatus(context.Background(), "feature/present")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestResolveBranch_ByWorkspace(t *testing.T) {
 	}
 
 	// Should find by workspace ID
-	resolved, err := mgr.ResolveBranch("branch_02", "")
+	resolved, err := mgr.ResolveBranch(context.Background(), "branch_02", "")
 	if err != nil {
 		t.Fatalf("ResolveBranch: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestResolveBranch_FallbackGitBranch(t *testing.T) {
 	}
 
 	// Query with a different workspace ID but correct git_branch → fallback
-	resolved, err := mgr.ResolveBranch("branch_99", "feature/test-branch")
+	resolved, err := mgr.ResolveBranch(context.Background(), "branch_99", "feature/test-branch")
 	if err != nil {
 		t.Fatalf("ResolveBranch: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestResolveBranch_NotFound(t *testing.T) {
 	_, mgr := setupHandoffTestDB(t)
 
 	// No branches registered — both workspace and git_branch miss
-	resolved, err := mgr.ResolveBranch("branch_99", "feature/nonexistent")
+	resolved, err := mgr.ResolveBranch(context.Background(), "branch_99", "feature/nonexistent")
 	if err != nil {
 		t.Fatalf("ResolveBranch: %v", err)
 	}
@@ -322,7 +322,7 @@ type mockBacklogManager struct {
 	failSetStatus bool
 }
 
-func (m *mockBacklogManager) Check(id int) (bool, string, error) {
+func (m *mockBacklogManager) Check(_ context.Context, id int) (bool, string, error) {
 	status, exists := m.items[id]
 	if !exists {
 		return false, "", nil
@@ -330,7 +330,7 @@ func (m *mockBacklogManager) Check(id int) (bool, string, error) {
 	return true, status, nil
 }
 
-func (m *mockBacklogManager) SetStatus(id int, status string) error {
+func (m *mockBacklogManager) SetStatus(_ context.Context, id int, status string) error {
 	if m.failSetStatus {
 		return fmt.Errorf("mock SetStatus error for id=%d", id)
 	}
@@ -338,7 +338,7 @@ func (m *mockBacklogManager) SetStatus(id int, status string) error {
 	return nil
 }
 
-func (m *mockBacklogManager) SetStatusWith(q store.Querier, id int, status string) error {
+func (m *mockBacklogManager) SetStatusWith(_ context.Context, q store.Querier, id int, status string) error {
 	if m.failSetStatus {
 		return fmt.Errorf("mock SetStatusWith error for id=%d", id)
 	}
@@ -346,7 +346,7 @@ func (m *mockBacklogManager) SetStatusWith(q store.Querier, id int, status strin
 	return nil
 }
 
-func (m *mockBacklogManager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+func (m *mockBacklogManager) ListFixingForBranch(_ context.Context, branch string, backlogIDs []int) ([]int, error) {
 	var fixing []int
 	for _, id := range backlogIDs {
 		if status, exists := m.items[id]; exists && status == "FIXING" {
@@ -385,7 +385,7 @@ func TestNotifyStart_BacklogSetStatusFails(t *testing.T) {
 	}
 
 	// Verify rollback: branch should NOT exist
-	b, err := mgr.GetBranch("feature/fail-backlog")
+	b, err := mgr.GetBranch(context.Background(), "feature/fail-backlog")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestNotifyStart_BacklogSetStatusFails(t *testing.T) {
 
 	// Verify no junction entry
 	var count int
-	row := s.QueryRow("SELECT COUNT(*) FROM branch_backlogs WHERE branch=?", "feature/fail-backlog")
+	row := s.QueryRow(context.Background(), "SELECT COUNT(*) FROM branch_backlogs WHERE branch=?", "feature/fail-backlog")
 	if err := row.Scan(&count); err != nil {
 		t.Fatalf("query junction: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestNotifyStart_BacklogAlreadyFixing(t *testing.T) {
 	}
 
 	// Branch should NOT be created
-	b, err := mgr.GetBranch("feature/already-fixing")
+	b, err := mgr.GetBranch(context.Background(), "feature/already-fixing")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -443,7 +443,7 @@ func TestNotifyStart_AfterMerge(t *testing.T) {
 	}
 
 	// 머지 후 active에서 사라졌는지 확인
-	status, _ := mgr.GetStatus("feature/ws-reuse")
+	status, _ := mgr.GetStatus(context.Background(), "feature/ws-reuse")
 	if status != "" {
 		t.Fatalf("expected empty status after merge, got %q", status)
 	}
@@ -455,7 +455,7 @@ func TestNotifyStart_AfterMerge(t *testing.T) {
 	}
 
 	// 새 작업의 상태 확인
-	b, err := mgr.GetBranch("feature/ws-reuse")
+	b, err := mgr.GetBranch(context.Background(), "feature/ws-reuse")
 	if err != nil {
 		t.Fatalf("GetBranch: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 	s, _ := setupHandoffTestDB(t)
 
 	// backlog 모듈 준비 (FIXING 복귀 테스트를 위해)
-	_, err := s.Exec(`CREATE TABLE IF NOT EXISTS backlog_items (
+	_, err := s.Exec(context.Background(), `CREATE TABLE IF NOT EXISTS backlog_items (
 		id INTEGER PRIMARY KEY, title TEXT, severity TEXT, timeframe TEXT,
 		scope TEXT, type TEXT, description TEXT, related TEXT, status TEXT DEFAULT 'OPEN',
 		created_at TEXT, updated_at TEXT
@@ -482,7 +482,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create backlog_items: %v", err)
 	}
-	_, err = s.Exec(`INSERT INTO backlog_items (id, title, status) VALUES (200, 'test backlog', 'OPEN')`)
+	_, err = s.Exec(context.Background(), `INSERT INTO backlog_items (id, title, status) VALUES (200, 'test backlog', 'OPEN')`)
 	if err != nil {
 		t.Fatalf("insert backlog: %v", err)
 	}
@@ -499,7 +499,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 
 	// backlog 200이 FIXING인지 확인
 	var bStatus string
-	s.QueryRow(`SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
+	s.QueryRow(context.Background(), `SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
 	if bStatus != "FIXING" {
 		t.Fatalf("expected backlog status FIXING, got %q", bStatus)
 	}
@@ -511,13 +511,13 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 	}
 
 	// backlog 200이 OPEN으로 복귀했는지 확인
-	s.QueryRow(`SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
+	s.QueryRow(context.Background(), `SELECT status FROM backlog_items WHERE id = 200`).Scan(&bStatus)
 	if bStatus != "OPEN" {
 		t.Errorf("expected backlog status OPEN after abandon, got %q", bStatus)
 	}
 
 	// 새 작업 상태 확인
-	b, _ := mgrWithBacklog.GetBranch("feature/abandon")
+	b, _ := mgrWithBacklog.GetBranch(context.Background(), "feature/abandon")
 	if b == nil {
 		t.Fatal("expected branch to exist")
 	}
@@ -534,26 +534,26 @@ type mockBacklogManagerForReplace struct {
 	store *store.Store
 }
 
-func (m *mockBacklogManagerForReplace) SetStatus(id int, status string) error {
-	_, err := m.store.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+func (m *mockBacklogManagerForReplace) SetStatus(ctx context.Context, id int, status string) error {
+	_, err := m.store.Exec(ctx, `UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
 	return err
 }
 
-func (m *mockBacklogManagerForReplace) SetStatusWith(q store.Querier, id int, status string) error {
-	_, err := q.Exec(`UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
+func (m *mockBacklogManagerForReplace) SetStatusWith(ctx context.Context, q store.Querier, id int, status string) error {
+	_, err := q.Exec(ctx, `UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
 	return err
 }
 
-func (m *mockBacklogManagerForReplace) Check(id int) (bool, string, error) {
+func (m *mockBacklogManagerForReplace) Check(ctx context.Context, id int) (bool, string, error) {
 	var status string
-	err := m.store.QueryRow(`SELECT status FROM backlog_items WHERE id = ?`, id).Scan(&status)
+	err := m.store.QueryRow(ctx, `SELECT status FROM backlog_items WHERE id = ?`, id).Scan(&status)
 	if err != nil {
 		return false, "", nil
 	}
 	return true, status, nil
 }
 
-func (m *mockBacklogManagerForReplace) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+func (m *mockBacklogManagerForReplace) ListFixingForBranch(_ context.Context, branch string, backlogIDs []int) ([]int, error) {
 	return nil, nil
 }
 
@@ -573,7 +573,7 @@ func TestNotifyDrop_OK(t *testing.T) {
 	}
 
 	// active_branches에서 사라져야 함
-	status, err := mgr.GetStatus("feature/drop-ok")
+	status, err := mgr.GetStatus(context.Background(), "feature/drop-ok")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -583,7 +583,7 @@ func TestNotifyDrop_OK(t *testing.T) {
 
 	// branch_history에 DROPPED로 기록되어야 함
 	var historyStatus, historySummary string
-	row := mgr.store.QueryRow(
+	row := mgr.store.QueryRow(context.Background(),
 		`SELECT status, summary FROM branch_history WHERE branch = ?`, "feature/drop-ok",
 	)
 	if err := row.Scan(&historyStatus, &historySummary); err != nil {
@@ -625,7 +625,7 @@ func TestNotifyDrop_WithFixingBacklogs(t *testing.T) {
 	}
 
 	// 브랜치는 active에서 삭제되어야 함
-	status, getErr := mgr.GetStatus("feature/drop-fixing")
+	status, getErr := mgr.GetStatus(context.Background(), "feature/drop-fixing")
 	if getErr != nil {
 		t.Fatalf("GetStatus: %v", getErr)
 	}
@@ -670,7 +670,7 @@ func TestNotifyDrop_BacklogRelease(t *testing.T) {
 	}
 
 	// active에서 사라져야 함
-	status, err := mgr.GetStatus("feature/drop-release")
+	status, err := mgr.GetStatus(context.Background(), "feature/drop-release")
 	if err != nil {
 		t.Fatalf("GetStatus: %v", err)
 	}
@@ -680,7 +680,7 @@ func TestNotifyDrop_BacklogRelease(t *testing.T) {
 
 	// history에 DROPPED 기록
 	var historyStatus string
-	row := mgr.store.QueryRow(
+	row := mgr.store.QueryRow(context.Background(),
 		`SELECT status FROM branch_history WHERE branch = ?`, "feature/drop-release",
 	)
 	if err := row.Scan(&historyStatus); err != nil {

@@ -23,12 +23,13 @@ func TestExec_CreateTable(t *testing.T) {
 	}
 	defer s.Close()
 
-	_, err = s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+	ctx := context.Background()
+	_, err = s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
 	if err != nil {
 		t.Fatalf("Exec CREATE TABLE error: %v", err)
 	}
 
-	_, err = s.Exec("INSERT INTO test (name) VALUES (?)", "hello")
+	_, err = s.Exec(ctx, "INSERT INTO test (name) VALUES (?)", "hello")
 	if err != nil {
 		t.Fatalf("Exec INSERT error: %v", err)
 	}
@@ -41,11 +42,12 @@ func TestQuery_SelectRows(t *testing.T) {
 	}
 	defer s.Close()
 
-	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
-	s.Exec("INSERT INTO test (name) VALUES (?)", "alice")
-	s.Exec("INSERT INTO test (name) VALUES (?)", "bob")
+	ctx := context.Background()
+	s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)")
+	s.Exec(ctx, "INSERT INTO test (name) VALUES (?)", "alice")
+	s.Exec(ctx, "INSERT INTO test (name) VALUES (?)", "bob")
 
-	rows, err := s.Query("SELECT name FROM test ORDER BY id")
+	rows, err := s.Query(ctx, "SELECT name FROM test ORDER BY id")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +72,12 @@ func TestRunInTx_CommitAndRollback(t *testing.T) {
 	}
 	defer s.Close()
 
-	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
+	ctx := context.Background()
+	s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
 	// Commit via RunInTx
-	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
-		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "committed")
+	err = s.RunInTx(ctx, func(tx *TxStore) error {
+		_, err := tx.Exec(ctx, "INSERT INTO test (val) VALUES (?)", "committed")
 		return err
 	})
 	if err != nil {
@@ -82,15 +85,15 @@ func TestRunInTx_CommitAndRollback(t *testing.T) {
 	}
 
 	// Rollback via RunInTx
-	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
-		tx.Exec("INSERT INTO test (val) VALUES (?)", "rolled_back")
+	err = s.RunInTx(ctx, func(tx *TxStore) error {
+		tx.Exec(ctx, "INSERT INTO test (val) VALUES (?)", "rolled_back")
 		return errors.New("rollback")
 	})
 	if err == nil {
 		t.Fatal("expected error from rollback")
 	}
 
-	rows, _ := s.Query("SELECT val FROM test")
+	rows, _ := s.Query(ctx, "SELECT val FROM test")
 	defer rows.Close()
 	var count int
 	for rows.Next() {
@@ -110,10 +113,11 @@ func TestRunInTx_Commit(t *testing.T) {
 	}
 	defer s.Close()
 
-	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
+	ctx := context.Background()
+	s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
-	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
-		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "committed")
+	err = s.RunInTx(ctx, func(tx *TxStore) error {
+		_, err := tx.Exec(ctx, "INSERT INTO test (val) VALUES (?)", "committed")
 		return err
 	})
 	if err != nil {
@@ -121,7 +125,7 @@ func TestRunInTx_Commit(t *testing.T) {
 	}
 
 	// Verify the row was committed
-	row := s.QueryRow("SELECT val FROM test WHERE val = ?", "committed")
+	row := s.QueryRow(ctx, "SELECT val FROM test WHERE val = ?", "committed")
 	var val string
 	if err := row.Scan(&val); err != nil {
 		t.Fatalf("expected row to be committed, got error: %v", err)
@@ -138,11 +142,12 @@ func TestRunInTx_Rollback(t *testing.T) {
 	}
 	defer s.Close()
 
-	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
+	ctx := context.Background()
+	s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
 	testErr := errors.New("deliberate error")
-	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
-		tx.Exec("INSERT INTO test (val) VALUES (?)", "should_rollback")
+	err = s.RunInTx(ctx, func(tx *TxStore) error {
+		tx.Exec(ctx, "INSERT INTO test (val) VALUES (?)", "should_rollback")
 		return testErr
 	})
 	if !errors.Is(err, testErr) {
@@ -150,7 +155,7 @@ func TestRunInTx_Rollback(t *testing.T) {
 	}
 
 	// Verify the row was NOT committed
-	row := s.QueryRow("SELECT COUNT(*) FROM test")
+	row := s.QueryRow(ctx, "SELECT COUNT(*) FROM test")
 	var count int
 	if err := row.Scan(&count); err != nil {
 		t.Fatalf("count query failed: %v", err)
@@ -167,14 +172,15 @@ func TestRunInTx_TxStoreIsolation(t *testing.T) {
 	}
 	defer s.Close()
 
-	s.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
+	ctx := context.Background()
+	s.Exec(ctx, "CREATE TABLE test (id INTEGER PRIMARY KEY, val TEXT)")
 
 	// Verify TxStore is properly isolated — it's a separate type from Store
-	err = s.RunInTx(context.Background(), func(tx *TxStore) error {
+	err = s.RunInTx(ctx, func(tx *TxStore) error {
 		if tx.tx == nil {
 			t.Error("tx.tx should be non-nil inside RunInTx callback")
 		}
-		_, err := tx.Exec("INSERT INTO test (val) VALUES (?)", "isolated")
+		_, err := tx.Exec(ctx, "INSERT INTO test (val) VALUES (?)", "isolated")
 		return err
 	})
 	if err != nil {

@@ -32,7 +32,7 @@ func setupTestDB(t *testing.T) *store.Store {
 func TestNextID_EmptyDB(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
-	id, err := m.NextID()
+	id, err := m.NextID(context.Background())
 	if err != nil {
 		t.Fatalf("NextID failed: %v", err)
 	}
@@ -56,11 +56,11 @@ func TestNextID_AfterInsert(t *testing.T) {
 		Position:    1,
 		Status:      "OPEN",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	id, err := m.NextID()
+	id, err := m.NextID(context.Background())
 	if err != nil {
 		t.Fatalf("NextID failed: %v", err)
 	}
@@ -87,11 +87,11 @@ func TestAdd_Basic(t *testing.T) {
 		Position:    1,
 		Status:      "OPEN",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -154,15 +154,15 @@ func TestAdd_AutoPosition(t *testing.T) {
 		Description: "Second item",
 	}
 
-	if err := m.Add(item1); err != nil {
+	if err := m.Add(context.Background(),item1); err != nil {
 		t.Fatalf("Add item1 failed: %v", err)
 	}
-	if err := m.Add(item2); err != nil {
+	if err := m.Add(context.Background(),item2); err != nil {
 		t.Fatalf("Add item2 failed: %v", err)
 	}
 
-	got1, _ := m.Get(1)
-	got2, _ := m.Get(2)
+	got1, _ := m.Get(context.Background(),1)
+	got2, _ := m.Get(context.Background(),2)
 
 	if got1 == nil || got2 == nil {
 		t.Fatal("expected both items to exist")
@@ -181,7 +181,7 @@ func TestGet_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
 
-	got, err := m.Get(999)
+	got, err := m.Get(context.Background(),999)
 	if err != nil {
 		t.Fatalf("Get on non-existent id should not error, got: %v", err)
 	}
@@ -203,11 +203,11 @@ func TestGet_Found(t *testing.T) {
 		Type:        "DESIGN_DEBT",
 		Description: "Refactor routing table",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	got, err := m.Get(42)
+	got, err := m.Get(context.Background(),42)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -234,12 +234,12 @@ func TestList_ByTimeframe(t *testing.T) {
 		{ID: 3, Title: "IN_VIEW-1", Severity: "MAJOR", Timeframe: "IN_VIEW", Scope: "CORE", Type: "TEST", Description: "d"},
 	}
 	for _, item := range items {
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
 
-	nowItems, err := m.List(ListFilter{Timeframe: "NOW", Status: "OPEN"})
+	nowItems, err := m.List(context.Background(),ListFilter{Timeframe: "NOW", Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestList_ByTimeframe(t *testing.T) {
 		t.Errorf("expected 2 NOW items, got %d", len(nowItems))
 	}
 
-	inViewItems, err := m.List(ListFilter{Timeframe: "IN_VIEW", Status: "OPEN"})
+	inViewItems, err := m.List(context.Background(),ListFilter{Timeframe: "IN_VIEW", Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -265,15 +265,15 @@ func TestList_ByStatus(t *testing.T) {
 		{ID: 2, Title: "Another Open", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "CORE", Type: "DOCS", Description: "d"},
 	}
 	for _, item := range items {
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
-	if err := m.Resolve(1, "FIXED"); err != nil {
+	if err := m.Resolve(context.Background(),1, "FIXED"); err != nil {
 		t.Fatalf("Resolve failed: %v", err)
 	}
 
-	openItems, err := m.List(ListFilter{Status: "OPEN"})
+	openItems, err := m.List(context.Background(),ListFilter{Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestList_ByStatus(t *testing.T) {
 		t.Errorf("expected 1 open item, got %d", len(openItems))
 	}
 
-	resolvedItems, err := m.List(ListFilter{Status: "RESOLVED"})
+	resolvedItems, err := m.List(context.Background(),ListFilter{Status: "RESOLVED"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -301,12 +301,12 @@ func TestList_OrderByPosition(t *testing.T) {
 		{ID: 8, Title: "C", Severity: "CRITICAL", Timeframe: "IN_VIEW", Scope: "CORE", Type: "BUG", Description: "d"},
 	}
 	for _, item := range items {
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
 
-	all, err := m.List(ListFilter{Status: "OPEN"})
+	all, err := m.List(context.Background(),ListFilter{Status: "OPEN"})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -344,13 +344,13 @@ func TestList_NoFilter_ReturnsAllOpen(t *testing.T) {
 			Type:        "BUG",
 			Description: "d",
 		}
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
 
 	// Empty filter with no Status set defaults to showing all open items.
-	all, err := m.List(ListFilter{})
+	all, err := m.List(context.Background(),ListFilter{})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -374,14 +374,14 @@ func TestResolve_Basic(t *testing.T) {
 		Type:        "BUG",
 		Description: "Fix this",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
-	if err := m.Resolve(1, "FIXED"); err != nil {
+	if err := m.Resolve(context.Background(),1, "FIXED"); err != nil {
 		t.Fatalf("Resolve failed: %v", err)
 	}
 
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -400,7 +400,7 @@ func TestResolve_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
 
-	err := m.Resolve(999, "FIXED")
+	err := m.Resolve(context.Background(),999, "FIXED")
 	if err == nil {
 		t.Error("expected error when resolving non-existent item")
 	}
@@ -421,11 +421,11 @@ func TestCheck_Exists(t *testing.T) {
 		Type:        "INFRA",
 		Description: "d",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	exists, status, err := m.Check(1)
+	exists, status, err := m.Check(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestCheck_NotExists(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
 
-	exists, status, err := m.Check(999)
+	exists, status, err := m.Check(context.Background(),999)
 	if err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
@@ -464,15 +464,15 @@ func TestSetStatus_Valid(t *testing.T) {
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "test status transitions",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
 	// OPEN → FIXING
-	if err := m.SetStatus(1, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),1, "FIXING"); err != nil {
 		t.Fatalf("SetStatus FIXING failed: %v", err)
 	}
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -481,10 +481,10 @@ func TestSetStatus_Valid(t *testing.T) {
 	}
 
 	// FIXING → RESOLVED
-	if err := m.SetStatus(1, "RESOLVED"); err != nil {
+	if err := m.SetStatus(context.Background(),1, "RESOLVED"); err != nil {
 		t.Fatalf("SetStatus RESOLVED failed: %v", err)
 	}
-	got, err = m.Get(1)
+	got, err = m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -497,7 +497,7 @@ func TestSetStatus_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)
 
-	err := m.SetStatus(999, "FIXING")
+	err := m.SetStatus(context.Background(),999, "FIXING")
 	if err == nil {
 		t.Fatal("expected error for non-existent item")
 	}
@@ -512,18 +512,18 @@ func TestSetStatusWith_UsesTxStore(t *testing.T) {
 		Timeframe: "IN_VIEW", Scope: "SHARED", Type: "TEST",
 		Description: "test SetStatusWith via RunInTx",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
 	err := s.RunInTx(context.Background(), func(tx *store.TxStore) error {
-		return m.SetStatusWith(tx, 1, "FIXING")
+		return m.SetStatusWith(context.Background(), tx, 1, "FIXING")
 	})
 	if err != nil {
 		t.Fatalf("RunInTx + SetStatusWith failed: %v", err)
 	}
 
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -543,21 +543,21 @@ func TestRelease_FixingToOpen(t *testing.T) {
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "original description",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
 	// Set to FIXING first
-	if err := m.SetStatus(1, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),1, "FIXING"); err != nil {
 		t.Fatalf("SetStatus FIXING failed: %v", err)
 	}
 
 	// Release should revert to OPEN
-	if err := m.Release(1, "not enough time", "feature/test"); err != nil {
+	if err := m.Release(context.Background(),1, "not enough time", "feature/test"); err != nil {
 		t.Fatalf("Release failed: %v", err)
 	}
 
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -575,21 +575,21 @@ func TestRelease_AppendsDescription(t *testing.T) {
 		Timeframe: "DEFERRED", Scope: "TOOLS", Type: "DESIGN_DEBT",
 		Description: "original",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	if err := m.SetStatus(1, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),1, "FIXING"); err != nil {
 		t.Fatalf("SetStatus FIXING failed: %v", err)
 	}
 
 	reason := "deferred to next sprint"
 	branch := "feature/backlog-1"
-	if err := m.Release(1, reason, branch); err != nil {
+	if err := m.Release(context.Background(),1, reason, branch); err != nil {
 		t.Fatalf("Release failed: %v", err)
 	}
 
-	got, err := m.Get(1)
+	got, err := m.Get(context.Background(),1)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -615,18 +615,18 @@ func TestUpdate_SingleField(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "원래 제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "원래 설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"title": "수정된 제목"})
+	err := mgr.Update(context.Background(),1, map[string]string{"title": "수정된 제목"})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
 
-	items, _ := mgr.List(ListFilter{Status: "OPEN"})
+	items, _ := mgr.List(context.Background(),ListFilter{Status: "OPEN"})
 	if len(items) != 1 || items[0].Title != "수정된 제목" {
 		t.Errorf("expected '수정된 제목', got '%s'", items[0].Title)
 	}
@@ -640,13 +640,13 @@ func TestUpdate_MultipleFields(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{
+	err := mgr.Update(context.Background(),1, map[string]string{
 		"severity":    "MINOR",
 		"description": "수정된 설명",
 	})
@@ -654,7 +654,7 @@ func TestUpdate_MultipleFields(t *testing.T) {
 		t.Fatalf("Update: %v", err)
 	}
 
-	items, _ := mgr.List(ListFilter{Status: "OPEN"})
+	items, _ := mgr.List(context.Background(),ListFilter{Status: "OPEN"})
 	if items[0].Severity != "MINOR" || items[0].Description != "수정된 설명" {
 		t.Errorf("fields not updated: severity=%s desc=%s", items[0].Severity, items[0].Description)
 	}
@@ -665,7 +665,7 @@ func TestUpdate_NotFound(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	err := mgr.Update(999, map[string]string{"title": "x"})
+	err := mgr.Update(context.Background(),999, map[string]string{"title": "x"})
 	if err == nil {
 		t.Fatal("expected error for non-existent item")
 	}
@@ -676,13 +676,13 @@ func TestUpdate_EmptyFields(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{})
+	err := mgr.Update(context.Background(),1, map[string]string{})
 	if err == nil {
 		t.Fatal("expected error for empty fields map")
 	}
@@ -693,13 +693,13 @@ func TestUpdate_UnknownField(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"nonexistent": "value"})
+	err := mgr.Update(context.Background(),1, map[string]string{"nonexistent": "value"})
 	if err == nil {
 		t.Fatal("expected error for unknown field")
 	}
@@ -710,18 +710,18 @@ func TestUpdate_ScopeField(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"scope": "CORE"})
+	err := mgr.Update(context.Background(),1, map[string]string{"scope": "CORE"})
 	if err != nil {
 		t.Fatalf("Update scope: %v", err)
 	}
 
-	got, _ := mgr.Get(1)
+	got, _ := mgr.Get(context.Background(),1)
 	if got.Scope != "CORE" {
 		t.Errorf("expected scope=CORE, got %s", got.Scope)
 	}
@@ -732,18 +732,18 @@ func TestUpdate_RelatedField(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"related": "42,99"})
+	err := mgr.Update(context.Background(),1, map[string]string{"related": "42,99"})
 	if err != nil {
 		t.Fatalf("Update related: %v", err)
 	}
 
-	got, _ := mgr.Get(1)
+	got, _ := mgr.Get(context.Background(),1)
 	if got.Related != "42,99" {
 		t.Errorf("expected related=42,99, got %s", got.Related)
 	}
@@ -754,13 +754,13 @@ func TestUpdate_InvalidEnum(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"severity": "INVALID"})
+	err := mgr.Update(context.Background(),1, map[string]string{"severity": "INVALID"})
 	if err == nil {
 		t.Fatal("expected error for invalid severity")
 	}
@@ -771,13 +771,13 @@ func TestUpdate_InvalidScope(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "제목", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
 
-	err := mgr.Update(1, map[string]string{"scope": "INVALID_SCOPE"})
+	err := mgr.Update(context.Background(),1, map[string]string{"scope": "INVALID_SCOPE"})
 	if err == nil {
 		t.Fatal("expected error for invalid scope")
 	}
@@ -789,17 +789,17 @@ func TestUpdate_PositionReorder(t *testing.T) {
 	mgr := NewManager(s)
 
 	// 3개 항목: position 1, 2, 3
-	mgr.Add(&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
-	mgr.Add(&BacklogItem{ID: 2, Title: "B", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "b"})
-	mgr.Add(&BacklogItem{ID: 3, Title: "C", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "c"})
+	mgr.Add(context.Background(),&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
+	mgr.Add(context.Background(),&BacklogItem{ID: 2, Title: "B", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "b"})
+	mgr.Add(context.Background(),&BacklogItem{ID: 3, Title: "C", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "c"})
 
 	// item 3을 position 1로 이동 → 기존 1,2가 2,3으로 밀림
-	err := mgr.Update(3, map[string]string{"position": "1"})
+	err := mgr.Update(context.Background(),3, map[string]string{"position": "1"})
 	if err != nil {
 		t.Fatalf("Update position: %v", err)
 	}
 
-	items, _ := mgr.List(ListFilter{Timeframe: "NOW", Status: "OPEN"})
+	items, _ := mgr.List(context.Background(),ListFilter{Timeframe: "NOW", Status: "OPEN"})
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
@@ -815,13 +815,13 @@ func TestUpdate_PositionInvalid(t *testing.T) {
 	defer s.Close()
 	mgr := NewManager(s)
 
-	mgr.Add(&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
+	mgr.Add(context.Background(),&BacklogItem{ID: 1, Title: "A", Severity: "MAJOR", Timeframe: "NOW", Scope: "TOOLS", Type: "BUG", Description: "a"})
 
-	err := mgr.Update(1, map[string]string{"position": "0"})
+	err := mgr.Update(context.Background(),1, map[string]string{"position": "0"})
 	if err == nil {
 		t.Fatal("expected error for position=0")
 	}
-	err = mgr.Update(1, map[string]string{"position": "abc"})
+	err = mgr.Update(context.Background(),1, map[string]string{"position": "abc"})
 	if err == nil {
 		t.Fatal("expected error for non-numeric position")
 	}
@@ -871,7 +871,7 @@ func TestAdd_InvalidEnum(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := m.Add(tc.item)
+			err := m.Add(context.Background(),tc.item)
 			if err == nil {
 				t.Errorf("expected error for %s, got nil", tc.name)
 			}
@@ -891,11 +891,11 @@ func TestListFixingForBranch_Empty(t *testing.T) {
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "OPEN status item",
 	}
-	if err := m.Add(item); err != nil {
+	if err := m.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add failed: %v", err)
 	}
 
-	fixing, err := m.ListFixingForBranch("feature/test", []int{1})
+	fixing, err := m.ListFixingForBranch(context.Background(),"feature/test", []int{1})
 	if err != nil {
 		t.Fatalf("ListFixingForBranch: %v", err)
 	}
@@ -914,21 +914,21 @@ func TestListFixingForBranch_Mixed(t *testing.T) {
 		{ID: 30, Title: "Resolved item", Severity: "MINOR", Timeframe: "IN_VIEW", Scope: "SHARED", Type: "TEST", Description: "d"},
 	}
 	for _, item := range items {
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
 
 	// 20번만 FIXING 상태로 전이
-	if err := m.SetStatus(20, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),20, "FIXING"); err != nil {
 		t.Fatalf("SetStatus FIXING: %v", err)
 	}
 	// 30번은 RESOLVED
-	if err := m.Resolve(30, "FIXED"); err != nil {
+	if err := m.Resolve(context.Background(),30, "FIXED"); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 
-	fixing, err := m.ListFixingForBranch("feature/test", []int{10, 20, 30})
+	fixing, err := m.ListFixingForBranch(context.Background(),"feature/test", []int{10, 20, 30})
 	if err != nil {
 		t.Fatalf("ListFixingForBranch: %v", err)
 	}
@@ -949,20 +949,20 @@ func TestListFixingForBranch_AllFixing(t *testing.T) {
 		{ID: 200, Title: "Fixing 2", Severity: "CRITICAL", Timeframe: "NOW", Scope: "SHARED", Type: "BUG", Description: "d"},
 	}
 	for _, item := range items {
-		if err := m.Add(item); err != nil {
+		if err := m.Add(context.Background(),item); err != nil {
 			t.Fatalf("Add failed: %v", err)
 		}
 	}
 
 	// 둘 다 FIXING
-	if err := m.SetStatus(100, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),100, "FIXING"); err != nil {
 		t.Fatalf("SetStatus 100: %v", err)
 	}
-	if err := m.SetStatus(200, "FIXING"); err != nil {
+	if err := m.SetStatus(context.Background(),200, "FIXING"); err != nil {
 		t.Fatalf("SetStatus 200: %v", err)
 	}
 
-	fixing, err := m.ListFixingForBranch("feature/test", []int{100, 200})
+	fixing, err := m.ListFixingForBranch(context.Background(),"feature/test", []int{100, 200})
 	if err != nil {
 		t.Fatalf("ListFixingForBranch: %v", err)
 	}
@@ -985,7 +985,7 @@ func TestListFixingForBranch_NoBacklogs(t *testing.T) {
 	m := NewManager(s)
 
 	// backlogIDs가 빈 슬라이스일 때 nil 반환 (early return)
-	fixing, err := m.ListFixingForBranch("feature/test", nil)
+	fixing, err := m.ListFixingForBranch(context.Background(),"feature/test", nil)
 	if err != nil {
 		t.Fatalf("ListFixingForBranch: %v", err)
 	}
@@ -994,7 +994,7 @@ func TestListFixingForBranch_NoBacklogs(t *testing.T) {
 	}
 
 	// 빈 슬라이스도 동일하게 nil 반환
-	fixing, err = m.ListFixingForBranch("feature/test", []int{})
+	fixing, err = m.ListFixingForBranch(context.Background(),"feature/test", []int{})
 	if err != nil {
 		t.Fatalf("ListFixingForBranch with empty slice: %v", err)
 	}
@@ -1018,11 +1018,11 @@ func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
 		Type:        "BUG",
 		Description: "desc",
 	}
-	if err := mgr.Add(item); err != nil {
+	if err := mgr.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 
-	got, err := mgr.Get(item.ID)
+	got, err := mgr.Get(context.Background(),item.ID)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -1031,13 +1031,13 @@ func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// Import with identical fields — updated_at should NOT change.
-	err = mgr.UpdateFromImport(item.ID, got.Title, got.Severity, got.Timeframe,
+	err = mgr.UpdateFromImport(context.Background(),item.ID, got.Title, got.Severity, got.Timeframe,
 		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
 
-	got2, err := mgr.Get(item.ID)
+	got2, err := mgr.Get(context.Background(),item.ID)
 	if err != nil {
 		t.Fatalf("Get after import: %v", err)
 	}
@@ -1059,11 +1059,11 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 		Type:        "BUG",
 		Description: "desc",
 	}
-	if err := mgr.Add(item); err != nil {
+	if err := mgr.Add(context.Background(),item); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 
-	got, err := mgr.Get(item.ID)
+	got, err := mgr.Get(context.Background(),item.ID)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -1072,13 +1072,13 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// Import with changed title — updated_at SHOULD change.
-	err = mgr.UpdateFromImport(item.ID, "changed title", got.Severity, got.Timeframe,
+	err = mgr.UpdateFromImport(context.Background(),item.ID, "changed title", got.Severity, got.Timeframe,
 		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
 
-	got2, err := mgr.Get(item.ID)
+	got2, err := mgr.Get(context.Background(),item.ID)
 	if err != nil {
 		t.Fatalf("Get after import: %v", err)
 	}
@@ -1095,7 +1095,7 @@ func TestUpdateFromImport_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	mgr := NewManager(s)
 
-	err := mgr.UpdateFromImport(999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN")
+	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN")
 	if err == nil {
 		t.Fatal("expected error for non-existent item, got nil")
 	}

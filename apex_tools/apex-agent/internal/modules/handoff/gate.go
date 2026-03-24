@@ -3,13 +3,14 @@
 package handoff
 
 import (
+	"context"
 	"fmt"
 )
 
 // ValidateCommit checks if a branch is registered for committing.
 // Returns nil if allowed, error if blocked.
-func (m *Manager) ValidateCommit(branch string) error {
-	status, err := m.GetStatus(branch)
+func (m *Manager) ValidateCommit(ctx context.Context, branch string) error {
+	status, err := m.GetStatus(ctx, branch)
 	if err != nil {
 		return err
 	}
@@ -23,8 +24,8 @@ func (m *Manager) ValidateCommit(branch string) error {
 
 // ValidateMergeGate checks if there are FIXING backlogs before merge.
 // Returns nil if allowed, error if blocked.
-func (m *Manager) ValidateMergeGate(branch string) error {
-	fixingIDs, err := m.checkFixingBacklogs(branch)
+func (m *Manager) ValidateMergeGate(ctx context.Context, branch string) error {
+	fixingIDs, err := m.checkFixingBacklogs(ctx, branch)
 	if err != nil {
 		return fmt.Errorf("check fixing backlogs: %w", err)
 	}
@@ -39,8 +40,8 @@ func (m *Manager) ValidateMergeGate(branch string) error {
 
 // ValidateEdit checks if a file edit is allowed based on branch status.
 // Returns nil if allowed, error if blocked.
-func (m *Manager) ValidateEdit(branch, filePath string) error {
-	status, err := m.GetStatus(branch)
+func (m *Manager) ValidateEdit(ctx context.Context, branch, filePath string) error {
+	status, err := m.GetStatus(ctx, branch)
 	if err != nil {
 		return err
 	}

@@ -49,7 +49,7 @@ func TestValidateCommit_NotRegistered(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	err := mgr.ValidateCommit("branch_01")
+	err := mgr.ValidateCommit(context.Background(), "branch_01")
 	if err == nil {
 		t.Error("unregistered branch should be blocked")
 	}
@@ -62,7 +62,7 @@ func TestValidateCommit_Registered(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateCommit("branch_01")
+	err := mgr.ValidateCommit(context.Background(), "branch_01")
 	if err != nil {
 		t.Errorf("registered branch should be allowed: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestValidateMergeGate_NoNotifications(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateMergeGate("branch_01")
+	err := mgr.ValidateMergeGate(context.Background(), "branch_01")
 	if err != nil {
 		t.Errorf("no notifications should pass: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestValidateEdit_NotRegistered(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	err := mgr.ValidateEdit("branch_01", "server.cpp")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
 	if err == nil {
 		t.Error("unregistered should block")
 	}
@@ -102,7 +102,7 @@ func TestValidateEdit_StartedBlocksSource(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateEdit("branch_01", "server.cpp")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
 	if err == nil {
 		t.Error("started should block source files")
 	}
@@ -115,7 +115,7 @@ func TestValidateEdit_StartedAllowsDocs(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateEdit("branch_01", "docs/plan.md")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "docs/plan.md")
 	if err != nil {
 		t.Errorf("started should allow docs: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestValidateEdit_DesignNotifiedBlocksSource(t *testing.T) {
 	if err := mgr.NotifyTransition(context.Background(), "branch_01", "ws1", "design", "design summary"); err != nil {
 		t.Fatalf("NotifyTransition: %v", err)
 	}
-	err := mgr.ValidateEdit("branch_01", "server.hpp")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.hpp")
 	if err == nil {
 		t.Error("design-notified should block source files")
 	}
@@ -145,7 +145,7 @@ func TestValidateEdit_ImplementingAllowsAll(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateEdit("branch_01", "server.cpp")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
 	if err != nil {
 		t.Errorf("implementing should allow source: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestValidateEdit_ImplementingAllowsGoSource(t *testing.T) {
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	err := mgr.ValidateEdit("branch_01", "internal/modules/handoff/gate.go")
+	err := mgr.ValidateEdit(context.Background(), "branch_01", "internal/modules/handoff/gate.go")
 	if err != nil {
 		t.Errorf("implementing should allow .go source: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestValidateMergeGate_FixingBacklogBlocks(t *testing.T) {
 	}
 
 	// Merge gate should block because of FIXING backlog
-	err := mgr.ValidateMergeGate("branch_01")
+	err := mgr.ValidateMergeGate(context.Background(), "branch_01")
 	if err == nil {
 		t.Error("expected merge to be blocked with FIXING backlog, got nil")
 	}
@@ -203,13 +203,13 @@ func TestValidateMergeGate_NoFixingBacklogPasses(t *testing.T) {
 	}
 
 	// Manually insert junction entry to simulate backlog association
-	_, err := s.Exec(`INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, "branch_01", 42)
+	_, err := s.Exec(context.Background(), `INSERT INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, "branch_01", 42)
 	if err != nil {
 		t.Fatalf("insert branch_backlog: %v", err)
 	}
 
 	// Merge gate should pass — backlog is RESOLVED, not FIXING
-	err = mgr.ValidateMergeGate("branch_01")
+	err = mgr.ValidateMergeGate(context.Background(), "branch_01")
 	if err != nil {
 		t.Errorf("expected merge to pass with RESOLVED backlog, got: %v", err)
 	}

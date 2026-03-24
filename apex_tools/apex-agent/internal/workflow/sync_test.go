@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -37,6 +38,7 @@ func setupSyncTest(t *testing.T) (string, *backlog.Manager, func()) {
 func TestSyncImport_NewItems(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	// Legacy MD format — SyncImport should fall back to it
 	md := `# BACKLOG
@@ -69,7 +71,7 @@ func TestSyncImport_NewItems(t *testing.T) {
 `
 	os.WriteFile(filepath.Join(dir, "docs", "BACKLOG.md"), []byte(md), 0o644)
 
-	n, err := SyncImport(dir, mgr)
+	n, err := SyncImport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncImport: %v", err)
 	}
@@ -77,7 +79,7 @@ func TestSyncImport_NewItems(t *testing.T) {
 		t.Errorf("expected 2 imported, got %d", n)
 	}
 
-	exists, status, _ := mgr.Check(1)
+	exists, status, _ := mgr.Check(ctx, 1)
 	if !exists {
 		t.Fatal("item #1 not found in DB")
 	}
@@ -89,6 +91,7 @@ func TestSyncImport_NewItems(t *testing.T) {
 func TestSyncImport_JSON(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	data := backlog.BacklogJSON{
 		NextID: 3,
@@ -100,14 +103,14 @@ func TestSyncImport_JSON(t *testing.T) {
 	jsonData, _ := json.MarshalIndent(data, "", "  ")
 	os.WriteFile(filepath.Join(dir, "docs", "BACKLOG.json"), jsonData, 0o644)
 
-	n, err := SyncImport(dir, mgr)
+	n, err := SyncImport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncImport JSON: %v", err)
 	}
 	if n != 2 {
 		t.Errorf("expected 2 imported, got %d", n)
 	}
-	exists, _, _ := mgr.Check(1)
+	exists, _, _ := mgr.Check(ctx, 1)
 	if !exists {
 		t.Fatal("item #1 not found in DB")
 	}
@@ -117,7 +120,7 @@ func TestSyncImport_NoFile(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
 
-	n, err := SyncImport(dir, mgr)
+	n, err := SyncImport(context.Background(), dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncImport with no file: %v", err)
 	}
@@ -129,6 +132,7 @@ func TestSyncImport_NoFile(t *testing.T) {
 func TestSyncImport_Idempotent(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	md := `# BACKLOG
 
@@ -155,9 +159,9 @@ func TestSyncImport_Idempotent(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "docs", "BACKLOG.md"), []byte(md), 0o644)
 
 	// 1차 import
-	SyncImport(dir, mgr)
+	SyncImport(ctx, dir, mgr)
 	// 2차 import — 동일 결과여야 함
-	n, err := SyncImport(dir, mgr)
+	n, err := SyncImport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncImport 2nd: %v", err)
 	}
@@ -166,7 +170,7 @@ func TestSyncImport_Idempotent(t *testing.T) {
 		t.Errorf("expected 1, got %d", n)
 	}
 
-	exists, status, _ := mgr.Check(1)
+	exists, status, _ := mgr.Check(ctx, 1)
 	if !exists || status != "OPEN" {
 		t.Errorf("item #1: exists=%v status=%s", exists, status)
 	}
@@ -177,17 +181,18 @@ func TestSyncImport_Idempotent(t *testing.T) {
 func TestSyncExport_WritesJSON(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	item := &backlog.BacklogItem{
 		ID: 1, Title: "테스트", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명", Status: "OPEN",
 	}
-	if err := mgr.Add(item); err != nil {
+	if err := mgr.Add(ctx, item); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 
-	_, err := SyncExport(dir, mgr)
+	_, err := SyncExport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncExport: %v", err)
 	}
@@ -212,15 +217,16 @@ func TestSyncExport_WritesJSON(t *testing.T) {
 func TestSyncExport_IncludesResolved(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
-	mgr.Add(&backlog.BacklogItem{
+	mgr.Add(ctx, &backlog.BacklogItem{
 		ID: 1, Title: "해결됨", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(ctx, 1, "FIXED")
 
-	_, err := SyncExport(dir, mgr)
+	_, err := SyncExport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncExport: %v", err)
 	}
@@ -244,6 +250,7 @@ func TestSyncExport_IncludesResolved(t *testing.T) {
 func TestSyncExport_RoundTrip(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	// Add item to DB
 	item := &backlog.BacklogItem{
@@ -251,10 +258,10 @@ func TestSyncExport_RoundTrip(t *testing.T) {
 		Timeframe: "IN_VIEW", Scope: "CORE", Type: "PERF",
 		Description: "라운드트립 테스트", Status: "OPEN",
 	}
-	mgr.Add(item)
+	mgr.Add(ctx, item)
 
 	// Export → JSON 파일 생성
-	SyncExport(dir, mgr)
+	SyncExport(ctx, dir, mgr)
 
 	// 새 DB로 import → 동일 항목 존재해야 함
 	dir2, mgr2, cleanup2 := setupSyncTest(t)
@@ -263,14 +270,14 @@ func TestSyncExport_RoundTrip(t *testing.T) {
 	exported, _ := os.ReadFile(filepath.Join(dir, "docs", "BACKLOG.json"))
 	os.WriteFile(filepath.Join(dir2, "docs", "BACKLOG.json"), exported, 0o644)
 
-	n, err := SyncImport(dir2, mgr2)
+	n, err := SyncImport(ctx, dir2, mgr2)
 	if err != nil {
 		t.Fatalf("SyncImport round-trip: %v", err)
 	}
 	if n == 0 {
 		t.Error("expected imported items in round-trip")
 	}
-	exists, _, _ := mgr2.Check(42)
+	exists, _, _ := mgr2.Check(ctx, 42)
 	if !exists {
 		t.Error("item #42 not found after round-trip")
 	}
@@ -279,6 +286,7 @@ func TestSyncExport_RoundTrip(t *testing.T) {
 func TestSyncExport_MigrateLegacyMD(t *testing.T) {
 	dir, mgr, cleanup := setupSyncTest(t)
 	defer cleanup()
+	ctx := context.Background()
 
 	// Write legacy MD file
 	md := `# BACKLOG
@@ -307,10 +315,10 @@ func TestSyncExport_MigrateLegacyMD(t *testing.T) {
 	os.WriteFile(backlogMDPath, []byte(md), 0o644)
 
 	// SyncImport from MD → DB
-	SyncImport(dir, mgr)
+	SyncImport(ctx, dir, mgr)
 
 	// SyncExport → should create BACKLOG.json and delete BACKLOG.md
-	_, err := SyncExport(dir, mgr)
+	_, err := SyncExport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncExport: %v", err)
 	}

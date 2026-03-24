@@ -3,6 +3,7 @@
 package backlog
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestExport_EmptyDB(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,18 +52,18 @@ func TestExport_WithItems(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "Test issue", Severity: "CRITICAL",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Something is broken",
 	})
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 2, Title: "Future task", Severity: "MAJOR",
 		Timeframe: "IN_VIEW", Scope: "SHARED", Type: "DESIGN_DEBT",
 		Description: "Needs refactoring", Related: "1",
 	})
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,19 +94,19 @@ func TestExport_ResolvedExcluded(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "Open issue", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Still open",
 	})
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 2, Title: "Resolved issue", Severity: "MINOR",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Already fixed",
 	})
-	mgr.Resolve(2, "FIXED")
+	mgr.Resolve(context.Background(),2, "FIXED")
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,14 +123,14 @@ func TestExport_FixingItemIncluded(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "작업 중 이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "진행 중",
 	})
-	mgr.SetStatus(1, "FIXING")
+	mgr.SetStatus(context.Background(),1, "FIXING")
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,13 +143,13 @@ func TestExport_RelatedFormatting(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 10, Title: "Multi-related", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "Links to many", Related: "24,29,132",
 	})
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,13 +163,13 @@ func TestExport_NoRelatedLine(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "No relations", Severity: "MINOR",
 		Timeframe: "DEFERRED", Scope: "DOCS", Type: "DOCS",
 		Description: "Standalone item",
 	})
 
-	out, err := mgr.Export()
+	out, err := mgr.Export(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,16 +189,16 @@ func TestExportHistory_NewResolved(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "해결된 이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "테스트 설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
 	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n\n### #99. 기존 항목\n- old\n"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -218,16 +219,16 @@ func TestExportHistory_NoDuplicates(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "이미 있는 이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
 	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n\n### #1. 이미 있는 이슈\n- old\n"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -241,16 +242,16 @@ func TestExportHistory_NoMarker(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
 	existingHistory := "# BACKLOG HISTORY\n\n### #99. 기존\n- old\n"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -266,17 +267,17 @@ func TestExportHistory_MarkerNoTrailingNewline(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
 	// 마커 뒤에 \n 없이 EOF
 	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -289,7 +290,7 @@ func TestExportHistory_NoResolved(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "열린 이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
@@ -297,7 +298,7 @@ func TestExportHistory_NoResolved(t *testing.T) {
 
 	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -310,14 +311,14 @@ func TestExportHistory_EmptyExistingHistory(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "새 이슈", Severity: "MAJOR",
 		Timeframe: "NOW", Scope: "TOOLS", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
-	result, err := mgr.ExportHistory("")
+	result, err := mgr.ExportHistory(context.Background(),"")
 	if err != nil {
 		t.Fatalf("ExportHistory with empty input: %v", err)
 	}
@@ -333,16 +334,16 @@ func TestExportHistory_MarkerOnlyHistory(t *testing.T) {
 	s, mgr := setupExportTestDB(t)
 	defer s.Close()
 
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "이슈", Severity: "MINOR",
 		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
 		Description: "설명",
 	})
-	mgr.Resolve(1, "FIXED")
+	mgr.Resolve(context.Background(),1, "FIXED")
 
 	existingHistory := "# BACKLOG HISTORY\n\n<!-- NEW_ENTRY_BELOW -->\n"
 
-	result, err := mgr.ExportHistory(existingHistory)
+	result, err := mgr.ExportHistory(context.Background(),existingHistory)
 	if err != nil {
 		t.Fatalf("ExportHistory: %v", err)
 	}
@@ -390,7 +391,7 @@ func TestSafeExport_ImportsThenExports(t *testing.T) {
 ## DEFERRED
 `
 
-	content, imported, err := mgr.SafeExport(backlogMD, "")
+	content, imported, err := mgr.SafeExport(context.Background(),backlogMD, "")
 	if err != nil {
 		t.Fatalf("SafeExport failed: %v", err)
 	}
@@ -416,14 +417,14 @@ func TestSafeExport_EmptyMDFiles(t *testing.T) {
 	defer s.Close()
 
 	// Pre-populate DB with an item to verify export still works
-	mgr.Add(&BacklogItem{
+	mgr.Add(context.Background(),&BacklogItem{
 		ID: 1, Title: "Pre-existing", Severity: "MINOR",
 		Timeframe: "DEFERRED", Scope: "DOCS", Type: "DOCS",
 		Description: "Already in DB",
 	})
 
 	// Both MD files are empty strings — import phase is skipped
-	content, imported, err := mgr.SafeExport("", "")
+	content, imported, err := mgr.SafeExport(context.Background(),"", "")
 	if err != nil {
 		t.Fatalf("SafeExport with empty MDs failed: %v", err)
 	}

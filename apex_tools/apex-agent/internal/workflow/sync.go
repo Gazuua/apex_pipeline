@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -13,7 +14,7 @@ import (
 // Prefers BACKLOG.json if it exists; falls back to BACKLOG.md + BACKLOG_HISTORY.md.
 // Idempotent — existing items keep their status, only metadata is updated.
 // Returns the number of items processed. Missing files are not an error.
-func SyncImport(projectRoot string, mgr *backlog.Manager) (int, error) {
+func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (int, error) {
 	total := 0
 
 	// Prefer JSON format
@@ -23,7 +24,7 @@ func SyncImport(projectRoot string, mgr *backlog.Manager) (int, error) {
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(items)
+		n, importErr := mgr.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -42,7 +43,7 @@ func SyncImport(projectRoot string, mgr *backlog.Manager) (int, error) {
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(items)
+		n, importErr := mgr.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -55,7 +56,7 @@ func SyncImport(projectRoot string, mgr *backlog.Manager) (int, error) {
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(items)
+		n, importErr := mgr.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -72,7 +73,7 @@ func SyncImport(projectRoot string, mgr *backlog.Manager) (int, error) {
 // writes the result to docs/BACKLOG.json.
 // Also handles migration: if legacy MD files exist, imports them and removes them.
 // Returns the number of items synced during import-first phase.
-func SyncExport(projectRoot string, mgr *backlog.Manager) (int, error) {
+func SyncExport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (int, error) {
 	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
 	backlogMDPath := filepath.Join(projectRoot, "docs", "BACKLOG.md")
 	historyMDPath := filepath.Join(projectRoot, "docs", "BACKLOG_HISTORY.md")
@@ -88,7 +89,7 @@ func SyncExport(projectRoot string, mgr *backlog.Manager) (int, error) {
 		legacyHistoryMD = string(data)
 	}
 
-	out, imported, err := mgr.SafeExportJSON(jsonData, legacyBacklogMD, legacyHistoryMD)
+	out, imported, err := mgr.SafeExportJSON(ctx, jsonData, legacyBacklogMD, legacyHistoryMD)
 	if err != nil {
 		return imported, err
 	}

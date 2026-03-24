@@ -3,6 +3,7 @@
 package httpd
 
 import (
+	"context"
 	"html/template"
 	"net"
 	"net/http"
