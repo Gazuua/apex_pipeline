@@ -61,6 +61,8 @@ func (s *Server) Serve(ctx context.Context) error {
 				s.wg.Wait()
 				return nil
 			default:
+				ml.Warn("accept error", "err", err)
+				time.Sleep(50 * time.Millisecond) // prevent tight loop on persistent errors
 				continue
 			}
 		}

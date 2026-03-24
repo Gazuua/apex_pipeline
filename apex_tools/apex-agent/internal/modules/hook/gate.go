@@ -4,6 +4,7 @@ package hook
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -51,15 +52,45 @@ func splitChainedCommands(command string) []string {
 	return result
 }
 
+// commandSubstitutionRe detects shell command substitution patterns ($(...), `...`, <(...)).
+// Commands containing these are not eligible for whitelist bypass because the inner
+// commands could execute blocked tools (e.g., `echo $(ninja -C out)`).
+var commandSubstitutionRe = regexp.MustCompile(`\$\(|` + "`" + `|<\(`)
+
+// hasCommandSubstitution returns true if the command contains shell command substitution.
+func hasCommandSubstitution(command string) bool {
+	return commandSubstitutionRe.MatchString(command)
+}
+
 // isAllowedSubCommand checks whether a single (non-chained) sub-command is on
 // the whitelist. Returns true if it should bypass blocked-pattern checks.
+// Commands containing command substitution ($(...), backticks, <(...)) are never whitelisted.
 func isAllowedSubCommand(sub string) bool {
-	// Approved wrappers / GitHub CLI.
-	if strings.Contains(sub, "queue-lock.sh") ||
-		strings.Contains(sub, "apex-agent") ||
-		strings.Contains(sub, "run-hook") ||
-		strings.Contains(sub, "gh pr") ||
-		strings.Contains(sub, "gh run") {
+	// Command substitution can embed blocked commands — never whitelist.
+	if hasCommandSubstitution(sub) {
+		return false
+	}
+
+	// Check token basenames for approved wrappers.
+	// This handles `bash ./path/to/run-hook ...` and `apex-agent ...` equally.
+	trimmed := strings.TrimSpace(sub)
+	tokens := strings.Fields(trimmed)
+	if len(tokens) == 0 {
+		return false
+	}
+
+	// Approved wrappers — any token's basename matches approved name.
+	approvedWrappers := []string{"queue-lock.sh", "apex-agent", "run-hook"}
+	for _, tok := range tokens {
+		base := filepath.Base(tok)
+		for _, aw := range approvedWrappers {
+			if base == aw {
+				return true
+			}
+		}
+	}
+	// GitHub CLI — first token must be "gh".
+	if tokens[0] == "gh" && len(tokens) >= 2 && (tokens[1] == "pr" || tokens[1] == "run") {
 		return true
 	}
 
@@ -68,10 +99,9 @@ func isAllowedSubCommand(sub string) bool {
 		return true
 	}
 
-	// Read-only commands.
-	trimmed := strings.TrimSpace(sub)
+	// Read-only commands — match on first token only.
 	for _, prefix := range readOnlyPrefixes {
-		if strings.HasPrefix(trimmed, prefix+" ") || trimmed == prefix {
+		if tokens[0] == prefix {
 			return true
 		}
 	}
@@ -213,21 +243,14 @@ func isGitBranchCreate(command string) bool {
 	return false
 }
 
-// allowedGoSubCommands are Go toolchain sub-commands that are safe to run.
+// goToolRe matches word-boundary-safe Go toolchain sub-commands.
 // Excludes `go generate` (can execute arbitrary commands) and `go clean`/`go env -w`.
-var allowedGoSubCommands = []string{
-	"go build", "go test", "go run", "go install",
-	"go vet", "go fmt", "go mod", "go get", "go work",
-}
+var goToolRe = regexp.MustCompile(`\bgo\s+(build|test|run|install|vet|fmt|mod|get|work)\b`)
 
 // hasGoToolCommand checks if the command contains a safe Go toolchain invocation.
+// Uses word-boundary matching to prevent false positives like "mango build".
 func hasGoToolCommand(command string) bool {
-	for _, sub := range allowedGoSubCommands {
-		if strings.Contains(command, sub) {
-			return true
-		}
-	}
-	return false
+	return goToolRe.MatchString(command)
 }
 
 // ValidateBacklog blocks direct access to backlog files (Edit, Write, and Read).

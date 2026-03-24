@@ -477,6 +477,14 @@ func TestBacklog_Release(t *testing.T) {
 		t.Fatalf("add: %v / %s", err, resp.Error)
 	}
 
+	// Set to FIXING first (Release requires FIXING status)
+	resp, err = env.Client.Send(ctx, "backlog", "fix", map[string]any{
+		"id": 1, "branch": "branch_test",
+	}, "")
+	if err != nil || !resp.OK {
+		t.Fatalf("fix: %v / %s", err, resp.Error)
+	}
+
 	// Release it
 	resp, err = env.Client.Send(ctx, "backlog", "release", map[string]any{
 		"id": 1, "reason": "scope change", "branch": "branch_test",

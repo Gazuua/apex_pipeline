@@ -87,7 +87,10 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 		if scanErr := row.Scan(&existingStatus); scanErr == nil {
 			// 이전 작업에 연결된 FIXING 백로그가 있으면 OPEN으로 복귀
 			if m.backlogManager != nil {
-				oldIDs, _ := m.getBacklogIDs(tx, branch)
+				oldIDs, getErr := m.getBacklogIDs(tx, branch)
+				if getErr != nil {
+					return fmt.Errorf("get old backlog IDs for branch replace: %w", getErr)
+				}
 				for _, oldID := range oldIDs {
 					if releaseErr := m.backlogManager.SetStatusWith(tx, oldID, "OPEN"); releaseErr != nil {
 						return fmt.Errorf("failed to release backlog #%d on branch replace: %w", oldID, releaseErr)
@@ -220,12 +223,26 @@ func (m *Manager) checkFixingBacklogs(branch string) ([]int, error) {
 
 // finalizeBranch moves an active branch to history and cleans up related records.
 // FIXING backlog check is performed inside the transaction to prevent TOCTOU races.
-func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary, historyStatus string, checkFixing bool) error {
+// If releaseFixing is true, FIXING backlogs are released to OPEN within the same transaction (used by drop).
+func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary, historyStatus string, checkFixing, releaseFixing bool) error {
 	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// FIXING 백로그 체크 (트랜잭션 내에서 원자적 검증)
 		if checkFixing {
 			if err := m.requireNoFixingBacklogsTx(tx, branch); err != nil {
 				return err
+			}
+		}
+
+		// Drop 시 FIXING 백로그를 OPEN으로 복귀 (단일 TX 원자성 보장)
+		if releaseFixing && m.backlogManager != nil {
+			ids, idsErr := m.getBacklogIDs(tx, branch)
+			if idsErr != nil {
+				return fmt.Errorf("get backlog IDs for release: %w", idsErr)
+			}
+			for _, id := range ids {
+				if err := m.backlogManager.SetStatusWith(tx, id, "OPEN"); err != nil {
+					return fmt.Errorf("failed to release backlog #%d on drop: %w", id, err)
+				}
 			}
 		}
 
@@ -309,7 +326,7 @@ func (m *Manager) requireNoFixingBacklogsTx(tx *store.TxStore, branch string) er
 // NotifyMerge completes a branch — moves to history as MERGED.
 // FIXING check + finalize are in a single transaction to prevent TOCTOU.
 func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary string) error {
-	if err := m.finalizeBranch(ctx, branch, workspace, summary, HistoryMerged, true); err != nil {
+	if err := m.finalizeBranch(ctx, branch, workspace, summary, HistoryMerged, true, false); err != nil {
 		return err
 	}
 	ml.Audit("branch merged", "branch", branch)
@@ -317,22 +334,9 @@ func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary st
 }
 
 // NotifyDrop abandons a branch — auto-releases FIXING backlogs to OPEN, then moves to history as DROPPED.
+// FIXING release + finalize are in a single transaction to guarantee atomicity.
 func (m *Manager) NotifyDrop(ctx context.Context, branch, workspace, reason string) error {
-	// Drop = 작업 포기 → FIXING 백로그를 자동으로 OPEN 복귀
-	if m.backlogManager != nil {
-		if err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
-			ids, _ := m.getBacklogIDs(tx, branch)
-			for _, id := range ids {
-				if err := m.backlogManager.SetStatusWith(tx, id, "OPEN"); err != nil {
-					return fmt.Errorf("failed to release backlog #%d on drop: %w", id, err)
-				}
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, false); err != nil {
+	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, false, true); err != nil {
 		return err
 	}
 	ml.Audit("branch dropped", "branch", branch, "reason", reason)
