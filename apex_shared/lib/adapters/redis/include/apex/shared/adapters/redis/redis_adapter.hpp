@@ -55,7 +55,7 @@ class RedisAdapter : public AdapterBase<RedisAdapter>
     }
 
     /// Register Prometheus metrics for Redis command counters and connection gauges.
-    void register_metrics(apex::core::MetricsRegistry& registry);
+    void do_register_metrics(apex::core::MetricsRegistry& registry);
 
     // --- Multiplexer access ---
 

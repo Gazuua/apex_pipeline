@@ -148,8 +148,8 @@ apex::core::Result<void> KafkaAdapter::produce(std::string_view topic, std::stri
     return producer_->produce(topic, key, payload);
 }
 
-void KafkaAdapter::wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
-                                 apex::core::CoreEngine& engine)
+void KafkaAdapter::do_wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+                                    apex::core::CoreEngine& engine)
 {
     for (auto& svc : services)
     {
@@ -196,7 +196,7 @@ void KafkaAdapter::wire_services(std::vector<std::unique_ptr<apex::core::Service
     }
 }
 
-void KafkaAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+void KafkaAdapter::do_register_metrics(apex::core::MetricsRegistry& registry)
 {
     // Producer counters (global shared — no per-core label)
     registry.counter_from("apex_kafka_produce_total", "Total messages successfully produced", {},

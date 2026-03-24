@@ -9,6 +9,10 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
+#include <algorithm>
+#include <chrono>
+#include <vector>
+
 namespace apex::core
 {
 
@@ -17,18 +21,71 @@ namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
 
+/// In-flight session tracking for graceful drain.
+/// All access is single-threaded (control_io_), no synchronization needed.
+struct MetricsSessionTracker
+{
+    std::vector<beast::tcp_stream*> streams;
+
+    void add(beast::tcp_stream* s)
+    {
+        streams.push_back(s);
+    }
+
+    void remove(beast::tcp_stream* s)
+    {
+        std::erase(streams, s);
+    }
+
+    void cancel_all()
+    {
+        for (auto* s : streams)
+        {
+            beast::error_code ec;
+            s->socket().cancel(ec);
+        }
+    }
+};
+
 namespace
 {
 
-/// Handle a single HTTP request on the metrics endpoint.
-net::awaitable<void> handle_session(tcp::socket socket, MetricsRegistry& registry, const std::atomic<bool>& running)
+/// RAII guard for session tracking.
+struct SessionGuard
 {
+    std::shared_ptr<MetricsSessionTracker> tracker;
+    beast::tcp_stream* stream;
+
+    SessionGuard(std::shared_ptr<MetricsSessionTracker> t, beast::tcp_stream* s)
+        : tracker(std::move(t))
+        , stream(s)
+    {
+        tracker->add(stream);
+    }
+
+    ~SessionGuard()
+    {
+        tracker->remove(stream);
+    }
+
+    SessionGuard(const SessionGuard&) = delete;
+    SessionGuard& operator=(const SessionGuard&) = delete;
+};
+
+/// Handle a single HTTP request on the metrics endpoint.
+/// Uses beast::tcp_stream with read/write timeout for slowloris protection.
+net::awaitable<void> handle_session(beast::tcp_stream stream, MetricsRegistry& registry,
+                                    const std::atomic<bool>& running, std::shared_ptr<MetricsSessionTracker> tracker)
+{
+    SessionGuard guard{std::move(tracker), &stream};
     beast::flat_buffer buffer;
 
     try
     {
+        stream.expires_after(std::chrono::seconds{5});
+
         http::request<http::empty_body> req;
-        co_await http::async_read(socket, buffer, req, net::use_awaitable);
+        co_await http::async_read(stream, buffer, req, net::use_awaitable);
 
         http::response<http::string_body> res;
         res.version(req.version());
@@ -68,14 +125,16 @@ net::awaitable<void> handle_session(tcp::socket socket, MetricsRegistry& registr
         }
 
         res.prepare_payload();
-        co_await http::async_write(socket, res, net::use_awaitable);
+
+        stream.expires_after(std::chrono::seconds{5});
+        co_await http::async_write(stream, res, net::use_awaitable);
 
         beast::error_code ec;
-        socket.shutdown(tcp::socket::shutdown_send, ec);
+        stream.socket().shutdown(tcp::socket::shutdown_send, ec);
     }
     catch (const std::exception&)
     {
-        // Client disconnected or malformed request — silently drop.
+        // Client disconnected, timeout, or malformed request — silently drop.
     }
 }
 
@@ -86,6 +145,7 @@ void MetricsHttpServer::start(net::io_context& io, uint16_t port, MetricsRegistr
 {
     registry_ = &registry;
     running_ = &running;
+    tracker_ = std::make_shared<MetricsSessionTracker>();
 
     auto endpoint = tcp::endpoint(tcp::v4(), port);
     acceptor_ = std::make_unique<tcp::acceptor>(io, endpoint);
@@ -100,9 +160,23 @@ void MetricsHttpServer::stop()
     {
         beast::error_code ec;
         acceptor_->close(ec);
-        logger_.info("stopped");
     }
     acceptor_.reset();
+
+    // Cancel in-flight sessions so they don't race with adapter shutdown
+    if (tracker_)
+    {
+        auto count = tracker_->streams.size();
+        if (count > 0)
+        {
+            tracker_->cancel_all();
+            logger_.info("stopped ({} in-flight sessions cancelled)", count);
+        }
+        else
+        {
+            logger_.info("stopped");
+        }
+    }
 }
 
 void MetricsHttpServer::do_accept()
@@ -113,7 +187,9 @@ void MetricsHttpServer::do_accept()
     acceptor_->async_accept([this](beast::error_code ec, tcp::socket socket) {
         if (ec)
             return; // acceptor closed or error — stop accepting
-        net::co_spawn(socket.get_executor(), handle_session(std::move(socket), *registry_, *running_), net::detached);
+        beast::tcp_stream stream(std::move(socket));
+        net::co_spawn(stream.get_executor(), handle_session(std::move(stream), *registry_, *running_, tracker_),
+                      net::detached);
         do_accept();
     });
 }

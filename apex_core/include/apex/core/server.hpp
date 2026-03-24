@@ -197,8 +197,8 @@ class Server
     /// 주의: 호출자가 <apex/shared/adapters/adapter_base.hpp>를 include해야 함.
     ///       server.hpp는 순환 의존 방지를 위해 이를 포함하지 않음.
     /// @note role 오버로드와의 모호성 방지: 첫 번째 인자가 std::string 변환 가능하면 비활성화.
-    template <typename T, typename First, typename... Rest,
-              std::enable_if_t<!std::is_convertible_v<std::decay_t<First>, std::string>, int> = 0>
+    template <typename T, typename First, typename... Rest>
+        requires(!std::is_convertible_v<std::decay_t<First>, std::string>)
     Server& add_adapter(First&& first, Rest&&... rest)
     {
         return add_adapter<T>(std::string("default"), std::forward<First>(first), std::forward<Rest>(rest)...);

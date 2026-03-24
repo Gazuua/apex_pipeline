@@ -119,19 +119,20 @@ template <typename Derived> class AdapterBase
         static_cast<Derived*>(this)->do_close();
     }
 
-    /// [D2] Adapter-service 자동 배선 (기본 no-op).
-    /// KafkaAdapter 등이 override하여 서비스 핸들러를 자동 감지.
-    ///
-    /// NOTE: 의도적으로 CRTP 디스패치(static_cast<Derived*>)를 사용하지 않는다.
-    /// do_init/do_drain/do_close와 달리, Derived가 동일 시그니처의 wire_services()를
-    /// 정의하면 이름 숨기기(name hiding)로 자연스럽게 Derived 버전이 호출된다.
-    /// AdapterWrapper::wire_services()가 adapter_.wire_services()를 호출하므로,
-    /// Derived에 wire_services()가 있으면 Derived 것이, 없으면 이 기본 no-op이 호출된다.
-    void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&, apex::core::CoreEngine&) {}
+    /// [D2] Adapter-service 자동 배선.
+    /// KafkaAdapter 등이 do_wire_services()를 구현하여 서비스 핸들러를 자동 감지.
+    void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+                       apex::core::CoreEngine& engine)
+    {
+        static_cast<Derived*>(this)->do_wire_services(services, engine);
+    }
 
-    /// 어댑터별 Prometheus 메트릭 등록 (기본 no-op).
-    /// Derived에 동일 시그니처가 있으면 name hiding으로 Derived 버전이 호출된다.
-    void register_metrics(apex::core::MetricsRegistry& /*registry*/) {}
+    /// 어댑터별 Prometheus 메트릭 등록.
+    /// Derived가 do_register_metrics()를 구현하면 해당 메트릭이 등록된다.
+    void register_metrics(apex::core::MetricsRegistry& registry)
+    {
+        static_cast<Derived*>(this)->do_register_metrics(registry);
+    }
 
     /// init 완료 + drain/close 안 됨
     [[nodiscard]] bool is_ready() const noexcept
@@ -191,6 +192,12 @@ template <typename Derived> class AdapterBase
                 boost::asio::bind_cancellation_slot(slot, boost::asio::detached));
         });
     }
+
+    /// [D2] Adapter-service 자동 배선 (기본 no-op). Derived에서 override 가능.
+    void do_wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&, apex::core::CoreEngine&) {}
+
+    /// 어댑터별 Prometheus 메트릭 등록 (기본 no-op). Derived에서 override 가능.
+    void do_register_metrics(apex::core::MetricsRegistry& /*registry*/) {}
 
     /// Per-core 리소스 정리 (기본 no-op). Derived에서 override 가능.
     void do_close_per_core([[maybe_unused]] uint32_t core_id) {}
