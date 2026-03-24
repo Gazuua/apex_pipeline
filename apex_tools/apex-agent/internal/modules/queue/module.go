@@ -25,6 +25,9 @@ func New(s *store.Store) *Module {
 
 func (m *Module) Name() string { return "queue" }
 
+// Manager returns the underlying Manager for cross-module use.
+func (m *Module) Manager() *Manager { return m.manager }
+
 // RegisterSchema registers the queue table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
 	mig.Register("queue", 1, func(tx *store.TxStore) error {

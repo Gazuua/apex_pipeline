@@ -34,8 +34,8 @@ func hookValidateBuildCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
-				return nil // parse error → allow (don't block on malformed input)
+				fmt.Fprintf(os.Stderr, "[apex-agent] error: hook input parse failed: %v (blocking)\n", err)
+				os.Exit(2) // fail-close: 데몬 비의존 hook → 파싱 실패 시 차단
 			}
 			if err := hook.ValidateBuild(command); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
@@ -133,7 +133,8 @@ func hookValidateBacklogCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, _, err := readHandoffProbeInput()
 			if err != nil {
-				return nil // parse error → allow
+				fmt.Fprintf(os.Stderr, "[apex-agent] error: hook input parse failed: %v (blocking)\n", err)
+				os.Exit(2) // fail-close: 데몬 비의존 hook → 파싱 실패 시 차단
 			}
 			if err := hook.ValidateBacklog(filePath); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())

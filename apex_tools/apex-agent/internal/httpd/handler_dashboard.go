@@ -12,29 +12,29 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]any{"Page": "dashboard"}
 
-	if s.store != nil {
-		summary, err := queryDashboardSummary(s.store)
+	if s.backlogMgr != nil || s.handoffMgr != nil || s.queueMgr != nil {
+		summary, err := queryDashboardSummary(s.backlogMgr, s.handoffMgr, s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, "dashboard query failed: "+err.Error())
 			return
 		}
 		data["Summary"] = summary
 
-		branches, err := queryActiveBranches(s.store)
+		branches, err := queryActiveBranches(s.handoffMgr)
 		if err != nil {
 			s.renderHTMXError(w, "branches query failed: "+err.Error())
 			return
 		}
 		data["Branches"] = branches
 
-		queue, err := queryQueueStatus(s.store)
+		queue, err := queryQueueStatus(s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, "queue query failed: "+err.Error())
 			return
 		}
 		data["Queue"] = queue
 
-		history, err := queryBranchHistory(s.store, 10)
+		history, err := queryBranchHistory(s.handoffMgr, 10)
 		if err != nil {
 			s.renderHTMXError(w, "history query failed: "+err.Error())
 			return
@@ -47,8 +47,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePartialSummary(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		summary, err := queryDashboardSummary(s.store)
+	if s.backlogMgr != nil || s.handoffMgr != nil || s.queueMgr != nil {
+		summary, err := queryDashboardSummary(s.backlogMgr, s.handoffMgr, s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return
@@ -60,8 +60,8 @@ func (s *Server) handlePartialSummary(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handlePartialActiveBranches(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		branches, err := queryActiveBranches(s.store)
+	if s.handoffMgr != nil {
+		branches, err := queryActiveBranches(s.handoffMgr)
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return
@@ -73,8 +73,8 @@ func (s *Server) handlePartialActiveBranches(w http.ResponseWriter, _ *http.Requ
 
 func (s *Server) handlePartialQueueStatus(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		queue, err := queryQueueStatus(s.store)
+	if s.queueMgr != nil {
+		queue, err := queryQueueStatus(s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return
@@ -86,8 +86,8 @@ func (s *Server) handlePartialQueueStatus(w http.ResponseWriter, _ *http.Request
 
 func (s *Server) handlePartialRecentHistory(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		history, err := queryBranchHistory(s.store, 10)
+	if s.handoffMgr != nil {
+		history, err := queryBranchHistory(s.handoffMgr, 10)
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return

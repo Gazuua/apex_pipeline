@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 var ml = log.WithModule("httpd")
@@ -22,9 +21,35 @@ type Dispatcher interface {
 	Dispatch(ctx context.Context, module, action string, params json.RawMessage, workspace string) (any, error)
 }
 
+// BacklogQuerier abstracts backlog module queries for the dashboard.
+// Implemented by adapter in daemon_cmd.go to avoid import cycles.
+type BacklogQuerier interface {
+	DashboardStatusCounts() (map[string]int, error)
+	DashboardSeverityCounts() (map[string]int, error)
+	DashboardListItems(filter BacklogFilter) ([]BacklogItem, error)
+	DashboardGetItemByID(id int) (*BacklogItem, error)
+}
+
+// HandoffQuerier abstracts handoff module queries for the dashboard.
+// Implemented by adapter in daemon_cmd.go to avoid import cycles.
+type HandoffQuerier interface {
+	DashboardActiveBranchesList() ([]ActiveBranch, error)
+	DashboardActiveCount() (int, error)
+	DashboardBranchHistoryList(limit int) ([]BranchHistory, error)
+}
+
+// QueueQuerier abstracts queue module queries for the dashboard.
+// Implemented by adapter in daemon_cmd.go to avoid import cycles.
+type QueueQuerier interface {
+	DashboardQueueAll() ([]QueueEntry, error)
+	DashboardLockStatus(channel string) (bool, error)
+}
+
 // Server is the HTTP dashboard server embedded in the daemon.
 type Server struct {
-	store       *store.Store
+	backlogMgr  BacklogQuerier
+	handoffMgr  HandoffQuerier
+	queueMgr    QueueQuerier
 	router      Dispatcher
 	httpSrv     *http.Server
 	listener    net.Listener
@@ -33,12 +58,15 @@ type Server struct {
 	addr        string
 }
 
-// New creates a new HTTP server. store and router may be nil for health-only mode.
-func New(st *store.Store, router Dispatcher, addr string) *Server {
+// New creates a new HTTP server.
+// backlogMgr, handoffMgr, queueMgr may be nil for health-only mode.
+func New(backlogMgr BacklogQuerier, handoffMgr HandoffQuerier, queueMgr QueueQuerier, router Dispatcher, addr string) *Server {
 	s := &Server{
-		store:  st,
-		router: router,
-		addr:   addr,
+		backlogMgr: backlogMgr,
+		handoffMgr: handoffMgr,
+		queueMgr:   queueMgr,
+		router:     router,
+		addr:       addr,
 	}
 
 	mux := http.NewServeMux()

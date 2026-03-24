@@ -331,6 +331,57 @@ func (m *Manager) CleanupStale() (int, error) {
 	return count, nil
 }
 
+// ── Dashboard queries ─────────────────────────────────────────────────────────
+
+// DashboardEntry is a view for dashboard queue display.
+type DashboardEntry struct {
+	Channel    string
+	Branch     string
+	Status     string
+	CreatedAt  string
+	FinishedAt string
+	DurationSec int // computed: finished_at - created_at in seconds
+}
+
+// DashboardQueueAll returns all queue entries for dashboard display.
+func (m *Manager) DashboardQueueAll() ([]DashboardEntry, error) {
+	rows, err := m.store.Query(`
+		SELECT channel, branch, status, created_at, COALESCE(finished_at,''),
+		       CASE WHEN finished_at IS NOT NULL
+		            THEN CAST((julianday(finished_at) - julianday(created_at)) * 86400 AS INTEGER)
+		            ELSE 0 END as duration_sec
+		FROM queue
+		ORDER BY channel, created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardQueueAll: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []DashboardEntry
+	for rows.Next() {
+		var q DashboardEntry
+		if err := rows.Scan(&q.Channel, &q.Branch, &q.Status, &q.CreatedAt, &q.FinishedAt, &q.DurationSec); err != nil {
+			return nil, fmt.Errorf("DashboardQueueAll scan: %w", err)
+		}
+		entries = append(entries, q)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardQueueAll rows: %w", err)
+	}
+	return entries, nil
+}
+
+// DashboardLockStatus returns whether a channel has an active lock.
+func (m *Manager) DashboardLockStatus(channel string) (bool, error) {
+	var count int
+	if err := m.store.QueryRow(
+		`SELECT COUNT(*) FROM queue WHERE channel=? AND status='ACTIVE'`, channel,
+	).Scan(&count); err != nil {
+		return false, fmt.Errorf("DashboardLockStatus %s: %w", channel, err)
+	}
+	return count > 0, nil
+}
+
 // insertEntry inserts a new queue entry with the given status (non-transactional).
 func (m *Manager) insertEntry(channel, branch string, pid int, status string) error {
 	return m.insertEntryTx(m.store, channel, branch, pid, status)

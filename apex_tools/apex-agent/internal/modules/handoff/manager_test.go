@@ -613,19 +613,24 @@ func TestNotifyDrop_WithFixingBacklogs(t *testing.T) {
 		t.Fatalf("expected backlog 50 FIXING, got %q", bm.items[50])
 	}
 
-	// drop 시도 → FIXING 백로그 때문에 차단되어야 함
+	// drop → FIXING 백로그가 자동으로 OPEN 복귀되고 drop 성공
 	err := mgr.NotifyDrop(context.Background(), "feature/drop-fixing", "ws1", "try drop")
-	if err == nil {
-		t.Fatal("expected error due to FIXING backlog, got nil")
+	if err != nil {
+		t.Fatalf("expected drop to auto-release FIXING backlogs, got error: %v", err)
 	}
 
-	// 브랜치는 여전히 active여야 함
+	// 백로그 50이 OPEN으로 복귀되어야 함
+	if bm.items[50] != "OPEN" {
+		t.Errorf("expected backlog 50 OPEN after drop, got %q", bm.items[50])
+	}
+
+	// 브랜치는 active에서 삭제되어야 함
 	status, getErr := mgr.GetStatus("feature/drop-fixing")
 	if getErr != nil {
 		t.Fatalf("GetStatus: %v", getErr)
 	}
-	if status != StatusImplementing {
-		t.Errorf("expected status %q (still active), got %q", StatusImplementing, status)
+	if status != "" {
+		t.Errorf("expected empty status after drop, got %q", status)
 	}
 }
 

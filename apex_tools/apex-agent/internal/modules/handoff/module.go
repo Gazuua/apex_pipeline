@@ -23,6 +23,9 @@ func New(s *store.Store, bm BacklogOperator) *Module {
 
 func (m *Module) Name() string { return "handoff" }
 
+// Manager returns the underlying Manager for cross-module use.
+func (m *Module) Manager() *Manager { return m.manager }
+
 // RegisterSchema registers the branches, notifications, and notification_acks table migrations.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
 	mig.Register("handoff", 1, func(tx *store.TxStore) error {

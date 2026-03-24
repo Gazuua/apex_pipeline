@@ -20,6 +20,7 @@ import (
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/httpd"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
@@ -27,6 +28,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	queuemod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 func daemonCmd() *cobra.Command {
@@ -90,10 +92,27 @@ func daemonRunCmd() *cobra.Command {
 				return err
 			}
 			backlogMod := backlogmod.New(d.Store())
+			handoffMod := handoffmod.New(d.Store(), backlogMod.Manager())
+			queueMod := queuemod.New(d.Store())
+
 			d.Register(hook.New())
 			d.Register(backlogMod)
-			d.Register(handoffmod.New(d.Store(), backlogMod.Manager()))
-			d.Register(queuemod.New(d.Store()))
+			d.Register(handoffMod)
+			d.Register(queueMod)
+
+			// Junction cleaner 주입: backlog.Release()가 handoff 소유 branch_backlogs를 정리할 때 사용
+			backlogMod.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
+				_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+				return err
+			})
+
+			// HTTP 서버 팩토리 설정: 어댑터를 통해 모듈 Manager를 httpd에 주입
+			bqa := &backlogQuerierAdapter{mgr: backlogMod.Manager()}
+			hqa := &handoffQuerierAdapter{mgr: handoffMod.Manager()}
+			qqa := &queueQuerierAdapter{mgr: queueMod.Manager()}
+			d.SetHTTPServerFactory(func(addr string) *httpd.Server {
+				return httpd.New(bqa, hqa, qqa, d.Router(), addr)
+			})
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 			return d.Run(ctx)

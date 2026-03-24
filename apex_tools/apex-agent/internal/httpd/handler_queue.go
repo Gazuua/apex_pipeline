@@ -7,8 +7,8 @@ import "net/http"
 func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{"Page": "queue"}
 
-	if s.store != nil {
-		entries, err := queryQueueStatus(s.store)
+	if s.queueMgr != nil {
+		entries, err := queryQueueStatus(s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, "queue query: "+err.Error())
 			return
@@ -21,8 +21,8 @@ func (s *Server) handleQueue(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePartialQueuePage(w http.ResponseWriter, _ *http.Request) {
 	data := map[string]any{}
-	if s.store != nil {
-		entries, err := queryQueueStatus(s.store)
+	if s.queueMgr != nil {
+		entries, err := queryQueueStatus(s.queueMgr)
 		if err != nil {
 			s.renderHTMXError(w, err.Error())
 			return
@@ -33,11 +33,11 @@ func (s *Server) handlePartialQueuePage(w http.ResponseWriter, _ *http.Request) 
 }
 
 func (s *Server) handleAPIQueue(w http.ResponseWriter, r *http.Request) {
-	if s.store == nil {
+	if s.queueMgr == nil {
 		s.renderError(w, http.StatusServiceUnavailable, "store not available")
 		return
 	}
-	entries, err := queryQueueStatus(s.store)
+	entries, err := queryQueueStatus(s.queueMgr)
 	if err != nil {
 		s.renderError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -316,10 +316,23 @@ func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary st
 	return nil
 }
 
-// NotifyDrop abandons a branch — moves to history as DROPPED.
-// FIXING check + finalize are in a single transaction to prevent TOCTOU.
+// NotifyDrop abandons a branch — auto-releases FIXING backlogs to OPEN, then moves to history as DROPPED.
 func (m *Manager) NotifyDrop(ctx context.Context, branch, workspace, reason string) error {
-	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, true); err != nil {
+	// Drop = 작업 포기 → FIXING 백로그를 자동으로 OPEN 복귀
+	if m.backlogManager != nil {
+		if err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
+			ids, _ := m.getBacklogIDs(tx, branch)
+			for _, id := range ids {
+				if err := m.backlogManager.SetStatusWith(tx, id, "OPEN"); err != nil {
+					return fmt.Errorf("failed to release backlog #%d on drop: %w", id, err)
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, false); err != nil {
 		return err
 	}
 	ml.Audit("branch dropped", "branch", branch, "reason", reason)
@@ -450,6 +463,116 @@ func (m *Manager) GetStatus(branch string) (string, error) {
 		return "", fmt.Errorf("scan status: %w", err)
 	}
 	return status, nil
+}
+
+// ── Dashboard queries ─────────────────────────────────────────────────────────
+
+// DashboardActiveBranch is a view for dashboard active branches display.
+type DashboardActiveBranch struct {
+	Branch      string
+	WorkspaceID string
+	GitBranch   string
+	Summary     string
+	Status      string
+	BacklogIDs  []int
+	CreatedAt   string
+}
+
+// DashboardBranchHistory is a view for dashboard branch history display.
+type DashboardBranchHistory struct {
+	ID         int
+	Branch     string
+	GitBranch  string
+	Summary    string
+	Status     string
+	BacklogIDs string
+	StartedAt  string
+	FinishedAt string
+}
+
+// DashboardActiveBranches returns all active branches with linked backlog IDs.
+func (m *Manager) DashboardActiveBranches() ([]DashboardActiveBranch, error) {
+	rows, err := m.store.Query(`
+		SELECT branch, workspace, COALESCE(git_branch,''), COALESCE(summary,''),
+		       status, created_at
+		FROM active_branches
+		ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardActiveBranches: %w", err)
+	}
+
+	// Collect all branches first, then close rows before nested queries.
+	// SQLite :memory: with MaxOpenConns(1) deadlocks on nested queries.
+	var branches []DashboardActiveBranch
+	for rows.Next() {
+		var ab DashboardActiveBranch
+		if err := rows.Scan(&ab.Branch, &ab.WorkspaceID, &ab.GitBranch, &ab.Summary,
+			&ab.Status, &ab.CreatedAt); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("DashboardActiveBranches scan: %w", err)
+		}
+		branches = append(branches, ab)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("DashboardActiveBranches rows: %w", err)
+	}
+	rows.Close()
+
+	// Fetch linked backlog IDs per branch
+	for i := range branches {
+		bbRows, err := m.store.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)
+		if err != nil {
+			continue
+		}
+		for bbRows.Next() {
+			var bid int
+			if scanErr := bbRows.Scan(&bid); scanErr != nil {
+				continue
+			}
+			branches[i].BacklogIDs = append(branches[i].BacklogIDs, bid)
+		}
+		bbRows.Close()
+	}
+
+	return branches, nil
+}
+
+// DashboardActiveCount returns the number of active branches.
+func (m *Manager) DashboardActiveCount() (int, error) {
+	var count int
+	if err := m.store.QueryRow(`SELECT COUNT(*) FROM active_branches`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("DashboardActiveCount: %w", err)
+	}
+	return count, nil
+}
+
+// DashboardBranchHistoryList returns recent branch history entries.
+func (m *Manager) DashboardBranchHistoryList(limit int) ([]DashboardBranchHistory, error) {
+	rows, err := m.store.Query(`
+		SELECT id, branch, COALESCE(git_branch,''), COALESCE(summary,''),
+		       status, COALESCE(backlog_ids,''), started_at, finished_at
+		FROM branch_history
+		ORDER BY finished_at DESC
+		LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardBranchHistoryList: %w", err)
+	}
+	defer rows.Close()
+
+	var history []DashboardBranchHistory
+	for rows.Next() {
+		var bh DashboardBranchHistory
+		if err := rows.Scan(&bh.ID, &bh.Branch, &bh.GitBranch, &bh.Summary,
+			&bh.Status, &bh.BacklogIDs, &bh.StartedAt, &bh.FinishedAt); err != nil {
+			return nil, fmt.Errorf("DashboardBranchHistoryList scan: %w", err)
+		}
+		history = append(history, bh)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("DashboardBranchHistoryList rows: %w", err)
+	}
+	return history, nil
 }
 
 // getBacklogIDs returns backlog IDs linked to a branch via junction table.
