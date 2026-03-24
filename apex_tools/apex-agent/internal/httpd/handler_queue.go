@@ -26,10 +26,19 @@ func (s *Server) handlePartialQueueHistory(w http.ResponseWriter, r *http.Reques
 	if v := r.URL.Query().Get("offset"); v != "" {
 		fmt.Sscanf(v, "%d", &offset)
 	}
+	if offset < 0 {
+		offset = 0
+	}
 
 	limit := 50
 	if v := r.URL.Query().Get("limit"); v != "" {
 		fmt.Sscanf(v, "%d", &limit)
+	}
+	if limit < 1 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
 	}
 
 	from := r.URL.Query().Get("from")

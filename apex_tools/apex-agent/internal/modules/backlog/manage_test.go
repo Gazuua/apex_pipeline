@@ -1089,3 +1089,17 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 		t.Errorf("expected title='changed title', got %q", got2.Title)
 	}
 }
+
+// TestUpdateFromImport_NotFound: import for non-existent item returns an error.
+func TestUpdateFromImport_NotFound(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	err := mgr.UpdateFromImport(999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN")
+	if err == nil {
+		t.Fatal("expected error for non-existent item, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error message, got: %v", err)
+	}
+}

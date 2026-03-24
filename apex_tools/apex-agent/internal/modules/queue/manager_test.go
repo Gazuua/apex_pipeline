@@ -475,3 +475,61 @@ func TestDashboardHistory_Pagination(t *testing.T) {
 		t.Errorf("expected 1 entry with offset=2, got %d", len(entries2))
 	}
 }
+
+// TestDashboardHistory_Empty: no events → empty slice, no error.
+func TestDashboardHistory_Empty(t *testing.T) {
+	m := newTestManager(t)
+
+	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 history entries for empty channel, got %d", len(entries))
+	}
+}
+
+// TestDashboardHistory_FromToFilter: from/to time range filters events correctly.
+func TestDashboardHistory_FromToFilter(t *testing.T) {
+	s := newTestStore(t)
+	m := queue.NewManager(s)
+
+	// Insert history events with explicit timestamps via raw SQL
+	// to avoid time.Sleep and make the test deterministic.
+	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/old', 'ACTIVE', '2026-01-01 00:00:00')`)
+	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/mid', 'ACTIVE', '2026-01-15 00:00:00')`)
+	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/new', 'ACTIVE', '2026-02-01 00:00:00')`)
+
+	// Filter: from=Jan 10 → should exclude 'old', return 'mid' and 'new'.
+	entries, err := m.DashboardHistory("build", 0, 50, "2026-01-10 00:00:00", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory from-filter: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries with from-filter, got %d", len(entries))
+	}
+	if entries[0].Branch != "feature/new" {
+		t.Errorf("expected newest first: got %q", entries[0].Branch)
+	}
+
+	// Filter: to=Jan 20 → should exclude 'new', return 'old' and 'mid'.
+	entries2, err := m.DashboardHistory("build", 0, 50, "", "2026-01-20 00:00:00")
+	if err != nil {
+		t.Fatalf("DashboardHistory to-filter: %v", err)
+	}
+	if len(entries2) != 2 {
+		t.Fatalf("expected 2 entries with to-filter, got %d", len(entries2))
+	}
+
+	// Filter: from+to range → should return only 'mid'.
+	entries3, err := m.DashboardHistory("build", 0, 50, "2026-01-10 00:00:00", "2026-01-20 00:00:00")
+	if err != nil {
+		t.Fatalf("DashboardHistory from+to filter: %v", err)
+	}
+	if len(entries3) != 1 {
+		t.Fatalf("expected 1 entry with from+to filter, got %d", len(entries3))
+	}
+	if entries3[0].Branch != "feature/mid" {
+		t.Errorf("expected feature/mid, got %q", entries3[0].Branch)
+	}
+}

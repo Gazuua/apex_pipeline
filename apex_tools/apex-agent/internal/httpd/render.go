@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 )
 
 //go:embed templates/*.html templates/partials/*.html
@@ -33,14 +34,14 @@ func loadAllPages() (map[string]*template.Template, error) {
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
 		"historyUrl": func(channel string, offset, limit int, from, to string) string {
-			url := fmt.Sprintf("/partials/queue-history?channel=%s&offset=%d&limit=%d", channel, offset, limit)
+			u := fmt.Sprintf("/partials/queue-history?channel=%s&offset=%d&limit=%d", url.QueryEscape(channel), offset, limit)
 			if from != "" {
-				url += "&from=" + from
+				u += "&from=" + url.QueryEscape(from)
 			}
 			if to != "" {
-				url += "&to=" + to
+				u += "&to=" + url.QueryEscape(to)
 			}
-			return url
+			return u
 		},
 	}
 	// Parse partials first as a shared base.
