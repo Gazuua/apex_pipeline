@@ -305,3 +305,32 @@ TEST(BroadcastTest, BroadcastToAllCores)
     engine.stop();
     engine.join();
 }
+
+TEST_F(CrossCoreCallTest, SameCoreCallThrowsLogicError)
+{
+    // co_post_to(src==dst)는 std::logic_error를 던짐 — cross_core_call이 이를 전파
+    std::promise<bool> promise;
+    auto future = promise.get_future();
+
+    boost::asio::co_spawn(
+        server_->core_io_context(0),
+        [this, &promise]() -> boost::asio::awaitable<void> {
+            try
+            {
+                (void)co_await server_->cross_core_call(0, [] { return 0; }, 100ms);
+                promise.set_value(false); // 예외 없이 완료되면 실패
+            }
+            catch (const std::logic_error&)
+            {
+                promise.set_value(true); // 기대한 예외
+            }
+            catch (...)
+            {
+                promise.set_value(false); // 다른 예외면 실패
+            }
+        },
+        boost::asio::detached);
+
+    ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
+    EXPECT_TRUE(future.get()) << "cross_core_call to self should throw std::logic_error";
+}

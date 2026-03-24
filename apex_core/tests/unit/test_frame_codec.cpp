@@ -263,3 +263,22 @@ TEST(FrameCodec, EncodeToBufferTooSmall)
     auto written = FrameCodec::encode_to(small_buf, h, payload);
     EXPECT_EQ(written, 0u);
 }
+
+TEST(FrameCodec, UnsupportedProtocolVersionReturnsError)
+{
+    RingBuffer buf(4096);
+
+    // Build a valid frame, then tamper the version byte
+    std::array<uint8_t, 4> payload{0xDE, 0xAD, 0xBE, 0xEF};
+    auto frame_data = build_frame(42, payload);
+
+    // Byte 0 is the version field (WireHeader::OFF_VERSION == 0)
+    // CURRENT_VERSION is 2; set to 0xFF to trigger UnsupportedVersion
+    frame_data[WireHeader::OFF_VERSION] = 0xFF;
+
+    write_to_buf(buf, frame_data);
+
+    auto result = FrameCodec::try_decode(buf);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ErrorCode::UnsupportedProtocolVersion);
+}

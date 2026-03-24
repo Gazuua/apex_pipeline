@@ -74,6 +74,7 @@ target_link_libraries(test_listener_lifecycle PRIVATE apex::shared::protocols::t
 
 # v0.6: Metrics
 apex_add_unit_test(test_metrics_registry test_metrics_registry.cpp)
+apex_add_unit_test(test_metrics_http_server test_metrics_http_server.cpp)
 
 # Server global / adapter wire / error sender 테스트
 apex_add_unit_test(test_server_global test_server_global.cpp)
@@ -134,5 +135,6 @@ set_tests_properties(
     test_wire_services
     test_error_sender_service_code
     test_metrics_registry
+    test_metrics_http_server
     PROPERTIES TIMEOUT 60
 )
