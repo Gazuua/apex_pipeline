@@ -35,6 +35,12 @@ class MetricsHttpServer
     /// Stop accepting new connections and cancel in-flight sessions.
     void stop();
 
+    /// 바인딩된 로컬 포트 반환 (port 0 사용 시 OS 할당 포트 확인용).
+    uint16_t local_port() const
+    {
+        return acceptor_ ? acceptor_->local_endpoint().port() : 0;
+    }
+
   private:
     void do_accept();
 

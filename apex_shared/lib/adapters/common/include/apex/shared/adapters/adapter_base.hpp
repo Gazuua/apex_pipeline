@@ -77,7 +77,16 @@ template <typename Derived> class AdapterBase
         // 이 시점에서 다른 스레드가 is_ready()를 조회할 수 있으나, do_init()은 Server::run()
         // 내에서 단일 스레드로 실행되고, 코어 스레드는 아직 시작 전이므로 안전.
         state_.store(AdapterState::RUNNING, std::memory_order_release);
-        static_cast<Derived*>(this)->do_init(engine);
+        try
+        {
+            static_cast<Derived*>(this)->do_init(engine);
+        }
+        catch (...)
+        {
+            state_.store(AdapterState::CLOSED, std::memory_order_release);
+            base_logger_.error("do_init() threw — rolling back to CLOSED");
+            throw;
+        }
     }
 
     /// 새 요청 거부 시그널 + 어댑터 코루틴 취소.
