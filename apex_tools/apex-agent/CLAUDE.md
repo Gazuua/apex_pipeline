@@ -72,7 +72,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 http://localhost:7600
 ```
 
-- **4개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세), Handoff (상태 머신), Queue (실시간 경과 시간)
+- **4개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세), Handoff (상태 머신), Queue (히스토리 이벤트 로그 — Build/Merge 좌우 분리, 시간 범위 필터, 무한 스크롤)
 - **Go 템플릿 + HTMX** — 1초 폴링 실시간 갱신, 폴링 속도 조절 (Fast 0.5s / Normal 1s / Slow 2s)
 - **JSON API**: `/api/backlog`, `/api/handoff`, `/api/queue`
 - **설정**: `config.toml`의 `[http]` 섹션 (`enabled`, `addr`). 기본: `localhost:7600`
@@ -323,5 +323,6 @@ go test ./e2e/... -run TestBacklog_Enum    # 특정 테스트
 | queue | v1 | queue 테이블 생성 (channel, branch, pid, status) |
 | queue | v2 | status UPPER_CASE 정규화 |
 | queue | v3 | finished_at 컬럼 추가 |
+| queue | v4 | queue_history 이벤트 로그 테이블 + 인덱스 |
 
 daemon 시작 시 자동 실행. 롤백 미지원 — 항상 전진 마이그레이션.
