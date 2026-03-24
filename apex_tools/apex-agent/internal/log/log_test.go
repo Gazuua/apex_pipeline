@@ -42,6 +42,34 @@ func TestWithModule_AddsModuleField(t *testing.T) {
 	}
 }
 
+func TestWarn_WritesToBuffer(t *testing.T) {
+	var buf bytes.Buffer
+	Init(LogConfig{Level: "debug", Writer: &buf})
+	Warn("warning message", "key", "value")
+
+	out := buf.String()
+	if !strings.Contains(out, "WARN") {
+		t.Errorf("output = %q, want contains 'WARN'", out)
+	}
+	if !strings.Contains(out, "warning message") {
+		t.Errorf("output = %q, want contains 'warning message'", out)
+	}
+}
+
+func TestError_WritesToBuffer(t *testing.T) {
+	var buf bytes.Buffer
+	Init(LogConfig{Level: "debug", Writer: &buf})
+	Error("error message", "key", "value")
+
+	out := buf.String()
+	if !strings.Contains(out, "ERROR") {
+		t.Errorf("output = %q, want contains 'ERROR'", out)
+	}
+	if !strings.Contains(out, "error message") {
+		t.Errorf("output = %q, want contains 'error message'", out)
+	}
+}
+
 func TestLevelFilter_InfoHidesDebug(t *testing.T) {
 	var buf bytes.Buffer
 	Init(LogConfig{Level: "info", Writer: &buf})

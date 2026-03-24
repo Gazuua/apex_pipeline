@@ -90,7 +90,7 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 				oldIDs, _ := m.getBacklogIDs(tx, branch)
 				for _, oldID := range oldIDs {
 					if releaseErr := m.backlogManager.SetStatusWith(tx, oldID, "OPEN"); releaseErr != nil {
-						ml.Warn("failed to release backlog on branch replace", "backlog_id", oldID, "err", releaseErr)
+						return fmt.Errorf("failed to release backlog #%d on branch replace: %w", oldID, releaseErr)
 					}
 				}
 			}

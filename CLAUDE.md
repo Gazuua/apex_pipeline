@@ -86,20 +86,20 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
 - **착수 전**: `apex-agent handoff backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
 - **브랜치 생성** (`git checkout -b` 직접 호출 금지 — hook 차단):
-  - 백로그 연결: `notify start --branch-name feature/foo --backlog N --summary "..." --scopes core,shared`
+  - 백로그 연결: `notify start --branch-name feature/foo --backlog N[,M,...] --summary "..." --scopes core,shared` (복수 가능: `--backlog 1,2` 또는 `--backlog 1 --backlog 2`)
   - 비백로그: `notify start job --branch-name feature/foo --summary "..." --scopes tools`
   - `--summary`, `--scopes` 필수. 핸드오프 등록과 git 브랜치 생성이 원자적으로 수행
-- **상태 머신**: `notify start` → `started` → `notify design` → `design-notified` → `notify plan` → `implementing` → `notify merge` (active에서 삭제, history로 이관)
+- **상태 머신**: `notify start` → `STARTED` → `notify design` → `DESIGN_NOTIFIED` → `notify plan` → `IMPLEMENTING` → `notify merge` (active에서 삭제, history로 MERGED 이관)
   - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
   - `notify drop --reason "..."`: 작업 중도 포기 (active에서 삭제, history에 DROPPED 기록)
   - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
 - **DB 구조**: `active_branches` (활성 작업), `branch_history` (머지/포기 이력). 머지/포기 시 active에서 삭제 → history로 이관
 - **강제 메커니즘** (Hook 기반):
   - **active 미등록** → 모든 Edit/Write/git commit **차단** (예외 없음)
-  - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h) 편집 **차단**, 비소스(문서 등) 허용
+  - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h/.c/.cc/.cxx/.hxx/.go) 편집 **차단**, 비소스(문서 등) 허용
   - **status=implementing** → 모든 파일 허용
   - **main/master 브랜치** → 핸드오프 체크 스킵
-  - **git checkout -b / git branch <name>** → validate-build hook이 차단 (notify start 경유 강제)
+  - **git checkout -b / git switch -c / git branch <name> / git worktree add -b / git branch -m,-c (rename/copy)** → validate-build hook이 차단 (notify start 경유 강제)
   - **cleanup** → `active_branches` 조회하여 활성 브랜치 보호 + CWD 보호
 - **상태 전이**: 설계 확정 시 `notify design`, 계획 확정 시 `notify plan`, 머지 완료 시 `notify merge`
 

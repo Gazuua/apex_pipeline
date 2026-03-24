@@ -93,12 +93,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 			return map[string]string{"version": version.Version}, nil
 		})
 		reg.Handle("shutdown", func(ctx context.Context, params json.RawMessage, ws string) (any, error) {
-			ml.Audit("shutdown requested via IPC")
 			select {
 			case d.shutdownCh <- struct{}{}:
+				ml.Audit("shutdown requested via IPC")
+				return map[string]string{"status": "shutting_down"}, nil
 			default:
+				ml.Info("duplicate shutdown request ignored")
+				return map[string]string{"status": "already_shutting_down"}, nil
 			}
-			return map[string]string{"status": "shutting_down"}, nil
 		})
 	})
 

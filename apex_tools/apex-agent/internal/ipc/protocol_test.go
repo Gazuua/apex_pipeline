@@ -42,10 +42,14 @@ func TestWriteRead_Response(t *testing.T) {
 		Data: json.RawMessage(`{"id":30}`),
 	}
 
-	WriteMessage(&buf, resp)
+	if err := WriteMessage(&buf, resp); err != nil {
+		t.Fatalf("WriteMessage: %v", err)
+	}
 
 	var got Response
-	ReadMessage(&buf, &got)
+	if err := ReadMessage(&buf, &got); err != nil {
+		t.Fatalf("ReadMessage: %v", err)
+	}
 
 	if !got.OK {
 		t.Error("OK = false, want true")

@@ -828,6 +828,58 @@ func TestUpdate_PositionInvalid(t *testing.T) {
 
 // ── ListFixingForBranch ──
 
+// ── Add — enum validation ──
+
+func TestAdd_InvalidEnum(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	cases := []struct {
+		name string
+		item *BacklogItem
+	}{
+		{
+			name: "lowercase severity",
+			item: &BacklogItem{
+				ID: 1, Title: "Bad severity", Severity: "major",
+				Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "d",
+			},
+		},
+		{
+			name: "lowercase timeframe",
+			item: &BacklogItem{
+				ID: 2, Title: "Bad timeframe", Severity: "MAJOR",
+				Timeframe: "now", Scope: "CORE", Type: "BUG", Description: "d",
+			},
+		},
+		{
+			name: "lowercase type",
+			item: &BacklogItem{
+				ID: 3, Title: "Bad type", Severity: "MAJOR",
+				Timeframe: "NOW", Scope: "CORE", Type: "bug", Description: "d",
+			},
+		},
+		{
+			name: "lowercase scope",
+			item: &BacklogItem{
+				ID: 4, Title: "Bad scope", Severity: "MAJOR",
+				Timeframe: "NOW", Scope: "core", Type: "BUG", Description: "d",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := m.Add(tc.item)
+			if err == nil {
+				t.Errorf("expected error for %s, got nil", tc.name)
+			}
+		})
+	}
+}
+
+// ── ListFixingForBranch ──
+
 func TestListFixingForBranch_Empty(t *testing.T) {
 	s := setupTestDB(t)
 	m := NewManager(s)

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -124,6 +125,17 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Queue.RawPollInterval != 0 {
 		cfg.Queue.PollInterval = time.Duration(cfg.Queue.RawPollInterval)
+	}
+
+	// Warn if HTTP addr is not localhost-bound (no authentication).
+	if cfg.HTTP.Enabled && cfg.HTTP.Addr != "" {
+		host := cfg.HTTP.Addr
+		if idx := strings.LastIndex(host, ":"); idx >= 0 {
+			host = host[:idx]
+		}
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" && host != "" {
+			fmt.Fprintf(os.Stderr, "WARNING: HTTP 대시보드가 %q에 바인딩됩니다. 인증이 없으므로 localhost 외 주소는 보안 위험이 있습니다.\n", cfg.HTTP.Addr)
+		}
 	}
 
 	return cfg, nil

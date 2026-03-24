@@ -300,6 +300,40 @@ func TestAcquire_ContextCancel_CleansUpWaitingEntry(t *testing.T) {
 	}
 }
 
+// TestAcquire_Timeout: very short timeout causes Acquire to fail and clean up its waiting entry.
+func TestAcquire_Timeout(t *testing.T) {
+	s := newTestStore(t)
+	m := queue.NewManager(s)
+
+	pid := os.Getpid()
+
+	// Hold the lock so that Acquire blocks.
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/holder", pid)
+	if err != nil || !acquired {
+		t.Fatalf("TryAcquire holder: err=%v acquired=%v", err, acquired)
+	}
+
+	// Very short timeout — Acquire should fail almost immediately.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	err = m.Acquire(ctx, "build", "feature/timeout-waiter", pid)
+	if err == nil {
+		t.Fatal("expected error from timed-out Acquire, got nil")
+	}
+
+	// Verify that the waiting entry was cleaned up.
+	_, waiting, err := m.Status("build")
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	for _, w := range waiting {
+		if w.Branch == "feature/timeout-waiter" {
+			t.Error("expected waiting entry to be cleaned up after timeout")
+		}
+	}
+}
+
 // TestAcquire_PromotesAfterRelease: Acquire blocks, then succeeds after Release.
 func TestAcquire_PromotesAfterRelease(t *testing.T) {
 	s := newTestStore(t)

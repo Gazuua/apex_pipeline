@@ -183,6 +183,8 @@ func queryBacklogList(st *store.Store, f BacklogFilter) ([]BacklogItem, error) {
 	}
 
 	// Sort — default: FIXING first → timeframe urgency → severity → ID
+	// SAFETY: sortCol and sortDir are always from hardcoded allowlists below.
+	// Never pass user input directly into these maps.
 	if f.SortBy != "" {
 		sortCol := "id"
 		allowed := map[string]bool{"id": true, "severity": true, "created_at": true, "updated_at": true, "status": true}

@@ -2,7 +2,10 @@
 
 package store
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestMigrate_NewDB(t *testing.T) {
 	s, _ := Open(":memory:")
@@ -129,6 +132,65 @@ func TestMigrate_DataIntegrity(t *testing.T) {
 	// Verify new column is accessible.
 	if _, err := s.Exec("UPDATE items SET extra = 'test' WHERE id = 1"); err != nil {
 		t.Fatalf("new column not accessible: %v", err)
+	}
+}
+
+func TestMigrate_FailureRollback(t *testing.T) {
+	s, _ := Open(":memory:")
+	defer s.Close()
+
+	m := NewMigrator(s)
+
+	// v1: 테이블 생성 + 데이터 삽입
+	m.Register("mod", 1, func(tx *TxStore) error {
+		_, err := tx.Exec("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+		return err
+	})
+
+	// v1 적용 + 데이터 삽입
+	if err := m.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Exec("INSERT INTO items (id, name) VALUES (1, 'preserved')"); err != nil {
+		t.Fatalf("v1 insert: %v", err)
+	}
+
+	// v2: 의도적 에러 반환
+	m.Register("mod", 2, func(tx *TxStore) error {
+		// 새 컬럼 추가 시도 후 에러 반환 — 트랜잭션이 롤백되어야 함
+		if _, err := tx.Exec("ALTER TABLE items ADD COLUMN extra TEXT"); err != nil {
+			return err
+		}
+		return fmt.Errorf("intentional v2 failure")
+	})
+
+	// v2 마이그레이션은 실패해야 함
+	if err := m.Migrate(); err == nil {
+		t.Fatal("expected error from failing v2 migration")
+	}
+
+	// v1 데이터는 보존되어야 함
+	var name string
+	if err := s.QueryRow("SELECT name FROM items WHERE id = 1").Scan(&name); err != nil {
+		t.Fatalf("v1 data should be preserved: %v", err)
+	}
+	if name != "preserved" {
+		t.Errorf("v1 data corrupted: got %q, want %q", name, "preserved")
+	}
+
+	// v2 스키마(extra 컬럼)는 롤백되어야 함 — extra 컬럼 접근 시 에러
+	_, err := s.Exec("UPDATE items SET extra = 'test' WHERE id = 1")
+	if err == nil {
+		t.Error("v2 schema should have been rolled back; extra column should not exist")
+	}
+
+	// _migrations에 v2 기록이 없어야 함
+	var count int
+	if err := s.QueryRow("SELECT COUNT(*) FROM _migrations WHERE module='mod' AND version=2").Scan(&count); err != nil {
+		t.Fatalf("query _migrations: %v", err)
+	}
+	if count != 0 {
+		t.Error("v2 should not be recorded in _migrations after rollback")
 	}
 }
 

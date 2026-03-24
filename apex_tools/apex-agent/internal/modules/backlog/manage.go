@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -78,6 +79,10 @@ func (m *Manager) NextID() (int, error) {
 func (m *Manager) Add(item *BacklogItem) error {
 	if err := ValidateSeverity(item.Severity); err != nil {
 		return err
+	}
+	// Reject empty timeframe at Add level (allowed only via import for history items).
+	if item.Timeframe == "" {
+		return fmt.Errorf("timeframe is required (use NOW, IN_VIEW, or DEFERRED)")
 	}
 	if err := ValidateTimeframe(item.Timeframe); err != nil {
 		return err
@@ -536,15 +541,22 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 		}
 	}
 
+	// Sort field names for deterministic SQL generation (aids debugging).
+	fieldNames := make([]string, 0, len(fields))
+	for field := range fields {
+		fieldNames = append(fieldNames, field)
+	}
+	sort.Strings(fieldNames)
+
 	var setClauses []string
 	var args []any
-	for field, value := range fields {
+	for _, field := range fieldNames {
 		col, ok := allowedUpdateFields[field]
 		if !ok {
 			return fmt.Errorf("unknown field: %s", field)
 		}
 		setClauses = append(setClauses, col+" = ?")
-		args = append(args, value)
+		args = append(args, fields[field])
 	}
 	setClauses = append(setClauses, "updated_at = datetime('now','localtime')")
 	args = append(args, id)

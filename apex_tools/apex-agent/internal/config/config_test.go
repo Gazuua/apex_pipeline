@@ -20,6 +20,12 @@ func TestDefaults(t *testing.T) {
 	if !cfg.Log.Audit {
 		t.Error("Log.Audit should default to true")
 	}
+	if !cfg.HTTP.Enabled {
+		t.Error("HTTP.Enabled should default to true")
+	}
+	if cfg.HTTP.Addr != "localhost:7600" {
+		t.Errorf("HTTP.Addr = %q, want 'localhost:7600'", cfg.HTTP.Addr)
+	}
 }
 
 func TestLoad_FileNotFound_ReturnsDefaults(t *testing.T) {
@@ -83,6 +89,10 @@ audit = false
 [build]
 command = "make build"
 presets = ["debug", "release", "asan"]
+
+[http]
+enabled = false
+addr = "127.0.0.1:9090"
 `), 0o644)
 
 	cfg, err := Load(path)
@@ -97,6 +107,12 @@ presets = ["debug", "release", "asan"]
 	}
 	if len(cfg.Build.Presets) != 3 {
 		t.Errorf("Presets = %v", cfg.Build.Presets)
+	}
+	if cfg.HTTP.Enabled {
+		t.Error("HTTP.Enabled should be false after override")
+	}
+	if cfg.HTTP.Addr != "127.0.0.1:9090" {
+		t.Errorf("HTTP.Addr = %q, want '127.0.0.1:9090'", cfg.HTTP.Addr)
 	}
 }
 
