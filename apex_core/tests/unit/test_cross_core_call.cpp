@@ -305,3 +305,22 @@ TEST(BroadcastTest, BroadcastToAllCores)
     engine.stop();
     engine.join();
 }
+
+TEST_F(CrossCoreCallTest, SameCoreCallReturnsTimeout)
+{
+    std::promise<ErrorCode> promise;
+    auto future = promise.get_future();
+
+    // 동일 코어(0→0) 호출: post는 성공하지만 동일 코어 io_context에서 대기하므로 데드락 → 타임아웃
+    boost::asio::co_spawn(
+        server_->core_io_context(0),
+        [this, &promise]() -> boost::asio::awaitable<void> {
+            auto result = co_await server_->cross_core_call(0, [] { return 0; }, 100ms);
+            EXPECT_FALSE(result.has_value());
+            promise.set_value(result.error());
+        },
+        boost::asio::detached);
+
+    ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
+    EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+}

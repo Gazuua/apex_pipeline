@@ -118,4 +118,26 @@ TEST_F(SpscMeshTest, DrainAllFor_DispatchesRegisteredOp)
     EXPECT_EQ(received_value.load(), 42);
 }
 
+class SpscMeshDeathTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        GTEST_FLAG_SET(death_test_style, "threadsafe");
+    }
+};
+
+TEST_F(SpscMeshDeathTest, SelfCoreQueueAsserts)
+{
+#ifdef NDEBUG
+    GTEST_SKIP() << "assert disabled in Release build";
+#else
+    boost::asio::io_context io_ctxs_raw[2];
+    std::vector<boost::asio::io_context*> ptrs = {&io_ctxs_raw[0], &io_ctxs_raw[1]};
+    SpscMesh mesh(2, 64, ptrs);
+
+    EXPECT_DEATH(mesh.queue(0, 0), "");
+#endif
+}
+
 } // namespace apex::core
