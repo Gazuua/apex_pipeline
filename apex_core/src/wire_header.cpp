@@ -48,7 +48,11 @@ inline uint32_t ntoh32(uint32_t v)
 
 namespace
 {
-ScopedLogger s_logger{"WireHeader", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"WireHeader", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t> data)
@@ -63,7 +67,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
 
     if (h.version != CURRENT_VERSION)
     {
-        s_logger.debug("parse unsupported version={}", h.version);
+        s_logger().debug("parse unsupported version={}", h.version);
         return std::unexpected(ParseError::UnsupportedVersion);
     }
 
@@ -82,7 +86,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
 
     if (h.body_size > MAX_BODY_SIZE)
     {
-        s_logger.debug("parse body_too_large size={} max={}", h.body_size, MAX_BODY_SIZE);
+        s_logger().debug("parse body_too_large size={} max={}", h.body_size, MAX_BODY_SIZE);
         return std::unexpected(ParseError::BodyTooLarge);
     }
 

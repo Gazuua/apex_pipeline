@@ -13,7 +13,11 @@ namespace apex::gateway
 
 namespace
 {
-apex::core::ScopedLogger s_logger{"RouteTable", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"RouteTable", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 } // anonymous namespace
 
 apex::core::Result<RouteTable> RouteTable::build(std::vector<RouteEntry> routes)
@@ -24,7 +28,7 @@ apex::core::Result<RouteTable> RouteTable::build(std::vector<RouteEntry> routes)
     {
         if (r.range_begin > r.range_end)
         {
-            s_logger.error("Invalid route: begin({}) > end({})", r.range_begin, r.range_end);
+            s_logger().error("Invalid route: begin({}) > end({})", r.range_begin, r.range_end);
             return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
         table.entries_.push_back(Entry{
@@ -64,8 +68,8 @@ apex::core::Result<void> RouteTable::validate() const
         // Overlap check: previous range_end >= current range_begin
         if (entries_[i - 1].range_end >= entries_[i].range_begin)
         {
-            s_logger.error("Route overlap: [{}, {}] and [{}, {}]", entries_[i - 1].range_begin,
-                           entries_[i - 1].range_end, entries_[i].range_begin, entries_[i].range_end);
+            s_logger().error("Route overlap: [{}, {}] and [{}, {}]", entries_[i - 1].range_begin,
+                             entries_[i - 1].range_end, entries_[i].range_begin, entries_[i].range_end);
             return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
     }

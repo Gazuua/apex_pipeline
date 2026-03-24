@@ -12,7 +12,11 @@ namespace apex::shared::adapters::redis
 
 namespace
 {
-apex::core::ScopedLogger s_logger{"HiredisAsioAdapter", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"HiredisAsioAdapter", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 } // anonymous namespace
 
 HiredisAsioAdapter::HiredisAsioAdapter(boost::asio::io_context& io_ctx, redisAsyncContext* ac)
@@ -88,7 +92,7 @@ void HiredisAsioAdapter::on_del_write(void* privdata)
 void HiredisAsioAdapter::on_cleanup(void* privdata)
 {
     auto* self = static_cast<HiredisAsioAdapter*>(privdata);
-    s_logger.trace("on_cleanup");
+    s_logger().trace("on_cleanup");
     self->cleaned_up_ = true;
 
     // 소켓 release: fd를 Asio에서 분리하되 close하지 않음

@@ -63,7 +63,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
                                                                            const apex::core::WireHeader& header,
                                                                            AuthState& state, std::string_view remote_ip)
     {
-        logger_.debug("pipeline::process (session={}, msg_id=0x{:04X})", session->id(), header.msg_id);
+        logger_.debug(session, header.msg_id, "pipeline::process");
 
         auto send_error = [&](GatewayError gw_err) {
             auto frame = apex::core::ErrorSender::build_error_frame(header.msg_id, apex::core::ErrorCode::ServiceError,
@@ -75,8 +75,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto ip_result = check_ip_rate_limit(remote_ip);
         if (!ip_result)
         {
-            logger_.debug("pipeline::process denied at IP rate-limit (session={}, msg_id=0x{:04X}, ip={})",
-                          session->id(), header.msg_id, remote_ip);
+            logger_.debug(session, header.msg_id, "pipeline::process denied at IP rate-limit (ip={})", remote_ip);
             send_error(ip_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
@@ -85,8 +84,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         auto auth_result = co_await authenticate(session, header, state);
         if (!auth_result)
         {
-            logger_.debug("pipeline::process denied at authentication (session={}, msg_id=0x{:04X})", session->id(),
-                          header.msg_id);
+            logger_.debug(session, header.msg_id, "pipeline::process denied at authentication");
             send_error(auth_result.error());
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
@@ -97,8 +95,8 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             auto user_result = co_await check_user_rate_limit(state.user_id);
             if (!user_result)
             {
-                logger_.debug("pipeline::process denied at user rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
-                              session->id(), header.msg_id, state.user_id);
+                logger_.debug(session, header.msg_id, "pipeline::process denied at user rate-limit (user_id={})",
+                              state.user_id);
                 send_error(user_result.error());
                 co_return apex::core::error(apex::core::ErrorCode::ServiceError);
             }
@@ -106,9 +104,8 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             auto ep_result = co_await check_endpoint_rate_limit(state.user_id, header.msg_id);
             if (!ep_result)
             {
-                logger_.debug(
-                    "pipeline::process denied at endpoint rate-limit (session={}, msg_id=0x{:04X}, user_id={})",
-                    session->id(), header.msg_id, state.user_id);
+                logger_.debug(session, header.msg_id, "pipeline::process denied at endpoint rate-limit (user_id={})",
+                              state.user_id);
                 send_error(ep_result.error());
                 co_return apex::core::error(apex::core::ErrorCode::ServiceError);
             }

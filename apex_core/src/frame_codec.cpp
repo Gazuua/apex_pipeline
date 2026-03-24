@@ -14,7 +14,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"FrameCodec", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"FrameCodec", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
@@ -37,7 +41,7 @@ Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
     if (!parse_result)
     {
         auto err = parse_result.error();
-        s_logger.debug("try_decode parse failed err={}", static_cast<int>(err));
+        s_logger().debug("try_decode parse failed err={}", static_cast<int>(err));
         switch (err)
         {
             case ParseError::BodyTooLarge:
@@ -66,7 +70,7 @@ Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
     }
     auto payload = frame_span.subspan(WireHeader::SIZE, header.body_size);
 
-    s_logger.trace("try_decode ok msg_id={} body={}", header.msg_id, header.body_size);
+    s_logger().trace("try_decode ok msg_id={} body={}", header.msg_id, header.body_size);
     return Frame{header, payload};
 }
 

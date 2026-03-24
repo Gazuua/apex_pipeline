@@ -18,14 +18,18 @@ namespace apex::auth_svc
 namespace
 {
 
-apex::core::ScopedLogger s_logger{"JwtManager", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"JwtManager", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 
 std::string read_file(std::string_view path)
 {
     std::ifstream file{std::string{path}};
     if (!file.is_open())
     {
-        s_logger.error("Failed to open key file: {}", path);
+        s_logger().error("Failed to open key file: {}", path);
         return {};
     }
     std::ostringstream ss;
@@ -40,7 +44,7 @@ std::string generate_jti()
     auto result = generate_secure_token(16);
     if (!result.has_value())
     {
-        s_logger.error("CSPRNG failure in generate_jti");
+        s_logger().error("CSPRNG failure in generate_jti");
         return {};
     }
     return std::move(*result);

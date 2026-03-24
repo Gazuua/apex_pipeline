@@ -13,7 +13,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"ErrorSender", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"ErrorSender", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, ErrorCode code, std::string_view message,
@@ -45,8 +49,8 @@ std::vector<uint8_t> ErrorSender::build_error_frame(uint32_t original_msg_id, Er
     std::memcpy(frame.data(), hdr_bytes.data(), WireHeader::SIZE);
     std::memcpy(frame.data() + WireHeader::SIZE, payload_data, payload_size);
 
-    s_logger.debug("build_error_frame msg_id={} code={} svc_err={} size={}", original_msg_id,
-                   static_cast<uint16_t>(code), service_error_code, frame.size());
+    s_logger().debug("build_error_frame msg_id={} code={} svc_err={} size={}", original_msg_id,
+                     static_cast<uint16_t>(code), service_error_code, frame.size());
     return frame;
 }
 

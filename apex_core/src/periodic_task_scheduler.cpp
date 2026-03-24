@@ -8,7 +8,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"PeriodicTaskScheduler", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"PeriodicTaskScheduler", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 PeriodicTaskScheduler::PeriodicTaskScheduler(boost::asio::io_context& io_ctx)
@@ -29,7 +33,7 @@ TaskHandle PeriodicTaskScheduler::schedule(std::chrono::milliseconds interval, s
     entry.interval = interval;
     entry.cancelled = false;
 
-    s_logger.info("schedule handle={} interval={}ms", handle, interval.count());
+    s_logger().info("schedule handle={} interval={}ms", handle, interval.count());
     schedule_next(handle);
     return handle;
 }
@@ -39,7 +43,7 @@ void PeriodicTaskScheduler::cancel(TaskHandle handle)
     auto it = tasks_.find(handle);
     if (it != tasks_.end())
     {
-        s_logger.info("cancel handle={}", handle);
+        s_logger().info("cancel handle={}", handle);
         it->second.cancelled = true;
         it->second.timer->cancel();
         tasks_.erase(it);
@@ -48,7 +52,7 @@ void PeriodicTaskScheduler::cancel(TaskHandle handle)
 
 void PeriodicTaskScheduler::stop_all()
 {
-    s_logger.info("stop_all count={}", tasks_.size());
+    s_logger().info("stop_all count={}", tasks_.size());
     for (auto& [handle, entry] : tasks_)
     {
         entry.cancelled = true;
@@ -76,7 +80,7 @@ void PeriodicTaskScheduler::schedule_next(TaskHandle handle)
             return;
 
         // 작업 실행 후 다음 주기 예약
-        s_logger.trace("execute handle={}", handle);
+        s_logger().trace("execute handle={}", handle);
         it->second.task();
         schedule_next(handle);
     });

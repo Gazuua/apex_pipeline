@@ -18,7 +18,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"RingBuffer", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"RingBuffer", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 RingBuffer::RingBuffer(size_t capacity)
@@ -130,7 +134,7 @@ bool RingBuffer::write(std::span<const uint8_t> data) noexcept
         return true;
     if (data.size() > writable_size())
     {
-        s_logger.warn("write overflow requested={} writable={}", data.size(), writable_size());
+        s_logger().warn("write overflow requested={} writable={}", data.size(), writable_size());
         return false;
     }
     auto w = writable();

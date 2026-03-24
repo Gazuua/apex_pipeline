@@ -150,7 +150,7 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
             {
                 auto& state = auth_states_[session->id()];
                 state.token = token->str();
-                logger_.info("JWT bound to session {}", session->id());
+                logger_.info(session, "JWT bound");
             }
         }
     }
@@ -180,7 +180,7 @@ apex::core::Result<void> GatewayService::handle_subscribe_channel(apex::core::Se
                     {
                         pubsub_listener_->subscribe(ch->str());
                     }
-                    logger_.info("Session {} subscribed to '{}'", session->id(), ch->str());
+                    logger_.info(session, "subscribed to '{}'", ch->str());
                 }
             }
         }
@@ -203,7 +203,7 @@ apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::
             if (ch && verifier.VerifyString(ch) && ch->size() > 0)
             {
                 globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
-                logger_.info("Session {} unsubscribed from '{}'", session->id(), ch->str());
+                logger_.info(session, "unsubscribed from '{}'", ch->str());
             }
         }
     }

@@ -15,14 +15,18 @@ namespace apex::gateway
 namespace
 {
 
-apex::core::ScopedLogger s_logger{"JwtVerifier", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"JwtVerifier", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 
 std::string read_file(std::string_view path)
 {
     std::ifstream file{std::string{path}};
     if (!file.is_open())
     {
-        s_logger.error("Failed to open key file: {}", path);
+        s_logger().error("Failed to open key file: {}", path);
         return {};
     }
     std::ostringstream ss;

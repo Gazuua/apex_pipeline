@@ -5,7 +5,11 @@
 
 namespace
 {
-const apex::core::ScopedLogger s_logger{"ConsumerPayloadPool", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"ConsumerPayloadPool", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 } // namespace
 
 namespace apex::shared::adapters::kafka
@@ -23,7 +27,7 @@ ConsumerPayloadPool::ConsumerPayloadPool(size_t initial_count, size_t buffer_siz
     }
     total_created_ = initial_count;
 
-    s_logger.debug("pre-allocated {} buffers ({}B each, max={})", initial_count, buffer_size, max_count);
+    s_logger().debug("pre-allocated {} buffers ({}B each, max={})", initial_count, buffer_size, max_count);
 }
 
 ConsumerPayloadPool::PayloadPtr ConsumerPayloadPool::acquire(std::span<const uint8_t> payload)

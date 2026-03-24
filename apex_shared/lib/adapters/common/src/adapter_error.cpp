@@ -12,7 +12,11 @@ namespace apex::shared::adapters
 
 namespace
 {
-apex::core::ScopedLogger s_logger{"AdapterError", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"AdapterError", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 } // anonymous namespace
 
 std::string AdapterError::to_string() const
@@ -28,7 +32,7 @@ std::string AdapterError::to_string() const
         oss << ": " << message;
     }
     auto result = oss.str();
-    s_logger.trace("to_string: {}", result);
+    s_logger().trace("to_string: {}", result);
     return result;
 }
 

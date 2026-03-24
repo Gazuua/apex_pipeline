@@ -33,7 +33,11 @@ namespace envelope = apex::shared::protocols::kafka;
 namespace
 {
 
-apex::core::ScopedLogger s_logger{"ChatService", apex::core::ScopedLogger::NO_CORE, "app"};
+const apex::core::ScopedLogger& s_logger()
+{
+    static const apex::core::ScopedLogger instance{"ChatService", apex::core::ScopedLogger::NO_CORE, "app"};
+    return instance;
+}
 
 /// Safe uint64 parsing from string_view. Returns Result<uint64_t> on failure (logs warning).
 apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_view context = "") noexcept
@@ -42,7 +46,7 @@ apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_vie
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (ec != std::errc{})
     {
-        s_logger.warn("Failed to parse uint64 '{}' (context: {})", sv, context);
+        s_logger().warn("Failed to parse uint64 '{}' (context: {})", sv, context);
         return std::unexpected(apex::core::ErrorCode::InvalidMessage);
     }
     return value;

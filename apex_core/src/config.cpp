@@ -16,14 +16,18 @@ namespace apex::core
 namespace
 {
 
-ScopedLogger s_logger{"Config", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"Config", ScopedLogger::NO_CORE};
+    return instance;
+}
 
 template <typename T> T get_or(const toml::table& tbl, std::string_view key, const T& default_val)
 {
     auto node = tbl[key];
     if (!node)
     {
-        s_logger.debug("key '{}' not set, using default", key);
+        s_logger().debug("key '{}' not set, using default", key);
         return default_val;
     }
     auto val = node.value<T>();
@@ -176,7 +180,7 @@ LogConfig parse_logging(const toml::table& root)
 
 AppConfig AppConfig::from_file(const std::string& path)
 {
-    s_logger.info("loading config from '{}'", path);
+    s_logger().info("loading config from '{}'", path);
     toml::table tbl;
     try
     {
@@ -191,7 +195,7 @@ AppConfig AppConfig::from_file(const std::string& path)
     AppConfig config;
     config.server = parse_server(tbl);
     config.logging = parse_logging(tbl);
-    s_logger.info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
+    s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
     return config;
 }
 

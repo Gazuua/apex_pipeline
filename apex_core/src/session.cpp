@@ -16,7 +16,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"Session", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"Session", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 void intrusive_ptr_release(Session* s) noexcept
@@ -51,7 +55,7 @@ Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t cor
 // M-2: Simplified — close() already checks Closed state and is idempotent
 Session::~Session()
 {
-    s_logger.trace("~Session id={}", id_);
+    s_logger().trace("~Session id={}", id_);
     close();
 }
 
@@ -91,7 +95,7 @@ void Session::close() noexcept
     // Bypass set_state() which asserts on Closed->Closed transition
     // (already guarded by early return above)
     state_.store(State::Closed, std::memory_order_relaxed);
-    s_logger.debug("close id={} prev_state={}", id_, static_cast<int>(prev));
+    s_logger().debug("close id={} prev_state={}", id_, static_cast<int>(prev));
 
     boost::system::error_code ec;
     if (socket_.is_open())
@@ -100,7 +104,7 @@ void Session::close() noexcept
         socket_.close(ec);
         if (ec)
         {
-            s_logger.warn("close id={} socket error: {}", id_, ec.message());
+            s_logger().warn("close id={} socket error: {}", id_, ec.message());
         }
     }
 }
@@ -113,10 +117,10 @@ Result<void> Session::enqueue_write(std::vector<uint8_t> data)
         return error(ErrorCode::SessionClosed);
     if (write_queue_.size() >= max_queue_depth_)
     {
-        s_logger.warn("enqueue_write id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
+        s_logger().warn("enqueue_write id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
         return error(ErrorCode::BufferFull);
     }
-    s_logger.trace("enqueue_write id={} size={} depth={}", id_, data.size(), write_queue_.size() + 1);
+    s_logger().trace("enqueue_write id={} size={} depth={}", id_, data.size(), write_queue_.size() + 1);
     write_queue_.push_back(WriteRequest{std::move(data), nullptr, nullptr});
     if (!pump_running_)
     {
@@ -166,7 +170,7 @@ awaitable<void> Session::write_pump()
 
         if (ec)
         {
-            s_logger.warn("write_pump id={} write error: {}", id_, ec.message());
+            s_logger().warn("write_pump id={} write error: {}", id_, ec.message());
             // Signal error to the awaiting coroutine if present
             if (req.completion_timer)
             {
@@ -184,7 +188,7 @@ awaitable<void> Session::write_pump()
                 }
             }
 
-            s_logger.debug("write_pump id={} draining {} pending requests", id_, write_queue_.size());
+            s_logger().debug("write_pump id={} draining {} pending requests", id_, write_queue_.size());
             write_queue_.clear(); // 에러 시 잔여 큐 정리
             close();
             break;
@@ -213,7 +217,7 @@ awaitable<Result<void>> Session::enqueue_and_await(std::vector<uint8_t> data)
     // Check queue depth (same as enqueue_write)
     if (write_queue_.size() >= max_queue_depth_)
     {
-        s_logger.warn("enqueue_and_await id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
+        s_logger().warn("enqueue_and_await id={} queue full depth={}/{}", id_, write_queue_.size(), max_queue_depth_);
         co_return error(ErrorCode::BufferFull);
     }
 

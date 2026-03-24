@@ -56,7 +56,7 @@ class MessageDispatcher
     }
 
   private:
-    mutable ScopedLogger logger_{"MessageDispatcher", ScopedLogger::NO_CORE};
+    ScopedLogger logger_{"MessageDispatcher", ScopedLogger::NO_CORE};
     boost::unordered_flat_map<uint32_t, Handler> handlers_;
     Handler default_handler_; // fallback for unmatched msg_ids
 };

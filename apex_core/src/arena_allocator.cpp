@@ -12,7 +12,11 @@ namespace apex::core
 
 namespace
 {
-ScopedLogger s_logger{"ArenaAllocator", ScopedLogger::NO_CORE};
+const ScopedLogger& s_logger()
+{
+    static const ScopedLogger instance{"ArenaAllocator", ScopedLogger::NO_CORE};
+    return instance;
+}
 } // anonymous namespace
 
 ArenaAllocator::ArenaAllocator(std::size_t block_size, std::size_t max_bytes)
@@ -83,11 +87,11 @@ void* ArenaAllocator::allocate(std::size_t size, std::size_t align)
     auto new_block_size = std::max(block_size_, needed);
     if (total_allocated_ + new_block_size > max_bytes_)
     {
-        s_logger.warn("pool exhausted total={}/{}", total_allocated_, max_bytes_);
+        s_logger().warn("pool exhausted total={}/{}", total_allocated_, max_bytes_);
         return nullptr; // max_bytes limit exceeded
     }
 
-    s_logger.trace("new_block size={} total={}", new_block_size, total_allocated_ + new_block_size);
+    s_logger().trace("new_block size={} total={}", new_block_size, total_allocated_ + new_block_size);
     blocks_.push_back(make_block(new_block_size));
     total_allocated_ += new_block_size;
 
@@ -106,7 +110,7 @@ void ArenaAllocator::reset() noexcept
     if (blocks_.empty())
         return; // moved-from guard
 
-    s_logger.trace("reset blocks={} used={}", blocks_.size(), used_bytes());
+    s_logger().trace("reset blocks={} used={}", blocks_.size(), used_bytes());
     // Keep only the first block, free the rest.
     for (std::size_t i = 1; i < blocks_.size(); ++i)
     {

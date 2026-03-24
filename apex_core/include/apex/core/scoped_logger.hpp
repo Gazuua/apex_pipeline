@@ -76,10 +76,12 @@ class ScopedLogger
         return logger_ && logger_->should_log(level);
     }
 
-    // ── Log methods: 6 levels × 3 overloads ─────────────────────────────
+    // ── Log methods: 6 levels × 5 overloads ─────────────────────────────
     // Overload 1: basic (component context only)
-    // Overload 2: + session (adds [sess=N])
-    // Overload 3: + session + msg_id (adds [sess=N][msg=0xHHHH])
+    // Overload 2: + SessionId (adds [sess=N])
+    // Overload 3: + SessionId + msg_id (adds [sess=N][msg=0xHHHH])
+    // Overload 4: + HasSessionId<S> (adds [sess=N])
+    // Overload 5: + HasSessionId<S> + msg_id (adds [sess=N][msg=0xHHHH])
 
     // NOLINTBEGIN(cppcoreguidelines-macro-usage) — internal code-gen, immediately #undef'd
 #define APEX_SCOPED_LOG_(level_name, spdlog_level)                                                                     \
@@ -134,7 +136,7 @@ class ScopedLogger
 
   private:
     std::string component_;
-    uint32_t core_id_{0};
+    uint32_t core_id_{NO_CORE};
     uint64_t corr_id_{0};
     std::shared_ptr<spdlog::logger> logger_;
 
