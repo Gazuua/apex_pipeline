@@ -246,6 +246,35 @@ func (q *testQueueQuerier) DashboardLockStatus(channel string) (bool, error) {
 	return count > 0, nil
 }
 
+func (q *testQueueQuerier) DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]QueueHistoryEntry, error) {
+	query := `SELECT id, channel, branch, status, timestamp FROM queue_history WHERE channel = ?`
+	args := []any{channel}
+	if from != "" {
+		query += ` AND timestamp >= ?`
+		args = append(args, from)
+	}
+	if to != "" {
+		query += ` AND timestamp <= ?`
+		args = append(args, to)
+	}
+	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+	rows, err := q.st.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var entries []QueueHistoryEntry
+	for rows.Next() {
+		var e QueueHistoryEntry
+		if err := rows.Scan(&e.ID, &e.Channel, &e.Branch, &e.Status, &e.Timestamp); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
 // ── Setup ──
 
 func setupTestStore(t *testing.T) *store.Store {
@@ -289,6 +318,11 @@ func setupTestStore(t *testing.T) *store.Store {
 			status TEXT NOT NULL DEFAULT 'WAITING',
 			created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
 			finished_at TEXT
+		)`,
+		`CREATE TABLE IF NOT EXISTS queue_history (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel TEXT NOT NULL, branch TEXT NOT NULL, status TEXT NOT NULL,
+			timestamp TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 		)`,
 	}
 	for _, ddl := range tables {

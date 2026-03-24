@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
@@ -999,5 +1000,106 @@ func TestListFixingForBranch_NoBacklogs(t *testing.T) {
 	}
 	if fixing != nil {
 		t.Errorf("expected nil for empty slice, got %v", fixing)
+	}
+}
+
+// ── UpdateFromImport ──
+
+// TestUpdateFromImport_PreservesUpdatedAt: import with identical fields does not change updated_at.
+func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	item := &BacklogItem{
+		Title:       "test item",
+		Severity:    "MAJOR",
+		Timeframe:   "IN_VIEW",
+		Scope:       "CORE",
+		Type:        "BUG",
+		Description: "desc",
+	}
+	if err := mgr.Add(item); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, err := mgr.Get(item.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	originalUpdatedAt := got.UpdatedAt
+
+	time.Sleep(1100 * time.Millisecond)
+
+	// Import with identical fields — updated_at should NOT change.
+	err = mgr.UpdateFromImport(item.ID, got.Title, got.Severity, got.Timeframe,
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
+	if err != nil {
+		t.Fatalf("UpdateFromImport: %v", err)
+	}
+
+	got2, err := mgr.Get(item.ID)
+	if err != nil {
+		t.Fatalf("Get after import: %v", err)
+	}
+	if got2.UpdatedAt != originalUpdatedAt {
+		t.Errorf("updated_at changed for identical import: %q → %q", originalUpdatedAt, got2.UpdatedAt)
+	}
+}
+
+// TestUpdateFromImport_UpdatesOnChange: import with changed fields updates updated_at.
+func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	item := &BacklogItem{
+		Title:       "test item",
+		Severity:    "MAJOR",
+		Timeframe:   "IN_VIEW",
+		Scope:       "CORE",
+		Type:        "BUG",
+		Description: "desc",
+	}
+	if err := mgr.Add(item); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, err := mgr.Get(item.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	originalUpdatedAt := got.UpdatedAt
+
+	time.Sleep(1100 * time.Millisecond)
+
+	// Import with changed title — updated_at SHOULD change.
+	err = mgr.UpdateFromImport(item.ID, "changed title", got.Severity, got.Timeframe,
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
+	if err != nil {
+		t.Fatalf("UpdateFromImport: %v", err)
+	}
+
+	got2, err := mgr.Get(item.ID)
+	if err != nil {
+		t.Fatalf("Get after import: %v", err)
+	}
+	if got2.UpdatedAt == originalUpdatedAt {
+		t.Error("expected updated_at to change for modified import")
+	}
+	if got2.Title != "changed title" {
+		t.Errorf("expected title='changed title', got %q", got2.Title)
+	}
+}
+
+// TestUpdateFromImport_NotFound: import for non-existent item returns an error.
+func TestUpdateFromImport_NotFound(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	err := mgr.UpdateFromImport(999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN")
+	if err == nil {
+		t.Fatal("expected error for non-existent item, got nil")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error message, got: %v", err)
 	}
 }

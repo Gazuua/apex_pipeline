@@ -300,11 +300,32 @@ func (m *Manager) ListAll() ([]BacklogItem, error) {
 }
 
 // UpdateFromImport updates metadata fields for an existing item from MD import.
-// The caller (ImportItems) passes the DB's current status as the status parameter,
-// so the DB status is preserved — import never changes status.
+// Only updates (and bumps updated_at) if at least one field actually changed.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
 func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
-	_, err := m.q.Exec(`
+	// Read current values to detect changes.
+	existing, err := m.Get(id)
+	if err != nil {
+		return fmt.Errorf("UpdateFromImport #%d: read existing: %w", id, err)
+	}
+	if existing == nil {
+		return fmt.Errorf("UpdateFromImport #%d: item not found", id)
+	}
+
+	// Compare all import-managed fields.
+	if existing.Title == title &&
+		existing.Severity == severity &&
+		existing.Timeframe == timeframe &&
+		existing.Scope == scope &&
+		existing.Type == itemType &&
+		existing.Description == description &&
+		existing.Related == related &&
+		existing.Position == position &&
+		existing.Status == status {
+		return nil
+	}
+
+	_, err = m.q.Exec(`
 		UPDATE backlog_items
 		SET title = ?, severity = ?, timeframe = ?, scope = ?, type = ?,
 		    description = ?, related = ?, position = ?, status = ?,

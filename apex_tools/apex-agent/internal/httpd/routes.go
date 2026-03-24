@@ -20,8 +20,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Backlog partials
 	mux.HandleFunc("GET /partials/backlog-table", s.handlePartialBacklogTable)
 
-	// Queue partial (full page polling)
-	mux.HandleFunc("GET /partials/queue-page", s.handlePartialQueuePage)
+	// Queue history partial (infinite scroll + filter)
+	mux.HandleFunc("GET /partials/queue-history", s.handlePartialQueueHistory)
 
 	// Backlog inline detail (for handoff page)
 	mux.HandleFunc("GET /partials/backlog-inline/{id}", s.handlePartialBacklogInline)

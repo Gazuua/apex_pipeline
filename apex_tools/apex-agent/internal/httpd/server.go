@@ -43,6 +43,7 @@ type HandoffQuerier interface {
 type QueueQuerier interface {
 	DashboardQueueAll() ([]QueueEntry, error)
 	DashboardLockStatus(channel string) (bool, error)
+	DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]QueueHistoryEntry, error)
 }
 
 // Server is the HTTP dashboard server embedded in the daemon.

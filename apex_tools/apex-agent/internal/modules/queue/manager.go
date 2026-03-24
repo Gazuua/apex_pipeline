@@ -65,7 +65,11 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 				return fmt.Errorf("check waiting entry: %w", waitErr)
 			}
 			if !exists {
-				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+				if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+					return err
+				}
+				m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+				return nil
 			}
 			return nil
 		}
@@ -83,7 +87,11 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 				return fmt.Errorf("check waiting entry: %w", waitErr)
 			}
 			if !exists {
-				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+				if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+					return err
+				}
+				m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+				return nil
 			}
 			return nil
 		}
@@ -94,6 +102,7 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 			if err != nil {
 				return fmt.Errorf("promote waiting to active: %w", err)
 			}
+			m.insertHistoryTx(tx, channel, first.Branch, StatusActive)
 			acquired = true
 			return nil
 		}
@@ -102,6 +111,7 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 		if err := m.insertEntryTx(tx, channel, branch, pid, StatusActive); err != nil {
 			return err
 		}
+		m.insertHistoryTx(tx, channel, branch, StatusActive)
 		acquired = true
 		return nil
 	})
@@ -135,7 +145,11 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 			return fmt.Errorf("check waiting: %w", waitErr)
 		}
 		if !exists {
-			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+			if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+				return err
+			}
+			m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+			return nil
 		}
 		return nil
 	}); err != nil {
@@ -217,6 +231,9 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 		}
 		n, _ := res.RowsAffected()
 		promoted = n > 0
+		if promoted {
+			m.insertHistoryTx(tx, channel, branch, StatusActive)
+		}
 		return nil
 	})
 	return promoted, err
@@ -243,17 +260,35 @@ func (m *Manager) UpdatePID(channel, branch string, newPID int) error {
 // Release marks the active entry for channel as done and records finish time.
 // Idempotent: returns nil if no active entry exists (already released or cleaned up).
 func (m *Manager) Release(channel string) error {
-	res, err := m.store.Exec(
-		`UPDATE queue SET status=?, finished_at=datetime('now','localtime') WHERE channel=? AND status=?`,
-		StatusDone, channel, StatusActive,
-	)
+	var released bool
+	var branch string
+	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		// Read the active branch (for history).
+		_ = tx.QueryRow(
+			`SELECT branch FROM queue WHERE channel=? AND status=?`,
+			channel, StatusActive,
+		).Scan(&branch)
+
+		res, err := tx.Exec(
+			`UPDATE queue SET status=?, finished_at=datetime('now','localtime') WHERE channel=? AND status=?`,
+			StatusDone, channel, StatusActive,
+		)
+		if err != nil {
+			return fmt.Errorf("queue.Release: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			ml.Warn("release: no active entry found (already released or stale-cleaned)", "channel", channel)
+		} else {
+			released = true
+			m.insertHistoryTx(tx, channel, branch, StatusDone)
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("queue.Release: %w", err)
+		return err
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		ml.Warn("release: no active entry found (already released or stale-cleaned)", "channel", channel)
-	} else {
+	if released {
 		ml.Audit("lock released", "channel", channel)
 	}
 	return nil
@@ -450,4 +485,72 @@ func (m *Manager) firstWaitingTx(s store.Querier, channel string) (*QueueEntry, 
 		return nil, err
 	}
 	return &e, nil
+}
+
+// ── History event log ─────────────────────────────────────────────────────────
+
+// HistoryEntry represents a row in the queue_history table.
+type HistoryEntry struct {
+	ID        int
+	Channel   string
+	Branch    string
+	Status    string
+	Timestamp string
+}
+
+// insertHistory records a state-transition event in queue_history.
+func (m *Manager) insertHistory(channel, branch, status string) {
+	_, err := m.store.Exec(
+		`INSERT INTO queue_history (channel, branch, status) VALUES (?, ?, ?)`,
+		channel, branch, status,
+	)
+	if err != nil {
+		ml.Warn("failed to insert queue history", "channel", channel, "branch", branch, "status", status, "err", err)
+	}
+}
+
+// insertHistoryTx records a state-transition event using a transaction store.
+func (m *Manager) insertHistoryTx(s store.Querier, channel, branch, status string) {
+	_, err := s.Exec(
+		`INSERT INTO queue_history (channel, branch, status) VALUES (?, ?, ?)`,
+		channel, branch, status,
+	)
+	if err != nil {
+		ml.Warn("failed to insert queue history (tx)", "channel", channel, "branch", branch, "status", status, "err", err)
+	}
+}
+
+// DashboardHistory returns history events for a channel, newest first.
+// Supports pagination (offset+limit) and optional time range filter (from/to as ISO datetime).
+func (m *Manager) DashboardHistory(channel string, offset, limit int, from, to string) ([]HistoryEntry, error) {
+	query := `SELECT id, channel, branch, status, timestamp FROM queue_history WHERE channel = ?`
+	args := []any{channel}
+
+	if from != "" {
+		query += ` AND timestamp >= ?`
+		args = append(args, from)
+	}
+	if to != "" {
+		query += ` AND timestamp <= ?`
+		args = append(args, to)
+	}
+
+	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := m.store.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("DashboardHistory: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []HistoryEntry
+	for rows.Next() {
+		var e HistoryEntry
+		if err := rows.Scan(&e.ID, &e.Channel, &e.Branch, &e.Status, &e.Timestamp); err != nil {
+			return nil, fmt.Errorf("DashboardHistory scan: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }
