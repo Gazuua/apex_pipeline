@@ -410,6 +410,43 @@ func (m *Manager) Release(id int, reason, branch string) error {
 	return nil
 }
 
+// Fix links a backlog item to the current branch and transitions it to FIXING.
+// Only OPEN items can be fixed. Already FIXING items are silently accepted.
+func (m *Manager) Fix(id int, branch string) error {
+	item, err := m.Get(id)
+	if err != nil {
+		return fmt.Errorf("Fix: %w", err)
+	}
+	if item == nil {
+		return fmt.Errorf("Fix: item %d not found", id)
+	}
+	if item.Status == StatusFixing {
+		return nil // already FIXING — idempotent
+	}
+	if item.Status != StatusOpen {
+		return fmt.Errorf("Fix: item %d is %s (only OPEN items can be fixed)", id, item.Status)
+	}
+
+	// FIXING 전이
+	if _, err := m.q.Exec(
+		`UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
+		StatusFixing, id,
+	); err != nil {
+		return fmt.Errorf("Fix: update status: %w", err)
+	}
+
+	// branch_backlogs 연결 (중복 방지)
+	if _, err := m.q.Exec(
+		`INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
+		branch, id,
+	); err != nil {
+		return fmt.Errorf("Fix: link branch: %w", err)
+	}
+
+	ml.Info("item fixed", "id", id, "branch", branch)
+	return nil
+}
+
 // Check returns whether a backlog item exists and its current status.
 // Returns exists=false, status="", nil if the item does not exist.
 func (m *Manager) Check(id int) (exists bool, status string, err error) {

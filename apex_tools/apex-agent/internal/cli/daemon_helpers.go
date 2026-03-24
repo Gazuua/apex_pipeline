@@ -16,7 +16,10 @@ import (
 // IPC socket to become ready (up to 5 seconds). Returns the child PID on
 // success or an error if the daemon fails to start within the timeout.
 func startDaemonProcess() (int, error) {
-	exe, _ := os.Executable()
+	exe, err := os.Executable()
+	if err != nil {
+		return 0, fmt.Errorf("resolve executable path: %w", err)
+	}
 	child := exec.Command(exe, "daemon", "run")
 	detachProcess(child)
 	if err := child.Start(); err != nil {

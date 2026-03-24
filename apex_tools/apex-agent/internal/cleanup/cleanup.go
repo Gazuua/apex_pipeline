@@ -3,14 +3,22 @@
 package cleanup
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
+)
+
+// Timeout constants for external commands.
+const (
+	localGitTimeout   = 5 * time.Second  // local git operations (merge-base, rev-parse, diff, branch -D)
+	networkCmdTimeout = 30 * time.Second // network operations (gh pr list, git push --delete)
 )
 
 var ml = log.WithModule("cleanup")
@@ -326,8 +334,10 @@ func processEmptyWorktreeDirs(repoRoot string, execute bool, result *Result) {
 
 func processRemoteBranches(repoRoot string, execute bool, activeBranches map[string]bool, result *Result) error {
 	if execute {
-		// Prune stale remote refs first.
-		_, _ = runGit(repoRoot, "remote", "prune", "origin")
+		// Prune stale remote refs first (network operation).
+		pruneCtx, pruneCancel := context.WithTimeout(context.Background(), networkCmdTimeout)
+		_, _ = runGitCtx(pruneCtx, repoRoot, "remote", "prune", "origin")
+		pruneCancel()
 	}
 
 	out, err := runGit(repoRoot, "branch", "-r")
@@ -360,7 +370,10 @@ func processRemoteBranches(repoRoot string, execute bool, activeBranches map[str
 		if IsMergedToMain(repoRoot, "origin/"+branch) {
 			action := Action{Target: "origin/" + branch, Branch: branch}
 			if execute {
-				if _, delErr := runGit(repoRoot, "push", "origin", "--delete", branch); delErr != nil {
+				netCtx, netCancel := context.WithTimeout(context.Background(), networkCmdTimeout)
+				_, delErr := runGitCtx(netCtx, repoRoot, "push", "origin", "--delete", branch)
+				netCancel()
+				if delErr != nil {
 					result.Warnings = append(result.Warnings,
 						fmt.Sprintf("리모트 브랜치 삭제 실패: origin/%s — %v", branch, delErr))
 				} else {
@@ -382,16 +395,20 @@ func processRemoteBranches(repoRoot string, execute bool, activeBranches map[str
 //  2. gh pr list --state merged (squash merge via GitHub PR)
 //  3. Blob hash comparison (squash merge without a PR)
 func IsMergedToMain(repoRoot, branch string) bool {
-	// Layer 1: ancestor check.
-	cmd := exec.Command("git", "-C", repoRoot, "merge-base", "--is-ancestor", branch, "main")
+	// Layer 1: ancestor check (local git — fast).
+	localCtx, localCancel := context.WithTimeout(context.Background(), localGitTimeout)
+	defer localCancel()
+	cmd := exec.CommandContext(localCtx, "git", "-C", repoRoot, "merge-base", "--is-ancestor", branch, "main")
 	if cmd.Run() == nil {
 		return true
 	}
 
-	// Layer 2: GitHub PR check (squash merges).
+	// Layer 2: GitHub PR check (squash merges — network).
 	ghBranch := strings.TrimPrefix(branch, "origin/")
 	if ghAvailable() {
-		out, err := exec.Command("gh", "pr", "list",
+		netCtx, netCancel := context.WithTimeout(context.Background(), networkCmdTimeout)
+		defer netCancel()
+		out, err := exec.CommandContext(netCtx, "gh", "pr", "list",
 			"--head", ghBranch,
 			"--state", "merged",
 			"--json", "number",
@@ -404,7 +421,7 @@ func IsMergedToMain(repoRoot, branch string) bool {
 		}
 	}
 
-	// Layer 3: blob hash comparison.
+	// Layer 3: blob hash comparison (local git).
 	return blobHashMatch(repoRoot, branch)
 }
 
@@ -418,7 +435,11 @@ func ghAvailable() bool {
 // merge-base with origin/main has the same blob hash on origin/main.
 // This catches squash merges that were not recorded as GitHub PRs.
 func blobHashMatch(repoRoot, branch string) bool {
-	mergeBaseOut, err := exec.Command("git", "-C", repoRoot,
+	// Blob hash 비교는 변경 파일 수에 비례하여 N+2개 git 명령을 실행하므로 넉넉한 타임아웃 사용
+	ctx, cancel := context.WithTimeout(context.Background(), networkCmdTimeout)
+	defer cancel()
+
+	mergeBaseOut, err := exec.CommandContext(ctx, "git", "-C", repoRoot,
 		"merge-base", branch, "origin/main").Output()
 	if err != nil {
 		return false
@@ -428,7 +449,7 @@ func blobHashMatch(repoRoot, branch string) bool {
 		return false
 	}
 
-	changedOut, err := exec.Command("git", "-C", repoRoot,
+	changedOut, err := exec.CommandContext(ctx, "git", "-C", repoRoot,
 		"diff", "--name-only", mergeBase, branch).Output()
 	if err != nil {
 		return false
@@ -442,9 +463,9 @@ func blobHashMatch(repoRoot, branch string) bool {
 		if file == "" {
 			continue
 		}
-		branchBlob, err1 := exec.Command("git", "-C", repoRoot,
+		branchBlob, err1 := exec.CommandContext(ctx, "git", "-C", repoRoot,
 			"rev-parse", branch+":"+file).Output()
-		mainBlob, err2 := exec.Command("git", "-C", repoRoot,
+		mainBlob, err2 := exec.CommandContext(ctx, "git", "-C", repoRoot,
 			"rev-parse", "origin/main:"+file).Output()
 		if err1 != nil || err2 != nil {
 			return false
@@ -535,16 +556,21 @@ func remoteOriginURL(repoPath string) string {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// runGit runs a git command in dir and returns stdout.
+// runGit runs a git command in dir with localGitTimeout and returns stdout.
 func runGit(dir string, args ...string) (string, error) {
-	// If the first arg is "-C" we're already passing a working directory override,
-	// so don't prepend it again.
+	ctx, cancel := context.WithTimeout(context.Background(), localGitTimeout)
+	defer cancel()
+	return runGitCtx(ctx, dir, args...)
+}
+
+// runGitCtx runs a git command in dir with the given context and returns stdout.
+func runGitCtx(ctx context.Context, dir string, args ...string) (string, error) {
 	var cmd *exec.Cmd
 	if len(args) > 0 && args[0] == "-C" {
-		cmd = exec.Command("git", args...)
+		cmd = exec.CommandContext(ctx, "git", args...)
 	} else {
 		fullArgs := append([]string{"-C", dir}, args...)
-		cmd = exec.Command("git", fullArgs...)
+		cmd = exec.CommandContext(ctx, "git", fullArgs...)
 	}
 	out, err := cmd.Output()
 	return string(out), err

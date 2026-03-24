@@ -101,7 +101,7 @@ func (m *Module) handleAcquire(reqCtx context.Context, params json.RawMessage, _
 	return map[string]any{"acquired": true, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleTryAcquire(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleTryAcquire(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p acquireParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.try-acquire: decode params: %w", err)
@@ -110,7 +110,7 @@ func (m *Module) handleTryAcquire(_ context.Context, params json.RawMessage, _ s
 	if pid == 0 {
 		pid = os.Getpid()
 	}
-	acquired, err := m.manager.TryAcquire(p.Channel, p.Branch, pid)
+	acquired, err := m.manager.TryAcquire(ctx, p.Channel, p.Branch, pid)
 	if err != nil {
 		return nil, err
 	}

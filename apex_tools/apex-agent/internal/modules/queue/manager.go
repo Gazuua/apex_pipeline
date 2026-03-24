@@ -49,9 +49,9 @@ func NewManager(s *store.Store) *Manager {
 // If the channel is busy or earlier waiters exist, an entry with status='waiting'
 // is inserted and false is returned.
 // Entire operation is wrapped in a transaction to prevent TOCTOU races.
-func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
+func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid int) (bool, error) {
 	var acquired bool
-	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// Check if there is already an active entry for this channel.
 		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
@@ -60,7 +60,11 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		if hasActive {
 			// Channel is busy — register as waiting (skip duplicate).
-			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			if waitErr != nil {
+				return fmt.Errorf("check waiting entry: %w", waitErr)
+			}
+			if !exists {
 				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 			}
 			return nil
@@ -74,7 +78,11 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		// If there's a waiter with a different branch already queued ahead, we must wait.
 		if first != nil && first.Branch != branch {
-			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			if waitErr != nil {
+				return fmt.Errorf("check waiting entry: %w", waitErr)
+			}
+			if !exists {
 				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 			}
 			return nil
@@ -120,7 +128,11 @@ const (
 // Polling uses exponential backoff: 100ms → 200ms → 400ms → ... → 2s (cap).
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first (skip if already queued).
-	if exists, _ := m.hasWaitingEntryForBranch(m.store, channel, branch); !exists {
+	exists, waitErr := m.hasWaitingEntryForBranch(m.store, channel, branch)
+	if waitErr != nil {
+		return fmt.Errorf("queue.Acquire: check waiting: %w", waitErr)
+	}
+	if !exists {
 		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
 			return fmt.Errorf("queue.Acquire: insert: %w", err)
 		}
@@ -151,7 +163,9 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		}
 
 		// Atomic check-and-promote: 트랜잭션으로 active 부재 + first-in-queue 확인 + promote
-		promoted, err := m.tryPromote(channel, branch)
+		// tryPromote uses Background context intentionally — it's a short transaction
+		// and cancel cleanup is handled by the ctx.Done() path above.
+		promoted, err := m.tryPromote(context.Background(), channel, branch)
 		if err != nil {
 			return fmt.Errorf("queue.Acquire: promote: %w", err)
 		}
@@ -170,9 +184,9 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 
 // tryPromote atomically checks if channel is free and branch is first-in-queue,
 // then promotes the waiting entry to active. Returns true if promoted.
-func (m *Manager) tryPromote(channel, branch string) (bool, error) {
+func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool, error) {
 	var promoted bool
-	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
 			return err

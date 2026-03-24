@@ -39,7 +39,7 @@ func newTestManager(t *testing.T) *queue.Manager {
 func TestTryAcquire_Free(t *testing.T) {
 	m := newTestManager(t)
 
-	acquired, err := m.TryAcquire("build", "feature/test", 12345)
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/test", 12345)
 	if err != nil {
 		t.Fatalf("TryAcquire: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestTryAcquire_Busy(t *testing.T) {
 	m := newTestManager(t)
 
 	// First acquirer takes the lock.
-	acquired, err := m.TryAcquire("build", "feature/first", 11111)
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/first", 11111)
 	if err != nil {
 		t.Fatalf("TryAcquire first: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestTryAcquire_Busy(t *testing.T) {
 	}
 
 	// Second acquirer finds channel busy.
-	acquired2, err := m.TryAcquire("build", "feature/second", 22222)
+	acquired2, err := m.TryAcquire(context.Background(), "build", "feature/second", 22222)
 	if err != nil {
 		t.Fatalf("TryAcquire second: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestTryAcquire_Busy(t *testing.T) {
 func TestRelease_Basic(t *testing.T) {
 	m := newTestManager(t)
 
-	acquired, err := m.TryAcquire("build", "feature/test", 12345)
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/test", 12345)
 	if err != nil || !acquired {
 		t.Fatalf("TryAcquire: err=%v acquired=%v", err, acquired)
 	}
@@ -131,10 +131,10 @@ func TestRelease_Basic(t *testing.T) {
 func TestRelease_FreesChannel(t *testing.T) {
 	m := newTestManager(t)
 
-	_, _ = m.TryAcquire("build", "feature/first", 11111)
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/first", 11111)
 	_ = m.Release("build")
 
-	acquired, err := m.TryAcquire("build", "feature/second", 22222)
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/second", 22222)
 	if err != nil {
 		t.Fatalf("TryAcquire after release: %v", err)
 	}
@@ -163,9 +163,9 @@ func TestStatus_Free(t *testing.T) {
 func TestStatus_Busy(t *testing.T) {
 	m := newTestManager(t)
 
-	_, _ = m.TryAcquire("merge", "feature/a", 11111)
-	_, _ = m.TryAcquire("merge", "feature/b", 22222)
-	_, _ = m.TryAcquire("merge", "feature/c", 33333)
+	_, _ = m.TryAcquire(context.Background(), "merge", "feature/a", 11111)
+	_, _ = m.TryAcquire(context.Background(), "merge", "feature/b", 22222)
+	_, _ = m.TryAcquire(context.Background(), "merge", "feature/c", 33333)
 
 	active, waiting, err := m.Status("merge")
 	if err != nil {
@@ -187,7 +187,7 @@ func TestCleanupStale_RemovesDeadPID(t *testing.T) {
 	m := newTestManager(t)
 
 	// PID 999999 is almost certainly dead.
-	_, err := m.TryAcquire("build", "feature/dead", 999999)
+	_, err := m.TryAcquire(context.Background(), "build", "feature/dead", 999999)
 	if err != nil {
 		t.Fatalf("TryAcquire: %v", err)
 	}
@@ -214,11 +214,11 @@ func TestFIFO_Order(t *testing.T) {
 	m := newTestManager(t)
 
 	// Holder takes the lock.
-	_, _ = m.TryAcquire("build", "feature/holder", 11111)
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/holder", 11111)
 
 	// Two waiters register.
-	_, _ = m.TryAcquire("build", "feature/first-waiter", 22222)
-	_, _ = m.TryAcquire("build", "feature/second-waiter", 33333)
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/first-waiter", 22222)
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/second-waiter", 33333)
 
 	// Release holder.
 	_ = m.Release("build")
@@ -238,7 +238,7 @@ func TestFIFO_Order(t *testing.T) {
 	}
 
 	// First waiter tries to acquire — should succeed (channel free, it's first in queue).
-	ok, err := m.TryAcquire("build", "feature/first-waiter", 22222)
+	ok, err := m.TryAcquire(context.Background(), "build", "feature/first-waiter", 22222)
 	if err != nil {
 		t.Fatalf("TryAcquire first waiter: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestFIFO_Order(t *testing.T) {
 	}
 
 	// Second waiter tries — should fail (first waiter now holds lock).
-	ok2, err := m.TryAcquire("build", "feature/second-waiter", 33333)
+	ok2, err := m.TryAcquire(context.Background(), "build", "feature/second-waiter", 33333)
 	if err != nil {
 		t.Fatalf("TryAcquire second waiter: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestAcquire_ContextCancel_CleansUpWaitingEntry(t *testing.T) {
 	pid := os.Getpid()
 
 	// Hold the lock so that Acquire blocks.
-	acquired, err := m.TryAcquire("build", "feature/holder", pid)
+	acquired, err := m.TryAcquire(context.Background(), "build", "feature/holder", pid)
 	if err != nil || !acquired {
 		t.Fatalf("TryAcquire holder: err=%v acquired=%v", err, acquired)
 	}
@@ -308,7 +308,7 @@ func TestAcquire_PromotesAfterRelease(t *testing.T) {
 	pid := os.Getpid()
 
 	// Hold the lock.
-	acquired, err := m.TryAcquire("merge", "feature/holder", pid)
+	acquired, err := m.TryAcquire(context.Background(), "merge", "feature/holder", pid)
 	if err != nil || !acquired {
 		t.Fatalf("TryAcquire holder: err=%v acquired=%v", err, acquired)
 	}

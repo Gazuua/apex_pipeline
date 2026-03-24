@@ -132,7 +132,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 ### 문서/프로세스 규칙
 - **백로그**: `docs/BACKLOG.json`에 JSON 포맷으로 저장 (DB가 source of truth, JSON은 git 백업). 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
-- **백로그 파일 직접 접근 금지** — `docs/BACKLOG.json` (및 레거시 MD)는 `validate-backlog` hook이 Read/Edit/Write 모두 차단. 조회: `backlog list/show`, 수정: `backlog add/update/resolve/release/export` CLI 사용 필수
+- **백로그 파일 직접 접근 금지** — `docs/BACKLOG.json` (및 레거시 MD)는 `validate-backlog` hook이 Read/Edit/Write 모두 차단. 조회: `backlog list/show`, 수정: `backlog add/update/resolve/release/fix/export` CLI 사용 필수
+- **백로그 등록 시 `--fix`/`--no-fix` 필수** — 활성 브랜치에서 `backlog add` 시 반드시 지정. `--fix`=즉시 수정(FIXING 전이+브랜치 연결), `--no-fix`=나중에(OPEN 유지). 미지정 시 에러. 기존 OPEN 백로그 착수 변경: `backlog fix N [N...]`
 - **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조

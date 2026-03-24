@@ -178,6 +178,7 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("export", m.handleExport)
 	reg.Handle("release", m.handleRelease)
 	reg.Handle("update", m.handleUpdate)
+	reg.Handle("fix", m.handleFix)
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -186,14 +187,24 @@ func (m *Module) OnStop() error                   { return nil }
 // ── Route handlers ──
 
 func (m *Module) handleAdd(_ context.Context, params json.RawMessage, _ string) (any, error) {
-	var item BacklogItem
-	if err := json.Unmarshal(params, &item); err != nil {
+	var p struct {
+		BacklogItem
+		Fix    bool   `json:"fix"`
+		Branch string `json:"branch"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.add: decode params: %w", err)
 	}
-	if err := m.manager.Add(&item); err != nil {
+	if err := m.manager.Add(&p.BacklogItem); err != nil {
 		return nil, err
 	}
-	return map[string]any{"id": item.ID, "position": item.Position}, nil
+	// --fix: add 직후 FIXING 전이 + 브랜치 연결
+	if p.Fix && p.Branch != "" {
+		if err := m.manager.Fix(p.BacklogItem.ID, p.Branch); err != nil {
+			return nil, fmt.Errorf("backlog.add: auto-fix: %w", err)
+		}
+	}
+	return map[string]any{"id": p.BacklogItem.ID, "position": p.BacklogItem.Position, "fixed": p.Fix}, nil
 }
 
 func (m *Module) handleList(_ context.Context, params json.RawMessage, _ string) (any, error) {
@@ -295,4 +306,18 @@ func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ stri
 		return nil, err
 	}
 	return map[string]string{"status": "released"}, nil
+}
+
+func (m *Module) handleFix(_ context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		ID     int    `json:"id"`
+		Branch string `json:"branch"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("backlog.fix: decode params: %w", err)
+	}
+	if err := m.manager.Fix(p.ID, p.Branch); err != nil {
+		return nil, err
+	}
+	return map[string]string{"status": "fixing"}, nil
 }
