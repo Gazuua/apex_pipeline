@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+{{- if .Values.namespaces.create }}
+{{- range .Values.namespaces.names }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ . }}
+  labels:
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+{{- end }}
+{{- end }}
