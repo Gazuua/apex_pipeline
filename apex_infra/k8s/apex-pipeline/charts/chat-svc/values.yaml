@@ -1,0 +1,115 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# Chat Service — Kafka consumer, metrics-only Service (inbound app port 없음)
+# Secret 주입: expand_env가 ${VAR:-default} 패턴을 런타임에 치환
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/gazuua/apex-pipeline-chat-svc
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8083
+      targetPort: 8083
+
+config:
+  fileName: "chat_svc.toml"
+  mountPath: "/app"
+  content: |
+    # Chat Service Configuration — K8s
+
+    [logging]
+    service_name = "chat-svc"
+
+    [logging.file]
+    enabled = true
+
+    [chat]
+    request_topic = "chat.requests"
+    response_topic = "chat.responses"
+    persist_topic = "chat.messages.persist"
+    max_room_members = 100
+    max_message_length = 2000
+    history_page_size = 50
+
+    [kafka]
+    brokers = "apex-infra-kafka.apex-infra.svc.cluster.local:9092"
+    consumer_group = "chat-svc"
+    consume_topics = ["chat.requests"]
+
+    [redis_data]
+    host = "apex-infra-redis-chat-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_CHAT_PASSWORD:-dev_redis_pass}"
+    db = 0
+
+    [redis_pubsub]
+    host = "apex-infra-redis-pubsub-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_PUBSUB_PASSWORD:-dev_redis_pass}"
+    db = 0
+
+    [pg]
+    connection_string = "host=apex-infra-pgbouncer.apex-infra.svc.cluster.local port=6432 dbname=apex_db user=apex_user password=${PG_SERVICE_PASSWORD:-apex_pass}"
+    pool_size_per_core = 2
+
+    [metrics]
+    enabled = true
+    port = 8083
+
+probes:
+  startup:
+    httpGet:
+      path: /health
+      port: 8083
+    failureThreshold: 30
+    periodSeconds: 5
+  liveness:
+    httpGet:
+      path: /health
+      port: 8083
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    httpGet:
+      path: /ready
+      port: 8083
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+extraVolumes: []
+extraVolumeMounts: []
+extraEnv: []
+
+secrets:
+  data:
+    REDIS_CHAT_PASSWORD: dev_redis_pass
+    REDIS_PUBSUB_PASSWORD: dev_redis_pass
+    PG_SERVICE_PASSWORD: apex_pass
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+serviceMonitor:
+  enabled: true
+  port: metrics
+  path: /metrics
+  interval: 15s
+
+nameOverride: ""
+fullnameOverride: ""

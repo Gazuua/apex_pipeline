@@ -1,0 +1,122 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# Auth Service — Kafka consumer, metrics-only Service (inbound app port 없음)
+# Secret 주입: expand_env가 ${VAR:-default} 패턴을 런타임에 치환
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/gazuua/apex-pipeline-auth-svc
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8082
+      targetPort: 8082
+
+config:
+  fileName: "auth_svc.toml"
+  mountPath: "/app"
+  content: |
+    # Auth Service Configuration — K8s
+
+    [logging]
+    service_name = "auth-svc"
+
+    [logging.file]
+    enabled = true
+
+    [jwt]
+    private_key_file = "keys/auth_rs256.pem"
+    public_key_file = "keys/auth_rs256_pub.pem"
+    issuer = "apex-auth"
+    access_token_ttl_sec = 900
+    refresh_token_ttl_sec = 604800
+
+    [kafka]
+    brokers = "apex-infra-kafka.apex-infra.svc.cluster.local:9092"
+    consumer_group = "auth-svc"
+    request_topic = "auth.requests"
+    response_topic = "auth.responses"
+
+    [redis]
+    host = "apex-infra-redis-auth-master.apex-infra.svc.cluster.local"
+    port = 6379
+    password = "${REDIS_AUTH_PASSWORD:-dev_redis_pass}"
+    db = 0
+
+    [pg]
+    connection_string = "host=apex-infra-pgbouncer.apex-infra.svc.cluster.local port=6432 dbname=apex_db user=apex_user password=${PG_SERVICE_PASSWORD:-apex_pass}"
+    pool_size_per_core = 2
+
+    [bcrypt]
+    work_factor = 12
+
+    [session]
+    ttl_sec = 86400
+
+    [metrics]
+    enabled = true
+    port = 8082
+
+probes:
+  startup:
+    httpGet:
+      path: /health
+      port: 8082
+    failureThreshold: 30
+    periodSeconds: 5
+  liveness:
+    httpGet:
+      path: /health
+      port: 8082
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readiness:
+    httpGet:
+      path: /ready
+      port: 8082
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# RSA key pair Secret mount (JWT signing + verification)
+extraVolumes:
+  - name: rsa-keys
+    secret:
+      secretName: apex-rsa-keys
+extraVolumeMounts:
+  - name: rsa-keys
+    mountPath: /app/keys
+    readOnly: true
+
+extraEnv: []
+
+secrets:
+  data:
+    REDIS_AUTH_PASSWORD: dev_redis_pass
+    PG_SERVICE_PASSWORD: apex_pass
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+serviceMonitor:
+  enabled: true
+  port: metrics
+  path: /metrics
+  interval: 15s
+
+nameOverride: ""
+fullnameOverride: ""
