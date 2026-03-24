@@ -61,7 +61,7 @@ class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
     }
 
     /// Register Prometheus metrics for Kafka producer/consumer counters.
-    void register_metrics(apex::core::MetricsRegistry& registry);
+    void do_register_metrics(apex::core::MetricsRegistry& registry);
 
     // --- Kafka API (used by services) ---
 
@@ -75,8 +75,8 @@ class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
 
     /// [D2] Adapter-service 자동 배선. has_kafka_handlers() 서비스를 감지하여
     /// KafkaDispatchBridge를 자동 생성하고 consumer 콜백에 연결.
-    void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
-                       apex::core::CoreEngine& engine);
+    void do_wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>& services,
+                          apex::core::CoreEngine& engine);
 
     /// Register Consumer message callback.
     /// Sets the same callback on each core's Consumer.

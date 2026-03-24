@@ -64,7 +64,7 @@ void RedisAdapter::do_close_per_core(uint32_t core_id)
         per_core_[core_id]->close();
 }
 
-void RedisAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+void RedisAdapter::do_register_metrics(apex::core::MetricsRegistry& registry)
 {
     for (uint32_t i = 0; i < per_core_.size(); ++i)
     {

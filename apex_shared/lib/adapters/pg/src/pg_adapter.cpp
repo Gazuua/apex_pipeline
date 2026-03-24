@@ -72,7 +72,7 @@ void PgAdapter::do_close()
     logger_.info("closed");
 }
 
-void PgAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+void PgAdapter::do_register_metrics(apex::core::MetricsRegistry& registry)
 {
     for (uint32_t i = 0; i < pools_.size(); ++i)
     {

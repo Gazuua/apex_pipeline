@@ -24,22 +24,20 @@ apex::core::Result<RouteTable> RouteTable::build(std::vector<RouteEntry> routes)
 {
     RouteTable table;
 
-    for (auto& r : routes)
+    for (const auto& r : routes)
     {
         if (r.range_begin > r.range_end)
         {
             s_logger().error("Invalid route: begin({}) > end({})", r.range_begin, r.range_end);
             return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
-        table.entries_.push_back(Entry{
-            .range_begin = r.range_begin,
-            .range_end = r.range_end,
-            .kafka_topic = std::move(r.kafka_topic),
-        });
     }
 
+    table.entries_ = std::move(routes);
+
     // Sort by range_end for binary search
-    std::ranges::sort(table.entries_, [](const Entry& a, const Entry& b) { return a.range_end < b.range_end; });
+    std::ranges::sort(table.entries_,
+                      [](const RouteEntry& a, const RouteEntry& b) { return a.range_end < b.range_end; });
 
     // Validate
     auto result = table.validate();
@@ -52,7 +50,7 @@ apex::core::Result<RouteTable> RouteTable::build(std::vector<RouteEntry> routes)
 std::optional<std::string_view> RouteTable::resolve(uint32_t msg_id) const noexcept
 {
     // Binary search: find first entry where range_end >= msg_id
-    auto it = std::ranges::lower_bound(entries_, msg_id, std::less<>{}, &Entry::range_end);
+    auto it = std::ranges::lower_bound(entries_, msg_id, std::less<>{}, &RouteEntry::range_end);
 
     if (it != entries_.end() && msg_id >= it->range_begin && msg_id <= it->range_end)
     {

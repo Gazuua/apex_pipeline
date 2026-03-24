@@ -23,15 +23,15 @@ enum class ErrorCode : uint16_t
     FlatBuffersVerifyFailed = 7,
     CrossCoreTimeout = 8,
     CrossCoreQueueFull = 9,
+    UnsupportedProtocolVersion = 10,
+    HandlerException = 11,       // dispatch handler threw exception
+    SendFailed = 12,             // async_send network write failure
+    InsufficientData = 13,       // buffer has no complete frame (read more signal)
+    AcceptFailed = 14,           // Transport::async_accept 실패
+    HandshakeFailed = 15,        // TLS handshake 실패
+    ParseFailed = 16,            // Envelope 파싱 실패
     CrossCoreFuncException = 17, // cross_core_call target func threw exception
     BodyTooLarge = 18,           // frame body exceeds MAX_BODY_SIZE
-    UnsupportedProtocolVersion = 10,
-    HandlerException = 11, // dispatch handler threw exception
-    SendFailed = 12,       // async_send network write failure
-    InsufficientData = 13, // buffer has no complete frame (read more signal)
-    AcceptFailed = 14,     // Transport::async_accept 실패
-    HandshakeFailed = 15,  // TLS handshake 실패
-    ParseFailed = 16,      // Envelope 파싱 실패
 
     // 서비스별 에러 sentinel — 핸들러가 에러 프레임을 직접 전송 완료했음을 의미.
     // connection_handler는 이 코드를 받으면 추가 에러 프레임을 보내지 않는다.
@@ -72,10 +72,6 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept
             return "CrossCoreTimeout";
         case ErrorCode::CrossCoreQueueFull:
             return "CrossCoreQueueFull";
-        case ErrorCode::CrossCoreFuncException:
-            return "CrossCoreFuncException";
-        case ErrorCode::BodyTooLarge:
-            return "BodyTooLarge";
         case ErrorCode::UnsupportedProtocolVersion:
             return "UnsupportedProtocolVersion";
         case ErrorCode::HandlerException:
@@ -90,6 +86,10 @@ constexpr std::string_view error_code_name(ErrorCode code) noexcept
             return "HandshakeFailed";
         case ErrorCode::ParseFailed:
             return "ParseFailed";
+        case ErrorCode::CrossCoreFuncException:
+            return "CrossCoreFuncException";
+        case ErrorCode::BodyTooLarge:
+            return "BodyTooLarge";
         case ErrorCode::ServiceError:
             return "ServiceError";
         case ErrorCode::AppError:

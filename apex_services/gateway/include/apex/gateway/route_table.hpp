@@ -5,11 +5,9 @@
 #include <apex/core/result.hpp>
 #include <apex/gateway/gateway_config.hpp>
 
-#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -22,13 +20,6 @@ namespace apex::gateway
 class RouteTable
 {
   public:
-    struct Entry
-    {
-        uint32_t range_begin;
-        uint32_t range_end; // inclusive
-        std::string kafka_topic;
-    };
-
     /// Build route table from entries.
     /// Validates range overlap/gaps.
     /// @return Valid RouteTable or error
@@ -48,7 +39,7 @@ class RouteTable
     [[nodiscard]] apex::core::Result<void> validate() const;
 
   private:
-    std::vector<Entry> entries_; // sorted by range_end
+    std::vector<RouteEntry> entries_; // sorted by range_end
 };
 
 /// Shared pointer wrapper for atomic replacement.
