@@ -163,7 +163,9 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		}
 
 		// Atomic check-and-promote: 트랜잭션으로 active 부재 + first-in-queue 확인 + promote
-		promoted, err := m.tryPromote(ctx, channel, branch)
+		// tryPromote uses Background context intentionally — it's a short transaction
+		// and cancel cleanup is handled by the ctx.Done() path above.
+		promoted, err := m.tryPromote(context.Background(), channel, branch)
 		if err != nil {
 			return fmt.Errorf("queue.Acquire: promote: %w", err)
 		}

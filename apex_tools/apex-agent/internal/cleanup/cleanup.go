@@ -334,8 +334,10 @@ func processEmptyWorktreeDirs(repoRoot string, execute bool, result *Result) {
 
 func processRemoteBranches(repoRoot string, execute bool, activeBranches map[string]bool, result *Result) error {
 	if execute {
-		// Prune stale remote refs first.
-		_, _ = runGit(repoRoot, "remote", "prune", "origin")
+		// Prune stale remote refs first (network operation).
+		pruneCtx, pruneCancel := context.WithTimeout(context.Background(), networkCmdTimeout)
+		_, _ = runGitCtx(pruneCtx, repoRoot, "remote", "prune", "origin")
+		pruneCancel()
 	}
 
 	out, err := runGit(repoRoot, "branch", "-r")
@@ -433,7 +435,8 @@ func ghAvailable() bool {
 // merge-base with origin/main has the same blob hash on origin/main.
 // This catches squash merges that were not recorded as GitHub PRs.
 func blobHashMatch(repoRoot, branch string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), localGitTimeout)
+	// Blob hash 비교는 변경 파일 수에 비례하여 N+2개 git 명령을 실행하므로 넉넉한 타임아웃 사용
+	ctx, cancel := context.WithTimeout(context.Background(), networkCmdTimeout)
 	defer cancel()
 
 	mergeBaseOut, err := exec.CommandContext(ctx, "git", "-C", repoRoot,

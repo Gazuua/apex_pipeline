@@ -219,8 +219,16 @@ func (m *Manager) checkFixingBacklogs(branch string) ([]int, error) {
 }
 
 // finalizeBranch moves an active branch to history and cleans up related records.
-func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary, historyStatus string) error {
+// FIXING backlog check is performed inside the transaction to prevent TOCTOU races.
+func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary, historyStatus string, checkFixing bool) error {
 	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
+		// FIXING 백로그 체크 (트랜잭션 내에서 원자적 검증)
+		if checkFixing {
+			if err := m.requireNoFixingBacklogsTx(tx, branch); err != nil {
+				return err
+			}
+		}
+
 		// 현재 브랜치 정보 조회
 		var b Branch
 		var dbSummary sql.NullString
@@ -267,9 +275,28 @@ func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary
 	})
 }
 
-// requireNoFixingBacklogs checks that no FIXING backlogs remain for the branch.
-func (m *Manager) requireNoFixingBacklogs(branch string) error {
-	fixingIDs, err := m.checkFixingBacklogs(branch)
+// requireNoFixingBacklogsTx checks that no FIXING backlogs remain for the branch (transaction-safe).
+func (m *Manager) requireNoFixingBacklogsTx(tx *store.TxStore, branch string) error {
+	if m.backlogManager == nil {
+		return nil
+	}
+	rows, err := tx.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch)
+	if err != nil {
+		return fmt.Errorf("query branch_backlogs: %w", err)
+	}
+	defer rows.Close()
+	var backlogIDs []int
+	for rows.Next() {
+		var id int
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return fmt.Errorf("scan branch_backlog id: %w", scanErr)
+		}
+		backlogIDs = append(backlogIDs, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate branch_backlogs: %w", err)
+	}
+	fixingIDs, err := m.backlogManager.ListFixingForBranch(branch, backlogIDs)
 	if err != nil {
 		return err
 	}
@@ -280,12 +307,9 @@ func (m *Manager) requireNoFixingBacklogs(branch string) error {
 }
 
 // NotifyMerge completes a branch — moves to history as MERGED.
-// Blocks if FIXING backlogs remain.
+// FIXING check + finalize are in a single transaction to prevent TOCTOU.
 func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary string) error {
-	if err := m.requireNoFixingBacklogs(branch); err != nil {
-		return err
-	}
-	if err := m.finalizeBranch(ctx, branch, workspace, summary, HistoryMerged); err != nil {
+	if err := m.finalizeBranch(ctx, branch, workspace, summary, HistoryMerged, true); err != nil {
 		return err
 	}
 	ml.Audit("branch merged", "branch", branch)
@@ -293,12 +317,9 @@ func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary st
 }
 
 // NotifyDrop abandons a branch — moves to history as DROPPED.
-// Blocks if FIXING backlogs remain.
+// FIXING check + finalize are in a single transaction to prevent TOCTOU.
 func (m *Manager) NotifyDrop(ctx context.Context, branch, workspace, reason string) error {
-	if err := m.requireNoFixingBacklogs(branch); err != nil {
-		return err
-	}
-	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped); err != nil {
+	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, true); err != nil {
 		return err
 	}
 	ml.Audit("branch dropped", "branch", branch, "reason", reason)
