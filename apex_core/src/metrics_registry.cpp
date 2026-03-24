@@ -4,6 +4,8 @@
 
 #include <fmt/format.h>
 
+#include <iterator>
+
 namespace apex::core
 {
 
