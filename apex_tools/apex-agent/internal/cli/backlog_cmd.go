@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -31,6 +32,7 @@ func backlogCmd() *cobra.Command {
 	cmd.AddCommand(backlogCheckCmd())
 	cmd.AddCommand(backlogReleaseCmd())
 	cmd.AddCommand(backlogUpdateCmd())
+	cmd.AddCommand(backlogFixCmd())
 	return cmd
 }
 
@@ -49,12 +51,27 @@ func backlogAddCmd() *cobra.Command {
 		itemType    string
 		description string
 		related     string
+		fix         bool
+		noFix       bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "백로그 항목 추가",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// 활성 브랜치에서 --fix/--no-fix 강제
+			branch, _ := resolveCurrentBranch()
+			if branch != "" {
+				if !fix && !noFix {
+					return fmt.Errorf("활성 브랜치 %q에서 backlog add 시 --fix 또는 --no-fix를 명시하세요.\n"+
+						"  --fix    : 이 작업에서 즉시 수정 (FIXING 전이 + 브랜치 연결)\n"+
+						"  --no-fix : 나중에 별도 작업으로 수정 (OPEN 유지)", branch)
+				}
+				if fix && noFix {
+					return fmt.Errorf("--fix와 --no-fix는 동시에 사용할 수 없습니다")
+				}
+			}
+
 			params := map[string]any{
 				"title":       title,
 				"severity":    severity,
@@ -63,6 +80,10 @@ func backlogAddCmd() *cobra.Command {
 				"type":        itemType,
 				"description": description,
 				"related":     related,
+			}
+			if fix && branch != "" {
+				params["fix"] = true
+				params["branch"] = branch
 			}
 			resp, err := sendBacklogRequest("add", params)
 			if err != nil {
@@ -77,7 +98,11 @@ func backlogAddCmd() *cobra.Command {
 			if err := json.Unmarshal(resp.Data, &result); err != nil {
 				return fmt.Errorf("parse response: %w", err)
 			}
-			fmt.Printf("Added #%d: %s\n", result.ID, title)
+			if fix {
+				fmt.Printf("Added #%d (FIXING): %s\n", result.ID, title)
+			} else {
+				fmt.Printf("Added #%d: %s\n", result.ID, title)
+			}
 			return nil
 		},
 	}
@@ -89,6 +114,8 @@ func backlogAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&itemType, "type", "", "타입 (필수)")
 	cmd.Flags().StringVar(&description, "description", "", "설명 (필수)")
 	cmd.Flags().StringVar(&related, "related", "", "연관 번호 (쉼표 구분, 예: 50,89)")
+	cmd.Flags().BoolVar(&fix, "fix", false, "즉시 수정 (FIXING 전이 + 현재 브랜치 연결)")
+	cmd.Flags().BoolVar(&noFix, "no-fix", false, "나중에 수정 (OPEN 유지)")
 
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("severity")
@@ -98,6 +125,32 @@ func backlogAddCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("description")
 
 	return cmd
+}
+
+// resolveCurrentBranch resolves the active handoff branch for the current workspace.
+// Returns empty string if no active branch (daemon down or not registered).
+func resolveCurrentBranch() (string, error) {
+	branch, err := resolveHandoffBranch("", currentGitBranch())
+	if err != nil {
+		return "", nil // daemon unavailable — non-fatal, skip enforcement
+	}
+	return branch, nil
+}
+
+// currentGitBranch returns the current git branch name.
+func currentGitBranch() string {
+	out, err := execGitOutput("branch", "--show-current")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
+
+// execGitOutput runs a git command and returns stdout.
+func execGitOutput(args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	out, err := cmd.Output()
+	return string(out), err
 }
 
 // ── backlog show ──
@@ -482,6 +535,39 @@ func backlogReleaseCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("reason")
 
 	return cmd
+}
+
+// ── backlog fix ──
+
+func backlogFixCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "fix ID [ID...]",
+		Short: "백로그 항목 착수 (OPEN → FIXING + 현재 브랜치 연결)",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch, err := resolveCurrentBranch()
+			if err != nil || branch == "" {
+				return fmt.Errorf("활성 브랜치가 없습니다. 'handoff notify start'로 먼저 브랜치를 등록하세요")
+			}
+
+			for _, arg := range args {
+				var id int
+				if _, err := fmt.Sscanf(arg, "%d", &id); err != nil {
+					return fmt.Errorf("ID must be an integer: %s", arg)
+				}
+				params := map[string]any{"id": id, "branch": branch}
+				resp, err := sendBacklogRequest("fix", params)
+				if err != nil {
+					return fmt.Errorf("daemon unavailable: %w", err)
+				}
+				if resp.Error != "" {
+					return fmt.Errorf("backlog fix #%d: %s", id, resp.Error)
+				}
+				fmt.Printf("Fixed #%d → FIXING (branch: %s)\n", id, branch)
+			}
+			return nil
+		},
+	}
 }
 
 // ── backlog check ──
