@@ -1,7 +1,144 @@
 {{define "content"}}
 <h1 class="page-title">Queue</h1>
 
-<div class="grid-2" hx-get="/partials/queue-page" hx-trigger="every 1s" hx-swap="innerHTML" data-poll>
-  {{template "partial-queue-page" .}}
+<div class="card" style="margin-bottom:1rem">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:4px 0">
+    <span style="font-weight:600;color:var(--text-muted);font-size:0.85rem">Filter:</span>
+    <button class="rate-btn active" onclick="setQueueFilter('default',this)">Latest</button>
+    <button class="rate-btn" onclick="setQueueFilter('today',this)">Today</button>
+    <button class="rate-btn" onclick="setQueueFilter('24h',this)">24h</button>
+    <button class="rate-btn" onclick="setQueueFilter('7d',this)">7d</button>
+    <span style="color:var(--text-muted)">|</span>
+    <label style="font-size:0.82rem;color:var(--text-muted)">From</label>
+    <input type="datetime-local" step="1" id="queue-from" class="dt-input"
+           onchange="applyCustomFilter()">
+    <label style="font-size:0.82rem;color:var(--text-muted)">To</label>
+    <input type="datetime-local" step="1" id="queue-to" class="dt-input"
+           onchange="applyCustomFilter()">
+    <button class="rate-btn" onclick="clearCustomFilter()">Clear</button>
+  </div>
 </div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">Build Channel</div>
+    <div id="build-history"
+         hx-get="/partials/queue-history?channel=build&limit=50"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header blue">Merge Channel</div>
+    <div id="merge-history"
+         hx-get="/partials/queue-history?channel=merge&limit=50"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+    </div>
+  </div>
+</div>
+
+<script>
+var queueFilter = {from:'', to:'', preset:'default'};
+
+function setQueueFilter(preset, btn) {
+  var now = new Date();
+  var from = '';
+  if (preset === 'today') {
+    from = now.toISOString().slice(0,10) + 'T00:00:00';
+  } else if (preset === '24h') {
+    from = new Date(now - 86400000).toISOString().slice(0,19);
+  } else if (preset === '7d') {
+    from = new Date(now - 7*86400000).toISOString().slice(0,19);
+  }
+  queueFilter = {from: from, to: '', preset: preset};
+  document.getElementById('queue-from').value = from ? from : '';
+  document.getElementById('queue-to').value = '';
+  document.querySelectorAll('.card .rate-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  reloadHistory();
+}
+
+function applyCustomFilter() {
+  queueFilter.from = document.getElementById('queue-from').value;
+  queueFilter.to = document.getElementById('queue-to').value;
+  queueFilter.preset = 'custom';
+  document.querySelectorAll('.card .rate-btn').forEach(function(b){ b.classList.remove('active'); });
+  reloadHistory();
+}
+
+function clearCustomFilter() {
+  document.getElementById('queue-from').value = '';
+  document.getElementById('queue-to').value = '';
+  queueFilter = {from:'', to:'', preset:'default'};
+  var btn = document.querySelector('.card .rate-btn');
+  if (btn) btn.classList.add('active');
+  reloadHistory();
+}
+
+function buildHistoryUrl(channel, offset) {
+  var url = '/partials/queue-history?channel=' + channel + '&limit=50&offset=' + offset;
+  if (queueFilter.from) url += '&from=' + encodeURIComponent(queueFilter.from);
+  if (queueFilter.to) url += '&to=' + encodeURIComponent(queueFilter.to);
+  return url;
+}
+
+function reloadHistory() {
+  ['build','merge'].forEach(function(ch) {
+    var el = document.getElementById(ch + '-history');
+    el.innerHTML = '';
+    htmx.ajax('GET', buildHistoryUrl(ch, 0), {target: el, swap: 'innerHTML'});
+  });
+}
+
+// Polling: check for new events and prepend them at top.
+var lastIds = {build: 0, merge: 0};
+function pollNewEvents() {
+  ['build','merge'].forEach(function(ch) {
+    var el = document.getElementById(ch + '-history');
+    var firstEntry = el.querySelector('[data-history-id]');
+    var currentLatest = firstEntry ? parseInt(firstEntry.dataset.historyId) || 0 : 0;
+
+    if (currentLatest > lastIds[ch]) {
+      lastIds[ch] = currentLatest;
+      return;
+    }
+
+    fetch('/partials/queue-history?channel=' + ch + '&limit=10&offset=0')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var newEntries = tmp.querySelectorAll('[data-history-id]');
+        var insertBefore = el.firstChild;
+        for (var i = newEntries.length - 1; i >= 0; i--) {
+          var newId = parseInt(newEntries[i].dataset.historyId) || 0;
+          if (newId > lastIds[ch]) {
+            el.insertBefore(newEntries[i], insertBefore);
+            insertBefore = newEntries[i];
+          }
+        }
+        if (newEntries.length > 0) {
+          var maxId = parseInt(newEntries[0].dataset.historyId) || 0;
+          if (maxId > lastIds[ch]) lastIds[ch] = maxId;
+        }
+      });
+  });
+}
+
+// Initialize lastIds after HTMX loads initial content.
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  if (e.detail.target.id === 'build-history' || e.detail.target.id === 'merge-history') {
+    var first = e.detail.target.querySelector('[data-history-id]');
+    if (first) {
+      var ch = e.detail.target.id.replace('-history', '');
+      lastIds[ch] = parseInt(first.dataset.historyId) || 0;
+    }
+  }
+});
+var pollMs = (localStorage.getItem('apexPollRate') || '1s').replace('ms','').replace('s','');
+pollMs = pollMs.includes('0') && pollMs.length > 1 ? parseInt(pollMs) : parseInt(pollMs) * 1000;
+if (isNaN(pollMs) || pollMs < 500) pollMs = 1000;
+setInterval(pollNewEvents, pollMs);
+</script>
 {{end}}

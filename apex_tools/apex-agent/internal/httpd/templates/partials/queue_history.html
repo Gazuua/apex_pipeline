@@ -1,0 +1,25 @@
+{{define "partial-queue-history"}}
+{{if .Entries}}
+{{range .Entries}}
+<div class="lock-card" data-history-id="{{.ID}}">
+  <div class="lock-indicator {{if eq .Status "ACTIVE"}}locked{{else if eq .Status "WAITING"}}waiting{{else}}done{{end}}"></div>
+  <div style="flex:1">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-weight:600">{{.Branch}}</span>
+      <span class="badge {{if eq .Status "ACTIVE"}}badge-red{{else if eq .Status "WAITING"}}badge-amber{{else}}badge-blue{{end}}">{{.Status}}</span>
+    </div>
+    <div class="tl-meta">{{.Timestamp}}</div>
+  </div>
+</div>
+{{end}}
+{{if .HasMore}}
+<div hx-get="{{historyUrl .Channel (add .Offset .Limit) .Limit .From .To}}"
+     hx-trigger="revealed"
+     hx-swap="outerHTML">
+  <div class="tl-meta" style="text-align:center;padding:8px">Loading more...</div>
+</div>
+{{end}}
+{{else}}
+<div class="empty-state">No history events</div>
+{{end}}
+{{end}}
