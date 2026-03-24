@@ -11,8 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+var ml = log.WithModule("httpd")
 
 // Dispatcher routes requests to module handlers (satisfied by daemon.Router).
 type Dispatcher interface {
@@ -47,8 +50,7 @@ func New(st *store.Store, router Dispatcher, addr string) *Server {
 
 	// Load templates (non-fatal — health/static still work without them).
 	if err := s.InitTemplates(); err != nil {
-		// Templates will be nil; renderPage/renderPartial return error banners.
-		_ = err
+		ml.Warn("template init failed, dashboard pages unavailable", "err", err)
 	}
 
 	s.httpSrv = &http.Server{
@@ -67,7 +69,11 @@ func (s *Server) Start() error {
 	}
 	s.listener = ln
 	s.addr = ln.Addr().String()
-	go s.httpSrv.Serve(ln) //nolint:errcheck // closed via Shutdown
+	go func() {
+		if err := s.httpSrv.Serve(ln); err != nil && err != http.ErrServerClosed {
+			ml.Warn("HTTP serve ended unexpectedly", "err", err)
+		}
+	}()
 	return nil
 }
 

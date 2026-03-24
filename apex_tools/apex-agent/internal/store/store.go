@@ -6,8 +6,11 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	_ "modernc.org/sqlite"
 )
+
+var ml = log.WithModule("store")
 
 // Querier is the common interface for Store and TxStore.
 // Use this when a function needs to work with both transactional and non-transactional contexts.
@@ -75,7 +78,9 @@ func (s *Store) RunInTx(ctx context.Context, fn func(tx *TxStore) error) error {
 	txs := &TxStore{tx: tx}
 
 	if err := fn(txs); err != nil {
-		tx.Rollback() //nolint:errcheck
+		if rbErr := tx.Rollback(); rbErr != nil {
+			ml.Error("tx rollback failed", "rollback_err", rbErr, "original_err", err)
+		}
 		return err
 	}
 	return tx.Commit()

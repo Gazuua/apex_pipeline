@@ -60,7 +60,11 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		if hasActive {
 			// Channel is busy — register as waiting (skip duplicate).
-			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			if waitErr != nil {
+				return fmt.Errorf("check waiting entry: %w", waitErr)
+			}
+			if !exists {
 				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 			}
 			return nil
@@ -74,7 +78,11 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 		// If there's a waiter with a different branch already queued ahead, we must wait.
 		if first != nil && first.Branch != branch {
-			if exists, _ := m.hasWaitingEntryForBranch(tx, channel, branch); !exists {
+			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			if waitErr != nil {
+				return fmt.Errorf("check waiting entry: %w", waitErr)
+			}
+			if !exists {
 				return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
 			}
 			return nil
@@ -120,7 +128,11 @@ const (
 // Polling uses exponential backoff: 100ms → 200ms → 400ms → ... → 2s (cap).
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first (skip if already queued).
-	if exists, _ := m.hasWaitingEntryForBranch(m.store, channel, branch); !exists {
+	exists, waitErr := m.hasWaitingEntryForBranch(m.store, channel, branch)
+	if waitErr != nil {
+		return fmt.Errorf("queue.Acquire: check waiting: %w", waitErr)
+	}
+	if !exists {
 		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
 			return fmt.Errorf("queue.Acquire: insert: %w", err)
 		}

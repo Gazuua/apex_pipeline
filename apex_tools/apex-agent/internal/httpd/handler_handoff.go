@@ -36,7 +36,11 @@ func (s *Server) handleAPIHandoff(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	history, _ := queryBranchHistory(s.store, 20)
+	history, err := queryBranchHistory(s.store, 20)
+	if err != nil {
+		ml.Warn("API handoff: history query failed", "err", err)
+		history = []BranchHistory{}
+	}
 	s.renderJSON(w, http.StatusOK, map[string]any{
 		"ok":   true,
 		"data": map[string]any{"branches": branches, "history": history},

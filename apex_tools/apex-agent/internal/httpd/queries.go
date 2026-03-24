@@ -264,7 +264,9 @@ func queryActiveBranches(st *store.Store) ([]ActiveBranch, error) {
 		}
 		for bbRows.Next() {
 			var bid int
-			bbRows.Scan(&bid) //nolint:errcheck
+			if scanErr := bbRows.Scan(&bid); scanErr != nil {
+				continue
+			}
 			branches[i].BacklogIDs = append(branches[i].BacklogIDs, bid)
 		}
 		bbRows.Close()
