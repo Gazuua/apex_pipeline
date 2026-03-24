@@ -13,6 +13,7 @@ namespace apex::core
 {
 
 class CoreEngine;           // forward declaration
+class MetricsRegistry;      // forward declaration (metrics)
 class ServiceBaseInterface; // forward declaration (D2: wire_services)
 
 /// 어댑터 타입 소거 인터페이스 (Server 내부 저장용).
@@ -34,6 +35,10 @@ class AdapterInterface
     /// 기본 구현은 no-op. KafkaAdapter가 override하여 KafkaDispatchBridge 자동 생성.
     virtual void wire_services(std::vector<std::unique_ptr<ServiceBaseInterface>>& /*services*/, CoreEngine& /*engine*/)
     {}
+
+    /// 어댑터별 Prometheus 메트릭 등록. Server가 메트릭 수집 초기화 시 호출.
+    /// 기본 구현은 no-op.
+    virtual void register_metrics(MetricsRegistry& /*registry*/) {}
 };
 
 } // namespace apex::core

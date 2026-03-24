@@ -36,10 +36,17 @@ struct LogConfig
     LogAsyncConfig async;
 };
 
+struct MetricsConfig
+{
+    bool enabled = false;
+    uint16_t port = 8081;
+};
+
 struct AppConfig
 {
     ServerConfig server;
     LogConfig logging;
+    MetricsConfig metrics;
 
     /// TOML 파일에서 설정 로딩. 파일 없으면 std::runtime_error.
     static AppConfig from_file(const std::string& path);
