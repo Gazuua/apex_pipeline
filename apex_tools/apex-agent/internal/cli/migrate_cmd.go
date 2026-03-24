@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -29,6 +30,8 @@ func migrateBacklogCmd() *cobra.Command {
 		Use:   "backlog",
 		Short: "BACKLOG.md + BACKLOG_HISTORY.md → DB 마이그레이션",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+
 			// Open store directly (no daemon needed for migration)
 			if err := platform.EnsureDataDir(); err != nil {
 				return err
@@ -56,7 +59,7 @@ func migrateBacklogCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("parse BACKLOG.md: %w", err)
 				}
-				count, err := mgr.ImportItems(items)
+				count, err := mgr.ImportItems(ctx, items)
 				if err != nil {
 					return fmt.Errorf("import backlog: %w", err)
 				}
@@ -72,7 +75,7 @@ func migrateBacklogCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
 				}
-				count, err := mgr.ImportItems(items)
+				count, err := mgr.ImportItems(ctx, items)
 				if err != nil {
 					return fmt.Errorf("import history: %w", err)
 				}

@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/httpd"
@@ -18,11 +19,11 @@ type backlogQuerierAdapter struct {
 }
 
 func (a *backlogQuerierAdapter) DashboardStatusCounts() (map[string]int, error) {
-	return a.mgr.DashboardStatusCounts()
+	return a.mgr.DashboardStatusCounts(context.Background())
 }
 
 func (a *backlogQuerierAdapter) DashboardSeverityCounts() (map[string]int, error) {
-	return a.mgr.DashboardSeverityCounts()
+	return a.mgr.DashboardSeverityCounts(context.Background())
 }
 
 func (a *backlogQuerierAdapter) DashboardListItems(f httpd.BacklogFilter) ([]httpd.BacklogItem, error) {
@@ -35,7 +36,7 @@ func (a *backlogQuerierAdapter) DashboardListItems(f httpd.BacklogFilter) ([]htt
 		SortBy:    f.SortBy,
 		SortDir:   f.SortDir,
 	}
-	items, err := a.mgr.DashboardList(mf)
+	items, err := a.mgr.DashboardList(context.Background(), mf)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func (a *backlogQuerierAdapter) DashboardListItems(f httpd.BacklogFilter) ([]htt
 }
 
 func (a *backlogQuerierAdapter) DashboardGetItemByID(id int) (*httpd.BacklogItem, error) {
-	item, err := a.mgr.DashboardGetByID(id)
+	item, err := a.mgr.DashboardGetByID(context.Background(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ type handoffQuerierAdapter struct {
 }
 
 func (a *handoffQuerierAdapter) DashboardActiveBranchesList() ([]httpd.ActiveBranch, error) {
-	branches, err := a.mgr.DashboardActiveBranches()
+	branches, err := a.mgr.DashboardActiveBranches(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -110,11 +111,11 @@ func (a *handoffQuerierAdapter) DashboardActiveBranchesList() ([]httpd.ActiveBra
 }
 
 func (a *handoffQuerierAdapter) DashboardActiveCount() (int, error) {
-	return a.mgr.DashboardActiveCount()
+	return a.mgr.DashboardActiveCount(context.Background())
 }
 
 func (a *handoffQuerierAdapter) DashboardBranchHistoryList(limit int) ([]httpd.BranchHistory, error) {
-	history, err := a.mgr.DashboardBranchHistoryList(limit)
+	history, err := a.mgr.DashboardBranchHistoryList(context.Background(), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ type queueQuerierAdapter struct {
 }
 
 func (a *queueQuerierAdapter) DashboardQueueAll() ([]httpd.QueueEntry, error) {
-	entries, err := a.mgr.DashboardQueueAll()
+	entries, err := a.mgr.DashboardQueueAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +172,11 @@ func (a *queueQuerierAdapter) DashboardQueueAll() ([]httpd.QueueEntry, error) {
 }
 
 func (a *queueQuerierAdapter) DashboardLockStatus(channel string) (bool, error) {
-	return a.mgr.DashboardLockStatus(channel)
+	return a.mgr.DashboardLockStatus(context.Background(), channel)
 }
 
 func (a *queueQuerierAdapter) DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]httpd.QueueHistoryEntry, error) {
-	entries, err := a.mgr.DashboardHistory(channel, offset, limit, from, to)
+	entries, err := a.mgr.DashboardHistory(context.Background(), channel, offset, limit, from, to)
 	if err != nil {
 		return nil, err
 	}

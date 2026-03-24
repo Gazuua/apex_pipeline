@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -171,7 +172,7 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 	}
 
 	// mgr=nil: SyncImport는 IPC 경유로 별도 실행 (CLI 직접 DB 연결 제거)
-	if err := workflow.StartPipeline(branchName, params, root, nil, ipcWrapper); err != nil {
+	if err := workflow.StartPipeline(context.Background(), branchName, params, root, nil, ipcWrapper); err != nil {
 		return err
 	}
 
@@ -282,7 +283,7 @@ func handoffNotifyMergeCmd() *cobra.Command {
 			}
 
 			// mgr=nil: SyncImport/SyncExport는 위에서 IPC로 처리 완료
-			if err := workflow.MergePipeline(params, root, nil, ipcWrapper); err != nil {
+			if err := workflow.MergePipeline(context.Background(), params, root, nil, ipcWrapper); err != nil {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)
@@ -317,7 +318,7 @@ func handoffNotifyDropCmd() *cobra.Command {
 				root = "."
 			}
 
-			if err := workflow.DropPipeline(params, root, ipcWrapper); err != nil {
+			if err := workflow.DropPipeline(context.Background(), params, root, ipcWrapper); err != nil {
 				return err
 			}
 			fmt.Printf("[handoff] branch dropped (branch=%s, reason=%s)\n", branch, reason)

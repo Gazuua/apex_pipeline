@@ -21,11 +21,11 @@ import (
 // Import + Export are wrapped in a single transaction for atomicity.
 //
 // Returns (content, importCount, error).
-func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error) {
+func (mgr *Manager) SafeExport(ctx context.Context, backlogMD, historyMD string) (string, int, error) {
 	var content string
 	var imported int
 
-	err := mgr.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := mgr.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txMgr := mgr.withQuerier(tx)
 
 		// 1) Import current MD into DB (idempotent — existing items keep their status).
@@ -34,7 +34,7 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 			if err != nil {
 				return fmt.Errorf("parse BACKLOG.md: %w", err)
 			}
-			n, err := txMgr.ImportItems(items)
+			n, err := txMgr.ImportItems(ctx, items)
 			if err != nil {
 				return fmt.Errorf("import BACKLOG.md: %w", err)
 			}
@@ -45,7 +45,7 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 			if err != nil {
 				return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
 			}
-			n, err := txMgr.ImportItems(items)
+			n, err := txMgr.ImportItems(ctx, items)
 			if err != nil {
 				return fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
 			}
@@ -54,7 +54,7 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 
 		// 2) Export from DB.
 		var exportErr error
-		content, exportErr = txMgr.Export()
+		content, exportErr = txMgr.Export(ctx)
 		return exportErr
 	})
 	if err != nil {
@@ -66,13 +66,13 @@ func (mgr *Manager) SafeExport(backlogMD, historyMD string) (string, int, error)
 
 // ExportJSON generates BACKLOG.json content from the database.
 // All items (OPEN + FIXING + RESOLVED) are included with full detail.
-func (mgr *Manager) ExportJSON() ([]byte, error) {
-	nextID, err := mgr.NextID()
+func (mgr *Manager) ExportJSON(ctx context.Context) ([]byte, error) {
+	nextID, err := mgr.NextID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("next id: %w", err)
 	}
 
-	items, err := mgr.ListAll()
+	items, err := mgr.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list all: %w", err)
 	}
@@ -104,11 +104,11 @@ func (mgr *Manager) ExportJSON() ([]byte, error) {
 // and the new JSON format. Import + Export in a single transaction.
 //
 // Returns (jsonBytes, importCount, error).
-func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHistoryMD string) ([]byte, int, error) {
+func (mgr *Manager) SafeExportJSON(ctx context.Context, backlogJSON []byte, legacyBacklogMD, legacyHistoryMD string) ([]byte, int, error) {
 	var out []byte
 	var imported int
 
-	err := mgr.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := mgr.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txMgr := mgr.withQuerier(tx)
 
 		// 1) Import: prefer JSON if available, else fall back to legacy MD.
@@ -117,7 +117,7 @@ func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHi
 			if err != nil {
 				return fmt.Errorf("parse BACKLOG.json: %w", err)
 			}
-			n, err := txMgr.ImportItems(items)
+			n, err := txMgr.ImportItems(ctx, items)
 			if err != nil {
 				return fmt.Errorf("import BACKLOG.json: %w", err)
 			}
@@ -129,7 +129,7 @@ func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHi
 				if err != nil {
 					return fmt.Errorf("parse BACKLOG.md: %w", err)
 				}
-				n, err := txMgr.ImportItems(items)
+				n, err := txMgr.ImportItems(ctx, items)
 				if err != nil {
 					return fmt.Errorf("import BACKLOG.md: %w", err)
 				}
@@ -140,7 +140,7 @@ func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHi
 				if err != nil {
 					return fmt.Errorf("parse BACKLOG_HISTORY.md: %w", err)
 				}
-				n, err := txMgr.ImportItems(items)
+				n, err := txMgr.ImportItems(ctx, items)
 				if err != nil {
 					return fmt.Errorf("import BACKLOG_HISTORY.md: %w", err)
 				}
@@ -150,7 +150,7 @@ func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHi
 
 		// 2) Export as JSON.
 		var exportErr error
-		out, exportErr = txMgr.ExportJSON()
+		out, exportErr = txMgr.ExportJSON(ctx)
 		return exportErr
 	})
 	if err != nil {
@@ -162,8 +162,8 @@ func (mgr *Manager) SafeExportJSON(backlogJSON []byte, legacyBacklogMD, legacyHi
 
 // Deprecated: Export generates legacy BACKLOG.md content. Use ExportJSON instead.
 // Export generates BACKLOG.md content from the database.
-func (mgr *Manager) Export() (string, error) {
-	nextID, err := mgr.NextID()
+func (mgr *Manager) Export(ctx context.Context) (string, error) {
+	nextID, err := mgr.NextID(ctx)
 	if err != nil {
 		return "", fmt.Errorf("next id: %w", err)
 	}
@@ -190,11 +190,11 @@ func (mgr *Manager) Export() (string, error) {
 
 	for i, sec := range sections {
 		// OPEN + FIXING 모두 출력 — FIXING은 작업 중이지만 아직 미해결
-		openItems, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusOpen})
+		openItems, err := mgr.List(ctx, ListFilter{Timeframe: sec.dbValue, Status: StatusOpen})
 		if err != nil {
 			return "", fmt.Errorf("list %s open: %w", sec.dbValue, err)
 		}
-		fixingItems, err := mgr.List(ListFilter{Timeframe: sec.dbValue, Status: StatusFixing})
+		fixingItems, err := mgr.List(ctx, ListFilter{Timeframe: sec.dbValue, Status: StatusFixing})
 		if err != nil {
 			return "", fmt.Errorf("list %s fixing: %w", sec.dbValue, err)
 		}
@@ -223,8 +223,8 @@ func (mgr *Manager) Export() (string, error) {
 // ExportHistory generates updated BACKLOG_HISTORY.md content.
 // New RESOLVED items (not already in existingHistory) are prepended
 // after the <!-- NEW_ENTRY_BELOW --> marker.
-func (mgr *Manager) ExportHistory(existingHistory string) (string, error) {
-	resolved, err := mgr.List(ListFilter{Status: StatusResolved})
+func (mgr *Manager) ExportHistory(ctx context.Context, existingHistory string) (string, error) {
+	resolved, err := mgr.List(ctx, ListFilter{Status: StatusResolved})
 	if err != nil {
 		return existingHistory, fmt.Errorf("list resolved: %w", err)
 	}

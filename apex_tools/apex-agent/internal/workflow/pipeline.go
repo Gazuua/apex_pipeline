@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,7 +22,7 @@ type IPCFunc func(action string, params map[string]any) (map[string]any, error)
 //  2. ipcFn("notify-start", params) → DB TX
 //  3. CreateAndPushBranch(branchName)
 //  4. SyncImport(projectRoot, mgr) — non-fatal
-func StartPipeline(branchName string, params map[string]any,
+func StartPipeline(ctx context.Context, branchName string, params map[string]any,
 	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
 	// Phase 1: git 사전 검증
@@ -44,7 +45,7 @@ func StartPipeline(branchName string, params map[string]any,
 
 	// Phase 4: backlog import (non-fatal)
 	if mgr != nil {
-		if n, syncErr := SyncImport(projectRoot, mgr); syncErr != nil {
+		if n, syncErr := SyncImport(ctx, projectRoot, mgr); syncErr != nil {
 			ml.Warn("착수 시 backlog import 실패 (작업 진행에 영향 없음)", "err", syncErr)
 		} else if n > 0 {
 			ml.Info("착수 시 backlog import 완료", "items", n)
@@ -61,7 +62,7 @@ func StartPipeline(branchName string, params map[string]any,
 //  4. autoCommitExport — export 결과 커밋+푸시
 //  5. CheckoutMain — main 브랜치 전환
 //  6. ipcFn("notify-merge") — 마지막: active에서 삭제, history로 이관
-func MergePipeline(params map[string]any,
+func MergePipeline(ctx context.Context, params map[string]any,
 	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
 	// Phase 1: rebase
@@ -73,14 +74,14 @@ func MergePipeline(params map[string]any,
 
 	// Phase 2: import (rebase 후 최신 MD → DB)
 	if mgr != nil {
-		if _, err := SyncImport(projectRoot, mgr); err != nil {
+		if _, err := SyncImport(ctx, projectRoot, mgr); err != nil {
 			return fmt.Errorf("머지 전 backlog import 실패: %w", err)
 		}
 	}
 
 	// Phase 3: export (DB → MD + HISTORY)
 	if mgr != nil {
-		if _, err := SyncExport(projectRoot, mgr); err != nil {
+		if _, err := SyncExport(ctx, projectRoot, mgr); err != nil {
 			return fmt.Errorf("머지 전 backlog export 실패: %w", err)
 		}
 	}
@@ -145,7 +146,7 @@ func autoCommitExport(projectRoot string) error {
 // DropPipeline orchestrates the full notify-drop workflow:
 //  1. ipcFn("notify-drop", params) → DB TX
 //  2. CheckoutMain(projectRoot) — non-fatal
-func DropPipeline(params map[string]any,
+func DropPipeline(ctx context.Context, params map[string]any,
 	projectRoot string, ipcFn IPCFunc) error {
 
 	if _, err := ipcFn("notify-drop", params); err != nil {

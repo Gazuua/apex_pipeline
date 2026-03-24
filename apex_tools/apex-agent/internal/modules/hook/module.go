@@ -44,6 +44,6 @@ func (m *Module) handleValidateBuild(ctx context.Context, params json.RawMessage
 
 // handleValidateMerge is a no-op stub — merge lock validation is now handled
 // by CLI hook_cmd.go via daemon IPC (queue.status). Kept for route compatibility.
-func (m *Module) handleValidateMerge(_ context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleValidateMerge(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
 	return map[string]string{"status": "allowed"}, nil
 }

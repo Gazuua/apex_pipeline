@@ -4,6 +4,7 @@ package backlog
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -193,10 +194,10 @@ func ParseBacklogHistoryMD(content string) ([]BacklogItem, error) {
 // (severity, timeframe, scope, type, description, related, position).
 // Status is NEVER overwritten for existing items — DB is the single source of
 // truth for status. Status changes go through CLI only (resolve/release/handoff).
-func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
+func (mgr *Manager) ImportItems(ctx context.Context, items []BacklogItem) (int, error) {
 	count := 0
 	for _, item := range items {
-		exists, dbStatus, err := mgr.Check(item.ID)
+		exists, dbStatus, err := mgr.Check(ctx, item.ID)
 		if err != nil {
 			return count, err
 		}
@@ -208,7 +209,7 @@ func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 			if item.Status == StatusResolved && item.ResolvedAt == "" {
 				item.ResolvedAt = "imported"
 			}
-			if err := mgr.Add(&item); err != nil {
+			if err := mgr.Add(ctx, &item); err != nil {
 				return count, fmt.Errorf("import #%d: %w", item.ID, err)
 			}
 			count++
@@ -217,7 +218,7 @@ func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 
 		// Existing item — update metadata only, never touch status.
 		// Status is owned exclusively by DB (changed via CLI: resolve/release/handoff).
-		if err := mgr.UpdateFromImport(item.ID, item.Title, item.Severity, item.Timeframe,
+		if err := mgr.UpdateFromImport(ctx, item.ID, item.Title, item.Severity, item.Timeframe,
 			item.Scope, item.Type, item.Description, item.Related, item.Position, dbStatus); err != nil {
 			return count, fmt.Errorf("update #%d: %w", item.ID, err)
 		}

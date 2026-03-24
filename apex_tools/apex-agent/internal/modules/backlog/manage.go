@@ -50,7 +50,7 @@ type ListFilter struct {
 
 // JunctionCleaner removes the backlog-branch junction record.
 // Injected by handoff module to avoid cross-module table access.
-type JunctionCleaner func(q store.Querier, backlogID int) error
+type JunctionCleaner func(ctx context.Context, q store.Querier, backlogID int) error
 
 // Manager handles CRUD operations on the backlog_items table.
 type Manager struct {
@@ -77,8 +77,8 @@ func (m *Manager) withQuerier(q store.Querier) *Manager {
 }
 
 // NextID returns the next available backlog item ID (max(id)+1, or 1 if empty).
-func (m *Manager) NextID() (int, error) {
-	row := m.q.QueryRow("SELECT COALESCE(MAX(id), 0) FROM backlog_items")
+func (m *Manager) NextID(ctx context.Context) (int, error) {
+	row := m.q.QueryRow(ctx, "SELECT COALESCE(MAX(id), 0) FROM backlog_items")
 	var maxID int
 	if err := row.Scan(&maxID); err != nil {
 		return 0, fmt.Errorf("NextID: %w", err)
@@ -88,7 +88,7 @@ func (m *Manager) NextID() (int, error) {
 
 // Add inserts a new backlog item. If Position is 0, it is auto-assigned to the
 // end of the item's timeframe group (max position in that group + 1).
-func (m *Manager) Add(item *BacklogItem) error {
+func (m *Manager) Add(ctx context.Context, item *BacklogItem) error {
 	if err := ValidateSeverity(item.Severity); err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 	}
 
 	if item.Position == 0 {
-		row := m.q.QueryRow(
+		row := m.q.QueryRow(ctx,
 			"SELECT COALESCE(MAX(position), 0) FROM backlog_items WHERE timeframe = ?",
 			item.Timeframe,
 		)
@@ -125,7 +125,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 
 	if item.ID == 0 {
 		// AUTOINCREMENT: id 생략 시 SQLite가 자동 할당
-		result, err := m.q.Exec(`
+		result, err := m.q.Exec(ctx, `
 			INSERT INTO backlog_items
 				(title, severity, timeframe, scope, type, description, related,
 				 position, status, resolution, resolved_at)
@@ -143,7 +143,7 @@ func (m *Manager) Add(item *BacklogItem) error {
 		}
 		item.ID = int(id)
 	} else {
-		_, err := m.q.Exec(`
+		_, err := m.q.Exec(ctx, `
 			INSERT INTO backlog_items
 				(id, title, severity, timeframe, scope, type, description, related,
 				 position, status, resolution, resolved_at)
@@ -176,8 +176,8 @@ func scanBacklogItem(scanner interface{ Scan(dest ...any) error }) (*BacklogItem
 
 // Get retrieves a single backlog item by ID.
 // Returns nil, nil if the item does not exist.
-func (m *Manager) Get(id int) (*BacklogItem, error) {
-	row := m.q.QueryRow(`
+func (m *Manager) Get(ctx context.Context, id int) (*BacklogItem, error) {
+	row := m.q.QueryRow(ctx, `
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
 		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
@@ -197,7 +197,7 @@ func (m *Manager) Get(id int) (*BacklogItem, error) {
 // List retrieves backlog items matching the filter, ordered by timeframe then position.
 // Timeframe ordering: NOW < IN_VIEW < DEFERRED.
 // If filter.Status is empty, defaults to "OPEN".
-func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
+func (m *Manager) List(ctx context.Context, filter ListFilter) ([]BacklogItem, error) {
 	status := filter.Status
 	if status == "" {
 		status = StatusOpen
@@ -231,7 +231,7 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 			END,
 			position ASC`
 
-	rows, err := m.q.Query(query, args...)
+	rows, err := m.q.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("List: %w", err)
 	}
@@ -254,7 +254,7 @@ func (m *Manager) List(filter ListFilter) ([]BacklogItem, error) {
 // ListAll retrieves all backlog items ordered for JSON export:
 // OPEN items first (NOW → IN_VIEW → DEFERRED, by position),
 // then RESOLVED items (by resolved_at DESC).
-func (m *Manager) ListAll() ([]BacklogItem, error) {
+func (m *Manager) ListAll(ctx context.Context) ([]BacklogItem, error) {
 	query := `
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
@@ -279,7 +279,7 @@ func (m *Manager) ListAll() ([]BacklogItem, error) {
 			CASE WHEN status != 'RESOLVED' THEN position ELSE 0 END ASC,
 			CASE WHEN status = 'RESOLVED' THEN resolved_at ELSE NULL END DESC`
 
-	rows, err := m.q.Query(query)
+	rows, err := m.q.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("ListAll: %w", err)
 	}
@@ -302,9 +302,9 @@ func (m *Manager) ListAll() ([]BacklogItem, error) {
 // UpdateFromImport updates metadata fields for an existing item from MD import.
 // Only updates (and bumps updated_at) if at least one field actually changed.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
-func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
+func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
 	// Read current values to detect changes.
-	existing, err := m.Get(id)
+	existing, err := m.Get(ctx, id)
 	if err != nil {
 		return fmt.Errorf("UpdateFromImport #%d: read existing: %w", id, err)
 	}
@@ -325,7 +325,7 @@ func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, it
 		return nil
 	}
 
-	_, err = m.q.Exec(`
+	_, err = m.q.Exec(ctx, `
 		UPDATE backlog_items
 		SET title = ?, severity = ?, timeframe = ?, scope = ?, type = ?,
 		    description = ?, related = ?, position = ?, status = ?,
@@ -343,11 +343,11 @@ func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, it
 
 // Resolve marks an item as resolved with the given resolution type.
 // Returns an error if the item does not exist or is already RESOLVED.
-func (m *Manager) Resolve(id int, resolution string) error {
+func (m *Manager) Resolve(ctx context.Context, id int, resolution string) error {
 	if err := ValidateResolution(resolution); err != nil {
 		return err
 	}
-	result, err := m.q.Exec(`
+	result, err := m.q.Exec(ctx, `
 		UPDATE backlog_items
 		SET status = ?,
 		    resolution = ?,
@@ -371,14 +371,14 @@ func (m *Manager) Resolve(id int, resolution string) error {
 }
 
 // SetStatus updates the status of a backlog item.
-func (m *Manager) SetStatus(id int, status string) error {
-	return m.SetStatusWith(m.q, id, status)
+func (m *Manager) SetStatus(ctx context.Context, id int, status string) error {
+	return m.SetStatusWith(ctx, m.q, id, status)
 }
 
 // SetStatusWith updates the status of a backlog item using the provided store
 // (which may be a transaction-bound copy from RunInTx).
 // FIXING 전이 시 이미 FIXING인 항목은 DB 레벨에서 차단 (rows affected=0).
-func (m *Manager) SetStatusWith(q store.Querier, id int, status string) error {
+func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, status string) error {
 	if err := ValidateStatus(status); err != nil {
 		return err
 	}
@@ -392,7 +392,7 @@ func (m *Manager) SetStatusWith(q store.Querier, id int, status string) error {
 		args = append(args, StatusFixing)
 	}
 
-	result, err := q.Exec(query, args...)
+	result, err := q.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("SetStatus: %w", err)
 	}
@@ -413,11 +413,11 @@ func (m *Manager) SetStatusWith(q store.Querier, id int, status string) error {
 // Release removes a backlog item from active work.
 // If status is FIXING, sets it back to OPEN and appends release reason to description.
 // Non-FIXING items are rejected to prevent accidental description pollution.
-func (m *Manager) Release(id int, reason, branch string) error {
-	return m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+func (m *Manager) Release(ctx context.Context, id int, reason, branch string) error {
+	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txm := m.withQuerier(tx)
 
-		item, err := txm.Get(id)
+		item, err := txm.Get(ctx, id)
 		if err != nil {
 			return fmt.Errorf("Release: %w", err)
 		}
@@ -430,7 +430,7 @@ func (m *Manager) Release(id int, reason, branch string) error {
 
 		// Append release history to description + set OPEN
 		appendDesc := fmt.Sprintf("\n[RELEASED] %s: %s", branch, reason)
-		_, err = tx.Exec(`
+		_, err = tx.Exec(ctx, `
 			UPDATE backlog_items
 			SET status = ?,
 			    description = description || ?,
@@ -445,7 +445,7 @@ func (m *Manager) Release(id int, reason, branch string) error {
 		// Junction 정리: handoff 모듈이 주입한 콜백으로 branch_backlogs 레코드 삭제.
 		// 콜백 미설정 시(테스트 등) noop.
 		if m.junctionCleaner != nil {
-			if delErr := m.junctionCleaner(tx, id); delErr != nil {
+			if delErr := m.junctionCleaner(ctx, tx, id); delErr != nil {
 				ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
 			}
 		}
@@ -458,11 +458,11 @@ func (m *Manager) Release(id int, reason, branch string) error {
 // Fix links a backlog item to the current branch and transitions it to FIXING.
 // Only OPEN items can be fixed. Already FIXING items are silently accepted.
 // Check + update + junction insert are wrapped in a transaction for atomicity.
-func (m *Manager) Fix(id int, branch string) error {
-	return m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+func (m *Manager) Fix(ctx context.Context, id int, branch string) error {
+	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txm := m.withQuerier(tx)
 
-		item, err := txm.Get(id)
+		item, err := txm.Get(ctx, id)
 		if err != nil {
 			return fmt.Errorf("Fix: %w", err)
 		}
@@ -477,7 +477,7 @@ func (m *Manager) Fix(id int, branch string) error {
 		}
 
 		// FIXING 전이
-		if _, err := tx.Exec(
+		if _, err := tx.Exec(ctx,
 			`UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
 			StatusFixing, id,
 		); err != nil {
@@ -485,7 +485,7 @@ func (m *Manager) Fix(id int, branch string) error {
 		}
 
 		// branch_backlogs 연결 (중복 방지)
-		if _, err := tx.Exec(
+		if _, err := tx.Exec(ctx,
 			`INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
 			branch, id,
 		); err != nil {
@@ -499,8 +499,8 @@ func (m *Manager) Fix(id int, branch string) error {
 
 // Check returns whether a backlog item exists and its current status.
 // Returns exists=false, status="", nil if the item does not exist.
-func (m *Manager) Check(id int) (exists bool, status string, err error) {
-	row := m.q.QueryRow("SELECT status FROM backlog_items WHERE id = ?", id)
+func (m *Manager) Check(ctx context.Context, id int) (exists bool, status string, err error) {
+	row := m.q.QueryRow(ctx, "SELECT status FROM backlog_items WHERE id = ?", id)
 	err = row.Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, "", nil
@@ -525,12 +525,12 @@ var allowedUpdateFields = map[string]string{
 
 // Update modifies specified fields of an existing item.
 // Only fields present in the map are updated; others are preserved.
-func (m *Manager) Update(id int, fields map[string]string) error {
+func (m *Manager) Update(ctx context.Context, id int, fields map[string]string) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("최소 1개 필드를 지정해야 합니다")
 	}
 
-	exists, _, err := m.Check(id)
+	exists, _, err := m.Check(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -570,14 +570,14 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 		if tf, tfOK := fields["timeframe"]; tfOK {
 			targetTimeframe = tf
 		} else {
-			item, getErr := m.Get(id)
+			item, getErr := m.Get(ctx, id)
 			if getErr != nil {
 				return getErr
 			}
 			targetTimeframe = item.Timeframe
 		}
 		// 같은 timeframe 내에서 newPos 이상인 항목들의 position을 +1
-		if _, shiftErr := m.q.Exec(`
+		if _, shiftErr := m.q.Exec(ctx, `
 			UPDATE backlog_items
 			SET position = position + 1
 			WHERE timeframe = ? AND position >= ? AND id != ? AND status != ?`,
@@ -607,7 +607,7 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 	args = append(args, id)
 
 	query := fmt.Sprintf("UPDATE backlog_items SET %s WHERE id = ?", strings.Join(setClauses, ", "))
-	_, err = m.q.Exec(query, args...)
+	_, err = m.q.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("Update #%d: %w", id, err)
 	}
@@ -617,7 +617,7 @@ func (m *Manager) Update(id int, fields map[string]string) error {
 
 // ListFixingForBranch returns backlog IDs from the given list that have status FIXING.
 // Used by handoff merge gate to check for unresolved backlogs.
-func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, error) {
+func (m *Manager) ListFixingForBranch(ctx context.Context, branch string, backlogIDs []int) ([]int, error) {
 	if len(backlogIDs) == 0 {
 		return nil, nil
 	}
@@ -636,7 +636,7 @@ func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, e
 	)
 	args = append(args, StatusFixing)
 
-	rows, err := m.q.Query(query, args...)
+	rows, err := m.q.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("ListFixingForBranch: %w", err)
 	}
@@ -659,8 +659,8 @@ func (m *Manager) ListFixingForBranch(branch string, backlogIDs []int) ([]int, e
 // ── Dashboard queries ─────────────────────────────────────────────────────────
 
 // DashboardStatusCounts returns the count of items per status (OPEN, FIXING, RESOLVED).
-func (m *Manager) DashboardStatusCounts() (map[string]int, error) {
-	rows, err := m.q.Query(`SELECT status, COUNT(*) FROM backlog_items GROUP BY status`)
+func (m *Manager) DashboardStatusCounts(ctx context.Context) (map[string]int, error) {
+	rows, err := m.q.Query(ctx, `SELECT status, COUNT(*) FROM backlog_items GROUP BY status`)
 	if err != nil {
 		return nil, fmt.Errorf("DashboardStatusCounts: %w", err)
 	}
@@ -681,8 +681,8 @@ func (m *Manager) DashboardStatusCounts() (map[string]int, error) {
 }
 
 // DashboardSeverityCounts returns severity counts for non-resolved items.
-func (m *Manager) DashboardSeverityCounts() (map[string]int, error) {
-	rows, err := m.q.Query(`SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
+func (m *Manager) DashboardSeverityCounts(ctx context.Context) (map[string]int, error) {
+	rows, err := m.q.Query(ctx, `SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
 	if err != nil {
 		return nil, fmt.Errorf("DashboardSeverityCounts: %w", err)
 	}
@@ -731,7 +731,7 @@ type DashboardFilter struct {
 
 // DashboardList returns backlog items matching the filter for dashboard display.
 // Filter/sort logic mirrors the httpd queries.go behavior.
-func (m *Manager) DashboardList(f DashboardFilter) ([]DashboardItem, error) {
+func (m *Manager) DashboardList(ctx context.Context, f DashboardFilter) ([]DashboardItem, error) {
 	var where []string
 	var args []any
 
@@ -780,7 +780,7 @@ func (m *Manager) DashboardList(f DashboardFilter) ([]DashboardItem, error) {
 			id DESC`
 	}
 
-	rows, err := m.q.Query(query, args...)
+	rows, err := m.q.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("DashboardList: %w", err)
 	}
@@ -802,8 +802,8 @@ func (m *Manager) DashboardList(f DashboardFilter) ([]DashboardItem, error) {
 }
 
 // DashboardGetByID returns a single backlog item for inline display.
-func (m *Manager) DashboardGetByID(id int) (*DashboardItem, error) {
-	row := m.q.QueryRow(`SELECT id, title, severity, timeframe, scope, type, status, description,
+func (m *Manager) DashboardGetByID(ctx context.Context, id int) (*DashboardItem, error) {
+	row := m.q.QueryRow(ctx, `SELECT id, title, severity, timeframe, scope, type, status, description,
 		COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
 		FROM backlog_items WHERE id = ?`, id)
 	var b DashboardItem

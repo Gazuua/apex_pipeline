@@ -3,6 +3,7 @@
 package httpd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ type testBacklogQuerier struct {
 }
 
 func (q *testBacklogQuerier) DashboardStatusCounts() (map[string]int, error) {
-	rows, err := q.st.Query(`SELECT status, COUNT(*) FROM backlog_items GROUP BY status`)
+	rows, err := q.st.Query(context.Background(), `SELECT status, COUNT(*) FROM backlog_items GROUP BY status`)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,7 @@ func (q *testBacklogQuerier) DashboardStatusCounts() (map[string]int, error) {
 }
 
 func (q *testBacklogQuerier) DashboardSeverityCounts() (map[string]int, error) {
-	rows, err := q.st.Query(`SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
+	rows, err := q.st.Query(context.Background(), `SELECT severity, COUNT(*) FROM backlog_items WHERE status != 'RESOLVED' GROUP BY severity`)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (q *testBacklogQuerier) DashboardListItems(f BacklogFilter) ([]BacklogItem,
 			id DESC`
 	}
 
-	rows, err := q.st.Query(query, args...)
+	rows, err := q.st.Query(context.Background(), query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +127,7 @@ type testHandoffQuerier struct {
 }
 
 func (q *testHandoffQuerier) DashboardActiveBranchesList() ([]ActiveBranch, error) {
-	rows, err := q.st.Query(`
+	rows, err := q.st.Query(context.Background(), `
 		SELECT branch, workspace, COALESCE(git_branch,''), COALESCE(summary,''),
 		       status, created_at
 		FROM active_branches ORDER BY created_at DESC`)
@@ -150,7 +151,7 @@ func (q *testHandoffQuerier) DashboardActiveBranchesList() ([]ActiveBranch, erro
 	rows.Close()
 
 	for i := range branches {
-		bbRows, err := q.st.Query(`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)
+		bbRows, err := q.st.Query(context.Background(), `SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)
 		if err != nil {
 			continue
 		}
@@ -168,14 +169,14 @@ func (q *testHandoffQuerier) DashboardActiveBranchesList() ([]ActiveBranch, erro
 
 func (q *testHandoffQuerier) DashboardActiveCount() (int, error) {
 	var count int
-	if err := q.st.QueryRow(`SELECT COUNT(*) FROM active_branches`).Scan(&count); err != nil {
+	if err := q.st.QueryRow(context.Background(), `SELECT COUNT(*) FROM active_branches`).Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
 }
 
 func (q *testHandoffQuerier) DashboardBranchHistoryList(limit int) ([]BranchHistory, error) {
-	rows, err := q.st.Query(`
+	rows, err := q.st.Query(context.Background(), `
 		SELECT id, branch, COALESCE(git_branch,''), COALESCE(summary,''),
 		       status, COALESCE(backlog_ids,''), started_at, finished_at
 		FROM branch_history ORDER BY finished_at DESC LIMIT ?`, limit)
@@ -201,7 +202,7 @@ type testQueueQuerier struct {
 }
 
 func (q *testQueueQuerier) DashboardQueueAll() ([]QueueEntry, error) {
-	rows, err := q.st.Query(`
+	rows, err := q.st.Query(context.Background(), `
 		SELECT channel, branch, status, created_at, COALESCE(finished_at,''),
 		       CASE WHEN finished_at IS NOT NULL
 		            THEN CAST((julianday(finished_at) - julianday(created_at)) * 86400 AS INTEGER)
@@ -238,7 +239,7 @@ func (q *testQueueQuerier) DashboardQueueAll() ([]QueueEntry, error) {
 
 func (q *testQueueQuerier) DashboardLockStatus(channel string) (bool, error) {
 	var count int
-	if err := q.st.QueryRow(
+	if err := q.st.QueryRow(context.Background(),
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND status='ACTIVE'`, channel,
 	).Scan(&count); err != nil {
 		return false, err
@@ -259,7 +260,7 @@ func (q *testQueueQuerier) DashboardQueueHistory(channel string, offset, limit i
 	}
 	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
-	rows, err := q.st.Query(query, args...)
+	rows, err := q.st.Query(context.Background(), query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +327,7 @@ func setupTestStore(t *testing.T) *store.Store {
 		)`,
 	}
 	for _, ddl := range tables {
-		if _, err := st.Exec(ddl); err != nil {
+		if _, err := st.Exec(context.Background(), ddl); err != nil {
 			t.Fatalf("create table: %v", err)
 		}
 	}
@@ -357,12 +358,13 @@ func TestQueryDashboardSummary_Empty(t *testing.T) {
 
 func TestQueryDashboardSummary_WithData(t *testing.T) {
 	st, bm, hm, qm := setupTestQueriers(t)
+	ctx := context.Background()
 
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('bug1','CRITICAL','NOW','CORE','BUG','desc',1,'OPEN')`)
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('bug2','MAJOR','NOW','CORE','BUG','desc',2,'FIXING')`)
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('bug3','MINOR','IN_VIEW','SHARED','BUG','desc',3,'RESOLVED')`)
 
 	s, err := queryDashboardSummary(bm, hm, qm)
@@ -388,12 +390,13 @@ func TestQueryDashboardSummary_WithData(t *testing.T) {
 
 func TestQueryBacklogList_Filter(t *testing.T) {
 	st, bm, _, _ := setupTestQueriers(t)
+	ctx := context.Background()
 
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('a','CRITICAL','NOW','CORE','BUG','desc',1,'OPEN')`)
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('b','CRITICAL','NOW','SHARED','BUG','desc',2,'OPEN')`)
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('c','MAJOR','IN_VIEW','CORE','BUG','desc',3,'OPEN')`)
 
 	items, err := queryBacklogList(bm, BacklogFilter{Severity: []string{"CRITICAL"}})
@@ -415,10 +418,11 @@ func TestQueryBacklogList_Filter(t *testing.T) {
 
 func TestQueryBacklogList_Sort(t *testing.T) {
 	st, bm, _, _ := setupTestQueriers(t)
+	ctx := context.Background()
 
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('first','MAJOR','NOW','CORE','BUG','desc',1,'OPEN')`)
-	st.Exec(`INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
+	st.Exec(ctx, `INSERT INTO backlog_items (title,severity,timeframe,scope,type,description,position,status)
 		VALUES ('second','MINOR','NOW','CORE','BUG','desc',2,'OPEN')`)
 
 	items, err := queryBacklogList(bm, BacklogFilter{SortBy: "id", SortDir: "ASC"})
@@ -435,11 +439,12 @@ func TestQueryBacklogList_Sort(t *testing.T) {
 
 func TestQueryActiveBranches(t *testing.T) {
 	st, _, hm, _ := setupTestQueriers(t)
+	ctx := context.Background()
 
-	st.Exec(`INSERT INTO active_branches (branch,workspace,git_branch,status,summary)
+	st.Exec(ctx, `INSERT INTO active_branches (branch,workspace,git_branch,status,summary)
 		VALUES ('b1','ws1','feature/test','IMPLEMENTING','test branch')`)
-	st.Exec(`INSERT INTO branch_backlogs (branch,backlog_id) VALUES ('b1',42)`)
-	st.Exec(`INSERT INTO branch_backlogs (branch,backlog_id) VALUES ('b1',43)`)
+	st.Exec(ctx, `INSERT INTO branch_backlogs (branch,backlog_id) VALUES ('b1',42)`)
+	st.Exec(ctx, `INSERT INTO branch_backlogs (branch,backlog_id) VALUES ('b1',43)`)
 
 	branches, err := queryActiveBranches(hm)
 	if err != nil {
@@ -470,8 +475,9 @@ func TestQueryQueueStatus_Empty(t *testing.T) {
 
 func TestQueryBranchHistory(t *testing.T) {
 	st, _, hm, _ := setupTestQueriers(t)
+	ctx := context.Background()
 
-	st.Exec(`INSERT INTO branch_history (branch,workspace,git_branch,status,summary,backlog_ids,started_at)
+	st.Exec(ctx, `INSERT INTO branch_history (branch,workspace,git_branch,status,summary,backlog_ids,started_at)
 		VALUES ('b1','ws1','feature/done','MERGED','completed','[1,2]','2026-01-01 00:00:00')`)
 
 	history, err := queryBranchHistory(hm, 10)

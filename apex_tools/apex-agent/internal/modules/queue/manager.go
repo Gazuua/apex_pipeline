@@ -53,44 +53,44 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 	var acquired bool
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// Check if there is already an active entry for this channel.
-		hasActive, err := m.hasActiveEntry(tx, channel)
+		hasActive, err := m.hasActiveEntry(ctx, tx, channel)
 		if err != nil {
 			return fmt.Errorf("status check: %w", err)
 		}
 
 		if hasActive {
 			// Channel is busy — register as waiting (skip duplicate).
-			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			exists, waitErr := m.hasWaitingEntryForBranch(ctx, tx, channel, branch)
 			if waitErr != nil {
 				return fmt.Errorf("check waiting entry: %w", waitErr)
 			}
 			if !exists {
-				if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+				if err := m.insertEntryTx(ctx, tx, channel, branch, pid, StatusWaiting); err != nil {
 					return err
 				}
-				m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+				m.insertHistoryTx(ctx, tx, channel, branch, StatusWaiting)
 				return nil
 			}
 			return nil
 		}
 
 		// Channel appears free. Check if there are already waiting entries.
-		first, err := m.firstWaitingTx(tx, channel)
+		first, err := m.firstWaitingTx(ctx, tx, channel)
 		if err != nil {
 			return fmt.Errorf("first waiting: %w", err)
 		}
 
 		// If there's a waiter with a different branch already queued ahead, we must wait.
 		if first != nil && first.Branch != branch {
-			exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+			exists, waitErr := m.hasWaitingEntryForBranch(ctx, tx, channel, branch)
 			if waitErr != nil {
 				return fmt.Errorf("check waiting entry: %w", waitErr)
 			}
 			if !exists {
-				if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+				if err := m.insertEntryTx(ctx, tx, channel, branch, pid, StatusWaiting); err != nil {
 					return err
 				}
-				m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+				m.insertHistoryTx(ctx, tx, channel, branch, StatusWaiting)
 				return nil
 			}
 			return nil
@@ -98,20 +98,20 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 
 		// If there's a waiting entry for this branch, promote it to active.
 		if first != nil && first.Branch == branch {
-			_, err := tx.Exec(`UPDATE queue SET status=? WHERE id=?`, StatusActive, first.ID)
+			_, err := tx.Exec(ctx, `UPDATE queue SET status=? WHERE id=?`, StatusActive, first.ID)
 			if err != nil {
 				return fmt.Errorf("promote waiting to active: %w", err)
 			}
-			m.insertHistoryTx(tx, channel, first.Branch, StatusActive)
+			m.insertHistoryTx(ctx, tx, channel, first.Branch, StatusActive)
 			acquired = true
 			return nil
 		}
 
 		// No waiters at all — insert directly as active.
-		if err := m.insertEntryTx(tx, channel, branch, pid, StatusActive); err != nil {
+		if err := m.insertEntryTx(ctx, tx, channel, branch, pid, StatusActive); err != nil {
 			return err
 		}
-		m.insertHistoryTx(tx, channel, branch, StatusActive)
+		m.insertHistoryTx(ctx, tx, channel, branch, StatusActive)
 		acquired = true
 		return nil
 	})
@@ -140,15 +140,15 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 	// Register as waiting first (skip if already queued).
 	// Wrapped in transaction to prevent duplicate WAITING entries from concurrent calls.
 	if err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
-		exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+		exists, waitErr := m.hasWaitingEntryForBranch(ctx, tx, channel, branch)
 		if waitErr != nil {
 			return fmt.Errorf("check waiting: %w", waitErr)
 		}
 		if !exists {
-			if err := m.insertEntryTx(tx, channel, branch, pid, StatusWaiting); err != nil {
+			if err := m.insertEntryTx(ctx, tx, channel, branch, pid, StatusWaiting); err != nil {
 				return err
 			}
-			m.insertHistoryTx(tx, channel, branch, StatusWaiting)
+			m.insertHistoryTx(ctx, tx, channel, branch, StatusWaiting)
 			return nil
 		}
 		return nil
@@ -162,7 +162,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		select {
 		case <-ctx.Done():
 			// 취소/타임아웃 시 대기 엔트리만 정리 (ACTIVE는 이미 promote된 상태이므로 보존)
-			if _, err := m.store.Exec(
+			if _, err := m.store.Exec(context.Background(),
 				`DELETE FROM queue WHERE channel=? AND branch=? AND status=?`,
 				channel, branch, StatusWaiting,
 			); err != nil {
@@ -174,7 +174,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 
 		// Clean up dead processes (throttled — at most once per cleanupStaleMinGap).
 		if time.Since(lastCleanup) >= cleanupStaleMinGap {
-			if _, err := m.CleanupStale(); err != nil {
+			if _, err := m.CleanupStale(ctx); err != nil {
 				return fmt.Errorf("queue.Acquire: cleanup: %w", err)
 			}
 			lastCleanup = time.Now()
@@ -205,7 +205,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool, error) {
 	var promoted bool
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
-		hasActive, err := m.hasActiveEntry(tx, channel)
+		hasActive, err := m.hasActiveEntry(ctx, tx, channel)
 		if err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 			return nil
 		}
 
-		first, err := m.firstWaitingTx(tx, channel)
+		first, err := m.firstWaitingTx(ctx, tx, channel)
 		if err != nil {
 			return err
 		}
@@ -222,7 +222,7 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 		}
 
 		// CAS: only promote if still WAITING (prevents double-promote)
-		res, err := tx.Exec(
+		res, err := tx.Exec(ctx,
 			`UPDATE queue SET status=? WHERE id=? AND status=?`,
 			StatusActive, first.ID, StatusWaiting,
 		)
@@ -232,7 +232,7 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 		n, _ := res.RowsAffected()
 		promoted = n > 0
 		if promoted {
-			m.insertHistoryTx(tx, channel, branch, StatusActive)
+			m.insertHistoryTx(ctx, tx, channel, branch, StatusActive)
 		}
 		return nil
 	})
@@ -241,8 +241,8 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 
 // UpdatePID updates the PID of the active entry for a channel.
 // Used to transfer lock ownership from parent (CLI) to child (build process).
-func (m *Manager) UpdatePID(channel, branch string, newPID int) error {
-	res, err := m.store.Exec(
+func (m *Manager) UpdatePID(ctx context.Context, channel, branch string, newPID int) error {
+	res, err := m.store.Exec(ctx,
 		`UPDATE queue SET pid=? WHERE channel=? AND branch=? AND status=?`,
 		newPID, channel, branch, StatusActive,
 	)
@@ -259,17 +259,17 @@ func (m *Manager) UpdatePID(channel, branch string, newPID int) error {
 
 // Release marks the active entry for channel as done and records finish time.
 // Idempotent: returns nil if no active entry exists (already released or cleaned up).
-func (m *Manager) Release(channel string) error {
+func (m *Manager) Release(ctx context.Context, channel string) error {
 	var released bool
 	var branch string
-	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// Read the active branch (for history).
-		_ = tx.QueryRow(
+		_ = tx.QueryRow(ctx,
 			`SELECT branch FROM queue WHERE channel=? AND status=?`,
 			channel, StatusActive,
 		).Scan(&branch)
 
-		res, err := tx.Exec(
+		res, err := tx.Exec(ctx,
 			`UPDATE queue SET status=?, finished_at=datetime('now','localtime') WHERE channel=? AND status=?`,
 			StatusDone, channel, StatusActive,
 		)
@@ -281,7 +281,7 @@ func (m *Manager) Release(channel string) error {
 			ml.Warn("release: no active entry found (already released or stale-cleaned)", "channel", channel)
 		} else {
 			released = true
-			m.insertHistoryTx(tx, channel, branch, StatusDone)
+			m.insertHistoryTx(ctx, tx, channel, branch, StatusDone)
 		}
 		return nil
 	})
@@ -295,8 +295,8 @@ func (m *Manager) Release(channel string) error {
 }
 
 // Status returns the active entry (or nil) and all waiting entries for channel.
-func (m *Manager) Status(channel string) (*QueueEntry, []QueueEntry, error) {
-	rows, err := m.store.Query(
+func (m *Manager) Status(ctx context.Context, channel string) (*QueueEntry, []QueueEntry, error) {
+	rows, err := m.store.Query(ctx,
 		`SELECT id, channel, branch, pid, status, created_at
 		 FROM queue
 		 WHERE channel=? AND status IN (?, ?)
@@ -332,8 +332,8 @@ func (m *Manager) Status(channel string) (*QueueEntry, []QueueEntry, error) {
 
 // CleanupStale removes queue entries whose owning process is no longer alive.
 // Returns the number of removed entries.
-func (m *Manager) CleanupStale() (int, error) {
-	rows, err := m.store.Query(
+func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
+	rows, err := m.store.Query(ctx,
 		`SELECT id, pid FROM queue WHERE status IN (?, ?)`,
 		StatusActive, StatusWaiting,
 	)
@@ -362,7 +362,7 @@ func (m *Manager) CleanupStale() (int, error) {
 
 	count := 0
 	for _, r := range stale {
-		if _, err := m.store.Exec(`DELETE FROM queue WHERE id=?`, r.id); err != nil {
+		if _, err := m.store.Exec(ctx, `DELETE FROM queue WHERE id=?`, r.id); err != nil {
 			return count, fmt.Errorf("queue.CleanupStale: delete id=%d: %w", r.id, err)
 		}
 		count++
@@ -383,8 +383,8 @@ type DashboardEntry struct {
 }
 
 // DashboardQueueAll returns all queue entries for dashboard display.
-func (m *Manager) DashboardQueueAll() ([]DashboardEntry, error) {
-	rows, err := m.store.Query(`
+func (m *Manager) DashboardQueueAll(ctx context.Context) ([]DashboardEntry, error) {
+	rows, err := m.store.Query(ctx, `
 		SELECT channel, branch, status, created_at, COALESCE(finished_at,''),
 		       CASE WHEN finished_at IS NOT NULL
 		            THEN CAST((julianday(finished_at) - julianday(created_at)) * 86400 AS INTEGER)
@@ -411,9 +411,9 @@ func (m *Manager) DashboardQueueAll() ([]DashboardEntry, error) {
 }
 
 // DashboardLockStatus returns whether a channel has an active lock.
-func (m *Manager) DashboardLockStatus(channel string) (bool, error) {
+func (m *Manager) DashboardLockStatus(ctx context.Context, channel string) (bool, error) {
 	var count int
-	if err := m.store.QueryRow(
+	if err := m.store.QueryRow(ctx,
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND status='ACTIVE'`, channel,
 	).Scan(&count); err != nil {
 		return false, fmt.Errorf("DashboardLockStatus %s: %w", channel, err)
@@ -422,13 +422,13 @@ func (m *Manager) DashboardLockStatus(channel string) (bool, error) {
 }
 
 // insertEntry inserts a new queue entry with the given status (non-transactional).
-func (m *Manager) insertEntry(channel, branch string, pid int, status string) error {
-	return m.insertEntryTx(m.store, channel, branch, pid, status)
+func (m *Manager) insertEntry(ctx context.Context, channel, branch string, pid int, status string) error {
+	return m.insertEntryTx(ctx, m.store, channel, branch, pid, status)
 }
 
 // insertEntryTx inserts a new queue entry using the given store (transaction-safe).
-func (m *Manager) insertEntryTx(s store.Querier, channel, branch string, pid int, status string) error {
-	_, err := s.Exec(
+func (m *Manager) insertEntryTx(ctx context.Context, s store.Querier, channel, branch string, pid int, status string) error {
+	_, err := s.Exec(ctx,
 		`INSERT INTO queue (channel, branch, pid, status) VALUES (?, ?, ?, ?)`,
 		channel, branch, pid, status,
 	)
@@ -436,8 +436,8 @@ func (m *Manager) insertEntryTx(s store.Querier, channel, branch string, pid int
 }
 
 // hasActiveEntry checks if there is an active entry for the channel (transaction-safe).
-func (m *Manager) hasActiveEntry(s store.Querier, channel string) (bool, error) {
-	row := s.QueryRow(
+func (m *Manager) hasActiveEntry(ctx context.Context, s store.Querier, channel string) (bool, error) {
+	row := s.QueryRow(ctx,
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND status=?`,
 		channel, StatusActive,
 	)
@@ -449,8 +449,8 @@ func (m *Manager) hasActiveEntry(s store.Querier, channel string) (bool, error) 
 }
 
 // hasWaitingEntryForBranch checks if a waiting entry already exists for channel+branch (transaction-safe).
-func (m *Manager) hasWaitingEntryForBranch(s store.Querier, channel, branch string) (bool, error) {
-	row := s.QueryRow(
+func (m *Manager) hasWaitingEntryForBranch(ctx context.Context, s store.Querier, channel, branch string) (bool, error) {
+	row := s.QueryRow(ctx,
 		`SELECT COUNT(*) FROM queue WHERE channel=? AND branch=? AND status=?`,
 		channel, branch, StatusWaiting,
 	)
@@ -462,13 +462,13 @@ func (m *Manager) hasWaitingEntryForBranch(s store.Querier, channel, branch stri
 }
 
 // firstWaiting returns the waiting entry with the lowest ID for channel, or nil (non-transactional).
-func (m *Manager) firstWaiting(channel string) (*QueueEntry, error) {
-	return m.firstWaitingTx(m.store, channel)
+func (m *Manager) firstWaiting(ctx context.Context, channel string) (*QueueEntry, error) {
+	return m.firstWaitingTx(ctx, m.store, channel)
 }
 
 // firstWaitingTx returns the waiting entry with the lowest ID for channel (transaction-safe).
-func (m *Manager) firstWaitingTx(s store.Querier, channel string) (*QueueEntry, error) {
-	row := s.QueryRow(
+func (m *Manager) firstWaitingTx(ctx context.Context, s store.Querier, channel string) (*QueueEntry, error) {
+	row := s.QueryRow(ctx,
 		`SELECT id, channel, branch, pid, status, created_at
 		 FROM queue
 		 WHERE channel=? AND status=?
@@ -499,8 +499,8 @@ type HistoryEntry struct {
 }
 
 // insertHistory records a state-transition event in queue_history.
-func (m *Manager) insertHistory(channel, branch, status string) {
-	_, err := m.store.Exec(
+func (m *Manager) insertHistory(ctx context.Context, channel, branch, status string) {
+	_, err := m.store.Exec(ctx,
 		`INSERT INTO queue_history (channel, branch, status) VALUES (?, ?, ?)`,
 		channel, branch, status,
 	)
@@ -510,8 +510,8 @@ func (m *Manager) insertHistory(channel, branch, status string) {
 }
 
 // insertHistoryTx records a state-transition event using a transaction store.
-func (m *Manager) insertHistoryTx(s store.Querier, channel, branch, status string) {
-	_, err := s.Exec(
+func (m *Manager) insertHistoryTx(ctx context.Context, s store.Querier, channel, branch, status string) {
+	_, err := s.Exec(ctx,
 		`INSERT INTO queue_history (channel, branch, status) VALUES (?, ?, ?)`,
 		channel, branch, status,
 	)
@@ -522,7 +522,7 @@ func (m *Manager) insertHistoryTx(s store.Querier, channel, branch, status strin
 
 // DashboardHistory returns history events for a channel, newest first.
 // Supports pagination (offset+limit) and optional time range filter (from/to as ISO datetime).
-func (m *Manager) DashboardHistory(channel string, offset, limit int, from, to string) ([]HistoryEntry, error) {
+func (m *Manager) DashboardHistory(ctx context.Context, channel string, offset, limit int, from, to string) ([]HistoryEntry, error) {
 	query := `SELECT id, channel, branch, status, timestamp FROM queue_history WHERE channel = ?`
 	args := []any{channel}
 
@@ -538,7 +538,7 @@ func (m *Manager) DashboardHistory(channel string, offset, limit int, from, to s
 	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
-	rows, err := m.store.Query(query, args...)
+	rows, err := m.store.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("DashboardHistory: %w", err)
 	}

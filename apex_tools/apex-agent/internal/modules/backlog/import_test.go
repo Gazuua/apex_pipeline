@@ -3,6 +3,7 @@
 package backlog
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -164,7 +165,7 @@ func TestImportItems_Basic(t *testing.T) {
 		{ID: 2, Title: "Done", Severity: "MINOR", Timeframe: "NOW", Scope: "DOCS", Type: "DOCS", Description: "Was done", Position: 2, Status: StatusResolved, Resolution: "FIXED"},
 	}
 
-	count, err := mod.manager.ImportItems(items)
+	count, err := mod.manager.ImportItems(context.Background(),items)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,13 +174,13 @@ func TestImportItems_Basic(t *testing.T) {
 	}
 
 	// Verify open item
-	item, _ := mod.manager.Get(1)
+	item, _ := mod.manager.Get(context.Background(),1)
 	if item.Status != "OPEN" {
 		t.Errorf("item 1 status = %q, want 'OPEN'", item.Status)
 	}
 
 	// Verify resolved item
-	item2, _ := mod.manager.Get(2)
+	item2, _ := mod.manager.Get(context.Background(),2)
 	if item2.Status != "RESOLVED" {
 		t.Errorf("item 2 status = %q, want 'RESOLVED'", item2.Status)
 	}
@@ -201,26 +202,26 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix", Position: 1, Status: "OPEN"},
 	}
 
-	mod.manager.ImportItems(items)
-	count, _ := mod.manager.ImportItems(items) // second import — updates existing
+	mod.manager.ImportItems(context.Background(),items)
+	count, _ := mod.manager.ImportItems(context.Background(),items) // second import — updates existing
 	if count != 1 {
 		t.Errorf("duplicate import count = %d, want 1 (update)", count)
 	}
 
 	// Verify metadata is preserved after re-import.
-	got, _ := mod.manager.Get(1)
+	got, _ := mod.manager.Get(context.Background(),1)
 	if got.Severity != "CRITICAL" || got.Timeframe != "NOW" {
 		t.Errorf("re-imported item mismatch: severity=%s, timeframe=%s", got.Severity, got.Timeframe)
 	}
 
 	// Verify FIXING status is preserved on re-import.
-	mod.manager.SetStatus(1, "FIXING")
+	mod.manager.SetStatus(context.Background(),1, "FIXING")
 	items[0].Timeframe = "IN_VIEW" // MD에서 timeframe 변경
-	count, _ = mod.manager.ImportItems(items)
+	count, _ = mod.manager.ImportItems(context.Background(),items)
 	if count != 1 {
 		t.Errorf("update count = %d, want 1", count)
 	}
-	got, _ = mod.manager.Get(1)
+	got, _ = mod.manager.Get(context.Background(),1)
 	if got.Status != "FIXING" {
 		t.Errorf("FIXING status should be preserved, got %s", got.Status)
 	}
@@ -229,13 +230,13 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 	}
 
 	// Verify RESOLVED status is also preserved — DB owns status, import never touches it.
-	mod.manager.Resolve(1, "FIXED")
+	mod.manager.Resolve(context.Background(),1, "FIXED")
 	items[0].Status = "OPEN" // MD says OPEN, but DB says RESOLVED
-	count, _ = mod.manager.ImportItems(items)
+	count, _ = mod.manager.ImportItems(context.Background(),items)
 	if count != 1 {
 		t.Errorf("update count = %d, want 1", count)
 	}
-	got, _ = mod.manager.Get(1)
+	got, _ = mod.manager.Get(context.Background(),1)
 	if got.Status != "RESOLVED" {
 		t.Errorf("RESOLVED status should be preserved, got %s", got.Status)
 	}

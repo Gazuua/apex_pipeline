@@ -29,7 +29,8 @@ func (m *Module) Manager() *Manager { return m.manager }
 // RegisterSchema registers the backlog_items table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
 	mig.Register("backlog", 1, func(tx *store.TxStore) error {
-		_, err := tx.Exec(`CREATE TABLE backlog_items (
+		ctx := context.Background()
+		_, err := tx.Exec(ctx, `CREATE TABLE backlog_items (
 			id          INTEGER PRIMARY KEY,
 			title       TEXT    NOT NULL,
 			severity    TEXT    NOT NULL,
@@ -48,8 +49,9 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		return err
 	})
 	mig.Register("backlog", 2, func(tx *store.TxStore) error {
+		ctx := context.Background()
 		// id를 AUTOINCREMENT로 변경 — 삭제된 ID 재사용 방지
-		_, err := tx.Exec(`
+		_, err := tx.Exec(ctx, `
 			CREATE TABLE backlog_items_new (
 				id          INTEGER PRIMARY KEY AUTOINCREMENT,
 				title       TEXT    NOT NULL,
@@ -73,6 +75,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		return err
 	})
 	mig.Register("backlog", 3, func(tx *store.TxStore) error {
+		ctx := context.Background()
 		// 1. 기존 데이터 대문자 정규화
 		updates := []string{
 			`UPDATE backlog_items SET status = UPPER(status) WHERE status != UPPER(status)`,
@@ -80,13 +83,13 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			`UPDATE backlog_items SET type = UPPER(REPLACE(type, '-', '_')) WHERE type != UPPER(REPLACE(type, '-', '_'))`,
 		}
 		for _, q := range updates {
-			if _, err := tx.Exec(q); err != nil {
+			if _, err := tx.Exec(ctx, q); err != nil {
 				return fmt.Errorf("normalize: %w", err)
 			}
 		}
 
 		// scope: 쉼표 구분 각각 정규화 (Go에서 처리)
-		rows, err := tx.Query("SELECT id, scope FROM backlog_items")
+		rows, err := tx.Query(ctx, "SELECT id, scope FROM backlog_items")
 		if err != nil {
 			return err
 		}
@@ -107,14 +110,14 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		for _, p := range pairs {
 			normalized := NormalizeScope(p.scope)
 			if normalized != p.scope {
-				if _, execErr := tx.Exec("UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id); execErr != nil {
+				if _, execErr := tx.Exec(ctx, "UPDATE backlog_items SET scope = ? WHERE id = ?", normalized, p.id); execErr != nil {
 					return fmt.Errorf("update scope id=%d: %w", p.id, execErr)
 				}
 			}
 		}
 
 		// resolution 오염 데이터 정리
-		resRows, err := tx.Query("SELECT id, resolution FROM backlog_items WHERE resolution IS NOT NULL")
+		resRows, err := tx.Query(ctx, "SELECT id, resolution FROM backlog_items WHERE resolution IS NOT NULL")
 		if err != nil {
 			return err
 		}
@@ -135,14 +138,14 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		for _, p := range resPairs {
 			normalized := NormalizeResolution(p.res)
 			if normalized != p.res {
-				if _, execErr := tx.Exec("UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id); execErr != nil {
+				if _, execErr := tx.Exec(ctx, "UPDATE backlog_items SET resolution = ? WHERE id = ?", normalized, p.id); execErr != nil {
 					return fmt.Errorf("update resolution id=%d: %w", p.id, execErr)
 				}
 			}
 		}
 
 		// 2. 스키마 재생성 (DEFAULT 'OPEN')
-		_, err = tx.Exec(`
+		_, err = tx.Exec(ctx, `
 			CREATE TABLE backlog_items_v3 (
 				id          INTEGER PRIMARY KEY AUTOINCREMENT,
 				title       TEXT    NOT NULL,
@@ -187,7 +190,7 @@ func (m *Module) OnStop() error                   { return nil }
 
 // ── Route handlers ──
 
-func (m *Module) handleAdd(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleAdd(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		BacklogItem
 		Fix    bool   `json:"fix"`
@@ -196,47 +199,47 @@ func (m *Module) handleAdd(_ context.Context, params json.RawMessage, _ string) 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.add: decode params: %w", err)
 	}
-	if err := m.manager.Add(&p.BacklogItem); err != nil {
+	if err := m.manager.Add(ctx, &p.BacklogItem); err != nil {
 		return nil, err
 	}
 	// --fix: add 직후 FIXING 전이 + 브랜치 연결
 	if p.Fix && p.Branch != "" {
-		if err := m.manager.Fix(p.BacklogItem.ID, p.Branch); err != nil {
+		if err := m.manager.Fix(ctx, p.BacklogItem.ID, p.Branch); err != nil {
 			return nil, fmt.Errorf("backlog.add: auto-fix: %w", err)
 		}
 	}
 	return map[string]any{"id": p.BacklogItem.ID, "position": p.BacklogItem.Position, "fixed": p.Fix}, nil
 }
 
-func (m *Module) handleList(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleList(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var filter ListFilter
 	if len(params) > 0 && string(params) != "null" {
 		if err := json.Unmarshal(params, &filter); err != nil {
 			return nil, fmt.Errorf("backlog.list: decode params: %w", err)
 		}
 	}
-	items, err := m.manager.List(filter)
+	items, err := m.manager.List(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
 	return items, nil
 }
 
-func (m *Module) handleGet(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleGet(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID int `json:"id"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.get: decode params: %w", err)
 	}
-	item, err := m.manager.Get(p.ID)
+	item, err := m.manager.Get(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	return item, nil
 }
 
-func (m *Module) handleResolve(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleResolve(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID         int    `json:"id"`
 		Resolution string `json:"resolution"`
@@ -244,43 +247,43 @@ func (m *Module) handleResolve(_ context.Context, params json.RawMessage, _ stri
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.resolve: decode params: %w", err)
 	}
-	if err := m.manager.Resolve(p.ID, p.Resolution); err != nil {
+	if err := m.manager.Resolve(ctx, p.ID, p.Resolution); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "resolved"}, nil
 }
 
-func (m *Module) handleCheck(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleCheck(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID int `json:"id"`
 	}
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.check: decode params: %w", err)
 	}
-	exists, status, err := m.manager.Check(p.ID)
+	exists, status, err := m.manager.Check(ctx, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{"exists": exists, "status": status}, nil
 }
 
-func (m *Module) handleNextID(_ context.Context, _ json.RawMessage, _ string) (any, error) {
-	id, err := m.manager.NextID()
+func (m *Module) handleNextID(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+	id, err := m.manager.NextID(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]int{"id": id}, nil
 }
 
-func (m *Module) handleExport(_ context.Context, _ json.RawMessage, _ string) (any, error) {
-	out, err := m.manager.ExportJSON()
+func (m *Module) handleExport(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+	out, err := m.manager.ExportJSON(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]string{"content": string(out)}, nil
 }
 
-func (m *Module) handleUpdate(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleUpdate(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID     int               `json:"id"`
 		Fields map[string]string `json:"fields"`
@@ -288,13 +291,13 @@ func (m *Module) handleUpdate(_ context.Context, params json.RawMessage, _ strin
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.update: decode params: %w", err)
 	}
-	if err := m.manager.Update(p.ID, p.Fields); err != nil {
+	if err := m.manager.Update(ctx, p.ID, p.Fields); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "updated"}, nil
 }
 
-func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleRelease(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID     int    `json:"id"`
 		Reason string `json:"reason"`
@@ -303,13 +306,13 @@ func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ stri
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.release: decode params: %w", err)
 	}
-	if err := m.manager.Release(p.ID, p.Reason, p.Branch); err != nil {
+	if err := m.manager.Release(ctx, p.ID, p.Reason, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "released"}, nil
 }
 
-func (m *Module) handleFix(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleFix(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		ID     int    `json:"id"`
 		Branch string `json:"branch"`
@@ -317,13 +320,13 @@ func (m *Module) handleFix(_ context.Context, params json.RawMessage, _ string) 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("backlog.fix: decode params: %w", err)
 	}
-	if err := m.manager.Fix(p.ID, p.Branch); err != nil {
+	if err := m.manager.Fix(ctx, p.ID, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "fixing"}, nil
 }
 
-func (m *Module) handleSyncImport(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleSyncImport(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p struct {
 		JSONData string `json:"json_data"`
 	}
@@ -337,7 +340,7 @@ func (m *Module) handleSyncImport(_ context.Context, params json.RawMessage, _ s
 	if err != nil {
 		return nil, fmt.Errorf("backlog.sync-import: parse: %w", err)
 	}
-	n, err := m.manager.ImportItems(items)
+	n, err := m.manager.ImportItems(ctx, items)
 	if err != nil {
 		return nil, fmt.Errorf("backlog.sync-import: import: %w", err)
 	}

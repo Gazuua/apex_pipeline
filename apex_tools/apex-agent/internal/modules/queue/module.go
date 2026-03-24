@@ -31,7 +31,8 @@ func (m *Module) Manager() *Manager { return m.manager }
 // RegisterSchema registers the queue table migration.
 func (m *Module) RegisterSchema(mig *store.Migrator) {
 	mig.Register("queue", 1, func(tx *store.TxStore) error {
-		_, err := tx.Exec(`CREATE TABLE queue (
+		ctx := context.Background()
+		_, err := tx.Exec(ctx, `CREATE TABLE queue (
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel    TEXT    NOT NULL,
 			branch     TEXT    NOT NULL,
@@ -42,19 +43,20 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(`CREATE INDEX idx_queue_channel_status ON queue(channel, status)`)
+		_, err = tx.Exec(ctx, `CREATE INDEX idx_queue_channel_status ON queue(channel, status)`)
 		return err
 	})
 	mig.Register("queue", 2, func(tx *store.TxStore) error {
-		_, err := tx.Exec(`UPDATE queue SET status = UPPER(status)`)
+		_, err := tx.Exec(context.Background(), `UPDATE queue SET status = UPPER(status)`)
 		return err
 	})
 	mig.Register("queue", 3, func(tx *store.TxStore) error {
-		_, err := tx.Exec(`ALTER TABLE queue ADD COLUMN finished_at TEXT`)
+		_, err := tx.Exec(context.Background(), `ALTER TABLE queue ADD COLUMN finished_at TEXT`)
 		return err
 	})
 	mig.Register("queue", 4, func(tx *store.TxStore) error {
-		_, err := tx.Exec(`CREATE TABLE queue_history (
+		ctx := context.Background()
+		_, err := tx.Exec(ctx, `CREATE TABLE queue_history (
 			id         INTEGER PRIMARY KEY AUTOINCREMENT,
 			channel    TEXT NOT NULL,
 			branch     TEXT NOT NULL,
@@ -64,7 +66,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(`CREATE INDEX idx_queue_history_channel_ts ON queue_history(channel, timestamp DESC)`)
+		_, err = tx.Exec(ctx, `CREATE INDEX idx_queue_history_channel_ts ON queue_history(channel, timestamp DESC)`)
 		return err
 	})
 }
@@ -134,23 +136,23 @@ func (m *Module) handleTryAcquire(ctx context.Context, params json.RawMessage, _
 	return map[string]any{"acquired": acquired, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleRelease(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleRelease(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p releaseParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.release: decode params: %w", err)
 	}
-	if err := m.manager.Release(p.Channel); err != nil {
+	if err := m.manager.Release(ctx, p.Channel); err != nil {
 		return nil, err
 	}
 	return map[string]any{"released": true, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleStatus(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleStatus(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p statusParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.status: decode params: %w", err)
 	}
-	active, waiting, err := m.manager.Status(p.Channel)
+	active, waiting, err := m.manager.Status(ctx, p.Channel)
 	if err != nil {
 		return nil, err
 	}
@@ -167,19 +169,19 @@ type updatePIDParams struct {
 	PID     int    `json:"pid"`
 }
 
-func (m *Module) handleUpdatePID(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleUpdatePID(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p updatePIDParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("queue.update-pid: decode params: %w", err)
 	}
-	if err := m.manager.UpdatePID(p.Channel, p.Branch, p.PID); err != nil {
+	if err := m.manager.UpdatePID(ctx, p.Channel, p.Branch, p.PID); err != nil {
 		return nil, err
 	}
 	return map[string]any{"updated": true, "channel": p.Channel, "pid": p.PID}, nil
 }
 
-func (m *Module) handleCleanupStale(_ context.Context, _ json.RawMessage, _ string) (any, error) {
-	removed, err := m.manager.CleanupStale()
+func (m *Module) handleCleanupStale(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+	removed, err := m.manager.CleanupStale(ctx)
 	if err != nil {
 		return nil, err
 	}

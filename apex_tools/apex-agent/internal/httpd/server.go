@@ -4,22 +4,17 @@ package httpd
 
 import (
 	"context"
-	"encoding/json"
 	"html/template"
 	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/dispatch"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
 
 var ml = log.WithModule("httpd")
-
-// Dispatcher routes requests to module handlers (satisfied by daemon.Router).
-type Dispatcher interface {
-	Dispatch(ctx context.Context, module, action string, params json.RawMessage, workspace string) (any, error)
-}
 
 // BacklogQuerier abstracts backlog module queries for the dashboard.
 // Implemented by adapter in daemon_cmd.go to avoid import cycles.
@@ -51,7 +46,7 @@ type Server struct {
 	backlogMgr  BacklogQuerier
 	handoffMgr  HandoffQuerier
 	queueMgr    QueueQuerier
-	router      Dispatcher
+	router      dispatch.Dispatcher
 	httpSrv     *http.Server
 	listener    net.Listener
 	lastRequest atomic.Int64
@@ -61,7 +56,7 @@ type Server struct {
 
 // New creates a new HTTP server.
 // backlogMgr, handoffMgr, queueMgr may be nil for health-only mode.
-func New(backlogMgr BacklogQuerier, handoffMgr HandoffQuerier, queueMgr QueueQuerier, router Dispatcher, addr string) *Server {
+func New(backlogMgr BacklogQuerier, handoffMgr HandoffQuerier, queueMgr QueueQuerier, router dispatch.Dispatcher, addr string) *Server {
 	s := &Server{
 		backlogMgr: backlogMgr,
 		handoffMgr: handoffMgr,

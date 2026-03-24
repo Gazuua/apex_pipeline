@@ -80,8 +80,8 @@ func New(t *testing.T) *TestEnv {
 	d.Register(queueMod)
 
 	// Junction cleaner (same as daemon_cmd.go)
-	backlogMod.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
-		_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+	backlogMod.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
+		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
 		return err
 	})
 
@@ -165,8 +165,8 @@ func (e *TestEnv) Restart(t *testing.T) {
 	d.Register(handoffMod2)
 	d.Register(queueMod2)
 
-	backlogMod2.Manager().SetJunctionCleaner(func(q store.Querier, backlogID int) error {
-		_, err := q.Exec(`DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+	backlogMod2.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
+		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
 		return err
 	})
 
@@ -272,17 +272,17 @@ func run(t *testing.T, dir string, cmd string, args ...string) {
 type testBacklogQuerier struct{ mgr *backlog.Manager }
 
 func (a *testBacklogQuerier) DashboardStatusCounts() (map[string]int, error) {
-	return a.mgr.DashboardStatusCounts()
+	return a.mgr.DashboardStatusCounts(context.Background())
 }
 func (a *testBacklogQuerier) DashboardSeverityCounts() (map[string]int, error) {
-	return a.mgr.DashboardSeverityCounts()
+	return a.mgr.DashboardSeverityCounts(context.Background())
 }
 func (a *testBacklogQuerier) DashboardListItems(f httpd.BacklogFilter) ([]httpd.BacklogItem, error) {
 	mf := backlog.DashboardFilter{
 		Status: f.Status, Severity: f.Severity, Timeframe: f.Timeframe,
 		Scope: f.Scope, Type: f.Type, SortBy: f.SortBy, SortDir: f.SortDir,
 	}
-	items, err := a.mgr.DashboardList(mf)
+	items, err := a.mgr.DashboardList(context.Background(), mf)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (a *testBacklogQuerier) DashboardListItems(f httpd.BacklogFilter) ([]httpd.
 	return result, nil
 }
 func (a *testBacklogQuerier) DashboardGetItemByID(id int) (*httpd.BacklogItem, error) {
-	item, err := a.mgr.DashboardGetByID(id)
+	item, err := a.mgr.DashboardGetByID(context.Background(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +316,7 @@ func (a *testBacklogQuerier) DashboardGetItemByID(id int) (*httpd.BacklogItem, e
 type testHandoffQuerier struct{ mgr *handoff.Manager }
 
 func (a *testHandoffQuerier) DashboardActiveBranchesList() ([]httpd.ActiveBranch, error) {
-	branches, err := a.mgr.DashboardActiveBranches()
+	branches, err := a.mgr.DashboardActiveBranches(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -330,10 +330,10 @@ func (a *testHandoffQuerier) DashboardActiveBranchesList() ([]httpd.ActiveBranch
 	return result, nil
 }
 func (a *testHandoffQuerier) DashboardActiveCount() (int, error) {
-	return a.mgr.DashboardActiveCount()
+	return a.mgr.DashboardActiveCount(context.Background())
 }
 func (a *testHandoffQuerier) DashboardBranchHistoryList(limit int) ([]httpd.BranchHistory, error) {
-	history, err := a.mgr.DashboardBranchHistoryList(limit)
+	history, err := a.mgr.DashboardBranchHistoryList(context.Background(), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (a *testHandoffQuerier) DashboardBranchHistoryList(limit int) ([]httpd.Bran
 type testQueueQuerier struct{ mgr *queue.Manager }
 
 func (a *testQueueQuerier) DashboardQueueAll() ([]httpd.QueueEntry, error) {
-	entries, err := a.mgr.DashboardQueueAll()
+	entries, err := a.mgr.DashboardQueueAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -376,10 +376,10 @@ func (a *testQueueQuerier) DashboardQueueAll() ([]httpd.QueueEntry, error) {
 	return result, nil
 }
 func (a *testQueueQuerier) DashboardLockStatus(channel string) (bool, error) {
-	return a.mgr.DashboardLockStatus(channel)
+	return a.mgr.DashboardLockStatus(context.Background(), channel)
 }
 func (a *testQueueQuerier) DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]httpd.QueueHistoryEntry, error) {
-	entries, err := a.mgr.DashboardHistory(channel, offset, limit, from, to)
+	entries, err := a.mgr.DashboardHistory(context.Background(), channel, offset, limit, from, to)
 	if err != nil {
 		return nil, err
 	}

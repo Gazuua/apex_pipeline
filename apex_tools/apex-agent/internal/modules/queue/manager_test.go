@@ -47,7 +47,7 @@ func TestTryAcquire_Free(t *testing.T) {
 		t.Fatal("expected acquired=true on free channel")
 	}
 
-	active, waiting, err := m.Status("build")
+	active, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestTryAcquire_Busy(t *testing.T) {
 		t.Fatal("expected acquired=false on busy channel")
 	}
 
-	active, waiting, err := m.Status("build")
+	active, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -114,11 +114,11 @@ func TestRelease_Basic(t *testing.T) {
 		t.Fatalf("TryAcquire: err=%v acquired=%v", err, acquired)
 	}
 
-	if err := m.Release("build"); err != nil {
+	if err := m.Release(context.Background(), "build"); err != nil {
 		t.Fatalf("Release: %v", err)
 	}
 
-	active, _, err := m.Status("build")
+	active, _, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestRelease_FreesChannel(t *testing.T) {
 	m := newTestManager(t)
 
 	_, _ = m.TryAcquire(context.Background(), "build", "feature/first", 11111)
-	_ = m.Release("build")
+	_ = m.Release(context.Background(), "build")
 
 	acquired, err := m.TryAcquire(context.Background(), "build", "feature/second", 22222)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestRelease_FreesChannel(t *testing.T) {
 func TestStatus_Free(t *testing.T) {
 	m := newTestManager(t)
 
-	active, waiting, err := m.Status("build")
+	active, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestStatus_Busy(t *testing.T) {
 	_, _ = m.TryAcquire(context.Background(), "merge", "feature/b", 22222)
 	_, _ = m.TryAcquire(context.Background(), "merge", "feature/c", 33333)
 
-	active, waiting, err := m.Status("merge")
+	active, waiting, err := m.Status(context.Background(), "merge")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestCleanupStale_RemovesDeadPID(t *testing.T) {
 		t.Fatalf("TryAcquire: %v", err)
 	}
 
-	removed, err := m.CleanupStale()
+	removed, err := m.CleanupStale(context.Background())
 	if err != nil {
 		t.Fatalf("CleanupStale: %v", err)
 	}
@@ -200,7 +200,7 @@ func TestCleanupStale_RemovesDeadPID(t *testing.T) {
 		t.Error("expected at least 1 stale entry removed")
 	}
 
-	active, _, err := m.Status("build")
+	active, _, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -221,10 +221,10 @@ func TestFIFO_Order(t *testing.T) {
 	_, _ = m.TryAcquire(context.Background(), "build", "feature/second-waiter", 33333)
 
 	// Release holder.
-	_ = m.Release("build")
+	_ = m.Release(context.Background(), "build")
 
 	// Advance queue: first waiter should now be able to acquire.
-	active, waiting, err := m.Status("build")
+	active, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status after release: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestAcquire_ContextCancel_CleansUpWaitingEntry(t *testing.T) {
 	}
 
 	// Verify that the waiting entry was cleaned up.
-	_, waiting, err := m.Status("build")
+	_, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestAcquire_Timeout(t *testing.T) {
 	}
 
 	// Verify that the waiting entry was cleaned up.
-	_, waiting, err := m.Status("build")
+	_, waiting, err := m.Status(context.Background(), "build")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestAcquire_PromotesAfterRelease(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Release the lock.
-	if err := m.Release("merge"); err != nil {
+	if err := m.Release(context.Background(), "merge"); err != nil {
 		t.Fatalf("Release: %v", err)
 	}
 
@@ -375,7 +375,7 @@ func TestAcquire_PromotesAfterRelease(t *testing.T) {
 	}
 
 	// Verify the waiter is now active.
-	active, _, err := m.Status("merge")
+	active, _, err := m.Status(context.Background(), "merge")
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -400,11 +400,11 @@ func TestDashboardHistory_RecordsEvents(t *testing.T) {
 	}
 
 	// Release → DONE.
-	if err := m.Release("build"); err != nil {
+	if err := m.Release(context.Background(), "build"); err != nil {
 		t.Fatalf("Release: %v", err)
 	}
 
-	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	entries, err := m.DashboardHistory(context.Background(),"build", 0, 50, "", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestDashboardHistory_WaitingEvent(t *testing.T) {
 	// Second branch → WAITING.
 	_, _ = m.TryAcquire(context.Background(), "build", "feature/waiter", pid)
 
-	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	entries, err := m.DashboardHistory(context.Background(),"build", 0, 50, "", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory: %v", err)
 	}
@@ -454,11 +454,11 @@ func TestDashboardHistory_Pagination(t *testing.T) {
 
 	// Create 3 events: ACTIVE, DONE, ACTIVE.
 	_, _ = m.TryAcquire(context.Background(), "build", "feature/a", pid)
-	_ = m.Release("build")
+	_ = m.Release(context.Background(), "build")
 	_, _ = m.TryAcquire(context.Background(), "build", "feature/b", pid)
 
 	// Limit 2 → should get 2 newest.
-	entries, err := m.DashboardHistory("build", 0, 2, "", "")
+	entries, err := m.DashboardHistory(context.Background(),"build", 0, 2, "", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory limit: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestDashboardHistory_Pagination(t *testing.T) {
 	}
 
 	// Offset 2 → should get 1 oldest.
-	entries2, err := m.DashboardHistory("build", 2, 2, "", "")
+	entries2, err := m.DashboardHistory(context.Background(),"build", 2, 2, "", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory offset: %v", err)
 	}
@@ -480,7 +480,7 @@ func TestDashboardHistory_Pagination(t *testing.T) {
 func TestDashboardHistory_Empty(t *testing.T) {
 	m := newTestManager(t)
 
-	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	entries, err := m.DashboardHistory(context.Background(),"build", 0, 50, "", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory: %v", err)
 	}
@@ -496,12 +496,13 @@ func TestDashboardHistory_FromToFilter(t *testing.T) {
 
 	// Insert history events with explicit timestamps via raw SQL
 	// to avoid time.Sleep and make the test deterministic.
-	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/old', 'ACTIVE', '2026-01-01 00:00:00')`)
-	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/mid', 'ACTIVE', '2026-01-15 00:00:00')`)
-	s.Exec(`INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/new', 'ACTIVE', '2026-02-01 00:00:00')`)
+	ctx := context.Background()
+	s.Exec(ctx, `INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/old', 'ACTIVE', '2026-01-01 00:00:00')`)
+	s.Exec(ctx, `INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/mid', 'ACTIVE', '2026-01-15 00:00:00')`)
+	s.Exec(ctx, `INSERT INTO queue_history (channel, branch, status, timestamp) VALUES ('build', 'feature/new', 'ACTIVE', '2026-02-01 00:00:00')`)
 
 	// Filter: from=Jan 10 → should exclude 'old', return 'mid' and 'new'.
-	entries, err := m.DashboardHistory("build", 0, 50, "2026-01-10 00:00:00", "")
+	entries, err := m.DashboardHistory(context.Background(),"build", 0, 50, "2026-01-10 00:00:00", "")
 	if err != nil {
 		t.Fatalf("DashboardHistory from-filter: %v", err)
 	}
@@ -513,7 +514,7 @@ func TestDashboardHistory_FromToFilter(t *testing.T) {
 	}
 
 	// Filter: to=Jan 20 → should exclude 'new', return 'old' and 'mid'.
-	entries2, err := m.DashboardHistory("build", 0, 50, "", "2026-01-20 00:00:00")
+	entries2, err := m.DashboardHistory(context.Background(),"build", 0, 50, "", "2026-01-20 00:00:00")
 	if err != nil {
 		t.Fatalf("DashboardHistory to-filter: %v", err)
 	}
@@ -522,7 +523,7 @@ func TestDashboardHistory_FromToFilter(t *testing.T) {
 	}
 
 	// Filter: from+to range → should return only 'mid'.
-	entries3, err := m.DashboardHistory("build", 0, 50, "2026-01-10 00:00:00", "2026-01-20 00:00:00")
+	entries3, err := m.DashboardHistory(context.Background(),"build", 0, 50, "2026-01-10 00:00:00", "2026-01-20 00:00:00")
 	if err != nil {
 		t.Fatalf("DashboardHistory from+to filter: %v", err)
 	}

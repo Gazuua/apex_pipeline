@@ -326,3 +326,9 @@ go test ./e2e/... -run TestBacklog_Enum    # 특정 테스트
 | queue | v4 | queue_history 이벤트 로그 테이블 + 인덱스 |
 
 daemon 시작 시 자동 실행. 롤백 미지원 — 항상 전진 마이그레이션.
+
+### Store context 전파
+
+`Querier` 인터페이스의 `Exec/Query/QueryRow`는 `ctx context.Context`를 첫 인자로 받는다.
+IPC 핸들러 → Manager → Store 체인으로 ctx가 전파되어 graceful shutdown과 request timeout이 DB 쿼리까지 도달한다.
+Dashboard 메서드(`Dashboard*`)는 `context.Background()` 사용 (짧은 읽기 전용, httpd querier 인터페이스 변경 불필요).

@@ -3,6 +3,7 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,11 +50,12 @@ func setupPipelineTest(t *testing.T) (string, *backlog.Manager, func()) {
 func TestDropPipeline_OK(t *testing.T) {
 	dir := initTestRepo(t)
 	runGit(t, dir, "checkout", "-b", "feature/drop-test")
+	ctx := context.Background()
 
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "reason": "테스트"}
 
-	err := DropPipeline(params, dir, mock.fn)
+	err := DropPipeline(ctx, params, dir, mock.fn)
 	if err != nil {
 		t.Fatalf("DropPipeline: %v", err)
 	}
@@ -67,7 +69,7 @@ func TestDropPipeline_IPCFails(t *testing.T) {
 	mock := &mockIPC{err: fmt.Errorf("FIXING 백로그 잔존")}
 	params := map[string]any{"branch": "test", "reason": "테스트"}
 
-	err := DropPipeline(params, dir, mock.fn)
+	err := DropPipeline(context.Background(), params, dir, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when IPC fails")
 	}
@@ -85,7 +87,7 @@ func TestMergePipeline_OK(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "workspace": "test", "summary": "merge"}
 
-	err := MergePipeline(params, repoDir, mgr, mock.fn)
+	err := MergePipeline(context.Background(), params, repoDir, mgr, mock.fn)
 	if err != nil {
 		t.Fatalf("MergePipeline: %v", err)
 	}
@@ -104,7 +106,7 @@ func TestMergePipeline_IPCFails(t *testing.T) {
 	mock := &mockIPC{err: fmt.Errorf("FIXING 잔존")}
 	params := map[string]any{"branch": "test", "summary": "merge"}
 
-	err := MergePipeline(params, repoDir, mgr, mock.fn)
+	err := MergePipeline(context.Background(), params, repoDir, mgr, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when IPC fails")
 	}
@@ -121,7 +123,7 @@ func TestStartPipeline_OK(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{"notification_id": float64(1)}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline("feature/start-test", params, dir, mgr, mock.fn)
+	err := StartPipeline(context.Background(), "feature/start-test", params, dir, mgr, mock.fn)
 	if err != nil {
 		t.Fatalf("StartPipeline: %v", err)
 	}
@@ -140,7 +142,7 @@ func TestStartPipeline_BranchExists(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline("feature/exists", params, dir, nil, mock.fn)
+	err := StartPipeline(context.Background(), "feature/exists", params, dir, nil, mock.fn)
 	if err == nil {
 		t.Fatal("expected error for existing branch")
 	}
@@ -156,7 +158,7 @@ func TestStartPipeline_IPCFails(t *testing.T) {
 	mock := &mockIPC{err: fmt.Errorf("daemon unavailable")}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline("feature/ipc-fail", params, dir, nil, mock.fn)
+	err := StartPipeline(context.Background(), "feature/ipc-fail", params, dir, nil, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when IPC fails")
 	}
@@ -184,7 +186,7 @@ func TestMergePipeline_RebaseFails(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "summary": "merge"}
 
-	err := MergePipeline(params, repoDir, nil, mock.fn)
+	err := MergePipeline(context.Background(), params, repoDir, nil, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when rebase fails")
 	}

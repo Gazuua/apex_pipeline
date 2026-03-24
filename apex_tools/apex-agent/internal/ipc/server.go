@@ -11,27 +11,23 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/dispatch"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 )
 
 var ml = log.WithModule("ipc")
 
-// Dispatcher routes an IPC request to the appropriate handler.
-type Dispatcher interface {
-	Dispatch(ctx context.Context, module, action string, params json.RawMessage, workspace string) (any, error)
-}
-
 // Server accepts IPC connections and dispatches requests to the router.
 type Server struct {
 	addr        string
-	router      Dispatcher
+	router      dispatch.Dispatcher
 	listener    net.Listener
 	lastRequest atomic.Int64
 	wg          sync.WaitGroup
 }
 
 // NewServer creates a new IPC server with the given address and dispatcher.
-func NewServer(addr string, router Dispatcher) *Server {
+func NewServer(addr string, router dispatch.Dispatcher) *Server {
 	return &Server{addr: addr, router: router}
 }
 
