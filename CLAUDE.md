@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.5.11.0 — ScopedLogger 로깅 인프라 (구조화 로그, source_location, 전 레이어 마이그레이션)
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164). HTTP 대시보드 완료 (BACKLOG-154,159, PR #130) — `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정 포함
+- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164). HTTP 대시보드 완료 (BACKLOG-154,159, PR #130) — `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정 포함. cleanup 4단계 확장 완료 (BACKLOG-170, PR #135) — 워크스페이스 복사본 브랜치 정리 + 폴링 최적화 (BACKLOG-183)
 - **다음**: v0.6 (운영 인프라) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -80,7 +80,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
 - **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
-- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
+- **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 + 워크스페이스 복사본 로컬 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
 ### 브랜치 인수인계 (Branch Handoff)
 - **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI

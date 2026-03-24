@@ -13,7 +13,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 135,
@@ -27,7 +27,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 113,
@@ -41,7 +41,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 114,
@@ -55,7 +55,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 51,
@@ -68,7 +68,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 104,
@@ -81,7 +81,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 142,
@@ -95,7 +95,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 146,
@@ -108,7 +108,7 @@
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 147,
@@ -122,7 +122,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 148,
@@ -135,7 +135,7 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 149,
@@ -148,20 +148,7 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
-    },
-    {
-      "id": 170,
-      "title": "cleanup이 복사본(branch_01~10) 로컬 브랜치도 정리하도록 개선",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "현재 cleanup은 agent 레포만 정리하고 branch_01~10 독립 복사본은 건드리지 않음. 머지 완료된 로컬 브랜치 포인터가 복사본에 잔존하여 GitHub Desktop 등에서 계속 보이는 문제 발생. cleanup 시 워크스페이스 내 모든 복사본을 순회하며 main 제외 머지 완료 로컬 브랜치를 일괄 정리해야 함.",
-      "position": 29,
-      "status": "OPEN",
-      "created_at": "2026-03-23 23:05:23",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 171,
@@ -174,7 +161,7 @@
       "position": 30,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:41",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 175,
@@ -187,7 +174,7 @@
       "position": 32,
       "status": "OPEN",
       "created_at": "2026-03-24 01:34:43",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 176,
@@ -200,7 +187,7 @@
       "position": 33,
       "status": "OPEN",
       "created_at": "2026-03-24 01:34:58",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 177,
@@ -213,7 +200,7 @@
       "position": 34,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 178,
@@ -226,7 +213,7 @@
       "position": 35,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:42",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 179,
@@ -240,7 +227,7 @@
       "position": 36,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:51",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 181,
@@ -253,7 +240,7 @@
       "position": 37,
       "status": "OPEN",
       "created_at": "2026-03-24 10:26:16",
-      "updated_at": "2026-03-24 10:26:16"
+      "updated_at": "2026-03-24 11:16:30"
     },
     {
       "id": 182,
@@ -266,20 +253,7 @@
       "position": 38,
       "status": "OPEN",
       "created_at": "2026-03-24 10:26:22",
-      "updated_at": "2026-03-24 10:26:22"
-    },
-    {
-      "id": 183,
-      "title": "apex-agent queue Acquire: CleanupStale 폴링 최적화",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "PERF",
-      "description": "Acquire 폴링 루프에서 매 반복(100ms~2s)마다 CleanupStale()을 호출해 모든 ACTIVE/WAITING 엔트리를 스캔. 큐가 커지면 불필요한 DB 부하 발생. 마지막 CleanupStale 시각을 기록하고 최소 5초 이상 경과했을 때만 재실행하는 방식으로 최적화. 또는 tryPromote 실패 시에만 실행.",
-      "position": 39,
-      "status": "OPEN",
-      "created_at": "2026-03-24 10:26:27",
-      "updated_at": "2026-03-24 10:26:27"
+      "updated_at": "2026-03-24 11:16:30"
     },
     {
       "id": 184,
@@ -292,7 +266,7 @@
       "position": 40,
       "status": "OPEN",
       "created_at": "2026-03-24 10:26:32",
-      "updated_at": "2026-03-24 10:26:32"
+      "updated_at": "2026-03-24 11:16:30"
     },
     {
       "id": 59,
@@ -305,7 +279,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 36,
@@ -318,7 +292,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 40,
@@ -331,7 +305,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 41,
@@ -344,7 +318,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 42,
@@ -357,7 +331,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 43,
@@ -370,7 +344,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 44,
@@ -383,7 +357,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 172,
@@ -396,7 +370,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:47",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 173,
@@ -409,7 +383,37 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-24 00:06:01",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
+    },
+    {
+      "id": 183,
+      "title": "apex-agent queue Acquire: CleanupStale 폴링 최적화",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "PERF",
+      "description": "Acquire 폴링 루프에서 매 반복(100ms~2s)마다 CleanupStale()을 호출해 모든 ACTIVE/WAITING 엔트리를 스캔. 큐가 커지면 불필요한 DB 부하 발생. 마지막 CleanupStale 시각을 기록하고 최소 5초 이상 경과했을 때만 재실행하는 방식으로 최적화. 또는 tryPromote 실패 시에만 실행.",
+      "position": 39,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 11:18:28",
+      "created_at": "2026-03-24 10:26:27",
+      "updated_at": "2026-03-24 11:18:28"
+    },
+    {
+      "id": 170,
+      "title": "cleanup이 복사본(branch_01~10) 로컬 브랜치도 정리하도록 개선",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "현재 cleanup은 agent 레포만 정리하고 branch_01~10 독립 복사본은 건드리지 않음. 머지 완료된 로컬 브랜치 포인터가 복사본에 잔존하여 GitHub Desktop 등에서 계속 보이는 문제 발생. cleanup 시 워크스페이스 내 모든 복사본을 순회하며 main 제외 머지 완료 로컬 브랜치를 일괄 정리해야 함.",
+      "position": 29,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 11:18:27",
+      "created_at": "2026-03-23 23:05:23",
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 161,
@@ -424,7 +428,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 09:04:34",
       "created_at": "2026-03-23 20:01:33",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 174,
@@ -439,7 +443,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 09:04:34",
       "created_at": "2026-03-24 01:33:24",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 180,
@@ -454,7 +458,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 08:44:49",
       "created_at": "2026-03-24 03:20:18",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 154,
@@ -469,7 +473,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 03:06:14",
       "created_at": "2026-03-23 16:36:03",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 159,
@@ -485,7 +489,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 03:06:14",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 151,
@@ -500,7 +504,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 01:09:14",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 137,
@@ -516,7 +520,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 01:09:13",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 152,
@@ -531,7 +535,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-24 00:19:29",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 150,
@@ -546,7 +550,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 00:19:23",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 65,
@@ -562,7 +566,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:41:25",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 166,
@@ -577,7 +581,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:03",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 167,
@@ -592,7 +596,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:08",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 168,
@@ -607,7 +611,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:13",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 169,
@@ -622,7 +626,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:18",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 158,
@@ -637,7 +641,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 162,
@@ -652,7 +656,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 20:01:38",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 165,
@@ -667,7 +671,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 22:48:58",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 155,
@@ -682,7 +686,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 156,
@@ -697,7 +701,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 50,
@@ -713,7 +717,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-23 23:04:16",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 163,
@@ -729,7 +733,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 20:26:31",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 164,
@@ -744,7 +748,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 21:47:26",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 132,
@@ -759,7 +763,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 138,
@@ -774,7 +778,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 153,
@@ -789,7 +793,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 20:11:02",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 160,
@@ -804,7 +808,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 19:31:13",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 157,
@@ -819,7 +823,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 17:16:11",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 141,
@@ -834,7 +838,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 143,
@@ -849,7 +853,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 144,
@@ -864,7 +868,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 145,
@@ -879,7 +883,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 139,
@@ -894,7 +898,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 140,
@@ -909,7 +913,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 126,
@@ -924,7 +928,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 00:53:31",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 136,
@@ -939,7 +943,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 21:06:23",
       "created_at": "2026-03-22 21:06:09",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 1,
@@ -954,7 +958,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 2,
@@ -969,7 +973,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 3,
@@ -984,7 +988,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 4,
@@ -999,7 +1003,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 5,
@@ -1014,7 +1018,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 6,
@@ -1029,7 +1033,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 7,
@@ -1044,7 +1048,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 8,
@@ -1059,7 +1063,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 9,
@@ -1074,7 +1078,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 10,
@@ -1089,7 +1093,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 11,
@@ -1104,7 +1108,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 12,
@@ -1119,7 +1123,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 13,
@@ -1134,7 +1138,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 14,
@@ -1149,7 +1153,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 15,
@@ -1164,7 +1168,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 16,
@@ -1179,7 +1183,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 17,
@@ -1194,7 +1198,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 18,
@@ -1209,7 +1213,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 19,
@@ -1224,7 +1228,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 20,
@@ -1239,7 +1243,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 21,
@@ -1254,7 +1258,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 22,
@@ -1269,7 +1273,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 23,
@@ -1284,7 +1288,7 @@
       "resolution": "DUPLICATE",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 24,
@@ -1299,7 +1303,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 25,
@@ -1314,7 +1318,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 26,
@@ -1329,7 +1333,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 27,
@@ -1344,7 +1348,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 28,
@@ -1359,7 +1363,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 29,
@@ -1374,7 +1378,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 31,
@@ -1389,7 +1393,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 33,
@@ -1404,7 +1408,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 34,
@@ -1419,7 +1423,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 35,
@@ -1434,7 +1438,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 37,
@@ -1449,7 +1453,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 38,
@@ -1464,7 +1468,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 39,
@@ -1479,7 +1483,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 45,
@@ -1494,7 +1498,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 46,
@@ -1509,7 +1513,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 47,
@@ -1524,7 +1528,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 48,
@@ -1539,7 +1543,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 49,
@@ -1554,7 +1558,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 52,
@@ -1569,7 +1573,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 54,
@@ -1584,7 +1588,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 55,
@@ -1599,7 +1603,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 56,
@@ -1614,7 +1618,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 58,
@@ -1629,7 +1633,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 60,
@@ -1644,7 +1648,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 61,
@@ -1659,7 +1663,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 62,
@@ -1674,7 +1678,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 63,
@@ -1689,7 +1693,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 64,
@@ -1704,7 +1708,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 66,
@@ -1719,7 +1723,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 67,
@@ -1734,7 +1738,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 68,
@@ -1749,7 +1753,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 69,
@@ -1764,7 +1768,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 70,
@@ -1779,7 +1783,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 71,
@@ -1794,7 +1798,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 72,
@@ -1809,7 +1813,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 73,
@@ -1824,7 +1828,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 74,
@@ -1839,7 +1843,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 75,
@@ -1854,7 +1858,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 76,
@@ -1869,7 +1873,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 77,
@@ -1884,7 +1888,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 78,
@@ -1899,7 +1903,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 79,
@@ -1914,7 +1918,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 80,
@@ -1929,7 +1933,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 81,
@@ -1944,7 +1948,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 82,
@@ -1959,7 +1963,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 83,
@@ -1974,7 +1978,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 84,
@@ -1989,7 +1993,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 85,
@@ -2004,7 +2008,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 86,
@@ -2019,7 +2023,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 87,
@@ -2034,7 +2038,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 88,
@@ -2049,7 +2053,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 89,
@@ -2064,7 +2068,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 90,
@@ -2079,7 +2083,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 91,
@@ -2094,7 +2098,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 92,
@@ -2109,7 +2113,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 93,
@@ -2124,7 +2128,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 94,
@@ -2139,7 +2143,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 95,
@@ -2154,7 +2158,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 96,
@@ -2169,7 +2173,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 97,
@@ -2184,7 +2188,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 98,
@@ -2199,7 +2203,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 99,
@@ -2214,7 +2218,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 100,
@@ -2229,7 +2233,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 101,
@@ -2244,7 +2248,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 102,
@@ -2259,7 +2263,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 103,
@@ -2274,7 +2278,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 105,
@@ -2289,7 +2293,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 106,
@@ -2304,7 +2308,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 107,
@@ -2319,7 +2323,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 108,
@@ -2334,7 +2338,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 109,
@@ -2349,7 +2353,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 110,
@@ -2364,7 +2368,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 111,
@@ -2379,7 +2383,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 112,
@@ -2394,7 +2398,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 115,
@@ -2409,7 +2413,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 116,
@@ -2424,7 +2428,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 117,
@@ -2439,7 +2443,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 118,
@@ -2454,7 +2458,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 119,
@@ -2469,7 +2473,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 120,
@@ -2484,7 +2488,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 121,
@@ -2499,7 +2503,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 122,
@@ -2514,7 +2518,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 123,
@@ -2529,7 +2533,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 124,
@@ -2544,7 +2548,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 125,
@@ -2559,7 +2563,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 127,
@@ -2574,7 +2578,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 128,
@@ -2589,7 +2593,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 129,
@@ -2604,7 +2608,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 130,
@@ -2619,7 +2623,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 131,
@@ -2634,7 +2638,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     },
     {
       "id": 134,
@@ -2649,7 +2653,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 11:13:50"
+      "updated_at": "2026-03-24 11:22:07"
     }
   ]
 }
