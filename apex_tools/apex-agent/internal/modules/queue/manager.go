@@ -49,9 +49,9 @@ func NewManager(s *store.Store) *Manager {
 // If the channel is busy or earlier waiters exist, an entry with status='waiting'
 // is inserted and false is returned.
 // Entire operation is wrapped in a transaction to prevent TOCTOU races.
-func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
+func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid int) (bool, error) {
 	var acquired bool
-	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// Check if there is already an active entry for this channel.
 		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
@@ -163,7 +163,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		}
 
 		// Atomic check-and-promote: 트랜잭션으로 active 부재 + first-in-queue 확인 + promote
-		promoted, err := m.tryPromote(channel, branch)
+		promoted, err := m.tryPromote(ctx, channel, branch)
 		if err != nil {
 			return fmt.Errorf("queue.Acquire: promote: %w", err)
 		}
@@ -182,9 +182,9 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 
 // tryPromote atomically checks if channel is free and branch is first-in-queue,
 // then promotes the waiting entry to active. Returns true if promoted.
-func (m *Manager) tryPromote(channel, branch string) (bool, error) {
+func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool, error) {
 	var promoted bool
-	err := m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		hasActive, err := m.hasActiveEntry(tx, channel)
 		if err != nil {
 			return err

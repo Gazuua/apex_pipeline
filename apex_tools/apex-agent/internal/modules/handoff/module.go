@@ -257,23 +257,23 @@ type getStatusParams struct {
 
 // --- Handlers ---
 
-func (m *Module) handleNotifyStart(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleNotifyStart(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p notifyStartParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	if err := m.manager.NotifyStart(p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign); err != nil {
+	if err := m.manager.NotifyStart(ctx, p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "started"}, nil
 }
 
-func (m *Module) handleNotifyTransition(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleNotifyTransition(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p notifyTransitionParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	if err := m.manager.NotifyTransition(p.Branch, p.Workspace, p.Type, p.Summary); err != nil {
+	if err := m.manager.NotifyTransition(ctx, p.Branch, p.Workspace, p.Type, p.Summary); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "transitioned"}, nil
@@ -392,12 +392,12 @@ type notifyMergeParams struct {
 	Summary   string `json:"summary"`
 }
 
-func (m *Module) handleNotifyMerge(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p notifyMergeParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	if err := m.manager.NotifyMerge(p.Branch, p.Workspace, p.Summary); err != nil {
+	if err := m.manager.NotifyMerge(ctx, p.Branch, p.Workspace, p.Summary); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "merged"}, nil
@@ -409,12 +409,12 @@ type notifyDropParams struct {
 	Reason    string `json:"reason"`
 }
 
-func (m *Module) handleNotifyDrop(_ context.Context, params json.RawMessage, _ string) (any, error) {
+func (m *Module) handleNotifyDrop(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var p notifyDropParams
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
-	if err := m.manager.NotifyDrop(p.Branch, p.Workspace, p.Reason); err != nil {
+	if err := m.manager.NotifyDrop(ctx, p.Branch, p.Workspace, p.Reason); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "dropped"}, nil

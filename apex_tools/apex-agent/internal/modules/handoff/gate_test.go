@@ -3,6 +3,7 @@
 package handoff
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -58,7 +59,7 @@ func TestValidateCommit_Registered(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateCommit("branch_01")
@@ -73,7 +74,7 @@ func TestValidateMergeGate_NoNotifications(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateMergeGate("branch_01")
@@ -98,7 +99,7 @@ func TestValidateEdit_StartedBlocksSource(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateEdit("branch_01", "server.cpp")
@@ -111,7 +112,7 @@ func TestValidateEdit_StartedAllowsDocs(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateEdit("branch_01", "docs/plan.md")
@@ -124,10 +125,10 @@ func TestValidateEdit_DesignNotifiedBlocksSource(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
-	if err := mgr.NotifyTransition("branch_01", "ws1", "design", "design summary"); err != nil {
+	if err := mgr.NotifyTransition(context.Background(), "branch_01", "ws1", "design", "design summary"); err != nil {
 		t.Fatalf("NotifyTransition: %v", err)
 	}
 	err := mgr.ValidateEdit("branch_01", "server.hpp")
@@ -141,7 +142,7 @@ func TestValidateEdit_ImplementingAllowsAll(t *testing.T) {
 	defer s.Close()
 
 	// skip-design → implementing
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", true); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateEdit("branch_01", "server.cpp")
@@ -154,7 +155,7 @@ func TestValidateEdit_ImplementingAllowsGoSource(t *testing.T) {
 	s, mgr := setupGateTestDB(t)
 	defer s.Close()
 
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", true); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 	err := mgr.ValidateEdit("branch_01", "internal/modules/handoff/gate.go")
@@ -173,7 +174,7 @@ func TestValidateMergeGate_FixingBacklogBlocks(t *testing.T) {
 	defer s.Close()
 
 	// Register branch with backlog 42 — NotifyStart transitions it to FIXING
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", []int{42}, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", []int{42}, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 
@@ -197,7 +198,7 @@ func TestValidateMergeGate_NoFixingBacklogPasses(t *testing.T) {
 	defer s.Close()
 
 	// Register branch without backlog IDs
-	if err := mgr.NotifyStart("branch_01", "ws1", "test", "", nil, "", false); err != nil {
+	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
 	}
 
