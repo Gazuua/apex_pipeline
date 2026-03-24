@@ -24,32 +24,36 @@ Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용
 <tr>
 <th></th>
 <th align="center">1워커</th>
-<th align="center">2워커</th>
-<th align="center">3워커</th>
 <th align="center">4워커</th>
+<th align="center">8워커</th>
+<th align="center">16워커</th>
+<th align="center">28워커</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><b>🟢 Per-core</b></td>
-<td align="center">0.51M msg/s</td>
-<td align="center"><b>0.90M</b></td>
-<td align="center"><b>1.24M</b></td>
-<td align="center"><b>1.56M</b></td>
+<td align="center">1.97M msg/s</td>
+<td align="center"><b>5.76M</b></td>
+<td align="center"><b>7.65M</b></td>
+<td align="center"><b>6.52M</b></td>
+<td align="center"><b>5.98M</b></td>
 </tr>
 <tr>
 <td><b>🟡 Shared</b></td>
-<td align="center">0.53M</td>
-<td align="center">0.64M</td>
-<td align="center">0.72M</td>
-<td align="center">0.74M</td>
+<td align="center">2.04M</td>
+<td align="center">2.34M</td>
+<td align="center">2.10M</td>
+<td align="center">1.41M</td>
+<td align="center">1.13M</td>
 </tr>
 <tr>
 <td><b>📈 Per-core 배수</b></td>
 <td align="center">1.0x</td>
-<td align="center"><b>⚡ 1.4x</b></td>
-<td align="center"><b>⚡ 1.7x</b></td>
-<td align="center"><b>⚡ 2.1x</b></td>
+<td align="center"><b>⚡ 2.5x</b></td>
+<td align="center"><b>⚡ 3.6x</b></td>
+<td align="center"><b>⚡ 4.6x</b></td>
+<td align="center"><b>⚡ 5.3x</b></td>
 </tr>
 </tbody>
 </table>
@@ -69,7 +73,7 @@ Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용
 
 - Lock이 **존재하지 않음** (lock-free가 아닌 lock-없음)
 - 워커 간 공유 상태 **제로** → 캐시 라인 경합 없음
-- 워커 추가 시 처리량이 **순증** (1→4워커: 3.06x 확장, 77~88% 효율)
+- 워커 추가 시 처리량이 **순증** (1→8워커: 3.88x 확장, 피크 7.65M msg/s)
 
 </td>
 <td width="50%">
@@ -80,7 +84,7 @@ Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용
 
 - 세션 mutex를 **64샤드로 분산**해도 (업계 표준 최적화)
 - `io_context` 내부 **핸들러 큐의 단일 mutex**가 근본 병목
-- 워커 4→8→16 늘려도 **0.77M에서 완전 정체**
+- 워커 4→8→28 늘려도 **2.34M 피크 후 하락 → 1.13M**
 
 </td>
 </tr>
@@ -88,8 +92,8 @@ Shared 모델에는 **64-shard 파티셔닝**(업계 표준 최적화)을 적용
 
 **결론:** lock 최적화(샤딩, reader-writer lock 등)만으로는 한계가 있습니다. **`io_context` 자체를 워커별로 분리**해야 진정한 선형 확장이 가능하며, 이것이 Apex Core의 per-core shared-nothing 아키텍처를 채용한 근본적 이유입니다.
 
-<sub>측정 환경: Intel i5-9300H (4C/8T, L3 8MB) · DDR4-2400 · MSVC 19.44 Release · 워크로드: 워커당 1,000 세션 × 50,000 메시지 (세션 조회 + 상태 수정)</sub><br/>
-<sub>※ 테스트 PC는 4물리 코어 기준입니다. 물리 코어가 더 많은 프로덕션 서버에서는 4워커 이상에서도 선형 확장이 유지됩니다.</sub>
+<sub>측정 환경: Intel i7-14700 (8P+12E=20C/28T, L3 33MB) · 64GB RAM · MSVC C++23 Release · 워크로드: 워커당 1,000 세션 × 50,000 메시지 (세션 조회 + 상태 수정)</sub><br/>
+<sub>※ 8워커 이후 완만한 하락은 P/E 하이브리드 코어 비대칭에 의한 것으로, 균일 코어 서버 CPU(Xeon/EPYC)에서는 선형 확장이 지속됩니다.</sub>
 </details>
 
 ## 아키텍처
