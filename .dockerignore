@@ -6,5 +6,8 @@
 !CMakeLists.txt
 !CMakePresets.json
 !cmake/
-!build.bat
-!build.sh
+
+# Exclude secrets/keys from build context (even within allowed dirs)
+apex_services/gateway/certs/
+**/*.key
+**/*.crt

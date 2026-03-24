@@ -476,7 +476,8 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [도구] cleanup 4단계 확장 (BACKLOG-170, PR #135 — 워크스페이스 복사본 브랜치 정리)
          [문서] 로그 패턴 가이드 (PR #134 — 정상/비정상 패턴, 트러블슈팅, 44개 컴포넌트 맵)
          v0.6.1.0 Prometheus 메트릭 노출 (Beast HTTP /metrics, MetricsRegistry 3패턴, 17개 메트릭, 서비스 등록 API)
-              └──→ v0.6.2~4 ── 운영 인프라 (Docker/K8s/CI·CD)
+         v0.6.2.0 Docker 멀티스테이지 빌드 고도화 (tools-base/ci 2단계, Bake, sccache, MSVC CI, Trivy)
+              └──→ v0.6.3~4 ── 운영 인프라 (K8s/CI·CD)
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
 ```
@@ -500,7 +501,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
 | v0.5.4.0 | 중 | 파이프라인 E2E 통합 테스트 | v0.5.2 + v0.5.3 + v0.5.3.1 |
 | **v0.6.0.0** | **대** | **운영 인프라** | |
 | v0.6.1.0 | 중 | Prometheus 메트릭 노출 | v0.5.4 |
-| v0.6.2.0 | 중 | Docker 멀티스테이지 빌드 | v0.5.4 |
+| v0.6.2.0 | 중 | Docker 멀티스테이지 빌드 고도화 (tools-base/ci 분리, Bake, sccache, MSVC CI, Trivy) | v0.6.1 |
 | v0.6.3.0 | 중 | K8s manifests + Helm | v0.6.2 |
 | v0.6.4.0 | 중 | CI/CD 고도화 (이미지 빌드 + 배포) | v0.6.2 |
 | **v1.0.0.0** | **메이저** | **프레임워크 완성** | v0.6 |

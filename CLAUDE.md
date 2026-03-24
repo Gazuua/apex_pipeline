@@ -56,9 +56,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
-- **현재**: v0.6.1.0 — Prometheus 메트릭 노출 (Beast HTTP /metrics, MetricsRegistry, 17개 프레임워크/어댑터 메트릭, 서비스 등록 API)
+- **현재**: v0.6.2.0 — Docker 멀티스테이지 빌드 고도화 (tools-base/ci 2단계 이미지 분리, Docker Bake 서비스 통합, sccache 컴파일 캐시, MSVC CI 빌드 도입, Trivy 보안 스캔, RSA 키 런타임 마운트)
 - **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164). HTTP 대시보드 완료 (BACKLOG-154,159, PR #130) — `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정 포함. cleanup 4단계 확장 완료 (BACKLOG-170, PR #135) — 워크스페이스 복사본 브랜치 정리 + 폴링 최적화 (BACKLOG-183)
-- **다음**: v0.6.2 (Docker 멀티스테이지 빌드) → v0.6.3 (K8s/Helm) → v0.6.4 (CI/CD 고도화) → v1.0.0.0 (프레임워크 완성)
+- **다음**: v0.6.3 (K8s/Helm) → v0.6.4 (CI/CD 고도화) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
 ## 전역 규칙

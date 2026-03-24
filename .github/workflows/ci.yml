@@ -11,6 +11,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - '.github/ci-image-tag'
+      - '.github/tools-image-tag'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -19,6 +20,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - '.github/ci-image-tag'
+      - '.github/tools-image-tag'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -46,6 +48,7 @@ jobs:
           filters: |
             docker:
               - 'apex_infra/docker/ci.Dockerfile'
+              - 'apex_infra/docker/tools-base.Dockerfile'
               - '**/vcpkg.json'
             source:
               - '**/*.cpp'
@@ -91,7 +94,7 @@ jobs:
   build-image:
     needs: changes
     if: needs.changes.outputs.docker == 'true'
-    uses: ./.github/workflows/docker-build.yml
+    uses: ./.github/workflows/docker-images.yml
     permissions:
       contents: write
       packages: write
@@ -125,8 +128,7 @@ jobs:
             os: ubuntu-latest
             preset: ubsan
             container: true
-          # MSVC 제거 — 프로덕션 타겟이 Linux이고, 로컬 Windows 빌드로 MSVC 검증 충분.
-          # Linux 성공 + MSVC 실패 사례는 사실상 없음 (반대는 빈번).
+          # MSVC는 별도 build-msvc 잡으로 분리 (sccache 기반)
 
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -264,3 +266,96 @@ jobs:
         run: go build -o apex-agent ./cmd/apex-agent
       - name: Build (windows cross-compile)
         run: GOOS=windows GOARCH=amd64 go build -o apex-agent.exe ./cmd/apex-agent
+
+  # ── MSVC build & test (sccache) ────────────────────
+  build-msvc:
+    permissions:
+      contents: read
+    needs: [changes]
+    if: >-
+      needs.changes.outputs.source == 'true' &&
+      !contains(github.event.head_commit.message, '[skip-msvc]')
+    name: msvc-release
+    runs-on: windows-latest
+    timeout-minutes: 30
+    continue-on-error: true
+
+    env:
+      VCPKG_ROOT: C:\vcpkg
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+
+      - name: Restore vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_installed
+          key: vcpkg-msvc-${{ hashFiles('**/vcpkg.json') }}
+          restore-keys: vcpkg-msvc-
+
+      - name: Configure
+        run: cmake --preset release-sccache
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+
+      - name: Build
+        run: cmake --build build/Windows/release-sccache
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+
+      - name: Test
+        run: ctest --preset release-sccache -LE e2e
+
+  # ── Docker Bake (서비스 이미지 빌드) ─────────────────
+  bake-services:
+    permissions:
+      contents: read
+      packages: write
+    needs: [changes, build]
+    if: >-
+      always() &&
+      needs.build.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Bake and push service images
+        working-directory: apex_infra
+        env:
+          CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
+          SHA_TAG: sha-${{ github.sha }}
+        run: docker buildx bake -f docker/docker-bake.hcl services --push
+
+  # ── Trivy security scan ──────────────────────────────
+  scan:
+    permissions:
+      contents: read
+    needs: [bake-services]
+    if: needs.bake-services.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        service: [gateway, auth-svc, chat-svc]
+    steps:
+      - uses: aquasecurity/trivy-action@0.31.0
+        with:
+          image-ref: ghcr.io/gazuua/apex-pipeline-${{ matrix.service }}:sha-${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: 1

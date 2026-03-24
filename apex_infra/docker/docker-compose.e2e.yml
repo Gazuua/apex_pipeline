@@ -156,14 +156,19 @@ services:
   gateway:
     build:
       context: ../..
-      dockerfile: apex_infra/docker/gateway.Dockerfile
+      dockerfile: apex_infra/docker/service.Dockerfile
       target: runtime
       args:
         CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
+        CMAKE_TARGET: apex_gateway
+        SERVICE_DIR: gateway
+        CONFIG_FILE: gateway_e2e.toml
     container_name: apex-e2e-gateway
     ports:
       - "8443:8443"
       - "8444:8444"
+    volumes:
+      - ../../apex_services/tests/keys/:/app/keys/:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -185,11 +190,16 @@ services:
   auth-svc:
     build:
       context: ../..
-      dockerfile: apex_infra/docker/auth-svc.Dockerfile
+      dockerfile: apex_infra/docker/service.Dockerfile
       target: runtime
       args:
         CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
+        CMAKE_TARGET: auth_svc_main
+        SERVICE_DIR: auth-svc
+        CONFIG_FILE: auth_svc_e2e.toml
     container_name: apex-e2e-auth-svc
+    volumes:
+      - ../../apex_services/tests/keys/:/app/keys/:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -203,10 +213,13 @@ services:
   chat-svc:
     build:
       context: ../..
-      dockerfile: apex_infra/docker/chat-svc.Dockerfile
+      dockerfile: apex_infra/docker/service.Dockerfile
       target: runtime
       args:
         CI_IMAGE_TAG: ${CI_IMAGE_TAG:?CI_IMAGE_TAG is required}
+        CMAKE_TARGET: chat_svc_main
+        SERVICE_DIR: chat-svc
+        CONFIG_FILE: chat_svc_e2e.toml
     container_name: apex-e2e-chat-svc
     depends_on:
       kafka:

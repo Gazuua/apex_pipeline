@@ -85,6 +85,24 @@
         "APEX_USE_IO_URING": "ON",
         "APEX_BUILD_VARIANT": "iouring"
       }
+    },
+    {
+      "name": "debug-sccache",
+      "displayName": "Debug + sccache",
+      "inherits": "debug",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
+      }
+    },
+    {
+      "name": "release-sccache",
+      "displayName": "Release + sccache",
+      "inherits": "release",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
+      }
     }
   ],
   "buildPresets": [
@@ -94,7 +112,9 @@
     { "name": "asan-msvc", "configurePreset": "asan-msvc" },
     { "name": "tsan", "configurePreset": "tsan" },
     { "name": "ubsan", "configurePreset": "ubsan" },
-    { "name": "iouring", "configurePreset": "iouring" }
+    { "name": "iouring", "configurePreset": "iouring" },
+    { "name": "debug-sccache", "configurePreset": "debug-sccache" },
+    { "name": "release-sccache", "configurePreset": "release-sccache" }
   ],
   "testPresets": [
     {
@@ -143,6 +163,16 @@
     {
       "name": "iouring",
       "configurePreset": "iouring",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "debug-sccache",
+      "configurePreset": "debug-sccache",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "release-sccache",
+      "configurePreset": "release-sccache",
       "output": { "outputOnFailure": true }
     }
   ]

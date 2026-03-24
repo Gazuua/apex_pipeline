@@ -118,7 +118,8 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 ### 다음
 
-- **v0.6 — 운영 인프라** (Prometheus + Docker + K8s + CI/CD)
+- **v0.6.3 — K8s manifests + Helm**
+- **v0.6.4 — CI/CD 고도화** (이미지 빌드 + 배포)
 - **v1.0.0.0 — 프레임워크 완성**
 
 > 상세 로드맵: `docs/Apex_Pipeline.md` §10
@@ -226,18 +227,35 @@ docker compose down -v                             # 초기화
 docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 ```
 
-### 서비스 Dockerfile
+### Docker 이미지
 
-| 서비스 | 파일 |
-|--------|------|
-| Gateway | `apex_infra/docker/gateway.Dockerfile` |
-| Auth Service | `apex_infra/docker/auth-svc.Dockerfile` |
-| Chat Service | `apex_infra/docker/chat-svc.Dockerfile` |
-| CI 빌드 | `apex_infra/docker/ci.Dockerfile` |
+| 이미지 | 파일 | 설명 |
+|--------|------|------|
+| Tools Base | `apex_infra/docker/tools-base.Dockerfile` | gcc14+cmake+sccache+vcpkg CLI |
+| CI | `apex_infra/docker/ci.Dockerfile` | tools-base + vcpkg 의존성 사전 설치 |
+| Services | `apex_infra/docker/service.Dockerfile` | 통합 서비스 (ARG 파라미터화) |
+| Bake | `apex_infra/docker/docker-bake.hcl` | 서비스 빌드 매트릭스 |
 
-## 현재 상태 — v0.5.11.0
+## 현재 상태 — v0.6.2.0
 
 ### 완료
+
+- **v0.6.2.0 — Docker 멀티스테이지 빌드 고도화**
+  - CI 이미지 2단계 분리 (tools-base + ci), Docker Bake 서비스 통합 (3개 Dockerfile → 1개 + Bake 타겟)
+  - sccache 컴파일 캐시 (BuildKit cache mount), MSVC CI 빌드 도입
+  - Trivy 보안 스캔, RSA 키 런타임 마운트 (이미지에서 완전 제거)
+
+- **v0.6.1.0 — Prometheus 메트릭 노출**
+  - Beast HTTP /metrics 엔드포인트, MetricsRegistry 3패턴, 17개 메트릭, 서비스 등록 API
+
+- **도구: cleanup 4단계 확장 (BACKLOG-170, PR #135)**
+  - 워크스페이스 복사본 브랜치 정리 + 폴링 최적화 (BACKLOG-183)
+
+- **문서: 로그 패턴 가이드 (PR #134)**
+  - 정상/비정상 패턴, 트러블슈팅, 44개 컴포넌트 맵
+
+- **도구: HTTP 대시보드 (BACKLOG-154,159, PR #130)**
+  - `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정
 
 - **v0.5.11.0 — ScopedLogger 로깅 인프라**
   - ScopedLogger 클래스 신규 구현 (std::source_location, compile-time format, core_id/session_id/corr_id 구조화 태그)
