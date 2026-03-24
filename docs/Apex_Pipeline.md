@@ -479,6 +479,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.6.2.0 Docker 멀티스테이지 빌드 고도화 (tools-base/ci 2단계, Bake, sccache, MSVC CI, Trivy)
          [도구] 큐 히스토리 이벤트 로그 (PR #145 — queue_history 테이블, Build/Merge 좌우 분리, 시간 필터, 무한 스크롤)
          [수정] 백로그 updated_at 버그 (PR #145 — import 시 변경 감지로 원본 타임스탬프 보존)
+         [테스트] CORE+SHARED 유닛 테스트 커버리지 보강 (PR #146 — 핵심 경로 22건, init 롤백 수정)
               └──→ v0.6.3~4 ── 운영 인프라 (K8s/CI·CD)
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
