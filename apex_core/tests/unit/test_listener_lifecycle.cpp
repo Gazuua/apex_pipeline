@@ -33,6 +33,7 @@ class ListenerLifecycleTest : public ::testing::Test
             .bump_capacity_bytes = 64 * 1024,
             .arena_block_bytes = 4096,
             .arena_max_bytes = 1024 * 1024,
+            .metrics = {},
         };
     }
 

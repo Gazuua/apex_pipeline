@@ -30,7 +30,8 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
                     .cross_core_call_timeout = std::chrono::milliseconds{5000},
                     .bump_capacity_bytes = 64 * 1024,
                     .arena_block_bytes = 4096,
-                    .arena_max_bytes = 1024 * 1024});
+                    .arena_max_bytes = 1024 * 1024,
+                    .metrics = {}});
     server1.listen<TcpBinaryProtocol>(0);
 
     std::thread t1([&] { server1.run(); });
@@ -46,7 +47,8 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
                     .cross_core_call_timeout = std::chrono::milliseconds{5000},
                     .bump_capacity_bytes = 64 * 1024,
                     .arena_block_bytes = 4096,
-                    .arena_max_bytes = 1024 * 1024});
+                    .arena_max_bytes = 1024 * 1024,
+                    .metrics = {}});
     server2.listen<TcpBinaryProtocol>(occupied_port);
 
     // listen<P>()는 lazy binding (start()에서 bind) — run()에서 실패
@@ -97,7 +99,8 @@ TEST(ServerErrorPaths, DoubleRunThrowsLogicError)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -117,6 +120,7 @@ TEST(ServerErrorPaths, GracefulShutdownDrainsToZero)
         .num_cores = 1,
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
+        .metrics = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -154,7 +158,8 @@ TEST(ServerErrorPaths, DoubleStopIsSafe)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -177,7 +182,8 @@ TEST(ServerErrorPaths, RunWithoutListenersWorks)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     // listen<P>() 호출 없음 — listeners_ 비어있음
 
     std::thread t([&] { server.run(); });
