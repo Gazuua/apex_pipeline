@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v2
+name: apex-common
+description: Apex Pipeline 공통 Helm library chart — 서비스 sub-chart용 named templates
+type: library
+version: 0.1.0
