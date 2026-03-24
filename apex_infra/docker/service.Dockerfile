@@ -10,8 +10,6 @@ COPY . /src
 WORKDIR /src
 RUN --mount=type=cache,target=/root/.cache/sccache \
     cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
-          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
-          -DCMAKE_C_COMPILER_LAUNCHER=sccache \
     && cmake --build build/Linux/debug --target ${CMAKE_TARGET} \
     && mkdir -p /out \
     && cp build/Linux/debug/apex_services/${SERVICE_DIR}/${CMAKE_TARGET} /out/${CMAKE_TARGET}
