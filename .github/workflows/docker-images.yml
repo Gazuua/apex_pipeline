@@ -1,0 +1,144 @@
+name: Docker Images
+
+permissions: {}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apex_infra/docker/tools-base.Dockerfile'
+      - 'apex_infra/docker/ci.Dockerfile'
+      - '**/vcpkg.json'
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      force-tools:
+        description: 'tools-base 강제 리빌드'
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  REGISTRY: ghcr.io/gazuua
+
+jobs:
+  # ── Path filter ──────────────────────────────────
+  changes:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.filter.outputs.tools }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            tools:
+              - 'apex_infra/docker/tools-base.Dockerfile'
+            ci:
+              - 'apex_infra/docker/ci.Dockerfile'
+              - '**/vcpkg.json'
+
+  # ── tools-base image ─────────────────────────────
+  tools-base:
+    needs: changes
+    if: >-
+      needs.changes.outputs.tools == 'true' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.force-tools == 'true')
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apex_infra/docker/tools-base.Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/apex-pipeline-tools:latest
+            ${{ env.REGISTRY }}/apex-pipeline-tools:sha-${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/apex-pipeline-tools:latest
+          cache-to: type=inline
+
+      - name: Output tag
+        id: tag
+        run: echo "tag=sha-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Update tools-image-tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "sha-${{ github.sha }}" > .github/tools-image-tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/tools-image-tag
+          git diff --staged --quiet || git commit -m "chore(ci): update tools-image-tag to sha-${{ github.sha }} [skip ci]"
+          git pull --rebase origin main
+          git push
+
+  # ── CI image ─────────────────────────────────────
+  ci:
+    needs: [changes, tools-base]
+    if: >-
+      always() &&
+      (needs.changes.outputs.ci == 'true' || needs.tools-base.result == 'success') &&
+      (needs.tools-base.result == 'success' || needs.tools-base.result == 'skipped')
+    permissions:
+      contents: write
+      packages: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tools tag
+        id: tools-tag
+        run: |
+          if [ -n "${{ needs.tools-base.outputs.tag }}" ]; then
+            echo "tag=${{ needs.tools-base.outputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(cat .github/tools-image-tag | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apex_infra/docker/ci.Dockerfile
+          push: true
+          build-args: TOOLS_TAG=${{ steps.tools-tag.outputs.tag }}
+          tags: |
+            ${{ env.REGISTRY }}/apex-pipeline-ci:latest
+            ${{ env.REGISTRY }}/apex-pipeline-ci:sha-${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/apex-pipeline-ci:latest
+          cache-to: type=inline
+
+      - name: Update ci-image-tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "sha-${{ github.sha }}" > .github/ci-image-tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/ci-image-tag
+          git diff --staged --quiet || git commit -m "chore(ci): update ci-image-tag to sha-${{ github.sha }} [skip ci]"
+          git pull --rebase origin main
+          git push
