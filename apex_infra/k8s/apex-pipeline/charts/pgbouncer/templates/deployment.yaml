@@ -1,0 +1,91 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pgbouncer.fullname" . }}
+  labels:
+    {{- include "pgbouncer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "pgbouncer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "pgbouncer.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: pgbouncer
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: pgbouncer
+              containerPort: {{ .Values.pgbouncer.port }}
+              protocol: TCP
+          env:
+            # --- PostgreSQL 연결 ---
+            - name: POSTGRESQL_HOST
+              value: {{ .Values.postgresql.host | quote }}
+            - name: POSTGRESQL_PORT
+              value: {{ .Values.postgresql.port | quote }}
+            - name: POSTGRESQL_USERNAME
+              value: {{ .Values.postgresql.username | quote }}
+            - name: POSTGRESQL_DATABASE
+              value: {{ .Values.postgresql.database | quote }}
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pgbouncer.secretName" . }}
+                  key: postgresql-password
+            # --- PgBouncer 설정 ---
+            - name: PGBOUNCER_DATABASE
+              value: {{ .Values.pgbouncer.database | quote }}
+            - name: PGBOUNCER_PORT
+              value: {{ .Values.pgbouncer.port | quote }}
+            - name: PGBOUNCER_AUTH_TYPE
+              value: {{ .Values.pgbouncer.authType | quote }}
+            - name: PGBOUNCER_POOL_MODE
+              value: {{ .Values.pgbouncer.poolMode | quote }}
+            - name: PGBOUNCER_DEFAULT_POOL_SIZE
+              value: {{ .Values.pgbouncer.defaultPoolSize | quote }}
+            - name: PGBOUNCER_MIN_POOL_SIZE
+              value: {{ .Values.pgbouncer.minPoolSize | quote }}
+            - name: PGBOUNCER_MAX_CLIENT_CONN
+              value: {{ .Values.pgbouncer.maxClientConn | quote }}
+            - name: PGBOUNCER_MAX_DB_CONNECTIONS
+              value: {{ .Values.pgbouncer.maxDbConnections | quote }}
+            - name: PGBOUNCER_QUERY_WAIT_TIMEOUT
+              value: {{ .Values.pgbouncer.queryWaitTimeout | quote }}
+            - name: PGBOUNCER_SERVER_IDLE_TIMEOUT
+              value: {{ .Values.pgbouncer.serverIdleTimeout | quote }}
+            - name: PGBOUNCER_CLIENT_IDLE_TIMEOUT
+              value: {{ .Values.pgbouncer.clientIdleTimeout | quote }}
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - localhost
+                - -p
+                - {{ .Values.pgbouncer.port | quote }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - localhost
+                - -p
+                - {{ .Values.pgbouncer.port | quote }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
