@@ -18,12 +18,13 @@ func cleanupCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "cleanup",
-		Short: "머지 완료 브랜치 정리 (워크트리 + 로컬 + 리모트)",
-		Long: `머지 완료된 브랜치를 3단계로 정리합니다.
+		Short: "머지 완료 브랜치 정리 (워크트리 + 로컬 + 리모트 + 복사본)",
+		Long: `머지 완료된 브랜치를 4단계로 정리합니다.
 
   1단계: 워크트리 (git worktree remove)
   2단계: 로컬 브랜치 (git branch -D)
   3단계: 리모트 브랜치 (git push origin --delete)
+  4단계: 워크스페이스 복사본 로컬 브랜치 (같은 origin의 형제 디렉토리)
 
 기본값은 dry-run입니다. 실제 삭제를 수행하려면 --execute 플래그를 사용하세요.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -142,13 +143,27 @@ func printCleanupResults(result *cleanup.Result, execute bool) {
 	printWarnings(result.Warnings, "리모트")
 	fmt.Println()
 
+	// ── Workspace Copies ──
+	if len(result.Copies) > 0 {
+		fmt.Println("[Workspace Copies] =========================================")
+		for _, a := range result.Copies {
+			if execute {
+				fmt.Printf("  삭제: %s\n", a.Target)
+			} else {
+				fmt.Printf("  대상: %s (머지 완료)\n", a.Target)
+			}
+		}
+		fmt.Println()
+	}
+
 	// ── Summary ──
 	fmt.Println("==========================================")
-	total := len(result.Worktrees) + len(result.Local) + len(result.EmptyDirs) + len(result.Remote)
+	total := len(result.Worktrees) + len(result.Local) + len(result.EmptyDirs) + len(result.Remote) + len(result.Copies)
 	fmt.Printf("  워크트리: %d개\n", len(result.Worktrees))
 	fmt.Printf("  로컬 브랜치: %d개\n", len(result.Local))
 	fmt.Printf("  빈 워크트리 디렉토리: %d개\n", len(result.EmptyDirs))
 	fmt.Printf("  리모트 브랜치: %d개 (머지 완료)\n", len(result.Remote))
+	fmt.Printf("  복사본 브랜치: %d개\n", len(result.Copies))
 	fmt.Printf("  합계: %d개\n", total)
 
 	if len(result.Warnings) > 0 {

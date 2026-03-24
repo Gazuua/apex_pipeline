@@ -21,6 +21,7 @@ type Result struct {
 	Local     []Action
 	EmptyDirs []Action
 	Remote    []Action
+	Copies    []Action // workspace copy 내 정리된 로컬 브랜치
 	Warnings  []string
 }
 
@@ -78,6 +79,9 @@ func Run(repoRoot string, execute bool, activeBranches map[string]bool) (*Result
 	if err := processRemoteBranches(repoRoot, execute, activeBranches, result); err != nil {
 		return nil, fmt.Errorf("remote branch phase: %w", err)
 	}
+
+	// Phase 4: workspace copies — 같은 origin을 공유하는 형제 복사본의 로컬 브랜치 정리.
+	processWorkspaceCopies(repoRoot, execute, activeBranches, result)
 
 	return result, nil
 }
@@ -450,6 +454,83 @@ func blobHashMatch(repoRoot, branch string) bool {
 		}
 	}
 	return true
+}
+
+// ── Phase 4: Workspace Copies ────────────────────────────────────────────────
+
+// processWorkspaceCopies finds sibling directories in the workspace that share
+// the same origin remote URL and cleans up merged local branches in each.
+func processWorkspaceCopies(repoRoot string, execute bool, activeBranches map[string]bool, result *Result) {
+	wsRoot := filepath.Dir(repoRoot)
+	selfName := filepath.Base(repoRoot)
+	selfOrigin := remoteOriginURL(repoRoot)
+	if selfOrigin == "" {
+		return
+	}
+
+	entries, err := os.ReadDir(wsRoot)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == selfName {
+			continue
+		}
+		copyPath := filepath.Join(wsRoot, entry.Name())
+
+		// Must be a git repository with the same origin.
+		if _, statErr := os.Stat(filepath.Join(copyPath, ".git")); statErr != nil {
+			continue
+		}
+		if remoteOriginURL(copyPath) != selfOrigin {
+			continue
+		}
+
+		out, gitErr := runGit(copyPath, "branch")
+		if gitErr != nil {
+			continue
+		}
+
+		for _, line := range strings.Split(out, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			// Skip the currently checked-out branch (prefixed with '*').
+			if strings.HasPrefix(trimmed, "*") {
+				continue
+			}
+			branch := strings.TrimLeft(line, "*+ ")
+			branch = strings.TrimSpace(branch)
+			if branch == "" || protectedBranches[branch] || activeBranches[branch] {
+				continue
+			}
+			if !IsMergedToMain(copyPath, branch) {
+				continue
+			}
+
+			action := Action{Target: fmt.Sprintf("%s:%s", entry.Name(), branch), Branch: branch}
+			if execute {
+				if _, delErr := runGit(copyPath, "branch", "-D", branch); delErr != nil {
+					result.Warnings = append(result.Warnings,
+						fmt.Sprintf("복사본 브랜치 삭제 실패: %s [%s] — %v", entry.Name(), branch, delErr))
+				} else {
+					action.Done = true
+				}
+			}
+			result.Copies = append(result.Copies, action)
+		}
+	}
+}
+
+// remoteOriginURL returns the origin remote URL for the repository at path.
+func remoteOriginURL(repoPath string) string {
+	out, err := runGit(repoPath, "remote", "get-url", "origin")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
