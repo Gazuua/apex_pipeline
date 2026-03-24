@@ -13,7 +13,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 135,
@@ -27,7 +27,7 @@
       "position": 2,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 113,
@@ -41,7 +41,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 114,
@@ -55,7 +55,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 51,
@@ -68,7 +68,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 104,
@@ -81,7 +81,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 142,
@@ -95,7 +95,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 146,
@@ -108,7 +108,7 @@
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 147,
@@ -122,7 +122,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 148,
@@ -135,7 +135,7 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 149,
@@ -148,20 +148,7 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
-    },
-    {
-      "id": 161,
-      "title": "apex_core spdlog 로그 출력에 함수명/라인 번호 추가",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "INFRA",
-      "description": "현재 spdlog 패턴이 %Y-%m-%d %H:%M:%S.%e [%l] [%n] %v로 함수명/라인 미포함. spdlog의 source location 지원(%s %! %# 등)을 활용하여 디버깅 효율을 높여야 함. 방법: ① 패턴에 %!/%# 추가 ② SPDLOG_LOGGER_CALL 매크로 전환 또는 std::source_location 활용. 성능 영향(핫패스에서 __FILE__/__LINE__ 오버헤드) 고려하여 디버그 빌드 전용 또는 레벨별 분리 검토.",
-      "position": 22,
-      "status": "FIXING",
-      "created_at": "2026-03-23 20:01:33",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 170,
@@ -174,7 +161,7 @@
       "position": 29,
       "status": "OPEN",
       "created_at": "2026-03-23 23:05:23",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 171,
@@ -187,20 +174,7 @@
       "position": 30,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:41",
-      "updated_at": "2026-03-24 08:48:42"
-    },
-    {
-      "id": 174,
-      "title": "서비스 레이어 로그 충실화 — Gateway, Auth, Chat 서비스 로그 밀도 개선",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "GATEWAY,AUTH_SVC,CHAT_SVC",
-      "type": "INFRA",
-      "description": "## 배경\nScopedLogger 통합(BACKLOG-161 확장) 완료 후, 코어+shared 레이어 로그 충실화가 끝난 상태에서 서비스 레이어도 동일 기준으로 로그를 보강해야 함.\n\n## 전제조건\n- ScopedLogger 클래스가 apex_core에 구현 완료 (std::source_location + corr_id trace 포함)\n- ServiceBase가 ScopedLogger 멤버를 보유하고, 기존 log_info() 스타일은 폐기됨\n- 서비스 코드는 logger_.info(session, ...) 형태로 마이그레이션 완료 상태\n\n## 작업 내용\n1. **Gateway**: 라우팅 결정(msg_id → 토픽 매핑), JWT 검증 결과, rate limit 트리거, 세션 생명주기 로그 보강. 현재 ~50문 → 핵심 경로에 trace/debug 추가\n2. **Auth 서비스**: bcrypt 검증 타이밍, 토큰 발급/갱신/블랙리스트 상세, Redis 세션 조회 경로. 현재 ~50문 → 에러 경로 debug/warn 보강\n3. **Chat 서비스**: 방 생성/참가/퇴장 상태 전이, Kafka publish 결과, Redis pub/sub 이벤트. 현재 ~60문 → 메시지 흐름 trace 보강\n\n## 로그 레벨 기준\n- trace: 개별 메시지/요청 흐름, 반복 호출\n- debug: 분기 결정, 상태 전이\n- info: 컴포넌트 생명주기\n- warn: 비정상 복구 가능\n- error: 실패, 데이터 손실 위험\n\n## 핵심 파일\n- apex_services/gateway/src/*.cpp\n- apex_services/auth-svc/src/*.cpp\n- apex_services/chat-svc/src/*.cpp",
-      "position": 31,
-      "status": "FIXING",
-      "created_at": "2026-03-24 01:33:24",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 175,
@@ -213,7 +187,7 @@
       "position": 32,
       "status": "OPEN",
       "created_at": "2026-03-24 01:34:43",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 176,
@@ -226,7 +200,7 @@
       "position": 33,
       "status": "OPEN",
       "created_at": "2026-03-24 01:34:58",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 177,
@@ -239,7 +213,7 @@
       "position": 34,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 178,
@@ -252,7 +226,7 @@
       "position": 35,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:42",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 179,
@@ -266,7 +240,7 @@
       "position": 36,
       "status": "OPEN",
       "created_at": "2026-03-24 01:35:51",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 59,
@@ -279,7 +253,7 @@
       "position": 1,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 36,
@@ -292,7 +266,7 @@
       "position": 3,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 40,
@@ -305,7 +279,7 @@
       "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 41,
@@ -318,7 +292,7 @@
       "position": 5,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 42,
@@ -331,7 +305,7 @@
       "position": 6,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 43,
@@ -344,7 +318,7 @@
       "position": 7,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 44,
@@ -357,7 +331,7 @@
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 172,
@@ -370,7 +344,7 @@
       "position": 10,
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:47",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 173,
@@ -383,7 +357,37 @@
       "position": 11,
       "status": "OPEN",
       "created_at": "2026-03-24 00:06:01",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
+    },
+    {
+      "id": 161,
+      "title": "apex_core spdlog 로그 출력에 함수명/라인 번호 추가",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "INFRA",
+      "description": "현재 spdlog 패턴이 %Y-%m-%d %H:%M:%S.%e [%l] [%n] %v로 함수명/라인 미포함. spdlog의 source location 지원(%s %! %# 등)을 활용하여 디버깅 효율을 높여야 함. 방법: ① 패턴에 %!/%# 추가 ② SPDLOG_LOGGER_CALL 매크로 전환 또는 std::source_location 활용. 성능 영향(핫패스에서 __FILE__/__LINE__ 오버헤드) 고려하여 디버그 빌드 전용 또는 레벨별 분리 검토.",
+      "position": 22,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 09:04:34",
+      "created_at": "2026-03-23 20:01:33",
+      "updated_at": "2026-03-24 09:04:48"
+    },
+    {
+      "id": 174,
+      "title": "서비스 레이어 로그 충실화 — Gateway, Auth, Chat 서비스 로그 밀도 개선",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "GATEWAY,AUTH_SVC,CHAT_SVC",
+      "type": "INFRA",
+      "description": "## 배경\nScopedLogger 통합(BACKLOG-161 확장) 완료 후, 코어+shared 레이어 로그 충실화가 끝난 상태에서 서비스 레이어도 동일 기준으로 로그를 보강해야 함.\n\n## 전제조건\n- ScopedLogger 클래스가 apex_core에 구현 완료 (std::source_location + corr_id trace 포함)\n- ServiceBase가 ScopedLogger 멤버를 보유하고, 기존 log_info() 스타일은 폐기됨\n- 서비스 코드는 logger_.info(session, ...) 형태로 마이그레이션 완료 상태\n\n## 작업 내용\n1. **Gateway**: 라우팅 결정(msg_id → 토픽 매핑), JWT 검증 결과, rate limit 트리거, 세션 생명주기 로그 보강. 현재 ~50문 → 핵심 경로에 trace/debug 추가\n2. **Auth 서비스**: bcrypt 검증 타이밍, 토큰 발급/갱신/블랙리스트 상세, Redis 세션 조회 경로. 현재 ~50문 → 에러 경로 debug/warn 보강\n3. **Chat 서비스**: 방 생성/참가/퇴장 상태 전이, Kafka publish 결과, Redis pub/sub 이벤트. 현재 ~60문 → 메시지 흐름 trace 보강\n\n## 로그 레벨 기준\n- trace: 개별 메시지/요청 흐름, 반복 호출\n- debug: 분기 결정, 상태 전이\n- info: 컴포넌트 생명주기\n- warn: 비정상 복구 가능\n- error: 실패, 데이터 손실 위험\n\n## 핵심 파일\n- apex_services/gateway/src/*.cpp\n- apex_services/auth-svc/src/*.cpp\n- apex_services/chat-svc/src/*.cpp",
+      "position": 31,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-24 09:04:34",
+      "created_at": "2026-03-24 01:33:24",
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 180,
@@ -398,7 +402,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 08:44:49",
       "created_at": "2026-03-24 03:20:18",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 154,
@@ -413,7 +417,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 03:06:14",
       "created_at": "2026-03-23 16:36:03",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 159,
@@ -429,7 +433,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 03:06:14",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 151,
@@ -444,7 +448,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 01:09:14",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 137,
@@ -460,7 +464,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 01:09:13",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 152,
@@ -475,7 +479,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-24 00:19:29",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 150,
@@ -490,7 +494,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-24 00:19:23",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 65,
@@ -506,7 +510,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:41:25",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 166,
@@ -521,7 +525,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:03",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 167,
@@ -536,7 +540,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:08",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 168,
@@ -551,7 +555,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:13",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 169,
@@ -566,7 +570,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:15",
       "created_at": "2026-03-23 22:49:18",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 158,
@@ -581,7 +585,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 162,
@@ -596,7 +600,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 20:01:38",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 165,
@@ -611,7 +615,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:14",
       "created_at": "2026-03-23 22:48:58",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 155,
@@ -626,7 +630,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 156,
@@ -641,7 +645,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:13:13",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 50,
@@ -657,7 +661,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-23 23:04:16",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 163,
@@ -673,7 +677,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 20:26:31",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 164,
@@ -688,7 +692,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 23:01:06",
       "created_at": "2026-03-23 21:47:26",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 132,
@@ -703,7 +707,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 138,
@@ -718,7 +722,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 21:33:05",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 153,
@@ -733,7 +737,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 20:11:02",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 160,
@@ -748,7 +752,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 19:31:13",
       "created_at": "2026-03-23 17:09:01",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 157,
@@ -763,7 +767,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 17:16:11",
       "created_at": "2026-03-23 16:36:39",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 141,
@@ -778,7 +782,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 143,
@@ -793,7 +797,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 144,
@@ -808,7 +812,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 145,
@@ -823,7 +827,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:04",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 139,
@@ -838,7 +842,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 140,
@@ -853,7 +857,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 02:27:03",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 126,
@@ -868,7 +872,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-23 00:53:31",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 136,
@@ -883,7 +887,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 21:06:23",
       "created_at": "2026-03-22 21:06:09",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 1,
@@ -898,7 +902,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 2,
@@ -913,7 +917,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 3,
@@ -928,7 +932,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 4,
@@ -943,7 +947,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 5,
@@ -958,7 +962,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 6,
@@ -973,7 +977,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 7,
@@ -988,7 +992,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 8,
@@ -1003,7 +1007,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 9,
@@ -1018,7 +1022,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 10,
@@ -1033,7 +1037,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 11,
@@ -1048,7 +1052,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 12,
@@ -1063,7 +1067,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 13,
@@ -1078,7 +1082,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 14,
@@ -1093,7 +1097,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 15,
@@ -1108,7 +1112,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 16,
@@ -1123,7 +1127,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 17,
@@ -1138,7 +1142,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 18,
@@ -1153,7 +1157,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 19,
@@ -1168,7 +1172,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 20,
@@ -1183,7 +1187,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 21,
@@ -1198,7 +1202,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 22,
@@ -1213,7 +1217,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 23,
@@ -1228,7 +1232,7 @@
       "resolution": "DUPLICATE",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 24,
@@ -1243,7 +1247,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 25,
@@ -1258,7 +1262,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 26,
@@ -1273,7 +1277,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 27,
@@ -1288,7 +1292,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 28,
@@ -1303,7 +1307,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 29,
@@ -1318,7 +1322,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 31,
@@ -1333,7 +1337,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 33,
@@ -1348,7 +1352,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 34,
@@ -1363,7 +1367,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 35,
@@ -1378,7 +1382,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 37,
@@ -1393,7 +1397,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 38,
@@ -1408,7 +1412,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 39,
@@ -1423,7 +1427,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 45,
@@ -1438,7 +1442,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 46,
@@ -1453,7 +1457,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 47,
@@ -1468,7 +1472,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 48,
@@ -1483,7 +1487,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 49,
@@ -1498,7 +1502,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 52,
@@ -1513,7 +1517,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 54,
@@ -1528,7 +1532,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 55,
@@ -1543,7 +1547,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 56,
@@ -1558,7 +1562,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 58,
@@ -1573,7 +1577,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 60,
@@ -1588,7 +1592,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 61,
@@ -1603,7 +1607,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 62,
@@ -1618,7 +1622,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 63,
@@ -1633,7 +1637,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 64,
@@ -1648,7 +1652,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 66,
@@ -1663,7 +1667,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 67,
@@ -1678,7 +1682,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 68,
@@ -1693,7 +1697,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 69,
@@ -1708,7 +1712,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 70,
@@ -1723,7 +1727,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 71,
@@ -1738,7 +1742,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 72,
@@ -1753,7 +1757,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 73,
@@ -1768,7 +1772,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 74,
@@ -1783,7 +1787,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 75,
@@ -1798,7 +1802,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 76,
@@ -1813,7 +1817,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 77,
@@ -1828,7 +1832,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 78,
@@ -1843,7 +1847,7 @@
       "resolution": "SUPERSEDED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 79,
@@ -1858,7 +1862,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 80,
@@ -1873,7 +1877,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 81,
@@ -1888,7 +1892,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 82,
@@ -1903,7 +1907,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 83,
@@ -1918,7 +1922,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 84,
@@ -1933,7 +1937,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 85,
@@ -1948,7 +1952,7 @@
       "resolution": "WONTFIX",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 86,
@@ -1963,7 +1967,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 87,
@@ -1978,7 +1982,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 88,
@@ -1993,7 +1997,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 89,
@@ -2008,7 +2012,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 90,
@@ -2023,7 +2027,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 91,
@@ -2038,7 +2042,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 92,
@@ -2053,7 +2057,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 93,
@@ -2068,7 +2072,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 94,
@@ -2083,7 +2087,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 95,
@@ -2098,7 +2102,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 96,
@@ -2113,7 +2117,7 @@
       "resolution": "DOCUMENTED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 97,
@@ -2128,7 +2132,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 98,
@@ -2143,7 +2147,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 99,
@@ -2158,7 +2162,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 100,
@@ -2173,7 +2177,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 101,
@@ -2188,7 +2192,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 102,
@@ -2203,7 +2207,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 103,
@@ -2218,7 +2222,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 105,
@@ -2233,7 +2237,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 106,
@@ -2248,7 +2252,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 107,
@@ -2263,7 +2267,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 108,
@@ -2278,7 +2282,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 109,
@@ -2293,7 +2297,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 110,
@@ -2308,7 +2312,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 111,
@@ -2323,7 +2327,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 112,
@@ -2338,7 +2342,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 115,
@@ -2353,7 +2357,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 116,
@@ -2368,7 +2372,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 117,
@@ -2383,7 +2387,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 118,
@@ -2398,7 +2402,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 119,
@@ -2413,7 +2417,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 120,
@@ -2428,7 +2432,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 121,
@@ -2443,7 +2447,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 122,
@@ -2458,7 +2462,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 123,
@@ -2473,7 +2477,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 124,
@@ -2488,7 +2492,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 125,
@@ -2503,7 +2507,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 127,
@@ -2518,7 +2522,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 128,
@@ -2533,7 +2537,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 129,
@@ -2548,7 +2552,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 130,
@@ -2563,7 +2567,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 131,
@@ -2578,7 +2582,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     },
     {
       "id": 134,
@@ -2593,7 +2597,7 @@
       "resolution": "FIXED",
       "resolved_at": "2026-03-22 17:32:29",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-24 08:48:42"
+      "updated_at": "2026-03-24 09:04:48"
     }
   ]
 }

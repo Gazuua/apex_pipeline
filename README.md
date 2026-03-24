@@ -235,9 +235,14 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Chat Service | `apex_infra/docker/chat-svc.Dockerfile` |
 | CI 빌드 | `apex_infra/docker/ci.Dockerfile` |
 
-## 현재 상태 — v0.5.10.7
+## 현재 상태 — v0.5.11.0
 
 ### 완료
+
+- **v0.5.11.0 — ScopedLogger 로깅 인프라**
+  - ScopedLogger 클래스 신규 구현 (std::source_location, compile-time format, core_id/session_id/corr_id 구조화 태그)
+  - 레거시 log_helpers.hpp + APEX_SVC_LOG_METHODS 폐기, 전 레이어 마이그레이션 + 로그 충실화
+  - 85/85 유닛 통과
 
 - **v0.5.10.7 — ASAN UAF 수정 (Session core_executor_ 분리)**
   - Session에 core_executor_ 멤버 추가, timer/write_pump에서 소켓 executor 대신 올바른 core의 io_context executor 사용

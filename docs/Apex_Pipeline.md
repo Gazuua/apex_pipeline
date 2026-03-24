@@ -430,6 +430,7 @@ Tier 상세:
 | v0.5.10.5 | 소 | FSD 백로그 소탕 — Gateway template policy + 에러 테스트: ① GatewayPipeline → GatewayPipelineBase\<V,B,L\> template 파라미터화 (compile-time DI, zero-cost). 헤더 분리 (template only / production alias) ② 신규 에러 경로 테스트 16건 (mock + io_context 코루틴 하네스: IP RL, JWT, blacklist fail-open/close, user/endpoint RL). 83/83 테스트 통과 | |
 | v0.5.10.6 | 소 | RedisAdapter close UAF 방어: ① CancellationToken per-core 프리미티브 (어댑터 코루틴 추적/취소) ② AdapterBase 범용 cancellation 인프라 (spawn_adapter_coro/cancel_adapter_coros/wait, 2단계 close) ③ RedisMultiplexer reconnecting_ 플래그 → cancellation_signal 기반 전환 ④ Server shutdown 재배치 (adapter close → CoreEngine stop 이전으로). CI 긴급 수정 포함 (IIFE 람다 UAF + shutdown timer UAF) | |
 | v0.5.10.7 | 소 | ASAN UAF 수정 — socket executor ≠ core executor timer service use-after-free: Session에 core_executor_ 멤버 추가, timer/write_pump에서 소켓 executor 대신 올바른 core의 io_context executor 사용. CI 전체 통과 (ASAN/TSAN/GCC/UBSAN/E2E) | |
+| v0.5.11.0 | 중 | ScopedLogger 로깅 인프라: ① ScopedLogger 클래스 신규 구현 (std::source_location 자동 캡처, compile-time format 검증, core_id/session_id/corr_id 구조화 태그, apex/app 로거 분리, HasSessionId concept) ② 레거시 log_helpers.hpp + APEX_SVC_LOG_METHODS 매크로 완전 폐기 ③ 전 레이어 ScopedLogger 마이그레이션 (core 12, services 8, shared 15 파일) ④ 전 레이어 로그 충실화 (trace/debug/info/warn/error 수준별 적정 로그 추가) ⑤ auto-review 수정: namespace-scope static 19건 → function-scope static 전환 (init_logging() 전 생성 no-op 버그), Gateway 구조화 태그 통일. 85/85 유닛 통과 | |
 
 > **도구: apex-agent Go 백엔드 완전 재작성 (#126)** — 11개 bash 스크립트(~2,080줄) → Go 단일 바이너리(14,000+ LOC, 프로덕션 ~7,100 + 테스트 ~6,900)로 전면 재작성. 데몬 모드(Named Pipe/Unix Socket IPC), SQLite WAL 상태 저장소, 4개 모듈(Hook Gate/Backlog 강타입 관리/Handoff 상태머신/Queue FIFO 빌드·머지 큐), 6종 hook 게이트(validate-build, validate-merge, validate-handoff, enforce-rebase, handoff-probe, validate-backlog), E2E 테스트 14 패키지 전체 PASS. CI Go 빌드+테스트 파이프라인 추가. auto-review 5라운드 수정 완료. 프레임워크 버전 변경 없음.
 
@@ -466,6 +467,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.5.10.5 FSD 백로그 소탕 (Gateway template policy + 에러 테스트)
          v0.5.10.6 RedisAdapter close UAF 방어 (CancellationToken + AdapterBase 인프라 + shutdown 재배치)
          v0.5.10.7 ASAN UAF 수정 (socket executor ≠ core executor timer service UAF)
+         v0.5.11.0 ScopedLogger 로깅 인프라 (구조화 로그, source_location, 전 레이어 마이그레이션)
          [도구] apex-agent Go 백엔드 완전 재작성 (bash 11종→Go 단일 바이너리, 데몬+SQLite+IPC, 14K LOC)
          [도구] 백로그 정합성 강화 (ExportHistory, backlog update, validate-backlog hook, MergePipeline 자동 커밋)
          [도구] 백로그 JSON 통합 (BACKLOG-163 — DB source of truth + JSON git 백업)
