@@ -85,6 +85,7 @@ int main(int argc, char* argv[])
     apex::core::Server server({
         .num_cores = gw_config.num_cores,
         .heartbeat_timeout_ticks = gw_config.heartbeat_timeout_ticks,
+        .metrics = {},
     });
 
     server.listen<apex::shared::protocols::websocket::WebSocketProtocol>(gw_config.ws_port);
