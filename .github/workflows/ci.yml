@@ -292,12 +292,12 @@ jobs:
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.6
 
-      - name: Restore vcpkg cache
+      - name: Restore vcpkg binary cache
         uses: actions/cache@v4
         with:
-          path: vcpkg_installed
-          key: vcpkg-msvc-${{ hashFiles('**/vcpkg.json') }}
-          restore-keys: vcpkg-msvc-
+          path: ~\AppData\Local\vcpkg\archives
+          key: vcpkg-bin-msvc-${{ hashFiles('**/vcpkg.json') }}
+          restore-keys: vcpkg-bin-msvc-
 
       - name: Configure
         run: cmake --preset release-sccache
