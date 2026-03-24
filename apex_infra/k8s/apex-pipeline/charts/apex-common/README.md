@@ -41,7 +41,7 @@ dependencies:
 | `apex-common.service` | **Service 전체** | `templates/service.yaml` |
 | `apex-common.configmap` | **ConfigMap** (TOML 임베딩) | `templates/configmap.yaml` |
 | `apex-common.serviceMonitor` | Prometheus ServiceMonitor CRD | `templates/service-monitor.yaml` |
-| `apex-common.serviceAccount` | ServiceAccount | `templates/service-account.yaml` |
+| `apex-common.serviceAccount` | ServiceAccount | `templates/service-account.yaml` (필요 시 생성) |
 
 ## values.yaml 스키마
 

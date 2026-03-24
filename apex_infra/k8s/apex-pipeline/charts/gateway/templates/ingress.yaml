@@ -30,5 +30,5 @@ spec:
               service:
                 name: {{ include "apex-common.fullname" . }}
                 port:
-                  number: 8443
+                  number: {{ (index .Values.service.ports 0).port }}
 {{- end }}

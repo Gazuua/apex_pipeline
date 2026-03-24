@@ -19,12 +19,12 @@ service:
 postgresql:
   host: "apex-infra-postgresql.apex-infra.svc.cluster.local"
   port: 5432
-  username: "apex"
-  database: "apex"
+  username: "apex_user"
+  database: "apex_db"
 
 # --- PgBouncer 설정 (docker-compose.yml과 동일) ---
 pgbouncer:
-  database: "apex"
+  database: "apex_db"
   port: 6432
   authType: "md5"
   poolMode: "transaction"
@@ -41,7 +41,7 @@ secrets:
   # 기존 Secret 사용 시 이름 지정 (프로덕션)
   existingSecret: ""
   # 기본값 (로컬 개발용)
-  postgresPassword: "apex"
+  postgresPassword: "apex_pass"
 
 # --- Probes (pg_isready -h localhost -p 6432) ---
 probes:

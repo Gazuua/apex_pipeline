@@ -139,7 +139,7 @@ spec:
               containerPort: {{ .targetPort | default .port }}
               protocol: TCP
             {{- end }}
-          {{- if .Values.secrets }}
+          {{- if or (and .Values.secrets .Values.secrets.existingSecret) (and .Values.secrets .Values.secrets.data) }}
           envFrom:
             {{- if .Values.secrets.existingSecret }}
             - secretRef:
@@ -186,6 +186,25 @@ spec:
         {{- if .Values.extraVolumes }}
         {{- toYaml .Values.extraVolumes | nindent 8 }}
         {{- end }}
+{{- end }}
+
+{{/* ===================================================================
+    Secret — secrets.data가 있고 existingSecret이 없을 때 자동 생성
+    =================================================================== */}}
+{{- define "apex-common.secret" -}}
+{{- if and .Values.secrets .Values.secrets.data (not .Values.secrets.existingSecret) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "apex-common.fullname" . }}-secrets
+  labels:
+    {{- include "apex-common.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{- range $key, $value := .Values.secrets.data }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
 {{- end }}
 
 {{/* ===================================================================

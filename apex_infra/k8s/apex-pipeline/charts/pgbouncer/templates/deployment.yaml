@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "pgbouncer.selectorLabels" . | nindent 8 }}
+        {{- include "pgbouncer.labels" . | nindent 8 }}
     spec:
       containers:
         - name: pgbouncer
