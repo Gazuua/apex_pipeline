@@ -197,3 +197,14 @@ drain_timeout_s = -1
 )");
     EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
 }
+
+TEST_F(ConfigTest, NumCoresZeroPassesConfigLoad)
+{
+    auto path = write_toml("zero_cores.toml", R"(
+[server]
+num_cores = 0
+)");
+    // Config 로드는 0을 허용 — CoreEngine이 런타임에 보정
+    auto config = AppConfig::from_file(path);
+    EXPECT_EQ(config.server.num_cores, 0u);
+}

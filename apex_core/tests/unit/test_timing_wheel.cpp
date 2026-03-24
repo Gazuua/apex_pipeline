@@ -414,3 +414,45 @@ TEST(TimingWheel, RescheduleLastEntryInSlot)
     EXPECT_TRUE(expired.contains(id3));
     EXPECT_EQ(tw.active_count(), 0u);
 }
+
+TEST(TimingWheel, SingleSlotCreation)
+{
+    // num_slots=1 → next_power_of_2(1)=1, mask_=0
+    // Only ticks_from_now=0 is valid (max = num_slots - 1 = 0)
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(1, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    // schedule(0) = expire on next tick
+    auto id = tw.schedule(0);
+    EXPECT_EQ(tw.active_count(), 1u);
+
+    tw.tick(); // tick 0→1: fires entry with deadline=0
+    EXPECT_EQ(expired.size(), 1u);
+    EXPECT_TRUE(expired.contains(id));
+    EXPECT_EQ(tw.active_count(), 0u);
+
+    // ticks_from_now >= 1 must throw (out of range for single-slot wheel)
+    EXPECT_THROW((void)tw.schedule(1), std::out_of_range);
+}
+
+TEST(TimingWheel, SingleSlotMultipleEntries)
+{
+    // num_slots=1, 5 entries all scheduled at ticks_from_now=0
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel tw(1, [&](TimingWheel::EntryId id) { expired.insert(id); });
+
+    std::set<TimingWheel::EntryId> ids;
+    for (int i = 0; i < 5; ++i)
+    {
+        ids.insert(tw.schedule(0));
+    }
+    EXPECT_EQ(tw.active_count(), 5u);
+
+    tw.tick(); // tick 0→1: all 5 entries expire (deadline=0)
+    EXPECT_EQ(expired.size(), 5u);
+    for (auto id : ids)
+    {
+        EXPECT_TRUE(expired.contains(id));
+    }
+    EXPECT_EQ(tw.active_count(), 0u);
+}
