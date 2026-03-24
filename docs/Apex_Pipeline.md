@@ -600,8 +600,8 @@ v1.0.0.0 포함 항목:
 - [x] E2E 통합 테스트 (6개 시나리오: 인증 → 채팅 → 브로드캐스트 전체 경로) — Wave 2
 
 #### v0.6: 운영 인프라
-- [ ] Prometheus 메트릭 노출
-- [ ] Docker 멀티스테이지 빌드
+- [x] Prometheus 메트릭 노출
+- [x] Docker 멀티스테이지 빌드
 - [ ] K8s manifests + Helm
 - [ ] CI/CD 고도화 (이미지 빌드 + 배포, docker-compose 통합 테스트)
 
