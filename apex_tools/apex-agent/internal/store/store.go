@@ -15,9 +15,9 @@ var ml = log.WithModule("store")
 // Querier is the common interface for Store and TxStore.
 // Use this when a function needs to work with both transactional and non-transactional contexts.
 type Querier interface {
-	Exec(query string, args ...any) (sql.Result, error)
-	Query(query string, args ...any) (*sql.Rows, error)
-	QueryRow(query string, args ...any) *sql.Row
+	Exec(ctx context.Context, query string, args ...any) (sql.Result, error)
+	Query(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRow(ctx context.Context, query string, args ...any) *sql.Row
 }
 
 // Store wraps a SQLite database for non-transactional operations.
@@ -55,16 +55,16 @@ func Open(dsn string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) Exec(query string, args ...any) (sql.Result, error) {
-	return s.db.Exec(query, args...)
+func (s *Store) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return s.db.ExecContext(ctx, query, args...)
 }
 
-func (s *Store) Query(query string, args ...any) (*sql.Rows, error) {
-	return s.db.Query(query, args...)
+func (s *Store) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return s.db.QueryContext(ctx, query, args...)
 }
 
-func (s *Store) QueryRow(query string, args ...any) *sql.Row {
-	return s.db.QueryRow(query, args...)
+func (s *Store) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+	return s.db.QueryRowContext(ctx, query, args...)
 }
 
 // RunInTx executes fn within a transaction. A TxStore is passed to fn —
@@ -88,16 +88,16 @@ func (s *Store) RunInTx(ctx context.Context, fn func(tx *TxStore) error) error {
 
 // --- TxStore methods ---
 
-func (ts *TxStore) Exec(query string, args ...any) (sql.Result, error) {
-	return ts.tx.Exec(query, args...)
+func (ts *TxStore) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return ts.tx.ExecContext(ctx, query, args...)
 }
 
-func (ts *TxStore) Query(query string, args ...any) (*sql.Rows, error) {
-	return ts.tx.Query(query, args...)
+func (ts *TxStore) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return ts.tx.QueryContext(ctx, query, args...)
 }
 
-func (ts *TxStore) QueryRow(query string, args ...any) *sql.Row {
-	return ts.tx.QueryRow(query, args...)
+func (ts *TxStore) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+	return ts.tx.QueryRowContext(ctx, query, args...)
 }
 
 // NullableString returns nil for empty strings, otherwise the string itself.
