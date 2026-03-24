@@ -1,0 +1,148 @@
+{
+  "context": {
+    "date": "2026-03-24T17:31:37+09:00",
+    "host_name": "NO-P-131802",
+    "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_spsc_queue.exe",
+    "num_cpus": 28,
+    "mhz_per_cpu": 2112,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 34603008,
+        "num_sharing": 28
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "28",
+    "physical_cores": "20",
+    "total_ram_mb": "65253"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_SpscQueue_Throughput/1024",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SpscQueue_Throughput/1024",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 203636364,
+      "real_time": 3.4950982526848793e+00,
+      "cpu_time": 3.4528459759770609e+00,
+      "time_unit": "ns",
+      "items_per_second": 2.8961616213333333e+08
+    },
+    {
+      "name": "BM_SpscQueue_Throughput/4096",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_SpscQueue_Throughput/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 203636364,
+      "real_time": 3.4658087884546260e+00,
+      "cpu_time": 3.4528459759770609e+00,
+      "time_unit": "ns",
+      "items_per_second": 2.8961616213333333e+08
+    },
+    {
+      "name": "BM_SpscQueue_Throughput/32768",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_SpscQueue_Throughput/32768",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 213333333,
+      "real_time": 3.3747356302606035e+00,
+      "cpu_time": 3.3691406302642823e+00,
+      "time_unit": "ns",
+      "items_per_second": 2.9681159373913044e+08
+    },
+    {
+      "name": "BM_SpscQueue_Throughput/65536",
+      "family_index": 0,
+      "per_family_instance_index": 3,
+      "run_name": "BM_SpscQueue_Throughput/65536",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 213333333,
+      "real_time": 3.3717135990162292e+00,
+      "cpu_time": 3.4423828178787232e+00,
+      "time_unit": "ns",
+      "items_per_second": 2.9049645344680852e+08
+    },
+    {
+      "name": "BM_SpscQueue_Latency",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SpscQueue_Latency",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 373333333,
+      "real_time": 1.8927168766928519e+00,
+      "cpu_time": 1.8833705373958665e+00,
+      "time_unit": "ns",
+      "items_per_second": 5.3096296248888886e+08
+    },
+    {
+      "name": "BM_SpscQueue_Backpressure",
+      "family_index": 2,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SpscQueue_Backpressure",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 497777778,
+      "real_time": 1.5215701332534501e+00,
+      "cpu_time": 1.5380859368133546e+00,
+      "time_unit": "ns"
+    },
+    {
+      "name": "BM_SpscQueue_ConcurrentThroughput",
+      "family_index": 3,
+      "per_family_instance_index": 0,
+      "run_name": "BM_SpscQueue_ConcurrentThroughput",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 10000000,
+      "real_time": 5.5325799999991432e+01,
+      "cpu_time": 5.3125000000000000e+01,
+      "time_unit": "ns",
+      "items_per_second": 1.8823529411764707e+07
+    }
+  ]
+}

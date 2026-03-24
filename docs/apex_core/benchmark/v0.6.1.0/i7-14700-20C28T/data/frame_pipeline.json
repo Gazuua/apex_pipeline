@@ -1,0 +1,89 @@
+{
+  "context": {
+    "date": "2026-03-24T17:33:10+09:00",
+    "host_name": "NO-P-131802",
+    "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_frame_pipeline.exe",
+    "num_cpus": 28,
+    "mhz_per_cpu": 2112,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 34603008,
+        "num_sharing": 28
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "28",
+    "physical_cores": "20",
+    "total_ram_mb": "65253"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_FramePipeline/64",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_FramePipeline/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 248889,
+      "real_time": 2.8286549425733451e+03,
+      "cpu_time": 2.7622755525555567e+03,
+      "time_unit": "ns",
+      "bytes_per_second": 2.7513547636363637e+07
+    },
+    {
+      "name": "BM_FramePipeline/512",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_FramePipeline/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 263529,
+      "real_time": 2.9881364100364135e+03,
+      "cpu_time": 2.6681124278542397e+03,
+      "time_unit": "ns",
+      "bytes_per_second": 1.9639352319999999e+08
+    },
+    {
+      "name": "BM_FramePipeline/4096",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_FramePipeline/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 263529,
+      "real_time": 3.0207092957610298e+03,
+      "cpu_time": 2.9052779769968392e+03,
+      "time_unit": "ns",
+      "bytes_per_second": 1.4139782948571429e+09
+    }
+  ]
+}
