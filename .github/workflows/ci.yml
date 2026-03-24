@@ -280,8 +280,14 @@ jobs:
     timeout-minutes: 30
     continue-on-error: true
 
+    env:
+      VCPKG_ROOT: C:\vcpkg
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.6
