@@ -340,7 +340,6 @@ jobs:
   scan:
     permissions:
       contents: read
-      security-events: write
     needs: [bake-services]
     if: needs.bake-services.result == 'success'
     runs-on: ubuntu-latest
@@ -349,7 +348,7 @@ jobs:
       matrix:
         service: [gateway, auth-svc, chat-svc]
     steps:
-      - uses: aquasecurity/trivy-action@master
+      - uses: aquasecurity/trivy-action@0.31.0
         with:
           image-ref: ghcr.io/gazuua/apex-pipeline-${{ matrix.service }}:sha-${{ github.sha }}
           severity: CRITICAL,HIGH
