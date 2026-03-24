@@ -128,6 +128,7 @@ int main(int argc, char* argv[])
     // --- 3. Server 구성 (CoreEngine 내장) ---
     apex::core::ServerConfig server_config;
     server_config.num_cores = 1;
+    server_config.metrics = app_config.metrics;
     apex::core::Server server(server_config);
 
     // --- 4. 어댑터 등록 ---
