@@ -219,6 +219,16 @@ docker compose --profile observability up -d       # + Prometheus/Grafana
 docker compose down -v                             # 초기화
 ```
 
+### K8s (minikube) 배포
+
+Helm 차트로 전체 스택을 K8s에 배포합니다. 상세: `apex_infra/k8s/apex-pipeline/README.md`
+
+```bash
+cd apex_infra/k8s/apex-pipeline
+./scripts/local-setup.sh    # minikube 시작 → Helm install → test
+./scripts/local-teardown.sh # 정리
+```
+
 ### E2E 테스트 환경
 
 서비스 바이너리 + 전체 인프라를 Docker로 기동하여 End-to-End 테스트를 실행합니다.
