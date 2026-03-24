@@ -19,7 +19,7 @@ group "services" {
 
 // ── Base target (shared config) ───────────────────
 target "service-base" {
-  dockerfile = "docker/service.Dockerfile"
+  dockerfile = "apex_infra/docker/service.Dockerfile"
   context    = ".."
   cache-from = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache"]
   cache-to   = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache,mode=max"]
