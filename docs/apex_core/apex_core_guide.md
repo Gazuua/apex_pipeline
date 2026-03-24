@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.5.10.7 | **최종 갱신**: 2026-03-24
+**버전**: v0.6.2.0 | **최종 갱신**: 2026-03-24
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
@@ -168,6 +168,12 @@ private:
 ### §2.1 ServerConfig
 
 ```cpp
+/// Prometheus metrics endpoint configuration (v0.6.1+).
+struct MetricsConfig {
+    bool enabled = false;       // true로 설정 시 /metrics, /health, /ready HTTP 엔드포인트 노출
+    uint16_t port = 8081;       // 메트릭 HTTP 서버 포트
+};
+
 struct ServerConfig {
     std::string bind_address = "0.0.0.0";             // 바인드 주소 (예: "127.0.0.1" = 루프백만)
     bool tcp_nodelay = true;                          // Nagle 비활성화 (저지연)
@@ -186,6 +192,9 @@ struct ServerConfig {
     std::size_t bump_capacity_bytes = 64 * 1024;      // per-core BumpAllocator (§6)
     std::size_t arena_block_bytes = 4096;              // per-core ArenaAllocator 블록 크기
     std::size_t arena_max_bytes = 1024 * 1024;         // per-core ArenaAllocator 최대
+
+    // Metrics (v0.6.1+)
+    MetricsConfig metrics;                              // Prometheus 메트릭 엔드포인트 설정
 };
 ```
 
