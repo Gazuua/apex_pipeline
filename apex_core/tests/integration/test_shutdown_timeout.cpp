@@ -35,6 +35,7 @@ TEST_F(ShutdownTimeoutTest, NormalShutdownWithinTimeout)
         .num_cores = 1,
         .handle_signals = false,
         .drain_timeout = 2s,
+        .metrics = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -57,6 +58,7 @@ TEST_F(ShutdownTimeoutTest, DrainTimeoutForcesShutdown)
         .num_cores = 1,
         .handle_signals = false,
         .drain_timeout = 1s, // 1초 타임아웃
+        .metrics = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
