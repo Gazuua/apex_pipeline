@@ -306,21 +306,31 @@ TEST(BroadcastTest, BroadcastToAllCores)
     engine.join();
 }
 
-TEST_F(CrossCoreCallTest, SameCoreCallReturnsTimeout)
+TEST_F(CrossCoreCallTest, SameCoreCallThrowsLogicError)
 {
-    std::promise<ErrorCode> promise;
+    // co_post_to(src==dst)는 std::logic_error를 던짐 — cross_core_call이 이를 전파
+    std::promise<bool> promise;
     auto future = promise.get_future();
 
-    // 동일 코어(0→0) 호출: post는 성공하지만 동일 코어 io_context에서 대기하므로 데드락 → 타임아웃
     boost::asio::co_spawn(
         server_->core_io_context(0),
         [this, &promise]() -> boost::asio::awaitable<void> {
-            auto result = co_await server_->cross_core_call(0, [] { return 0; }, 100ms);
-            EXPECT_FALSE(result.has_value());
-            promise.set_value(result.error());
+            try
+            {
+                (void)co_await server_->cross_core_call(0, [] { return 0; }, 100ms);
+                promise.set_value(false); // 예외 없이 완료되면 실패
+            }
+            catch (const std::logic_error&)
+            {
+                promise.set_value(true); // 기대한 예외
+            }
+            catch (...)
+            {
+                promise.set_value(false); // 다른 예외면 실패
+            }
         },
         boost::asio::detached);
 
     ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
-    EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+    EXPECT_TRUE(future.get()) << "cross_core_call to self should throw std::logic_error";
 }
