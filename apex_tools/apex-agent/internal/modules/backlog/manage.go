@@ -3,6 +3,7 @@
 package backlog
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -320,7 +321,7 @@ func (m *Manager) UpdateFromImport(id int, title, severity, timeframe, scope, it
 }
 
 // Resolve marks an item as resolved with the given resolution type.
-// Returns an error if the item does not exist.
+// Returns an error if the item does not exist or is already RESOLVED.
 func (m *Manager) Resolve(id int, resolution string) error {
 	if err := ValidateResolution(resolution); err != nil {
 		return err
@@ -331,8 +332,8 @@ func (m *Manager) Resolve(id int, resolution string) error {
 		    resolution = ?,
 		    resolved_at = datetime('now','localtime'),
 		    updated_at = datetime('now','localtime')
-		WHERE id = ?`,
-		StatusResolved, resolution, id,
+		WHERE id = ? AND status != ?`,
+		StatusResolved, resolution, id, StatusResolved,
 	)
 	if err != nil {
 		return fmt.Errorf("Resolve: %w", err)
@@ -342,7 +343,7 @@ func (m *Manager) Resolve(id int, resolution string) error {
 		return fmt.Errorf("Resolve rows affected: %w", err)
 	}
 	if n == 0 {
-		return fmt.Errorf("Resolve: item %d not found", id)
+		return fmt.Errorf("Resolve: item %d not found or already RESOLVED", id)
 	}
 	ml.Info("item resolved", "id", id, "resolution", resolution)
 	return nil
@@ -389,79 +390,90 @@ func (m *Manager) SetStatusWith(q store.Querier, id int, status string) error {
 }
 
 // Release removes a backlog item from active work.
-// If status is FIXING, sets it back to OPEN.
-// Appends release reason to description.
+// If status is FIXING, sets it back to OPEN and appends release reason to description.
+// Non-FIXING items are rejected to prevent accidental description pollution.
 func (m *Manager) Release(id int, reason, branch string) error {
-	item, err := m.Get(id)
-	if err != nil {
-		return fmt.Errorf("Release: %w", err)
-	}
-	if item == nil {
-		return fmt.Errorf("Release: item %d not found", id)
-	}
+	return m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		txm := m.withQuerier(tx)
 
-	// Append release history to description
-	appendDesc := fmt.Sprintf("\n[RELEASED] %s: %s", branch, reason)
-
-	_, err = m.q.Exec(`
-		UPDATE backlog_items
-		SET status = CASE WHEN status = ? THEN ? ELSE status END,
-		    description = description || ?,
-		    updated_at = datetime('now','localtime')
-		WHERE id = ?`,
-		StatusFixing, StatusOpen, appendDesc, id,
-	)
-	if err != nil {
-		return fmt.Errorf("Release: %w", err)
-	}
-
-	// Junction 정리: handoff 모듈이 주입한 콜백으로 branch_backlogs 레코드 삭제.
-	// 콜백 미설정 시(테스트 등) noop.
-	if m.junctionCleaner != nil {
-		if delErr := m.junctionCleaner(m.q, id); delErr != nil {
-			ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
+		item, err := txm.Get(id)
+		if err != nil {
+			return fmt.Errorf("Release: %w", err)
 		}
-	}
+		if item == nil {
+			return fmt.Errorf("Release: item %d not found", id)
+		}
+		if item.Status != StatusFixing {
+			return fmt.Errorf("Release: item %d is %s (only FIXING items can be released)", id, item.Status)
+		}
 
-	ml.Info("item released", "id", id, "reason", reason)
-	return nil
+		// Append release history to description + set OPEN
+		appendDesc := fmt.Sprintf("\n[RELEASED] %s: %s", branch, reason)
+		_, err = tx.Exec(`
+			UPDATE backlog_items
+			SET status = ?,
+			    description = description || ?,
+			    updated_at = datetime('now','localtime')
+			WHERE id = ?`,
+			StatusOpen, appendDesc, id,
+		)
+		if err != nil {
+			return fmt.Errorf("Release: %w", err)
+		}
+
+		// Junction 정리: handoff 모듈이 주입한 콜백으로 branch_backlogs 레코드 삭제.
+		// 콜백 미설정 시(테스트 등) noop.
+		if m.junctionCleaner != nil {
+			if delErr := m.junctionCleaner(tx, id); delErr != nil {
+				ml.Warn("failed to delete branch_backlogs on release", "backlog_id", id, "err", delErr)
+			}
+		}
+
+		ml.Info("item released", "id", id, "reason", reason)
+		return nil
+	})
 }
 
 // Fix links a backlog item to the current branch and transitions it to FIXING.
 // Only OPEN items can be fixed. Already FIXING items are silently accepted.
+// Check + update + junction insert are wrapped in a transaction for atomicity.
 func (m *Manager) Fix(id int, branch string) error {
-	item, err := m.Get(id)
-	if err != nil {
-		return fmt.Errorf("Fix: %w", err)
-	}
-	if item == nil {
-		return fmt.Errorf("Fix: item %d not found", id)
-	}
-	if item.Status == StatusFixing {
-		return nil // already FIXING — idempotent
-	}
-	if item.Status != StatusOpen {
-		return fmt.Errorf("Fix: item %d is %s (only OPEN items can be fixed)", id, item.Status)
-	}
+	return m.store.RunInTx(context.Background(), func(tx *store.TxStore) error {
+		txm := m.withQuerier(tx)
 
-	// FIXING 전이
-	if _, err := m.q.Exec(
-		`UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
-		StatusFixing, id,
-	); err != nil {
-		return fmt.Errorf("Fix: update status: %w", err)
-	}
+		item, err := txm.Get(id)
+		if err != nil {
+			return fmt.Errorf("Fix: %w", err)
+		}
+		if item == nil {
+			return fmt.Errorf("Fix: item %d not found", id)
+		}
+		if item.Status == StatusFixing {
+			return nil // already FIXING — idempotent
+		}
+		if item.Status != StatusOpen {
+			return fmt.Errorf("Fix: item %d is %s (only OPEN items can be fixed)", id, item.Status)
+		}
 
-	// branch_backlogs 연결 (중복 방지)
-	if _, err := m.q.Exec(
-		`INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
-		branch, id,
-	); err != nil {
-		return fmt.Errorf("Fix: link branch: %w", err)
-	}
+		// FIXING 전이
+		if _, err := tx.Exec(
+			`UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`,
+			StatusFixing, id,
+		); err != nil {
+			return fmt.Errorf("Fix: update status: %w", err)
+		}
 
-	ml.Info("item fixed", "id", id, "branch", branch)
-	return nil
+		// branch_backlogs 연결 (중복 방지)
+		if _, err := tx.Exec(
+			`INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
+			branch, id,
+		); err != nil {
+			return fmt.Errorf("Fix: link branch: %w", err)
+		}
+
+		ml.Info("item fixed", "id", id, "branch", branch)
+		return nil
+	})
 }
 
 // Check returns whether a backlog item exists and its current status.

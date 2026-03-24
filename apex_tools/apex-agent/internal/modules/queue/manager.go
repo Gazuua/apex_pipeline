@@ -128,14 +128,18 @@ const (
 // Polling uses exponential backoff: 100ms → 200ms → 400ms → ... → 2s (cap).
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
 	// Register as waiting first (skip if already queued).
-	exists, waitErr := m.hasWaitingEntryForBranch(m.store, channel, branch)
-	if waitErr != nil {
-		return fmt.Errorf("queue.Acquire: check waiting: %w", waitErr)
-	}
-	if !exists {
-		if err := m.insertEntry(channel, branch, pid, StatusWaiting); err != nil {
-			return fmt.Errorf("queue.Acquire: insert: %w", err)
+	// Wrapped in transaction to prevent duplicate WAITING entries from concurrent calls.
+	if err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
+		exists, waitErr := m.hasWaitingEntryForBranch(tx, channel, branch)
+		if waitErr != nil {
+			return fmt.Errorf("check waiting: %w", waitErr)
 		}
+		if !exists {
+			return m.insertEntryTx(tx, channel, branch, pid, StatusWaiting)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("queue.Acquire: %w", err)
 	}
 
 	delay := backoffInitial

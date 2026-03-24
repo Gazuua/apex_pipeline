@@ -203,13 +203,13 @@ func (mgr *Manager) ImportItems(items []BacklogItem) (int, error) {
 
 		if !exists {
 			// New item — insert.
+			// Add() already sets status, resolution, and resolved_at from the item.
+			// For RESOLVED items without resolved_at, populate it before insertion.
+			if item.Status == StatusResolved && item.ResolvedAt == "" {
+				item.ResolvedAt = "imported"
+			}
 			if err := mgr.Add(&item); err != nil {
 				return count, fmt.Errorf("import #%d: %w", item.ID, err)
-			}
-			if item.Status == StatusResolved && item.Resolution != "" {
-				if err := mgr.Resolve(item.ID, item.Resolution); err != nil {
-					return count, fmt.Errorf("resolve #%d: %w", item.ID, err)
-				}
 			}
 			count++
 			continue
