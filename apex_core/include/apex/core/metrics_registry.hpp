@@ -84,12 +84,10 @@ class MetricsRegistry
     Gauge& gauge(std::string_view name, std::string_view help, Labels labels = {});
 
     /// Ref pattern — register an external atomic<uint64_t> as a counter (read-only at scrape).
-    void counter_from(std::string_view name, std::string_view help, Labels labels,
-                      const std::atomic<uint64_t>& source);
+    void counter_from(std::string_view name, std::string_view help, Labels labels, const std::atomic<uint64_t>& source);
 
     /// Fn pattern — register a callback that returns a gauge value at scrape time.
-    void gauge_fn(std::string_view name, std::string_view help, Labels labels,
-                  std::function<int64_t()> reader);
+    void gauge_fn(std::string_view name, std::string_view help, Labels labels, std::function<int64_t()> reader);
 
     /// Serialize all registered metrics to Prometheus text exposition format.
     [[nodiscard]] std::string serialize() const;

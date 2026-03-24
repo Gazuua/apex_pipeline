@@ -14,6 +14,7 @@
 
 #include <librdkafka/rdkafka.h>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -91,7 +92,17 @@ class KafkaConsumer : public std::enable_shared_from_this<KafkaConsumer>
     /// Statistics
     [[nodiscard]] uint64_t total_consumed() const noexcept
     {
-        return total_consumed_;
+        return metric_consume_total_.load(std::memory_order_relaxed);
+    }
+
+    /// Metric atomic access (for MetricsRegistry::counter_from)
+    [[nodiscard]] const std::atomic<uint64_t>& metric_consume_total() const noexcept
+    {
+        return metric_consume_total_;
+    }
+    [[nodiscard]] const std::atomic<uint64_t>& metric_dlq_total() const noexcept
+    {
+        return metric_dlq_total_;
     }
 
   private:
@@ -115,7 +126,8 @@ class KafkaConsumer : public std::enable_shared_from_this<KafkaConsumer>
     MessageCallback message_cb_;
     KafkaProducer* producer_ = nullptr; ///< DLQ produce target (non-owning)
     std::atomic<bool> consuming_{false};
-    uint64_t total_consumed_ = 0;
+    std::atomic<uint64_t> metric_consume_total_{0};
+    std::atomic<uint64_t> metric_dlq_total_{0};
 
 #ifndef _WIN32
     // Linux: pipe fd -> Asio stream_descriptor

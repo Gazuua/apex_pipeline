@@ -35,17 +35,20 @@ boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr sess
     {
         if (default_handler_)
         {
+            metric_dispatched_.fetch_add(1, std::memory_order_relaxed);
             try
             {
                 co_return co_await default_handler_(std::move(session), msg_id, payload);
             }
             catch (const std::exception& e)
             {
+                metric_exceptions_.fetch_add(1, std::memory_order_relaxed);
                 logger_.error("default handler for msg_id 0x{:08x} threw: {}", static_cast<unsigned>(msg_id), e.what());
                 co_return error(ErrorCode::HandlerException);
             }
             catch (...)
             {
+                metric_exceptions_.fetch_add(1, std::memory_order_relaxed);
                 logger_.error("default handler for msg_id 0x{:08x} threw unknown exception",
                               static_cast<unsigned>(msg_id));
                 co_return error(ErrorCode::HandlerException);
@@ -53,17 +56,20 @@ boost::asio::awaitable<Result<void>> MessageDispatcher::dispatch(SessionPtr sess
         }
         co_return error(ErrorCode::HandlerNotFound);
     }
+    metric_dispatched_.fetch_add(1, std::memory_order_relaxed);
     try
     {
         co_return co_await it->second(std::move(session), msg_id, payload);
     }
     catch (const std::exception& e)
     {
+        metric_exceptions_.fetch_add(1, std::memory_order_relaxed);
         logger_.error("handler for msg_id 0x{:08x} threw: {}", static_cast<unsigned>(msg_id), e.what());
         co_return error(ErrorCode::HandlerException);
     }
     catch (...)
     {
+        metric_exceptions_.fetch_add(1, std::memory_order_relaxed);
         logger_.error("handler for msg_id 0x{:08x} threw unknown exception", static_cast<unsigned>(msg_id));
         co_return error(ErrorCode::HandlerException);
     }

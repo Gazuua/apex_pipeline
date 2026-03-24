@@ -36,11 +36,7 @@ struct LogConfig
     LogAsyncConfig async;
 };
 
-struct MetricsConfig
-{
-    bool enabled = false;
-    uint16_t port = 8081;
-};
+// MetricsConfig is defined in server_config.hpp (shared with Server).
 
 struct AppConfig
 {

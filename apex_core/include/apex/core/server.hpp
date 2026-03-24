@@ -10,6 +10,8 @@
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
+#include <apex/core/metrics_http_server.hpp>
+#include <apex/core/metrics_registry.hpp>
 #include <apex/core/periodic_task_scheduler.hpp>
 #include <apex/core/scoped_logger.hpp>
 #include <apex/core/server_config.hpp>
@@ -234,6 +236,12 @@ class Server
         return *core_engine_;
     }
 
+    /// Access MetricsRegistry for Prometheus metric registration.
+    [[nodiscard]] MetricsRegistry& metrics_registry() noexcept
+    {
+        return metrics_registry_;
+    }
+
     /// Access per-core state (for ResponseDispatcher wiring etc.)
     [[nodiscard]] PerCoreState& per_core_state(uint32_t core_id)
     {
@@ -338,6 +346,9 @@ class Server
     std::unordered_map<AdapterKey, AdapterInterface*, AdapterKeyHash> adapter_map_;
 
     PostInitCallback post_init_cb_;
+
+    MetricsRegistry metrics_registry_;
+    MetricsHttpServer metrics_http_server_;
 
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};

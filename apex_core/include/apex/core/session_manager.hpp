@@ -11,6 +11,7 @@
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 
@@ -72,6 +73,24 @@ class SessionManager
         return core_id_;
     }
 
+    // --- Prometheus metric accessors (relaxed atomics, scrape-thread safe) ---
+    [[nodiscard]] const std::atomic<uint64_t>& metric_sessions_created() const noexcept
+    {
+        return metric_sessions_created_;
+    }
+    [[nodiscard]] const std::atomic<uint64_t>& metric_sessions_timeout() const noexcept
+    {
+        return metric_sessions_timeout_;
+    }
+    [[nodiscard]] const std::atomic<uint64_t>& metric_heap_fallback() const noexcept
+    {
+        return metric_heap_fallback_;
+    }
+    [[nodiscard]] size_t active_session_count() const noexcept
+    {
+        return sessions_.size();
+    }
+
   private:
     /// WARNING: Invokes timeout_callback_ which must NOT re-enter tick()
     /// or mutate timer/session maps — iterator invalidation hazard.
@@ -84,6 +103,11 @@ class SessionManager
     size_t max_queue_depth_;
     // uint64_t wraps after ~584 billion years at 1M sessions/sec — effectively no overflow
     uint64_t next_id_{1};
+
+    // Prometheus metric counters — per-core single-writer, scrape thread reads with relaxed atomics
+    std::atomic<uint64_t> metric_sessions_created_{0};
+    std::atomic<uint64_t> metric_sessions_timeout_{0};
+    std::atomic<uint64_t> metric_heap_fallback_{0};
 
     TypedSlabAllocator<Session> session_pool_;
     boost::unordered_flat_map<SessionId, SessionPtr> sessions_;

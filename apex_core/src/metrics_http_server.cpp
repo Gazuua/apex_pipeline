@@ -21,8 +21,7 @@ namespace
 {
 
 /// Handle a single HTTP request on the metrics endpoint.
-net::awaitable<void> handle_session(tcp::socket socket, MetricsRegistry& registry,
-                                    const std::atomic<bool>& running)
+net::awaitable<void> handle_session(tcp::socket socket, MetricsRegistry& registry, const std::atomic<bool>& running)
 {
     beast::flat_buffer buffer;
 
@@ -115,8 +114,7 @@ void MetricsHttpServer::do_accept()
     acceptor_->async_accept([this](beast::error_code ec, tcp::socket socket) {
         if (ec)
             return; // acceptor closed or error — stop accepting
-        net::co_spawn(socket.get_executor(), handle_session(std::move(socket), *registry_, *running_),
-                      net::detached);
+        net::co_spawn(socket.get_executor(), handle_session(std::move(socket), *registry_, *running_), net::detached);
         do_accept();
     });
 }

@@ -7,9 +7,11 @@
 #include <apex/core/scoped_logger.hpp>
 #include <apex/shared/adapters/pg/pg_connection.hpp>
 #include <apex/shared/adapters/pool_concept.hpp>
+#include <atomic>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <chrono>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <string>
@@ -57,6 +59,18 @@ class PgPool
 
     [[nodiscard]] const std::string& connection_string() const noexcept;
 
+    /// Increment query counter (called by PgAdapter on each query/execute).
+    void record_query() noexcept
+    {
+        metric_queries_total_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    /// Metric atomic access (for MetricsRegistry::counter_from)
+    [[nodiscard]] const std::atomic<uint64_t>& metric_queries_total() const noexcept
+    {
+        return metric_queries_total_;
+    }
+
   private:
     Connection do_create_connection();
     void do_destroy_connection(Connection& conn);
@@ -76,6 +90,7 @@ class PgPool
     std::size_t total_count_{0};
     std::size_t active_count_{0};
     PoolStats stats_;
+    std::atomic<uint64_t> metric_queries_total_{0};
 };
 
 // Concept verification

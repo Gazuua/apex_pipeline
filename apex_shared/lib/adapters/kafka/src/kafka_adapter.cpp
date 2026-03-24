@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/metrics_registry.hpp>
 #include <apex/core/service_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/protocols/kafka/kafka_dispatch_bridge.hpp>
@@ -192,6 +193,25 @@ void KafkaAdapter::wire_services(std::vector<std::unique_ptr<apex::core::Service
 
         logger_.info("Auto-wired KafkaDispatchBridge for service '{}'", svc->name());
         break; // 현재 1 adapter = 1 service 패턴 (multi-service는 v0.6+)
+    }
+}
+
+void KafkaAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+{
+    // Producer counters (global shared — no per-core label)
+    registry.counter_from("apex_kafka_produce_total", "Total messages successfully produced", {},
+                          producer_->metric_produce_total());
+    registry.counter_from("apex_kafka_produce_errors_total", "Total produce errors", {},
+                          producer_->metric_produce_errors());
+
+    // Consumer counters (per-core)
+    for (uint32_t i = 0; i < consumers_.size(); ++i)
+    {
+        auto labels = apex::core::Labels{{"core", std::to_string(i)}};
+        registry.counter_from("apex_kafka_consume_total", "Total messages consumed", labels,
+                              consumers_[i]->metric_consume_total());
+        registry.counter_from("apex_kafka_dlq_total", "Total messages routed to DLQ", labels,
+                              consumers_[i]->metric_dlq_total());
     }
 }
 

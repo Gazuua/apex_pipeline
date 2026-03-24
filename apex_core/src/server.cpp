@@ -154,6 +154,12 @@ void Server::run()
     }
     logger_.debug("adapters initialized ({})", adapters_.size());
 
+    // Register adapter metrics
+    for (auto& adapter : adapters_)
+    {
+        adapter->register_metrics(metrics_registry_);
+    }
+
     // PeriodicTaskScheduler 초기화 — per-core io_context 기반
     for (uint32_t core_id = 0; core_id < config_.num_cores; ++core_id)
     {
@@ -291,6 +297,12 @@ void Server::run()
     for (auto& listener : listeners_)
         listener->start();
 
+    // Start metrics HTTP server if enabled
+    if (config_.metrics.enabled)
+    {
+        metrics_http_server_.start(control_io_, config_.metrics.port, metrics_registry_, running_);
+    }
+
     // I-18: Set running_ after all initialization (services, CoreEngine,
     // listeners) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
@@ -383,6 +395,9 @@ void Server::finalize_shutdown()
 {
     logger_.debug("finalize_shutdown");
     shutdown_timer_.reset();
+
+    // 0. Stop metrics HTTP server (no more scrape requests)
+    metrics_http_server_.stop();
 
     // 1. Stop listeners completely
     for (auto& listener : listeners_)

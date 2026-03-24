@@ -91,6 +91,8 @@ boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::command
 
     pending_.push_back(pending);
 
+    metric_commands_total_.fetch_add(1, std::memory_order_relaxed);
+
     // Submit async command to hiredis
     std::string cmd_str(cmd);
     int ret = redisAsyncCommand(conn_->async_context(), &RedisMultiplexer::static_on_reply, this, cmd_str.c_str());
@@ -145,6 +147,8 @@ boost::asio::awaitable<apex::core::Result<RedisReply>> RedisMultiplexer::submit_
     }
 
     pending_.push_back(pending);
+
+    metric_commands_total_.fetch_add(1, std::memory_order_relaxed);
 
     int ret = redisAsyncFormattedCommand(conn_->async_context(), &RedisMultiplexer::static_on_reply, this, cmd,
                                          static_cast<size_t>(len));

@@ -146,7 +146,7 @@ apex::core::Result<void> KafkaProducer::produce(std::string_view topic, std::str
     {
         rd_kafka_resp_err_t last_err = rd_kafka_last_error();
         logger_.warn("produce failed: topic={}, err={}", topic, rd_kafka_err2str(last_err));
-        total_failed_.fetch_add(1, std::memory_order_relaxed);
+        metric_produce_errors_.fetch_add(1, std::memory_order_relaxed);
         return std::unexpected(apex::core::ErrorCode::AdapterError);
     }
 
@@ -188,11 +188,11 @@ void KafkaProducer::delivery_report_cb(rd_kafka_t* /*rk*/, const rd_kafka_messag
     {
         self->logger_.warn("delivery failed: topic={}, err={}", rd_kafka_topic_name(msg->rkt),
                            rd_kafka_err2str(msg->err));
-        self->total_failed_.fetch_add(1, std::memory_order_relaxed);
+        self->metric_produce_errors_.fetch_add(1, std::memory_order_relaxed);
     }
     else
     {
-        self->total_produced_.fetch_add(1, std::memory_order_relaxed);
+        self->metric_produce_total_.fetch_add(1, std::memory_order_relaxed);
     }
 }
 

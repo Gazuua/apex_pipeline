@@ -208,6 +208,8 @@ AppConfig AppConfig::from_file(const std::string& path)
     config.server = parse_server(tbl);
     config.logging = parse_logging(tbl);
     config.metrics = parse_metrics(tbl);
+    // Sync metrics config into ServerConfig so Server can access it directly
+    config.server.metrics = config.metrics;
     s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
     return config;
 }

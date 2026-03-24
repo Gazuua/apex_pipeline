@@ -10,8 +10,7 @@ namespace apex::core
 Counter& MetricsRegistry::counter(std::string_view name, std::string_view help, Labels labels)
 {
     auto& ptr = owned_counters_.emplace_back(std::make_unique<Counter>());
-    entries_.push_back(
-        {std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), ptr.get()});
+    entries_.push_back({std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), ptr.get()});
     return *ptr;
 }
 
@@ -25,15 +24,13 @@ Gauge& MetricsRegistry::gauge(std::string_view name, std::string_view help, Labe
 void MetricsRegistry::counter_from(std::string_view name, std::string_view help, Labels labels,
                                    const std::atomic<uint64_t>& source)
 {
-    entries_.push_back(
-        {std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), &source});
+    entries_.push_back({std::string(name), std::string(help), MetricType::COUNTER, std::move(labels), &source});
 }
 
 void MetricsRegistry::gauge_fn(std::string_view name, std::string_view help, Labels labels,
                                std::function<int64_t()> reader)
 {
-    entries_.push_back(
-        {std::string(name), std::string(help), MetricType::GAUGE, std::move(labels), std::move(reader)});
+    entries_.push_back({std::string(name), std::string(help), MetricType::GAUGE, std::move(labels), std::move(reader)});
 }
 
 namespace
@@ -88,8 +85,7 @@ std::string MetricsRegistry::serialize() const
                 }
                 else if constexpr (std::is_same_v<T, const std::atomic<uint64_t>*>)
                 {
-                    fmt::format_to(std::back_inserter(buf), " {}\n",
-                                   src->load(std::memory_order_relaxed));
+                    fmt::format_to(std::back_inserter(buf), " {}\n", src->load(std::memory_order_relaxed));
                 }
                 else if constexpr (std::is_same_v<T, Gauge*>)
                 {

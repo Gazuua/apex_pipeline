@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/metrics_registry.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 
 #include <cassert>
 #include <stdexcept>
+#include <string>
 
 namespace apex::shared::adapters::redis
 {
@@ -60,6 +62,20 @@ void RedisAdapter::do_close_per_core(uint32_t core_id)
 {
     if (core_id < per_core_.size() && per_core_[core_id])
         per_core_[core_id]->close();
+}
+
+void RedisAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+{
+    for (uint32_t i = 0; i < per_core_.size(); ++i)
+    {
+        auto labels = apex::core::Labels{{"core", std::to_string(i)}};
+        registry.counter_from("apex_redis_commands_total", "Total Redis commands executed", labels,
+                              per_core_[i]->metric_commands_total());
+
+        auto* mux = per_core_[i].get();
+        registry.gauge_fn("apex_redis_connected", "Whether Redis connection is established", labels,
+                          [mux]() -> int64_t { return mux->connected() ? 1 : 0; });
+    }
 }
 
 RedisMultiplexer& RedisAdapter::multiplexer(uint32_t core_id)

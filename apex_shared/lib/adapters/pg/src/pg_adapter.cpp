@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/metrics_registry.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
 
 #include <boost/asio/use_awaitable.hpp>
@@ -71,6 +72,20 @@ void PgAdapter::do_close()
     logger_.info("closed");
 }
 
+void PgAdapter::register_metrics(apex::core::MetricsRegistry& registry)
+{
+    for (uint32_t i = 0; i < pools_.size(); ++i)
+    {
+        auto labels = apex::core::Labels{{"core", std::to_string(i)}};
+        registry.counter_from("apex_pg_queries_total", "Total PG queries executed", labels,
+                              pools_[i]->metric_queries_total());
+
+        auto* pool = pools_[i].get();
+        registry.gauge_fn("apex_pg_pool_active", "Active PG connections in pool", labels,
+                          [pool]() -> int64_t { return static_cast<int64_t>(pool->active_count()); });
+    }
+}
+
 PgPool& PgAdapter::current_pool()
 {
     auto core_id = apex::core::CoreEngine::current_core_id();
@@ -86,6 +101,7 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgAdapter::query(std::strin
         co_return std::unexpected(conn_result.error());
     }
     auto conn = std::move(conn_result.value());
+    current_pool().record_query();
     auto result = co_await conn->query_async(sql);
     if (result.has_value())
     {
@@ -107,6 +123,7 @@ boost::asio::awaitable<apex::core::Result<PgResult>> PgAdapter::query(std::strin
         co_return std::unexpected(conn_result.error());
     }
     auto conn = std::move(conn_result.value());
+    current_pool().record_query();
     auto result = co_await conn->query_params_async(sql, params);
     if (result.has_value())
     {
@@ -127,6 +144,7 @@ boost::asio::awaitable<apex::core::Result<int>> PgAdapter::execute(std::string_v
         co_return std::unexpected(conn_result.error());
     }
     auto conn = std::move(conn_result.value());
+    current_pool().record_query();
     auto result = co_await conn->execute_async(sql);
     if (result.has_value())
     {
@@ -148,6 +166,7 @@ boost::asio::awaitable<apex::core::Result<int>> PgAdapter::execute(std::string_v
         co_return std::unexpected(conn_result.error());
     }
     auto conn = std::move(conn_result.value());
+    current_pool().record_query();
     auto result = co_await conn->execute_params_async(sql, params);
     if (result.has_value())
     {

@@ -29,8 +29,7 @@ class MetricsHttpServer
     /// @param port     HTTP listen port (e.g., 8081)
     /// @param registry MetricsRegistry reference for /metrics serialization
     /// @param running  Server's running_ flag for /ready endpoint
-    void start(boost::asio::io_context& io, uint16_t port, MetricsRegistry& registry,
-               const std::atomic<bool>& running);
+    void start(boost::asio::io_context& io, uint16_t port, MetricsRegistry& registry, const std::atomic<bool>& running);
 
     /// Stop accepting new connections and close the acceptor.
     void stop();
