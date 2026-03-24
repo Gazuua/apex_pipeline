@@ -290,7 +290,13 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install sccache
-        run: choco install sccache -y --no-progress
+        run: |
+          $url = "https://github.com/mozilla/sccache/releases/download/v0.14.0/sccache-v0.14.0-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri $url -OutFile sccache.zip
+          Expand-Archive sccache.zip -DestinationPath sccache-bin
+          Copy-Item sccache-bin/sccache-v0.14.0-x86_64-pc-windows-msvc/sccache.exe C:\Windows\sccache.exe
+          sccache --version
+        shell: pwsh
 
       - name: Restore sccache cache
         uses: actions/cache@v4
@@ -343,7 +349,7 @@ jobs:
         env:
           CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
           SHA_TAG: sha-${{ github.sha }}
-        run: docker buildx bake -f docker/docker-bake.hcl services --push
+        run: docker buildx bake --allow=fs.read=.. -f docker/docker-bake.hcl services --push
 
   # ── Trivy security scan ──────────────────────────────
   scan:
