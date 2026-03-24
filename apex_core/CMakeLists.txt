@@ -77,6 +77,8 @@ add_library(apex_core STATIC
     src/scoped_logger.cpp
     src/server.cpp
     src/periodic_task_scheduler.cpp
+    src/metrics_registry.cpp
+    src/metrics_http_server.cpp
 )
 add_library(apex::core ALIAS apex_core)
 

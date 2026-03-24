@@ -473,7 +473,10 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [도구] 백로그 JSON 통합 (BACKLOG-163 — DB source of truth + JSON git 백업)
          [도구] notification 시스템 제거 (BACKLOG-164 — 상태 전이+FIXING 체크만 유지)
          [수정] MSVC release 빌드 C4189 경고 수정 (PR #125)
-              └──→ v0.6 ── Wave 3: 운영 인프라
+         [도구] cleanup 4단계 확장 (BACKLOG-170, PR #135 — 워크스페이스 복사본 브랜치 정리)
+         [문서] 로그 패턴 가이드 (PR #134 — 정상/비정상 패턴, 트러블슈팅, 44개 컴포넌트 맵)
+         v0.6.1.0 Prometheus 메트릭 노출 (Beast HTTP /metrics, MetricsRegistry 3패턴, 17개 메트릭, 서비스 등록 API)
+              └──→ v0.6.2~4 ── 운영 인프라 (Docker/K8s/CI·CD)
                         └──→ v1.0.0.0 — 프레임워크 완성
                                    └──→ v1.1+ — 게임 레퍼런스
 ```

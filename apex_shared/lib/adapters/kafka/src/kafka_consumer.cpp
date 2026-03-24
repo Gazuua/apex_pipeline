@@ -241,6 +241,7 @@ void KafkaConsumer::poll_messages()
                     {
                         key_sv = std::string_view(reinterpret_cast<const char*>(key_span.data()), key_span.size());
                     }
+                    metric_dlq_total_.fetch_add(1, std::memory_order_relaxed);
                     auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
                     if (!dlq_result.has_value())
                     {
@@ -250,7 +251,7 @@ void KafkaConsumer::poll_messages()
                     }
                 }
             }
-            ++total_consumed_;
+            metric_consume_total_.fetch_add(1, std::memory_order_relaxed);
             ++consumed_count;
         }
         else if (msg->err != RD_KAFKA_RESP_ERR__PARTITION_EOF)

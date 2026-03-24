@@ -169,7 +169,8 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -205,7 +206,8 @@ TEST_F(ServerE2ETest, MultipleClients)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -243,7 +245,8 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -276,7 +279,8 @@ TEST_F(ServerE2ETest, GracefulShutdown)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -308,6 +312,7 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
         .bump_capacity_bytes = 64 * 1024,
         .arena_block_bytes = 4096,
         .arena_max_bytes = 1024 * 1024,
+        .metrics = {},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -342,7 +347,8 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ThrowingService>();
     run_server(server);
@@ -375,7 +381,8 @@ TEST_F(ServerE2ETest, HandlerErrorCodeResponse)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ErrorReturningService>();
     run_server(server);
@@ -413,6 +420,7 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
         .bump_capacity_bytes = 64 * 1024,
         .arena_block_bytes = 4096,
         .arena_max_bytes = 1024 * 1024,
+        .metrics = {},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -493,7 +501,8 @@ TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -540,7 +549,8 @@ TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions)
                    .cross_core_call_timeout = std::chrono::milliseconds{5000},
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
-                   .arena_max_bytes = 1024 * 1024});
+                   .arena_max_bytes = 1024 * 1024,
+                   .metrics = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);

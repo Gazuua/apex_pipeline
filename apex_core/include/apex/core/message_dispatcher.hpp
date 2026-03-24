@@ -9,6 +9,7 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/unordered/unordered_flat_map.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <span>
@@ -55,10 +56,24 @@ class MessageDispatcher
         return handlers_;
     }
 
+    // --- Prometheus metric accessors (relaxed atomics, scrape-thread safe) ---
+    [[nodiscard]] const std::atomic<uint64_t>& metric_dispatched() const noexcept
+    {
+        return metric_dispatched_;
+    }
+    [[nodiscard]] const std::atomic<uint64_t>& metric_exceptions() const noexcept
+    {
+        return metric_exceptions_;
+    }
+
   private:
     ScopedLogger logger_{"MessageDispatcher", ScopedLogger::NO_CORE};
     boost::unordered_flat_map<uint32_t, Handler> handlers_;
     Handler default_handler_; // fallback for unmatched msg_ids
+
+    // Prometheus metric counters — dispatch() is const, so mutable is required for relaxed atomic writes
+    mutable std::atomic<uint64_t> metric_dispatched_{0};
+    mutable std::atomic<uint64_t> metric_exceptions_{0};
 };
 
 } // namespace apex::core

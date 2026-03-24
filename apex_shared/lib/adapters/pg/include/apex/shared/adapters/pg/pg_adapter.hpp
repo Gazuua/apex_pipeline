@@ -49,6 +49,9 @@ class PgAdapter : public AdapterBase<PgAdapter>
         return "pg";
     }
 
+    /// Register Prometheus metrics for PG query counters and pool gauges.
+    void register_metrics(apex::core::MetricsRegistry& registry);
+
     // --- Query API (coroutine) ---
 
     /// Execute SQL query (no parameters)

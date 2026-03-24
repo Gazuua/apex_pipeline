@@ -129,6 +129,10 @@ template <typename Derived> class AdapterBase
     /// Derived에 wire_services()가 있으면 Derived 것이, 없으면 이 기본 no-op이 호출된다.
     void wire_services(std::vector<std::unique_ptr<apex::core::ServiceBaseInterface>>&, apex::core::CoreEngine&) {}
 
+    /// 어댑터별 Prometheus 메트릭 등록 (기본 no-op).
+    /// Derived에 동일 시그니처가 있으면 name hiding으로 Derived 버전이 호출된다.
+    void register_metrics(apex::core::MetricsRegistry& /*registry*/) {}
+
     /// init 완료 + drain/close 안 됨
     [[nodiscard]] bool is_ready() const noexcept
     {
@@ -252,6 +256,12 @@ template <typename Derived> class AdapterWrapper final : public apex::core::Adap
                        apex::core::CoreEngine& engine) override
     {
         adapter_.wire_services(services, engine);
+    }
+
+    /// Prometheus 메트릭 등록을 Derived 어댑터에 전달.
+    void register_metrics(apex::core::MetricsRegistry& registry) override
+    {
+        adapter_.register_metrics(registry);
     }
 
     Derived& get() noexcept

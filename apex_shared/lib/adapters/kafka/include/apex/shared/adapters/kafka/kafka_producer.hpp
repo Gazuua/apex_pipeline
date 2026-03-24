@@ -79,11 +79,21 @@ class KafkaProducer
     /// Statistics: produced/failed counters
     [[nodiscard]] uint64_t total_produced() const noexcept
     {
-        return total_produced_;
+        return metric_produce_total_.load(std::memory_order_relaxed);
     }
     [[nodiscard]] uint64_t total_failed() const noexcept
     {
-        return total_failed_;
+        return metric_produce_errors_.load(std::memory_order_relaxed);
+    }
+
+    /// Metric atomic access (for MetricsRegistry::counter_from)
+    [[nodiscard]] const std::atomic<uint64_t>& metric_produce_total() const noexcept
+    {
+        return metric_produce_total_;
+    }
+    [[nodiscard]] const std::atomic<uint64_t>& metric_produce_errors() const noexcept
+    {
+        return metric_produce_errors_;
     }
 
   private:
@@ -107,8 +117,8 @@ class KafkaProducer
     mutable std::mutex topic_mutex_; ///< Protects topic_cache_
 
     // Statistics (atomic -- concurrent produce from multiple cores)
-    std::atomic<uint64_t> total_produced_{0};
-    std::atomic<uint64_t> total_failed_{0};
+    std::atomic<uint64_t> metric_produce_total_{0};
+    std::atomic<uint64_t> metric_produce_errors_{0};
 };
 
 } // namespace apex::shared::adapters::kafka

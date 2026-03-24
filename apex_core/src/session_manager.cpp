@@ -29,6 +29,7 @@ SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
     {
         // SlabAllocator exhausted → heap fallback
         raw = new Session(id, std::move(socket), core_id_, recv_buf_capacity_, max_queue_depth_);
+        metric_heap_fallback_.fetch_add(1, std::memory_order_relaxed);
         logger_.warn("session SlabAllocator exhausted, heap fallback");
     }
     SessionPtr session(raw);
@@ -43,6 +44,7 @@ SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
         session->timer_entry_id_ = timer_id; // I-07: embedded in Session
     }
 
+    metric_sessions_created_.fetch_add(1, std::memory_order_relaxed);
     logger_.info("session created id={} total={}", id, sessions_.size());
     return session;
 }
@@ -151,6 +153,7 @@ void SessionManager::on_timer_expire(TimingWheel::EntryId entry_id)
         return;
 
     logger_.info("session timeout id={}", session_id);
+    metric_sessions_timeout_.fetch_add(1, std::memory_order_relaxed);
 
     auto session = session_it->second;
     session->timer_entry_id_ = 0; // I-07: clear embedded timer ID

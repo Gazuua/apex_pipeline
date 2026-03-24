@@ -36,10 +36,13 @@ struct LogConfig
     LogAsyncConfig async;
 };
 
+// MetricsConfig is defined in server_config.hpp (shared with Server).
+
 struct AppConfig
 {
     ServerConfig server;
     LogConfig logging;
+    MetricsConfig metrics;
 
     /// TOML 파일에서 설정 로딩. 파일 없으면 std::runtime_error.
     static AppConfig from_file(const std::string& path);

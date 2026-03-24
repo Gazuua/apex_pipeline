@@ -10,6 +10,7 @@
       "version>=": "1.84.0"
     },
     "benchmark",
+    "boost-beast",
     "boost-unordered",
     "flatbuffers",
     "openssl",

@@ -10,6 +10,13 @@
 namespace apex::core
 {
 
+/// Prometheus metrics endpoint configuration.
+struct MetricsConfig
+{
+    bool enabled = false;
+    uint16_t port = 8081;
+};
+
 /// Server configuration. Fields are ordered for designated-initializer convenience.
 struct ServerConfig
 {
@@ -46,6 +53,9 @@ struct ServerConfig
     std::size_t bump_capacity_bytes = 64 * 1024; // 64KB
     std::size_t arena_block_bytes = 4096;        // 4KB
     std::size_t arena_max_bytes = 1024 * 1024;   // 1MB
+
+    // Metrics
+    MetricsConfig metrics;
 };
 
 } // namespace apex::core

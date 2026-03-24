@@ -16,6 +16,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -115,6 +116,12 @@ class RedisMultiplexer
     /// Synchronous close — cancel all pending commands with AdapterError.
     void close();
 
+    /// Metric atomic access (for MetricsRegistry::counter_from)
+    [[nodiscard]] const std::atomic<uint64_t>& metric_commands_total() const noexcept
+    {
+        return metric_commands_total_;
+    }
+
   private:
     /// Authenticate connection via AUTH command.
     boost::asio::awaitable<apex::core::Result<void>> authenticate(RedisConnection& conn);
@@ -165,6 +172,7 @@ class RedisMultiplexer
     uint32_t core_id_{0};
     SpawnCallback spawn_callback_;
     bool reconnect_active_{false};
+    std::atomic<uint64_t> metric_commands_total_{0};
 };
 
 } // namespace apex::shared::adapters::redis

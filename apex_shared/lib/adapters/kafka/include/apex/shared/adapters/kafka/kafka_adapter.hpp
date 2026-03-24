@@ -60,6 +60,9 @@ class KafkaAdapter : public apex::shared::adapters::AdapterBase<KafkaAdapter>
         return "kafka";
     }
 
+    /// Register Prometheus metrics for Kafka producer/consumer counters.
+    void register_metrics(apex::core::MetricsRegistry& registry);
+
     // --- Kafka API (used by services) ---
 
     /// Fire-and-forget produce.
