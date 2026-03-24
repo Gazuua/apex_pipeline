@@ -38,6 +38,8 @@ using apex::core::AdapterState;
 ///
 /// 선택적 override:
 ///   void do_close_per_core(uint32_t core_id)  — per-core 리소스 정리 (기본 no-op)
+///   void do_wire_services(services, engine)    — adapter-service 자동 배선 (기본 no-op)
+///   void do_register_metrics(registry)         — Prometheus 메트릭 등록 (기본 no-op)
 ///
 /// 소유 모델: Server에 전역 1개 인스턴스로 등록.
 /// 코어별 리소스는 Derived 내부에서 CoreEngine::current_core_id()로 라우팅.
