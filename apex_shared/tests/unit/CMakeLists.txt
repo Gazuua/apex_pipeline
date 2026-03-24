@@ -16,6 +16,7 @@ endfunction()
 
 apex_shared_add_unit_test(test_adapter_error test_adapter_error.cpp)
 apex_shared_add_unit_test(test_adapter_base test_adapter_base.cpp)
+apex_shared_add_unit_test(test_adapter_base_failure test_adapter_base_failure.cpp)
 apex_shared_add_unit_test(test_pool_concept test_pool_concept.cpp)
 
 # --- Config utils tests (depends on apex_shared, not adapters) ---
