@@ -108,9 +108,10 @@ func (m *Manager) TryAcquire(channel, branch string, pid int) (bool, error) {
 
 // Backoff constants for Acquire polling.
 const (
-	backoffInitial = 100 * time.Millisecond
-	backoffMax     = 2 * time.Second
-	backoffFactor  = 2
+	backoffInitial     = 100 * time.Millisecond
+	backoffMax         = 2 * time.Second
+	backoffFactor      = 2
+	cleanupStaleMinGap = 5 * time.Second
 )
 
 // Acquire acquires the lock for channel, blocking until it succeeds.
@@ -126,6 +127,7 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 	}
 
 	delay := backoffInitial
+	lastCleanup := time.Time{} // zero → 첫 반복에서 즉시 실행
 	for {
 		select {
 		case <-ctx.Done():
@@ -140,9 +142,12 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 		default:
 		}
 
-		// Clean up dead processes.
-		if _, err := m.CleanupStale(); err != nil {
-			return fmt.Errorf("queue.Acquire: cleanup: %w", err)
+		// Clean up dead processes (throttled — at most once per cleanupStaleMinGap).
+		if time.Since(lastCleanup) >= cleanupStaleMinGap {
+			if _, err := m.CleanupStale(); err != nil {
+				return fmt.Errorf("queue.Acquire: cleanup: %w", err)
+			}
+			lastCleanup = time.Now()
 		}
 
 		// Atomic check-and-promote: 트랜잭션으로 active 부재 + first-in-queue 확인 + promote
