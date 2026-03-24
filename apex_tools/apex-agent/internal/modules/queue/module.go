@@ -53,6 +53,20 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		_, err := tx.Exec(`ALTER TABLE queue ADD COLUMN finished_at TEXT`)
 		return err
 	})
+	mig.Register("queue", 4, func(tx *store.TxStore) error {
+		_, err := tx.Exec(`CREATE TABLE queue_history (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel    TEXT NOT NULL,
+			branch     TEXT NOT NULL,
+			status     TEXT NOT NULL,
+			timestamp  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+		)`)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`CREATE INDEX idx_queue_history_channel_ts ON queue_history(channel, timestamp DESC)`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all queue action handlers.

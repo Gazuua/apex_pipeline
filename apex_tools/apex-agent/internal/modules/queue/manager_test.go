@@ -386,3 +386,92 @@ func TestAcquire_PromotesAfterRelease(t *testing.T) {
 		t.Errorf("expected active branch=feature/waiter, got %q", active.Branch)
 	}
 }
+
+// ── DashboardHistory ──
+
+// TestDashboardHistory_RecordsEvents: TryAcquire+Release writes history events.
+func TestDashboardHistory_RecordsEvents(t *testing.T) {
+	m := newTestManager(t)
+
+	// Free channel → ACTIVE directly (no WAITING).
+	_, err := m.TryAcquire(context.Background(), "build", "feature/foo", os.Getpid())
+	if err != nil {
+		t.Fatalf("TryAcquire: %v", err)
+	}
+
+	// Release → DONE.
+	if err := m.Release("build"); err != nil {
+		t.Fatalf("Release: %v", err)
+	}
+
+	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory: %v", err)
+	}
+
+	// Expect 2 events: ACTIVE, DONE (newest first).
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 history entries, got %d", len(entries))
+	}
+	if entries[0].Status != queue.StatusDone {
+		t.Errorf("expected first entry status=DONE, got %q", entries[0].Status)
+	}
+	if entries[1].Status != queue.StatusActive {
+		t.Errorf("expected second entry status=ACTIVE, got %q", entries[1].Status)
+	}
+}
+
+// TestDashboardHistory_WaitingEvent: busy channel records WAITING then ACTIVE.
+func TestDashboardHistory_WaitingEvent(t *testing.T) {
+	s := newTestStore(t)
+	m := queue.NewManager(s)
+	pid := os.Getpid()
+
+	// Hold the lock.
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/holder", pid)
+
+	// Second branch → WAITING.
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/waiter", pid)
+
+	entries, err := m.DashboardHistory("build", 0, 50, "", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory: %v", err)
+	}
+
+	// Expect: WAITING(waiter), ACTIVE(holder) — newest first.
+	if len(entries) < 2 {
+		t.Fatalf("expected at least 2 history entries, got %d", len(entries))
+	}
+	if entries[0].Status != queue.StatusWaiting || entries[0].Branch != "feature/waiter" {
+		t.Errorf("expected WAITING for feature/waiter, got %s for %s", entries[0].Status, entries[0].Branch)
+	}
+}
+
+// TestDashboardHistory_Pagination: offset+limit work correctly.
+func TestDashboardHistory_Pagination(t *testing.T) {
+	m := newTestManager(t)
+	pid := os.Getpid()
+
+	// Create 3 events: ACTIVE, DONE, ACTIVE.
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/a", pid)
+	_ = m.Release("build")
+	_, _ = m.TryAcquire(context.Background(), "build", "feature/b", pid)
+
+	// Limit 2 → should get 2 newest.
+	entries, err := m.DashboardHistory("build", 0, 2, "", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory limit: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("expected 2 entries with limit=2, got %d", len(entries))
+	}
+
+	// Offset 2 → should get 1 oldest.
+	entries2, err := m.DashboardHistory("build", 2, 2, "", "")
+	if err != nil {
+		t.Fatalf("DashboardHistory offset: %v", err)
+	}
+	if len(entries2) != 1 {
+		t.Errorf("expected 1 entry with offset=2, got %d", len(entries2))
+	}
+}
