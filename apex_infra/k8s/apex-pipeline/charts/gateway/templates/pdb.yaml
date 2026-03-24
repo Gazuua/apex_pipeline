@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "apex-common.fullname" . }}
+  labels:
+    {{- include "apex-common.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "apex-common.selectorLabels" . | nindent 6 }}
+{{- end }}
