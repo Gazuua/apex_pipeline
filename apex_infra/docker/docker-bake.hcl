@@ -1,4 +1,5 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+// Paths resolved relative to context (repo root from CWD apex_infra/).
 
 variable "CI_IMAGE_TAG" {
   default = "latest"
