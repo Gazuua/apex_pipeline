@@ -78,7 +78,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   5. `gh pr merge --squash --admin`
   6. `apex-agent queue merge release`
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
@@ -146,6 +146,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   1. 자기 작업으로 인한 이슈 → **즉시 수정** (컨텍스트가 살아있을 때 비용 최저)
   2. 기존·스코프 외라도 수정 비용 낮거나 ROI 높은 이슈 → **즉시 수정**
   3. 나머지 → `backlog add`로 등급·시간축 분류 완료하여 등록
+- **버그/장애 추적 시 로그 패턴 가이드 필독** — 로그 분석이 수반되는 디버깅 작업에서는 `docs/apex_core/log_patterns_guide.md`를 사전 참조. 정상/비정상 패턴 판별 기준과 컴포넌트별 확인 포인트가 정리되어 있음
 
 ## 프로젝트 정보
 
@@ -162,5 +163,6 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
 | 프레임워크 가이드 (서비스 개발 API + 내부 아키텍처) | `docs/apex_core/apex_core_guide.md` |
+| 로그 패턴 가이드 (정상/비정상 패턴, 트러블슈팅) | `docs/apex_core/log_patterns_guide.md` |
 
 **★ `apex_tools/apex-agent/CLAUDE.md` 필독** — hook 게이트, 백로그 Import/Export, 핸드오프, 큐 잠금, 머지 전 워크플로우 등 모든 에이전트 자동화의 핵심 규칙이 여기에 있음. 백로그 상태 관리(Source of Truth 분리), 바이너리 설치 절차, validate-build 허용 목록 등 실수하기 쉬운 항목 포함.
