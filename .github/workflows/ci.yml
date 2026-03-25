@@ -507,6 +507,8 @@ jobs:
       needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SHA_TAG: sha-${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -520,16 +522,12 @@ jobs:
         run: chmod +x artifacts/tests/e2e/apex_e2e_tests
 
       - name: Pull service images
-        env:
-          SHA_TAG: sha-${{ github.sha }}
         run: |
           for svc in gateway auth-svc chat-svc; do
             docker pull ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG || true
           done
 
       - name: Start full stack
-        env:
-          SHA_TAG: sha-${{ github.sha }}
         run: |
           docker compose -f apex_infra/docker/docker-compose.smoke.yml up -d \
             --wait --timeout 120
