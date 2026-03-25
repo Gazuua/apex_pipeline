@@ -28,7 +28,7 @@ func TestDaemon_StartStop(t *testing.T) {
 		DBPath:      filepath.Join(tmpDir, "test.db"),
 		PIDFilePath: filepath.Join(tmpDir, "test.pid"),
 		SocketAddr:  testSocketAddr(),
-		IdleTimeout: 5 * time.Minute,
+
 	}
 
 	d, err := New(cfg)
@@ -70,7 +70,7 @@ func TestDaemon_OnStartPartialFailure_RollsBack(t *testing.T) {
 		DBPath:      filepath.Join(tmpDir, "test.db"),
 		PIDFilePath: filepath.Join(tmpDir, "test.pid"),
 		SocketAddr:  testSocketAddr() + "-rollback",
-		IdleTimeout: 5 * time.Minute,
+
 	}
 
 	d, err := New(cfg)
@@ -191,7 +191,7 @@ func TestDaemon_RegisterModule(t *testing.T) {
 		DBPath:      filepath.Join(tmpDir, "test.db"),
 		PIDFilePath: filepath.Join(tmpDir, "test.pid"),
 		SocketAddr:  testSocketAddr() + "-mod",
-		IdleTimeout: 5 * time.Minute,
+
 	}
 
 	d, err := New(cfg)

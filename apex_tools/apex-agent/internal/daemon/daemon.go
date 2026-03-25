@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/httpd"
@@ -25,7 +24,6 @@ type Config struct {
 	DBPath      string
 	PIDFilePath string
 	SocketAddr  string
-	IdleTimeout time.Duration
 	HTTP        config.HTTPConfig
 }
 
@@ -89,7 +87,7 @@ func (d *Daemon) HTTPAddr() string {
 func (d *Daemon) Run(ctx context.Context) error {
 	ml.Info("daemon initializing",
 		"pid", os.Getpid(), "db", d.cfg.DBPath, "socket", d.cfg.SocketAddr,
-		"idle_timeout", d.cfg.IdleTimeout, "http_enabled", d.cfg.HTTP.Enabled)
+		"http_enabled", d.cfg.HTTP.Enabled)
 
 	// 1. Write PID file.
 	if err := d.writePID(); err != nil {
@@ -183,39 +181,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 		"socket", d.cfg.SocketAddr,
 	)
 
-	// 6. Initialize idle timer baseline.
-	startTime := time.Now().Unix()
-
-	// 7. Wait for shutdown signal or idle timeout.
-	idleTicker := time.NewTicker(30 * time.Second)
-	defer idleTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ml.Info("shutdown requested")
-			goto shutdown
-		case <-d.shutdownCh:
-			ml.Info("shutdown requested via IPC")
-			goto shutdown
-		case <-idleTicker.C:
-			last := d.server.LastRequestTime()
-			if hs := d.httpServer.Load(); hs != nil {
-				if httpLast := hs.LastRequestTime(); httpLast > last {
-					last = httpLast
-				}
-			}
-			if last == 0 {
-				last = startTime
-			}
-			if time.Since(time.Unix(last, 0)) > d.cfg.IdleTimeout {
-				ml.Info("idle timeout, shutting down")
-				goto shutdown
-			}
-		}
+	// 6. Wait for shutdown signal (explicit only — no idle timeout).
+	select {
+	case <-ctx.Done():
+		ml.Info("shutdown requested")
+	case <-d.shutdownCh:
+		ml.Info("shutdown requested via IPC")
 	}
 
-shutdown:
 	ml.Info("graceful shutdown sequence begin")
 	// Graceful shutdown: HTTP → IPC → Modules
 	if hs := d.httpServer.Load(); hs != nil {

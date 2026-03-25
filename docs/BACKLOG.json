@@ -1,5 +1,5 @@
 {
-  "next_id": 231,
+  "next_id": 233,
   "items": [
     {
       "id": 133,
@@ -106,9 +106,9 @@
       "description": "gateway/auth-svc Dockerfile의 runtime 스테이지에서 `COPY apex_services/tests/keys/ /app/keys/`로 E2E 테스트 전용 RSA 키를 이미지에 포함. 현재 Dockerfile이 E2E 전용이라 실질 위험 없으나, 프로덕션 Dockerfile 파생 시 테스트 키 배포 위험. 프로덕션은 Kubernetes Secret/Docker Secret 외부 마운트 필수.",
       "related": "140",
       "position": 10,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 149,
@@ -145,9 +145,9 @@
       "type": "INFRA",
       "description": "## 개요\nv0.6 운영 인프라 네 번째 마일스톤. CI에서 서비스 Docker 이미지를 자동 빌드하고 K8s에 배포하는 파이프라인 구성.\n\n## 현재 상태\n- GitHub Actions CI: format-check → build(GCC, ASAN, TSAN, UBSAN) → e2e → go-test\n- Docker CI 이미지만 GHCR에 빌드/푸시 (서비스 이미지는 미포함)\n- docker-build.yml: 재사용 워크플로, CI 이미지 전용\n- nightly.yml: Valgrind 메모리 검사 (unit + e2e)\n- 서비스 이미지 빌드/푸시 자동화 없음\n- 배포 자동화 없음\n\n## 작업 내용\n1. 서비스 이미지 빌드 워크플로 — PR/main push 시 gateway, auth-svc, chat-svc 이미지 빌드 + GHCR 푸시\n2. 이미지 태깅 — main: latest + sha-{SHA}, 태그: semver\n3. 취약점 스캔 단계 — Trivy/Grype 이미지 스캔 (CRITICAL/HIGH 시 빌드 실패)\n4. docker-compose 통합 테스트 — CI에서 docker-compose up으로 전체 시스템 스모크 테스트\n5. K8s 배포 자동화 (선택) — Helm upgrade --install via GitHub Actions, staging 환경\n6. 배포 전략 — canary 또는 blue-green (Argo Rollouts 검토)\n7. 알림 — 배포 성공/실패 시 Slack/Discord 웹훅\n\n## 의존성\n- v0.6.2 (Docker 프로덕션 이미지) 완료 필수\n- v0.6.3 (K8s + Helm) 완료 시 배포 자동화 가능\n\n## 핵심 파일\n- .github/workflows/ci.yml (확장)\n- .github/workflows/docker-build.yml (서비스 이미지 추가)\n- apex_infra/docker/*.Dockerfile\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.4.0\n- 현재 CI 구조: .github/CLAUDE.md",
       "position": 35,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 01:35:42",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 179,
@@ -186,9 +186,9 @@
       "description": "gateway/auth-svc의 volume mount가 /app/keys/에 마운트하지만 E2E config.toml은 apex_services/tests/keys/ 상대경로를 참조. 호스트 실행 CI E2E에는 미영향이나 Docker 기반 E2E 시 키 파일 경로 불일치 발생",
       "related": "176,147",
       "position": 45,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 17:32:39",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 199,
@@ -277,9 +277,9 @@
       "type": "INFRA",
       "description": "workflow_dispatch로 feature 브랜치에서 bake-services 실행 시 해당 브랜치 코드가 :latest 태그로 push됨. HCL tags에서 latest 조건부 설정 또는 bake-services에 github.ref 가드 추가 필요.",
       "position": 61,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 11:27:23",
-      "updated_at": "2026-03-25 11:27:23"
+      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 218,
@@ -566,6 +566,34 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:42",
       "updated_at": "2026-03-25 15:59:42"
+    },
+    {
+      "id": 232,
+      "title": "Grafana 대시보드 + 서비스 메트릭 안정화 — Argo Rollouts AnalysisTemplate 자동 승격 전제조건",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "Argo Rollouts canary 자동 승격(AnalysisTemplate)에는 Prometheus 메트릭 기반 판단이 필요. 현재 Prometheus는 Helm 차트에 포함되어 있으나 Grafana 미설정, 서비스 메트릭 export 미검증 상태. Grafana 대시보드 구축 + 서비스별 메트릭 안정화 후 AnalysisTemplate 도입 가능.",
+      "position": 24,
+      "status": "OPEN",
+      "created_at": "2026-03-25 22:41:48",
+      "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 231,
+      "title": "apex-agent 데몬 자동 종료 타임아웃 제거 — fail-close 전략과 충돌",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "현재 데몬이 idle 30분 후 자동 종료되는데, fail-close 전략(데몬 미도달 시 모든 Bash 차단)과 결합하면 설계 논의 등 장시간 미사용 후 전체 도구가 막힘. 데몬 자동 종료를 제거하거나, hook에서 데몬 미도달 시 자동 재시작하는 방식으로 변경 필요.",
+      "position": 23,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 22:55:49",
+      "created_at": "2026-03-25 22:41:44",
+      "updated_at": "2026-03-25 22:55:49"
     },
     {
       "id": 216,

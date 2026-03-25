@@ -50,6 +50,9 @@ func daemonRunCmd() *cobra.Command {
 			if err := platform.EnsureDataDir(); err != nil {
 				return err
 			}
+			// Clear maintenance lock — daemon is being explicitly started.
+			os.Remove(platform.MaintenanceFilePath())
+
 			appCfg, err := config.Load(config.DefaultPath())
 			if err != nil {
 				return err
@@ -72,7 +75,6 @@ func daemonRunCmd() *cobra.Command {
 				DBPath:      appCfg.Store.DBPath,
 				PIDFilePath: platform.PIDFilePath(),
 				SocketAddr:  appCfg.Daemon.SocketPath,
-				IdleTimeout: appCfg.Daemon.IdleTimeout,
 				HTTP:        appCfg.HTTP,
 			}
 			// Fill empty values with platform defaults
@@ -124,6 +126,9 @@ func daemonStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "데몬 백그라운드 시작",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Clear maintenance lock — daemon is being explicitly started.
+			os.Remove(platform.MaintenanceFilePath())
+
 			if isRunning() {
 				fmt.Println("daemon already running")
 				return nil
@@ -143,6 +148,9 @@ func daemonStopCmd() *cobra.Command {
 		Use:   "stop",
 		Short: "데몬 종료",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Write maintenance lock — suppress auto-restart during binary upgrade.
+			_ = os.WriteFile(platform.MaintenanceFilePath(), []byte("maintenance"), 0o600)
+
 			// IPC로 graceful shutdown 먼저 시도
 			client := ipc.NewClient(platform.SocketPath())
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -157,6 +165,7 @@ func daemonStopCmd() *cobra.Command {
 			// IPC 실패 시 PID 기반 Kill fallback
 			pid, err := readPID()
 			if err != nil {
+				os.Remove(platform.MaintenanceFilePath()) // stop 완전 실패 → lock 정리
 				return fmt.Errorf("daemon not running")
 			}
 			proc, err := os.FindProcess(pid)

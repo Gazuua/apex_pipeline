@@ -59,8 +59,10 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)
-- **idle timeout 30분** — 마지막 IPC/HTTP 요청 후 30분간 요청 없으면 자동 종료. HTTP 대시보드가 열려있으면 1초 폴링이 타이머를 리셋하므로 데몬 유지. 설계 논의 등 장시간 미사용 후 hook 실패 시 `daemon start`로 재시작
-- **데몬 죽으면 데몬 의존 hook 우회** — validate-merge, validate-handoff, handoff-probe는 데몬 IPC 실패 시 fail-open(허용). validate-build만 로컬 검증으로 데몬 비의존. "핸드오프 미등록" 에러가 나오면 `daemon start`부터 실행
+- **idle timeout 없음** — 데몬은 명시적 종료(`daemon stop`, IPC shutdown)까지 무기한 실행. SessionStart hook이 자동 기동하고, 크래시/수동 종료 시 IPC auto-restart가 자동 복구
+- **IPC auto-restart** — hook/CLI가 데몬에 IPC 요청 시 연결 실패하면 자동으로 `ensureDaemon()` 호출 후 1회 재시도. 데몬 크래시, 수동 종료 등 모든 비가용 상황에서 투명하게 복구
+- **데몬 관리 명령 hook 바이패스** — `daemon start/stop/status/run`, `plugin setup` 명령은 validate-handoff hook을 우회. 데몬 미실행 시에도 복구 경로가 차단되지 않음
+- **maintenance lock** — `daemon stop`이 `apex-agent.maintenance` 파일을 생성하여 auto-restart 억제. `daemon start/run`이 해제. 바이너리 업그레이드 시 구 바이너리로 재시작되는 레이스 방지. 바이너리 업데이트 권장 순서: `daemon stop && go build && cp && daemon start` (단일 체인)
 
 ### HTTP 대시보드
 

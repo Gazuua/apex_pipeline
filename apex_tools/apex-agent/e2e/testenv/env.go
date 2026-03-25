@@ -58,7 +58,7 @@ func New(t *testing.T) *TestEnv {
 		DBPath:      dbPath,
 		PIDFilePath: filepath.Join(dir, "test.pid"),
 		SocketAddr:  socketAddr,
-		IdleTimeout: 5 * time.Minute,
+
 		HTTP: config.HTTPConfig{
 			Enabled: true,
 			Addr:    "localhost:0", // random port
@@ -154,7 +154,7 @@ func (e *TestEnv) Restart(t *testing.T) {
 		DBPath:      e.DBPath,
 		PIDFilePath: filepath.Join(e.Dir, "test.pid"),
 		SocketAddr:  e.SocketAddr,
-		IdleTimeout: 5 * time.Minute,
+
 	}
 
 	d, err := daemon.New(cfg)

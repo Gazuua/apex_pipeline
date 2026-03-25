@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,18 +26,36 @@ func getClient() *ipc.Client {
 	return defaultClient
 }
 
+// sendWithAutoRestart sends an IPC request; on dial failure, auto-starts the
+// daemon and retries once. This ensures hooks and CLI commands recover seamlessly
+// when the daemon is not running (e.g., after a crash or manual stop).
+func sendWithAutoRestart(ctx context.Context, module, action string, params any, workspace string) (*ipc.Response, error) {
+	resp, err := getClient().Send(ctx, module, action, params, workspace)
+	if err != nil && isDialError(err) {
+		ensureDaemon()
+		resp, err = getClient().Send(ctx, module, action, params, workspace)
+	}
+	return resp, err
+}
+
+// isDialError checks if the error is a connection failure (daemon unreachable).
+func isDialError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "dial:")
+}
+
 // sendRequest sends an IPC request to the daemon and returns the raw response.
-// Uses default 10-second timeout. For long-running operations, use sendRequestWithTimeout.
+// Auto-restarts daemon on connection failure. For long-running operations, use sendRequestWithTimeout.
 func sendRequest(module, action string, params any, workspace string) (*ipc.Response, error) {
-	return getClient().Send(context.Background(), module, action, params, workspace)
+	return sendWithAutoRestart(context.Background(), module, action, params, workspace)
 }
 
 // sendRequestWithTimeout sends an IPC request with a custom timeout.
+// Auto-restarts daemon on connection failure.
 // Use for long-running operations (e.g., queue acquire that may block up to 30min).
 func sendRequestWithTimeout(module, action string, params any, workspace string, timeout time.Duration) (*ipc.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return getClient().Send(ctx, module, action, params, workspace)
+	return sendWithAutoRestart(ctx, module, action, params, workspace)
 }
 
 // sendRequestMap sends an IPC request and parses the response Data as map[string]any.

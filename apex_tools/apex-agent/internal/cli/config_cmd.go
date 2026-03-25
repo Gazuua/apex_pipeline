@@ -44,7 +44,6 @@ func configShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("idle_timeout: %s\n", cfg.Daemon.IdleTimeout)
 			fmt.Printf("socket_path: %s\n", cfg.Daemon.SocketPath)
 			fmt.Printf("db_path: %s\n", cfg.Store.DBPath)
 			fmt.Printf("log.level: %s\n", cfg.Log.Level)

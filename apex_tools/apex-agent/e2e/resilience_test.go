@@ -183,10 +183,7 @@ func TestResilience_CustomConfigPaths(t *testing.T) {
 	customConfigPath := filepath.Join(customConfigDir, "config.toml")
 
 	// Write a custom config with non-default values.
-	customTOML := `[daemon]
-idle_timeout = "2h"
-
-[log]
+	customTOML := `[log]
 level = "warn"
 max_size_mb = 100
 max_backups = 7

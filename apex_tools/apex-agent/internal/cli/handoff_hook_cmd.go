@@ -32,6 +32,12 @@ func hookValidateHandoffCmd() *cobra.Command {
 				return nil
 			}
 
+			// Daemon/plugin 관리 명령은 handoff 검증 바이패스 —
+			// 데몬 미실행 시 복구 경로이므로 항상 통과해야 함.
+			if isDaemonManagementCommand(command) {
+				return nil
+			}
+
 			// main/master 브랜치는 스킵
 			gitBranch, err := gitCurrentBranch(cwd)
 			if err != nil || gitBranch == "main" || gitBranch == "master" {
@@ -212,4 +218,24 @@ func isGitCommit(command string) bool {
 // isFeatureBranch returns true for feature/* and bugfix/* branches.
 func isFeatureBranch(branch string) bool {
 	return strings.HasPrefix(branch, "feature/") || strings.HasPrefix(branch, "bugfix/")
+}
+
+// isDaemonManagementCommand returns true if the command is a daemon lifecycle
+// or plugin setup command. These bypass handoff validation because they are the
+// recovery path when the daemon is unreachable.
+// Excludes git commits — a commit message like "fix daemon startup" must not
+// bypass handoff validation.
+func isDaemonManagementCommand(command string) bool {
+	if isGitCommit(command) {
+		return false
+	}
+	for _, sub := range []string{
+		"daemon start", "daemon stop", "daemon status", "daemon run",
+		"plugin setup",
+	} {
+		if strings.Contains(command, sub) {
+			return true
+		}
+	}
+	return false
 }
