@@ -1,0 +1,34 @@
+# Chat Service Docker E2E Configuration
+# Docker 환경용 — 컨테이너 내부 경로 + Docker 네트워크 엔드포인트
+
+[logging]
+service_name = "chat-svc"
+
+[logging.file]
+enabled = true
+
+[chat]
+max_message_length = 2000
+max_room_name_length = 100
+max_rooms_per_user = 50
+history_page_size = 50
+response_topic = "gateway.responses"
+
+[kafka]
+brokers = "kafka:9092"
+consumer_group = "chat-svc-e2e"
+request_topic = "chat.requests"
+response_topic = "gateway.responses"
+
+[redis_data]
+host = "redis-chat"
+port = 6379
+password = "dev_redis_pass"
+
+[redis_pubsub]
+host = "redis-pubsub"
+port = 6379
+password = "dev_redis_pass"
+
+[pg]
+connection_string = "host=postgres port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password options='-c search_path=chat_svc,public'"

@@ -56,15 +56,23 @@ rsaKeys:
 # === 앱 서비스 ===
 gateway:
   enabled: true
+  rollouts:
+    enabled: false
 
 auth-svc:
   enabled: true
+  rollouts:
+    enabled: false
 
 chat-svc:
   enabled: true
+  rollouts:
+    enabled: false
 
 log-svc:
   enabled: false  # 바이너리 미구현 (BACKLOG-199)
+  rollouts:
+    enabled: false
 
 # === Bitnami 글로벌 설정 ===
 # Bitnami가 Docker Hub에서 이미지를 삭제했으므로 AWS ECR Public을 사용.

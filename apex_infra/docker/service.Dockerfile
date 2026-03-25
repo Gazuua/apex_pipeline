@@ -6,13 +6,14 @@ FROM ghcr.io/gazuua/apex-pipeline-ci:${CI_IMAGE_TAG} AS builder
 
 ARG CMAKE_TARGET
 ARG SERVICE_DIR
+ARG CMAKE_PRESET=debug
 COPY . /src
 WORKDIR /src
 RUN --mount=type=cache,target=/root/.cache/sccache \
-    cmake --preset debug -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
-    && cmake --build build/Linux/debug --target ${CMAKE_TARGET} \
+    cmake --preset ${CMAKE_PRESET} -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
+    && cmake --build build/Linux/${CMAKE_PRESET} --target ${CMAKE_TARGET} \
     && mkdir -p /out \
-    && cp build/Linux/debug/apex_services/${SERVICE_DIR}/${CMAKE_TARGET} /out/${CMAKE_TARGET}
+    && cp build/Linux/${CMAKE_PRESET}/apex_services/${SERVICE_DIR}/${CMAKE_TARGET} /out/${CMAKE_TARGET}
 
 # ── Runtime stage ────────────────────────────────────
 FROM ubuntu:24.04 AS runtime

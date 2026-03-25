@@ -122,7 +122,6 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 ### 다음
 
-- **v0.6.4 — CI/CD 고도화** (이미지 빌드 + 배포)
 - **v1.0.0.0 — 프레임워크 완성**
 
 > 상세 로드맵: `docs/Apex_Pipeline.md` §10
@@ -249,9 +248,15 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Services | `apex_infra/docker/service.Dockerfile` | 통합 서비스 (ARG 파라미터화) |
 | Bake | `apex_infra/docker/docker-bake.hcl` | 서비스 빌드 매트릭스 |
 
-## 현재 상태 — v0.6.3.0
+## 현재 상태 — v0.6.4.0
 
 ### 완료
+
+- **v0.6.4.0 — CI/CD 고도화 (BACKLOG-178,147,190,217)**
+  - 서비스 이미지 빌드 파이프라인 (PR/main 분기, debug/release preset)
+  - docker-compose 스모크 테스트 (health check + 서비스 기동 검증)
+  - Argo Rollouts canary 배포 (10→50→100%, Helm Rollout CRD 지원)
+  - 조건부 태깅 (sha/latest/main), 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
 - **v0.6.3.0 — K8s manifests + Helm 차트 서비스 오케스트레이션 (PR #147)**
   - umbrella+library chart, 2-release 네임스페이스 분리, expand_env Secret 주입

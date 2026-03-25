@@ -97,20 +97,6 @@
       "updated_at": "2026-03-25 09:49:17"
     },
     {
-      "id": 147,
-      "title": "Docker 서비스 이미지에 테스트용 RSA 키 번들링",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "SECURITY",
-      "description": "gateway/auth-svc Dockerfile의 runtime 스테이지에서 `COPY apex_services/tests/keys/ /app/keys/`로 E2E 테스트 전용 RSA 키를 이미지에 포함. 현재 Dockerfile이 E2E 전용이라 실질 위험 없으나, 프로덕션 Dockerfile 파생 시 테스트 키 배포 위험. 프로덕션은 Kubernetes Secret/Docker Secret 외부 마운트 필수.",
-      "related": "140",
-      "position": 10,
-      "status": "FIXING",
-      "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-25 20:29:16"
-    },
-    {
       "id": 149,
       "title": "Whisper core_id=0 하드코딩 — SessionId core 인코딩",
       "severity": "MINOR",
@@ -135,19 +121,6 @@
       "status": "OPEN",
       "created_at": "2026-03-24 00:05:41",
       "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 178,
-      "title": "v0.6.4 CI/CD 고도화 — Docker 이미지 빌드 + 자동 배포 파이프라인",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA,TOOLS",
-      "type": "INFRA",
-      "description": "## 개요\nv0.6 운영 인프라 네 번째 마일스톤. CI에서 서비스 Docker 이미지를 자동 빌드하고 K8s에 배포하는 파이프라인 구성.\n\n## 현재 상태\n- GitHub Actions CI: format-check → build(GCC, ASAN, TSAN, UBSAN) → e2e → go-test\n- Docker CI 이미지만 GHCR에 빌드/푸시 (서비스 이미지는 미포함)\n- docker-build.yml: 재사용 워크플로, CI 이미지 전용\n- nightly.yml: Valgrind 메모리 검사 (unit + e2e)\n- 서비스 이미지 빌드/푸시 자동화 없음\n- 배포 자동화 없음\n\n## 작업 내용\n1. 서비스 이미지 빌드 워크플로 — PR/main push 시 gateway, auth-svc, chat-svc 이미지 빌드 + GHCR 푸시\n2. 이미지 태깅 — main: latest + sha-{SHA}, 태그: semver\n3. 취약점 스캔 단계 — Trivy/Grype 이미지 스캔 (CRITICAL/HIGH 시 빌드 실패)\n4. docker-compose 통합 테스트 — CI에서 docker-compose up으로 전체 시스템 스모크 테스트\n5. K8s 배포 자동화 (선택) — Helm upgrade --install via GitHub Actions, staging 환경\n6. 배포 전략 — canary 또는 blue-green (Argo Rollouts 검토)\n7. 알림 — 배포 성공/실패 시 Slack/Discord 웹훅\n\n## 의존성\n- v0.6.2 (Docker 프로덕션 이미지) 완료 필수\n- v0.6.3 (K8s + Helm) 완료 시 배포 자동화 가능\n\n## 핵심 파일\n- .github/workflows/ci.yml (확장)\n- .github/workflows/docker-build.yml (서비스 이미지 추가)\n- apex_infra/docker/*.Dockerfile\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.4.0\n- 현재 CI 구조: .github/CLAUDE.md",
-      "position": 35,
-      "status": "FIXING",
-      "created_at": "2026-03-24 01:35:42",
-      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 179,
@@ -175,20 +148,6 @@
       "status": "OPEN",
       "created_at": "2026-03-24 15:24:42",
       "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 190,
-      "title": "docker-compose.e2e.yml RSA 키 volume 경로와 config.toml 경로 불일치",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "INFRA",
-      "description": "gateway/auth-svc의 volume mount가 /app/keys/에 마운트하지만 E2E config.toml은 apex_services/tests/keys/ 상대경로를 참조. 호스트 실행 CI E2E에는 미영향이나 Docker 기반 E2E 시 키 파일 경로 불일치 발생",
-      "related": "176,147",
-      "position": 45,
-      "status": "FIXING",
-      "created_at": "2026-03-24 17:32:39",
-      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 199,
@@ -267,19 +226,6 @@
       "status": "OPEN",
       "created_at": "2026-03-25 09:28:50",
       "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 217,
-      "title": "workflow_dispatch에서 feature 브랜치 bake 시 :latest 태그 오염 방지",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CI",
-      "type": "INFRA",
-      "description": "workflow_dispatch로 feature 브랜치에서 bake-services 실행 시 해당 브랜치 코드가 :latest 태그로 push됨. HCL tags에서 latest 조건부 설정 또는 bake-services에 github.ref 가드 추가 필요.",
-      "position": 61,
-      "status": "FIXING",
-      "created_at": "2026-03-25 11:27:23",
-      "updated_at": "2026-03-25 20:29:16"
     },
     {
       "id": 218,
@@ -579,6 +525,68 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 178,
+      "title": "v0.6.4 CI/CD 고도화 — Docker 이미지 빌드 + 자동 배포 파이프라인",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA,TOOLS",
+      "type": "INFRA",
+      "description": "## 개요\nv0.6 운영 인프라 네 번째 마일스톤. CI에서 서비스 Docker 이미지를 자동 빌드하고 K8s에 배포하는 파이프라인 구성.\n\n## 현재 상태\n- GitHub Actions CI: format-check → build(GCC, ASAN, TSAN, UBSAN) → e2e → go-test\n- Docker CI 이미지만 GHCR에 빌드/푸시 (서비스 이미지는 미포함)\n- docker-build.yml: 재사용 워크플로, CI 이미지 전용\n- nightly.yml: Valgrind 메모리 검사 (unit + e2e)\n- 서비스 이미지 빌드/푸시 자동화 없음\n- 배포 자동화 없음\n\n## 작업 내용\n1. 서비스 이미지 빌드 워크플로 — PR/main push 시 gateway, auth-svc, chat-svc 이미지 빌드 + GHCR 푸시\n2. 이미지 태깅 — main: latest + sha-{SHA}, 태그: semver\n3. 취약점 스캔 단계 — Trivy/Grype 이미지 스캔 (CRITICAL/HIGH 시 빌드 실패)\n4. docker-compose 통합 테스트 — CI에서 docker-compose up으로 전체 시스템 스모크 테스트\n5. K8s 배포 자동화 (선택) — Helm upgrade --install via GitHub Actions, staging 환경\n6. 배포 전략 — canary 또는 blue-green (Argo Rollouts 검토)\n7. 알림 — 배포 성공/실패 시 Slack/Discord 웹훅\n\n## 의존성\n- v0.6.2 (Docker 프로덕션 이미지) 완료 필수\n- v0.6.3 (K8s + Helm) 완료 시 배포 자동화 가능\n\n## 핵심 파일\n- .github/workflows/ci.yml (확장)\n- .github/workflows/docker-build.yml (서비스 이미지 추가)\n- apex_infra/docker/*.Dockerfile\n\n## 참고\n- 로드맵: docs/Apex_Pipeline.md §10 v0.6.4.0\n- 현재 CI 구조: .github/CLAUDE.md",
+      "position": 35,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 23:38:30",
+      "created_at": "2026-03-24 01:35:42",
+      "updated_at": "2026-03-25 23:38:30"
+    },
+    {
+      "id": 217,
+      "title": "workflow_dispatch에서 feature 브랜치 bake 시 :latest 태그 오염 방지",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CI",
+      "type": "INFRA",
+      "description": "workflow_dispatch로 feature 브랜치에서 bake-services 실행 시 해당 브랜치 코드가 :latest 태그로 push됨. HCL tags에서 latest 조건부 설정 또는 bake-services에 github.ref 가드 추가 필요.",
+      "position": 61,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 23:38:25",
+      "created_at": "2026-03-25 11:27:23",
+      "updated_at": "2026-03-25 23:38:25"
+    },
+    {
+      "id": 190,
+      "title": "docker-compose.e2e.yml RSA 키 volume 경로와 config.toml 경로 불일치",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "gateway/auth-svc의 volume mount가 /app/keys/에 마운트하지만 E2E config.toml은 apex_services/tests/keys/ 상대경로를 참조. 호스트 실행 CI E2E에는 미영향이나 Docker 기반 E2E 시 키 파일 경로 불일치 발생",
+      "related": "176,147",
+      "position": 45,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 23:38:21",
+      "created_at": "2026-03-24 17:32:39",
+      "updated_at": "2026-03-25 23:38:21"
+    },
+    {
+      "id": 147,
+      "title": "Docker 서비스 이미지에 테스트용 RSA 키 번들링",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "SECURITY",
+      "description": "gateway/auth-svc Dockerfile의 runtime 스테이지에서 `COPY apex_services/tests/keys/ /app/keys/`로 E2E 테스트 전용 RSA 키를 이미지에 포함. 현재 Dockerfile이 E2E 전용이라 실질 위험 없으나, 프로덕션 Dockerfile 파생 시 테스트 키 배포 위험. 프로덕션은 Kubernetes Secret/Docker Secret 외부 마운트 필수.",
+      "related": "140",
+      "position": 10,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 23:38:16",
+      "created_at": "2026-03-23 02:29:17",
+      "updated_at": "2026-03-25 23:38:16"
     },
     {
       "id": 231,
