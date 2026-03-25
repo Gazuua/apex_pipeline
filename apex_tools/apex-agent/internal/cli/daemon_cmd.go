@@ -90,7 +90,7 @@ func daemonRunCmd() *cobra.Command {
 			}
 			backlogMod := backlogmod.New(d.Store())
 			queueMod := queuemod.New(d.Store())
-			handoffMod := handoffmod.New(d.Store(), backlogMod.Manager(), queueMod.Manager())
+			handoffMod := handoffmod.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
 
 			d.Register(hook.New())
 			d.Register(backlogMod)

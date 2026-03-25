@@ -73,7 +73,7 @@ func New(t *testing.T) *TestEnv {
 	// Register all production modules
 	backlogMod := backlog.New(d.Store())
 	queueMod := queue.New(d.Store())
-	handoffMod := handoff.New(d.Store(), backlogMod.Manager(), queueMod.Manager())
+	handoffMod := handoff.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
 	d.Register(hook.New())
 	d.Register(backlogMod)
 	d.Register(handoffMod)
@@ -163,7 +163,7 @@ func (e *TestEnv) Restart(t *testing.T) {
 	}
 	backlogMod2 := backlog.New(d.Store())
 	queueMod2 := queue.New(d.Store())
-	handoffMod2 := handoff.New(d.Store(), backlogMod2.Manager(), queueMod2.Manager())
+	handoffMod2 := handoff.New(d.Store(), backlogMod2.Manager(), queueMod2.Manager(), backlogMod2.Manager())
 	d.Register(hook.New())
 	d.Register(backlogMod2)
 	d.Register(handoffMod2)
