@@ -80,18 +80,19 @@ func isAllowedSubCommand(sub string) bool {
 	}
 
 	// Approved wrappers — any token's basename matches approved name.
-	// Strip shell quotes from tokens (e.g. "path/to/file" → path/to/file).
+	// Strip shell quotes and normalize path separators for cross-platform matching.
+	// filepath.ToSlash doesn't convert \ on Linux (Separator is /), so use ReplaceAll.
 	approvedWrappers := []string{"queue-lock.sh", "apex-agent", "run-hook"}
 	for _, tok := range tokens {
-		unquoted := strings.Trim(tok, `"'`)
-		base := filepath.Base(unquoted)
+		normalized := strings.ReplaceAll(strings.Trim(tok, `"'`), `\`, "/")
+		base := filepath.Base(normalized)
 		for _, aw := range approvedWrappers {
 			if base == aw {
 				return true
 			}
 		}
 		// apex-agent/build.bat — Go 빌드 (C++ build.bat과 구분)
-		if base == "build.bat" && strings.Contains(filepath.ToSlash(unquoted), "apex-agent/") {
+		if base == "build.bat" && strings.Contains(normalized, "apex-agent/") {
 			return true
 		}
 	}
