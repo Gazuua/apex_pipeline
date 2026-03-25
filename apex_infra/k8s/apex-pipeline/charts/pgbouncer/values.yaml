@@ -7,8 +7,8 @@
 replicaCount: 1
 
 image:
-  repository: bitnami/pgbouncer
-  tag: "1.23.1"
+  repository: public.ecr.aws/bitnami/pgbouncer
+  tag: "1.25.1"
   pullPolicy: IfNotPresent
 
 service:
@@ -43,7 +43,7 @@ secrets:
   # 기본값 (로컬 개발용)
   postgresPassword: "apex_pass"
 
-# --- Probes (pg_isready -h localhost -p 6432) ---
+# --- Probes (tcpSocket port check) ---
 probes:
   liveness:
     initialDelaySeconds: 10

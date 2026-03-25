@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
-// Paths resolved relative to context (repo root from CWD apex_infra/).
+// context는 이 HCL 파일 위치(apex_infra/docker/) 기준 상대 경로.
+// dockerfile은 context 기준 상대 경로.
 
 variable "CI_IMAGE_TAG" {
   default = "latest"
@@ -21,7 +22,7 @@ group "services" {
 // ── Base target (shared config) ───────────────────
 target "service-base" {
   dockerfile = "apex_infra/docker/service.Dockerfile"
-  context    = ".."
+  context    = "../.."
   cache-from = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache"]
   cache-to   = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache,mode=max"]
 }

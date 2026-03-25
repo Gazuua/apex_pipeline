@@ -1,5 +1,5 @@
 {
-  "next_id": 216,
+  "next_id": 218,
   "items": [
     {
       "id": 203,
@@ -17,19 +17,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 204,
-      "title": "Docker Bake HCL dockerfile 경로 수정 CI 검증",
-      "severity": "MINOR",
-      "timeframe": "NOW",
-      "scope": "CI",
-      "type": "INFRA",
-      "description": "PR #149에서 docker-bake.hcl의 dockerfile 경로를 수정했으나, dorny/paths-filter의 source 필터에 HCL이 미포함되어 bake-services 잡이 독립 트리거 불가. 다음 소스 변경 PR main 머지 시 bake-services 잡 통과 여부 확인 필요.",
-      "position": 6,
-      "status": "FIXING",
-      "created_at": "2026-03-25 01:12:51",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 206,
       "title": "CI MSVC continue-on-error: true — Zero Warning 정책 무력화",
       "severity": "MAJOR",
@@ -43,19 +30,17 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 215,
-      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
-      "severity": "MAJOR",
+      "id": 216,
+      "title": "Bitnami Docker Hub 이미지 삭제 대응 — Kafka/PgBouncer 레지스트리 교체",
+      "severity": "CRITICAL",
       "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "BUG",
-      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
-      "position": 9,
-      "status": "FIXING",
-      "resolution": "FIXED",
-      "resolved_at": "2026-03-25 09:50:45",
-      "created_at": "2026-03-25 09:41:49",
-      "updated_at": "2026-03-25 10:00:02"
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "Bitnami가 Docker Hub에서 kafka, pgbouncer 이미지를 완전 삭제함(redis/postgresql은 latest만 잔존). Helm chart가 참조하는 image tag(4.0.0-debian-12-r10 등)가 존재하지 않아 K8s 배포 불가. 대안: (1) Bitnami 대체 레지스트리 탐색 (2) 공식 이미지(apache/kafka, edoburu/pgbouncer)로 교체 + chart 호환성 수정 (3) Bitnami chart 자체를 커스텀 chart로 교체",
+      "position": 10,
+      "status": "OPEN",
+      "created_at": "2026-03-25 10:07:26",
+      "updated_at": "2026-03-25 10:07:26"
     },
     {
       "id": 133,
@@ -273,19 +258,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 205,
-      "title": "v0.6.3 Helm 차트 minikube 실배포 검증 — 한번도 테스트한 적 없음",
-      "severity": "CRITICAL",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "TEST",
-      "description": "v0.6.3에서 생성한 Helm 차트가 실제 K8s 환경(minikube)에서 한번도 배포 테스트되지 않았음. helm dependency update, helm install (2-release), Pod 기동, 서비스 간 Kafka 통신, Ingress WebSocket 접속, helm test까지 전체 파이프라인을 실측 검증해야 함. Bitnami sub-chart 버전 호환성, TOML ConfigMap 마운트, Secret envFrom 주입, Prometheus ServiceMonitor 등록 등 실배포에서만 잡히는 이슈가 있을 수 있음.",
-      "position": 53,
-      "status": "FIXING",
-      "created_at": "2026-03-25 01:19:03",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 207,
       "title": "Gateway silent failure 패턴 — 인증/구독 실패 시 에러 피드백 없이 ok() 반환",
       "severity": "MAJOR",
@@ -375,6 +347,19 @@
       "status": "OPEN",
       "created_at": "2026-03-25 09:28:50",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 217,
+      "title": "workflow_dispatch에서 feature 브랜치 bake 시 :latest 태그 오염 방지",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CI",
+      "type": "INFRA",
+      "description": "workflow_dispatch로 feature 브랜치에서 bake-services 실행 시 해당 브랜치 코드가 :latest 태그로 push됨. HCL tags에서 latest 조건부 설정 또는 bake-services에 github.ref 가드 추가 필요.",
+      "position": 61,
+      "status": "OPEN",
+      "created_at": "2026-03-25 11:27:23",
+      "updated_at": "2026-03-25 11:27:23"
     },
     {
       "id": 59,
@@ -531,6 +516,51 @@
       "status": "OPEN",
       "created_at": "2026-03-24 23:50:37",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 204,
+      "title": "Docker Bake HCL dockerfile 경로 수정 CI 검증",
+      "severity": "MINOR",
+      "timeframe": "NOW",
+      "scope": "CI",
+      "type": "INFRA",
+      "description": "PR #149에서 docker-bake.hcl의 dockerfile 경로를 수정했으나, dorny/paths-filter의 source 필터에 HCL이 미포함되어 bake-services 잡이 독립 트리거 불가. 다음 소스 변경 PR main 머지 시 bake-services 잡 통과 여부 확인 필요.",
+      "position": 6,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 11:30:52",
+      "created_at": "2026-03-25 01:12:51",
+      "updated_at": "2026-03-25 11:30:52"
+    },
+    {
+      "id": 205,
+      "title": "v0.6.3 Helm 차트 minikube 실배포 검증 — 한번도 테스트한 적 없음",
+      "severity": "CRITICAL",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "TEST",
+      "description": "v0.6.3에서 생성한 Helm 차트가 실제 K8s 환경(minikube)에서 한번도 배포 테스트되지 않았음. helm dependency update, helm install (2-release), Pod 기동, 서비스 간 Kafka 통신, Ingress WebSocket 접속, helm test까지 전체 파이프라인을 실측 검증해야 함. Bitnami sub-chart 버전 호환성, TOML ConfigMap 마운트, Secret envFrom 주입, Prometheus ServiceMonitor 등록 등 실배포에서만 잡히는 이슈가 있을 수 있음.",
+      "position": 53,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 11:30:52",
+      "created_at": "2026-03-25 01:19:03",
+      "updated_at": "2026-03-25 11:30:52"
+    },
+    {
+      "id": 215,
+      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
+      "position": 9,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 10:05:46",
+      "created_at": "2026-03-25 09:41:49",
+      "updated_at": "2026-03-25 10:05:46"
     },
     {
       "id": 214,

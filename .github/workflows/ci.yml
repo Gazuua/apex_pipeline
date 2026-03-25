@@ -21,6 +21,7 @@ on:
       - '.gitignore'
       - '.github/ci-image-tag'
       - '.github/tools-image-tag'
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -329,7 +330,8 @@ jobs:
     if: >-
       always() &&
       needs.build.result == 'success' &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -367,3 +369,106 @@ jobs:
           image-ref: ghcr.io/gazuua/apex-pipeline-${{ matrix.service }}:sha-${{ github.sha }}
           severity: CRITICAL,HIGH
           exit-code: 1
+
+  # ── Helm minikube 실배포 검증 ───────────────────────
+  helm-validation:
+    permissions:
+      contents: read
+      packages: read
+    needs: [bake-services]
+    if: needs.bake-services.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: azure/setup-helm@v4
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@v0.0.21
+        with:
+          memory: '4096'
+          cpus: '2'
+
+      - name: Pull and load service images into minikube
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          for svc in gateway auth-svc chat-svc; do
+            echo "Loading $svc..."
+            docker pull ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG
+            minikube image load ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG
+          done
+
+      - name: Helm dependency update
+        working-directory: apex_infra/k8s/apex-pipeline
+        run: helm dependency update .
+
+      - name: Install infra release
+        working-directory: apex_infra/k8s/apex-pipeline
+        run: |
+          helm upgrade --install apex-infra . \
+            -n apex-infra --create-namespace \
+            --set gateway.enabled=false \
+            --set auth-svc.enabled=false \
+            --set chat-svc.enabled=false \
+            --set log-svc.enabled=false \
+            --wait --timeout 7m
+
+      - name: Verify infra pods
+        run: |
+          echo "=== Infra Pods ==="
+          kubectl get pods -n apex-infra
+          kubectl wait --for=condition=ready pod --all -n apex-infra --timeout=60s
+
+      - name: Install services release
+        working-directory: apex_infra/k8s/apex-pipeline
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          helm upgrade --install apex-services . \
+            -n apex-services --create-namespace \
+            --set kafka.enabled=false \
+            --set redis-auth.enabled=false \
+            --set redis-ratelimit.enabled=false \
+            --set redis-chat.enabled=false \
+            --set redis-pubsub.enabled=false \
+            --set postgresql.enabled=false \
+            --set pgbouncer.enabled=false \
+            --set namespaces.create=false \
+            --set gateway.serviceMonitor.enabled=false \
+            --set auth-svc.serviceMonitor.enabled=false \
+            --set chat-svc.serviceMonitor.enabled=false \
+            --set gateway.image.tag=$SHA_TAG \
+            --set auth-svc.image.tag=$SHA_TAG \
+            --set chat-svc.image.tag=$SHA_TAG \
+            --wait --timeout 5m
+
+      - name: Verify services pods
+        run: |
+          echo "=== Services Pods ==="
+          kubectl get pods -n apex-services
+          kubectl wait --for=condition=ready pod --all -n apex-services --timeout=120s
+
+      - name: Helm test
+        run: helm test apex-services -n apex-services
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Infra Pods ==="
+          kubectl get pods -n apex-infra -o wide
+          echo "=== Services Pods ==="
+          kubectl get pods -n apex-services -o wide
+          for ns in apex-infra apex-services; do
+            for pod in $(kubectl get pods -n $ns --no-headers -o custom-columns=":metadata.name" 2>/dev/null); do
+              echo "=== Logs: $ns/$pod ==="
+              kubectl logs $pod -n $ns --tail=30 2>/dev/null || true
+            done
+          done
