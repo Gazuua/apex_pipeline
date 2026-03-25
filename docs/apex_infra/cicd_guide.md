@@ -16,10 +16,11 @@
 - [7. 서비스 이미지 빌드 (bake-services)](#7-서비스-이미지-빌드-bake-services)
 - [8. 3단계 검증 파이프라인](#8-3단계-검증-파이프라인)
 - [9. Argo Rollouts canary 배포](#9-argo-rollouts-canary-배포)
-- [10. Nightly Valgrind](#10-nightly-valgrind)
-- [11. 설정 변경 레시피](#11-설정-변경-레시피)
-- [12. 트러블슈팅](#12-트러블슈팅)
-- [13. 핵심 파일 경로 맵](#13-핵심-파일-경로-맵)
+- [10. Auto-Tag (버전 태그 자동 생성)](#10-auto-tag-버전-태그-자동-생성)
+- [11. Nightly Valgrind](#11-nightly-valgrind)
+- [12. 설정 변경 레시피](#12-설정-변경-레시피)
+- [13. 트러블슈팅](#13-트러블슈팅)
+- [14. 핵심 파일 경로 맵](#14-핵심-파일-경로-맵)
 
 ---
 
@@ -364,7 +365,48 @@ kubectl argo rollouts abort <name> -n apex-services
 
 ---
 
-## 10. Nightly Valgrind
+## 10. Auto-Tag (버전 태그 자동 생성)
+
+main CI 전체 통과 시 git tag를 자동 생성. 태그가 있다 = "빌드·테스트·이미지·배포 검증 전부 통과"를 보증.
+
+### 버전 체계
+
+```
+v[메이저].[대].[중].[소]
+ └── VERSION 파일 ──┘  └── CI 자동 ──┘
+```
+
+- **상위 3자리**: 루트 `VERSION` 파일 (마일스톤 시 수동 변경)
+- **4번째 자리**: CI가 기존 git tag 기반으로 자동 +1
+
+### 실행 조건
+
+| 조건 | 필수 |
+|------|------|
+| `github.ref == refs/heads/main` | O |
+| `source == 'true'` (소스 변경) | O |
+| `deploy` job 성공 | O |
+
+문서/Go만 변경된 push에는 태그가 찍히지 않음.
+
+### 동작
+
+```
+deploy 성공
+  → release-tag job
+    → VERSION 파일 읽기 (예: 0.7.0)
+    → git tag -l 'v0.7.0.*' → 최신 small 파싱
+    → small + 1 → git tag v0.7.0.N → push
+```
+
+### 설정 변경
+
+- **마일스톤 변경**: 루트 `VERSION` 파일 수정 (예: `0.6.4` → `0.7.0`). 4번째 자리는 0부터 재시작.
+- **태그 비활성화**: `release-tag` job의 `if` 조건에 `false` 추가
+
+---
+
+## 11. Nightly Valgrind
 
 매일 UTC 자정에 실행. Valgrind memcheck로 메모리 오류 검출.
 
@@ -379,7 +421,7 @@ kubectl argo rollouts abort <name> -n apex-services
 
 ---
 
-## 11. 설정 변경 레시피
+## 12. 설정 변경 레시피
 
 ### 새 서비스 이미지 추가
 
@@ -427,7 +469,7 @@ rollouts:
 
 ---
 
-## 12. 트러블슈팅
+## 13. 트러블슈팅
 
 ### CI 빌드 실패 — 경고 오류
 
@@ -475,7 +517,7 @@ CRITICAL/HIGH 취약점 발견 시 빌드 실패.
 
 ---
 
-## 13. 핵심 파일 경로 맵
+## 14. 핵심 파일 경로 맵
 
 | 파일 | 용도 |
 |------|------|

@@ -681,3 +681,38 @@ jobs:
             echo "=== Logs: $pod ==="
             kubectl logs $pod -n apex-services --tail=30 2>/dev/null || true
           done
+
+  # ── Auto-tag (전체 검증 통과 시 버전 태그) ────────
+  release-tag:
+    permissions:
+      contents: write
+    needs: [changes, deploy]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.source == 'true' &&
+      needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next tag
+        id: tag
+        run: |
+          BASE=$(cat VERSION | tr -d '[:space:]')
+          LATEST=$(git tag -l "v${BASE}.*" --sort=-v:refname | head -1)
+          if [ -z "$LATEST" ]; then
+            NEXT="v${BASE}.0"
+          else
+            SMALL=${LATEST##*.}
+            NEXT="v${BASE}.$((SMALL + 1))"
+          fi
+          echo "next=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Tagging: $NEXT"
+
+      - name: Create and push tag
+        run: |
+          git tag ${{ steps.tag.outputs.next }}
+          git push origin ${{ steps.tag.outputs.next }}
