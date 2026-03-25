@@ -83,13 +83,15 @@ http://localhost:7600
 
 ### 모듈 등록 순서
 
-backlog → handoff 순서 필수 (handoff가 backlog.Manager를 참조):
+backlog → queue → handoff 순서 필수 (handoff가 backlog.Manager + queue.Manager를 참조):
 ```go
 backlogMod := backlog.New(d.Store())
+queueMod := queue.New(d.Store())
+handoffMod := handoff.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
 d.Register(hook.New())
 d.Register(backlogMod)
-d.Register(handoff.New(d.Store(), backlogMod.Manager()))
-d.Register(queue.New(d.Store()))
+d.Register(handoffMod)
+d.Register(queueMod)
 ```
 
 ## Hook 게이트
@@ -99,7 +101,7 @@ d.Register(queue.New(d.Store()))
 | Hook | 트리거 | 역할 | 차단 시 exit |
 |------|--------|------|:---:|
 | `validate-build` | Bash | cmake/ninja/build.bat/bench_* 직접 호출 차단 | 2 |
-| `validate-merge` | Bash | PR 명령 검증: merge lock + `--delete-branch` 강제 + `--base main` 강제 | 2 |
+| `validate-merge` | Bash | PR 명령 검증: `gh pr merge` 직접 호출 전면 차단 + `--base main` 강제 | 2 |
 | `validate-handoff` | Bash | 미등록 커밋 차단 + 머지 시 FIXING 백로그 차단 | 2 |
 | `enforce-rebase` | Bash | push 전 자동 리베이스 | 2 |
 | `handoff-probe` | Edit/Write | 미등록 편집 차단 + 상태별 소스 게이트 | 2 |
@@ -187,7 +189,7 @@ Export (`backlog export`) — DB → `docs/BACKLOG.json` 직접 쓰기:
 |------|------|------|
 | 착수 시 (①) | SyncImport (자동) | JSON → DB 메타데이터 싱크 (notify start가 내부 실행) |
 | 작업 중 (③) | `backlog add/update/resolve/release` | CLI로 상태·메타데이터 변경 |
-| 머지 전 (⑥) | `backlog export` | DB → docs/BACKLOG.json 직접 쓰기 |
+| 머지 시 (⑦) | `notify merge` 내부 자동 | export + commit → rebase → push → merge (에이전트 수동 export 불필요) |
 
 ### 머지 전 백로그 정리 (에이전트 수행)
 
@@ -202,7 +204,7 @@ apex-agent backlog list --status FIXING
 apex-agent backlog resolve ID --resolution FIXED       # 해결 완료한 건
 apex-agent backlog release ID --reason "사유"           # 못 끝낸 건 → OPEN 복귀
 
-# 3. FIXING 0건 확인 후 머지 진행 (export + commit + checkout main 자동 처리)
+# 3. FIXING 0건 확인 후 머지 진행 (lock→export→rebase→push→merge→finalize→checkout 자동 수행)
 apex-agent handoff notify merge --summary "..."
 ```
 
@@ -233,28 +235,40 @@ apex-agent handoff notify start job --branch-name feature/foo --summary "..." --
 # 상태 전이
 apex-agent handoff notify design --summary "..."
 apex-agent handoff notify plan --summary "..."
-apex-agent handoff notify merge --summary "..."
+apex-agent handoff notify merge --summary "..."   # 머지 유일 진입점 — 전체 파이프라인 실행
 
 # 조회/확인
 apex-agent handoff status
 apex-agent handoff backlog-check N
 ```
 
+### notify merge 내부 파이프라인
+
+`handoff notify merge --summary "..."`는 **머지의 유일한 진입점**. 데몬이 다음을 원자적으로 수행:
+
+| # | 단계 | 실패 시 |
+|---|------|---------|
+| ① | merge lock acquire | 대기 |
+| ② | backlog import (non-fatal) + export + commit | 에러, lock release |
+| ③ | git fetch + rebase origin/main | rebase --abort, 에러, lock release |
+| ④ | git push --force-with-lease | 에러, lock release |
+| ⑤ | gh pr merge --squash --delete-branch --admin | 에러, lock release |
+| ⑥ | handoff finalize (active → history MERGED) | 에러 (exit 1) + 가이드 |
+| ⑦ | checkout main + pull | 경고 (exit 0) + 가이드 |
+| ⑧ | merge lock release (defer) | 항상 실행 |
+
 ## 큐 CLI
 
 ```bash
 apex-agent queue build <preset> [extra args...]     # 빌드 잠금 획득 후 build.bat 실행
 apex-agent queue benchmark <exe> [bench args...]    # 빌드 잠금 획득 후 벤치마크 실행
-apex-agent queue merge acquire                      # 머지 잠금 획득
-apex-agent queue merge release                      # 머지 잠금 해제
-apex-agent queue merge status                       # 머지 잠금 상태
 apex-agent queue acquire <channel>                  # 범용 채널 잠금 획득
 apex-agent queue release <channel>                  # 범용 채널 잠금 해제
 apex-agent queue status <channel>                   # 채널 상태 조회
 ```
 
 - `queue build`와 `queue benchmark`는 동일한 "build" 채널 lock 공유 — 빌드/벤치마크 상호배제
-- `queue merge`는 독립 "merge" 채널 — build 잠금과 무관
+- merge lock은 `handoff notify merge`가 내부에서 자동 관리 — 에이전트가 직접 acquire/release 불필요
 
 ## Cleanup CLI
 

@@ -72,18 +72,13 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **새 브랜치 생성 전 최신화 필수**: `git fetch origin main && git pull origin main` 실행 후 최신 main 기반으로 브랜치 생성
 - **커밋 즉시 리모트 푸시** — 모든 커밋 후 `git push` 실행
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
-  1. `apex-agent queue merge acquire` (lock 획득까지 대기)
-  2. rebase는 `enforce-rebase` hook이 push 시 자동 실행 (충돌 시 차단+안내, 에이전트가 resolve 후 재시도)
-  3. `apex-agent queue build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시):
+  1. (사전) `apex-agent queue build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시):
      - **A)** 문서/주석 전용 PR + rebase로 받은 변경도 문서뿐 + 기존 코드 빌드+테스트 통과
      - **B)** rebase 충돌 없음 + 추가 코드 변경 없음 + 최신 PR CI 통과 (3개 모두)
-  4. `git push --force-with-lease`
-  5. `gh pr merge --squash --delete-branch --admin`
-  6. `apex-agent queue merge release`
-- **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
-- **`gh pr merge`에 `--delete-branch` 필수** — 미포함 시 hook 차단 (리모트 고아 브랜치 방지)
+  2. `apex-agent handoff notify merge --summary "..."` — **머지의 유일한 진입점**. 데몬이 내부에서 lock 획득→backlog export+commit→rebase→push→gh pr merge→핸드오프 정리→checkout main을 원자적으로 수행
+- **`gh pr merge` 직접 호출 금지** — validate-merge hook이 무조건 차단. `notify merge`만 사용
 - **`gh pr create`에 `--base main` 강제** — `--base`가 main이 아닌 값이면 hook 차단 (stacked PR 방지). `--base` 미지정 시 GitHub 기본값(main) 사용되므로 허용
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시), `docs/apex_infra/cicd_guide.md`(CI/CD 워크플로우 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시), `docs/apex_infra/cicd_guide.md`(CI/CD 워크플로우 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님). `docs/BACKLOG.json`(`backlog export`)은 `notify merge`가 자동 수행
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 + 워크스페이스 복사본 로컬 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
