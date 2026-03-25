@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.6.3.0 — K8s manifests + Helm 차트 서비스 오케스트레이션 (umbrella+library chart, 2-release namespace 분리, expand_env Secret 주입, Bitnami 하이브리드 인프라, minikube 로컬 검증). Helm minikube 실배포 검증 완료 — Bitnami ECR 레지스트리 이전, docker-bake context 수정, CI helm-validation 잡 추가
-- **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할)
+- **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할), #169(idle timeout 제거+auto-restart)
 - **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146) — 핵심 경로 22건 추가
 - **다음**: v0.6.4 (CI/CD 고도화) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
