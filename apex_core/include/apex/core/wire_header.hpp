@@ -2,21 +2,15 @@
 
 #pragma once
 
+#include <apex/core/result.hpp>
+
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <expected>
 #include <span>
 
 namespace apex::core
 {
-
-enum class ParseError : uint8_t
-{
-    InsufficientData,
-    UnsupportedVersion,
-    BodyTooLarge,
-};
 
 /// Fixed 12-byte wire header for all messages (v2).
 /// Network byte order (big-endian) on the wire.
@@ -51,7 +45,7 @@ struct WireHeader
     uint32_t body_size{0};
     uint16_t reserved{0};
 
-    [[nodiscard]] static std::expected<WireHeader, ParseError> parse(std::span<const uint8_t> data);
+    [[nodiscard]] static Result<WireHeader> parse(std::span<const uint8_t> data);
 
     void serialize(std::span<uint8_t, SIZE> out) const;
     [[nodiscard]] std::array<uint8_t, SIZE> serialize() const;

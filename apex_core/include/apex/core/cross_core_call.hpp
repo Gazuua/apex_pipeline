@@ -37,6 +37,11 @@ template <typename F>
     -> boost::asio::awaitable<Result<std::invoke_result_t<F>>>
 {
     using R = std::invoke_result_t<F>;
+    // R의 소멸자는 thread-safe여야 함 — 타임아웃 시 타깃 코어 스레드에서 소멸될 수 있음.
+    // 호출자 코어가 타임아웃(status CAS → 2)한 뒤에도 타깃 코어의 task 람다가 아직
+    // State를 shared_ptr로 보유 중이므로, State::result (즉 R)의 최종 소멸은
+    // 타깃 코어 스레드의 람다 소멸 시점에 발생한다.
+    // 따라서 R의 소멸자가 특정 스레드에 종속된 리소스를 해제하면 UB가 된다.
     static_assert(std::is_nothrow_destructible_v<R>, "cross_core_call<R>: R must be nothrow destructible "
                                                      "(may be destroyed on the target core's thread after timeout)");
 

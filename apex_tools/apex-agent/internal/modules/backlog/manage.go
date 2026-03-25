@@ -599,31 +599,16 @@ func (m *Manager) Update(ctx context.Context, id int, fields map[string]string) 
 		}
 	}
 
-	// position 재배치: 같은 timeframe 내 다른 항목들을 밀어줌
+	// position 변경 사전 검증 (트랜잭션 진입 전에 파싱)
+	hasPosition := false
+	var newPos int
 	if newPosStr, ok := fields["position"]; ok {
-		newPos, convErr := strconv.Atoi(newPosStr)
+		var convErr error
+		newPos, convErr = strconv.Atoi(newPosStr)
 		if convErr != nil || newPos < 1 {
 			return fmt.Errorf("position must be a positive integer: %s", newPosStr)
 		}
-		// timeframe 동시 변경 여부 확인
-		targetTimeframe := ""
-		if tf, tfOK := fields["timeframe"]; tfOK {
-			targetTimeframe = tf
-		} else {
-			item, getErr := m.Get(ctx, id)
-			if getErr != nil {
-				return getErr
-			}
-			targetTimeframe = item.Timeframe
-		}
-		// 같은 timeframe 내에서 newPos 이상인 항목들의 position을 +1
-		if _, shiftErr := m.q.Exec(ctx, `
-			UPDATE backlog_items
-			SET position = position + 1
-			WHERE timeframe = ? AND position >= ? AND id != ? AND status != ?`,
-			targetTimeframe, newPos, id, StatusResolved); shiftErr != nil {
-			return fmt.Errorf("reorder position: %w", shiftErr)
-		}
+		hasPosition = true
 	}
 
 	// Sort field names for deterministic SQL generation (aids debugging).
@@ -647,6 +632,42 @@ func (m *Manager) Update(ctx context.Context, id int, fields map[string]string) 
 	args = append(args, id)
 
 	query := fmt.Sprintf("UPDATE backlog_items SET %s WHERE id = ?", strings.Join(setClauses, ", "))
+
+	// position 재배치가 포함된 경우 트랜잭션으로 감싸서 원자적 실행 보장
+	if hasPosition {
+		return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
+			txm := m.withQuerier(tx)
+
+			// timeframe 동시 변경 여부 확인
+			targetTimeframe := ""
+			if tf, tfOK := fields["timeframe"]; tfOK {
+				targetTimeframe = tf
+			} else {
+				item, getErr := txm.Get(ctx, id)
+				if getErr != nil {
+					return getErr
+				}
+				targetTimeframe = item.Timeframe
+			}
+			// 같은 timeframe 내에서 newPos 이상인 항목들의 position을 +1
+			if _, shiftErr := tx.Exec(ctx, `
+				UPDATE backlog_items
+				SET position = position + 1
+				WHERE timeframe = ? AND position >= ? AND id != ? AND status != ?`,
+				targetTimeframe, newPos, id, StatusResolved); shiftErr != nil {
+				return fmt.Errorf("reorder position: %w", shiftErr)
+			}
+
+			// 메인 UPDATE
+			if _, execErr := tx.Exec(ctx, query, args...); execErr != nil {
+				return fmt.Errorf("Update #%d: %w", id, execErr)
+			}
+			ml.Info("item updated", "id", id, "fields", len(fields))
+			return nil
+		})
+	}
+
+	// position 변경 없는 경우 — 단독 쿼리
 	_, err = m.q.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("Update #%d: %w", id, err)

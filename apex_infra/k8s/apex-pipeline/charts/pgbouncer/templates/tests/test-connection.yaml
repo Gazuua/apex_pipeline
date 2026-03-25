@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "pgbouncer.fullname" . }}-test"
+  labels:
+    {{- include "pgbouncer.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: test
+      image: busybox:1.37
+      command: ['sh', '-c', 'nc -z {{ include "pgbouncer.fullname" . }} {{ .Values.service.port }} && echo SUCCESS']
+  restartPolicy: Never

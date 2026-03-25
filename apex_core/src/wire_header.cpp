@@ -55,11 +55,11 @@ const ScopedLogger& s_logger()
 }
 } // anonymous namespace
 
-std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t> data)
+Result<WireHeader> WireHeader::parse(std::span<const uint8_t> data)
 {
     if (data.size() < SIZE)
     {
-        return std::unexpected(ParseError::InsufficientData);
+        return std::unexpected(ErrorCode::InsufficientData);
     }
 
     WireHeader h;
@@ -68,7 +68,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
     if (h.version != CURRENT_VERSION)
     {
         s_logger().debug("parse unsupported version={}", h.version);
-        return std::unexpected(ParseError::UnsupportedVersion);
+        return std::unexpected(ErrorCode::UnsupportedProtocolVersion);
     }
 
     h.flags = data[OFF_FLAGS];
@@ -87,7 +87,7 @@ std::expected<WireHeader, ParseError> WireHeader::parse(std::span<const uint8_t>
     if (h.body_size > MAX_BODY_SIZE)
     {
         s_logger().debug("parse body_too_large size={} max={}", h.body_size, MAX_BODY_SIZE);
-        return std::unexpected(ParseError::BodyTooLarge);
+        return std::unexpected(ErrorCode::BodyTooLarge);
     }
 
     return h;

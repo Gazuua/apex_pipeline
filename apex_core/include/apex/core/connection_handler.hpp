@@ -6,6 +6,7 @@
 #include <apex/core/error_sender.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/protocol.hpp>
+#include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
 #include <apex/core/transport.hpp>
@@ -18,8 +19,6 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/use_awaitable.hpp>
-
-#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <cstdint>
@@ -44,11 +43,12 @@ struct ConnectionHandlerConfig
 template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
 {
   public:
-    ConnectionHandler(SessionManager& session_mgr, MessageDispatcher& dispatcher, ConnectionHandlerConfig config)
+    ConnectionHandler(SessionManager& session_mgr, MessageDispatcher& dispatcher, ConnectionHandlerConfig config,
+                      uint32_t core_id = ScopedLogger::NO_CORE)
         : session_mgr_(session_mgr)
         , dispatcher_(dispatcher)
         , config_(config)
-        , logger_(spdlog::default_logger())
+        , logger_("ConnectionHandler", core_id)
     {}
 
     /// Accept a new connection -- create session + spawn read_loop.
@@ -97,8 +97,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
                 auto writable = rb.writable();
                 if (writable.empty())
                 {
-                    if (logger_)
-                        logger_->warn("session {} recv_buffer full — closing connection", session->id());
+                    logger_.warn(session, "recv_buffer full — closing connection");
                     session->close();
                     break;
                 }
@@ -110,13 +109,11 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
                 {
                     if (ec && ec != boost::asio::error::eof)
                     {
-                        if (logger_)
-                            logger_->warn("session {} abnormal disconnect: {}", session->id(), ec.message());
+                        logger_.warn(session, "abnormal disconnect: {}", ec.message());
                     }
                     else
                     {
-                        if (logger_)
-                            logger_->debug("session {} disconnected (EOF)", session->id());
+                        logger_.debug(session, "disconnected (EOF)");
                     }
                     break;
                 }
@@ -131,13 +128,11 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         }
         catch (const std::exception& e)
         {
-            if (logger_)
-                logger_->error("session {} read_loop exception: {}", session->id(), e.what());
+            logger_.error(session, "read_loop exception: {}", e.what());
         }
         catch (...)
         {
-            if (logger_)
-                logger_->error("session {} read_loop unknown exception", session->id());
+            logger_.error(session, "read_loop unknown exception");
         }
 
         session_mgr_.remove_session(session->id());
@@ -180,8 +175,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
                 const auto& raw = frame.payload();
                 if (raw.size() < sizeof(uint32_t))
                 {
-                    if (logger_)
-                        logger_->warn("session {} frame too small for msg_id — closing", session->id());
+                    logger_.warn(session, "frame too small for msg_id — closing");
                     session->close();
                     co_return;
                 }
@@ -213,7 +207,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
     SessionManager& session_mgr_;
     MessageDispatcher& dispatcher_;
     ConnectionHandlerConfig config_;
-    std::shared_ptr<spdlog::logger> logger_; // Cached to survive spdlog::shutdown()
+    ScopedLogger logger_;
     std::shared_ptr<std::atomic<uint32_t>> active_sessions_ = std::make_shared<std::atomic<uint32_t>>(0);
 };
 

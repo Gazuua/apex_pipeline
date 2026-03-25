@@ -61,6 +61,21 @@ log-svc:
   enabled: false  # 구현 완료 시 true로 전환
 
 # === 인프라 (프로덕션: 전부 비활성 — 관리형 서비스 사용) ===
+# 자체 호스팅 시 Kafka SASL/SSL 설정 필수:
+#   kafka:
+#     enabled: true
+#     listeners:
+#       client:
+#         protocol: SASL_SSL
+#     auth:
+#       sasl:
+#         mechanisms: SCRAM-SHA-512
+#       tls:
+#         existingSecret: "kafka-tls"
+#
+# 자체 호스팅 시 NetworkPolicy 활성화 필수:
+#   서비스 간 최소 권한 통신만 허용 (Gateway만 외부 수신, 나머지는 Kafka 경유)
+#   apex_infra/k8s/apex-pipeline/templates/ 아래 networkpolicy.yaml 추가 필요
 kafka:
   enabled: false
 

@@ -4,22 +4,12 @@
 #include <apex/core/result.hpp>
 #include <apex/shared/adapters/redis/redis_multiplexer.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <gtest/gtest.h>
 
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/use_future.hpp>
-
 using namespace apex::shared::adapters::redis;
-
-// Helper: run a coroutine on io_context and block until done, returning the result.
-template <typename T> T run_coro(boost::asio::io_context& io, boost::asio::awaitable<T> aw)
-{
-    auto future = boost::asio::co_spawn(io, std::move(aw), boost::asio::use_future);
-    io.run();
-    io.restart();
-    return future.get();
-}
+using apex::test::run_coro;
 
 // --- TC1: close()가 pending command 없는 상태에서 안전하게 동작 + 상태 전이 검증 ---
 // RedisMultiplexer는 실제 Redis 없이는 pending command를 만들 수 없지만,

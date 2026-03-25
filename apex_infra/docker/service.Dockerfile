@@ -24,6 +24,7 @@ ARG CMAKE_TARGET
 ARG CONFIG_FILE
 ENV APP_BINARY=/app/${CMAKE_TARGET}
 COPY --from=builder /out/${CMAKE_TARGET} /app/${CMAKE_TARGET}
+# NOTE: E2E config는 개발 편의용 기본값. K8s 배포 시 ConfigMap이 /app/config.toml을 오버라이드.
 COPY apex_services/tests/e2e/${CONFIG_FILE} /app/config.toml
 RUN chown -R apex:apex /app
 WORKDIR /app

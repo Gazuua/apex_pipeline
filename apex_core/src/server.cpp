@@ -120,6 +120,18 @@ Server::~Server()
             }
         }
     }
+
+    // 0.5) control_io_ 잔여 핸들러 drain — MetricsHttpServer cancel 콜백 등 소진.
+    {
+        control_io_.restart();
+        try
+        {
+            control_io_.poll();
+        }
+        catch (const std::exception&)
+        {}
+    }
+
     listeners_.clear();
     for (auto& state : per_core_)
     {

@@ -6,7 +6,7 @@
 
 using namespace apex::shared::adapters;
 
-// Mock pool type that satisfies PoolLike concept
+// Mock pool type that satisfies SyncPoolLike concept
 struct MockConnection
 {
     int id = 0;
@@ -35,7 +35,7 @@ struct MockPool
 };
 
 // Compile-time concept verification
-static_assert(PoolLike<MockPool>, "MockPool must satisfy PoolLike concept");
+static_assert(SyncPoolLike<MockPool>, "MockPool must satisfy SyncPoolLike concept");
 
 TEST(PoolConcept, MockPoolSatisfiesConcept)
 {

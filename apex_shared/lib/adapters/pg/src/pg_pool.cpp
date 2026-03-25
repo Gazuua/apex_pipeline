@@ -30,7 +30,7 @@ PgPool::~PgPool()
     close_all();
 }
 
-// --- PoolLike contract ---
+// --- SyncPoolLike contract ---
 
 apex::core::Result<PgPool::Connection> PgPool::acquire()
 {

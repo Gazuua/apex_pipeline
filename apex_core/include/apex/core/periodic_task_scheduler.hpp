@@ -15,8 +15,31 @@ namespace apex::core
 {
 
 /// 작업 핸들 — schedule()이 반환하는 불투명 식별자.
-/// cancel() 호출 시 사용.
-using TaskHandle = uint64_t;
+/// cancel() 호출 시 사용. enum class로 정수 혼동 방지.
+enum class TaskHandle : uint64_t
+{
+};
+
+/// TaskHandle 전위 증가 연산자 — 내부 시퀀스 발급용.
+inline TaskHandle& operator++(TaskHandle& h) noexcept
+{
+    h = static_cast<TaskHandle>(static_cast<uint64_t>(h) + 1);
+    return h;
+}
+
+} // namespace apex::core
+
+/// std::hash 특수화 — std::unordered_map<TaskHandle, ...> 지원.
+template <> struct std::hash<apex::core::TaskHandle>
+{
+    std::size_t operator()(apex::core::TaskHandle h) const noexcept
+    {
+        return std::hash<uint64_t>{}(static_cast<uint64_t>(h));
+    }
+};
+
+namespace apex::core
+{
 
 /// 주기적 작업 스케줄러. per-core io_context에 steady_timer 기반으로 동작.
 /// 각 작업은 지정된 인터벌마다 반복 실행된다.
@@ -59,7 +82,7 @@ class PeriodicTaskScheduler
 
     boost::asio::io_context& io_ctx_;
     std::unordered_map<TaskHandle, TaskEntry> tasks_;
-    TaskHandle next_handle_{1};
+    TaskHandle next_handle_{static_cast<TaskHandle>(1)};
 };
 
 } // namespace apex::core

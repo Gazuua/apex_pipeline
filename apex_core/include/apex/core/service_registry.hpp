@@ -48,6 +48,16 @@ class ServiceRegistry
         return *static_cast<T*>(it->second);
     }
 
+    template <typename T> const T& get() const
+    {
+        auto it = map_.find(std::type_index(typeid(T)));
+        if (it == map_.end())
+        {
+            throw std::logic_error(std::string("ServiceRegistry::get<") + typeid(T).name() + ">: not registered");
+        }
+        return *static_cast<const T*>(it->second);
+    }
+
     /// 타입으로 서비스 탐색. 미등록 시 nullptr.
     /// @note 반환된 포인터는 레지스트리가 살아있는 동안 유효.
     ///       on_wire에서 받은 포인터를 멤버에 캐싱하는 것은 안전 (서비스 수명 = 레지스트리 수명).
@@ -57,6 +67,14 @@ class ServiceRegistry
         if (it == map_.end())
             return nullptr;
         return static_cast<T*>(it->second);
+    }
+
+    template <typename T> const T* find() const
+    {
+        auto it = map_.find(std::type_index(typeid(T)));
+        if (it == map_.end())
+            return nullptr;
+        return static_cast<const T*>(it->second);
     }
 
     /// 전체 서비스 순회.
@@ -84,8 +102,8 @@ class ServiceRegistry
 class ServiceRegistryView
 {
   public:
-    explicit ServiceRegistryView(std::vector<ServiceRegistry*> registries)
-        : registries_(std::move(registries))
+    explicit ServiceRegistryView(const std::vector<ServiceRegistry*>& registries)
+        : registries_(registries.begin(), registries.end())
     {}
 
     /// 전 코어의 특정 타입 서비스 순회 (읽기 전용).
@@ -107,7 +125,7 @@ class ServiceRegistryView
     }
 
   private:
-    std::vector<ServiceRegistry*> registries_;
+    std::vector<const ServiceRegistry*> registries_;
 };
 
 } // namespace apex::core

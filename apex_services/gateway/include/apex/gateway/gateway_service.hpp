@@ -12,6 +12,7 @@
 #include <apex/gateway/gateway_pipeline_production.hpp>
 #include <apex/gateway/message_router.hpp>
 #include <apex/gateway/pending_requests.hpp>
+#include <apex/shared/msg_ids.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
@@ -43,14 +44,8 @@ class PubSubListener;
 class ResponseDispatcher;
 class BroadcastFanout;
 
-/// Gateway 시스템 메시지 ID 상수.
-/// 프레임워크가 직접 처리하는 시스템 메시지용이며, 서비스 라우팅을 거치지 않는다.
-struct system_msg_ids
-{
-    static constexpr uint32_t AUTHENTICATE_SESSION = 3;
-    static constexpr uint32_t SUBSCRIBE_CHANNEL = 4;
-    static constexpr uint32_t UNSUBSCRIBE_CHANNEL = 5;
-};
+/// Gateway 시스템 메시지 ID — 공유 헤더에서 가져온 별칭.
+using system_msg_ids = apex::shared::system_msg_ids;
 
 /// cross-core 글로벌 객체 — Server.global<T>()가 소유, 서비스는 raw pointer로 참조.
 /// core 0의 on_wire()에서 factory를 통해 생성, Server 소멸 시 자동 파괴.

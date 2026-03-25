@@ -110,18 +110,21 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError)
     std::promise<ErrorCode> promise;
     auto future = promise.get_future();
 
+    const auto multiplier = apex::test::timeout_multiplier();
+    const auto call_timeout = std::chrono::milliseconds{10} * multiplier;
+    const auto block_duration = std::chrono::milliseconds{50} * multiplier;
+
     boost::asio::co_spawn(
         server_->core_io_context(0),
-        [this, &promise]() -> boost::asio::awaitable<void> {
-            // 의도적 io_context 스레드 블로킹: 50ms sleep으로 10ms 타임아웃을 확실히 초과시킨다.
-            // TSAN 환경에서도 50ms vs 10ms 차이는 충분히 크므로 스케일링 불필요.
+        [this, &promise, call_timeout, block_duration]() -> boost::asio::awaitable<void> {
+            // 의도적 io_context 스레드 블로킹: block_duration sleep으로 call_timeout을 확실히 초과시킨다.
             auto result = co_await server_->cross_core_call(
                 1,
-                [] {
-                    std::this_thread::sleep_for(50ms);
+                [block_duration] {
+                    std::this_thread::sleep_for(block_duration);
                     return 0;
                 },
-                10ms);
+                call_timeout);
             EXPECT_FALSE(result.has_value());
             promise.set_value(result.error());
         },
