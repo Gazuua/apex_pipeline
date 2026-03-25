@@ -8,7 +8,7 @@ cd /d "%~dp0"
 for /f "delims=" %%v in ('git describe --tags --always --dirty 2^>nul') do set VERSION=%%v
 if "%VERSION%"=="" set VERSION=dev
 
-set GOFLAGS=-trimpath -ldflags="-s -w -X github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version.Version=%VERSION%"
+set LDFLAGS=-s -w -X github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/version.Version=%VERSION%
 set INSTALL_DIR=%LOCALAPPDATA%\apex-agent
 
 if "%1"=="test" (
@@ -25,7 +25,7 @@ if "%1"=="clean" (
 
 echo === Building + Installing apex-agent %VERSION% ===
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
-go build %GOFLAGS% -o "%INSTALL_DIR%\apex-agent.exe" ./cmd/apex-agent
+go build -trimpath -ldflags="%LDFLAGS%" -o "%INSTALL_DIR%\apex-agent.exe" ./cmd/apex-agent
 if %ERRORLEVEL%==0 (
     echo Installed: %INSTALL_DIR%\apex-agent.exe [%VERSION%]
     "%INSTALL_DIR%\apex-agent.exe" daemon stop >nul 2>&1

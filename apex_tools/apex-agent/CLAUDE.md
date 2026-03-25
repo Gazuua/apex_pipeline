@@ -4,15 +4,14 @@
 
 ```bash
 # Claude Code 세션 — 빌드+install+데몬 재시작 (권장)
-bash apex_tools/apex-agent/build.bat           # 빌드 + 자동 install + 데몬 재시작
-bash apex_tools/apex-agent/build.bat test      # 전체 테스트 (단위 + e2e)
+cmd.exe //c "<프로젝트루트절대경로>\apex_tools\apex-agent\build.bat"
 
 # 테스트만 (install 불필요)
 export PATH="/c/Program Files/Go/bin:$PATH"
 go test ./... -count=1
 ```
 
-- **`build.bat` 직접 호출** — `run-hook` 경유 금지 (자기 자신 파일 잠금으로 install 실패)
+- **`build.bat`은 `cmd.exe //c` + 절대 경로로 호출** — batch 파일이므로 bash 직접 실행 불가. `run-hook` 경유도 금지 (자기 자신 파일 잠금으로 install 실패)
 - **validate-build hook이 `apex-agent/build.bat`/`go build` 허용** — 경로에 `apex-agent/` 포함 시 통과, 루트 C++ `build.bat`은 차단
 - 설치 경로: `$LOCALAPPDATA/apex-agent/` (Windows) / `$HOME/.local/bin/` (Linux)
 - `run-hook`이 설치 경로 바이너리를 우선 사용 → 빌드 후 즉시 hook에 반영

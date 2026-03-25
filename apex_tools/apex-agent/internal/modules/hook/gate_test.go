@@ -67,6 +67,8 @@ func TestValidateBuild_AllowApexAgentBuildBat(t *testing.T) {
 		"bash ./apex_tools/apex-agent/build.bat",
 		"apex_tools/apex-agent/build.bat test",
 		"bash /d/.workspace/apex_pipeline/apex_tools/apex-agent/build.bat",
+		`cmd.exe //c "D:\.workspace\apex_pipeline\apex_tools\apex-agent\build.bat"`,
+		`cmd.exe //c "C:\Users\JHG\project\apex_tools\apex-agent\build.bat"`,
 	}
 	for _, cmd := range cmds {
 		if err := ValidateBuild(cmd); err != nil {
