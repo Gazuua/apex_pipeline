@@ -269,6 +269,8 @@ apex-agent queue status <channel>                   # 채널 상태 조회
 ```
 
 - `queue build`와 `queue benchmark`는 동일한 "build" 채널 lock 공유 — 빌드/벤치마크 상호배제
+- **빌드 로그**: 출력이 `$LOCALAPPDATA/apex-agent/logs/{label}_{timestamp}.log`로 리디렉트됨. CLI 연결이 끊어져도 로그 보존
+- **watchdog**: 2분 이상 로그 출력 없으면 프로세스 kill + lock 자동 해제 (데드락 방지)
 - merge lock은 `handoff notify merge`가 내부에서 자동 관리 — 에이전트가 직접 acquire/release 불필요
 
 ## Cleanup CLI
