@@ -532,6 +532,74 @@ func TestSetStatusWith_UsesTxStore(t *testing.T) {
 	}
 }
 
+func TestSetStatus_ResolvedCannotRevertToOpen(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "Guard test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "RESOLVED items must not revert to OPEN",
+	}
+	if err := m.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if err := m.SetStatus(context.Background(), 1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+	if err := m.Resolve(context.Background(), 1, "FIXED"); err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
+
+	// RESOLVED → OPEN must be rejected
+	err := m.SetStatus(context.Background(), 1, "OPEN")
+	if err == nil {
+		t.Fatal("expected error for RESOLVED → OPEN transition")
+	}
+	if !strings.Contains(err.Error(), "not FIXING") {
+		t.Errorf("expected 'not FIXING' in error, got: %v", err)
+	}
+
+	// Status must remain RESOLVED
+	got, err := m.Get(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "RESOLVED" {
+		t.Errorf("Status: want %q, got %q", "RESOLVED", got.Status)
+	}
+}
+
+func TestSetStatus_FixingToOpen(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "FIXING→OPEN test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "FIXING items can revert to OPEN",
+	}
+	if err := m.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if err := m.SetStatus(context.Background(), 1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+
+	// FIXING → OPEN must succeed
+	if err := m.SetStatus(context.Background(), 1, "OPEN"); err != nil {
+		t.Fatalf("SetStatus OPEN failed: %v", err)
+	}
+
+	got, err := m.Get(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "OPEN" {
+		t.Errorf("Status: want %q, got %q", "OPEN", got.Status)
+	}
+}
+
 // ── Release ──
 
 func TestRelease_FixingToOpen(t *testing.T) {

@@ -236,6 +236,7 @@ func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary
 		}
 
 		// Drop 시 FIXING 백로그를 OPEN으로 복귀 (단일 TX 원자성 보장)
+		// SetStatusWith의 DB 가드가 FIXING→OPEN만 허용하므로 RESOLVED 항목은 자동 스킵됨
 		if releaseFixing && m.backlogManager != nil {
 			ids, idsErr := m.getBacklogIDs(ctx, tx, branch)
 			if idsErr != nil {
@@ -243,7 +244,8 @@ func (m *Manager) finalizeBranch(ctx context.Context, branch, workspace, summary
 			}
 			for _, id := range ids {
 				if err := m.backlogManager.SetStatusWith(ctx, tx, id, "OPEN"); err != nil {
-					return fmt.Errorf("failed to release backlog #%d on drop: %w", id, err)
+					// RESOLVED 등 비-FIXING 항목은 SetStatusWith가 거부 — 정상 스킵
+					ml.Info("skipped backlog release on drop (not FIXING)", "id", id, "error", err)
 				}
 			}
 		}
