@@ -192,7 +192,11 @@ func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) 
 			return nil
 		}
 
-		time.Sleep(delay)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			// Fall through — top-of-loop ctx.Done() check will handle cleanup.
+		}
 		delay *= backoffFactor
 		if delay > backoffMax {
 			delay = backoffMax

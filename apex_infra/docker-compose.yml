@@ -150,7 +150,7 @@ services:
       retries: 3
 
   pgbouncer:
-    image: bitnami/pgbouncer:1.23.1
+    image: bitnami/pgbouncer:1.25.1
     container_name: apex-pgbouncer
     restart: unless-stopped
     ports:
