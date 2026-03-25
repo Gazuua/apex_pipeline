@@ -1032,7 +1032,7 @@ func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
 
 	// Import with identical fields — updated_at should NOT change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, got.Title, got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1073,7 +1073,7 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 
 	// Import with changed title — updated_at SHOULD change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, "changed title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1095,7 +1095,7 @@ func TestUpdateFromImport_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	mgr := NewManager(s)
 
-	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN", "")
+	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "")
 	if err == nil {
 		t.Fatal("expected error for non-existent item, got nil")
 	}
@@ -1138,7 +1138,7 @@ func TestUpdateFromImport_StaleGuard(t *testing.T) {
 	// Import with an older updated_at — should be skipped.
 	staleUpdatedAt := "2020-01-01 00:00:00"
 	err = mgr.UpdateFromImport(context.Background(), item.ID, "stale title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, staleUpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, staleUpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1179,7 +1179,7 @@ func TestUpdateFromImport_EmptyTimestamp(t *testing.T) {
 
 	// Import with empty updated_at — should always apply (legacy/MD import).
 	err = mgr.UpdateFromImport(context.Background(), item.ID, "new title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, "")
+		got.Scope, got.Type, got.Description, got.Related, got.Position, "")
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}

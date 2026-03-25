@@ -86,6 +86,7 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 		row := tx.QueryRow(ctx, `SELECT status FROM active_branches WHERE branch = ?`, branch)
 		if scanErr := row.Scan(&existingStatus); scanErr == nil {
 			// 이전 작업에 연결된 FIXING 백로그가 있으면 OPEN으로 복귀
+			// SetStatusWith의 DB 가드가 FIXING→OPEN만 허용하므로 RESOLVED 항목은 자동 스킵됨
 			if m.backlogManager != nil {
 				oldIDs, getErr := m.getBacklogIDs(ctx, tx, branch)
 				if getErr != nil {
@@ -93,7 +94,8 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 				}
 				for _, oldID := range oldIDs {
 					if releaseErr := m.backlogManager.SetStatusWith(ctx, tx, oldID, "OPEN"); releaseErr != nil {
-						return fmt.Errorf("failed to release backlog #%d on branch replace: %w", oldID, releaseErr)
+						// RESOLVED 등 비-FIXING 항목은 SetStatusWith가 거부 — 정상 스킵
+						ml.Info("skipped backlog release on branch replace (not FIXING)", "id", oldID, "error", releaseErr)
 					}
 				}
 			}
