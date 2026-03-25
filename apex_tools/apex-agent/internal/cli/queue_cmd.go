@@ -202,11 +202,11 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	fmt.Printf("[queue-lock] log: %s\n", logPath)
 
 	// Build the command — output to both stdout/stderr AND log file.
-	// MultiWriter ensures log file is always written even if CLI connection drops
-	// (broken pipe on stdout is silently ignored by the OS-level write).
+	// resilientWriter ensures log file is always written even if stdout/stderr
+	// encounters broken pipe (CLI connection drop).
 	execCmd, displayStr := makeCmd()
-	execCmd.Stdout = io.MultiWriter(os.Stdout, logFile)
-	execCmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	execCmd.Stdout = &resilientWriter{primary: logFile, best: os.Stdout}
+	execCmd.Stderr = &resilientWriter{primary: logFile, best: os.Stderr}
 
 	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
 
@@ -309,6 +309,24 @@ func watchBuildLog(logPath string, proc *os.Process, killed *atomic.Bool) {
 			return
 		}
 	}
+}
+
+// resilientWriter writes to primary (log file) unconditionally and to best-effort
+// (stdout/stderr) with errors silently ignored. This ensures build output is always
+// persisted to the log file even when the CLI pipe is broken.
+type resilientWriter struct {
+	primary io.Writer // log file — must succeed
+	best    io.Writer // stdout/stderr — best-effort
+}
+
+func (w *resilientWriter) Write(p []byte) (int, error) {
+	n, err := w.primary.Write(p)
+	if err != nil {
+		return n, err
+	}
+	// best-effort: ignore errors (broken pipe etc.)
+	_, _ = w.best.Write(p)
+	return n, nil
 }
 
 // ── queue build ──
