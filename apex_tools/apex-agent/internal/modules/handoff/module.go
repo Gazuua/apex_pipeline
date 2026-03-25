@@ -412,6 +412,11 @@ func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, 
 
 	// project_root가 있으면 MergeFullPipeline 실행 (새 경로)
 	if p.ProjectRoot != "" {
+		// 사전 검증: FIXING 백로그가 남아있으면 머지 파이프라인 진입 전 차단
+		if err := m.manager.ValidateMergeGate(ctx, p.Branch); err != nil {
+			return nil, err
+		}
+
 		mergeParams := workflow.MergeFullParams{
 			ProjectRoot: p.ProjectRoot,
 			Branch:      p.Branch,

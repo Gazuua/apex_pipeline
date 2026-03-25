@@ -250,8 +250,8 @@ func handoffNotifyMergeCmd() *cobra.Command {
 				"summary":      summary,
 				"project_root": root,
 			}
-			// Extended timeout: 머지 파이프라인은 lock 대기 + rebase + push + merge를 포함
-			if _, err := sendRequestMapWithTimeout("handoff", "notify-merge", params, "", 35*time.Minute); err != nil {
+			// Extended timeout: lock 대기(최대30분) + rebase + push + merge + finalize
+			if _, err := sendRequestMapWithTimeout("handoff", "notify-merge", params, "", 45*time.Minute); err != nil {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)

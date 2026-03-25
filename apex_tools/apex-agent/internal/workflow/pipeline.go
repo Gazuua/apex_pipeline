@@ -119,11 +119,13 @@ func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
 		return err
 	}
 
-	// ⑥ finalize (DB) — 머지 완료 후이므로 에러 시 가이드 출력
-	if err := params.FinalizeFn(ctx); err != nil {
+	// ⑥ finalize (DB) — point of no return: context.Background()로 데몬 shutdown과 무관하게 완료.
+	// 실패해도 에러 반환하지 않음 — 재실행 시 ①~⑤가 다시 돌아 복구 불가하므로 경고만 출력.
+	// 다음 notify start가 stale entry를 자동 정리함.
+	if err := params.FinalizeFn(context.Background()); err != nil {
 		fmt.Fprintf(os.Stderr, "[merge] 경고: 핸드오프 정리 실패 — %v\n", err)
-		fmt.Fprintln(os.Stderr, "  가이드: handoff notify merge --summary \"...\" 재실행으로 정리 가능")
-		return fmt.Errorf("핸드오프 정리 실패 (머지는 완료됨): %w", err)
+		fmt.Fprintln(os.Stderr, "  가이드: 다음 작업 착수(notify start) 시 자동 정리됩니다")
+		ml.Warn("FinalizeFn failed (merge completed, DB stale)", "branch", params.Branch, "err", err)
 	}
 
 	// ⑦ checkout main (best-effort)
@@ -186,19 +188,13 @@ func autoCommitExport(projectRoot string) error {
 		return nil // nothing to commit
 	}
 
-	// Commit
+	// Commit (push는 MergeFullPipeline의 ④ pushForceWithLease가 일괄 처리)
 	if out, err := exec.Command("git", "-C", projectRoot,
 		"commit", "-m", "docs: backlog export (auto-sync)").CombinedOutput(); err != nil {
 		return fmt.Errorf("git commit: %w\n%s", err, out)
 	}
 
-	// Push (best-effort — 에이전트가 push --force-with-lease를 별도 실행할 수 있음)
-	if out, err := exec.Command("git", "-C", projectRoot,
-		"push").CombinedOutput(); err != nil {
-		ml.Warn("autoCommitExport push 실패 (수동 push 필요)", "err", err, "output", string(out))
-	}
-
-	ml.Info("backlog export 자동 커밋+푸시 완료")
+	ml.Info("backlog export 자동 커밋 완료")
 	return nil
 }
 
