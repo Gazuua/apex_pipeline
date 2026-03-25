@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,10 +201,12 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	defer logFile.Close()
 	fmt.Printf("[queue-lock] log: %s\n", logPath)
 
-	// Build the command and redirect output to log file.
+	// Build the command — output to both stdout/stderr AND log file.
+	// MultiWriter ensures log file is always written even if CLI connection drops
+	// (broken pipe on stdout is silently ignored by the OS-level write).
 	execCmd, displayStr := makeCmd()
-	execCmd.Stdout = logFile
-	execCmd.Stderr = logFile
+	execCmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+	execCmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
 	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
 
