@@ -49,43 +49,52 @@ func hookValidateBuildCmd() *cobra.Command {
 func hookValidateMergeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate-merge",
-		Short: "머지 잠금 미획득 차단",
+		Short: "PR 명령 검증 (머지 잠금 + delete-branch + base main 강제)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // parse error → allow
 			}
-			if !containsGhPrMerge(command) {
-				return nil
+
+			// gh pr create: enforce --base main (prevent stacked PRs)
+			if subcmd := findShellSubcommand(command, "gh pr create"); subcmd != "" {
+				if base := extractFlag(subcmd, "--base"); base != "" && base != "main" {
+					fmt.Fprintf(os.Stderr, "차단: gh pr create의 --base는 main만 허용됩니다 (현재: %s)\n", base)
+					os.Exit(2)
+				}
 			}
 
-			// Require --delete-branch to prevent stale remote branches
-			if !strings.Contains(command, "--delete-branch") {
-				fmt.Fprintln(os.Stderr, "차단: gh pr merge에 --delete-branch 플래그를 추가하세요.")
-				os.Exit(2)
-			}
+			// gh pr merge: require --delete-branch + lock
+			if containsShellCommand(command, "gh pr merge") {
+				// Require --delete-branch to prevent stale remote branches
+				if !strings.Contains(command, "--delete-branch") {
+					fmt.Fprintln(os.Stderr, "차단: gh pr merge에 --delete-branch 플래그를 추가하세요.")
+					os.Exit(2)
+				}
 
-			// Check merge lock via daemon IPC (DB-based queue)
-			result, err := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
-			if err != nil {
-				// Daemon unavailable → fail-open (allow merge)
-				return nil
-			}
-			if result["active"] == nil {
-				fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
-				os.Exit(2)
-			}
-			// Verify lock holder matches current workspace
-			if activeEntry, ok := result["active"].(map[string]any); ok {
-				if holder, _ := activeEntry["branch"].(string); holder != "" {
-					myBranch := getBranchID()
-					if holder != myBranch {
-						fmt.Fprintf(os.Stderr, "차단: merge lock 소유자가 %s입니다 (현재: %s)\n", holder, myBranch)
-						os.Exit(2)
+				// Check merge lock via daemon IPC (DB-based queue)
+				result, err := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
+				if err != nil {
+					// Daemon unavailable → fail-open (allow merge)
+					return nil
+				}
+				if result["active"] == nil {
+					fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
+					os.Exit(2)
+				}
+				// Verify lock holder matches current workspace
+				if activeEntry, ok := result["active"].(map[string]any); ok {
+					if holder, _ := activeEntry["branch"].(string); holder != "" {
+						myBranch := getBranchID()
+						if holder != myBranch {
+							fmt.Fprintf(os.Stderr, "차단: merge lock 소유자가 %s입니다 (현재: %s)\n", holder, myBranch)
+							os.Exit(2)
+						}
 					}
 				}
 			}
+
 			return nil
 		},
 	}
@@ -151,23 +160,50 @@ func hookValidateBacklogCmd() *cobra.Command {
 	}
 }
 
-// containsGhPrMerge checks if "gh pr merge" appears as an actual command
+// containsShellCommand checks if prefix appears as an actual command
 // in a shell pipeline, not inside a quoted string (e.g. git commit messages).
 // Splits on shell operators (&&, ||, ;) and checks each segment.
-func containsGhPrMerge(command string) bool {
-	// Split on shell command separators
+func containsShellCommand(command, prefix string) bool {
+	return findShellSubcommand(command, prefix) != ""
+}
+
+// findShellSubcommand returns the specific subcommand that starts with prefix,
+// or "" if not found. Splits on shell operators to isolate each command.
+func findShellSubcommand(command, prefix string) string {
 	for _, sep := range []string{"&&", "||", ";"} {
 		parts := strings.Split(command, sep)
 		if len(parts) > 1 {
 			for _, part := range parts {
-				if containsGhPrMerge(strings.TrimSpace(part)) {
-					return true
+				if found := findShellSubcommand(strings.TrimSpace(part), prefix); found != "" {
+					return found
 				}
 			}
-			return false
+			return ""
 		}
 	}
-	// Single command: check if it starts with "gh pr merge" (after trimming)
 	trimmed := strings.TrimSpace(command)
-	return strings.HasPrefix(trimmed, "gh pr merge")
+	if strings.HasPrefix(trimmed, prefix) {
+		return trimmed
+	}
+	return ""
+}
+
+// extractFlag extracts the value of a CLI flag from a command string.
+// Handles both "--flag value" and "--flag=value" formats.
+func extractFlag(command, flag string) string {
+	idx := strings.Index(command, flag)
+	if idx == -1 {
+		return ""
+	}
+	rest := command[idx+len(flag):]
+	if strings.HasPrefix(rest, "=") {
+		if fields := strings.Fields(rest[1:]); len(fields) > 0 {
+			return fields[0]
+		}
+	} else if rest == "" || rest[0] == ' ' {
+		if fields := strings.Fields(rest); len(fields) > 0 {
+			return fields[0]
+		}
+	}
+	return ""
 }
