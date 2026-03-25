@@ -17,7 +17,7 @@ func setupHandoffTestDB(t *testing.T) (*store.Store, *Manager) {
 		t.Fatalf("open store: %v", err)
 	}
 	mig := store.NewMigrator(s)
-	mod := New(s, nil)
+	mod := New(s, nil, nil, nil)
 	mod.RegisterSchema(mig)
 	if err := mig.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
@@ -363,7 +363,7 @@ func setupHandoffTestDBWithBacklog(t *testing.T, bm BacklogOperator) (*store.Sto
 		t.Fatalf("open store: %v", err)
 	}
 	mig := store.NewMigrator(s)
-	mod := New(s, bm)
+	mod := New(s, bm, nil, nil)
 	mod.RegisterSchema(mig)
 	if err := mig.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
