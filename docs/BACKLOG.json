@@ -1,5 +1,5 @@
 {
-  "next_id": 234,
+  "next_id": 235,
   "items": [
     {
       "id": 133,
@@ -76,12 +76,12 @@
       "timeframe": "IN_VIEW",
       "scope": "CORE",
       "type": "TEST",
-      "description": "`crash_handler.cpp`의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치.",
+      "description": "crash_handler.cpp의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치. **[FSD 분석 2026-03-26]** subprocess 기반 크로스플랫폼 테스트 설계 필요(Unix fork/waitpid vs Windows CreateProcess, stderr 캡처, Sanitizer별 조건부 빌드). 선행 설계 다수 필요.",
       "related": "4(HISTORY)",
       "position": 8,
       "status": "OPEN",
       "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 05:43:08"
     },
     {
       "id": 146,
@@ -176,69 +176,17 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 207,
-      "title": "Gateway silent failure 패턴 — 인증/구독 실패 시 에러 피드백 없이 ok() 반환",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "GATEWAY",
-      "type": "BUG",
-      "description": "handle_authenticate_session: 페이로드 검증 실패, 토큰 비어있음 등 모든 실패 경로에서 에러 응답 없이 ok() 반환. handle_subscribe_channel: SubscriptionLimitExceeded 등 구독 실패 시에도 ok() 반환. 클라이언트가 실패를 인지하지 못해 후속 요청에서야 증상 발현. GatewayError::SubscriptionLimitExceeded 정의되어 있으나 사용처 없음. 최소한 에러 응답 전송 또는 로그 남겨야 함.",
-      "position": 54,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:11",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 209,
-      "title": "PubSubListener SUBSCRIBE/UNSUBSCRIBE 응답 명시적 소비 없음 — silent failure 가능",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "GATEWAY",
-      "type": "BUG",
-      "description": "apply_pending_subscriptions에서 redisAppendCommand로 SUBSCRIBE/UNSUBSCRIBE를 파이프라인하고 응답을 명시적으로 소비하지 않음. 나중에 redisReaderGetReply 루프에서 암묵적 처리에 의존. Redis 서버 실패(메모리 부족 등) 시 active_subs에는 추가되었으나 실제 구독 미성립 상태가 재연결 전까지 지속되는 silent failure 가능.",
-      "position": 56,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:22",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 210,
-      "title": "ServerConfig max_connections=0 (무제한) — DoS 벡터",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE,GATEWAY",
-      "type": "SECURITY",
-      "description": "ServerConfig::max_connections 기본값이 0(무제한). Gateway TOML과 K8s values에서도 미설정으로 기본값 적용. 대량 TCP 연결 시 FD 고갈 + 메모리 폭증. 프로덕션 Gateway에 합리적 기본값(10000 등) 명시 필요. TOML과 K8s values.yaml 모두 갱신 대상.",
-      "position": 57,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:34",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 213,
-      "title": "ServiceRegistry for_each()/size()가 register_ref 등록 서비스 누락",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "DESIGN_DEBT",
-      "description": "ServiceRegistry는 register_service(unique_ptr) 소유 모드와 register_ref(참조) 비소유 모드를 제공하지만, for_each()와 size()는 소유 모드(services_ 벡터)만 순회. register_ref로 등록된 서비스는 map_에만 존재하여 for_each에서 누락됨. 현재 Server::run()이 별도 벡터를 유지하므로 실 버그는 아니나 API 계약이 모호. for_each가 모든 서비스를 순회하도록 개선 또는 register_ref를 internal-only로 표시 필요.",
-      "position": 60,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:50",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 218,
       "title": "MetricsHttpServer stop() 중 in-flight session 취소 유닛 테스트",
       "severity": "MINOR",
       "timeframe": "IN_VIEW",
       "scope": "CORE",
       "type": "TEST",
-      "description": "slow client 시뮬레이션으로 stop() 중 in-flight session cancel 경로 검증. flaky 위험으로 미구현 상태.",
+      "description": "slow client 시뮬레이션으로 stop() 중 in-flight session cancel 경로 검증. flaky 위험으로 미구현 상태. **[FSD 분석 2026-03-26]** slow client 타이밍과 stop() 호출의 race condition으로 flaky 위험. 플랫폼별 socket cancel 동작 차이 및 타이밍 제어 메커니즘 설계 선행 필요.",
       "position": 62,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 14:36:34",
-      "updated_at": "2026-03-25 14:36:34"
+      "updated_at": "2026-03-26 05:58:52"
     },
     {
       "id": 221,
@@ -275,9 +223,9 @@
       "type": "TEST",
       "description": "test_cross_core_call.cpp의 TimeoutReturnsError 테스트는 int 반환형만 커버. void 반환형 cross_core_call의 타임아웃 경로는 미검증. void 특화 타임아웃 테스트 추가 필요.",
       "position": 66,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 16:00:37",
-      "updated_at": "2026-03-25 16:00:37"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 229,
@@ -288,9 +236,9 @@
       "type": "TEST",
       "description": "SharedPayload의 intrusive_ptr과 raw pointer 혼용 시 참조 카운트 정합성을 검증하는 테스트가 없음. set_refcount + release 패턴의 에지 케이스(double release, underflow 등) 커버리지 추가 필요.",
       "position": 67,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 16:00:42",
-      "updated_at": "2026-03-25 16:00:42"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 59,
@@ -384,19 +332,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 172,
-      "title": "deprecated apex_core/tcp_binary_protocol.hpp 포워딩 헤더 참조 정리",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "DOCS",
-      "type": "DOCS",
-      "description": "삭제된 deprecated 포워딩 헤더를 참조하는 설계 문서 9건이 있음 (docs/apex_common/plans/, docs/apex_core/plans/ 등). 코드 영향 없으나 문서 정합성을 위해 참조를 apex/shared/protocols/tcp/tcp_binary_protocol.hpp로 갱신 필요. 히스토리 문서이므로 갱신 불필요할 수 있음.",
-      "position": 10,
-      "status": "OPEN",
-      "created_at": "2026-03-24 00:05:47",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 197,
       "title": "cert-manager 도입 — TLS 인증서 자동 발급/갱신",
       "severity": "MINOR",
@@ -431,9 +366,9 @@
       "type": "DESIGN_DEBT",
       "description": "adapter_base.hpp의 close() per-core cleanup 타임아웃이 5초로 하드코딩. CloseTimeoutLogsWarning 테스트가 매번 5초 실시간 대기해야 해서 CI 비용 증가. 타임아웃을 생성자 또는 config 파라미터로 추출하면 테스트에서 짧은 타임아웃 사용 가능.",
       "position": 16,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 23:50:37",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 219,
@@ -444,9 +379,9 @@
       "type": "TEST",
       "description": "프레임워크 레벨 방어 경로 검증. Beast HTTP 파서가 이미 방어하므로 중요도 낮음.",
       "position": 17,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 14:36:39",
-      "updated_at": "2026-03-25 14:36:39"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 220,
@@ -457,9 +392,9 @@
       "type": "TEST",
       "description": "TimingWheel expire 콜백에서 예외 발생 시 방어 로직 검증.",
       "position": 18,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 14:36:44",
-      "updated_at": "2026-03-25 14:36:44"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 222,
@@ -483,9 +418,9 @@
       "type": "DESIGN_DEBT",
       "description": "ipc/client.go checkVersion()에서 데몬 shutdown 대기 시간이 time.Sleep(500*time.Millisecond)로 하드코딩. 환경에 따라 부족하거나 과도할 수 있음. config 파라미터화 또는 polling 대기로 변경 권장.",
       "position": 20,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 15:59:32",
-      "updated_at": "2026-03-25 15:59:32"
+      "updated_at": "2026-03-26 05:44:04"
     },
     {
       "id": 226,
@@ -525,6 +460,96 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 234,
+      "title": "handoff notify merge를 머지의 유일한 진입점으로 통합 — gh pr merge 직접 호출 원천 차단",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "현재 에이전트가 수동으로 6단계(lock→rebase→build→push→merge→release)를 실행하는데, notify merge 없이 gh pr merge가 직접 가능한 우회 경로가 존재. notify merge가 데몬 파이프라인에서 lock→export→rebase→push→merge→finalize→checkout을 원자적으로 수행하도록 통합하고, gh pr merge 직접 호출은 validate-merge hook에서 전면 차단",
+      "position": 13,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 06:19:31",
+      "created_at": "2026-03-26 05:33:48",
+      "updated_at": "2026-03-26 06:19:31"
+    },
+    {
+      "id": 172,
+      "title": "deprecated apex_core/tcp_binary_protocol.hpp 포워딩 헤더 참조 정리",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "DOCS",
+      "type": "DOCS",
+      "description": "삭제된 deprecated 포워딩 헤더를 참조하는 설계 문서 9건이 있음. 코드 영향 없으나 문서 정합성을 위해 참조를 apex/shared/protocols/tcp/tcp_binary_protocol.hpp로 갱신 필요. 히스토리 문서이므로 갱신 불필요할 수 있음. **[FSD 분석 2026-03-26]** deprecated 헤더의 처리 방향(포워딩 재구성 vs 참조 리다이렉트 vs deprecation 마크) 불명확. 12개 파일 참조 변경의 라이프사이클 영향 분석 필요.",
+      "position": 10,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 06:07:45",
+      "created_at": "2026-03-24 00:05:47",
+      "updated_at": "2026-03-26 06:07:45"
+    },
+    {
+      "id": 213,
+      "title": "ServiceRegistry for_each()/size()가 register_ref 등록 서비스 누락",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "DESIGN_DEBT",
+      "description": "ServiceRegistry는 register_service(unique_ptr) 소유 모드와 register_ref(참조) 비소유 모드를 제공하지만, for_each()와 size()는 소유 모드(services_ 벡터)만 순회. register_ref로 등록된 서비스는 map_에만 존재하여 for_each에서 누락됨. 현재 Server::run()이 별도 벡터를 유지하므로 실 버그는 아니나 API 계약이 모호. for_each가 모든 서비스를 순회하도록 개선 또는 register_ref를 internal-only로 표시 필요.",
+      "position": 60,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 05:57:21",
+      "created_at": "2026-03-25 09:28:50",
+      "updated_at": "2026-03-26 05:57:21"
+    },
+    {
+      "id": 210,
+      "title": "ServerConfig max_connections=0 (무제한) — DoS 벡터",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE,GATEWAY",
+      "type": "SECURITY",
+      "description": "ServerConfig::max_connections 기본값이 0(무제한). Gateway TOML과 K8s values에서도 미설정으로 기본값 적용. 대량 TCP 연결 시 FD 고갈 + 메모리 폭증. 프로덕션 Gateway에 합리적 기본값(10000 등) 명시 필요. TOML과 K8s values.yaml 모두 갱신 대상.",
+      "position": 57,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 05:57:15",
+      "created_at": "2026-03-25 09:28:34",
+      "updated_at": "2026-03-26 05:57:15"
+    },
+    {
+      "id": 209,
+      "title": "PubSubListener SUBSCRIBE/UNSUBSCRIBE 응답 명시적 소비 없음 — silent failure 가능",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "GATEWAY",
+      "type": "BUG",
+      "description": "apply_pending_subscriptions에서 redisAppendCommand로 SUBSCRIBE/UNSUBSCRIBE를 파이프라인하고 응답을 명시적으로 소비하지 않음. 나중에 redisReaderGetReply 루프에서 암묵적 처리에 의존. Redis 서버 실패(메모리 부족 등) 시 active_subs에는 추가되었으나 실제 구독 미성립 상태가 재연결 전까지 지속되는 silent failure 가능.",
+      "position": 56,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 05:57:09",
+      "created_at": "2026-03-25 09:28:22",
+      "updated_at": "2026-03-26 05:57:09"
+    },
+    {
+      "id": 207,
+      "title": "Gateway silent failure 패턴 — 인증/구독 실패 시 에러 피드백 없이 ok() 반환",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "GATEWAY",
+      "type": "BUG",
+      "description": "handle_authenticate_session: 페이로드 검증 실패, 토큰 비어있음 등 모든 실패 경로에서 에러 응답 없이 ok() 반환. handle_subscribe_channel: SubscriptionLimitExceeded 등 구독 실패 시에도 ok() 반환. 클라이언트가 실패를 인지하지 못해 후속 요청에서야 증상 발현. GatewayError::SubscriptionLimitExceeded 정의되어 있으나 사용처 없음. 최소한 에러 응답 전송 또는 로그 남겨야 함.",
+      "position": 54,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 05:57:04",
+      "created_at": "2026-03-25 09:28:11",
+      "updated_at": "2026-03-26 05:57:04"
     },
     {
       "id": 233,
