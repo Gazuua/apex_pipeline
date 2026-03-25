@@ -1,5 +1,5 @@
 {
-  "next_id": 222,
+  "next_id": 230,
   "items": [
     {
       "id": 206,
@@ -10,9 +10,9 @@
       "type": "INFRA",
       "description": "ci.yml build-msvc 잡에 continue-on-error: true가 설정되어 MSVC 빌드 실패가 CI를 통과함. /W4 /WX 경고 정책과 모순. MSVC 빌드 실패가 감지되지 않아 크로스 컴파일러 호환 경고가 main에 유입 가능. continue-on-error를 제거하거나 required status check에서 MSVC를 필수로 설정해야 함.",
       "position": 7,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-25 09:28:06",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-25 15:45:23"
     },
     {
       "id": 216,
@@ -360,6 +360,58 @@
       "updated_at": "2026-03-25 14:43:59"
     },
     {
+      "id": 223,
+      "title": "apex-agent CLI 레이어 단위 테스트 부재 — 17파일 ~2000 LOC",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "internal/cli/ 디렉토리(17파일 ~2000 LOC)에 CLI 인자 파싱, 에러 처리 단위 테스트가 전무. cobra 테스트 패턴 활용한 CLI 단위 테스트 추가 필요.",
+      "position": 64,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:08",
+      "updated_at": "2026-03-25 15:59:08"
+    },
+    {
+      "id": 224,
+      "title": "queue benchmark 명령 인젝션 방어 부재 — exec.Command 경로 검증 없음",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "queue_cmd.go benchmark 서브커맨드에서 exec.Command(exe, benchArgs...)의 실행 파일 경로에 화이트리스트 검증이 없음. hook 레이어가 방어하지만 CLI 단독 실행 시 무방비. 실행 파일 경로에 bench_ prefix 또는 프로젝트 루트 하위 확인 추가 필요.",
+      "position": 65,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:13",
+      "updated_at": "2026-03-25 15:59:13"
+    },
+    {
+      "id": 228,
+      "title": "cross_core_call void 반환형 타임아웃 테스트 부재",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "test_cross_core_call.cpp의 TimeoutReturnsError 테스트는 int 반환형만 커버. void 반환형 cross_core_call의 타임아웃 경로는 미검증. void 특화 타임아웃 테스트 추가 필요.",
+      "position": 66,
+      "status": "OPEN",
+      "created_at": "2026-03-25 16:00:37",
+      "updated_at": "2026-03-25 16:00:37"
+    },
+    {
+      "id": 229,
+      "title": "SharedPayload 혼합 refcount 테스트 부재 — intrusive_ptr/raw 혼용 시나리오",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "SharedPayload의 intrusive_ptr과 raw pointer 혼용 시 참조 카운트 정합성을 검증하는 테스트가 없음. set_refcount + release 패턴의 에지 케이스(double release, underflow 등) 커버리지 추가 필요.",
+      "position": 67,
+      "status": "OPEN",
+      "created_at": "2026-03-25 16:00:42",
+      "updated_at": "2026-03-25 16:00:42"
+    },
+    {
       "id": 59,
       "title": "문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿",
       "severity": "MAJOR",
@@ -464,19 +516,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 195,
-      "title": "Named Pipe SecurityDescriptor IU→CU 권한 강화",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "TOOLS",
-      "type": "SECURITY",
-      "description": "ipc/transport_windows.go의 Named Pipe SecurityDescriptor가 IU(Interactive Users) 읽기/쓰기를 허용하여 같은 머신의 다른 사용자가 데몬에 접근 가능. 단일 사용자 개발 도구이므로 위험은 낮으나, CU(Creator Owner) 또는 명시적 사용자 SID로 제한 권장.",
-      "position": 13,
-      "status": "OPEN",
-      "created_at": "2026-03-24 20:39:38",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 197,
       "title": "cert-manager 도입 — TLS 인증서 자동 발급/갱신",
       "severity": "MINOR",
@@ -540,6 +579,73 @@
       "status": "OPEN",
       "created_at": "2026-03-25 14:36:44",
       "updated_at": "2026-03-25 14:36:44"
+    },
+    {
+      "id": 222,
+      "title": "handoff FIXING 중복 체크 TOCTOU — 동시 세션에서 동일 backlog FIXING 진입 가능",
+      "severity": "MAJOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "NotifyStart의 FIXING 중복 체크(line 64-81)가 트랜잭션 외부에서 수행됨. 단일 사용자 도구이므로 실질적 위험 낮지만, 동시 세션 시나리오에서 양쪽 모두 FIXING 진입 가능. Check를 트랜잭션 내부로 이동 또는 SetStatusWith에 WHERE status != FIXING 추가 필요.",
+      "position": 19,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:02",
+      "updated_at": "2026-03-25 15:59:02"
+    },
+    {
+      "id": 225,
+      "title": "IPC Client checkVersion 500ms Sleep 하드코딩 — 설정 가능하게 변경",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "ipc/client.go checkVersion()에서 데몬 shutdown 대기 시간이 time.Sleep(500*time.Millisecond)로 하드코딩. 환경에 따라 부족하거나 과도할 수 있음. config 파라미터화 또는 polling 대기로 변경 권장.",
+      "position": 20,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:32",
+      "updated_at": "2026-03-25 15:59:32"
+    },
+    {
+      "id": 226,
+      "title": "cleanup 모듈 함수별 단위 테스트 보강 필요",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "cleanup 모듈에 E2E 테스트(TestCleanup_MergedBranchDetection, ActiveBranchProtection)는 있지만, 개별 함수(filterMergedBranches, filterOrphans 등) 단위 테스트가 부족. 단위 테스트 추가로 에지 케이스 커버리지 향상 필요.",
+      "position": 21,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:37",
+      "updated_at": "2026-03-25 15:59:37"
+    },
+    {
+      "id": 227,
+      "title": "E2E testenv.Restart 소켓 경쟁 — Linux CI 추가 시 주의",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "E2E testenv에서 Restart 시 Unix 소켓 바인딩 경쟁 조건 가능성. 현재 Windows Named Pipe만 사용하므로 영향 없지만, Linux CI 추가 시 소켓 재사용 경합 발생 가능. SO_REUSEADDR 또는 고유 소켓 경로 사용 필요.",
+      "position": 22,
+      "status": "OPEN",
+      "created_at": "2026-03-25 15:59:42",
+      "updated_at": "2026-03-25 15:59:42"
+    },
+    {
+      "id": 195,
+      "title": "Named Pipe SecurityDescriptor IU→CU 권한 강화",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "ipc/transport_windows.go의 Named Pipe SecurityDescriptor가 IU(Interactive Users) 읽기/쓰기를 허용하여 같은 머신의 다른 사용자가 데몬에 접근 가능. 단일 사용자 개발 도구이므로 위험은 낮으나, CU(Creator Owner) 또는 명시적 사용자 SID로 제한 권장.",
+      "position": 13,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 15:59:54",
+      "created_at": "2026-03-24 20:39:38",
+      "updated_at": "2026-03-25 15:59:54"
     },
     {
       "id": 211,
