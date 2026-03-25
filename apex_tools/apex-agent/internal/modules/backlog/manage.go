@@ -52,11 +52,16 @@ type ListFilter struct {
 // Injected by handoff module to avoid cross-module table access.
 type JunctionCleaner func(ctx context.Context, q store.Querier, backlogID int) error
 
+// JunctionCreator creates a backlog-branch junction record.
+// Injected by handoff module to avoid cross-module table access.
+type JunctionCreator func(ctx context.Context, q store.Querier, branch string, backlogID int) error
+
 // Manager handles CRUD operations on the backlog_items table.
 type Manager struct {
 	store           *store.Store   // for RunInTx (top-level only)
 	q               store.Querier  // for all queries (Store or TxStore)
 	junctionCleaner JunctionCleaner
+	junctionCreator JunctionCreator
 }
 
 // NewManager creates a new Manager backed by the given store.
@@ -70,10 +75,16 @@ func (m *Manager) SetJunctionCleaner(fn JunctionCleaner) {
 	m.junctionCleaner = fn
 }
 
+// SetJunctionCreator sets the callback for creating backlog-branch junction records.
+// Called by daemon setup after handoff module creation.
+func (m *Manager) SetJunctionCreator(fn JunctionCreator) {
+	m.junctionCreator = fn
+}
+
 // withQuerier creates a Manager copy that uses the given Querier for queries.
 // Used inside RunInTx to route queries through the transaction.
 func (m *Manager) withQuerier(q store.Querier) *Manager {
-	return &Manager{store: m.store, q: q, junctionCleaner: m.junctionCleaner}
+	return &Manager{store: m.store, q: q, junctionCleaner: m.junctionCleaner, junctionCreator: m.junctionCreator}
 }
 
 // NextID returns the next available backlog item ID (max(id)+1, or 1 if empty).
@@ -415,7 +426,20 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 	if n == 0 {
 		switch status {
 		case StatusFixing:
-			return fmt.Errorf("SetStatus: item %d not found or already FIXING", id)
+			// Query current state via the same Querier (may be TX) for precise diagnostics.
+			var currentStatus string
+			scanErr := q.QueryRow(ctx, `SELECT status FROM backlog_items WHERE id = ?`, id).Scan(&currentStatus)
+			if errors.Is(scanErr, sql.ErrNoRows) {
+				return fmt.Errorf("SetStatus: item %d not found", id)
+			}
+			if scanErr != nil {
+				// Fallback to generic message if diagnostic query fails.
+				return fmt.Errorf("SetStatus: item %d not found or already FIXING", id)
+			}
+			if currentStatus == StatusFixing {
+				return fmt.Errorf("SetStatus: item %d already FIXING (possibly concurrent registration)", id)
+			}
+			return fmt.Errorf("SetStatus: item %d unexpected state %s for FIXING transition", id, currentStatus)
 		case StatusOpen:
 			return fmt.Errorf("SetStatus: item %d not found or not FIXING (RESOLVED items cannot revert to OPEN)", id)
 		default:
@@ -500,12 +524,12 @@ func (m *Manager) Fix(ctx context.Context, id int, branch string) error {
 			return fmt.Errorf("Fix: update status: %w", err)
 		}
 
-		// branch_backlogs 연결 (중복 방지)
-		if _, err := tx.Exec(ctx,
-			`INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`,
-			branch, id,
-		); err != nil {
-			return fmt.Errorf("Fix: link branch: %w", err)
+		// Junction 생성: handoff 모듈이 주입한 콜백으로 branch_backlogs 레코드 삽입.
+		// 콜백 미설정 시(테스트 등) noop.
+		if m.junctionCreator != nil {
+			if err := m.junctionCreator(ctx, tx, branch, id); err != nil {
+				return fmt.Errorf("Fix: link branch: %w", err)
+			}
 		}
 
 		ml.Info("item fixed", "id", id, "branch", branch)

@@ -58,8 +58,8 @@ func hookValidateHandoffCmd() *cobra.Command {
 			if isGitCommit(command) {
 				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
 				if err != nil {
-					// 데몬 연결 실패 시 통과 (graceful degradation)
-					return nil
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
 				}
 				if resp.Error != "" {
 					fmt.Fprintln(os.Stderr, resp.Error)
@@ -71,7 +71,8 @@ func hookValidateHandoffCmd() *cobra.Command {
 			if strings.Contains(command, "gh pr merge") {
 				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
 				if err != nil {
-					return nil
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
 				}
 				if resp.Error != "" {
 					fmt.Fprintln(os.Stderr, resp.Error)
@@ -122,7 +123,8 @@ func hookHandoffProbeCmd() *cobra.Command {
 				"file_path": filePath,
 			})
 			if err != nil {
-				return nil // 데몬 연결 실패 시 통과
+				fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+				os.Exit(2)
 			}
 			if resp.Error != "" {
 				fmt.Fprintln(os.Stderr, resp.Error)

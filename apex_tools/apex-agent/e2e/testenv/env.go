@@ -79,9 +79,13 @@ func New(t *testing.T) *TestEnv {
 	d.Register(handoffMod)
 	d.Register(queueMod)
 
-	// Junction cleaner (same as daemon_cmd.go)
+	// Junction 콜백 (same as daemon_cmd.go)
 	backlogMod.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
 		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+		return err
+	})
+	backlogMod.Manager().SetJunctionCreator(func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
+		_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
 		return err
 	})
 
@@ -167,6 +171,10 @@ func (e *TestEnv) Restart(t *testing.T) {
 
 	backlogMod2.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
 		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+		return err
+	})
+	backlogMod2.Manager().SetJunctionCreator(func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
+		_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
 		return err
 	})
 
