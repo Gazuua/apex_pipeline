@@ -468,6 +468,8 @@ jobs:
           kubectl get pods -n apex-services -o wide
           for ns in apex-infra apex-services; do
             for pod in $(kubectl get pods -n $ns --no-headers -o custom-columns=":metadata.name" 2>/dev/null); do
+              echo "=== Describe: $ns/$pod ==="
+              kubectl describe pod $pod -n $ns 2>/dev/null | tail -40 || true
               echo "=== Logs: $ns/$pod ==="
               kubectl logs $pod -n $ns --tail=30 2>/dev/null || true
             done
