@@ -81,3 +81,8 @@ postgresql:
 
 pgbouncer:
   enabled: false
+
+# === 보안 ===
+global:
+  security:
+    allowInsecureImages: false  # 프로덕션에서는 이미지 서명 검증 강제

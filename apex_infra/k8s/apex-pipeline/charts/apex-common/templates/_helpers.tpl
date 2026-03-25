@@ -133,6 +133,13 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+          {{- if .Values.securityContext }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- else }}
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          {{- end }}
           ports:
             {{- range .Values.service.ports }}
             - name: {{ .name }}

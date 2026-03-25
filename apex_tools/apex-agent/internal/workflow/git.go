@@ -94,10 +94,14 @@ func RebaseOnMain(projectRoot string) (string, error) {
 			if allAutoGen && len(autoGenFiles) > 0 {
 				// Auto-commit to preserve backup integrity.
 				for _, f := range autoGenFiles {
-					exec.Command("git", "-C", projectRoot, "add", f).Run()
+					if addErr := exec.Command("git", "-C", projectRoot, "add", f).Run(); addErr != nil {
+						ml.Warn("auto-commit: git add failed", "file", f, "err", addErr)
+					}
 				}
-				exec.Command("git", "-C", projectRoot,
-					"commit", "-m", "docs: backlog export (pre-rebase auto-sync)").Run()
+				if commitErr := exec.Command("git", "-C", projectRoot,
+					"commit", "-m", "docs: backlog export (pre-rebase auto-sync)").Run(); commitErr != nil {
+					ml.Warn("auto-commit: git commit failed", "err", commitErr)
+				}
 				ml.Info("rebase 전 자동생성 파일 auto-commit", "files", dirty)
 			} else {
 				return "", fmt.Errorf("차단: unstaged changes가 있어 rebase 불가.\n"+

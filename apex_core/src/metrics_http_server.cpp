@@ -9,6 +9,8 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <chrono>
 #include <vector>
@@ -132,9 +134,9 @@ net::awaitable<void> handle_session(beast::tcp_stream stream, MetricsRegistry& r
         beast::error_code ec;
         stream.socket().shutdown(tcp::socket::shutdown_send, ec);
     }
-    catch (const std::exception&)
+    catch (const std::exception& e)
     {
-        // Client disconnected, timeout, or malformed request — silently drop.
+        spdlog::debug("metrics session ended: {}", e.what());
     }
 }
 

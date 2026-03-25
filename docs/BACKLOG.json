@@ -295,19 +295,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 211,
-      "title": "CMakeLists.txt/vcpkg.json 프로젝트 버전 0.5.10 — 로드맵 v0.6.3.0과 불일치",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "INFRA",
-      "description": "루트 CMakeLists.txt(0.5.10)와 vcpkg.json(0.5.10)이 Helm Chart(0.6.3), CLAUDE.md 로드맵(v0.6.3.0)과 동기화되지 않음. 빌드 아티팩트 추적에 혼란. CMake/vcpkg 버전을 로드맵에 맞춰 갱신하고, 향후 버전 범프 시 동기화 체크리스트 필요.",
-      "position": 58,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:39",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 212,
       "title": "비표준 문서 경로 정리 — docs/ 하위 8개 디렉토리가 프로젝트 분류 미준수",
       "severity": "MINOR",
@@ -553,6 +540,21 @@
       "status": "OPEN",
       "created_at": "2026-03-25 14:36:44",
       "updated_at": "2026-03-25 14:36:44"
+    },
+    {
+      "id": 211,
+      "title": "CMakeLists.txt/vcpkg.json 프로젝트 버전 0.5.10 — 로드맵 v0.6.3.0과 불일치",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "루트 CMakeLists.txt(0.5.10)와 vcpkg.json(0.5.10)이 Helm Chart(0.6.3), CLAUDE.md 로드맵(v0.6.3.0)과 동기화되지 않음. 빌드 아티팩트 추적에 혼란. CMake/vcpkg 버전을 로드맵에 맞춰 갱신하고, 향후 버전 범프 시 동기화 체크리스트 필요.",
+      "position": 58,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 14:54:14",
+      "created_at": "2026-03-25 09:28:39",
+      "updated_at": "2026-03-25 14:54:14"
     },
     {
       "id": 203,

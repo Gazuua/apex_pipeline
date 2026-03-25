@@ -110,7 +110,14 @@ Server::~Server()
         {
             auto& io = core_engine_->io_context(i);
             io.restart();
-            io.poll();
+            try
+            {
+                io.poll();
+            }
+            catch (const std::exception&)
+            {
+                // Best-effort drain during destruction — suppress handler exceptions.
+            }
         }
     }
     listeners_.clear();
@@ -466,9 +473,10 @@ void Server::finalize_shutdown()
     // drain(step 2)에서 어댑터 코루틴에 cancellation signal이 발행됨 → operation_aborted로 종료 중.
     {
         auto coro_deadline = std::chrono::steady_clock::now() + config_.drain_timeout;
+        uint32_t total = 0;
         while (std::chrono::steady_clock::now() < coro_deadline)
         {
-            uint32_t total = 0;
+            total = 0;
             for (auto& state : per_core_)
             {
                 for (auto& svc : state->services)
@@ -482,6 +490,11 @@ void Server::finalize_shutdown()
             if (total == 0)
                 break;
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        }
+        if (total > 0)
+        {
+            logger_.warn("shutdown step 4.5: drain timeout ({} ms) expired with {} outstanding coroutines",
+                         std::chrono::duration_cast<std::chrono::milliseconds>(config_.drain_timeout).count(), total);
         }
     }
 

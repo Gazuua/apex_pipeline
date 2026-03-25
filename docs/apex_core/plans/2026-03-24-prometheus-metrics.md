@@ -8,7 +8,7 @@
 
 **Tech Stack:** C++23, Boost.Beast (HTTP), Boost.Asio, spdlog, toml++ (config)
 
-**Spec:** `docs/superpowers/specs/2026-03-24-prometheus-metrics-design.md`
+**Spec:** `docs/apex_core/plans/2026-03-24-prometheus-metrics-design.md`
 
 ---
 
