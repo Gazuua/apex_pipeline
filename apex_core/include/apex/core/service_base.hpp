@@ -323,6 +323,10 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
                 {
                     this->logger_.error("spawn() coroutine exception: {}", e.what());
                 }
+                catch (...)
+                {
+                    this->logger_.error("spawn() coroutine unknown exception");
+                }
                 outstanding_coros_.fetch_sub(1, std::memory_order_acq_rel);
             },
             boost::asio::detached);
