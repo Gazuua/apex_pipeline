@@ -278,7 +278,14 @@ func createBuildLogFile(label string) (string, *os.File, error) {
 // watchBuildLog monitors a log file and kills the process if no output is
 // written for buildStaleTimeout. Exits when killed flag is set (process exited).
 func watchBuildLog(logPath string, proc *os.Process, killed *atomic.Bool) {
-	ticker := time.NewTicker(30 * time.Second)
+	watchBuildLogWithTimeout(logPath, proc, killed, buildStaleTimeout, 30*time.Second)
+}
+
+// watchBuildLogWithTimeout is the parameterized version of watchBuildLog for testability.
+// timeout: duration of no log output before killing the process.
+// pollInterval: how often to check the log file size.
+func watchBuildLogWithTimeout(logPath string, proc *os.Process, killed *atomic.Bool, timeout, pollInterval time.Duration) {
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	lastSize := int64(0)
@@ -299,9 +306,9 @@ func watchBuildLog(logPath string, proc *os.Process, killed *atomic.Bool) {
 			continue
 		}
 		// No change — check timeout.
-		if time.Since(lastChange) >= buildStaleTimeout {
+		if time.Since(lastChange) >= timeout {
 			fmt.Fprintf(os.Stderr, "[queue-lock] watchdog: no log output for %v — killing process %d\n",
-				buildStaleTimeout, proc.Pid)
+				timeout, proc.Pid)
 			killed.Store(true)
 			_ = proc.Kill()
 			return
