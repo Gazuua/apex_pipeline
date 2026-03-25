@@ -7,8 +7,8 @@
 replicaCount: 1
 
 image:
-  repository: bitnami/pgbouncer
-  tag: "1.23.1"
+  repository: public.ecr.aws/bitnami/pgbouncer
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 service:

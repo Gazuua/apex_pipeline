@@ -66,9 +66,19 @@ chat-svc:
 log-svc:
   enabled: false  # 바이너리 미구현 (BACKLOG-199)
 
+# === Bitnami 글로벌 설정 ===
+# Bitnami가 Docker Hub에서 이미지를 삭제했으므로 AWS ECR Public을 사용.
+# ECR 레지스트리를 비표준으로 간주하는 Bitnami 보안 검증을 비활성화.
+# 참고: BACKLOG-216
+global:
+  security:
+    allowInsecureImages: true
+
 # === 인프라 (Bitnami) ===
 kafka:
   enabled: true
+  image:
+    registry: public.ecr.aws
   listeners:
     client:
       protocol: PLAINTEXT
@@ -79,6 +89,8 @@ kafka:
 
 redis-auth:
   enabled: true
+  image:
+    registry: public.ecr.aws
   architecture: standalone
   auth:
     password: "dev_redis_pass"
@@ -88,6 +100,8 @@ redis-auth:
 
 redis-ratelimit:
   enabled: true
+  image:
+    registry: public.ecr.aws
   architecture: standalone
   auth:
     password: "dev_redis_pass"
@@ -97,6 +111,8 @@ redis-ratelimit:
 
 redis-chat:
   enabled: true
+  image:
+    registry: public.ecr.aws
   architecture: standalone
   auth:
     password: "dev_redis_pass"
@@ -106,6 +122,8 @@ redis-chat:
 
 redis-pubsub:
   enabled: true
+  image:
+    registry: public.ecr.aws
   architecture: standalone
   auth:
     password: "dev_redis_pass"
@@ -115,6 +133,8 @@ redis-pubsub:
 
 postgresql:
   enabled: true
+  image:
+    registry: public.ecr.aws
   auth:
     postgresPassword: "apex"
     username: "apex_user"
