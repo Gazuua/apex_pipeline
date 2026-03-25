@@ -1,21 +1,6 @@
 {
-  "next_id": 218,
+  "next_id": 222,
   "items": [
-    {
-      "id": 203,
-      "title": "architecture_comparison.html (gh-pages index) v0.6.1 데이터로 갱신",
-      "severity": "MINOR",
-      "timeframe": "NOW",
-      "scope": "DOCS",
-      "type": "DOCS",
-      "description": "현재 docs/apex_core/benchmark/architecture_comparison.html이 v0.5.10.0(i5-9300H 4C/8T) 데이터 기반. v0.6.1(i7-14700 20C/28T) 측정치로 교체 필요 — 3개 모델(Per-Core/Shared/Lock-Free) × 1~28워커 스케일링 차트, 해설 텍스트, 수치 테이블 전면 갱신. gh-pages benchmark/index.html로 배포되는 페이지.",
-      "position": 5,
-      "status": "OPEN",
-      "resolution": "FIXED",
-      "resolved_at": "2026-03-25 09:23:14",
-      "created_at": "2026-03-25 00:46:26",
-      "updated_at": "2026-03-25 09:42:04"
-    },
     {
       "id": 206,
       "title": "CI MSVC continue-on-error: true — Zero Warning 정책 무력화",
@@ -362,6 +347,32 @@
       "updated_at": "2026-03-25 11:27:23"
     },
     {
+      "id": 218,
+      "title": "MetricsHttpServer stop() 중 in-flight session 취소 유닛 테스트",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "slow client 시뮬레이션으로 stop() 중 in-flight session cancel 경로 검증. flaky 위험으로 미구현 상태.",
+      "position": 62,
+      "status": "OPEN",
+      "created_at": "2026-03-25 14:36:34",
+      "updated_at": "2026-03-25 14:36:34"
+    },
+    {
+      "id": 221,
+      "title": "SetStatusWith/handoff mock 정합성 — OPEN 가드 미구현으로 실제 동작과 괴리",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "handoff manager_test.go의 mockBacklogManagerForReplace.SetStatusWith가 가드 없이 직접 UPDATE 실행. RESOLVED→OPEN 스킵 동작이 검증 불가. 실제 backlog.Manager를 사용하는 통합 테스트 또는 mock에 가드 로직 추가 필요.",
+      "position": 63,
+      "status": "OPEN",
+      "created_at": "2026-03-25 14:43:59",
+      "updated_at": "2026-03-25 14:43:59"
+    },
+    {
       "id": 59,
       "title": "문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿",
       "severity": "MAJOR",
@@ -516,6 +527,47 @@
       "status": "OPEN",
       "created_at": "2026-03-24 23:50:37",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 219,
+      "title": "MetricsHttpServer malformed HTTP request 유닛 테스트",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "프레임워크 레벨 방어 경로 검증. Beast HTTP 파서가 이미 방어하므로 중요도 낮음.",
+      "position": 17,
+      "status": "OPEN",
+      "created_at": "2026-03-25 14:36:39",
+      "updated_at": "2026-03-25 14:36:39"
+    },
+    {
+      "id": 220,
+      "title": "TimingWheel 콜백 내 exception 유닛 테스트",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "TimingWheel expire 콜백에서 예외 발생 시 방어 로직 검증.",
+      "position": 18,
+      "status": "OPEN",
+      "created_at": "2026-03-25 14:36:44",
+      "updated_at": "2026-03-25 14:36:44"
+    },
+    {
+      "id": 203,
+      "title": "architecture_comparison.html (gh-pages index) v0.6.1 데이터로 갱신",
+      "severity": "MINOR",
+      "timeframe": "NOW",
+      "scope": "DOCS",
+      "type": "DOCS",
+      "description": "현재 docs/apex_core/benchmark/architecture_comparison.html이 v0.5.10.0(i5-9300H 4C/8T) 데이터 기반. v0.6.1(i7-14700 20C/28T) 측정치로 교체 필요 — 3개 모델(Per-Core/Shared/Lock-Free) × 1~28워커 스케일링 차트, 해설 텍스트, 수치 테이블 전면 갱신. gh-pages benchmark/index.html로 배포되는 페이지.",
+      "position": 5,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 14:21:56",
+      "created_at": "2026-03-25 00:46:26",
+      "updated_at": "2026-03-25 14:21:56"
     },
     {
       "id": 204,
