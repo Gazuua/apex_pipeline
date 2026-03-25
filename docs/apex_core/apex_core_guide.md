@@ -184,7 +184,7 @@ struct ServerConfig {
     size_t recv_buf_capacity = 8192;                  // per-session 수신 버퍼 크기
     size_t session_max_queue_depth = 256;             // per-session write queue depth 제한
     size_t timer_wheel_slots = 1024;                  // TimingWheel 슬롯 수
-    uint32_t max_connections = 0;                      // 최대 동시 연결 수 (0 = 무제한)
+    uint32_t max_connections = 10000;                   // 최대 동시 연결 수 (0 = 무제한, 기본 10000)
     bool reuseport = false;                           // Linux: per-core SO_REUSEPORT
     bool handle_signals = true;                       // SIGINT/SIGTERM 자동 처리
     std::chrono::seconds drain_timeout{25};            // Graceful Shutdown drain timeout
