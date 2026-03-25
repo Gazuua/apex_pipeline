@@ -12,11 +12,12 @@ import (
 
 // AppName is the application identifier used for directory and pipe names.
 const (
-	AppName    = "apex-agent"
-	pipeName   = `\\.\pipe\apex-agent`
-	socketName = "apex-agent.sock"
-	dbName     = "apex-agent.db"
-	pidName    = "apex-agent.pid"
+	AppName         = "apex-agent"
+	pipeName        = `\\.\pipe\apex-agent`
+	socketName      = "apex-agent.sock"
+	dbName          = "apex-agent.db"
+	pidName         = "apex-agent.pid"
+	maintenanceName = "apex-agent.maintenance"
 )
 
 // DataDir returns the platform-specific data directory for apex-agent.
@@ -37,6 +38,10 @@ func DBPath() string { return filepath.Join(DataDir(), dbName) }
 
 // PIDFilePath returns the full path to the daemon PID file.
 func PIDFilePath() string { return filepath.Join(DataDir(), pidName) }
+
+// MaintenanceFilePath returns the path to the maintenance lock file.
+// Present during daemon stop→start cycle to suppress auto-restart.
+func MaintenanceFilePath() string { return filepath.Join(DataDir(), maintenanceName) }
 
 // SocketPath returns the platform-specific IPC socket address.
 // Windows: Named Pipe, Unix: Unix domain socket in XDG_RUNTIME_DIR (preferred) or /tmp.

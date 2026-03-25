@@ -23,11 +23,18 @@ func pluginCmd() *cobra.Command {
 }
 
 // ensureDaemon checks if the daemon is running and starts it if not.
+// Respects maintenance lock written by "daemon stop" — skips auto-start
+// during binary upgrade to prevent restarting the old binary.
 func ensureDaemon() {
 	conn, err := ipc.Dial(platform.SocketPath())
 	if err == nil {
 		conn.Close()
 		return // 이미 실행 중
+	}
+
+	// Maintenance lock present → daemon was intentionally stopped (e.g., binary upgrade).
+	if _, err := os.Stat(platform.MaintenanceFilePath()); err == nil {
+		return
 	}
 
 	if err := platform.EnsureDataDir(); err != nil {

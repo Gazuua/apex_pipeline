@@ -11,9 +11,6 @@ import (
 
 func TestDefaults(t *testing.T) {
 	cfg := Defaults()
-	if cfg.Daemon.IdleTimeout != 30*time.Minute {
-		t.Errorf("IdleTimeout = %v, want 30m", cfg.Daemon.IdleTimeout)
-	}
 	if cfg.Log.Level != "info" {
 		t.Errorf("Log.Level = %q, want 'info'", cfg.Log.Level)
 	}
@@ -33,7 +30,7 @@ func TestLoad_FileNotFound_ReturnsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Daemon.IdleTimeout != 30*time.Minute {
+	if cfg.Log.Level != "info" {
 		t.Error("missing file should return defaults")
 	}
 }
@@ -42,9 +39,6 @@ func TestLoad_PartialOverride(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 	os.WriteFile(path, []byte(`
-[daemon]
-idle_timeout = "10m"
-
 [log]
 level = "warn"
 `), 0o644)
@@ -52,9 +46,6 @@ level = "warn"
 	cfg, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if cfg.Daemon.IdleTimeout != 10*time.Minute {
-		t.Errorf("IdleTimeout = %v, want 10m", cfg.Daemon.IdleTimeout)
 	}
 	if cfg.Log.Level != "warn" {
 		t.Errorf("Log.Level = %q, want 'warn'", cfg.Log.Level)
@@ -69,7 +60,6 @@ func TestLoad_FullConfig(t *testing.T) {
 	path := filepath.Join(dir, "config.toml")
 	os.WriteFile(path, []byte(`
 [daemon]
-idle_timeout = "1h"
 socket_path = "/tmp/test.sock"
 
 [store]

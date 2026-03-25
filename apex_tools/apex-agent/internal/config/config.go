@@ -40,10 +40,7 @@ type HTTPConfig struct {
 }
 
 type DaemonConfig struct {
-	IdleTimeout time.Duration // populated from rawIdleTimeout
-	SocketPath  string        `toml:"socket_path"`
-
-	RawIdleTimeout Duration `toml:"idle_timeout"`
+	SocketPath string `toml:"socket_path"`
 }
 
 type StoreConfig struct {
@@ -75,9 +72,7 @@ type BuildConfig struct {
 // Defaults returns a Config with all default values.
 func Defaults() *Config {
 	return &Config{
-		Daemon: DaemonConfig{
-			IdleTimeout: 30 * time.Minute,
-		},
+		Daemon: DaemonConfig{},
 		Store: StoreConfig{},
 		Queue: QueueConfig{
 			StaleTimeout: 1 * time.Hour,
@@ -119,9 +114,6 @@ func Load(path string) (*Config, error) {
 	}
 
 	// Convert Duration fields to time.Duration
-	if cfg.Daemon.RawIdleTimeout != 0 {
-		cfg.Daemon.IdleTimeout = time.Duration(cfg.Daemon.RawIdleTimeout)
-	}
 	if cfg.Queue.RawStaleTimeout != 0 {
 		cfg.Queue.StaleTimeout = time.Duration(cfg.Queue.RawStaleTimeout)
 	}
@@ -162,7 +154,6 @@ func WriteDefault(path string) error {
 # 값을 비우면 플랫폼 기본값 사용. 이 파일이 없어도 전부 기본값으로 동작.
 
 [daemon]
-idle_timeout = "30m"
 # socket_path = ""          # Named Pipe (Win) or Unix Socket (Linux)
 
 [store]
