@@ -57,8 +57,8 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성
 - **현재**: v0.6.3.0 — K8s manifests + Helm 차트 서비스 오케스트레이션 (umbrella+library chart, 2-release namespace 분리, expand_env Secret 주입, Bitnami 하이브리드 인프라, minikube 로컬 검증). Helm minikube 실배포 검증 완료 — Bitnami ECR 레지스트리 이전, docker-bake context 수정, CI helm-validation 잡 추가
-- **도구**: apex-agent Go 백엔드 완전 재작성 완료 (PR #126). 백로그 JSON 통합 완료 (BACKLOG-163). notification 시스템 제거 완료 (BACKLOG-164). HTTP 대시보드 완료 (BACKLOG-154,159, PR #130) — `localhost:7600` Go 템플릿+HTMX 다크 테마, 빌드 lock PID 자식 이관 수정 포함. cleanup 4단계 확장 완료 (BACKLOG-170, PR #135) — 워크스페이스 복사본 브랜치 정리 + 폴링 최적화 (BACKLOG-183). 큐 히스토리 이벤트 로그 + 백로그 updated_at 버그 수정 완료 (PR #145) — queue_history 테이블, Build/Merge 좌우 분리 대시보드, 시간 범위 필터, 무한 스크롤. IPC ctx 전파 + Dispatcher 통합 + client 재사용 완료 (BACKLOG-189,193,194, PR #150) — Store Querier에 context 전파, dispatch 패키지 공유 인터페이스, sync.Once 싱글톤 client. 백로그 stale import guard 완료 (BACKLOG-215, PR #156) — updated_at 기반 cross-branch stale import 방어. SetStatusWith RESOLVED 원복 방지 완료 (PR #162) — stale/drop 경로 DB 레벨 가드 + UpdateFromImport status 제거. 로직 정밀 강화 완료 (PR #164) — fail-close 전환, junctionCreator 콜백 통일, CleanupStale TX 원자성, 에러 메시지 개선, 워크플로우 가이드. 데몬 로그 일별 분할 + 워크플로우 로그 보강 완료 (PR #167) — DailyWriter(`logs/YYYYMMDD.log`), lumberjack 제거, max_days 자동 정리, 전 모듈 상세 로그 추가
-- **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146, BACKLOG-148/191/192) — 핵심 경로 22건 추가, AdapterBase init 롤백 수정
+- **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할)
+- **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146) — 핵심 경로 22건 추가
 - **다음**: v0.6.4 (CI/CD 고도화) → v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
 
@@ -74,7 +74,9 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지**: 리뷰 이슈 0건 → 아래 순서로 실행:
   1. `apex-agent queue merge acquire` (lock 획득까지 대기)
   2. rebase는 `enforce-rebase` hook이 push 시 자동 실행 (충돌 시 차단+안내, 에이전트가 resolve 후 재시도)
-  3. `apex-agent queue build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시 스킵): **A)** ①+② 동시 충족: ① 문서 전용 PR (`.md`, `.txt`, `docs/` 변경만) 또는 소스 파일 변경이 주석만인 PR ② rebase로 받은 변경이 문서뿐이고 PR 자체의 코드 빌드+테스트가 이미 통과된 경우 (주석만 변경 시 빌드+CI 대기 자체가 불필요) **B)** 단독 충족: rebase 시 충돌 없음 + rebase 이후 추가 코드 변경 없음 + 최신 PR CI가 통과 확인됨 (3개 조건 모두)
+  3. `apex-agent queue build debug` (빌드 + 테스트 재검증) — **빌드 스킵 조건** (A 또는 B 충족 시):
+     - **A)** 문서/주석 전용 PR + rebase로 받은 변경도 문서뿐 + 기존 코드 빌드+테스트 통과
+     - **B)** rebase 충돌 없음 + 추가 코드 변경 없음 + 최신 PR CI 통과 (3개 모두)
   4. `git push --force-with-lease`
   5. `gh pr merge --squash --delete-branch --admin`
   6. `apex-agent queue merge release`
@@ -86,25 +88,14 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 + 워크스페이스 복사본 로컬 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
 ### 브랜치 인수인계 (Branch Handoff)
-- **도구**: `apex-agent handoff` (Go 바이너리). 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
-- **착수 전**: `apex-agent handoff backlog-check <N>` 으로 중복 착수 확인 (백로그 항목이 있는 경우)
+- **도구**: `apex-agent handoff`. 상세: `apex_tools/apex-agent/CLAUDE.md` § 핸드오프 CLI
+- **착수 전**: `handoff backlog-check <N>` 으로 중복 착수 확인
 - **브랜치 생성** (`git checkout -b` 직접 호출 금지 — hook 차단):
-  - 백로그 연결: `notify start --branch-name feature/foo --backlog N[,M,...] --summary "..." --scopes core,shared` (복수 가능: `--backlog 1,2` 또는 `--backlog 1 --backlog 2`)
+  - 백로그 연결: `notify start --branch-name feature/foo --backlog N[,M,...] --summary "..." --scopes core,shared`
   - 비백로그: `notify start job --branch-name feature/foo --summary "..." --scopes tools`
-  - `--summary`, `--scopes` 필수. 핸드오프 등록과 git 브랜치 생성이 원자적으로 수행
-- **상태 머신**: `notify start` → `STARTED` → `notify design` → `DESIGN_NOTIFIED` → `notify plan` → `IMPLEMENTING` → `notify merge` (active에서 삭제, history로 MERGED 이관)
-  - `notify start --skip-design`: 설계 불필요 시 바로 `implementing`으로 진입
-  - `notify drop --reason "..."`: 작업 중도 포기 (active에서 삭제, history에 DROPPED 기록)
-  - 각 단계 전환은 선행 상태 검증 (잘못된 전환 자동 차단)
-- **DB 구조**: `active_branches` (활성 작업), `branch_history` (머지/포기 이력). 머지/포기 시 active에서 삭제 → history로 이관
-- **강제 메커니즘** (Hook 기반):
-  - **active 미등록** → 모든 Edit/Write/git commit **차단** (예외 없음)
-  - **status=started/design-notified** → 소스 파일(.cpp/.hpp/.h/.c/.cc/.cxx/.hxx/.go) 편집 **차단**, 비소스(문서 등) 허용
-  - **status=implementing** → 모든 파일 허용
-  - **main/master 브랜치** → 핸드오프 체크 스킵
-  - **git checkout -b / git switch -c / git branch <name> / git worktree add -b / git branch -m,-c (rename/copy)** → validate-build hook이 차단 (notify start 경유 강제)
-  - **cleanup** → `active_branches` 조회하여 활성 브랜치 보호 + CWD 보호
-- **상태 전이**: 설계 확정 시 `notify design`, 계획 확정 시 `notify plan`, 머지 완료 시 `notify merge`
+  - `--summary`, `--scopes` 필수. `--skip-design`: 설계 불필요 시 바로 IMPLEMENTING 진입
+- **상태 전이**: `notify start` → `notify design` → `notify plan` → `notify merge`. 중도 포기: `notify drop --reason "..."`
+- **Hook 강제** — 핸드오프 미등록 시 Edit/Write/commit 차단, 설계 단계에서 소스 파일 편집 차단, `git checkout -b` 등 직접 브랜치 생성 차단. 상세: `apex_tools/apex-agent/CLAUDE.md`
 
 ### 설계 원칙
 - **코어 프레임워크 가이드 필독**: 코어 영역 또는 서비스 코드 작성·변경 시 `docs/apex_core/apex_core_guide.md`를 반드시 사전 참조. shared-nothing, per-core 독립, intrusive_ptr 수명 관리 등 프레임워크 설계 원칙을 위배하는 코드 금지
@@ -133,27 +124,30 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **갱신 범위**: 레이어 1(API)은 직접 수정, 레이어 2(내부)는 ADR 포인터 정합성 확인
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
-### 문서/프로세스 규칙
-- **백로그**: `docs/BACKLOG.json`에 JSON 포맷으로 저장 (DB가 source of truth, JSON은 git 백업). 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
-- **백로그 파일 직접 접근 금지** — `docs/BACKLOG.json` (및 레거시 MD)는 `validate-backlog` hook이 Read/Edit/Write 모두 차단. 조회: `backlog list/show`, 수정: `backlog add/update/resolve/release/fix/export` CLI 사용 필수
-- **백로그 등록 시 `--fix`/`--no-fix` 필수** — 활성 브랜치에서 `backlog add` 시 반드시 지정. `--fix`=즉시 수정(FIXING 전이+브랜치 연결), `--no-fix`=나중에(OPEN 유지). 미지정 시 에러. 기존 OPEN 백로그 착수 변경: `backlog fix N [N...]`
-- **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
-- **백로그 라이프사이클 워크플로우** — 각 커맨드의 사용 시점과 책임:
+### 백로그
+- **저장**: DB가 source of truth, `docs/BACKLOG.json`은 git 백업. 상세 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
+- **파일 직접 접근 금지** — `validate-backlog` hook이 Read/Edit/Write 모두 차단. CLI(`backlog list/show/add/update/resolve/release/fix/export`)만 사용
+- **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장"에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
+- **라이프사이클 워크플로우**:
 
   | 커맨드 | 시점 | 동작 | 책임 |
   |--------|------|------|------|
-  | `backlog add --fix` | 이슈 발견 즉시 수정할 때 | OPEN→FIXING + junction 연결 | 등록자 |
-  | `backlog add --no-fix` | 이슈 발견했지만 지금 안 고칠 때 | OPEN 유지 (junction 없음) | 등록자 |
-  | `backlog fix N` | 기존 OPEN 백로그를 잡을 때 | OPEN→FIXING + junction 연결 | 착수자 |
-  | `backlog resolve N` | 수정 완료 후 | →RESOLVED | **수정한 사람** |
-  | `backlog release N` | FIXING인데 못 끝낼 때 | FIXING→OPEN (junction 해제) | 포기자 |
+  | `backlog add --fix` | 이슈 발견 즉시 수정 | OPEN→FIXING + junction 연결 | 등록자 |
+  | `backlog add --no-fix` | 이슈 발견, 지금 안 고침 | OPEN 유지 (junction 없음) | 등록자 |
+  | `backlog fix N` | 기존 OPEN 백로그 착수 | OPEN→FIXING + junction 연결 | 착수자 |
+  | `backlog resolve N` | 수정 완료 | →RESOLVED | **수정한 사람** |
+  | `backlog release N` | FIXING 포기 | FIXING→OPEN (junction 해제) | 포기자 |
   | `backlog export` | 머지 직전 (⑥단계) | DB→JSON 백업 | 머지 수행자 |
 
+  - 활성 브랜치에서 `backlog add` 시 `--fix`/`--no-fix` 필수 (미지정 시 에러)
+
   **핵심 원칙 — "고친 사람이 resolve한다":**
-  - 코드를 수정하여 백로그 이슈를 해결했다면, **반드시 `backlog resolve N --resolution FIXED`를 호출**해야 한다
-  - `--fix`로 착수한 건뿐 아니라 `--no-fix`로 등록한 건도 동일 — 같은 PR에서 우연히 고쳐졌어도 resolve 필수
+  - 코드를 수정하여 백로그 이슈를 해결했다면, **반드시 `backlog resolve N --resolution FIXED` 호출**
+  - `--no-fix`로 등록한 건도 동일 — 같은 PR에서 우연히 고쳐졌어도 resolve 필수
   - 커밋 메시지에 `BACKLOG-N`을 적었다면 해당 백로그의 resolve 여부를 반드시 확인
   - **머지 전 체크**: `backlog list --status OPEN`으로 현재 작업에서 해결된 항목이 없는지 확인
+
+### 문서
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
 
