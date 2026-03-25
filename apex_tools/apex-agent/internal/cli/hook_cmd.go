@@ -56,8 +56,14 @@ func hookValidateMergeCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "[apex-agent] warning: hook input parse failed: %v (allowing)\n", err)
 				return nil // parse error → allow
 			}
-			if !strings.Contains(command, "gh pr merge") {
+			if !containsGhPrMerge(command) {
 				return nil
+			}
+
+			// Require --delete-branch to prevent stale remote branches
+			if !strings.Contains(command, "--delete-branch") {
+				fmt.Fprintln(os.Stderr, "차단: gh pr merge에 --delete-branch 플래그를 추가하세요.")
+				os.Exit(2)
 			}
 
 			// Check merge lock via daemon IPC (DB-based queue)
@@ -143,4 +149,25 @@ func hookValidateBacklogCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// containsGhPrMerge checks if "gh pr merge" appears as an actual command
+// in a shell pipeline, not inside a quoted string (e.g. git commit messages).
+// Splits on shell operators (&&, ||, ;) and checks each segment.
+func containsGhPrMerge(command string) bool {
+	// Split on shell command separators
+	for _, sep := range []string{"&&", "||", ";"} {
+		parts := strings.Split(command, sep)
+		if len(parts) > 1 {
+			for _, part := range parts {
+				if containsGhPrMerge(strings.TrimSpace(part)) {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	// Single command: check if it starts with "gh pr merge" (after trimming)
+	trimmed := strings.TrimSpace(command)
+	return strings.HasPrefix(trimmed, "gh pr merge")
 }
