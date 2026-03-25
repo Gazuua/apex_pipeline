@@ -116,6 +116,23 @@ TEST(ServiceRegistryTest, FindReturnsSamePointerAsGet)
 
 // ── register_ref 포함 테스트 ────────────────────────────────────────────────
 
+TEST(ServiceRegistryTest, RefRegisteredRetrievableByGetAndFind)
+{
+    apex::core::ServiceRegistry registry;
+
+    MockServiceB ref_svc;
+    registry.register_ref(ref_svc);
+
+    // get<T>()가 register_ref()로 등록된 서비스를 반환하는지 확인
+    auto& found = registry.get<MockServiceB>();
+    EXPECT_EQ(&found, &ref_svc);
+
+    // find<T>()도 동일 포인터를 반환하는지 확인
+    auto* ptr = registry.find<MockServiceB>();
+    EXPECT_NE(ptr, nullptr);
+    EXPECT_EQ(ptr, &ref_svc);
+}
+
 TEST(ServiceRegistryTest, SizeIncludesRefRegistered)
 {
     apex::core::ServiceRegistry registry;

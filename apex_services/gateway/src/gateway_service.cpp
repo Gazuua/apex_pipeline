@@ -241,21 +241,44 @@ apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::
                                                                     std::span<const uint8_t> payload)
 {
     // per-core 맵만 수정 — cross_core_post 불필요.
-    if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
+    if (!globals_)
     {
-        flatbuffers::Verifier verifier(payload.data(), payload.size());
-        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-        {
-            verifier.EndTable();
-            auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
-            if (ch && verifier.VerifyString(ch) && ch->size() > 0)
-            {
-                globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
-                logger_.info(session, "unsubscribed from '{}'", ch->str());
-            }
-        }
+        return apex::core::ok();
     }
+
+    if (payload.size() < sizeof(flatbuffers::uoffset_t))
+    {
+        logger_.warn(session, "unsubscribe: payload too small (size={})", payload.size());
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    flatbuffers::Verifier verifier(payload.data(), payload.size());
+    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+    if (!verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+    {
+        logger_.warn(session, "unsubscribe: FlatBuffers verify failed");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::FlatBuffersVerifyFailed);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+    verifier.EndTable();
+
+    auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
+    if (!ch || !verifier.VerifyString(ch) || ch->size() == 0)
+    {
+        logger_.warn(session, "unsubscribe: empty or invalid channel name");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
+    logger_.info(session, "unsubscribed from '{}'", ch->str());
     return apex::core::ok();
 }
 
