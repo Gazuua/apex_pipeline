@@ -21,6 +21,7 @@ on:
       - '.gitignore'
       - '.github/ci-image-tag'
       - '.github/tools-image-tag'
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -329,7 +330,8 @@ jobs:
     if: >-
       always() &&
       needs.build.result == 'success' &&
-      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
