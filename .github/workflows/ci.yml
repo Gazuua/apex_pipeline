@@ -349,6 +349,7 @@ jobs:
         env:
           CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
           SHA_TAG: sha-${{ github.sha }}
+          BUILDX_BAKE_ENTITLEMENTS_FS: "0"
         run: docker buildx bake -f apex_infra/docker/docker-bake.hcl services --push
 
   # ── Trivy security scan ──────────────────────────────

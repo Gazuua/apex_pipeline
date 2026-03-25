@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
-// context는 이 HCL 파일 위치(apex_infra/docker/) 기준 상대 경로.
-// dockerfile은 context 기준 상대 경로.
+// context, dockerfile 모두 CWD 기준 상대 경로.
+// CI에서는 repo root에서 실행: docker buildx bake -f apex_infra/docker/docker-bake.hcl
 
 variable "CI_IMAGE_TAG" {
   default = "latest"
@@ -22,7 +22,7 @@ group "services" {
 // ── Base target (shared config) ───────────────────
 target "service-base" {
   dockerfile = "apex_infra/docker/service.Dockerfile"
-  context    = "../.."
+  context    = "."
   cache-from = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache"]
   cache-to   = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache,mode=max"]
 }
