@@ -136,6 +136,31 @@ TEST_F(CrossCoreCallTest, TimeoutReturnsError)
     std::this_thread::sleep_for(std::chrono::milliseconds(100) * apex::test::timeout_multiplier());
 }
 
+TEST_F(CrossCoreCallTest, VoidTimeoutReturnsError)
+{
+    std::promise<ErrorCode> promise;
+    auto future = promise.get_future();
+
+    const auto multiplier = apex::test::timeout_multiplier();
+    const auto call_timeout = std::chrono::milliseconds{10} * multiplier;
+    const auto block_duration = std::chrono::milliseconds{50} * multiplier;
+
+    boost::asio::co_spawn(
+        server_->core_io_context(0),
+        [this, &promise, call_timeout, block_duration]() -> boost::asio::awaitable<void> {
+            auto result = co_await server_->cross_core_call(
+                1, [block_duration] { std::this_thread::sleep_for(block_duration); }, call_timeout);
+            EXPECT_FALSE(result.has_value());
+            promise.set_value(result.error());
+        },
+        boost::asio::detached);
+
+    ASSERT_EQ(future.wait_for(5s), std::future_status::ready);
+    EXPECT_EQ(future.get(), ErrorCode::CrossCoreTimeout);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100) * apex::test::timeout_multiplier());
+}
+
 TEST_F(CrossCoreCallTest, MultipleSequentialCalls)
 {
     std::promise<int> promise;

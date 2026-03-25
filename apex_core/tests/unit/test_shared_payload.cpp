@@ -56,6 +56,73 @@ TEST(SharedPayload, BroadcastPattern)
     p->release(); // core 3 → delete
 }
 
+TEST(SharedPayload, MixedRefcount_AddRefThenSetRefcount)
+{
+    // 시나리오 2: add_ref() 여러 번 → set_refcount(N) → refcount가 N으로 리셋
+    std::atomic<int> destroyed{0};
+
+    struct TrackDestroy : SharedPayload
+    {
+        std::atomic<int>* flag;
+        explicit TrackDestroy(std::atomic<int>* f)
+            : flag(f)
+        {}
+        ~TrackDestroy() override
+        {
+            flag->fetch_add(1);
+        }
+    };
+
+    auto* p = new TrackDestroy(&destroyed);
+    p->add_ref();
+    p->add_ref();
+    p->add_ref();
+    EXPECT_EQ(p->refcount(), 3u);
+
+    // set_refcount은 기존 값을 덮어씀
+    p->set_refcount(2);
+    EXPECT_EQ(p->refcount(), 2u);
+
+    p->release(); // 2 → 1
+    EXPECT_EQ(destroyed.load(), 0);
+    EXPECT_EQ(p->refcount(), 1u);
+
+    p->release(); // 1 → 0 → delete
+    EXPECT_EQ(destroyed.load(), 1);
+}
+
+TEST(SharedPayload, MixedRefcount_SetRefcountThenAddRef)
+{
+    // 시나리오 1: set_refcount(2) → add_ref() → 총 refcount 3
+    std::atomic<int> destroyed{0};
+
+    struct TrackDestroy : SharedPayload
+    {
+        std::atomic<int>* flag;
+        explicit TrackDestroy(std::atomic<int>* f)
+            : flag(f)
+        {}
+        ~TrackDestroy() override
+        {
+            flag->fetch_add(1);
+        }
+    };
+
+    auto* p = new TrackDestroy(&destroyed);
+    p->set_refcount(2);
+    EXPECT_EQ(p->refcount(), 2u);
+
+    p->add_ref(); // 2 → 3
+    EXPECT_EQ(p->refcount(), 3u);
+
+    p->release(); // 3 → 2
+    EXPECT_EQ(destroyed.load(), 0);
+    p->release(); // 2 → 1
+    EXPECT_EQ(destroyed.load(), 0);
+    p->release(); // 1 → 0 → delete
+    EXPECT_EQ(destroyed.load(), 1);
+}
+
 TEST(SharedPayload, ConcurrentRelease)
 {
     constexpr int N = 8;

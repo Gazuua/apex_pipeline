@@ -415,6 +415,63 @@ TEST(TimingWheel, RescheduleLastEntryInSlot)
     EXPECT_EQ(tw.active_count(), 0u);
 }
 
+TEST(TimingWheel, CallbackExceptionDoesNotBreakOtherTimers)
+{
+    // 콜백에서 exception 발생 시 다른 타이머가 정상 만료되는지 검증
+    std::set<TimingWheel::EntryId> expired;
+    TimingWheel::EntryId throwing_id = 0;
+
+    TimingWheel tw(64, [&](TimingWheel::EntryId id) {
+        if (id == throwing_id)
+        {
+            throw std::runtime_error("intentional test exception");
+        }
+        expired.insert(id);
+    });
+
+    // 3개 엔트리를 같은 슬롯에 배치 — 하나는 예외를 던짐
+    auto id1 = tw.schedule(3);
+    throwing_id = tw.schedule(3);
+    auto id3 = tw.schedule(3);
+
+    for (int i = 0; i < 4; ++i)
+        tw.tick();
+
+    // 예외를 던진 엔트리 제외, 나머지 2개는 정상 만료
+    EXPECT_EQ(expired.size(), 2u);
+    EXPECT_TRUE(expired.contains(id1));
+    EXPECT_TRUE(expired.contains(id3));
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
+TEST(TimingWheel, CallbackExceptionDoesNotBreakSubsequentTicks)
+{
+    // 예외 발생 후 이후 tick에서 스케줄된 타이머가 정상 동작하는지 검증
+    size_t expire_count = 0;
+    bool should_throw = true;
+
+    TimingWheel tw(64, [&](TimingWheel::EntryId) {
+        if (should_throw)
+        {
+            should_throw = false;
+            throw std::runtime_error("intentional test exception");
+        }
+        ++expire_count;
+    });
+
+    (void)tw.schedule(1); // 예외를 던질 엔트리
+    (void)tw.schedule(3); // 이후 tick에서 만료될 엔트리
+
+    tw.tick(); // tick 0→1
+    tw.tick(); // tick 1→2: 첫 번째 엔트리 만료 — 예외 발생
+    EXPECT_EQ(expire_count, 0u);
+
+    tw.tick(); // tick 2→3
+    tw.tick(); // tick 3→4: 두 번째 엔트리 만료 — 정상 콜백
+    EXPECT_EQ(expire_count, 1u);
+    EXPECT_EQ(tw.active_count(), 0u);
+}
+
 TEST(TimingWheel, SingleSlotCreation)
 {
     // num_slots=1 → next_power_of_2(1)=1, mask_=0
