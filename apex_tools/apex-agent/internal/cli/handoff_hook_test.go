@@ -23,6 +23,10 @@ func TestIsDaemonManagementCommand(t *testing.T) {
 		{"echo hello", false},
 		{"", false},
 
+		// git commit 메시지에 daemon 키워드가 포함된 경우 — 바이패스 금지
+		{`git commit -m "fix daemon startup issue"`, false},
+		{`git commit -m "daemon start bug"`, false},
+
 		// 체인 명령에서 daemon 관리가 포함된 경우
 		{"apex-agent daemon stop && cp binary $LOCALAPPDATA/apex-agent/", true},
 	}

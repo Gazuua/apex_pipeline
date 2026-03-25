@@ -165,6 +165,7 @@ func daemonStopCmd() *cobra.Command {
 			// IPC 실패 시 PID 기반 Kill fallback
 			pid, err := readPID()
 			if err != nil {
+				os.Remove(platform.MaintenanceFilePath()) // stop 완전 실패 → lock 정리
 				return fmt.Errorf("daemon not running")
 			}
 			proc, err := os.FindProcess(pid)

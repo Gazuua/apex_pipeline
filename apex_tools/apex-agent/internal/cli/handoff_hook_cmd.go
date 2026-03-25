@@ -223,7 +223,12 @@ func isFeatureBranch(branch string) bool {
 // isDaemonManagementCommand returns true if the command is a daemon lifecycle
 // or plugin setup command. These bypass handoff validation because they are the
 // recovery path when the daemon is unreachable.
+// Excludes git commits — a commit message like "fix daemon startup" must not
+// bypass handoff validation.
 func isDaemonManagementCommand(command string) bool {
+	if isGitCommit(command) {
+		return false
+	}
 	for _, sub := range []string{
 		"daemon start", "daemon stop", "daemon status", "daemon run",
 		"plugin setup",
