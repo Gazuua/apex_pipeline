@@ -1,5 +1,5 @@
 {
-  "next_id": 216,
+  "next_id": 217,
   "items": [
     {
       "id": 203,
@@ -43,19 +43,17 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 215,
-      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
-      "severity": "MAJOR",
+      "id": 216,
+      "title": "Bitnami Docker Hub 이미지 삭제 대응 — Kafka/PgBouncer 레지스트리 교체",
+      "severity": "CRITICAL",
       "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "BUG",
-      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
-      "position": 9,
-      "status": "FIXING",
-      "resolution": "FIXED",
-      "resolved_at": "2026-03-25 09:50:45",
-      "created_at": "2026-03-25 09:41:49",
-      "updated_at": "2026-03-25 10:00:02"
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "Bitnami가 Docker Hub에서 kafka, pgbouncer 이미지를 완전 삭제함(redis/postgresql은 latest만 잔존). Helm chart가 참조하는 image tag(4.0.0-debian-12-r10 등)가 존재하지 않아 K8s 배포 불가. 대안: (1) Bitnami 대체 레지스트리 탐색 (2) 공식 이미지(apache/kafka, edoburu/pgbouncer)로 교체 + chart 호환성 수정 (3) Bitnami chart 자체를 커스텀 chart로 교체",
+      "position": 10,
+      "status": "OPEN",
+      "created_at": "2026-03-25 10:07:26",
+      "updated_at": "2026-03-25 10:07:26"
     },
     {
       "id": 133,
@@ -531,6 +529,21 @@
       "status": "OPEN",
       "created_at": "2026-03-24 23:50:37",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 215,
+      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
+      "position": 9,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 10:05:46",
+      "created_at": "2026-03-25 09:41:49",
+      "updated_at": "2026-03-25 10:05:46"
     },
     {
       "id": 214,
