@@ -138,6 +138,8 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           {{- else }}
             runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
             allowPrivilegeEscalation: false
           {{- end }}
           ports:

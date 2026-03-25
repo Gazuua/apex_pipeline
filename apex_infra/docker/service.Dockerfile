@@ -19,7 +19,7 @@ FROM ubuntu:24.04 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 libpq5 libsasl2-2 libzstd1 libcurl4 netcat-openbsd \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd --system apex && useradd --system --gid apex --no-create-home apex
+    && groupadd --system --gid 10001 apex && useradd --system --uid 10001 --gid apex --no-create-home apex
 ARG CMAKE_TARGET
 ARG CONFIG_FILE
 ENV APP_BINARY=/app/${CMAKE_TARGET}
