@@ -20,7 +20,7 @@ var ml = log.WithModule("context")
 // Generate produces the session context string for Claude.
 // workspaceRoot is the absolute path to the project root.
 func Generate(workspaceRoot string) string {
-	ml.Debug("generating session context", "workspace", workspaceRoot)
+	ml.Info("generating session context", "workspace", workspaceRoot)
 	var b strings.Builder
 
 	b.WriteString("=== Project Context (auto-injected) ===\n")
@@ -60,6 +60,7 @@ func Generate(workspaceRoot string) string {
 	// Branch handoff status via daemon IPC (non-main branches)
 	if branch != "" && branch != "main" {
 		branchID := workspaceID(workspaceRoot)
+		ml.Debug("querying handoff status", "branch_id", branchID, "git_branch", branch)
 		appendHandoffStatus(&b, branchID)
 	}
 

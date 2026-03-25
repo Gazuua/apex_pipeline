@@ -50,6 +50,7 @@ func NewManager(s *store.Store) *Manager {
 // is inserted and false is returned.
 // Entire operation is wrapped in a transaction to prevent TOCTOU races.
 func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid int) (bool, error) {
+	ml.Info("TryAcquire", "channel", channel, "branch", branch, "pid", pid)
 	var acquired bool
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		// Check if there is already an active entry for this channel.
@@ -59,6 +60,7 @@ func (m *Manager) TryAcquire(ctx context.Context, channel, branch string, pid in
 		}
 
 		if hasActive {
+			ml.Debug("TryAcquire: channel busy, registering as waiting", "channel", channel, "branch", branch)
 			// Channel is busy — register as waiting (skip duplicate).
 			exists, waitErr := m.hasWaitingEntryForBranch(ctx, tx, channel, branch)
 			if waitErr != nil {
@@ -137,6 +139,7 @@ const (
 // and no active entry exists. Promote uses CAS pattern to prevent TOCTOU races.
 // Polling uses exponential backoff: 100ms → 200ms → 400ms → ... → 2s (cap).
 func (m *Manager) Acquire(ctx context.Context, channel, branch string, pid int) error {
+	ml.Info("Acquire: blocking wait begin", "channel", channel, "branch", branch, "pid", pid)
 	// Register as waiting first (skip if already queued).
 	// Wrapped in transaction to prevent duplicate WAITING entries from concurrent calls.
 	if err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
@@ -246,6 +249,7 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 // UpdatePID updates the PID of the active entry for a channel.
 // Used to transfer lock ownership from parent (CLI) to child (build process).
 func (m *Manager) UpdatePID(ctx context.Context, channel, branch string, newPID int) error {
+	ml.Debug("UpdatePID", "channel", channel, "branch", branch, "new_pid", newPID)
 	res, err := m.store.Exec(ctx,
 		`UPDATE queue SET pid=? WHERE channel=? AND branch=? AND status=?`,
 		newPID, channel, branch, StatusActive,
@@ -264,6 +268,7 @@ func (m *Manager) UpdatePID(ctx context.Context, channel, branch string, newPID 
 // Release marks the active entry for channel as done and records finish time.
 // Idempotent: returns nil if no active entry exists (already released or cleaned up).
 func (m *Manager) Release(ctx context.Context, channel string) error {
+	ml.Info("Release", "channel", channel)
 	var released bool
 	var branch string
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
@@ -339,6 +344,7 @@ func (m *Manager) Status(ctx context.Context, channel string) (*QueueEntry, []Qu
 // Entire operation (SELECT → filter → DELETE + history) is wrapped in a single
 // transaction to prevent TOCTOU races with concurrent Acquire/Release.
 func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
+	ml.Debug("CleanupStale: scanning for dead processes")
 	var count int
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		rows, err := tx.Query(ctx,
@@ -375,6 +381,8 @@ func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
 			if platform.IsProcessAlive(r.pid) {
 				continue
 			}
+			ml.Info("CleanupStale: removing dead entry",
+				"id", r.id, "channel", r.channel, "branch", r.branch, "dead_pid", r.pid)
 			if _, err := tx.Exec(ctx, `DELETE FROM queue WHERE id=?`, r.id); err != nil {
 				return fmt.Errorf("queue.CleanupStale: delete id=%d: %w", r.id, err)
 			}

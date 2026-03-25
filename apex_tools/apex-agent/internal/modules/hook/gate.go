@@ -120,6 +120,7 @@ func ValidateBuild(command string) error {
 	if command == "" {
 		return nil
 	}
+	ml.Debug("ValidateBuild", "command", command)
 
 	subCommands := splitChainedCommands(command)
 
@@ -256,6 +257,7 @@ func hasGoToolCommand(command string) bool {
 // ValidateBacklog blocks direct access to backlog files (Edit, Write, and Read).
 // All backlog access must go through CLI (backlog list/show/add/update/resolve/export).
 func ValidateBacklog(filePath string) error {
+	ml.Debug("ValidateBacklog", "file_path", filePath)
 	normalized := strings.ToUpper(strings.ReplaceAll(filePath, "\\", "/"))
 	if strings.HasSuffix(normalized, "/DOCS/BACKLOG.MD") ||
 		strings.HasSuffix(normalized, "/DOCS/BACKLOG_HISTORY.MD") ||

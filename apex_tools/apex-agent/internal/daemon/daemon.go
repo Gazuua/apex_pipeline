@@ -87,6 +87,10 @@ func (d *Daemon) HTTPAddr() string {
 }
 
 func (d *Daemon) Run(ctx context.Context) error {
+	ml.Info("daemon initializing",
+		"pid", os.Getpid(), "db", d.cfg.DBPath, "socket", d.cfg.SocketAddr,
+		"idle_timeout", d.cfg.IdleTimeout, "http_enabled", d.cfg.HTTP.Enabled)
+
 	// 1. Write PID file.
 	if err := d.writePID(); err != nil {
 		return err
@@ -94,13 +98,16 @@ func (d *Daemon) Run(ctx context.Context) error {
 	defer d.removePID()
 
 	// 2. Run migrations.
+	ml.Debug("running database migrations")
 	migrator := store.NewMigrator(d.store)
 	for _, m := range d.modules {
 		m.RegisterSchema(migrator)
 	}
 	if err := migrator.Migrate(); err != nil {
+		ml.Error("migration failed", "err", err)
 		return fmt.Errorf("migrate: %w", err)
 	}
+	ml.Info("database migrations complete")
 
 	// 3. Register built-in daemon routes.
 	d.router.RegisterModule("daemon", func(reg RouteRegistrar) {
@@ -130,7 +137,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// 4. Start modules (with rollback on partial failure).
 	var started []Module
 	for _, m := range d.modules {
+		ml.Debug("starting module", "module", m.Name())
 		if err := m.OnStart(ctx); err != nil {
+			ml.Error("module start failed, rolling back", "module", m.Name(), "err", err)
 			// Rollback: stop already-started modules in reverse order.
 			for i := len(started) - 1; i >= 0; i-- {
 				if stopErr := started[i].OnStop(); stopErr != nil {
@@ -139,8 +148,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 			}
 			return fmt.Errorf("start module %s: %w", m.Name(), err)
 		}
+		ml.Debug("module started", "module", m.Name())
 		started = append(started, m)
 	}
+	ml.Info("all modules started", "count", len(started))
 
 	// 5. Start IPC server.
 	d.server = ipc.NewServer(d.cfg.SocketAddr, d.router)
@@ -205,23 +216,28 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 
 shutdown:
+	ml.Info("graceful shutdown sequence begin")
 	// Graceful shutdown: HTTP → IPC → Modules
 	if hs := d.httpServer.Load(); hs != nil {
+		ml.Debug("stopping HTTP server")
 		if err := hs.Stop(); err != nil {
 			ml.Warn("HTTP server stop error", "error", err)
 		}
 	}
 
+	ml.Debug("stopping IPC server")
 	serverCancel()
 	<-serverDone
 
 	// Stop modules in reverse order.
 	for i := len(d.modules) - 1; i >= 0; i-- {
+		ml.Debug("stopping module", "module", d.modules[i].Name())
 		if err := d.modules[i].OnStop(); err != nil {
 			ml.Error("module stop failed", "module", d.modules[i].Name(), "err", err)
 		}
 	}
 
+	ml.Info("daemon stopped", "pid", os.Getpid())
 	d.store.Close()
 	return nil
 }

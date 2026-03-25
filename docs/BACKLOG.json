@@ -2,19 +2,6 @@
   "next_id": 231,
   "items": [
     {
-      "id": 216,
-      "title": "Bitnami Docker Hub 이미지 삭제 대응 — Kafka/PgBouncer 레지스트리 교체",
-      "severity": "CRITICAL",
-      "timeframe": "NOW",
-      "scope": "INFRA",
-      "type": "INFRA",
-      "description": "Bitnami가 Docker Hub에서 kafka, pgbouncer 이미지를 완전 삭제함(redis/postgresql은 latest만 잔존). Helm chart가 참조하는 image tag(4.0.0-debian-12-r10 등)가 존재하지 않아 K8s 배포 불가. 대안: (1) Bitnami 대체 레지스트리 탐색 (2) 공식 이미지(apache/kafka, edoburu/pgbouncer)로 교체 + chart 호환성 수정 (3) Bitnami chart 자체를 커스텀 chart로 교체",
-      "position": 10,
-      "status": "OPEN",
-      "created_at": "2026-03-25 10:07:26",
-      "updated_at": "2026-03-25 10:07:26"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
@@ -243,19 +230,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 208,
-      "title": "ConnectionHandler ScopedLogger 미사용 — 멀티코어 로그 추적 불가",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "DESIGN_DEBT",
-      "description": "프레임워크 전 컴포넌트가 ScopedLogger([core=N][Component] 태그)를 사용하는데 ConnectionHandler만 spdlog::default_logger() 직접 사용. read_loop/process_frames 로그에 core_id 태그 누락으로 멀티코어 환경 디버깅 곤란. framework_level vs app level 로거 분리도 미적용. ScopedLogger 도입 + PerCoreHandler 생성 시 core_id 주입 필요.",
-      "position": 55,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:17",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 209,
       "title": "PubSubListener SUBSCRIBE/UNSUBSCRIBE 응답 명시적 소비 없음 — silent failure 가능",
       "severity": "MINOR",
@@ -279,19 +253,6 @@
       "position": 57,
       "status": "OPEN",
       "created_at": "2026-03-25 09:28:34",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 212,
-      "title": "비표준 문서 경로 정리 — docs/ 하위 8개 디렉토리가 프로젝트 분류 미준수",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "DOCS",
-      "type": "DOCS",
-      "description": "docs/apex-agent/, auto-review/, benchmark-report-v0.6.1/, docker-multistage-build/, log-patterns-guide/, prometheus-metrics/, test-coverage/, v0.6.3-k8s-helm/ 등 8개 최상위 디렉토리가 기존 프로젝트 분류(apex_core, apex_tools, apex_infra 등)를 무시하고 생성됨. plans 누락 6건, 파일명 규칙 위반 5건 포함. 기존 프로젝트 디렉토리로 이동+리네임 필요.",
-      "position": 59,
-      "status": "OPEN",
-      "created_at": "2026-03-25 09:28:44",
       "updated_at": "2026-03-25 09:42:04"
     },
     {
@@ -358,19 +319,6 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:08",
       "updated_at": "2026-03-25 15:59:08"
-    },
-    {
-      "id": 224,
-      "title": "queue benchmark 명령 인젝션 방어 부재 — exec.Command 경로 검증 없음",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "SECURITY",
-      "description": "queue_cmd.go benchmark 서브커맨드에서 exec.Command(exe, benchArgs...)의 실행 파일 경로에 화이트리스트 검증이 없음. hook 레이어가 방어하지만 CLI 단독 실행 시 무방비. 실행 파일 경로에 bench_ prefix 또는 프로젝트 루트 하위 확인 추가 필요.",
-      "position": 65,
-      "status": "OPEN",
-      "created_at": "2026-03-25 15:59:13",
-      "updated_at": "2026-03-25 15:59:13"
     },
     {
       "id": 228,
@@ -618,6 +566,66 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:42",
       "updated_at": "2026-03-25 15:59:42"
+    },
+    {
+      "id": 216,
+      "title": "Bitnami Docker Hub 이미지 삭제 대응 — Kafka/PgBouncer 레지스트리 교체",
+      "severity": "CRITICAL",
+      "timeframe": "NOW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "Bitnami가 Docker Hub에서 kafka, pgbouncer 이미지를 완전 삭제함(redis/postgresql은 latest만 잔존). Helm chart가 참조하는 image tag(4.0.0-debian-12-r10 등)가 존재하지 않아 K8s 배포 불가. 대안: (1) Bitnami 대체 레지스트리 탐색 (2) 공식 이미지(apache/kafka, edoburu/pgbouncer)로 교체 + chart 호환성 수정 (3) Bitnami chart 자체를 커스텀 chart로 교체",
+      "position": 10,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 18:23:14",
+      "created_at": "2026-03-25 10:07:26",
+      "updated_at": "2026-03-25 18:23:14"
+    },
+    {
+      "id": 224,
+      "title": "queue benchmark 명령 인젝션 방어 부재 — exec.Command 경로 검증 없음",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "SECURITY",
+      "description": "queue_cmd.go benchmark 서브커맨드에서 exec.Command(exe, benchArgs...)의 실행 파일 경로에 화이트리스트 검증이 없음. hook 레이어가 방어하지만 CLI 단독 실행 시 무방비. 실행 파일 경로에 bench_ prefix 또는 프로젝트 루트 하위 확인 추가 필요.",
+      "position": 65,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 18:23:14",
+      "created_at": "2026-03-25 15:59:13",
+      "updated_at": "2026-03-25 18:23:14"
+    },
+    {
+      "id": 208,
+      "title": "ConnectionHandler ScopedLogger 미사용 — 멀티코어 로그 추적 불가",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "DESIGN_DEBT",
+      "description": "프레임워크 전 컴포넌트가 ScopedLogger([core=N][Component] 태그)를 사용하는데 ConnectionHandler만 spdlog::default_logger() 직접 사용. read_loop/process_frames 로그에 core_id 태그 누락으로 멀티코어 환경 디버깅 곤란. framework_level vs app level 로거 분리도 미적용. ScopedLogger 도입 + PerCoreHandler 생성 시 core_id 주입 필요.",
+      "position": 55,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 18:23:13",
+      "created_at": "2026-03-25 09:28:17",
+      "updated_at": "2026-03-25 18:23:13"
+    },
+    {
+      "id": 212,
+      "title": "비표준 문서 경로 정리 — docs/ 하위 8개 디렉토리가 프로젝트 분류 미준수",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "DOCS",
+      "type": "DOCS",
+      "description": "docs/apex-agent/, auto-review/, benchmark-report-v0.6.1/, docker-multistage-build/, log-patterns-guide/, prometheus-metrics/, test-coverage/, v0.6.3-k8s-helm/ 등 8개 최상위 디렉토리가 기존 프로젝트 분류(apex_core, apex_tools, apex_infra 등)를 무시하고 생성됨. plans 누락 6건, 파일명 규칙 위반 5건 포함. 기존 프로젝트 디렉토리로 이동+리네임 필요.",
+      "position": 59,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 18:23:13",
+      "created_at": "2026-03-25 09:28:44",
+      "updated_at": "2026-03-25 18:23:13"
     },
     {
       "id": 206,

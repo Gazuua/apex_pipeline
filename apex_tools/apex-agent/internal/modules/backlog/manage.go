@@ -100,6 +100,8 @@ func (m *Manager) NextID(ctx context.Context) (int, error) {
 // Add inserts a new backlog item. If Position is 0, it is auto-assigned to the
 // end of the item's timeframe group (max position in that group + 1).
 func (m *Manager) Add(ctx context.Context, item *BacklogItem) error {
+	ml.Info("Add begin", "title", item.Title, "severity", item.Severity,
+		"timeframe", item.Timeframe, "scope", item.Scope, "type", item.Type)
 	if err := ValidateSeverity(item.Severity); err != nil {
 		return err
 	}
@@ -362,6 +364,7 @@ func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity,
 // Resolve marks an item as resolved with the given resolution type.
 // Returns an error if the item does not exist or is already RESOLVED.
 func (m *Manager) Resolve(ctx context.Context, id int, resolution string) error {
+	ml.Info("Resolve begin", "id", id, "resolution", resolution)
 	if err := ValidateResolution(resolution); err != nil {
 		return err
 	}
@@ -454,6 +457,7 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 // If status is FIXING, sets it back to OPEN and appends release reason to description.
 // Non-FIXING items are rejected to prevent accidental description pollution.
 func (m *Manager) Release(ctx context.Context, id int, reason, branch string) error {
+	ml.Info("Release begin", "id", id, "branch", branch, "reason", reason)
 	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txm := m.withQuerier(tx)
 
@@ -499,6 +503,7 @@ func (m *Manager) Release(ctx context.Context, id int, reason, branch string) er
 // Only OPEN items can be fixed. Already FIXING items are silently accepted.
 // Check + update + junction insert are wrapped in a transaction for atomicity.
 func (m *Manager) Fix(ctx context.Context, id int, branch string) error {
+	ml.Info("Fix begin", "id", id, "branch", branch)
 	return m.store.RunInTx(ctx, func(tx *store.TxStore) error {
 		txm := m.withQuerier(tx)
 
@@ -566,6 +571,7 @@ var allowedUpdateFields = map[string]string{
 // Update modifies specified fields of an existing item.
 // Only fields present in the map are updated; others are preserved.
 func (m *Manager) Update(ctx context.Context, id int, fields map[string]string) error {
+	ml.Info("Update begin", "id", id, "field_count", len(fields))
 	if len(fields) == 0 {
 		return fmt.Errorf("최소 1개 필드를 지정해야 합니다")
 	}
