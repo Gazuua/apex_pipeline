@@ -61,6 +61,24 @@ func TestValidateBuild_BlockBuildBat(t *testing.T) {
 	}
 }
 
+func TestValidateBuild_AllowApexAgentBuildBat(t *testing.T) {
+	cmds := []string{
+		"bash apex_tools/apex-agent/build.bat",
+		"bash ./apex_tools/apex-agent/build.bat",
+		"apex_tools/apex-agent/build.bat test",
+		"bash /d/.workspace/apex_pipeline/apex_tools/apex-agent/build.bat",
+	}
+	for _, cmd := range cmds {
+		if err := ValidateBuild(cmd); err != nil {
+			t.Errorf("apex-agent build.bat %q should be allowed, got: %v", cmd, err)
+		}
+	}
+	// 루트 build.bat은 여전히 차단
+	if err := ValidateBuild("build.bat debug"); err == nil {
+		t.Error("root build.bat should still be blocked")
+	}
+}
+
 func TestValidateBuild_BlockBenchmark(t *testing.T) {
 	if err := ValidateBuild("./bench_dispatch"); err == nil {
 		t.Error("bench_ prefixed binary should be blocked")

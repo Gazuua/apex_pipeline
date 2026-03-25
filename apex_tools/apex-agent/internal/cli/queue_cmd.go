@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
 func queueCmd() *cobra.Command {
@@ -154,9 +156,17 @@ func queueStatusCmd() *cobra.Command {
 	}
 }
 
+// buildStaleTimeout is the duration after which a build process with no log output
+// is considered stale and killed. Prevents deadlock when CLI output is disconnected.
+const buildStaleTimeout = 2 * time.Minute
+
 // runWithBuildLock acquires the build channel lock, executes the command returned
 // by makeCmd, then releases the lock. Handles lock release both on success and
 // failure (via defer). label is used in log messages (e.g. "build", "benchmark").
+//
+// Output is redirected to a log file under $LOCALAPPDATA/apex-agent/logs/.
+// A watchdog goroutine monitors the log file; if no output is written for
+// buildStaleTimeout, the child process is killed and the lock released.
 func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	branch := getBranchID()
 
@@ -182,22 +192,27 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 		}
 	}()
 
-	// Build the command and get its display string.
+	// Create log file for build output.
+	logPath, logFile, logErr := createBuildLogFile(label)
+	if logErr != nil {
+		return fmt.Errorf("[queue-lock] failed to create build log: %w", logErr)
+	}
+	defer logFile.Close()
+	fmt.Printf("[queue-lock] log: %s\n", logPath)
+
+	// Build the command and redirect output to log file.
 	execCmd, displayStr := makeCmd()
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
-	execCmd.Stdin = os.Stdin
+	execCmd.Stdout = logFile
+	execCmd.Stderr = logFile
 
 	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
 
 	// Use Start+Wait instead of Run to transfer lock PID to child process.
-	// This ensures CleanupStale checks the build process, not the wrapper.
 	if err := execCmd.Start(); err != nil {
 		return fmt.Errorf("[queue-lock] failed to start %s: %w", label, err)
 	}
 
 	// Transfer lock ownership: parent PID → child (build) PID.
-	// If parent is killed, CleanupStale will check child PID (still alive).
 	childPID := execCmd.Process.Pid
 	updateParams := map[string]any{"channel": "build", "branch": branch, "pid": childPID}
 	if _, err := sendQueueRequestMap("update-pid", updateParams); err != nil {
@@ -206,7 +221,18 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 		fmt.Printf("[queue-lock] lock PID transferred to child process %d\n", childPID)
 	}
 
+	// Watchdog: kill child if log file has no output for buildStaleTimeout.
+	var killed atomic.Bool
+	watchDone := make(chan struct{})
+	go func() {
+		defer close(watchDone)
+		watchBuildLog(logPath, execCmd.Process, &killed)
+	}()
+
 	runErr := execCmd.Wait()
+	// Signal watchdog to stop (process exited naturally).
+	killed.Store(true)
+	<-watchDone
 
 	// Release lock explicitly before printing result.
 	releaseParams := map[string]any{"channel": "build"}
@@ -219,12 +245,67 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 		if exitErr, ok := runErr.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		}
-		fmt.Printf("[queue-lock] %s FAILED (exit code: %d)\n", label, exitCode)
+		if killed.Load() && exitCode == -1 {
+			fmt.Printf("[queue-lock] %s KILLED (stale: no log output for %v)\n", label, buildStaleTimeout)
+		} else {
+			fmt.Printf("[queue-lock] %s FAILED (exit code: %d)\n", label, exitCode)
+		}
+		fmt.Printf("[queue-lock] log: %s\n", logPath)
 		os.Exit(exitCode)
 	}
 
 	fmt.Printf("[queue-lock] %s completed successfully\n", label)
+	fmt.Printf("[queue-lock] log: %s\n", logPath)
 	return nil
+}
+
+// createBuildLogFile creates a timestamped log file for build output.
+func createBuildLogFile(label string) (string, *os.File, error) {
+	logDir := filepath.Join(platform.DataDir(), "logs")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return "", nil, err
+	}
+	ts := time.Now().Format("20060102_150405")
+	logPath := filepath.Join(logDir, fmt.Sprintf("%s_%s.log", label, ts))
+	f, err := os.Create(logPath)
+	if err != nil {
+		return "", nil, err
+	}
+	return logPath, f, nil
+}
+
+// watchBuildLog monitors a log file and kills the process if no output is
+// written for buildStaleTimeout. Exits when killed flag is set (process exited).
+func watchBuildLog(logPath string, proc *os.Process, killed *atomic.Bool) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	lastSize := int64(0)
+	lastChange := time.Now()
+
+	for range ticker.C {
+		if killed.Load() {
+			return
+		}
+		info, err := os.Stat(logPath)
+		if err != nil {
+			continue
+		}
+		currentSize := info.Size()
+		if currentSize != lastSize {
+			lastSize = currentSize
+			lastChange = time.Now()
+			continue
+		}
+		// No change — check timeout.
+		if time.Since(lastChange) >= buildStaleTimeout {
+			fmt.Fprintf(os.Stderr, "[queue-lock] watchdog: no log output for %v — killing process %d\n",
+				buildStaleTimeout, proc.Pid)
+			killed.Store(true)
+			_ = proc.Kill()
+			return
+		}
+	}
 }
 
 // ── queue build ──

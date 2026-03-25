@@ -88,6 +88,10 @@ func isAllowedSubCommand(sub string) bool {
 				return true
 			}
 		}
+		// apex-agent/build.bat — Go 빌드 (C++ build.bat과 구분)
+		if base == "build.bat" && strings.Contains(filepath.ToSlash(tok), "apex-agent/") {
+			return true
+		}
 	}
 	// GitHub CLI — first token must be "gh".
 	if tokens[0] == "gh" && len(tokens) >= 2 && (tokens[1] == "pr" || tokens[1] == "run") {
