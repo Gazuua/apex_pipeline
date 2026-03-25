@@ -219,7 +219,7 @@ func (mgr *Manager) ImportItems(ctx context.Context, items []BacklogItem) (int, 
 		// Existing item — update metadata only, never touch status.
 		// Status is owned exclusively by DB (changed via CLI: resolve/release/handoff).
 		if err := mgr.UpdateFromImport(ctx, item.ID, item.Title, item.Severity, item.Timeframe,
-			item.Scope, item.Type, item.Description, item.Related, item.Position, dbStatus); err != nil {
+			item.Scope, item.Type, item.Description, item.Related, item.Position, dbStatus, item.UpdatedAt); err != nil {
 			return count, fmt.Errorf("update #%d: %w", item.ID, err)
 		}
 		count++

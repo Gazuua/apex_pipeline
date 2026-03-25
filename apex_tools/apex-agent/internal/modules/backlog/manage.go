@@ -299,10 +299,12 @@ func (m *Manager) ListAll(ctx context.Context) ([]BacklogItem, error) {
 	return items, nil
 }
 
-// UpdateFromImport updates metadata fields for an existing item from MD import.
+// UpdateFromImport updates metadata fields for an existing item from JSON/MD import.
 // Only updates (and bumps updated_at) if at least one field actually changed.
 // Does NOT touch resolution/resolved_at — those are managed by Resolve().
-func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity, timeframe, scope, itemType, description, related string, position int, status string) error {
+// If importUpdatedAt is non-empty and the DB item's updated_at is strictly newer,
+// the import data is considered stale and the update is skipped (DB wins).
+func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity, timeframe, scope, itemType, description, related string, position int, status, importUpdatedAt string) error {
 	// Read current values to detect changes.
 	existing, err := m.Get(ctx, id)
 	if err != nil {
@@ -310,6 +312,12 @@ func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity,
 	}
 	if existing == nil {
 		return fmt.Errorf("UpdateFromImport #%d: item not found", id)
+	}
+
+	// Stale import guard: if DB was updated more recently, skip import.
+	if importUpdatedAt != "" && existing.UpdatedAt > importUpdatedAt {
+		ml.Info("import skipped (DB newer)", "id", id, "db_updated", existing.UpdatedAt, "import_updated", importUpdatedAt)
+		return nil
 	}
 
 	// Compare all import-managed fields.
