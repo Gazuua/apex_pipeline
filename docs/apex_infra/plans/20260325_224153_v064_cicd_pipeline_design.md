@@ -244,8 +244,8 @@ services:
 **CI 잡 구조:**
 ```yaml
 smoke-test:
-  needs: [bake-services]
-  if: needs.bake-services.result == 'success'
+  needs: [changes, build, bake-services]
+  if: github.ref == 'refs/heads/main' && needs.bake-services.result == 'success' && needs.build.result == 'success'
   steps:
     - name: Start full stack (pre-built images)
       run: |
@@ -289,16 +289,20 @@ smoke-test:
 
 #### 6-1. Argo Rollouts 설치
 
-deploy 잡에서 minikube에 Argo Rollouts Controller + Dashboard 설치.
+deploy 잡에서 minikube에 Argo Rollouts Controller CRD + Controller 설치.
 
 ```yaml
-- name: Install Argo Rollouts
+- name: Install Argo Rollouts CRD
   run: |
-    helm repo add argo https://argoproj.github.io/argo-helm
-    helm install argo-rollouts argo/argo-rollouts \
-      --namespace argo-rollouts --create-namespace \
-      --set dashboard.enabled=true
+    kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+- name: Wait for Argo Rollouts controller
+  run: |
+    kubectl wait --for=condition=available deployment/argo-rollouts \
+      -n argo-rollouts --timeout=120s
 ```
+
+> Helm chart 대신 raw manifest 사용 -- CI 환경에서 Helm repo 추가 없이 빠르게 설치 가능. Dashboard는 CI에서 불필요하므로 미포함.
 
 #### 6-2. Deployment → Rollout CRD 전환
 
@@ -319,39 +323,34 @@ rollouts:
 
 **Deployment/Rollout 배타적 제어 메커니즘:**
 
-기존 `deployment.yaml`에 조건 가드 추가:
+각 서비스 sub-chart의 기존 `deployment.yaml`에 조건 가드 추가 (nil-safe 체크):
 ```yaml
-# deployment.yaml (기존 파일 수정)
-{{- if not .Values.rollouts.enabled }}
-{{- include "apex-common.deployment" . }}
+# gateway/templates/deployment.yaml (기존 파일 수정, auth-svc/chat-svc/log-svc도 동일)
+{{- if not (and .Values.rollouts .Values.rollouts.enabled) }}
+{{ include "apex-common.deployment" . }}
 {{- end }}
 ```
 
-신규 `rollout.yaml`:
+각 서비스 sub-chart에 `rollout.yaml` 생성 (named template 호출만):
 ```yaml
-# rollout.yaml (신규)
-{{- if .Values.rollouts.enabled }}
+# gateway/templates/rollout.yaml (신규, auth-svc/chat-svc/log-svc도 동일)
+{{ include "apex-common.rollout" . }}
+```
+
+`apex-common.rollout` named template이 `rollouts.enabled` 가드를 내장:
+```yaml
+# _helpers.tpl 내 apex-common.rollout
+{{- if and .Values.rollouts .Values.rollouts.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
-metadata:
-  name: {{ include "apex-common.fullname" . }}
-spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      {{- include "apex-common.selectorLabels" . | nindent 6 }}
-  template:
-    # Pod template — deployment.yaml와 동일한 spec 사용
-    {{- include "apex-common.podTemplate" . | nindent 4 }}
-  strategy:
-    canary:
-      {{- toYaml .Values.rollouts.canary | nindent 6 }}
+...
 {{- end }}
 ```
 
 **`_helpers.tpl` 수정 범위**:
 - `apex-common.podTemplate` 네임드 템플릿 추출 — deployment.yaml과 rollout.yaml이 Pod spec을 공유하도록 리팩터링
 - 기존 `apex-common.deployment`에서 podTemplate 부분을 분리
+- `apex-common.rollout` 네임드 템플릿 추가 — 가드 + Rollout CRD 렌더링 내장
 
 **동시 존재 방지**: `rollouts.enabled`의 if/else로 한쪽만 렌더링. 같은 이름의 Deployment와 Rollout이 동시에 생성되지 않음.
 
@@ -361,17 +360,20 @@ deploy 잡은 helm-validation과 **별도 minikube 인스턴스** 사용 (GitHub
 
 ```yaml
 deploy:
-  needs: [smoke-test, helm-validation]
+  needs: [bake-services, smoke-test, helm-validation]
   if: github.ref == 'refs/heads/main'
   steps:
     - name: Setup minikube
       run: minikube start --memory=4096
 
-    - name: Install Argo Rollouts
+    - name: Install Argo Rollouts CRD
       run: |
-        helm repo add argo https://argoproj.github.io/argo-helm
-        helm install argo-rollouts argo/argo-rollouts \
-          --namespace argo-rollouts --create-namespace
+        kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+    - name: Wait for Argo Rollouts controller
+      run: |
+        kubectl wait --for=condition=available deployment/argo-rollouts \
+          -n argo-rollouts --timeout=120s
 
     - name: Deploy with Rollouts
       run: |
@@ -416,25 +418,36 @@ GitHub 네이티브 알림만 사용:
   apex_infra/docker/service.Dockerfile                   — CMAKE_PRESET 빌드 인자 추가 (debug/release 분기)
   apex_infra/docker/docker-bake.hcl                      — IS_MAIN, CMAKE_PRESET 변수, latest 태그 조건부
   apex_infra/docker/docker-compose.e2e.yml               — Docker config volume mount 추가
-  apex_infra/k8s/apex-pipeline/values.yaml               — rollouts 섹션 추가
-  apex_infra/k8s/apex-pipeline/charts/apex-common/templates/_helpers.tpl  — podTemplate 추출
-  apex_infra/k8s/apex-pipeline/charts/apex-common/templates/deployment.yaml — rollouts.enabled 가드
-  CMakePresets.json                                      — Linux release preset 추가
+  apex_infra/k8s/apex-pipeline/values.yaml               — 서비스별 rollouts 섹션 추가
+  apex_infra/k8s/apex-pipeline/values-prod.yaml          — rollouts 관련 주석 추가
+  apex_infra/k8s/apex-pipeline/charts/apex-common/templates/_helpers.tpl  — podTemplate 추출 + rollout 템플릿 추가
+  apex_infra/k8s/apex-pipeline/charts/gateway/templates/deployment.yaml   — rollouts.enabled 가드
+  apex_infra/k8s/apex-pipeline/charts/auth-svc/templates/deployment.yaml  — rollouts.enabled 가드
+  apex_infra/k8s/apex-pipeline/charts/chat-svc/templates/deployment.yaml  — rollouts.enabled 가드
+  apex_infra/k8s/apex-pipeline/charts/log-svc/templates/deployment.yaml   — rollouts.enabled 가드
+  apex_infra/k8s/apex-pipeline/charts/gateway/values.yaml   — rollouts 기본 설정 추가
+  apex_infra/k8s/apex-pipeline/charts/auth-svc/values.yaml  — rollouts 기본 설정 추가
+  apex_infra/k8s/apex-pipeline/charts/chat-svc/values.yaml  — rollouts 기본 설정 추가
+  apex_infra/k8s/apex-pipeline/charts/log-svc/values.yaml   — rollouts 기본 설정 추가
 
 신규:
   apex_infra/docker/docker-compose.smoke.yml             — 스모크 테스트용 (pre-built image 사용)
   apex_services/tests/e2e/docker/gateway_docker.toml     — Docker용 Gateway config
   apex_services/tests/e2e/docker/auth_svc_docker.toml    — Docker용 Auth config
   apex_services/tests/e2e/docker/chat_svc_docker.toml    — Docker용 Chat config
-  apex_infra/k8s/apex-pipeline/charts/apex-common/templates/rollout.yaml  — Rollout CRD 템플릿
+  apex_infra/k8s/apex-pipeline/charts/gateway/templates/rollout.yaml   — Rollout CRD 인클루드
+  apex_infra/k8s/apex-pipeline/charts/auth-svc/templates/rollout.yaml  — Rollout CRD 인클루드
+  apex_infra/k8s/apex-pipeline/charts/chat-svc/templates/rollout.yaml  — Rollout CRD 인클루드
+  apex_infra/k8s/apex-pipeline/charts/log-svc/templates/rollout.yaml   — Rollout CRD 인클루드
 ```
 
 **변경 없음 (확인 완료):**
 - `apex_infra/docker/service.Dockerfile` — RSA 키 COPY 이미 없음 (BACKLOG-147)
+- `CMakePresets.json` — Linux release preset이 이미 존재 (추가 불필요)
 
-## 향후 확장 (이번 스코프 외)
+## 향후 확장 (이번 스코프 외 — 별도 마일스톤에서 진행)
 
-- BACKLOG-232: Grafana + 메트릭 안정화 → AnalysisTemplate 자동 승격
+- BACKLOG-232: Grafana + 메트릭 안정화 → AnalysisTemplate 자동 승격 (Argo Rollouts 자동 판정 전제조건)
 - Self-hosted runner 전환 시 deploy 잡의 타겟만 변경
 - Slack/Discord 알림 추가 (팀 확장 시)
 - Semver 자동 태깅 (tag push 트리거 워크플로)

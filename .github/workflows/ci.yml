@@ -366,7 +366,10 @@ jobs:
     permissions:
       contents: read
     needs: [bake-services]
-    if: always() && needs.bake-services.result == 'success'
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.bake-services.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -385,7 +388,10 @@ jobs:
       contents: read
       packages: read
     needs: [bake-services]
-    if: always() && needs.bake-services.result == 'success'
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.bake-services.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -538,6 +544,7 @@ jobs:
             --gtest_output=xml:smoke-results.xml
         env:
           E2E_GATEWAY_HOST: "127.0.0.1"
+          E2E_GATEWAY_TCP_PORT: "8443"
 
       - name: Collect logs on failure
         if: failure()
@@ -587,7 +594,7 @@ jobs:
 
       - name: Install Argo Rollouts CRD
         run: |
-          kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+          kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/install.yaml
 
       - name: Wait for Argo Rollouts controller
         run: |

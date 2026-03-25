@@ -11,3 +11,4 @@
 apex_services/gateway/certs/
 **/*.key
 **/*.crt
+**/*.pem

@@ -191,11 +191,17 @@ auth-svc, chat-svc도 동일.
 - Modify: `apex_infra/k8s/apex-pipeline/charts/gateway/templates/deployment.yaml`
 - Modify: `apex_infra/k8s/apex-pipeline/charts/auth-svc/templates/deployment.yaml`
 - Modify: `apex_infra/k8s/apex-pipeline/charts/chat-svc/templates/deployment.yaml`
+- Modify: `apex_infra/k8s/apex-pipeline/charts/log-svc/templates/deployment.yaml`
 - Create: `apex_infra/k8s/apex-pipeline/charts/gateway/templates/rollout.yaml`
 - Create: `apex_infra/k8s/apex-pipeline/charts/auth-svc/templates/rollout.yaml`
 - Create: `apex_infra/k8s/apex-pipeline/charts/chat-svc/templates/rollout.yaml`
+- Create: `apex_infra/k8s/apex-pipeline/charts/log-svc/templates/rollout.yaml`
+- Modify: `apex_infra/k8s/apex-pipeline/charts/gateway/values.yaml`
+- Modify: `apex_infra/k8s/apex-pipeline/charts/auth-svc/values.yaml`
+- Modify: `apex_infra/k8s/apex-pipeline/charts/chat-svc/values.yaml`
+- Modify: `apex_infra/k8s/apex-pipeline/charts/log-svc/values.yaml`
 - Modify: `apex_infra/k8s/apex-pipeline/values.yaml`
-- Modify: `apex_infra/k8s/apex-pipeline/values-prod.yaml` (있으면)
+- Modify: `apex_infra/k8s/apex-pipeline/values-prod.yaml`
 
 - [ ] **Step 1: _helpers.tpl — podTemplate 추출**
 
@@ -319,8 +325,8 @@ bake-services 성공 후 docker-compose.smoke.yml로 풀스택 기동 + E2E 서�
 smoke-test:
   permissions:
     contents: read
-  needs: [changes, bake-services]
-  if: always() && needs.bake-services.result == 'success'
+  needs: [changes, build, bake-services]
+  if: always() && github.ref == 'refs/heads/main' && needs.bake-services.result == 'success' && needs.build.result == 'success'
   runs-on: ubuntu-latest
   timeout-minutes: 15
   steps:
@@ -390,13 +396,13 @@ deploy:
       with:
         memory: '4096'
         cpus: '2'
-    - name: Install Argo Rollouts
+    - name: Install Argo Rollouts CRD
       run: |
-        helm repo add argo https://argoproj.github.io/argo-helm
-        helm install argo-rollouts argo/argo-rollouts \
-          --namespace argo-rollouts --create-namespace \
-          --set dashboard.enabled=true \
-          --wait --timeout 3m
+        kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+    - name: Wait for Argo Rollouts controller
+      run: |
+        kubectl wait --for=condition=available deployment/argo-rollouts \
+          -n argo-rollouts --timeout=120s
     - name: Load images into minikube
       env:
         SHA_TAG: sha-${{ github.sha }}
