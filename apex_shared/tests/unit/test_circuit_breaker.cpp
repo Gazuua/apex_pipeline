@@ -4,10 +4,10 @@
 #include <apex/core/result.hpp>
 #include <apex/shared/adapters/circuit_breaker.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <gtest/gtest.h>
 
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -18,20 +18,13 @@
 using namespace apex::shared::adapters;
 using apex::core::ErrorCode;
 using apex::core::Result;
+using apex::test::run_coro;
 
 class CircuitBreakerTest : public ::testing::Test
 {
   protected:
     boost::asio::io_context io_;
 };
-
-// Helper: run a coroutine on io_context and block until done
-template <typename Fn> void run_coro(boost::asio::io_context& io, Fn&& fn)
-{
-    io.restart();
-    boost::asio::co_spawn(io, std::forward<Fn>(fn), boost::asio::detached);
-    io.run();
-}
 
 // TC1: CLOSED state — successful call keeps CLOSED
 TEST_F(CircuitBreakerTest, ClosedStateSuccessStaysClosed)

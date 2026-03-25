@@ -26,14 +26,15 @@ PeriodicTaskScheduler::~PeriodicTaskScheduler()
 
 TaskHandle PeriodicTaskScheduler::schedule(std::chrono::milliseconds interval, std::function<void()> task)
 {
-    auto handle = next_handle_++;
+    auto handle = next_handle_;
+    ++next_handle_;
     auto& entry = tasks_[handle];
     entry.timer = std::make_unique<boost::asio::steady_timer>(io_ctx_);
     entry.task = std::move(task);
     entry.interval = interval;
     entry.cancelled = false;
 
-    s_logger().info("schedule handle={} interval={}ms", handle, interval.count());
+    s_logger().info("schedule handle={} interval={}ms", static_cast<uint64_t>(handle), interval.count());
     schedule_next(handle);
     return handle;
 }
@@ -43,7 +44,7 @@ void PeriodicTaskScheduler::cancel(TaskHandle handle)
     auto it = tasks_.find(handle);
     if (it != tasks_.end())
     {
-        s_logger().info("cancel handle={}", handle);
+        s_logger().info("cancel handle={}", static_cast<uint64_t>(handle));
         it->second.cancelled = true;
         it->second.timer->cancel();
         tasks_.erase(it);
@@ -80,18 +81,18 @@ void PeriodicTaskScheduler::schedule_next(TaskHandle handle)
             return;
 
         // 작업 실행 후 다음 주기 예약
-        s_logger().trace("execute handle={}", handle);
+        s_logger().trace("execute handle={}", static_cast<uint64_t>(handle));
         try
         {
             it->second.task();
         }
         catch (const std::exception& e)
         {
-            s_logger().error("task exception handle={}: {}", handle, e.what());
+            s_logger().error("task exception handle={}: {}", static_cast<uint64_t>(handle), e.what());
         }
         catch (...)
         {
-            s_logger().error("task unknown exception handle={}", handle);
+            s_logger().error("task unknown exception handle={}", static_cast<uint64_t>(handle));
         }
         schedule_next(handle);
     });

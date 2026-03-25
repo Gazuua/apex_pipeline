@@ -38,6 +38,7 @@ BumpAllocator::BumpAllocator(BumpAllocator&& other) noexcept
     : base_(std::exchange(other.base_, nullptr))
     , cursor_(std::exchange(other.cursor_, nullptr))
     , end_(std::exchange(other.end_, nullptr))
+    , logger_(std::move(other.logger_))
 {}
 
 BumpAllocator& BumpAllocator::operator=(BumpAllocator&& other) noexcept

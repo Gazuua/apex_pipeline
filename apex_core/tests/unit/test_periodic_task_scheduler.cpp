@@ -121,7 +121,7 @@ TEST(PeriodicTaskScheduler, CancelNonexistentHandle)
     PeriodicTaskScheduler scheduler(io_ctx);
 
     // 한 번도 schedule하지 않은 핸들
-    TaskHandle bogus_handle = 9999;
+    TaskHandle bogus_handle = static_cast<TaskHandle>(9999);
     scheduler.cancel(bogus_handle); // should not crash or throw
 }
 

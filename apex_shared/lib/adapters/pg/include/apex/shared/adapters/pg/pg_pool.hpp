@@ -32,7 +32,7 @@ class PgPool
     PgPool(const PgPool&) = delete;
     PgPool& operator=(const PgPool&) = delete;
 
-    // --- PoolLike concept ---
+    // --- SyncPoolLike concept ---
     [[nodiscard]] apex::core::Result<Connection> acquire();
     void release(Connection conn);
     void discard(Connection conn);
@@ -48,7 +48,7 @@ class PgPool
     [[nodiscard]] std::size_t total_count() const noexcept;
     [[nodiscard]] const PoolConfig& config() const noexcept;
 
-    // --- PG-specific async API (outside PoolLike concept scope) ---
+    // --- PG-specific async API (outside SyncPoolLike concept scope) ---
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> create_connected();
 
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> acquire_connected();
@@ -94,6 +94,6 @@ class PgPool
 };
 
 // Concept verification
-static_assert(PoolLike<PgPool>);
+static_assert(SyncPoolLike<PgPool>);
 
 } // namespace apex::shared::adapters::pg

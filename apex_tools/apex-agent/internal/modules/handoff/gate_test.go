@@ -46,8 +46,7 @@ func setupGateTestDBWithMock(t *testing.T, bm BacklogOperator) (*store.Store, *M
 // ── ValidateCommit ──
 
 func TestValidateCommit_NotRegistered(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+	_, mgr := setupGateTestDB(t)
 
 	err := mgr.ValidateCommit(context.Background(), "branch_01")
 	if err == nil {
@@ -56,8 +55,7 @@ func TestValidateCommit_NotRegistered(t *testing.T) {
 }
 
 func TestValidateCommit_Registered(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+	_, mgr := setupGateTestDB(t)
 
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
@@ -71,8 +69,7 @@ func TestValidateCommit_Registered(t *testing.T) {
 // ── ValidateMergeGate ──
 
 func TestValidateMergeGate_NoNotifications(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+	_, mgr := setupGateTestDB(t)
 
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
 		t.Fatalf("NotifyStart: %v", err)
@@ -86,8 +83,7 @@ func TestValidateMergeGate_NoNotifications(t *testing.T) {
 // ── ValidateEdit ──
 
 func TestValidateEdit_NotRegistered(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+	_, mgr := setupGateTestDB(t)
 
 	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
 	if err == nil {
@@ -95,72 +91,42 @@ func TestValidateEdit_NotRegistered(t *testing.T) {
 	}
 }
 
-func TestValidateEdit_StartedBlocksSource(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+func TestValidateEdit_StatusGate(t *testing.T) {
+	tests := []struct {
+		name        string
+		skipDesign  bool
+		transition  string // "" = none, "design" = NotifyTransition(design)
+		filePath    string
+		wantErr     bool
+	}{
+		{"StartedBlocksSource", false, "", "server.cpp", true},
+		{"StartedAllowsDocs", false, "", "docs/plan.md", false},
+		{"DesignNotifiedBlocksSource", false, "design", "server.hpp", true},
+		{"ImplementingAllowsAll", true, "", "server.cpp", false},
+		{"ImplementingAllowsGoSource", true, "", "internal/modules/handoff/gate.go", false},
+	}
 
-	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
-		t.Fatalf("NotifyStart: %v", err)
-	}
-	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
-	if err == nil {
-		t.Error("started should block source files")
-	}
-}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, mgr := setupGateTestDB(t)
 
-func TestValidateEdit_StartedAllowsDocs(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
+			if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", tc.skipDesign); err != nil {
+				t.Fatalf("NotifyStart: %v", err)
+			}
+			if tc.transition != "" {
+				if err := mgr.NotifyTransition(context.Background(), "branch_01", "ws1", tc.transition, tc.transition+" summary"); err != nil {
+					t.Fatalf("NotifyTransition: %v", err)
+				}
+			}
 
-	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
-		t.Fatalf("NotifyStart: %v", err)
-	}
-	err := mgr.ValidateEdit(context.Background(), "branch_01", "docs/plan.md")
-	if err != nil {
-		t.Errorf("started should allow docs: %v", err)
-	}
-}
-
-func TestValidateEdit_DesignNotifiedBlocksSource(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
-
-	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {
-		t.Fatalf("NotifyStart: %v", err)
-	}
-	if err := mgr.NotifyTransition(context.Background(), "branch_01", "ws1", "design", "design summary"); err != nil {
-		t.Fatalf("NotifyTransition: %v", err)
-	}
-	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.hpp")
-	if err == nil {
-		t.Error("design-notified should block source files")
-	}
-}
-
-func TestValidateEdit_ImplementingAllowsAll(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
-
-	// skip-design → implementing
-	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
-		t.Fatalf("NotifyStart: %v", err)
-	}
-	err := mgr.ValidateEdit(context.Background(), "branch_01", "server.cpp")
-	if err != nil {
-		t.Errorf("implementing should allow source: %v", err)
-	}
-}
-
-func TestValidateEdit_ImplementingAllowsGoSource(t *testing.T) {
-	s, mgr := setupGateTestDB(t)
-	defer s.Close()
-
-	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", true); err != nil {
-		t.Fatalf("NotifyStart: %v", err)
-	}
-	err := mgr.ValidateEdit(context.Background(), "branch_01", "internal/modules/handoff/gate.go")
-	if err != nil {
-		t.Errorf("implementing should allow .go source: %v", err)
+			err := mgr.ValidateEdit(context.Background(), "branch_01", tc.filePath)
+			if tc.wantErr && err == nil {
+				t.Errorf("expected error for %s with file %q, got nil", tc.name, tc.filePath)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("expected no error for %s with file %q, got: %v", tc.name, tc.filePath, err)
+			}
+		})
 	}
 }
 
@@ -170,8 +136,7 @@ func TestValidateMergeGate_FixingBacklogBlocks(t *testing.T) {
 	bm := &mockBacklogManager{
 		items: map[int]string{42: "OPEN"},
 	}
-	s, mgr := setupGateTestDBWithMock(t, bm)
-	defer s.Close()
+	_, mgr := setupGateTestDBWithMock(t, bm)
 
 	// Register branch with backlog 42 — NotifyStart transitions it to FIXING
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", []int{42}, "", false); err != nil {
@@ -195,7 +160,6 @@ func TestValidateMergeGate_NoFixingBacklogPasses(t *testing.T) {
 		items: map[int]string{42: "RESOLVED"},
 	}
 	s, mgr := setupGateTestDBWithMock(t, bm)
-	defer s.Close()
 
 	// Register branch without backlog IDs
 	if err := mgr.NotifyStart(context.Background(), "branch_01", "ws1", "test", "", nil, "", false); err != nil {

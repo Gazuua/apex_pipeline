@@ -23,9 +23,11 @@ RUN curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_
 # vcpkg (pinned to builtin-baseline)
 ENV VCPKG_ROOT=/opt/vcpkg \
     VCPKG_FORCE_SYSTEM_BINARIES=1
-RUN git clone https://github.com/microsoft/vcpkg.git $VCPKG_ROOT \
+RUN git init $VCPKG_ROOT \
     && cd $VCPKG_ROOT \
-    && git checkout b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01 \
+    && git remote add origin https://github.com/microsoft/vcpkg.git \
+    && git fetch --depth 1 origin b1b19307e2d2ec1eefbdb7ea069de7d4bcd31f01 \
+    && git checkout FETCH_HEAD \
     && ./bootstrap-vcpkg.sh -disableMetrics
 
 # Fixed binary cache path — GitHub Actions overrides HOME to /github/home,

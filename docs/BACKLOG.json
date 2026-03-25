@@ -2,19 +2,6 @@
   "next_id": 231,
   "items": [
     {
-      "id": 206,
-      "title": "CI MSVC continue-on-error: true — Zero Warning 정책 무력화",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "CI",
-      "type": "INFRA",
-      "description": "ci.yml build-msvc 잡에 continue-on-error: true가 설정되어 MSVC 빌드 실패가 CI를 통과함. /W4 /WX 경고 정책과 모순. MSVC 빌드 실패가 감지되지 않아 크로스 컴파일러 호환 경고가 main에 유입 가능. continue-on-error를 제거하거나 required status check에서 MSVC를 필수로 설정해야 함.",
-      "position": 7,
-      "status": "FIXING",
-      "created_at": "2026-03-25 09:28:06",
-      "updated_at": "2026-03-25 15:45:23"
-    },
-    {
       "id": 216,
       "title": "Bitnami Docker Hub 이미지 삭제 대응 — Kafka/PgBouncer 레지스트리 교체",
       "severity": "CRITICAL",
@@ -631,6 +618,21 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:42",
       "updated_at": "2026-03-25 15:59:42"
+    },
+    {
+      "id": 206,
+      "title": "CI MSVC continue-on-error: true — Zero Warning 정책 무력화",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "CI",
+      "type": "INFRA",
+      "description": "ci.yml build-msvc 잡에 continue-on-error: true가 설정되어 MSVC 빌드 실패가 CI를 통과함. /W4 /WX 경고 정책과 모순. MSVC 빌드 실패가 감지되지 않아 크로스 컴파일러 호환 경고가 main에 유입 가능. continue-on-error를 제거하거나 required status check에서 MSVC를 필수로 설정해야 함.",
+      "position": 7,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 16:52:04",
+      "created_at": "2026-03-25 09:28:06",
+      "updated_at": "2026-03-25 16:52:04"
     },
     {
       "id": 230,

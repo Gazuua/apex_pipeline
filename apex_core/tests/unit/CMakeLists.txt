@@ -81,6 +81,13 @@ apex_add_unit_test(test_server_global test_server_global.cpp)
 apex_add_unit_test(test_wire_services test_wire_services.cpp)
 apex_add_unit_test(test_error_sender_service_code test_error_sender_service_code.cpp)
 
+# WebSocket process_frames else 분기 (ntohl 바이트 오더 변환)
+apex_add_unit_test(test_websocket_process_frames test_websocket_process_frames.cpp)
+
+# Server shutdown drain timeout 경로
+apex_add_unit_test(test_server_shutdown_drain test_server_shutdown_drain.cpp)
+target_link_libraries(test_server_shutdown_drain PRIVATE apex::shared::protocols::tcp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -136,5 +143,7 @@ set_tests_properties(
     test_error_sender_service_code
     test_metrics_registry
     test_metrics_http_server
+    test_websocket_process_frames
+    test_server_shutdown_drain
     PROPERTIES TIMEOUT 60
 )

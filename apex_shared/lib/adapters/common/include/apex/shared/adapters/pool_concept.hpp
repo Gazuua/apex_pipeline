@@ -34,7 +34,7 @@ struct PoolConfig
 /// 동기 풀 기본 계약.
 /// PgPool::acquire_connected() 같은 비동기 확장은 고유 API이며 범위 밖.
 template <typename T>
-concept PoolLike = requires(T pool) {
+concept SyncPoolLike = requires(T pool) {
     typename T::Connection;
     { pool.acquire() } -> std::same_as<apex::core::Result<typename T::Connection>>;
     { pool.release(std::declval<typename T::Connection>()) } -> std::same_as<void>;

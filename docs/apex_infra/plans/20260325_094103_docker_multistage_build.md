@@ -8,7 +8,7 @@
 
 **Tech Stack:** Docker BuildKit, Docker Bake (buildx), sccache, Trivy, GitHub Actions, CMake Presets
 
-**Spec:** `docs/apex_infra/plans/2026-03-24-docker-multistage-build-design.md`
+**Spec:** `docs/apex_infra/plans/20260325_094102_docker_multistage_build_design.md`
 
 **스펙 대비 변경사항:**
 - 스펙 3.3절의 `debug-sccache` 프리셋 외에 `release-sccache`도 추가 (MSVC CI 빌드에 필요)

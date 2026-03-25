@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include <apex/core/error_code.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <gtest/gtest.h>
@@ -71,7 +72,7 @@ TEST(WireHeader, ParseInsufficientData)
     std::array<uint8_t, 5> data{};
     auto result = WireHeader::parse(data);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ParseError::InsufficientData);
+    EXPECT_EQ(result.error(), ErrorCode::InsufficientData);
 }
 
 TEST(WireHeader, ParseBodyTooLarge)
@@ -84,7 +85,7 @@ TEST(WireHeader, ParseBodyTooLarge)
     // parse should reject it
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ParseError::BodyTooLarge);
+    EXPECT_EQ(result.error(), ErrorCode::BodyTooLarge);
 }
 
 TEST(WireHeader, FrameSize)
@@ -114,7 +115,7 @@ TEST(WireHeader, ParseUnsupportedVersion)
     bytes[0] = 0; // version 0
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
+    EXPECT_EQ(result.error(), ErrorCode::UnsupportedProtocolVersion);
 }
 
 TEST(WireHeader, ParseV1Rejected)
@@ -124,7 +125,7 @@ TEST(WireHeader, ParseV1Rejected)
     bytes[0] = 1; // old v1 version
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
+    EXPECT_EQ(result.error(), ErrorCode::UnsupportedProtocolVersion);
 }
 
 TEST(WireHeader, ParseFutureVersion)
@@ -134,7 +135,7 @@ TEST(WireHeader, ParseFutureVersion)
     bytes[0] = 99; // far-future version
     auto result = WireHeader::parse(bytes);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), ParseError::UnsupportedVersion);
+    EXPECT_EQ(result.error(), ErrorCode::UnsupportedProtocolVersion);
 }
 
 TEST(WireHeader, MaxValidBodySize)

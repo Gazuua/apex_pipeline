@@ -62,8 +62,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         MessageDispatcher dispatcher; // handler보다 먼저 선언 (소멸 순서 보장)
         ConnectionHandler<P, T> handler;
 
-        PerCoreHandler(SessionManager& session_mgr, ConnectionHandlerConfig config)
-            : handler(session_mgr, dispatcher, config)
+        PerCoreHandler(SessionManager& session_mgr, ConnectionHandlerConfig config, uint32_t core_id)
+            : handler(session_mgr, dispatcher, config, core_id)
         {}
     };
 
@@ -78,9 +78,9 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         , reuseport_(reuseport)
     {
         // per-core handler 생성
-        for (auto* mgr : session_mgrs)
+        for (uint32_t i = 0; i < session_mgrs.size(); ++i)
         {
-            per_core_handlers_.push_back(std::make_unique<PerCoreHandler>(*mgr, handler_config));
+            per_core_handlers_.push_back(std::make_unique<PerCoreHandler>(*session_mgrs[i], handler_config, i));
         }
     }
 
@@ -241,7 +241,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
 
     ScopedLogger logger_{"Listener", ScopedLogger::NO_CORE};
     uint16_t port_;
-    typename P::Config protocol_config_;
+    [[maybe_unused]] typename P::Config protocol_config_;
     CoreEngine& engine_;
     std::string bind_address_;
     uint32_t max_connections_;

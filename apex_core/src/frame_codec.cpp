@@ -40,17 +40,8 @@ Result<Frame> FrameCodec::try_decode(RingBuffer& buf)
 
     if (!parse_result)
     {
-        auto err = parse_result.error();
-        s_logger().debug("try_decode parse failed err={}", static_cast<int>(err));
-        switch (err)
-        {
-            case ParseError::BodyTooLarge:
-                return std::unexpected(ErrorCode::BodyTooLarge);
-            case ParseError::UnsupportedVersion:
-                return std::unexpected(ErrorCode::UnsupportedProtocolVersion);
-            default:
-                return std::unexpected(ErrorCode::InvalidMessage);
-        }
+        s_logger().debug("try_decode parse failed err={}", error_code_name(parse_result.error()));
+        return std::unexpected(parse_result.error());
     }
 
     auto header = *parse_result;

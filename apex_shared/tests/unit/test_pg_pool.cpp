@@ -294,8 +294,8 @@ TEST(PgPool, HealthCheckTickRemovesInvalidConnections)
     EXPECT_EQ(pool.stats().total_destroyed, 1u);
 }
 
-TEST(PgPool, PoolLikeConceptSatisfied)
+TEST(PgPool, SyncPoolLikeConceptSatisfied)
 {
-    // Compile-time verification that PgPool satisfies PoolLike concept
-    static_assert(PoolLike<PgPool>);
+    // Compile-time verification that PgPool satisfies SyncPoolLike concept
+    static_assert(SyncPoolLike<PgPool>);
 }

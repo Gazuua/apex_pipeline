@@ -61,7 +61,9 @@ struct AdapterKeyHash
 {
     size_t operator()(const AdapterKey& k) const
     {
-        return std::hash<std::type_index>{}(k.type) ^ (std::hash<std::string>{}(k.role) << 1);
+        auto h1 = std::hash<std::type_index>{}(k.type);
+        auto h2 = std::hash<std::string>{}(k.role);
+        return h1 ^ (h2 * 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
     }
 };
 
