@@ -282,7 +282,7 @@ void KafkaConsumer::schedule_async_wait()
 
                                // Consume event bytes from pipe
                                char buf[64];
-                               (void)::read(self->pipe_fds_[0], buf, sizeof(buf));
+                               [[maybe_unused]] auto n = ::read(self->pipe_fds_[0], buf, sizeof(buf));
 
                                self->poll_messages();
 
