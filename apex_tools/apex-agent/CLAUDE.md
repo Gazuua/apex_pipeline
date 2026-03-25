@@ -97,7 +97,7 @@ d.Register(queue.New(d.Store()))
 | Hook | 트리거 | 역할 | 차단 시 exit |
 |------|--------|------|:---:|
 | `validate-build` | Bash | cmake/ninja/build.bat/bench_* 직접 호출 차단 | 2 |
-| `validate-merge` | Bash | merge lock 미획득 시 `gh pr merge` 차단 | 2 |
+| `validate-merge` | Bash | PR 명령 검증: merge lock + `--delete-branch` 강제 + `--base main` 강제 | 2 |
 | `validate-handoff` | Bash | 미등록 커밋 차단 + 머지 시 FIXING 백로그 차단 | 2 |
 | `enforce-rebase` | Bash | push 전 자동 리베이스 | 2 |
 | `handoff-probe` | Edit/Write | 미등록 편집 차단 + 상태별 소스 게이트 | 2 |
