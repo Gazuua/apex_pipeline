@@ -45,52 +45,153 @@ func StartPipeline(ctx context.Context, branchName string, params map[string]any
 	return nil
 }
 
-// MergePipeline orchestrates the full merge workflow:
-//  1. RebaseOnMain(projectRoot)
-//  2. SyncImport(projectRoot, mgr) — rebase 후 최신 MD → DB
-//  3. SyncExport(projectRoot, mgr) — DB → MD + HISTORY
-//  4. autoCommitExport — export 결과 커밋+푸시
-//  5. CheckoutMain — main 브랜치 전환
-//  6. ipcFn("notify-merge") — 마지막: active에서 삭제, history로 이관
-func MergePipeline(ctx context.Context, params map[string]any,
-	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
+// MergeFullParams contains all dependencies for MergeFullPipeline.
+type MergeFullParams struct {
+	ProjectRoot   string
+	Branch        string // workspace ID
+	Workspace     string
+	Summary       string
+	ImportFn      func(projectRoot string)                   // backlog import (non-fatal)
+	ExportFn      func(projectRoot string) error             // backlog export (DB → JSON file)
+	FinalizeFn    func(ctx context.Context) error            // DB finalize (active → history MERGED)
+	LockAcquireFn func(ctx context.Context) error            // queue merge acquire
+	LockReleaseFn func(ctx context.Context) error            // queue merge release
+}
 
-	// Phase 1: rebase
-	if msg, err := RebaseOnMain(projectRoot); err != nil {
+// MergeFullPipeline orchestrates the complete merge workflow as a single atomic operation:
+//
+//	① merge lock acquire
+//	② backlog import (non-fatal) + export + commit
+//	③ git fetch + rebase origin/main
+//	④ git push --force-with-lease
+//	⑤ gh pr merge --squash --delete-branch --admin
+//	⑥ handoff finalize (active → history MERGED)
+//	⑦ checkout main + pull (best-effort)
+//	⑧ merge lock release (defer — always runs)
+//
+// Errors:
+//   - Steps ①~⑤: error + rollback (③ rebase --abort if needed) + lock release
+//   - Step ⑥: error (exit 1) — merge completed, DB state inconsistent.
+//   - Step ⑦: warning (exit 0) — merge + finalize complete.
+func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
+	root := params.ProjectRoot
+
+	// ① merge lock acquire
+	ml.Info("MergeFullPipeline: lock acquire", "branch", params.Branch)
+	if err := params.LockAcquireFn(ctx); err != nil {
+		return fmt.Errorf("merge lock 획득 실패: %w", err)
+	}
+
+	// ⑧ lock release (defer — 성공/실패 모두)
+	defer func() {
+		if err := params.LockReleaseFn(context.Background()); err != nil {
+			ml.Warn("merge lock 해제 실패", "err", err)
+		}
+	}()
+
+	// ② backlog import (non-fatal) + export + commit
+	if params.ImportFn != nil {
+		params.ImportFn(root)
+	}
+	if params.ExportFn != nil {
+		if err := params.ExportFn(root); err != nil {
+			return fmt.Errorf("backlog export 실패: %w", err)
+		}
+	}
+	if err := autoCommitExport(root); err != nil {
+		return fmt.Errorf("export 커밋 실패: %w", err)
+	}
+
+	// ③ rebase
+	if msg, err := RebaseOnMain(root); err != nil {
 		return err
 	} else if msg != "" {
 		fmt.Println(msg)
 	}
 
-	// Phase 2: import (rebase 후 최신 MD → DB)
+	// ④ push --force-with-lease
+	if err := pushForceWithLease(root); err != nil {
+		return err
+	}
+
+	// ⑤ gh pr merge
+	if err := ghPRMerge(root); err != nil {
+		return err
+	}
+
+	// ⑥ finalize (DB) — 머지 완료 후이므로 에러 시 가이드 출력
+	if err := params.FinalizeFn(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "[merge] 경고: 핸드오프 정리 실패 — %v\n", err)
+		fmt.Fprintln(os.Stderr, "  가이드: handoff notify merge --summary \"...\" 재실행으로 정리 가능")
+		return fmt.Errorf("핸드오프 정리 실패 (머지는 완료됨): %w", err)
+	}
+
+	// ⑦ checkout main (best-effort)
+	if err := CheckoutMain(root); err != nil {
+		fmt.Fprintf(os.Stderr, "[merge] 경고: checkout main 실패 — %v\n", err)
+		fmt.Fprintln(os.Stderr, "  가이드: git checkout main && git pull origin main 수동 실행")
+		// exit 0 — 머지+정리 모두 완료
+	}
+
+	ml.Audit("MergeFullPipeline completed", "branch", params.Branch)
+	return nil
+}
+
+// pushForceWithLease pushes the current branch with --force-with-lease.
+func pushForceWithLease(projectRoot string) error {
+	ml.Info("pushForceWithLease")
+	out, err := exec.Command("git", "-C", projectRoot,
+		"push", "--force-with-lease").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git push --force-with-lease 실패: %w\n%s", err, out)
+	}
+	ml.Info("push --force-with-lease 완료")
+	return nil
+}
+
+// ghPRMerge runs gh pr merge in the project root directory.
+// gh CLI requires CWD to be inside the git repo (no -C flag support).
+func ghPRMerge(projectRoot string) error {
+	ml.Info("ghPRMerge")
+	cmd := exec.Command("gh", "pr", "merge", "--squash", "--delete-branch", "--admin")
+	cmd.Dir = projectRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gh pr merge 실패: %w\n%s", err, out)
+	}
+	ml.Info("gh pr merge 완료")
+	return nil
+}
+
+// Deprecated: MergePipeline is replaced by MergeFullPipeline.
+// Retained temporarily for CLI transition. Will be removed in Task 8.
+func MergePipeline(ctx context.Context, params map[string]any,
+	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
+
+	if msg, err := RebaseOnMain(projectRoot); err != nil {
+		return err
+	} else if msg != "" {
+		fmt.Println(msg)
+	}
 	if mgr != nil {
 		if _, err := SyncImport(ctx, projectRoot, mgr); err != nil {
 			return fmt.Errorf("머지 전 backlog import 실패: %w", err)
 		}
 	}
-
-	// Phase 3: export (DB → MD + HISTORY)
 	if mgr != nil {
 		if _, err := SyncExport(ctx, projectRoot, mgr); err != nil {
 			return fmt.Errorf("머지 전 backlog export 실패: %w", err)
 		}
 	}
-
-	// Phase 4: auto-commit + push (export 결과)
 	if err := autoCommitExport(projectRoot); err != nil {
 		return fmt.Errorf("export 결과 커밋 실패: %w", err)
 	}
-
-	// Phase 5: checkout main
 	if err := CheckoutMain(projectRoot); err != nil {
 		return fmt.Errorf("checkout main 실패: %w", err)
 	}
-
-	// Phase 6: IPC notify-merge (마지막 — active에서 삭제)
 	if _, err := ipcFn("notify-merge", params); err != nil {
 		return fmt.Errorf("notify-merge 실패: %w", err)
 	}
-
 	return nil
 }
 
