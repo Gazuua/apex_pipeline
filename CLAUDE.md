@@ -43,6 +43,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - 개별 타겟 빌드: `"<프로젝트루트절대경로>/apex_tools/apex-agent/run-hook" queue build debug --target apex_core`
 - `build.bat`, `cmake`, `ninja` 등 직접 호출 시 PreToolUse hook이 차단
 - **빌드는 항상 `run_in_background: true`로 실행** — `timeout` 파라미터 절대 설정 금지. 완료 알림까지 무한 대기
+- **빌드 결과는 로그 파일로 확인** — 빌드 출력은 `$LOCALAPPDATA/apex-agent/logs/build_*.log`에 기록됨. 완료 후 background task output에서 로그 경로를 확인하고 Read tool로 직접 읽기 (stdout 파이프 미사용)
 - **서브에이전트 빌드 금지** — 각 서브에이전트 작업 취합 후 메인이 직접 빌드
 - **빌드 오류 책임**: 빌드 실패는 작업 프로세스 내에서 해결. auto-review와 별개 — 작업 완료+빌드 성공 확인 후 리뷰 진입
 
