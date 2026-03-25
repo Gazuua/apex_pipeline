@@ -116,8 +116,8 @@ template <typename Derived> class AdapterBase
                     remaining->fetch_sub(1, std::memory_order_release);
                 });
             }
-            // 타임아웃 방어: 5초 이내에 완료되지 않으면 경고 후 진행
-            auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
+            // 타임아웃 방어: close_timeout_ 이내에 완료되지 않으면 경고 후 진행
+            auto deadline = std::chrono::steady_clock::now() + close_timeout_;
             while (remaining->load(std::memory_order_acquire) > 0)
             {
                 if (std::chrono::steady_clock::now() > deadline)
@@ -216,6 +216,12 @@ template <typename Derived> class AdapterBase
     /// Per-core 리소스 정리 (기본 no-op). Derived에서 override 가능.
     void do_close_per_core([[maybe_unused]] uint32_t core_id) {}
 
+    /// close() per-core cleanup 타임아웃 설정. 기본 5초.
+    void set_close_timeout(std::chrono::seconds timeout)
+    {
+        close_timeout_ = timeout;
+    }
+
     apex::core::CoreEngine* base_engine_{nullptr};
     apex::core::ScopedLogger base_logger_{"AdapterBase", apex::core::ScopedLogger::NO_CORE, "app"};
 
@@ -229,6 +235,7 @@ template <typename Derived> class AdapterBase
     }
 
     std::atomic<AdapterState> state_{AdapterState::CLOSED};
+    std::chrono::seconds close_timeout_{5};
     std::vector<CancellationToken> tokens_;
     std::vector<boost::asio::io_context*> io_ctxs_;
 };

@@ -14,13 +14,17 @@ import (
 
 // Client sends IPC requests to the daemon and returns responses.
 type Client struct {
-	addr        string
-	versionOnce sync.Once
+	addr              string
+	versionCheckDelay time.Duration
+	versionOnce       sync.Once
 }
 
 // NewClient creates a new IPC client targeting the given address.
 func NewClient(addr string) *Client {
-	return &Client{addr: addr}
+	return &Client{
+		addr:              addr,
+		versionCheckDelay: 500 * time.Millisecond,
+	}
 }
 
 // Send checks the daemon version on the first call (unless version.Version == "dev"),
@@ -100,6 +104,6 @@ func (c *Client) checkVersion() {
 		// Ask daemon to shut down gracefully; ignore errors (best effort).
 		_, _ = c.send(context.Background(), "daemon", "shutdown", nil, "")
 		// Give the daemon a moment to exit before the next dial attempt.
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(c.versionCheckDelay)
 	}
 }

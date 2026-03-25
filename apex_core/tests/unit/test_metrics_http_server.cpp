@@ -176,6 +176,96 @@ TEST_F(MetricsHttpServerTest, UnsupportedMethodReturns404)
     EXPECT_EQ(extract_status_code(response), 404);
 }
 
+TEST_F(MetricsHttpServerTest, MalformedRequest_EmptyPayload)
+{
+    // 빈 요청 전송 후 연결 종료 — 서버가 크래시하지 않아야 함
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+        boost::system::error_code ec;
+        sock.shutdown(tcp::socket::shutdown_send, ec);
+        // 응답을 기대하지 않음 — 연결만 닫음
+    }
+
+    // 서버가 다음 정상 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
+}
+
+TEST_F(MetricsHttpServerTest, MalformedRequest_InvalidMethod)
+{
+    // 잘못된 HTTP 메서드
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+        std::string raw = "INVALID /metrics HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+        net::write(sock, net::buffer(raw));
+        // 응답을 드레인
+        boost::system::error_code ec;
+        char buf[1024];
+        while (!ec)
+        {
+            sock.read_some(net::buffer(buf), ec);
+        }
+    }
+
+    // 서버가 다음 정상 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
+}
+
+TEST_F(MetricsHttpServerTest, MalformedRequest_IncompleteRequestLine)
+{
+    // 불완전한 요청라인
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+        std::string raw = "GET\r\n\r\n";
+        net::write(sock, net::buffer(raw));
+        boost::system::error_code ec;
+        char buf[1024];
+        while (!ec)
+        {
+            sock.read_some(net::buffer(buf), ec);
+        }
+    }
+
+    // 서버가 다음 정상 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
+}
+
+TEST_F(MetricsHttpServerTest, MalformedRequest_BinaryGarbage)
+{
+    // 이진 가비지 데이터
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+        std::string garbage(64, '\xDE');
+        garbage[10] = '\x00';
+        garbage[20] = '\xFF';
+        garbage[30] = '\x01';
+        boost::system::error_code ec;
+        net::write(sock, net::buffer(garbage), ec);
+        sock.shutdown(tcp::socket::shutdown_send, ec);
+        // 응답을 드레인
+        char buf[1024];
+        ec = {};
+        while (!ec)
+        {
+            sock.read_some(net::buffer(buf), ec);
+        }
+    }
+
+    // 서버가 다음 정상 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
+}
+
 TEST_F(MetricsHttpServerTest, ConcurrentConnections)
 {
     constexpr int kThreads = 5;

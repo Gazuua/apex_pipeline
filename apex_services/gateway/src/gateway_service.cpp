@@ -138,22 +138,41 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
                                                                      std::span<const uint8_t> payload)
 {
     // Client sends JWT token after login; bind it to the session.
-    if (payload.size() >= sizeof(flatbuffers::uoffset_t))
+    if (payload.size() < sizeof(flatbuffers::uoffset_t))
     {
-        flatbuffers::Verifier verifier(payload.data(), payload.size());
-        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-        {
-            verifier.EndTable();
-            auto* token = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
-            if (token && verifier.VerifyString(token) && token->size() > 0)
-            {
-                auto& state = auth_states_[session->id()];
-                state.token = token->str();
-                logger_.info(session, "JWT bound");
-            }
-        }
+        logger_.warn(session, "authenticate: payload too small (size={})", payload.size());
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::AUTHENTICATE_SESSION,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
     }
+
+    flatbuffers::Verifier verifier(payload.data(), payload.size());
+    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+    if (!verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+    {
+        logger_.warn(session, "authenticate: FlatBuffers verify failed");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::AUTHENTICATE_SESSION,
+                                                                apex::core::ErrorCode::FlatBuffersVerifyFailed);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+    verifier.EndTable();
+
+    auto* token = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
+    if (!token || !verifier.VerifyString(token) || token->size() == 0)
+    {
+        logger_.warn(session, "authenticate: empty or invalid token");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::AUTHENTICATE_SESSION,
+                                                                apex::core::ErrorCode::ServiceError, "",
+                                                                static_cast<uint16_t>(GatewayError::JwtVerifyFailed));
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    auto& state = auth_states_[session->id()];
+    state.token = token->str();
+    logger_.info(session, "JWT bound");
     return apex::core::ok();
 }
 
@@ -163,28 +182,58 @@ apex::core::Result<void> GatewayService::handle_subscribe_channel(apex::core::Se
     // Client subscribes to a Redis Pub/Sub channel for broadcast delivery.
     // Gateway is channel-name-agnostic (no domain knowledge).
     // per-core 맵만 수정 — cross_core_post 불필요 (세션은 per-core).
-    if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
+    if (!globals_)
     {
-        flatbuffers::Verifier verifier(payload.data(), payload.size());
-        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-        {
-            verifier.EndTable();
-            auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
-            if (ch && verifier.VerifyString(ch) && ch->size() > 0)
-            {
-                auto result = globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
-                if (result)
-                {
-                    if (pubsub_listener_)
-                    {
-                        pubsub_listener_->subscribe(ch->str());
-                    }
-                    logger_.info(session, "subscribed to '{}'", ch->str());
-                }
-            }
-        }
+        return apex::core::ok();
     }
+
+    if (payload.size() < sizeof(flatbuffers::uoffset_t))
+    {
+        logger_.warn(session, "subscribe: payload too small (size={})", payload.size());
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::SUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    flatbuffers::Verifier verifier(payload.data(), payload.size());
+    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+    if (!verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+    {
+        logger_.warn(session, "subscribe: FlatBuffers verify failed");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::SUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::FlatBuffersVerifyFailed);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+    verifier.EndTable();
+
+    auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
+    if (!ch || !verifier.VerifyString(ch) || ch->size() == 0)
+    {
+        logger_.warn(session, "subscribe: empty or invalid channel name");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::SUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    auto result = globals_->per_core_channel_maps[core_id()].subscribe(ch->str(), session->id());
+    if (!result)
+    {
+        logger_.warn(session, "subscribe: limit exceeded for '{}'", ch->str());
+        auto frame = apex::core::ErrorSender::build_error_frame(
+            system_msg_ids::SUBSCRIBE_CHANNEL, apex::core::ErrorCode::ServiceError, "",
+            static_cast<uint16_t>(GatewayError::SubscriptionLimitExceeded));
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    if (pubsub_listener_)
+    {
+        pubsub_listener_->subscribe(ch->str());
+    }
+    logger_.info(session, "subscribed to '{}'", ch->str());
     return apex::core::ok();
 }
 
@@ -192,21 +241,44 @@ apex::core::Result<void> GatewayService::handle_unsubscribe_channel(apex::core::
                                                                     std::span<const uint8_t> payload)
 {
     // per-core 맵만 수정 — cross_core_post 불필요.
-    if (globals_ && payload.size() >= sizeof(flatbuffers::uoffset_t))
+    if (!globals_)
     {
-        flatbuffers::Verifier verifier(payload.data(), payload.size());
-        auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
-        if (verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
-        {
-            verifier.EndTable();
-            auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
-            if (ch && verifier.VerifyString(ch) && ch->size() > 0)
-            {
-                globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
-                logger_.info(session, "unsubscribed from '{}'", ch->str());
-            }
-        }
+        return apex::core::ok();
     }
+
+    if (payload.size() < sizeof(flatbuffers::uoffset_t))
+    {
+        logger_.warn(session, "unsubscribe: payload too small (size={})", payload.size());
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    flatbuffers::Verifier verifier(payload.data(), payload.size());
+    auto* root = flatbuffers::GetRoot<flatbuffers::Table>(payload.data());
+    if (!verifier.VerifyTableStart(reinterpret_cast<const uint8_t*>(root)))
+    {
+        logger_.warn(session, "unsubscribe: FlatBuffers verify failed");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::FlatBuffersVerifyFailed);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+    verifier.EndTable();
+
+    auto* ch = root->GetPointer<const flatbuffers::String*>(kPrimaryStringField);
+    if (!ch || !verifier.VerifyString(ch) || ch->size() == 0)
+    {
+        logger_.warn(session, "unsubscribe: empty or invalid channel name");
+        auto frame = apex::core::ErrorSender::build_error_frame(system_msg_ids::UNSUBSCRIBE_CHANNEL,
+                                                                apex::core::ErrorCode::InvalidMessage);
+        (void)session->enqueue_write(std::move(frame));
+        return apex::core::ok();
+    }
+
+    globals_->per_core_channel_maps[core_id()].unsubscribe(ch->str(), session->id());
+    logger_.info(session, "unsubscribed from '{}'", ch->str());
     return apex::core::ok();
 }
 
