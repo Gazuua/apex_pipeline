@@ -8,6 +8,9 @@ cd "$SCRIPT_DIR"
 
 # Docker Desktop 가용 메모리 감지 (MB)
 DOCKER_MEM_MB=$(docker info --format '{{.MemTotal}}' 2>/dev/null | awk '{printf "%d", $1/1048576}')
+if [[ -z "$DOCKER_MEM_MB" || "$DOCKER_MEM_MB" -le 512 ]]; then
+    DOCKER_MEM_MB=2048  # 감지 실패 시 기본값
+fi
 MK_MEMORY="${MK_MEMORY:-$((DOCKER_MEM_MB > 4096 ? 4096 : DOCKER_MEM_MB - 100))}"
 
 echo "=== Apex Pipeline — Local K8s Setup ==="

@@ -391,7 +391,7 @@ jobs:
       - uses: azure/setup-helm@v4
 
       - name: Start minikube
-        uses: medyagh/setup-minikube@latest
+        uses: medyagh/setup-minikube@v0.0.21
         with:
           memory: '4096'
           cpus: '2'

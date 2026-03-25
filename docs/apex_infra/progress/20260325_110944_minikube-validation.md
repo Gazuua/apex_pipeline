@@ -1,6 +1,6 @@
 # v0.6.3 Helm 차트 minikube 실배포 검증 — 결과 기록
 
-> BACKLOG-205, BACKLOG-204 | 브랜치: feature/helm-minikube-validation
+> BACKLOG-205, BACKLOG-204 | 브랜치: feature/helm-minikube-validation | PR: #158
 > 실행일: 2026-03-25
 
 ## 환경
@@ -107,14 +107,10 @@
 | `77fd3c4` | Bitnami image registry → AWS ECR Public (BACKLOG-216) |
 | `f3e6976` | PgBouncer probe tcpSocket 변경 + BACKLOG-216 등록 |
 | `05d8e29` | template {{- 줄바꿈 버그 + namespace 충돌 + 스크립트 개선 |
-| (pending) | CI workflow_dispatch + bake-services 수동 트리거 |
+| `dc6d635` | CI workflow_dispatch + bake-services 수동 트리거 |
+| `bb6be5a` | CI helm-validation 잡 추가 (minikube 풀 배포 자동 검증) |
 
-## 신규 백로그
+## 검증 환경 제약 사항
 
-- **BACKLOG-216** (CRITICAL/NOW): Bitnami Docker Hub 이미지 삭제 대응 — 현재 ECR Public으로 우회 중이나, 장기적으로 레지스트리 전략 정립 필요
-
-## 미해결 사항
-
-- **서비스 실배포 검증**: bake-services CI 수정 머지 → workflow_dispatch로 이미지 빌드 → imagePullSecret 설정 → 서비스 Pod 기동 확인 필요
-- **ServiceMonitor CRD**: minikube에 Prometheus Operator 미설치 시 ServiceMonitor 리소스 생성 불가 — 현재 로컬에서 비활성화, 프로덕션에서는 CRD 사전 설치 필요
+- **ServiceMonitor CRD**: minikube에 Prometheus Operator 미설치 시 ServiceMonitor 리소스 생성 불가 — 로컬에서는 비활성화, 프로덕션에서는 CRD 사전 설치 필요
 - **메모리**: Docker Desktop 1903MB로 인프라 7 Pod까지는 가능하지만 서비스 추가 시 불안정 — 권장 4GB 이상

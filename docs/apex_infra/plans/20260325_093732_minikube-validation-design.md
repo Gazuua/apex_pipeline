@@ -129,7 +129,7 @@ kubectl create secret docker-registry ghcr-secret \
 
 | 산출물 | 경로 |
 |--------|------|
-| 검증 결과 기록 | `docs/v0.6.3-k8s-helm/progress/YYYYMMDD_HHMMSS_minikube-validation.md` |
+| 검증 결과 기록 | `docs/apex_infra/progress/20260325_110944_minikube-validation.md` |
 | 차트/스크립트 수정 | 이슈 발견 시 커밋 |
 
 ## 11. 성공 기준
