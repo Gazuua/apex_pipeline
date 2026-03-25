@@ -49,7 +49,7 @@ func hookValidateBuildCmd() *cobra.Command {
 func hookValidateMergeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "validate-merge",
-		Short: "PR 명령 검증 (머지 잠금 + delete-branch + base main 강제)",
+		Short: "PR 명령 검증 (gh pr merge 차단 + base main 강제)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, _, err := readHookInput()
 			if err != nil {
@@ -65,34 +65,10 @@ func hookValidateMergeCmd() *cobra.Command {
 				}
 			}
 
-			// gh pr merge: require --delete-branch + lock
+			// gh pr merge: 직접 호출 전면 차단 — notify merge가 유일한 진입점
 			if containsShellCommand(command, "gh pr merge") {
-				// Require --delete-branch to prevent stale remote branches
-				if !strings.Contains(command, "--delete-branch") {
-					fmt.Fprintln(os.Stderr, "차단: gh pr merge에 --delete-branch 플래그를 추가하세요.")
-					os.Exit(2)
-				}
-
-				// Check merge lock via daemon IPC (DB-based queue)
-				result, err := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
-					os.Exit(2)
-				}
-				if result["active"] == nil {
-					fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
-					os.Exit(2)
-				}
-				// Verify lock holder matches current workspace
-				if activeEntry, ok := result["active"].(map[string]any); ok {
-					if holder, _ := activeEntry["branch"].(string); holder != "" {
-						myBranch := getBranchID()
-						if holder != myBranch {
-							fmt.Fprintf(os.Stderr, "차단: merge lock 소유자가 %s입니다 (현재: %s)\n", holder, myBranch)
-							os.Exit(2)
-						}
-					}
-				}
+				fmt.Fprintln(os.Stderr, "차단: gh pr merge 직접 호출 금지 — apex-agent handoff notify merge --summary \"...\"를 사용하세요")
+				os.Exit(2)
 			}
 
 			return nil

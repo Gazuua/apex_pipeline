@@ -26,7 +26,6 @@ func queueCmd() *cobra.Command {
 	cmd.AddCommand(queueStatusCmd())
 	cmd.AddCommand(queueBuildCmd())
 	cmd.AddCommand(queueBenchmarkCmd())
-	cmd.AddCommand(queueMergeCmd())
 	return cmd
 }
 
@@ -314,52 +313,6 @@ func queueBenchmarkCmd() *cobra.Command {
 			})
 		},
 	}
-}
-
-// ── queue merge ──
-
-func queueMergeCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "merge <acquire|release|status>",
-		Short: "머지 잠금 래퍼",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			op := args[0]
-			branch := getBranchID()
-			switch op {
-			case "acquire":
-				params := map[string]any{
-					"channel": "merge",
-					"branch":  branch,
-					"pid":     os.Getpid(),
-				}
-				_, err := sendQueueAcquire(params)
-				if err != nil {
-					return fmt.Errorf("daemon unavailable: %w", err)
-				}
-				fmt.Printf("[queue-lock] lock acquired: merge (branch=%s)\n", branch)
-			case "release":
-				params := map[string]any{
-					"channel": "merge",
-				}
-				_, err := sendQueueRequestMap("release", params)
-				if err != nil {
-					return fmt.Errorf("daemon unavailable: %w", err)
-				}
-				fmt.Printf("[queue-lock] lock released: merge\n")
-			case "status":
-				result, err := sendQueueRequestMap("status", map[string]any{"channel": "merge"})
-				if err != nil {
-					return fmt.Errorf("daemon unavailable: %w", err)
-				}
-				printQueueStatus("merge", result)
-			default:
-				return fmt.Errorf("unknown merge operation %q: expected acquire, release, or status", op)
-			}
-			return nil
-		},
-	}
-	return cmd
 }
 
 // formatArgs formats a slice of args for display. Returns "none" if empty.
