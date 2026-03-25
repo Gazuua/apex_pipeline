@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
@@ -56,21 +55,17 @@ func daemonRunCmd() *cobra.Command {
 				return err
 			}
 
-			// Set up logging.
-			var logWriter io.Writer = os.Stderr
-			if appCfg.Log.File != "" {
-				logDir := platform.DataDir()
-				logPath := appCfg.Log.File
-				if !filepath.IsAbs(logPath) {
-					logPath = filepath.Join(logDir, logPath)
-				}
-				fileWriter := &lumberjack.Logger{
-					Filename:   logPath,
-					MaxSize:    appCfg.Log.MaxSizeMB,
-					MaxBackups: appCfg.Log.MaxBackups,
-				}
-				logWriter = io.MultiWriter(os.Stderr, fileWriter)
+			// Set up logging — daily rotation (logs/YYYYMMDD.log).
+			logDir := filepath.Join(platform.DataDir(), "logs")
+			dailyWriter, dwErr := log.NewDailyWriter(log.DailyWriterConfig{
+				Dir:     logDir,
+				MaxDays: appCfg.Log.MaxDays,
+			})
+			if dwErr != nil {
+				return fmt.Errorf("daily log writer: %w", dwErr)
 			}
+			defer dailyWriter.Close()
+			logWriter := io.MultiWriter(os.Stderr, dailyWriter)
 			log.Init(log.LogConfig{Level: appCfg.Log.Level, Writer: logWriter})
 
 			daemonCfg := daemon.Config{

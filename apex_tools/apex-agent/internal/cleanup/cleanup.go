@@ -67,30 +67,40 @@ func Run(repoRoot string, execute bool, activeBranches map[string]bool) (*Result
 	ml.Info("cleanup started", "repo", repoRoot, "execute", execute, "active_branches", len(activeBranches))
 
 	// Refresh remote refs.
+	ml.Debug("fetching remote refs")
 	_, _ = runGit(repoRoot, "fetch", "--prune", "origin")
 
 	// Phase 1: worktrees.
+	ml.Info("phase 1: processing worktrees")
 	dirtyBranches, err := processWorktrees(repoRoot, execute, activeBranches, result)
 	if err != nil {
 		return nil, fmt.Errorf("worktree phase: %w", err)
 	}
 
 	// Phase 2: local branches.
+	ml.Info("phase 2: processing local branches")
 	if err := processLocalBranches(repoRoot, execute, dirtyBranches, activeBranches, result); err != nil {
 		return nil, fmt.Errorf("local branch phase: %w", err)
 	}
 
 	// Phase 2.5: empty worktree directories.
+	ml.Debug("phase 2.5: cleaning empty worktree directories")
 	processEmptyWorktreeDirs(repoRoot, execute, result)
 
 	// Phase 3: remote branches.
+	ml.Info("phase 3: processing remote branches")
 	if err := processRemoteBranches(repoRoot, execute, activeBranches, result); err != nil {
 		return nil, fmt.Errorf("remote branch phase: %w", err)
 	}
 
 	// Phase 4: workspace copies — 같은 origin을 공유하는 형제 복사본의 로컬 브랜치 정리.
+	ml.Info("phase 4: processing workspace copies")
 	processWorkspaceCopies(repoRoot, execute, activeBranches, result)
 
+	ml.Info("cleanup complete",
+		"worktrees", len(result.Worktrees), "local", len(result.Local),
+		"remote", len(result.Remote), "copies", len(result.Copies),
+		"warnings", len(result.Warnings))
 	return result, nil
 }
 

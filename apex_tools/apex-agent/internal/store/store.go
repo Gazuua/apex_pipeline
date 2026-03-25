@@ -33,8 +33,10 @@ type TxStore struct {
 }
 
 func Open(dsn string) (*Store, error) {
+	ml.Info("opening database", "dsn", dsn)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
+		ml.Error("database open failed", "dsn", dsn, "err", err)
 		return nil, err
 	}
 	// In-memory SQLite: each connection gets its own database.
@@ -53,7 +55,10 @@ func Open(dsn string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	ml.Info("closing database")
+	return s.db.Close()
+}
 
 func (s *Store) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	return s.db.ExecContext(ctx, query, args...)

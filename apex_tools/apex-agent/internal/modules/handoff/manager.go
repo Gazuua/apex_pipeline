@@ -60,6 +60,10 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 	if skipDesign {
 		status = StatusImplementing
 	}
+	ml.Info("NotifyStart begin",
+		"branch", branch, "workspace", workspace, "git_branch", gitBranch,
+		"backlog_ids", fmt.Sprintf("%v", backlogIDs), "scopes", scopes,
+		"skip_design", skipDesign, "initial_status", status)
 
 	// FIXING 중복 체크 (early reject — 읽기 전용).
 	if m.backlogManager != nil {
@@ -69,14 +73,18 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 			}
 			exists, bStatus, checkErr := m.backlogManager.Check(ctx, bid)
 			if checkErr != nil {
+				ml.Error("backlog check failed during NotifyStart", "backlog_id", bid, "err", checkErr)
 				return fmt.Errorf("check backlog %d: %w", bid, checkErr)
 			}
 			if !exists {
+				ml.Warn("backlog item not found during NotifyStart", "backlog_id", bid)
 				return fmt.Errorf("backlog item %d not found", bid)
 			}
 			if bStatus == "FIXING" {
+				ml.Warn("backlog already FIXING — rejecting NotifyStart", "backlog_id", bid)
 				return fmt.Errorf("backlog item %d is already FIXING", bid)
 			}
+			ml.Debug("backlog pre-check passed", "backlog_id", bid, "status", bStatus)
 		}
 	}
 
@@ -158,6 +166,7 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 // Note: merge/drop are handled by NotifyMerge/NotifyDrop, not through NotifyTransition.
 // Read-validate-update is wrapped in a transaction to prevent TOCTOU races.
 func (m *Manager) NotifyTransition(ctx context.Context, branch, workspace, notifyType, summary string) error {
+	ml.Info("NotifyTransition begin", "branch", branch, "type", notifyType)
 	var fromStatus, toStatus string
 
 	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
@@ -166,6 +175,7 @@ func (m *Manager) NotifyTransition(ctx context.Context, branch, workspace, notif
 		var currentStatus string
 		if scanErr := row.Scan(&currentStatus); scanErr != nil {
 			if errors.Is(scanErr, sql.ErrNoRows) {
+				ml.Warn("NotifyTransition: branch not registered", "branch", branch)
 				return fmt.Errorf("branch %q is not registered", branch)
 			}
 			return fmt.Errorf("get status: %w", scanErr)
@@ -173,6 +183,8 @@ func (m *Manager) NotifyTransition(ctx context.Context, branch, workspace, notif
 
 		nextStatus, nsErr := NextStatus(currentStatus, notifyType)
 		if nsErr != nil {
+			ml.Warn("NotifyTransition: invalid state transition",
+				"branch", branch, "current", currentStatus, "type", notifyType, "err", nsErr)
 			return nsErr
 		}
 
@@ -330,7 +342,9 @@ func (m *Manager) requireNoFixingBacklogsTx(ctx context.Context, tx *store.TxSto
 // NotifyMerge completes a branch — moves to history as MERGED.
 // FIXING check + finalize are in a single transaction to prevent TOCTOU.
 func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary string) error {
+	ml.Info("NotifyMerge begin", "branch", branch, "workspace", workspace)
 	if err := m.finalizeBranch(ctx, branch, workspace, summary, HistoryMerged, true, false); err != nil {
+		ml.Error("NotifyMerge failed", "branch", branch, "err", err)
 		return err
 	}
 	ml.Audit("branch merged", "branch", branch)
@@ -340,7 +354,9 @@ func (m *Manager) NotifyMerge(ctx context.Context, branch, workspace, summary st
 // NotifyDrop abandons a branch — auto-releases FIXING backlogs to OPEN, then moves to history as DROPPED.
 // FIXING release + finalize are in a single transaction to guarantee atomicity.
 func (m *Manager) NotifyDrop(ctx context.Context, branch, workspace, reason string) error {
+	ml.Info("NotifyDrop begin", "branch", branch, "reason", reason)
 	if err := m.finalizeBranch(ctx, branch, workspace, reason, HistoryDropped, false, true); err != nil {
+		ml.Error("NotifyDrop failed", "branch", branch, "err", err)
 		return err
 	}
 	ml.Audit("branch dropped", "branch", branch, "reason", reason)
@@ -370,6 +386,7 @@ func (m *Manager) ListActive(ctx context.Context) ([]ActiveBranchInfo, error) {
 // BacklogCheck checks if a backlog item is being worked on by any active branch.
 // All records in active_branches are active, so no status filter needed.
 func (m *Manager) BacklogCheck(ctx context.Context, backlogID int) (available bool, branch string, err error) {
+	ml.Debug("BacklogCheck", "backlog_id", backlogID)
 	row := m.store.QueryRow(ctx,
 		`SELECT bb.branch FROM branch_backlogs bb
 		 JOIN active_branches b ON b.branch = bb.branch
@@ -430,12 +447,14 @@ func (m *Manager) GetBranch(ctx context.Context, branch string) (*Branch, error)
 // ResolveBranch finds a branch by workspace ID first, then by git branch name.
 // Returns the workspace branch ID (primary key) or empty string if not found.
 func (m *Manager) ResolveBranch(ctx context.Context, workspaceID, gitBranch string) (string, error) {
+	ml.Debug("ResolveBranch", "workspace_id", workspaceID, "git_branch", gitBranch)
 	// 1차: workspace ID로 조회
 	status, err := m.GetStatus(ctx, workspaceID)
 	if err != nil {
 		return "", err
 	}
 	if status != "" {
+		ml.Debug("ResolveBranch: found by workspace ID", "workspace_id", workspaceID)
 		return workspaceID, nil
 	}
 

@@ -60,9 +60,10 @@ type QueueConfig struct {
 
 type LogConfig struct {
 	Level      string `toml:"level"`
-	File       string `toml:"file"`
-	MaxSizeMB  int    `toml:"max_size_mb"`
-	MaxBackups int    `toml:"max_backups"`
+	File       string `toml:"file"`           // deprecated: 하위 호환용 유지. 로그 디렉토리 결정에만 사용
+	MaxSizeMB  int    `toml:"max_size_mb"`    // deprecated: daily rotation으로 대체
+	MaxBackups int    `toml:"max_backups"`    // deprecated: max_days로 대체
+	MaxDays    int    `toml:"max_days"`       // 일별 로그 보존 일수 (0 = 무제한)
 	Audit      bool   `toml:"audit"`
 }
 
@@ -87,6 +88,7 @@ func Defaults() *Config {
 			File:       "apex-agent.log",
 			MaxSizeMB:  50,
 			MaxBackups: 3,
+			MaxDays:    30,
 			Audit:      true,
 		},
 		Build: BuildConfig{
@@ -172,9 +174,8 @@ poll_interval = "1s"
 
 [log]
 level = "info"              # debug | info | warn | error
-file = "apex-agent.log"     # 데이터 디렉토리 기준 상대 경로
-max_size_mb = 50
-max_backups = 3
+# file = "apex-agent.log"  # deprecated: 일별 로그로 대체됨
+max_days = 30               # 일별 로그 보존 일수 (0 = 무제한). logs/YYYYMMDD.log 형식
 audit = true                # 감사 로그 (lock, 상태 전이 등)
 
 [build]
