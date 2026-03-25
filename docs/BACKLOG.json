@@ -17,19 +17,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 204,
-      "title": "Docker Bake HCL dockerfile 경로 수정 CI 검증",
-      "severity": "MINOR",
-      "timeframe": "NOW",
-      "scope": "CI",
-      "type": "INFRA",
-      "description": "PR #149에서 docker-bake.hcl의 dockerfile 경로를 수정했으나, dorny/paths-filter의 source 필터에 HCL이 미포함되어 bake-services 잡이 독립 트리거 불가. 다음 소스 변경 PR main 머지 시 bake-services 잡 통과 여부 확인 필요.",
-      "position": 6,
-      "status": "FIXING",
-      "created_at": "2026-03-25 01:12:51",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
       "id": 206,
       "title": "CI MSVC continue-on-error: true — Zero Warning 정책 무력화",
       "severity": "MAJOR",
@@ -268,19 +255,6 @@
       "position": 51,
       "status": "OPEN",
       "created_at": "2026-03-24 23:35:47",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 205,
-      "title": "v0.6.3 Helm 차트 minikube 실배포 검증 — 한번도 테스트한 적 없음",
-      "severity": "CRITICAL",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "TEST",
-      "description": "v0.6.3에서 생성한 Helm 차트가 실제 K8s 환경(minikube)에서 한번도 배포 테스트되지 않았음. helm dependency update, helm install (2-release), Pod 기동, 서비스 간 Kafka 통신, Ingress WebSocket 접속, helm test까지 전체 파이프라인을 실측 검증해야 함. Bitnami sub-chart 버전 호환성, TOML ConfigMap 마운트, Secret envFrom 주입, Prometheus ServiceMonitor 등록 등 실배포에서만 잡히는 이슈가 있을 수 있음.",
-      "position": 53,
-      "status": "FIXING",
-      "created_at": "2026-03-25 01:19:03",
       "updated_at": "2026-03-25 09:42:04"
     },
     {
@@ -542,6 +516,36 @@
       "status": "OPEN",
       "created_at": "2026-03-24 23:50:37",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 204,
+      "title": "Docker Bake HCL dockerfile 경로 수정 CI 검증",
+      "severity": "MINOR",
+      "timeframe": "NOW",
+      "scope": "CI",
+      "type": "INFRA",
+      "description": "PR #149에서 docker-bake.hcl의 dockerfile 경로를 수정했으나, dorny/paths-filter의 source 필터에 HCL이 미포함되어 bake-services 잡이 독립 트리거 불가. 다음 소스 변경 PR main 머지 시 bake-services 잡 통과 여부 확인 필요.",
+      "position": 6,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 11:30:52",
+      "created_at": "2026-03-25 01:12:51",
+      "updated_at": "2026-03-25 11:30:52"
+    },
+    {
+      "id": 205,
+      "title": "v0.6.3 Helm 차트 minikube 실배포 검증 — 한번도 테스트한 적 없음",
+      "severity": "CRITICAL",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "TEST",
+      "description": "v0.6.3에서 생성한 Helm 차트가 실제 K8s 환경(minikube)에서 한번도 배포 테스트되지 않았음. helm dependency update, helm install (2-release), Pod 기동, 서비스 간 Kafka 통신, Ingress WebSocket 접속, helm test까지 전체 파이프라인을 실측 검증해야 함. Bitnami sub-chart 버전 호환성, TOML ConfigMap 마운트, Secret envFrom 주입, Prometheus ServiceMonitor 등록 등 실배포에서만 잡히는 이슈가 있을 수 있음.",
+      "position": 53,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 11:30:52",
+      "created_at": "2026-03-25 01:19:03",
+      "updated_at": "2026-03-25 11:30:52"
     },
     {
       "id": 215,
