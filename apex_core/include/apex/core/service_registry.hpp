@@ -77,10 +77,10 @@ class ServiceRegistry
         return static_cast<const T*>(it->second);
     }
 
-    /// 전체 서비스 순회.
+    /// 전체 서비스 순회 (map_ 기반 — register_ref()로 등록된 서비스도 포함).
     template <typename Fn> void for_each(Fn&& fn)
     {
-        for (auto& svc : services_)
+        for (auto& [key, svc] : map_)
         {
             fn(*svc);
         }
@@ -88,7 +88,7 @@ class ServiceRegistry
 
     [[nodiscard]] size_t size() const noexcept
     {
-        return services_.size();
+        return map_.size();
     }
 
   private:

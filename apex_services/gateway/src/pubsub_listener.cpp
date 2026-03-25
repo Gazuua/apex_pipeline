@@ -66,13 +66,21 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
 {
     std::lock_guard lock(channels_mutex_);
 
+    // Collect pending commands for reply consumption
+    size_t num_commands = 0;
+
+    // Track newly subscribed channels for rollback on error
+    std::vector<std::string> newly_subscribed;
+
     // Subscribe new channels (in subscribed_channels_ but not active)
     for (const auto& ch : subscribed_channels_)
     {
         if (!active_subs.contains(ch))
         {
             redisAppendCommand(ctx, "SUBSCRIBE %s", ch.c_str());
+            newly_subscribed.push_back(ch);
             active_subs.insert(ch);
+            ++num_commands;
             logger_.info("PubSub subscribing to '{}'", ch);
         }
     }
@@ -85,6 +93,7 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
         {
             redisAppendCommand(ctx, "UNSUBSCRIBE %s", ch.c_str());
             to_remove.push_back(ch);
+            ++num_commands;
             logger_.info("PubSub unsubscribing from '{}'", ch);
         }
     }
@@ -95,6 +104,11 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
 
     has_pending_subs_.store(false, std::memory_order_release);
 
+    if (num_commands == 0)
+    {
+        return;
+    }
+
     // Flush all appended commands to the server
     int wdone = 0;
     do
@@ -102,10 +116,49 @@ void PubSubListener::apply_pending_subscriptions(redisContext* ctx, std::unorder
         if (redisBufferWrite(ctx, &wdone) == REDIS_ERR)
         {
             logger_.warn("PubSub write error during subscription update");
-            break;
+            // Rollback: remove newly subscribed from active_subs
+            for (const auto& ch : newly_subscribed)
+            {
+                active_subs.erase(ch);
+            }
+            // Rollback: re-add unsubscribed channels to active_subs
+            for (const auto& ch : to_remove)
+            {
+                active_subs.insert(ch);
+            }
+            return;
         }
     }
     while (!wdone);
+
+    // Consume replies for each appended command
+    for (size_t i = 0; i < num_commands; ++i)
+    {
+        redisReply* reply = nullptr;
+        if (redisGetReply(ctx, reinterpret_cast<void**>(&reply)) != REDIS_OK)
+        {
+            logger_.warn("PubSub reply error during subscription update (cmd {}/{})", i + 1, num_commands);
+            // Rollback: remove newly subscribed from active_subs
+            for (const auto& ch : newly_subscribed)
+            {
+                active_subs.erase(ch);
+            }
+            // Rollback: re-add unsubscribed channels to active_subs
+            for (const auto& ch : to_remove)
+            {
+                active_subs.insert(ch);
+            }
+            return;
+        }
+        if (reply)
+        {
+            if (reply->type == REDIS_REPLY_ERROR)
+            {
+                logger_.warn("PubSub command error: {}", reply->str ? reply->str : "unknown");
+            }
+            freeReplyObject(reply);
+        }
+    }
 }
 
 void PubSubListener::run_thread()

@@ -114,4 +114,32 @@ TEST(ServiceRegistryTest, FindReturnsSamePointerAsGet)
     EXPECT_EQ(ptr, &registry.get<MockServiceA>());
 }
 
+// ── register_ref 포함 테스트 ────────────────────────────────────────────────
+
+TEST(ServiceRegistryTest, SizeIncludesRefRegistered)
+{
+    apex::core::ServiceRegistry registry;
+    registry.register_service(std::make_unique<MockServiceA>());
+
+    MockServiceB ref_svc;
+    registry.register_ref(ref_svc);
+
+    // register_service + register_ref 모두 size()에 반영되는지 확인
+    EXPECT_EQ(registry.size(), 2u);
+}
+
+TEST(ServiceRegistryTest, ForEachVisitsRefRegistered)
+{
+    apex::core::ServiceRegistry registry;
+    registry.register_service(std::make_unique<MockServiceA>());
+
+    MockServiceB ref_svc;
+    registry.register_ref(ref_svc);
+
+    // for_each()가 register_ref()로 등록된 서비스도 순회하는지 확인
+    int count = 0;
+    registry.for_each([&](apex::core::ServiceBaseInterface&) { ++count; });
+    EXPECT_EQ(count, 2);
+}
+
 } // namespace
