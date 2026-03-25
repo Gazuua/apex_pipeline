@@ -83,7 +83,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **머지 lock 없이 `gh pr merge` 실행 금지** (PreToolUse hook이 차단)
 - **`gh pr merge`에 `--delete-branch` 필수** — 미포함 시 hook 차단 (리모트 고아 브랜치 방지)
 - **`gh pr create`에 `--base main` 강제** — `--base`가 main이 아닌 값이면 hook 차단 (stacked PR 방지). `--base` 미지정 시 GitHub 기본값(main) 사용되므로 허용
-- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
+- **머지 전 필수 갱신**: `docs/Apex_Pipeline.md`, `CLAUDE.md` 로드맵, `README.md`, `docs/BACKLOG.json`(`backlog export`), progress 문서(`docs/{project}/progress/`), `docs/apex_core/apex_core_guide.md`(코어 영역 변경 시), `docs/apex_core/log_patterns_guide.md`(로깅 영역 변경 시), `docs/apex_infra/cicd_guide.md`(CI/CD 워크플로우 변경 시) — 머지 직전에 갱신하므로 **완료 상태로 기재** (구현 중/리뷰 중이 아님)
 - **브랜치 이관 금지**: 작업 시작 브랜치 = PR 브랜치. 중간에 새 브랜치로 이관하지 않음. 불가피하면 새 브랜치 푸시 시점에 `git push origin --delete {원본브랜치}`로 원본 리모트 즉시 삭제 — cleanup 스크립트가 탐지 불가한 고아 브랜치 방지
 - **작업 완료 후 브랜치 정리**: 모든 작업이 완전히 끝나면 `apex-agent cleanup --execute` 실행 — 머지 완료 브랜치 + 잔여 리모트 브랜치 + 워크스페이스 복사본 로컬 브랜치 일괄 정리. 플래그 없이 실행하면 dry-run (삭제 없이 대상만 표시). `--dry-run` 플래그는 없음
 
@@ -122,6 +122,15 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - 새 Phase 도입 또는 Phase 순서 변경
   - 새 어댑터 타입 추가
 - **갱신 범위**: 레이어 1(API)은 직접 수정, 레이어 2(내부)는 ADR 포인터 정합성 확인
+
+### CI/CD 가이드 유지보수
+- **갱신 트리거**: CI/CD 워크플로우 변경 시 `docs/apex_infra/cicd_guide.md` 동시 갱신 필수
+  - ci.yml 잡 추가/삭제/조건 변경
+  - docker-bake.hcl 변수/타겟 변경
+  - service.Dockerfile 빌드 단계 변경
+  - Helm 차트 배포 전략 변경 (Rollout canary steps 등)
+  - 새 검증 단계 추가 (스모크 테스트 시나리오 등)
+  - Docker 이미지 태깅 전략 변경
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
 ### 백로그
@@ -176,6 +185,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | **apex-agent Go 백엔드** ★ | `apex_tools/apex-agent/CLAUDE.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
+| **CI/CD 파이프라인 가이드** (전체 구조, 설정 변경, 트러블슈팅) | `docs/apex_infra/cicd_guide.md` |
 | 프레임워크 가이드 (서비스 개발 API + 내부 아키텍처) | `docs/apex_core/apex_core_guide.md` |
 | 로그 패턴 가이드 (정상/비정상 패턴, 트러블슈팅) | `docs/apex_core/log_patterns_guide.md` |
 
