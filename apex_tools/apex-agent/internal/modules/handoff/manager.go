@@ -41,15 +41,22 @@ type BacklogOperator interface {
 	ListFixingForBranch(ctx context.Context, branch string, backlogIDs []int) ([]int, error)
 }
 
+// QueueOperator is the interface handoff needs from queue for merge lock management.
+type QueueOperator interface {
+	Acquire(ctx context.Context, channel, branch string, pid int) error
+	Release(ctx context.Context, channel string) error
+}
+
 // Manager provides handoff business logic.
 type Manager struct {
 	store          *store.Store
 	backlogManager BacklogOperator
+	queueManager   QueueOperator
 }
 
 // NewManager creates a new Manager backed by the given store.
-func NewManager(s *store.Store, bm BacklogOperator) *Manager {
-	return &Manager{store: s, backlogManager: bm}
+func NewManager(s *store.Store, bm BacklogOperator, qm QueueOperator) *Manager {
+	return &Manager{store: s, backlogManager: bm, queueManager: qm}
 }
 
 // NotifyStart registers a new branch.

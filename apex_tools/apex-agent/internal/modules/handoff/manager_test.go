@@ -489,7 +489,7 @@ func TestNotifyStart_ReplaceImplementing_AbandonedWork(t *testing.T) {
 
 	// mock backlog manager — SetStatusWith로 실제 DB 갱신
 	mock := &mockBacklogManagerForReplace{store: s}
-	mgrWithBacklog := NewManager(s, mock)
+	mgrWithBacklog := NewManager(s, mock, nil)
 
 	// 1. 백로그 연결하여 첫 작업 시작 (FIXING으로 전이됨)
 	err = mgrWithBacklog.NotifyStart(context.Background(), "feature/abandon", "ws1", "first work", "", []int{200}, "", true)

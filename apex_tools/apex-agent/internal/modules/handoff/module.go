@@ -17,8 +17,8 @@ type Module struct {
 }
 
 // New creates a new handoff Module backed by the given store.
-func New(s *store.Store, bm BacklogOperator) *Module {
-	return &Module{manager: NewManager(s, bm)}
+func New(s *store.Store, bm BacklogOperator, qm QueueOperator) *Module {
+	return &Module{manager: NewManager(s, bm, qm)}
 }
 
 func (m *Module) Name() string { return "handoff" }
