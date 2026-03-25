@@ -55,7 +55,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 ```
 
 - DB: `$LOCALAPPDATA/apex-agent/apex-agent.db` (SQLite)
-- 로그: `$LOCALAPPDATA/apex-agent/apex-agent.log`
+- 로그: `$LOCALAPPDATA/apex-agent/logs/YYYYMMDD.log` (일별 분할, max_days=30 자동 정리)
 - PID: `$LOCALAPPDATA/apex-agent/apex-agent.pid`
 - 소켓: `\\.\pipe\apex-agent` (Windows) / `/tmp/apex-agent.sock` (Linux)
 - SessionStart hook이 자동 기동 (`run-hook plugin setup`)

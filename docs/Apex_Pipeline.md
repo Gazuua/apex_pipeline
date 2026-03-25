@@ -484,6 +484,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [리팩터] IPC ctx 전파 + Dispatcher 통합 + client 재사용 (PR #150, BACKLOG-189,193,194)
          [수정] 백로그 CLI 자동 export + stale import guard (PR #156, BACKLOG-215)
          [수정] SetStatusWith RESOLVED 원복 방지 + UpdateFromImport status 제거 (PR #162)
+         [도구] 데몬 로그 일별 분할(YYYYMMDD.log) + 워크플로우 로그 보강 (PR #167)
          v0.6.3.0 K8s manifests + Helm 차트 (umbrella+library chart, 2-release, expand_env, Bitnami 하이브리드, PR #147, minikube 검증 + Bitnami ECR 이전 + bake 수정 + CI helm-validation PR #158-161)
               └──→ v0.6.4 ── CI/CD 고도화
                         └──→ v1.0.0.0 — 프레임워크 완성
