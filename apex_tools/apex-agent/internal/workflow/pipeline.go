@@ -71,7 +71,7 @@ type MergeFullParams struct {
 //
 // Errors:
 //   - Steps ①~⑤: error + rollback (③ rebase --abort if needed) + lock release
-//   - Step ⑥: error (exit 1) — merge completed, DB state inconsistent.
+//   - Step ⑥: warning (exit 0) — merge completed, DB stale until next notify start.
 //   - Step ⑦: warning (exit 0) — merge + finalize complete.
 func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
 	root := params.ProjectRoot

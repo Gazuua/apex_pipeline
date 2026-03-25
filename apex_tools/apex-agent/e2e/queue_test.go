@@ -342,7 +342,9 @@ func TestQueue_BuildBenchmarkMutualExclusion(t *testing.T) {
 			t.Fatalf("try-acquire %s: %s", branch, resp.Error)
 		}
 		var data map[string]any
-		json.Unmarshal(resp.Data, &data)
+		if err := json.Unmarshal(resp.Data, &data); err != nil {
+			t.Fatalf("try-acquire %s: unmarshal: %v", branch, err)
+		}
 		return data["acquired"] == true
 	}
 
@@ -424,7 +426,9 @@ func TestQueue_SequentialBenchmarks(t *testing.T) {
 			t.Fatalf("try-acquire %s: %s", branch, resp.Error)
 		}
 		var data map[string]any
-		json.Unmarshal(resp.Data, &data)
+		if err := json.Unmarshal(resp.Data, &data); err != nil {
+			t.Fatalf("try-acquire %s: unmarshal: %v", branch, err)
+		}
 		return data["acquired"] == true
 	}
 
@@ -472,7 +476,9 @@ func TestQueue_SequentialBenchmarks(t *testing.T) {
 		t.Fatalf("final status: %v", err)
 	}
 	var status map[string]any
-	json.Unmarshal(resp.Data, &status)
+	if err := json.Unmarshal(resp.Data, &status); err != nil {
+		t.Fatalf("final status: unmarshal: %v", err)
+	}
 	if status["active"] != nil {
 		t.Errorf("channel should be free, got active=%v", status["active"])
 	}
@@ -500,7 +506,9 @@ func TestQueue_MergeBenchmarkIndependent(t *testing.T) {
 			t.Fatalf("try-acquire %s: %s", channel, resp.Error)
 		}
 		var data map[string]any
-		json.Unmarshal(resp.Data, &data)
+		if err := json.Unmarshal(resp.Data, &data); err != nil {
+			t.Fatalf("try-acquire %s: unmarshal: %v", channel, err)
+		}
 		return data["acquired"] == true
 	}
 

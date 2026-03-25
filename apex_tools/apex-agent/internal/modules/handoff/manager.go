@@ -217,27 +217,14 @@ func (m *Manager) NotifyTransition(ctx context.Context, branch, workspace, notif
 // ── Merge / Drop ──────────────────────────────────────────────────────────────
 
 // checkFixingBacklogs returns FIXING backlog IDs linked to the given branch.
+// Non-transactional — for early-reject only. Final check is requireNoFixingBacklogsTx inside transaction.
 func (m *Manager) checkFixingBacklogs(ctx context.Context, branch string) ([]int, error) {
 	if m.backlogManager == nil {
 		return nil, nil
 	}
-	rows, err := m.store.Query(ctx,
-		`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch,
-	)
+	backlogIDs, err := m.getBacklogIDs(ctx, m.store, branch)
 	if err != nil {
-		return nil, fmt.Errorf("query branch_backlogs: %w", err)
-	}
-	defer rows.Close()
-	var backlogIDs []int
-	for rows.Next() {
-		var id int
-		if scanErr := rows.Scan(&id); scanErr != nil {
-			return nil, fmt.Errorf("scan branch_backlog id: %w", scanErr)
-		}
-		backlogIDs = append(backlogIDs, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate branch_backlogs: %w", err)
+		return nil, err
 	}
 	return m.backlogManager.ListFixingForBranch(ctx, branch, backlogIDs)
 }
@@ -557,14 +544,19 @@ func (m *Manager) DashboardActiveBranches(ctx context.Context) ([]DashboardActiv
 	for i := range branches {
 		bbRows, err := m.store.Query(ctx, `SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)
 		if err != nil {
+			ml.Warn("DashboardActiveBranches: backlog query failed", "branch", branches[i].Branch, "err", err)
 			continue
 		}
 		for bbRows.Next() {
 			var bid int
 			if scanErr := bbRows.Scan(&bid); scanErr != nil {
+				ml.Warn("DashboardActiveBranches: scan backlog id failed", "err", scanErr)
 				continue
 			}
 			branches[i].BacklogIDs = append(branches[i].BacklogIDs, bid)
+		}
+		if bbErr := bbRows.Err(); bbErr != nil {
+			ml.Warn("DashboardActiveBranches: iterate backlog rows failed", "branch", branches[i].Branch, "err", bbErr)
 		}
 		bbRows.Close()
 	}

@@ -3,10 +3,9 @@
 package hook
 
 import (
-	"os/exec"
 	"regexp"
-	"strings"
 
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
@@ -20,7 +19,7 @@ func EnforceRebase(command, projectRoot string) (string, error) {
 	}
 
 	// Get current branch
-	branch, err := gitCurrentBranch(projectRoot)
+	branch, err := platform.GitCurrentBranch(projectRoot)
 	if err != nil {
 		return "", nil // can't determine branch → allow
 	}
@@ -43,12 +42,4 @@ func isGitPush(cmd string) bool {
 
 func isGHPRCreate(cmd string) bool {
 	return ghPRCreatePattern.MatchString(cmd)
-}
-
-func gitCurrentBranch(projectRoot string) (string, error) {
-	out, err := exec.Command("git", "-C", projectRoot, "rev-parse", "--abbrev-ref", "HEAD").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }

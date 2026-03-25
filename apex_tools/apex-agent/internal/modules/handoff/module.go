@@ -417,36 +417,7 @@ func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, 
 			return nil, err
 		}
 
-		mergeParams := workflow.MergeFullParams{
-			ProjectRoot: p.ProjectRoot,
-			Branch:      p.Branch,
-			Workspace:   p.Workspace,
-			Summary:     p.Summary,
-			ImportFn: func(root string) {
-				if m.backlogMgr != nil {
-					if _, err := workflow.SyncImport(ctx, root, m.backlogMgr); err != nil {
-						ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
-					}
-				}
-			},
-			ExportFn: func(root string) error {
-				if m.backlogMgr != nil {
-					if _, err := workflow.SyncExport(ctx, root, m.backlogMgr); err != nil {
-						return err
-					}
-				}
-				return nil
-			},
-			FinalizeFn: func(fCtx context.Context) error {
-				return m.manager.NotifyMerge(fCtx, p.Branch, p.Workspace, p.Summary)
-			},
-			LockAcquireFn: func(lCtx context.Context) error {
-				return m.manager.queueManager.Acquire(lCtx, "merge", p.Branch, os.Getpid())
-			},
-			LockReleaseFn: func(lCtx context.Context) error {
-				return m.manager.queueManager.Release(lCtx, "merge")
-			},
-		}
+		mergeParams := m.buildMergeParams(ctx, p)
 		if err := workflow.MergeFullPipeline(ctx, mergeParams); err != nil {
 			return nil, err
 		}
@@ -458,6 +429,40 @@ func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, 
 		return nil, err
 	}
 	return map[string]string{"status": "merged"}, nil
+}
+
+// buildMergeParams assembles MergeFullParams from the parsed notifyMergeParams.
+func (m *Module) buildMergeParams(ctx context.Context, p notifyMergeParams) workflow.MergeFullParams {
+	return workflow.MergeFullParams{
+		ProjectRoot: p.ProjectRoot,
+		Branch:      p.Branch,
+		Workspace:   p.Workspace,
+		Summary:     p.Summary,
+		ImportFn: func(root string) {
+			if m.backlogMgr != nil {
+				if _, err := workflow.SyncImport(ctx, root, m.backlogMgr); err != nil {
+					ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
+				}
+			}
+		},
+		ExportFn: func(root string) error {
+			if m.backlogMgr != nil {
+				if _, err := workflow.SyncExport(ctx, root, m.backlogMgr); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		FinalizeFn: func(fCtx context.Context) error {
+			return m.manager.NotifyMerge(fCtx, p.Branch, p.Workspace, p.Summary)
+		},
+		LockAcquireFn: func(lCtx context.Context) error {
+			return m.manager.queueManager.Acquire(lCtx, "merge", p.Branch, os.Getpid())
+		},
+		LockReleaseFn: func(lCtx context.Context) error {
+			return m.manager.queueManager.Release(lCtx, "merge")
+		},
+	}
 }
 
 type notifyDropParams struct {

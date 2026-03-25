@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/e2e/testenv"
@@ -144,7 +144,7 @@ func TestResilience_StalePIDRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read PID file: %v", err)
 	}
-	if strconv.Itoa(999999) != stalePID {
+	if strings.TrimSpace(string(data)) != stalePID {
 		t.Fatalf("internal test error: expected stale PID %q, file contains %q", stalePID, string(data))
 	}
 
