@@ -481,6 +481,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [수정] 백로그 updated_at 버그 (PR #145 — import 시 변경 감지로 원본 타임스탬프 보존)
          [테스트] CORE+SHARED 유닛 테스트 커버리지 보강 (PR #146 — 핵심 경로 22건, init 롤백 수정)
          [리팩터] IPC ctx 전파 + Dispatcher 통합 + client 재사용 (PR #150, BACKLOG-189,193,194)
+         [수정] 백로그 CLI 자동 export + stale import guard (PR #156, BACKLOG-215)
          v0.6.3.0 K8s manifests + Helm 차트 (umbrella+library chart, 2-release, expand_env, Bitnami 하이브리드, PR #147)
               └──→ v0.6.4 ── CI/CD 고도화
                         └──→ v1.0.0.0 — 프레임워크 완성
