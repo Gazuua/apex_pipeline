@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <thread>
@@ -197,4 +198,56 @@ TEST_F(MetricsHttpServerTest, ConcurrentConnections)
     {
         EXPECT_EQ(results[static_cast<size_t>(i)], 200) << "Thread " << i << " failed";
     }
+}
+
+/// stop() 중 in-flight session이 cancel되어 깨끗하게 정리되는지 검증.
+/// slow client(연결만 하고 요청 미전송)로 async_read 대기 상태를 만든 뒤
+/// stop()으로 cancel_all()을 트리거하고, SessionGuard 소멸로 세션이
+/// 정리되는지 확인한다.
+TEST_F(MetricsHttpServerTest, InFlightSessionCancelledOnStop)
+{
+    // 1) slow client: 연결만 하고 HTTP 요청을 보내지 않음
+    //    → 서버의 handle_session이 async_read에서 블로킹 대기
+    net::io_context client_io;
+    tcp::socket slow_sock(client_io);
+    slow_sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+
+    // 2) 서버가 accept → co_spawn → async_read 대기에 진입할 시간 확보.
+    //    server_thread_가 io_ctx_.run()을 구동 중이므로 곧바로 처리됨.
+    //    네트워크 왕복 + 코루틴 스케줄링 포함 여유 있는 대기.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // 3) stop() 호출 → acceptor 닫기 + cancel_all() (소켓 cancel)
+    //    cancel()은 async_read에 operation_aborted를 전달.
+    //    server_thread_가 실행 중이므로 cancel 핸들러가 처리되어
+    //    SessionGuard 소멸 → tracker에서 세션 제거.
+    server_.stop();
+
+    // 4) cancel 신호 처리를 위한 drain 대기.
+    //    server_thread_가 io_ctx_.run()을 구동 중이므로 cancel 핸들러는
+    //    해당 스레드에서 실행됨. 테스트 스레드에서는 충분한 시간만 보장.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // 5) 검증: slow client 소켓에서 read 시도 → 서버가 세션을 cancel하여
+    //    종료했으므로 EOF 또는 에러가 발생해야 함.
+    boost::system::error_code ec;
+    char buf[64];
+    auto n = slow_sock.read_some(net::buffer(buf), ec);
+
+    // 서버가 소켓을 cancel했으므로 두 가지 결과 중 하나:
+    // - EOF (eof): 서버 측 소켓이 닫힌 경우
+    // - connection_reset / connection_aborted: OS가 RST를 보낸 경우
+    // 어떤 경우든 ec가 설정되거나 n==0이어야 하며, 정상 데이터(n>0 + !ec)는 불가.
+    bool session_terminated = ec || n == 0;
+    EXPECT_TRUE(session_terminated) << "Expected slow client to observe session termination, ec=" << ec.message();
+
+    // 6) 소켓 정리
+    if (slow_sock.is_open())
+    {
+        boost::system::error_code close_ec;
+        slow_sock.close(close_ec);
+    }
+
+    // TearDown에서 server_.stop() 재호출은 안전 (acceptor 이미 닫힘).
+    // io_ctx_.stop()으로 server_thread_ 종료.
 }
