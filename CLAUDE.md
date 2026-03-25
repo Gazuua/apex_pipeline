@@ -138,6 +138,22 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 - **백로그 파일 직접 접근 금지** — `docs/BACKLOG.json` (및 레거시 MD)는 `validate-backlog` hook이 Read/Edit/Write 모두 차단. 조회: `backlog list/show`, 수정: `backlog add/update/resolve/release/fix/export` CLI 사용 필수
 - **백로그 등록 시 `--fix`/`--no-fix` 필수** — 활성 브랜치에서 `backlog add` 시 반드시 지정. `--fix`=즉시 수정(FIXING 전이+브랜치 연결), `--no-fix`=나중에(OPEN 유지). 미지정 시 에러. 기존 OPEN 백로그 착수 변경: `backlog fix N [N...]`
 - **미래 작업은 백로그 등록 필수** — 설계 문서의 "향후 확장" 섹션에만 남기는 것은 불충분. 백로그가 작업 발견의 단일 진입점
+- **백로그 라이프사이클 워크플로우** — 각 커맨드의 사용 시점과 책임:
+
+  | 커맨드 | 시점 | 동작 | 책임 |
+  |--------|------|------|------|
+  | `backlog add --fix` | 이슈 발견 즉시 수정할 때 | OPEN→FIXING + junction 연결 | 등록자 |
+  | `backlog add --no-fix` | 이슈 발견했지만 지금 안 고칠 때 | OPEN 유지 (junction 없음) | 등록자 |
+  | `backlog fix N` | 기존 OPEN 백로그를 잡을 때 | OPEN→FIXING + junction 연결 | 착수자 |
+  | `backlog resolve N` | 수정 완료 후 | →RESOLVED | **수정한 사람** |
+  | `backlog release N` | FIXING인데 못 끝낼 때 | FIXING→OPEN (junction 해제) | 포기자 |
+  | `backlog export` | 머지 직전 (⑥단계) | DB→JSON 백업 | 머지 수행자 |
+
+  **핵심 원칙 — "고친 사람이 resolve한다":**
+  - 코드를 수정하여 백로그 이슈를 해결했다면, **반드시 `backlog resolve N --resolution FIXED`를 호출**해야 한다
+  - `--fix`로 착수한 건뿐 아니라 `--no-fix`로 등록한 건도 동일 — 같은 PR에서 우연히 고쳐졌어도 resolve 필수
+  - 커밋 메시지에 `BACKLOG-N`을 적었다면 해당 백로그의 resolve 여부를 반드시 확인
+  - **머지 전 체크**: `backlog list --status OPEN`으로 현재 작업에서 해결된 항목이 없는지 확인
 - **파일명**: `YYYYMMDD_HHMMSS_<topic>.md` — 타임스탬프는 `date +"%Y%m%d_%H%M%S"` 명령으로 취득한 **정확한 현재 시각** 필수. 추정/반올림 금지
 - 문서 경로, 작성 규칙, 리뷰 규칙 상세: `docs/CLAUDE.md` 참조
 
