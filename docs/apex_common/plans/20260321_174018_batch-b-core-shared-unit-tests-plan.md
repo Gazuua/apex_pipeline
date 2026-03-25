@@ -83,7 +83,7 @@ template class PgTransactionT<PgConnection>;
 ```cpp
 // test_server_global.cpp
 #include <apex/core/server.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 #include <gtest/gtest.h>
 
 using namespace apex::core;
@@ -450,7 +450,7 @@ Listener는 Server 내부에서 생성되므로 Server를 통해 간접 테스�
 ```cpp
 // test_listener_lifecycle.cpp
 #include <apex/core/server.hpp>
-#include <apex/core/tcp_binary_protocol.hpp>
+#include <apex/shared/protocols/tcp/tcp_binary_protocol.hpp>
 
 #include "../test_helpers.hpp"
 

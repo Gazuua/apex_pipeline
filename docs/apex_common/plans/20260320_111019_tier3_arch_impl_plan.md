@@ -44,7 +44,7 @@ find apex_core apex_shared apex_services \( -name '*.cpp' -o -name '*.hpp' -o -n
 ### 수정 파일 (Phase별)
 
 **Phase 1 (#91 SessionId):** ~14개 파일 기계적 치환
-**Phase 2 (#89+#3):** ~25개 파일 (헤더 이동 + concept + KafkaMessageMeta + Auth/Chat 핸들러 시그니처 + tcp_binary_protocol include 마이그레이션 9건)
+**Phase 2 (#89+#3):** ~25개 파일 (헤더 이동 + concept + KafkaMessageMeta + Auth/Chat 핸들러 시그니처 + `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>` 직접 include 마이그레이션 9건)
 **Phase 3 (#66+#56):** ~4개 파일 (CoreEngine + ServiceBase + kafka_adapter)
 **Phase 4 (#90):** ~15개 파일 (ErrorCode + ErrorSender + FBS스키마 + Gateway/Auth)
 
@@ -214,14 +214,14 @@ git push
 **Files:**
 - Modify: `apex_core/include/apex/core/wire_header.hpp` — forwarding → 실제 구현
 - Modify: `apex_core/include/apex/core/frame_codec.hpp` — forwarding → 실제 구현
-- Modify: `apex_core/include/apex/core/tcp_binary_protocol.hpp` — forwarding 유지, include 경로 갱신
+- Delete: `apex_core/include/apex/core/tcp_binary_protocol.hpp` — 포워딩 헤더 삭제됨 (실제 경로: `apex/shared/protocols/tcp/tcp_binary_protocol.hpp`)
 - Delete: `apex_shared/lib/protocols/tcp/include/apex/shared/protocols/tcp/wire_header.hpp`
 - Delete: `apex_shared/lib/protocols/tcp/include/apex/shared/protocols/tcp/frame_codec.hpp`
 - Modify: `apex_shared/lib/protocols/tcp/include/apex/shared/protocols/tcp/tcp_binary_protocol.hpp` — include 경로 변경
 - Modify: `apex_shared/lib/protocols/tcp/CMakeLists.txt`
 - Modify: `apex_core/src/wire_header.cpp` — namespace 변경
 - Modify: `apex_core/src/frame_codec.cpp` — namespace 변경
-- Modify: (9개 파일) `apex_core/examples/{echo_server,multicore_echo_server,chat_server}.cpp`, `apex_core/tests/unit/{test_tcp_binary_protocol,test_server_multicore,test_server_error_paths,test_cross_core_call}.cpp`, `apex_core/tests/integration/{test_server_e2e,test_shutdown_timeout}.cpp` — include 경로를 `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>`로 변경
+- Modify: (9개 파일) examples + tests — include 경로를 `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>` 직접 경로로 변경 (포워딩 헤더 삭제에 따른 마이그레이션)
 
 - [ ] **Step 1: shared의 WireHeader/FrameCodec 헤더 내용을 core 헤더로 복사**
 
@@ -234,16 +234,9 @@ git push
 `apex_core/src/wire_header.cpp`: include를 `<apex/core/wire_header.hpp>`로, namespace를 `apex::core`로 변경.
 `apex_core/src/frame_codec.cpp`: 동일.
 
-- [ ] **Step 3: tcp_binary_protocol.hpp forwarding 갱신**
+- [x] **Step 3: tcp_binary_protocol.hpp 포워딩 헤더 삭제 + include 마이그레이션**
 
-`apex_core/include/apex/core/tcp_binary_protocol.hpp`는 **삭제하지 않고 유지**. TcpBinaryProtocol은 shared의 Protocol 구현이지만, core의 examples(3개)과 tests(6개)가 이 경로를 사용 중:
-- `apex_core/examples/echo_server.cpp`, `multicore_echo_server.cpp`, `chat_server.cpp`
-- `apex_core/tests/unit/test_tcp_binary_protocol.cpp`, `test_server_multicore.cpp`, `test_server_error_paths.cpp`, `test_cross_core_call.cpp`
-- `apex_core/tests/integration/test_server_e2e.cpp`, `test_shutdown_timeout.cpp`
-
-forwarding header 내용은 기존과 동일 (shared로 forward). WireHeader/FrameCodec의 forwarding은 이미 제거되었으므로 이 파일만 남기는 것이 일관적.
-
-**대안:** 9개 파일의 include를 `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>`로 직접 변경 후 forwarding 삭제도 가능. 구현 시 examples/tests에서 사용하는 namespace 별칭도 함께 정리 필요 여부 확인.
+> **실제 결과**: 대안을 채택하여 9개 파일의 include를 `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>` 직접 경로로 변경한 뒤 포워딩 헤더(`apex_core/include/apex/core/tcp_binary_protocol.hpp`)를 삭제함. 소비자가 프로토콜 구현체를 직접 링크하는 올바른 의존 방향으로 전환.
 
 - [ ] **Step 4: shared의 원본 WireHeader/FrameCodec 헤더 삭제**
 
@@ -525,7 +518,7 @@ grep -rn "apex/shared" apex_core/include/ apex_core/src/ | grep -v "test" | grep
 ```
 결과가 0건이어야 함.
 
-**참고:** `apex_core/examples/`와 `apex_core/tests/`는 라이브러리 소비자이므로 shared 의존 허용. `tcp_binary_protocol.hpp` forwarding이 남아있어 이 경로를 사용.
+**참고:** `apex_core/examples/`와 `apex_core/tests/`는 라이브러리 소비자이므로 shared 의존 허용. `<apex/shared/protocols/tcp/tcp_binary_protocol.hpp>` 직접 include를 사용 (포워딩 헤더는 삭제됨).
 
 - [ ] **Step 5: 커밋**
 
