@@ -155,7 +155,7 @@ spec:
           {{- end }}
           volumeMounts:
             - name: config
-              mountPath: {{ .Values.config.mountPath }}/{{ .Values.config.fileName }}
+              mountPath: {{ .Values.config.mountPath }}/config.toml
               subPath: {{ .Values.config.fileName }}
               readOnly: true
             {{- if .Values.extraVolumeMounts }}
