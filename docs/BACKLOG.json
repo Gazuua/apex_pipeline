@@ -2,19 +2,6 @@
   "next_id": 236,
   "items": [
     {
-      "id": 235,
-      "title": "smoke-test Teardown SHA_TAG env var 누락",
-      "severity": "MINOR",
-      "timeframe": "NOW",
-      "scope": "CI",
-      "type": "BUG",
-      "description": "smoke-test job의 Teardown step에 SHA_TAG 환경변수가 미설정. docker compose down -v가 compose 파일의 SHA_TAG 참조를 해석 못해 실패. 수정: Teardown step에 env SHA_TAG 추가 또는 job-level env로 이동",
-      "position": 14,
-      "status": "FIXING",
-      "created_at": "2026-03-26 06:44:20",
-      "updated_at": "2026-03-26 06:45:26"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
