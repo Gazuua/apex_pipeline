@@ -336,8 +336,12 @@ v[메이저].[대].[중].[소]
 메이저: 0 = 개발 중, 1 = 프레임워크 완성
 대:     아키텍처 도메인 전환 시 증가
 중:     해당 영역 내 의미 있는 마일스톤
-소:     수정, 리뷰, 소규모 개선
+소:     CI auto-tag 자동 관리 (main 전체 통과 시 +1)
 각 자리 1~3자리 허용 (v0.12.3.45 가능)
+
+관리 방식:
+- 상위 3자리: 루트 VERSION 파일 (마일스톤 시 수동 변경)
+- 4번째 자리: CI release-tag job이 git tag 기반 자동 증가
 ```
 
 ### 완료 이력
@@ -514,7 +518,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
 | v0.6.1.0 | 중 | Prometheus 메트릭 노출 | v0.5.4 |
 | v0.6.2.0 | 중 | Docker 멀티스테이지 빌드 고도화 (tools-base/ci 분리, Bake, sccache, MSVC CI, Trivy) | v0.6.1 |
 | v0.6.3.0 | 중 | K8s manifests + Helm | v0.6.2 |
-| v0.6.4.0 | 중 | CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, 조건부 태깅, 3단계 검증) | v0.6.3 |
+| v0.6.4.0 | 중 | CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, auto-tag, 3단계 검증) | v0.6.3 |
 | **v1.0.0.0** | **메이저** | **프레임워크 완성** | v0.6 |
 
 v1.0.0.0 포함 항목:
