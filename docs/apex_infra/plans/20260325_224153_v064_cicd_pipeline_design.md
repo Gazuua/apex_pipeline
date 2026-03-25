@@ -16,6 +16,7 @@ Argo Rollouts canary 배포 전략 도입, 3단계 검증 파이프라인 확립
 | 배포 환경 | CI minikube | 로컬 PC 메모리 제약, 클라우드 비용 부담 |
 | 알림 채널 | GitHub 자체 (PR comment + commit status) | 1인 개발, 추가 채널 관리 불필요 |
 | RSA 키 분리 | 이미 Dockerfile에서 제거됨, 검증만 수행 | volume mount / K8s Secret으로 통일 |
+| Docker 이미지 빌드 preset | debug/release 분기 | E2E용 debug, 배포용 release 분리 |
 | 스모크 테스트 | Health check + E2E 바이너리 서브셋 | 기존 E2E와 중복 없이 이미지 검증 |
 | Argo Rollouts 범위 | Rollout CRD + 수동 승격 | AnalysisTemplate은 Grafana+메트릭 안정화 후 (BACKLOG-232) |
 
@@ -121,7 +122,41 @@ target "gateway" {
 }
 ```
 
-### 3. RSA 키 분리 (BACKLOG-147)
+### 3. Docker 이미지 빌드 preset 분리
+
+**문제**: 현재 service.Dockerfile이 `cmake --preset debug`로 빌드. 최적화 없음, 디버그 심볼 포함, assert 활성화. E2E 테스트용으로는 적합하나 배포용으로 부적절.
+
+**해결**: `CMAKE_PRESET` 빌드 인자 추가로 debug/release 분기.
+
+```dockerfile
+# service.Dockerfile
+ARG CMAKE_PRESET=debug
+RUN --mount=type=cache,target=/root/.cache/sccache \
+    cmake --preset ${CMAKE_PRESET} -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed \
+    && cmake --build build/Linux/${CMAKE_PRESET} --target ${CMAKE_TARGET} \
+    && mkdir -p /out \
+    && cp build/Linux/${CMAKE_PRESET}/apex_services/${SERVICE_DIR}/${CMAKE_TARGET} /out/${CMAKE_TARGET}
+```
+
+docker-bake.hcl에 preset 변수 추가:
+```hcl
+variable "CMAKE_PRESET" { default = "debug" }
+
+target "service-base" {
+  args = {
+    CMAKE_PRESET = CMAKE_PRESET
+  }
+}
+```
+
+**CI에서의 사용**:
+- E2E / 스모크 테스트: `CMAKE_PRESET=debug` (기본값)
+- bake-services (GHCR 푸시): `CMAKE_PRESET=release` — 배포용 이미지
+- docker-compose.smoke.yml: release 이미지를 사용하여 배포 이미지 검증
+
+**전제조건**: CMakePresets.json에 Linux용 `release` preset이 필요. 현재 `debug`, `asan`, `tsan`, `ubsan` preset만 존재하므로 `release` preset 추가 필수 (RelWithDebInfo 또는 Release).
+
+### 4. RSA 키 확인 (BACKLOG-147)
 
 **현재 상태 확인 결과: service.Dockerfile에 RSA 키 COPY가 이미 없음.**
 
@@ -378,11 +413,13 @@ GitHub 네이티브 알림만 사용:
 ```
 수정:
   .github/workflows/ci.yml                              — smoke-test/deploy 잡 추가, bake-services PR 확장
-  apex_infra/docker/docker-bake.hcl                      — IS_MAIN 변수, latest 태그 조건부
+  apex_infra/docker/service.Dockerfile                   — CMAKE_PRESET 빌드 인자 추가 (debug/release 분기)
+  apex_infra/docker/docker-bake.hcl                      — IS_MAIN, CMAKE_PRESET 변수, latest 태그 조건부
   apex_infra/docker/docker-compose.e2e.yml               — Docker config volume mount 추가
   apex_infra/k8s/apex-pipeline/values.yaml               — rollouts 섹션 추가
   apex_infra/k8s/apex-pipeline/charts/apex-common/templates/_helpers.tpl  — podTemplate 추출
   apex_infra/k8s/apex-pipeline/charts/apex-common/templates/deployment.yaml — rollouts.enabled 가드
+  CMakePresets.json                                      — Linux release preset 추가
 
 신규:
   apex_infra/docker/docker-compose.smoke.yml             — 스모크 테스트용 (pre-built image 사용)
