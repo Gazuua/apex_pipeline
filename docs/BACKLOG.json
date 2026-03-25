@@ -43,19 +43,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 215,
-      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "BUG",
-      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
-      "position": 9,
-      "status": "FIXING",
-      "created_at": "2026-03-25 09:41:49",
-      "updated_at": "2026-03-25 09:41:59"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
@@ -144,11 +131,11 @@
       "timeframe": "IN_VIEW",
       "scope": "AUTH_SVC",
       "type": "PERF",
-      "description": "`password_hasher_.verify()`가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 `co_spawn` 분리 필요.",
+      "description": "password_hasher_.verify()가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 co_spawn 분리 필요.",
       "position": 9,
       "status": "OPEN",
       "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-25 09:49:17"
     },
     {
       "id": 147,
@@ -529,6 +516,21 @@
       "status": "OPEN",
       "created_at": "2026-03-24 23:50:37",
       "updated_at": "2026-03-25 09:42:04"
+    },
+    {
+      "id": 215,
+      "title": "backlog update 후 자동 export 누락 — JSON↔DB 불일치 유발",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "backlog update CLI가 DB만 갱신하고 export를 수행하지 않음. 이후 다른 명령의 import-first 안전장치가 JSON의 옛 데이터를 DB에 덮어써서 update가 원복됨. update/resolve/release/fix 등 DB 변경 CLI 모두 export를 자동 수행해야 함.",
+      "position": 9,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 09:50:45",
+      "created_at": "2026-03-25 09:41:49",
+      "updated_at": "2026-03-25 09:50:45"
     },
     {
       "id": 214,
