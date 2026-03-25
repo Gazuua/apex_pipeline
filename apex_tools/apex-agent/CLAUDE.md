@@ -3,22 +3,17 @@
 ## 빌드
 
 ```bash
-# Claude Code 세션 내 (go 직접 — 권장)
-export PATH="/c/Program Files/Go/bin:$PATH"   # git-bash에서 go 경로 추가
-go build -o apex-agent.exe ./cmd/apex-agent    # 빌드
-go test ./... -count=1                         # 전체 테스트 (단위 + e2e)
+# Claude Code 세션 — 빌드+install+데몬 재시작 (권장)
+bash apex_tools/apex-agent/build.bat           # 빌드 + 자동 install + 데몬 재시작
+bash apex_tools/apex-agent/build.bat test      # 전체 테스트 (단위 + e2e)
 
-# Makefile (bash/MSYS — make 있는 환경)
-make build        # 빌드 + 자동 install
-make test         # 전체 테스트 (단위 + e2e, -race -cover)
-
-# Windows 더블클릭
-build.bat         # 빌드 + 자동 install
-build.bat test    # 전체 테스트 (단위 + e2e)
+# 테스트만 (install 불필요)
+export PATH="/c/Program Files/Go/bin:$PATH"
+go test ./... -count=1
 ```
 
-- **git-bash에 `make` 없음** — Claude Code 세션에서는 `go build` 직접 사용
-- **validate-build hook이 `build.bat`/`go build` 허용** — Go 툴체인 커맨드는 C++ 빌드와 무관하므로 통과
+- **`build.bat` 직접 호출** — `run-hook` 경유 금지 (자기 자신 파일 잠금으로 install 실패)
+- **validate-build hook이 `apex-agent/build.bat`/`go build` 허용** — 경로에 `apex-agent/` 포함 시 통과, 루트 C++ `build.bat`은 차단
 - 설치 경로: `$LOCALAPPDATA/apex-agent/` (Windows) / `$HOME/.local/bin/` (Linux)
 - `run-hook`이 설치 경로 바이너리를 우선 사용 → 빌드 후 즉시 hook에 반영
 
