@@ -2,19 +2,6 @@
   "next_id": 234,
   "items": [
     {
-      "id": 233,
-      "title": "chat_service.cpp GCC 14 -Wfree-nonheap-object false positive — bake-services CI 실패",
-      "severity": "CRITICAL",
-      "timeframe": "NOW",
-      "scope": "CHAT_SVC",
-      "type": "BUG",
-      "description": "build_pubsub_payload에서 reserve+push_back 패턴이 GCC 14 인라이너의 -Wfree-nonheap-object 오탐 유발. -Werror로 빌드 실패. main CI 2건 연속 실패 중.",
-      "position": 12,
-      "status": "FIXING",
-      "created_at": "2026-03-26 05:05:11",
-      "updated_at": "2026-03-26 05:05:31"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
@@ -538,6 +525,21 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 233,
+      "title": "chat_service.cpp GCC 14 -Wfree-nonheap-object false positive — bake-services CI 실패",
+      "severity": "CRITICAL",
+      "timeframe": "NOW",
+      "scope": "CHAT_SVC",
+      "type": "BUG",
+      "description": "build_pubsub_payload에서 reserve+push_back 패턴이 GCC 14 인라이너의 -Wfree-nonheap-object 오탐 유발. -Werror로 빌드 실패. main CI 2건 연속 실패 중.",
+      "position": 12,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 05:26:45",
+      "created_at": "2026-03-26 05:05:11",
+      "updated_at": "2026-03-26 05:26:45"
     },
     {
       "id": 178,
