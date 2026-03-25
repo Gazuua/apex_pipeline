@@ -86,6 +86,13 @@ target_compile_features(apex_auth_svc PUBLIC cxx_std_23)
 
 apex_set_warnings(apex_auth_svc)
 
+# GCC 14 -O3: picojson (jwt-cpp 의존) false positive -Wmaybe-uninitialized.
+# 템플릿 인라이닝 경로에서 발생하는 외부 라이브러리 경고 — 코드 수정 불가.
+if(NOT MSVC)
+    set_source_files_properties(src/jwt_manager.cpp PROPERTIES
+        COMPILE_OPTIONS "-Wno-maybe-uninitialized")
+endif()
+
 if(WIN32)
     target_compile_options(apex_auth_svc PUBLIC /utf-8)
     target_compile_definitions(apex_auth_svc PRIVATE _WIN32_WINNT=0x0A00)

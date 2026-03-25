@@ -13,3 +13,5 @@
 - **CI 실패 분석 원칙**: 한 잡만 보고 판단하지 말고 **모든 실패 잡의 로그를 확인** — 잡마다 실패 원인이 다를 수 있음
 - **CI 대기**: `gh run watch`는 **반드시 백그라운드(`run_in_background`)로 실행** — 타임아웃 제한 없이 완료까지 대기
 - **GCC `SIZE_MAX`**: `<cstdint>` include 필수. MSVC는 transitively include되어 빌드되지만, GCC에서 직접 include하면 `'SIZE_MAX' was not declared` 에러
+- **GCC 14 -O3 false positive**: Release 빌드(`-O3`)에서만 발생하는 GCC 경고 패턴. 외부 라이브러리 헤더(picojson, libstdc++ 등)가 `-isystem`에도 불구하고 인라이닝 경로에서 경고 발생. 해결: `set_source_files_properties(... PROPERTIES COMPILE_OPTIONS "-Wno-<warning>")` per-file 억제. CI `linux-gcc-release` matrix가 PR 단계에서 이를 검증
+- **bake-services와 build matrix 차이**: `bake-services`는 main에서 `release` 프리셋, PR에서 `debug`. `build` matrix의 `linux-gcc-release` 항목이 PR 단계에서 GCC release 빌드를 검증하여 main 머지 후 실패 방지

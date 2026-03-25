@@ -117,6 +117,10 @@ jobs:
             os: ubuntu-latest
             preset: debug
             container: true
+          - name: linux-gcc-release
+            os: ubuntu-latest
+            preset: release
+            container: true
           - name: linux-asan
             os: ubuntu-latest
             preset: asan
@@ -164,6 +168,7 @@ jobs:
           retention-days: 1
 
       - name: Test
+        if: matrix.preset != 'release'
         run: ctest --preset ${{ matrix.preset }} -LE e2e
 
   # ── E2E integration tests ─────────────────────
