@@ -553,8 +553,16 @@ func (m *mockBacklogManagerForReplace) Check(ctx context.Context, id int) (bool,
 	return true, status, nil
 }
 
-func (m *mockBacklogManagerForReplace) ListFixingForBranch(_ context.Context, branch string, backlogIDs []int) ([]int, error) {
-	return nil, nil
+func (m *mockBacklogManagerForReplace) ListFixingForBranch(ctx context.Context, branch string, backlogIDs []int) ([]int, error) {
+	var fixing []int
+	for _, id := range backlogIDs {
+		var status string
+		err := m.store.QueryRow(ctx, `SELECT status FROM backlog_items WHERE id = ?`, id).Scan(&status)
+		if err == nil && status == "FIXING" {
+			fixing = append(fixing, id)
+		}
+	}
+	return fixing, nil
 }
 
 // ── NotifyDrop ──

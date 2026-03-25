@@ -502,7 +502,9 @@ func TestBacklog_Release(t *testing.T) {
 		t.Fatalf("get: %v / %s", err, resp.Error)
 	}
 	var item map[string]any
-	json.Unmarshal(resp.Data, &item)
+	if err := json.Unmarshal(resp.Data, &item); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	desc, _ := item["description"].(string)
 	if !strings.Contains(desc, "[RELEASED]") {
 		t.Errorf("description should contain [RELEASED], got: %s", desc)

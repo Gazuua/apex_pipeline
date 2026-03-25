@@ -36,6 +36,9 @@ type ActiveBranchInfo struct {
 // BacklogOperator is the interface handoff needs from backlog.
 type BacklogOperator interface {
 	SetStatus(ctx context.Context, id int, status string) error
+	// SetStatusWith changes the backlog status within a caller-provided transaction.
+	// store.Querier is a minimal interface (Exec/Query/QueryRow) — intentionally exposed
+	// to enable atomic cross-module state transitions (e.g., handoff + backlog in one TX).
 	SetStatusWith(ctx context.Context, q store.Querier, id int, status string) error
 	Check(ctx context.Context, id int) (exists bool, status string, err error)
 	ListFixingForBranch(ctx context.Context, branch string, backlogIDs []int) ([]int, error)
@@ -57,6 +60,26 @@ type Manager struct {
 // NewManager creates a new Manager backed by the given store.
 func NewManager(s *store.Store, bm BacklogOperator, qm QueueOperator) *Manager {
 	return &Manager{store: s, backlogManager: bm, queueManager: qm}
+}
+
+// JunctionCleaner returns a callback that removes junction records for a given backlog ID.
+// Intended for injection into the backlog module so it can clean up branch_backlogs
+// without directly depending on the handoff schema.
+func (m *Manager) JunctionCleaner() func(ctx context.Context, q store.Querier, backlogID int) error {
+	return func(ctx context.Context, q store.Querier, backlogID int) error {
+		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
+		return err
+	}
+}
+
+// JunctionCreator returns a callback that creates a junction record linking a branch to a backlog.
+// Intended for injection into the backlog module so it can create branch_backlogs
+// without directly depending on the handoff schema.
+func (m *Manager) JunctionCreator() func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
+	return func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
+		_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
+		return err
+	}
 }
 
 // NotifyStart registers a new branch.
@@ -217,27 +240,14 @@ func (m *Manager) NotifyTransition(ctx context.Context, branch, workspace, notif
 // ── Merge / Drop ──────────────────────────────────────────────────────────────
 
 // checkFixingBacklogs returns FIXING backlog IDs linked to the given branch.
+// Non-transactional — for early-reject only. Final check is requireNoFixingBacklogsTx inside transaction.
 func (m *Manager) checkFixingBacklogs(ctx context.Context, branch string) ([]int, error) {
 	if m.backlogManager == nil {
 		return nil, nil
 	}
-	rows, err := m.store.Query(ctx,
-		`SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branch,
-	)
+	backlogIDs, err := m.getBacklogIDs(ctx, m.store, branch)
 	if err != nil {
-		return nil, fmt.Errorf("query branch_backlogs: %w", err)
-	}
-	defer rows.Close()
-	var backlogIDs []int
-	for rows.Next() {
-		var id int
-		if scanErr := rows.Scan(&id); scanErr != nil {
-			return nil, fmt.Errorf("scan branch_backlog id: %w", scanErr)
-		}
-		backlogIDs = append(backlogIDs, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate branch_backlogs: %w", err)
+		return nil, err
 	}
 	return m.backlogManager.ListFixingForBranch(ctx, branch, backlogIDs)
 }
@@ -557,14 +567,19 @@ func (m *Manager) DashboardActiveBranches(ctx context.Context) ([]DashboardActiv
 	for i := range branches {
 		bbRows, err := m.store.Query(ctx, `SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)
 		if err != nil {
+			ml.Warn("DashboardActiveBranches: backlog query failed", "branch", branches[i].Branch, "err", err)
 			continue
 		}
 		for bbRows.Next() {
 			var bid int
 			if scanErr := bbRows.Scan(&bid); scanErr != nil {
+				ml.Warn("DashboardActiveBranches: scan backlog id failed", "err", scanErr)
 				continue
 			}
 			branches[i].BacklogIDs = append(branches[i].BacklogIDs, bid)
+		}
+		if bbErr := bbRows.Err(); bbErr != nil {
+			ml.Warn("DashboardActiveBranches: iterate backlog rows failed", "branch", branches[i].Branch, "err", bbErr)
 		}
 		bbRows.Close()
 	}

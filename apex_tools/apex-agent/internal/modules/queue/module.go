@@ -4,8 +4,6 @@ package queue
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 	"time"
 
@@ -73,12 +71,12 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 // RegisterRoutes registers all queue action handlers.
 func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
-	reg.Handle("acquire", m.handleAcquire)
-	reg.Handle("try-acquire", m.handleTryAcquire)
-	reg.Handle("release", m.handleRelease)
-	reg.Handle("status", m.handleStatus)
-	reg.Handle("cleanup-stale", m.handleCleanupStale)
-	reg.Handle("update-pid", m.handleUpdatePID)
+	reg.Handle("acquire", daemon.Typed(m.handleAcquire))
+	reg.Handle("try-acquire", daemon.Typed(m.handleTryAcquire))
+	reg.Handle("release", daemon.Typed(m.handleRelease))
+	reg.Handle("status", daemon.Typed(m.handleStatus))
+	reg.Handle("cleanup-stale", daemon.NoParams(m.handleCleanupStale))
+	reg.Handle("update-pid", daemon.Typed(m.handleUpdatePID))
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -102,11 +100,7 @@ type statusParams struct {
 
 // --- Handlers ---
 
-func (m *Module) handleAcquire(reqCtx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p acquireParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("queue.acquire: decode params: %w", err)
-	}
+func (m *Module) handleAcquire(reqCtx context.Context, p acquireParams, _ string) (any, error) {
 	pid := p.PID
 	if pid == 0 {
 		pid = os.Getpid()
@@ -120,11 +114,7 @@ func (m *Module) handleAcquire(reqCtx context.Context, params json.RawMessage, _
 	return map[string]any{"acquired": true, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleTryAcquire(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p acquireParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("queue.try-acquire: decode params: %w", err)
-	}
+func (m *Module) handleTryAcquire(ctx context.Context, p acquireParams, _ string) (any, error) {
 	pid := p.PID
 	if pid == 0 {
 		pid = os.Getpid()
@@ -136,22 +126,14 @@ func (m *Module) handleTryAcquire(ctx context.Context, params json.RawMessage, _
 	return map[string]any{"acquired": acquired, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleRelease(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p releaseParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("queue.release: decode params: %w", err)
-	}
+func (m *Module) handleRelease(ctx context.Context, p releaseParams, _ string) (any, error) {
 	if err := m.manager.Release(ctx, p.Channel); err != nil {
 		return nil, err
 	}
 	return map[string]any{"released": true, "channel": p.Channel}, nil
 }
 
-func (m *Module) handleStatus(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p statusParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("queue.status: decode params: %w", err)
-	}
+func (m *Module) handleStatus(ctx context.Context, p statusParams, _ string) (any, error) {
 	active, waiting, err := m.manager.Status(ctx, p.Channel)
 	if err != nil {
 		return nil, err
@@ -169,18 +151,14 @@ type updatePIDParams struct {
 	PID     int    `json:"pid"`
 }
 
-func (m *Module) handleUpdatePID(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p updatePIDParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("queue.update-pid: decode params: %w", err)
-	}
+func (m *Module) handleUpdatePID(ctx context.Context, p updatePIDParams, _ string) (any, error) {
 	if err := m.manager.UpdatePID(ctx, p.Channel, p.Branch, p.PID); err != nil {
 		return nil, err
 	}
 	return map[string]any{"updated": true, "channel": p.Channel, "pid": p.PID}, nil
 }
 
-func (m *Module) handleCleanupStale(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleCleanupStale(ctx context.Context, _ string) (any, error) {
 	removed, err := m.manager.CleanupStale(ctx)
 	if err != nil {
 		return nil, err

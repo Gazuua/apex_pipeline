@@ -159,9 +159,13 @@ func TestSyncImport_Idempotent(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "docs", "BACKLOG.md"), []byte(md), 0o644)
 
 	// 1차 import
-	SyncImport(ctx, dir, mgr)
-	// 2차 import — 동일 결과여야 함
 	n, err := SyncImport(ctx, dir, mgr)
+	if err != nil {
+		t.Fatalf("1st SyncImport: %v", err)
+	}
+	_ = n
+	// 2차 import — 동일 결과여야 함
+	n, err = SyncImport(ctx, dir, mgr)
 	if err != nil {
 		t.Fatalf("SyncImport 2nd: %v", err)
 	}

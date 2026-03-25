@@ -8,8 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 )
 
 // IPCFunc is the abstraction for notify IPC calls.
@@ -22,7 +20,7 @@ type IPCFunc func(action string, params map[string]any) (map[string]any, error)
 //  2. ipcFn("notify-start", params) → DB TX
 //  3. CreateAndPushBranch(branchName)
 func StartPipeline(ctx context.Context, branchName string, params map[string]any,
-	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
+	projectRoot string, ipcFn IPCFunc) error {
 
 	// Phase 1: git 사전 검증
 	if err := ValidateNewBranch(projectRoot, branchName); err != nil {
@@ -47,15 +45,16 @@ func StartPipeline(ctx context.Context, branchName string, params map[string]any
 
 // MergeFullParams contains all dependencies for MergeFullPipeline.
 type MergeFullParams struct {
-	ProjectRoot   string
-	Branch        string // workspace ID
-	Workspace     string
-	Summary       string
-	ImportFn      func(projectRoot string)                   // backlog import (non-fatal)
-	ExportFn      func(projectRoot string) error             // backlog export (DB → JSON file)
-	FinalizeFn    func(ctx context.Context) error            // DB finalize (active → history MERGED)
-	LockAcquireFn func(ctx context.Context) error            // queue merge acquire
-	LockReleaseFn func(ctx context.Context) error            // queue merge release
+	ProjectRoot     string
+	Branch          string // workspace ID
+	Workspace       string
+	Summary         string
+	PreMergeCheckFn func(ctx context.Context) error            // pre-merge validation (after lock, before export); nil = skip
+	ImportFn        func(projectRoot string)                   // backlog import (non-fatal)
+	ExportFn        func(projectRoot string) error             // backlog export (DB → JSON file)
+	FinalizeFn      func(ctx context.Context) error            // DB finalize (active → history MERGED)
+	LockAcquireFn   func(ctx context.Context) error            // queue merge acquire
+	LockReleaseFn   func(ctx context.Context) error            // queue merge release
 }
 
 // MergeFullPipeline orchestrates the complete merge workflow as a single atomic operation:
@@ -71,7 +70,7 @@ type MergeFullParams struct {
 //
 // Errors:
 //   - Steps ①~⑤: error + rollback (③ rebase --abort if needed) + lock release
-//   - Step ⑥: error (exit 1) — merge completed, DB state inconsistent.
+//   - Step ⑥: warning (exit 0) — merge completed, DB stale until next notify start.
 //   - Step ⑦: warning (exit 0) — merge + finalize complete.
 func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
 	root := params.ProjectRoot
@@ -88,6 +87,13 @@ func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
 			ml.Warn("merge lock 해제 실패", "err", err)
 		}
 	}()
+
+	// ①-b pre-merge validation (lock 내부 — TOCTOU 방지)
+	if params.PreMergeCheckFn != nil {
+		if err := params.PreMergeCheckFn(ctx); err != nil {
+			return err
+		}
+	}
 
 	// ② backlog import (non-fatal) + export + commit
 	if params.ImportFn != nil {

@@ -10,11 +10,25 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 )
 
+// BacklogSyncer abstracts backlog import/export for the merge pipeline.
+// Implemented by *backlog.Manager. Using an interface decouples workflow
+// from the concrete Manager, enabling easier testing and preventing
+// the handoff module from depending on the full backlog package.
+type BacklogSyncer interface {
+	// SafeExportJSON runs import-first (restore from files) then exports DB → JSON.
+	// Returns (jsonBytes, importCount, error).
+	SafeExportJSON(ctx context.Context, jsonData []byte, legacyMD, legacyHistory string) ([]byte, int, error)
+
+	// ImportItems inserts or updates parsed items in the database.
+	// New items are inserted; existing items have metadata updated (status is never overwritten).
+	ImportItems(ctx context.Context, items []backlog.BacklogItem) (int, error)
+}
+
 // SyncImport reads BACKLOG.json (or legacy MD files) and imports into DB.
 // Prefers BACKLOG.json if it exists; falls back to BACKLOG.md + BACKLOG_HISTORY.md.
 // Idempotent — existing items keep their status, only metadata is updated.
 // Returns the number of items processed. Missing files are not an error.
-func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (int, error) {
+func SyncImport(ctx context.Context, projectRoot string, syncer BacklogSyncer) (int, error) {
 	total := 0
 
 	// Prefer JSON format
@@ -24,7 +38,7 @@ func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(ctx, items)
+		n, importErr := syncer.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -43,7 +57,7 @@ func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(ctx, items)
+		n, importErr := syncer.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -56,7 +70,7 @@ func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (
 		if parseErr != nil {
 			return total, parseErr
 		}
-		n, importErr := mgr.ImportItems(ctx, items)
+		n, importErr := syncer.ImportItems(ctx, items)
 		if importErr != nil {
 			return total, importErr
 		}
@@ -73,7 +87,7 @@ func SyncImport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (
 // writes the result to docs/BACKLOG.json.
 // Also handles migration: if legacy MD files exist, imports them and removes them.
 // Returns the number of items synced during import-first phase.
-func SyncExport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (int, error) {
+func SyncExport(ctx context.Context, projectRoot string, syncer BacklogSyncer) (int, error) {
 	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
 	backlogMDPath := filepath.Join(projectRoot, "docs", "BACKLOG.md")
 	historyMDPath := filepath.Join(projectRoot, "docs", "BACKLOG_HISTORY.md")
@@ -89,7 +103,7 @@ func SyncExport(ctx context.Context, projectRoot string, mgr *backlog.Manager) (
 		legacyHistoryMD = string(data)
 	}
 
-	out, imported, err := mgr.SafeExportJSON(ctx, jsonData, legacyBacklogMD, legacyHistoryMD)
+	out, imported, err := syncer.SafeExportJSON(ctx, jsonData, legacyBacklogMD, legacyHistoryMD)
 	if err != nil {
 		return imported, err
 	}

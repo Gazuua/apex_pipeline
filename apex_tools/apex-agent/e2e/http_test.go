@@ -14,7 +14,6 @@ import (
 
 func TestHTTP_HealthCheck(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/health")
 	if err != nil {
@@ -35,7 +34,6 @@ func TestHTTP_HealthCheck(t *testing.T) {
 
 func TestHTTP_DashboardPage(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/")
 	if err != nil {
@@ -63,7 +61,6 @@ func TestHTTP_DashboardPage(t *testing.T) {
 
 func TestHTTP_BacklogPage(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/backlog")
 	if err != nil {
@@ -78,7 +75,6 @@ func TestHTTP_BacklogPage(t *testing.T) {
 
 func TestHTTP_HandoffPage(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/handoff")
 	if err != nil {
@@ -93,7 +89,6 @@ func TestHTTP_HandoffPage(t *testing.T) {
 
 func TestHTTP_QueuePage(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/queue")
 	if err != nil {
@@ -108,7 +103,6 @@ func TestHTTP_QueuePage(t *testing.T) {
 
 func TestHTTP_BacklogAPI(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	// Add a backlog item via IPC
 	_, err := env.Client.Send(t.Context(), "backlog", "add", map[string]any{
@@ -148,7 +142,6 @@ func TestHTTP_BacklogAPI(t *testing.T) {
 
 func TestHTTP_HandoffAPI(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/api/handoff")
 	if err != nil {
@@ -169,7 +162,6 @@ func TestHTTP_HandoffAPI(t *testing.T) {
 
 func TestHTTP_QueueAPI(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/api/queue")
 	if err != nil {
@@ -190,7 +182,6 @@ func TestHTTP_QueueAPI(t *testing.T) {
 
 func TestHTTP_StaticFiles(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/static/style.css")
 	if err != nil {
@@ -205,7 +196,6 @@ func TestHTTP_StaticFiles(t *testing.T) {
 
 func TestHTTP_NotFound(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/nonexistent")
 	if err != nil {
@@ -221,7 +211,6 @@ func TestHTTP_NotFound(t *testing.T) {
 
 func TestHTTP_PartialSummary(t *testing.T) {
 	env := testenv.New(t)
-	defer env.Stop()
 
 	resp, err := http.Get("http://" + env.HTTPAddr + "/partials/summary")
 	if err != nil {

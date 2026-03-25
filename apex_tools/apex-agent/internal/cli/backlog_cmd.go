@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
 func backlogCmd() *cobra.Command {
@@ -127,27 +127,12 @@ func backlogAddCmd() *cobra.Command {
 // resolveCurrentBranch resolves the active handoff branch for the current workspace.
 // Returns empty string if no active branch (daemon down or not registered).
 func resolveCurrentBranch() (string, error) {
-	branch, err := resolveHandoffBranch("", currentGitBranch())
+	gitBranch, _ := platform.GitCurrentBranch("")
+	branch, err := resolveHandoffBranch("", gitBranch)
 	if err != nil {
 		return "", nil // daemon unavailable — non-fatal, skip enforcement
 	}
 	return branch, nil
-}
-
-// currentGitBranch returns the current git branch name.
-func currentGitBranch() string {
-	out, err := execGitOutput("branch", "--show-current")
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(out)
-}
-
-// execGitOutput runs a git command and returns stdout.
-func execGitOutput(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
-	out, err := cmd.Output()
-	return string(out), err
 }
 
 // ── backlog show ──

@@ -90,7 +90,7 @@ d.Register(queueMod)
 
 ## Hook 게이트
 
-4개 Bash hook + 2개 Edit/Write hook. `settings.json`에서 PreToolUse로 등록.
+6종 hook (Bash 4 + Edit|Write 2). validate-backlog는 Read에도 별도 등록. `settings.json`에서 PreToolUse로 등록.
 
 | Hook | 트리거 | 역할 | 차단 시 exit |
 |------|--------|------|:---:|
@@ -138,13 +138,14 @@ apex-agent backlog add --title "..." --severity MAJOR --timeframe NOW --scope CO
 apex-agent backlog add --title "..." --severity MAJOR --timeframe NOW --scope CORE --type BUG --description "..." --no-fix
 apex-agent backlog fix ID [ID...]             # OPEN → FIXING + 현재 브랜치 연결
 apex-agent backlog show ID                    # 개별 항목 전체 필드 key-value 출력
-apex-agent backlog list [--timeframe NOW] [--severity MAJOR] [--status OPEN] [-v]
-apex-agent backlog update ID --title "..." --severity MAJOR --description "..."
+apex-agent backlog list [--timeframe NOW] [--severity MAJOR] [--status OPEN] [-v]  # 기본: --status OPEN (전체 보려면 --status '')
+
+apex-agent backlog update ID --title "..." --severity MAJOR --description "..." [--related "N,M"] [--position N]
 apex-agent backlog resolve ID --resolution FIXED
 apex-agent backlog release ID --reason "..."
 apex-agent backlog export                     # DB → docs/BACKLOG.json 직접 쓰기
 apex-agent backlog export --stdout            # JSON stdout 출력 (디버깅용)
-apex-agent backlog check ID
+apex-agent backlog check ID                    # 항목 존재 여부 + 현재 status 확인
 
 # 레거시 MD → DB 싱크 (최초 마이그레이션 시에만 필요)
 apex-agent migrate backlog
@@ -248,7 +249,7 @@ apex-agent handoff backlog-check N
 | ③ | git fetch + rebase origin/main | rebase --abort, 에러, lock release |
 | ④ | git push --force-with-lease | 에러, lock release |
 | ⑤ | gh pr merge --squash --delete-branch --admin | 에러, lock release |
-| ⑥ | handoff finalize (active → history MERGED) | 에러 (exit 1) + 가이드 |
+| ⑥ | handoff finalize (active → history MERGED) | 경고 (exit 0) + 가이드 — 다음 notify start가 자동 정리 |
 | ⑦ | checkout main + pull | 경고 (exit 0) + 가이드 |
 | ⑧ | merge lock release (defer) | 항상 실행 |
 

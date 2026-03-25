@@ -23,7 +23,6 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 type TestEnv struct {
@@ -80,14 +79,8 @@ func New(t *testing.T) *TestEnv {
 	d.Register(queueMod)
 
 	// Junction 콜백 (same as daemon_cmd.go)
-	backlogMod.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
-		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
-		return err
-	})
-	backlogMod.Manager().SetJunctionCreator(func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
-		_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
-		return err
-	})
+	backlogMod.Manager().SetJunctionCleaner(handoffMod.Manager().JunctionCleaner())
+	backlogMod.Manager().SetJunctionCreator(handoffMod.Manager().JunctionCreator())
 
 	// HTTP server factory with module manager adapters
 	bqa := &testBacklogQuerier{mgr: backlogMod.Manager()}
@@ -169,14 +162,8 @@ func (e *TestEnv) Restart(t *testing.T) {
 	d.Register(handoffMod2)
 	d.Register(queueMod2)
 
-	backlogMod2.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
-		_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
-		return err
-	})
-	backlogMod2.Manager().SetJunctionCreator(func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
-		_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
-		return err
-	})
+	backlogMod2.Manager().SetJunctionCleaner(handoffMod2.Manager().JunctionCleaner())
+	backlogMod2.Manager().SetJunctionCreator(handoffMod2.Manager().JunctionCreator())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

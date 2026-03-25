@@ -148,8 +148,7 @@ func doNotifyStart(branchName, summary string, backlogs []int, scopes string, sk
 		return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 	}
 
-	// mgr=nil: SyncImport는 IPC 경유로 별도 실행 (CLI 직접 DB 연결 제거)
-	if err := workflow.StartPipeline(context.Background(), branchName, params, root, nil, ipcWrapper); err != nil {
+	if err := workflow.StartPipeline(context.Background(), branchName, params, root, ipcWrapper); err != nil {
 		return err
 	}
 

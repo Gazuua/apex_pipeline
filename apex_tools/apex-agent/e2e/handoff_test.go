@@ -292,7 +292,9 @@ func TestHandoff_ResolveBranch(t *testing.T) {
 		t.Fatalf("resolve by workspace: %v / %s", err, resp.Error)
 	}
 	var result map[string]any
-	json.Unmarshal(resp.Data, &result)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if result["found"] != true {
 		t.Error("workspace ID lookup should find the branch")
 	}
@@ -308,7 +310,9 @@ func TestHandoff_ResolveBranch(t *testing.T) {
 	if err != nil || !resp.OK {
 		t.Fatalf("resolve by git_branch: %v / %s", err, resp.Error)
 	}
-	json.Unmarshal(resp.Data, &result)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if result["found"] != true {
 		t.Error("git_branch fallback should find the branch")
 	}
@@ -324,7 +328,9 @@ func TestHandoff_ResolveBranch(t *testing.T) {
 	if err != nil || !resp.OK {
 		t.Fatalf("resolve not found: %v / %s", err, resp.Error)
 	}
-	json.Unmarshal(resp.Data, &result)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if result["found"] != false {
 		t.Error("nonexistent branch should not be found")
 	}
@@ -367,7 +373,9 @@ func TestHandoff_BacklogFixingAndMergeGate(t *testing.T) {
 		t.Fatalf("backlog.check: %v / %s", err, resp.Error)
 	}
 	var checkData map[string]any
-	json.Unmarshal(resp.Data, &checkData)
+	if err := json.Unmarshal(resp.Data, &checkData); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if checkData["status"] != "FIXING" {
 		t.Errorf("expected backlog status FIXING, got %v", checkData["status"])
 	}
@@ -378,10 +386,14 @@ func TestHandoff_BacklogFixingAndMergeGate(t *testing.T) {
 		t.Fatalf("get-branch: %v / %s", err, resp.Error)
 	}
 	var branchData map[string]any
-	json.Unmarshal(resp.Data, &branchData)
+	if err := json.Unmarshal(resp.Data, &branchData); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	raw, _ := json.Marshal(branchData["branch"])
 	var branchInfo map[string]any
-	json.Unmarshal(raw, &branchInfo)
+	if err := json.Unmarshal(raw, &branchInfo); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	backlogIDs, _ := branchInfo["BacklogIDs"].([]any)
 	if len(backlogIDs) != 1 {
 		t.Errorf("expected 1 backlog ID in junction, got %d", len(backlogIDs))
@@ -449,10 +461,14 @@ func TestHandoff_StartJob(t *testing.T) {
 		t.Fatalf("get-branch: %v / %s", err, resp.Error)
 	}
 	var data map[string]any
-	json.Unmarshal(resp.Data, &data)
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	raw, _ := json.Marshal(data["branch"])
 	var info map[string]any
-	json.Unmarshal(raw, &info)
+	if err := json.Unmarshal(raw, &info); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	backlogIDs, _ := info["BacklogIDs"].([]any)
 	if len(backlogIDs) != 0 {
 		t.Errorf("job mode should have 0 backlog IDs, got %d", len(backlogIDs))
@@ -492,7 +508,9 @@ func TestHandoff_BacklogCheckJunction(t *testing.T) {
 		t.Fatalf("backlog-check before: %v / %s", err, resp.Error)
 	}
 	var result map[string]any
-	json.Unmarshal(resp.Data, &result)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if result["available"] != true {
 		t.Error("backlog 50 should be available before registration")
 	}
@@ -508,7 +526,9 @@ func TestHandoff_BacklogCheckJunction(t *testing.T) {
 	if err != nil || !resp.OK {
 		t.Fatalf("backlog-check after: %v / %s", err, resp.Error)
 	}
-	json.Unmarshal(resp.Data, &result)
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if result["available"] != false {
 		t.Error("backlog 50 should be in use after registration")
 	}

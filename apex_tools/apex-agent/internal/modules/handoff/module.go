@@ -4,28 +4,26 @@ package handoff
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 // Module implements the daemon.Module interface for handoff management.
 type Module struct {
-	manager    *Manager
-	backlogMgr *backlog.Manager // full manager for SyncExport/SyncImport in merge pipeline
+	manager       *Manager
+	backlogSyncer workflow.BacklogSyncer // for SyncExport/SyncImport in merge pipeline
 }
 
 // New creates a new handoff Module backed by the given store.
-// backlogMgr is the full backlog manager (for export/import); bm is the operator interface.
-func New(s *store.Store, bm BacklogOperator, qm QueueOperator, backlogMgr *backlog.Manager) *Module {
+// syncer is the backlog syncer (for export/import in merge pipeline); bm is the operator interface.
+func New(s *store.Store, bm BacklogOperator, qm QueueOperator, syncer workflow.BacklogSyncer) *Module {
 	return &Module{
-		manager:    NewManager(s, bm, qm),
-		backlogMgr: backlogMgr,
+		manager:       NewManager(s, bm, qm),
+		backlogSyncer: syncer,
 	}
 }
 
@@ -218,18 +216,18 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 // RegisterRoutes registers handoff action handlers.
 func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
-	reg.Handle("notify-start", m.handleNotifyStart)
-	reg.Handle("notify-transition", m.handleNotifyTransition)
-	reg.Handle("notify-merge", m.handleNotifyMerge)
-	reg.Handle("notify-drop", m.handleNotifyDrop)
-	reg.Handle("list-active", m.handleListActive)
-	reg.Handle("backlog-check", m.handleBacklogCheck)
-	reg.Handle("get-branch", m.handleGetBranch)
-	reg.Handle("get-status", m.handleGetStatus)
-	reg.Handle("resolve-branch", m.handleResolveBranch)
-	reg.Handle("validate-commit", m.handleValidateCommit)
-	reg.Handle("validate-merge-gate", m.handleValidateMergeGate)
-	reg.Handle("validate-edit", m.handleValidateEdit)
+	reg.Handle("notify-start", daemon.Typed(m.handleNotifyStart))
+	reg.Handle("notify-transition", daemon.Typed(m.handleNotifyTransition))
+	reg.Handle("notify-merge", daemon.Typed(m.handleNotifyMerge))
+	reg.Handle("notify-drop", daemon.Typed(m.handleNotifyDrop))
+	reg.Handle("list-active", daemon.NoParams(m.handleListActive))
+	reg.Handle("backlog-check", daemon.Typed(m.handleBacklogCheck))
+	reg.Handle("get-branch", daemon.Typed(m.handleGetBranch))
+	reg.Handle("get-status", daemon.Typed(m.handleGetStatus))
+	reg.Handle("resolve-branch", daemon.Typed(m.handleResolveBranch))
+	reg.Handle("validate-commit", daemon.Typed(m.handleValidateCommit))
+	reg.Handle("validate-merge-gate", daemon.Typed(m.handleValidateMergeGate))
+	reg.Handle("validate-edit", daemon.Typed(m.handleValidateEdit))
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -268,33 +266,21 @@ type getStatusParams struct {
 
 // --- Handlers ---
 
-func (m *Module) handleNotifyStart(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p notifyStartParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleNotifyStart(ctx context.Context, p notifyStartParams, _ string) (any, error) {
 	if err := m.manager.NotifyStart(ctx, p.Branch, p.Workspace, p.Summary, p.BranchName, p.BacklogIDs, p.Scopes, p.SkipDesign); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "started"}, nil
 }
 
-func (m *Module) handleNotifyTransition(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p notifyTransitionParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleNotifyTransition(ctx context.Context, p notifyTransitionParams, _ string) (any, error) {
 	if err := m.manager.NotifyTransition(ctx, p.Branch, p.Workspace, p.Type, p.Summary); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "transitioned"}, nil
 }
 
-func (m *Module) handleBacklogCheck(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p backlogCheckParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleBacklogCheck(ctx context.Context, p backlogCheckParams, _ string) (any, error) {
 	available, branch, err := m.manager.BacklogCheck(ctx, p.BacklogID)
 	if err != nil {
 		return nil, err
@@ -302,11 +288,7 @@ func (m *Module) handleBacklogCheck(ctx context.Context, params json.RawMessage,
 	return map[string]any{"available": available, "branch": branch}, nil
 }
 
-func (m *Module) handleGetBranch(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p getBranchParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleGetBranch(ctx context.Context, p getBranchParams, _ string) (any, error) {
 	b, err := m.manager.GetBranch(ctx, p.Branch)
 	if err != nil {
 		return nil, err
@@ -314,11 +296,7 @@ func (m *Module) handleGetBranch(ctx context.Context, params json.RawMessage, _ 
 	return map[string]any{"branch": b}, nil
 }
 
-func (m *Module) handleGetStatus(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p getStatusParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleGetStatus(ctx context.Context, p getStatusParams, _ string) (any, error) {
 	status, err := m.manager.GetStatus(ctx, p.Branch)
 	if err != nil {
 		return nil, err
@@ -333,11 +311,7 @@ type resolveBranchParams struct {
 	GitBranch   string `json:"git_branch"`
 }
 
-func (m *Module) handleResolveBranch(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p resolveBranchParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleResolveBranch(ctx context.Context, p resolveBranchParams, _ string) (any, error) {
 	branch, err := m.manager.ResolveBranch(ctx, p.WorkspaceID, p.GitBranch)
 	if err != nil {
 		return nil, err
@@ -362,33 +336,21 @@ type validateEditParams struct {
 
 // --- Gate handlers ---
 
-func (m *Module) handleValidateCommit(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p validateCommitParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleValidateCommit(ctx context.Context, p validateCommitParams, _ string) (any, error) {
 	if err := m.manager.ValidateCommit(ctx, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "allowed"}, nil
 }
 
-func (m *Module) handleValidateMergeGate(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p validateMergeGateParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleValidateMergeGate(ctx context.Context, p validateMergeGateParams, _ string) (any, error) {
 	if err := m.manager.ValidateMergeGate(ctx, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "allowed"}, nil
 }
 
-func (m *Module) handleValidateEdit(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p validateEditParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleValidateEdit(ctx context.Context, p validateEditParams, _ string) (any, error) {
 	if err := m.manager.ValidateEdit(ctx, p.Branch, p.FilePath); err != nil {
 		return nil, err
 	}
@@ -404,49 +366,10 @@ type notifyMergeParams struct {
 	ProjectRoot string `json:"project_root"` // 있으면 MergeFullPipeline 실행
 }
 
-func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p notifyMergeParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
-
+func (m *Module) handleNotifyMerge(ctx context.Context, p notifyMergeParams, _ string) (any, error) {
 	// project_root가 있으면 MergeFullPipeline 실행 (새 경로)
 	if p.ProjectRoot != "" {
-		// 사전 검증: FIXING 백로그가 남아있으면 머지 파이프라인 진입 전 차단
-		if err := m.manager.ValidateMergeGate(ctx, p.Branch); err != nil {
-			return nil, err
-		}
-
-		mergeParams := workflow.MergeFullParams{
-			ProjectRoot: p.ProjectRoot,
-			Branch:      p.Branch,
-			Workspace:   p.Workspace,
-			Summary:     p.Summary,
-			ImportFn: func(root string) {
-				if m.backlogMgr != nil {
-					if _, err := workflow.SyncImport(ctx, root, m.backlogMgr); err != nil {
-						ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
-					}
-				}
-			},
-			ExportFn: func(root string) error {
-				if m.backlogMgr != nil {
-					if _, err := workflow.SyncExport(ctx, root, m.backlogMgr); err != nil {
-						return err
-					}
-				}
-				return nil
-			},
-			FinalizeFn: func(fCtx context.Context) error {
-				return m.manager.NotifyMerge(fCtx, p.Branch, p.Workspace, p.Summary)
-			},
-			LockAcquireFn: func(lCtx context.Context) error {
-				return m.manager.queueManager.Acquire(lCtx, "merge", p.Branch, os.Getpid())
-			},
-			LockReleaseFn: func(lCtx context.Context) error {
-				return m.manager.queueManager.Release(lCtx, "merge")
-			},
-		}
+		mergeParams := m.buildMergeParams(ctx, p)
 		if err := workflow.MergeFullPipeline(ctx, mergeParams); err != nil {
 			return nil, err
 		}
@@ -460,24 +383,58 @@ func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, 
 	return map[string]string{"status": "merged"}, nil
 }
 
+// buildMergeParams assembles MergeFullParams from the parsed notifyMergeParams.
+func (m *Module) buildMergeParams(ctx context.Context, p notifyMergeParams) workflow.MergeFullParams {
+	return workflow.MergeFullParams{
+		ProjectRoot: p.ProjectRoot,
+		Branch:      p.Branch,
+		Workspace:   p.Workspace,
+		Summary:     p.Summary,
+		PreMergeCheckFn: func(checkCtx context.Context) error {
+			// ValidateMergeGate를 lock 획득 후 실행 — TOCTOU 윈도우 최소화.
+			return m.manager.ValidateMergeGate(checkCtx, p.Branch)
+		},
+		ImportFn: func(root string) {
+			if m.backlogSyncer != nil {
+				if _, err := workflow.SyncImport(ctx, root, m.backlogSyncer); err != nil {
+					ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
+				}
+			}
+		},
+		ExportFn: func(root string) error {
+			if m.backlogSyncer != nil {
+				if _, err := workflow.SyncExport(ctx, root, m.backlogSyncer); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		FinalizeFn: func(fCtx context.Context) error {
+			return m.manager.NotifyMerge(fCtx, p.Branch, p.Workspace, p.Summary)
+		},
+		LockAcquireFn: func(lCtx context.Context) error {
+			return m.manager.queueManager.Acquire(lCtx, "merge", p.Branch, os.Getpid())
+		},
+		LockReleaseFn: func(lCtx context.Context) error {
+			return m.manager.queueManager.Release(lCtx, "merge")
+		},
+	}
+}
+
 type notifyDropParams struct {
 	Branch    string `json:"branch"`
 	Workspace string `json:"workspace"`
 	Reason    string `json:"reason"`
 }
 
-func (m *Module) handleNotifyDrop(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p notifyDropParams
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("decode params: %w", err)
-	}
+func (m *Module) handleNotifyDrop(ctx context.Context, p notifyDropParams, _ string) (any, error) {
 	if err := m.manager.NotifyDrop(ctx, p.Branch, p.Workspace, p.Reason); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "dropped"}, nil
 }
 
-func (m *Module) handleListActive(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleListActive(ctx context.Context, _ string) (any, error) {
 	list, err := m.manager.ListActive(ctx)
 	if err != nil {
 		return nil, err

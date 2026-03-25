@@ -4,7 +4,6 @@ package hook
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
@@ -17,9 +16,14 @@ func New() *Module { return &Module{} }
 
 func (m *Module) Name() string { return "hook" }
 
+// validateBuildParams holds params for the validate-build action.
+type validateBuildParams struct {
+	Command string `json:"command"`
+}
+
 func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
-	reg.Handle("validate-build", m.handleValidateBuild)
-	reg.Handle("validate-merge", m.handleValidateMerge)
+	reg.Handle("validate-build", daemon.Typed(m.handleValidateBuild))
+	reg.Handle("validate-merge", daemon.NoParams(m.handleValidateMerge))
 }
 
 func (m *Module) RegisterSchema(mig *store.Migrator) {
@@ -29,13 +33,7 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 func (m *Module) OnStart(ctx context.Context) error { return nil }
 func (m *Module) OnStop() error                     { return nil }
 
-func (m *Module) handleValidateBuild(ctx context.Context, params json.RawMessage, workspace string) (any, error) {
-	var p struct {
-		Command string `json:"command"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, err
-	}
+func (m *Module) handleValidateBuild(_ context.Context, p validateBuildParams, _ string) (any, error) {
 	if err := ValidateBuild(p.Command); err != nil {
 		return nil, err
 	}
@@ -44,6 +42,6 @@ func (m *Module) handleValidateBuild(ctx context.Context, params json.RawMessage
 
 // handleValidateMerge is a no-op stub — merge lock validation is now handled
 // by CLI hook_cmd.go via daemon IPC (queue.status). Kept for route compatibility.
-func (m *Module) handleValidateMerge(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleValidateMerge(_ context.Context, _ string) (any, error) {
 	return map[string]string{"status": "allowed"}, nil
 }
