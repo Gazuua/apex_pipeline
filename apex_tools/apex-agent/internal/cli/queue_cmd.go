@@ -246,7 +246,7 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 		if exitErr, ok := runErr.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		}
-		if killed.Load() && exitCode == -1 {
+		if killed.Load() {
 			fmt.Printf("[queue-lock] %s KILLED (stale: no log output for %v)\n", label, buildStaleTimeout)
 		} else {
 			fmt.Printf("[queue-lock] %s FAILED (exit code: %d)\n", label, exitCode)
