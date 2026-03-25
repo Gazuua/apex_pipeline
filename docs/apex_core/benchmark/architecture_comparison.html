@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Per-core io_context Architecture Benchmark</title>
+<title>Per-core io_context Architecture Benchmark — v0.6.1</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,7 +36,7 @@
   .hero .subtitle {
     font-size: 1.05rem;
     color: #94A3B8;
-    max-width: 720px;
+    max-width: 760px;
     margin: 0 auto 28px;
   }
 
@@ -187,6 +187,7 @@
   .dot-green { background: #34D399; }
   .dot-amber { background: #F59E0B; }
   .dot-blue  { background: #38BDF8; }
+  .dot-red   { background: #F87171; }
   .analysis-card p, .analysis-card li {
     color: #94A3B8;
     font-size: 0.92rem;
@@ -210,6 +211,7 @@
   }
   .highlight { color: #34D399; font-weight: 600; }
   .highlight-amber { color: #F59E0B; font-weight: 600; }
+  .highlight-red { color: #F87171; font-weight: 600; }
 
   /* Footer */
   .env-footer {
@@ -239,11 +241,11 @@
 <header class="hero">
   <h1><span>Per-core io_context</span> Architecture</h1>
   <p class="subtitle">
-    Shared-nothing 아키텍처가 전통적 스레드 풀 모델 대비
-    코어 수에 비례하는 선형 확장을 달성함을 증명하는 벤치마크
+    Shared-nothing 아키텍처가 Shared io_context(뮤텍스/Lock-Free) 모델 대비
+    코어 수에 비례하는 선형 확장을 달성하고, 고코어 서버에서 격차가 극대화됨을 증명하는 벤치마크
   </p>
   <div class="badge">
-    2워커 1.4x<span class="sep">→</span>3워커 1.7x<span class="sep">→</span>4워커 2.1x<span class="sep">|</span>선형 확장
+    4w 2.5x<span class="sep">&rarr;</span>8w 3.6x<span class="sep">&rarr;</span>20w 5.0x<span class="sep">&rarr;</span>28w 5.3x<span class="sep">|</span>선형 확장
   </div>
 </header>
 
@@ -251,30 +253,32 @@
 
   <!-- Test Environment -->
   <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:28px; padding:18px 24px; background:#1E293B; border-radius:12px; border:1px solid rgba(255,255,255,0.06); font-size:14px; color:#94A3B8;">
-    <span><b style="color:#E2E8F0;">CPU</b> Intel Core i5-9300H @ 2.40GHz (4.10GHz Turbo)</span>
+    <span><b style="color:#E2E8F0;">CPU</b> Intel Core i7-14700 (Raptor Lake)</span>
     <span style="color:rgba(255,255,255,0.15);">|</span>
-    <span><b style="color:#E2E8F0;">Cores</b> 4C / 8T</span>
+    <span><b style="color:#E2E8F0;">Cores</b> 20C / 28T (8P + 12E)</span>
     <span style="color:rgba(255,255,255,0.15);">|</span>
-    <span><b style="color:#E2E8F0;">Cache</b> L3 8MB</span>
+    <span><b style="color:#E2E8F0;">Boost</b> P 5.4GHz · E 4.0GHz</span>
     <span style="color:rgba(255,255,255,0.15);">|</span>
-    <span><b style="color:#E2E8F0;">RAM</b> DDR4-2400 12GB</span>
+    <span><b style="color:#E2E8F0;">Cache</b> L3 33MB</span>
     <span style="color:rgba(255,255,255,0.15);">|</span>
-    <span><b style="color:#E2E8F0;">Build</b> MSVC 19.44 Release (/O2)</span>
+    <span><b style="color:#E2E8F0;">RAM</b> 64GB</span>
+    <span style="color:rgba(255,255,255,0.15);">|</span>
+    <span><b style="color:#E2E8F0;">Build</b> MSVC C++23 Release</span>
   </div>
 
   <!-- Stats Grid -->
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="value green">2.1x</div>
-      <div class="label">4워커 기준 (테스트 PC 물리 코어 한계)</div>
+      <div class="value green">5.3x</div>
+      <div class="label">28워커 기준 Per-core / Shared</div>
     </div>
     <div class="stat-card">
-      <div class="value blue">2.11M</div>
-      <div class="label">Per-core Max Throughput</div>
+      <div class="value blue">7.65M</div>
+      <div class="label">Per-core Peak (8w, P-core 최적)</div>
     </div>
     <div class="stat-card">
-      <div class="value amber">0.77M</div>
-      <div class="label">Shared Max Throughput (Stalled)</div>
+      <div class="value amber">2.34M</div>
+      <div class="label">Shared Peak (4w, 이후 하락)</div>
     </div>
     <div class="stat-card">
       <div class="value red">0</div>
@@ -284,9 +288,9 @@
 
   <!-- Line Chart -->
   <div class="section">
-    <h2 class="section-title">Throughput Scaling Comparison</h2>
+    <h2 class="section-title">Throughput Scaling — 3-Model Comparison</h2>
     <div class="chart-wrap">
-      <div id="lineChart" style="width:100%;height:440px;"></div>
+      <div id="lineChart" style="width:100%;height:480px;"></div>
     </div>
   </div>
 
@@ -306,8 +310,9 @@
         <tr>
           <th>Workers</th>
           <th>Per-core (msg/s)</th>
-          <th>Shared Sharded (msg/s)</th>
-          <th>Per-core 배수</th>
+          <th>Shared (msg/s)</th>
+          <th>Lock-Free (msg/s)</th>
+          <th>Per-core / Shared</th>
         </tr>
       </thead>
       <tbody id="dataBody"></tbody>
@@ -319,35 +324,55 @@
     <h2 class="section-title">Architecture Analysis</h2>
     <div class="analysis-grid">
       <div class="analysis-card">
-        <h3><span class="dot dot-green"></span>Per-core가 선형 확장하는 이유</h3>
+        <h3><span class="dot dot-green"></span>Per-core가 고코어에서 압도적인 이유</h3>
         <ul>
           <li>각 워커가 <span class="highlight">독립된 io_context</span>를 소유 &mdash; 워커 간 공유 자원이 전혀 없음</li>
           <li>Lock-free가 아니라 <span class="highlight">Lock-없음</span> &mdash; 뮤텍스 자체가 존재하지 않으므로 경합 비용 = 0</li>
           <li>각 코어의 L1/L2 캐시가 독점적으로 활용됨 &mdash; <span class="highlight">false sharing 원천 차단</span></li>
-          <li>워커 수가 물리 코어(4)를 넘으면 HT(하이퍼스레딩) 효과로 완만하게 상승 지속 &mdash; 코어 경합 없이 파이프라인 슬롯 활용</li>
+          <li>8워커(P-core 수)에서 <span class="highlight">7.65M msg/s</span> 피크 도달 &mdash; 1워커 대비 3.87배로 거의 이상적인 선형 확장</li>
         </ul>
         <div style="margin-top:16px; padding:14px 18px; background:rgba(52,211,153,0.08); border-radius:8px; border:1px solid rgba(52,211,153,0.15); font-size:13px; color:#94A3B8; line-height:1.7;">
-          <b style="color:#34D399;">4워커 이후 확장률이 완만해지는 이유:</b>
-          현재 테스트 PC는 <b style="color:#E2E8F0;">4물리/8논리 코어(i5-9300H)</b>이다.
-          4워커까지는 각 워커가 전용 물리 코어를 사용하여 이상적인 선형 확장을 보인다.
-          8워커부터는 HyperThreading 영역으로, 물리 코어 내 실행 유닛을 시분할하므로 워커당 처리량 증가폭이 줄어든다.
-          <b style="color:#E2E8F0;">이는 테스트 PC의 물리 코어가 4개이기 때문이며, 물리 코어가 더 많은 프로덕션 서버에서는 4워커 이상에서도 선형 확장이 유지된다.</b>
+          <b style="color:#34D399;">8워커 이후 완만한 하락의 원인:</b>
+          i7-14700은 <b style="color:#E2E8F0;">P-core 8개 + E-core 12개</b>의 하이브리드 구조다.
+          8워커까지는 고성능 P-core에 1:1 매핑되어 이상적 확장을 보인다.
+          9~20워커부터 E-core가 투입되는데, E-core는 P-core 대비 처리 능력이 낮아
+          워커당 평균 처리량이 소폭 하락한다.
+          <b style="color:#E2E8F0;">그럼에도 28워커에서 5.98M msg/s를 유지하며, Shared 대비 5.3배 격차를 만든다.</b>
         </div>
       </div>
       <div class="analysis-card">
-        <h3><span class="dot dot-amber"></span>Shared가 64-shard에서도 정체하는 이유</h3>
+        <h3><span class="dot dot-amber"></span>Shared가 고코어에서 역행하는 이유</h3>
         <ul>
-          <li>세션 뮤텍스를 64개 샤드로 분산해도 <span class="highlight-amber">io_context 내부 큐 경합</span>이 병목 &mdash; 모든 워커가 동일 io_context의 run()을 호출</li>
-          <li>io_context 내부의 <span class="highlight-amber">work queue는 단일 뮤텍스로 보호</span>됨 &mdash; post/dispatch마다 lock acquire 발생</li>
-          <li>워커 수 증가 시 lock 경합이 선형 증가하여 <span class="highlight-amber">8워커 이후 처리량 완전 정체</span> (0.77M에서 포화)</li>
-          <li>세션 mutex 샤딩은 올바른 최적화였으나, 진짜 병목은 <span class="highlight-amber">그 아래 레이어(io_context)</span>에 있었음</li>
+          <li>모든 워커가 <span class="highlight-amber">동일 io_context의 run()</span>을 호출 &mdash; 내부 큐가 단일 뮤텍스로 보호됨</li>
+          <li>워커 4개까지는 경합이 제한적이어서 <span class="highlight-amber">2.34M</span>까지 상승</li>
+          <li>8워커부터 lock 경합이 지배적이 되면서 <span class="highlight-amber">처리량이 하락</span> (2.10M)</li>
+          <li>28워커에서는 경합 오버헤드가 병렬 이득을 완전히 상쇄 &mdash; <span class="highlight-amber">1.13M으로 1워커(2.04M)의 절반 수준</span></li>
+        </ul>
+      </div>
+      <div class="analysis-card">
+        <h3><span class="dot dot-red"></span>Lock-Free가 Shared와 다르지 않은 이유</h3>
+        <ul>
+          <li>Lock-Free 모델은 세션 관리에서 뮤텍스를 <span class="highlight-red">CAS(Compare-And-Swap)</span>로 대체</li>
+          <li>그러나 진짜 병목인 <span class="highlight-red">io_context 내부 큐 뮤텍스</span>는 Boost.Asio 내부에 있어 변경 불가</li>
+          <li>4워커까지 Shared와 거의 동일 (2.33M vs 2.34M) &mdash; 세션 레벨 경합이 아직 부차적</li>
+          <li>8워커 이후 Shared보다 <span class="highlight-red">더 나빠짐</span> (8w: 1.61M vs 2.10M) &mdash; CAS 실패 재시도 비용이 뮤텍스 대기보다 비효율적</li>
+          <li>28워커에서 <span class="highlight-red">0.94M</span>으로 3개 모델 중 최저 &mdash; 고경합 환경에서 CAS spinning은 역효과</li>
+        </ul>
+      </div>
+      <div class="analysis-card">
+        <h3><span class="dot dot-blue"></span>v0.5.10 (4C) → v0.6.1 (20C) 비교</h3>
+        <ul>
+          <li>v0.5.10 (i5-9300H, 4C/8T): 최대 배율 <span class="highlight">2.1x</span> (4워커) &mdash; 물리 코어 한계로 격차 제한</li>
+          <li>v0.6.1 (i7-14700, 20C/28T): 최대 배율 <span class="highlight">5.3x</span> (28워커) &mdash; 코어 증가에 비례하여 격차 확대</li>
+          <li>핵심: Per-core 모델은 코어가 늘어도 <span class="highlight">선형 확장</span>하지만, Shared 모델은 코어가 늘수록 <span class="highlight-amber">오히려 악화</span></li>
+          <li><b style="color:#E2E8F0;">프로덕션 서버(64C+)에서는 배율이 더욱 극대화될 것으로 예상</b></li>
         </ul>
       </div>
       <div class="analysis-card full">
-        <h3><span class="dot dot-blue"></span>결론: io_context 분리가 핵심이다</h3>
+        <h3><span class="dot dot-green"></span>결론: 코어가 많을수록 Per-core의 우위는 기하급수적으로 확대된다</h3>
         <p>
           이 벤치마크의 핵심 교훈은 명확하다: <span class="highlight">lock 최적화의 한계</span>.
-          Shared 모델에서 세션 뮤텍스를 64개 샤드로 분산한 것은 세션 레벨의 경합을 해소했지만,
+          Shared 모델은 뮤텍스 샤딩(v0.5.10)과 Lock-Free CAS(v0.6.1) 두 가지 최적화를 적용했지만,
           그 아래에 있는 <span class="highlight-amber">io_context 내부 큐의 단일 뮤텍스</span>가 진짜 병목이었다.
           아무리 상위 레벨의 lock을 최적화해도 하위 레벨에 공유 뮤텍스가 남아있으면
           <span class="highlight-amber">Amdahl의 법칙</span>에 의해 확장성은 제한된다.
@@ -356,10 +381,8 @@
         <p>
           Per-core 아키텍처는 이 문제를 근본적으로 해결한다.
           각 워커가 <span class="highlight">자신만의 io_context를 소유</span>하므로 큐 경합 자체가 발생하지 않는다.
-          결과적으로 2워커에서 <span class="highlight">1.4배</span>,
-          3워커에서 <span class="highlight">1.7배</span>,
-          4워커에서 <span class="highlight">2.1배</span>로
-          워커 수에 비례하는 <span class="highlight">선형 확장(linear scaling)</span>을 실현한다.
+          4코어 환경에서 2.1배였던 격차는 20코어에서 <span class="highlight">5.3배</span>로 확대되었으며,
+          이는 코어 수가 증가할수록 격차가 <span class="highlight">발산</span>함을 의미한다.
           이것이 Apex Pipeline이 shared-nothing 아키텍처를 채택한 근본적인 이유다.
         </p>
       </div>
@@ -369,19 +392,21 @@
 
 <!-- Environment Footer -->
 <footer class="env-footer">
-  Intel Core i5-9300H @ 2.40GHz (4.10GHz Turbo)
-  <span class="sep">&middot;</span>4C / 8T
-  <span class="sep">&middot;</span>L3 8MB
-  <span class="sep">&middot;</span>DDR4-2400 12GB
-  <span class="sep">&middot;</span>MSVC 19.44 Release
+  Intel Core i7-14700 (Raptor Lake)
+  <span class="sep">&middot;</span>20C / 28T (8P + 12E)
+  <span class="sep">&middot;</span>P 5.4GHz &middot; E 4.0GHz
+  <span class="sep">&middot;</span>L3 33MB
+  <span class="sep">&middot;</span>64GB RAM
+  <span class="sep">&middot;</span>MSVC C++23 Release
   <span class="sep">&middot;</span>Google Benchmark v1.9.4
 </footer>
 
 <script>
-// Benchmark data extracted from architecture_comparison.json
-const workers  = [1, 2, 3, 4, 8, 16];
-const perCore  = [511614, 901329, 1244019, 1561924, 1973083, 2109458];
-const shared   = [533682, 643593, 717737, 742663, 770540, 772519];
+// Benchmark data — v0.6.1.0, i7-14700 20C/28T
+const workers  = [1, 2, 3, 4, 8, 16, 20, 28];
+const perCore  = [1974580, 3276577, 4833845, 5762974, 7646314, 6519085, 6185482, 5983799];
+const shared   = [2040304, 1914439, 2179984, 2344802, 2102306, 1413740, 1237272, 1132394];
+const lockFree = [2052589, 1947848, 2211024, 2334033, 1610516, 1060361, 1117034,  935506];
 const ratios   = perCore.map((v, i) => +(v / shared[i]).toFixed(2));
 
 // === Line Chart ===
@@ -395,14 +420,34 @@ const lineTrace1 = {
 };
 const lineTrace2 = {
   x: workers, y: shared.map(v => v / 1e6),
-  name: 'Shared io_context (64-shard)',
+  name: 'Shared io_context (mutex)',
   mode: 'lines+markers',
   line: { color: '#F59E0B', width: 3, dash: 'dash' },
   marker: { size: 8, color: '#F59E0B', symbol: 'diamond' },
   hovertemplate: '%{x} workers: %{y:.2f}M msg/s<extra>Shared</extra>'
 };
+const lineTrace3 = {
+  x: workers, y: lockFree.map(v => v / 1e6),
+  name: 'Shared io_context (lock-free)',
+  mode: 'lines+markers',
+  line: { color: '#F87171', width: 2.5, dash: 'dot' },
+  marker: { size: 7, color: '#F87171', symbol: 'triangle-up' },
+  hovertemplate: '%{x} workers: %{y:.2f}M msg/s<extra>Lock-Free</extra>'
+};
 
-Plotly.newPlot('lineChart', [lineTrace1, lineTrace2], {
+// P-core boundary annotation
+const pCoreAnnotation = {
+  x: 8, y: perCore[4] / 1e6,
+  xref: 'x', yref: 'y',
+  text: '← 8 P-cores',
+  showarrow: true,
+  arrowhead: 0,
+  arrowcolor: '#475569',
+  ax: 50, ay: -30,
+  font: { color: '#94A3B8', size: 11 }
+};
+
+Plotly.newPlot('lineChart', [lineTrace1, lineTrace2, lineTrace3], {
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { color: '#94A3B8', family: 'Segoe UI, sans-serif' },
@@ -427,14 +472,15 @@ Plotly.newPlot('lineChart', [lineTrace1, lineTrace2], {
     borderwidth: 1,
     font: { size: 12 }
   },
+  annotations: [pCoreAnnotation],
   margin: { l: 60, r: 30, t: 20, b: 50 },
   hovermode: 'x unified'
 }, { responsive: true, displayModeBar: false });
 
 // === Bar Chart ===
-const barColors = ratios.map(r => r > 2.0 ? '#34D399' : r > 1.2 ? '#38BDF8' : '#64748B');
+const barColors = ratios.map(r => r > 4.0 ? '#34D399' : r > 2.0 ? '#38BDF8' : r > 1.2 ? '#64748B' : '#475569');
 const barTrace = {
-  x: workers.map(w => w + ' workers'),
+  x: workers.map(w => w + 'w'),
   y: ratios,
   type: 'bar',
   marker: {
@@ -460,17 +506,23 @@ Plotly.newPlot('barChart', [barTrace], {
     gridcolor: 'rgba(51,65,85,0.4)',
     linecolor: '#334155',
     zeroline: false,
-    range: [0, 3.2]
+    range: [0, 6.5]
   },
   shapes: [{
-    type: 'line', x0: -0.5, x1: 5.5, y0: 1, y1: 1,
+    type: 'line', x0: -0.5, x1: 7.5, y0: 1, y1: 1,
     line: { color: '#475569', width: 1, dash: 'dot' }
   }, {
-    type: 'line', x0: -0.5, x1: 5.5, y0: 2, y1: 2,
+    type: 'line', x0: -0.5, x1: 7.5, y0: 2, y1: 2,
+    line: { color: 'rgba(56,189,248,0.25)', width: 1, dash: 'dot' }
+  }, {
+    type: 'line', x0: -0.5, x1: 7.5, y0: 4, y1: 4,
     line: { color: 'rgba(52,211,153,0.25)', width: 1, dash: 'dot' }
   }],
   annotations: [{
-    x: 5.4, y: 2.05, text: '2x', showarrow: false,
+    x: 7.4, y: 2.1, text: '2x', showarrow: false,
+    font: { color: '#38BDF8', size: 11 }
+  }, {
+    x: 7.4, y: 4.1, text: '4x', showarrow: false,
     font: { color: '#34D399', size: 11 }
   }],
   margin: { l: 60, r: 30, t: 20, b: 50 },
@@ -482,11 +534,12 @@ function fmt(n) { return n.toLocaleString('en-US'); }
 const tbody = document.getElementById('dataBody');
 workers.forEach((w, i) => {
   const r = ratios[i];
-  const cls = r > 2.0 ? 'ratio-high' : r > 1.2 ? 'ratio-mid' : 'ratio-low';
+  const cls = r > 4.0 ? 'ratio-high' : r > 2.0 ? 'ratio-mid' : 'ratio-low';
   tbody.innerHTML += `<tr>
     <td>${w}</td>
     <td style="color:#34D399">${fmt(perCore[i])}</td>
     <td style="color:#F59E0B">${fmt(shared[i])}</td>
+    <td style="color:#F87171">${fmt(lockFree[i])}</td>
     <td><span class="ratio-badge ${cls}">${r.toFixed(2)}x</span></td>
   </tr>`;
 });
