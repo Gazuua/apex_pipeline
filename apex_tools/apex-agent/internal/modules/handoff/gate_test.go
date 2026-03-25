@@ -17,7 +17,7 @@ func setupGateTestDB(t *testing.T) (*store.Store, *Manager) {
 	}
 	t.Cleanup(func() { s.Close() })
 	mig := store.NewMigrator(s)
-	mod := New(s, nil)
+	mod := New(s, nil, nil, nil)
 	mod.RegisterSchema(mig)
 	if err := mig.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
@@ -34,7 +34,7 @@ func setupGateTestDBWithMock(t *testing.T, bm BacklogOperator) (*store.Store, *M
 	}
 	t.Cleanup(func() { s.Close() })
 	mig := store.NewMigrator(s)
-	mod := New(s, bm)
+	mod := New(s, bm, nil, nil)
 	mod.RegisterSchema(mig)
 
 	if err := mig.Migrate(); err != nil {

@@ -75,43 +75,6 @@ func TestDropPipeline_IPCFails(t *testing.T) {
 	}
 }
 
-// ── MergePipeline ──
-
-func TestMergePipeline_OK(t *testing.T) {
-	repoDir, _ := initRepoWithOrigin(t)
-	runGit(t, repoDir, "checkout", "-b", "feature/merge-test")
-
-	_, mgr, cleanup := setupPipelineTest(t)
-	defer cleanup()
-
-	mock := &mockIPC{result: map[string]any{}}
-	params := map[string]any{"branch": "test", "workspace": "test", "summary": "merge"}
-
-	err := MergePipeline(context.Background(), params, repoDir, mgr, mock.fn)
-	if err != nil {
-		t.Fatalf("MergePipeline: %v", err)
-	}
-	if len(mock.calls) != 1 || mock.calls[0] != "notify-merge" {
-		t.Errorf("expected IPC call 'notify-merge', got: %v", mock.calls)
-	}
-}
-
-func TestMergePipeline_IPCFails(t *testing.T) {
-	repoDir, _ := initRepoWithOrigin(t)
-	runGit(t, repoDir, "checkout", "-b", "feature/merge-fail")
-
-	_, mgr, cleanup := setupPipelineTest(t)
-	defer cleanup()
-
-	mock := &mockIPC{err: fmt.Errorf("FIXING 잔존")}
-	params := map[string]any{"branch": "test", "summary": "merge"}
-
-	err := MergePipeline(context.Background(), params, repoDir, mgr, mock.fn)
-	if err == nil {
-		t.Fatal("expected error when IPC fails")
-	}
-}
-
 // ── StartPipeline ──
 
 func TestStartPipeline_OK(t *testing.T) {
@@ -169,29 +132,3 @@ func TestStartPipeline_IPCFails(t *testing.T) {
 	}
 }
 
-func TestMergePipeline_RebaseFails(t *testing.T) {
-	repoDir, bareDir := initRepoWithOrigin(t)
-	// 충돌 시나리오 생성
-	runGit(t, repoDir, "checkout", "-b", "feature/rebase-fail")
-	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("feature version\n"), 0o644)
-	runGit(t, repoDir, "add", ".")
-	runGit(t, repoDir, "commit", "-m", "feature change")
-	runGit(t, repoDir, "checkout", "main")
-	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("main version\n"), 0o644)
-	runGit(t, repoDir, "add", ".")
-	runGit(t, repoDir, "commit", "-m", "main change")
-	runGit(t, repoDir, "push", bareDir, "main")
-	runGit(t, repoDir, "checkout", "feature/rebase-fail")
-
-	mock := &mockIPC{result: map[string]any{}}
-	params := map[string]any{"branch": "test", "summary": "merge"}
-
-	err := MergePipeline(context.Background(), params, repoDir, nil, mock.fn)
-	if err == nil {
-		t.Fatal("expected error when rebase fails")
-	}
-	// IPC가 호출되지 않아야 함 (rebase 실패 → Phase 4 미도달)
-	if len(mock.calls) != 0 {
-		t.Errorf("IPC should not be called after rebase failure, got: %v", mock.calls)
-	}
-}

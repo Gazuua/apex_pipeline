@@ -258,6 +258,10 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - Argo Rollouts canary 배포 (10→50→100%, Helm Rollout CRD 지원)
   - 조건부 태깅 (sha/latest/main), 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
+- **도구: notify merge 통합 — 머지 유일 진입점 (PR #174, BACKLOG-234)**
+  - `handoff notify merge`가 데몬 파이프라인에서 lock→export→rebase→push→merge→finalize를 원자적 수행
+  - `gh pr merge` 직접 호출 전면 차단, `queue merge` CLI 서브커맨드 제거
+
 - **v0.6.3.0 — K8s manifests + Helm 차트 서비스 오케스트레이션 (PR #147)**
   - umbrella+library chart, 2-release 네임스페이스 분리, expand_env Secret 주입
   - Bitnami 하이브리드 인프라, minikube 로컬 검증

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -30,30 +31,6 @@ func syncImportViaIPC(projectRoot string) {
 		// non-fatal: best-effort import
 		return
 	}
-}
-
-// syncExportViaIPC fetches export JSON from daemon and writes to docs/BACKLOG.json.
-// Returns error on failure (export is critical for merge workflow).
-func syncExportViaIPC(projectRoot string) error {
-	resp, err := sendBacklogRequest("export", nil)
-	if err != nil {
-		return fmt.Errorf("daemon unavailable: %w", err)
-	}
-	if resp.Error != "" {
-		return fmt.Errorf("backlog export: %s", resp.Error)
-	}
-	var result struct {
-		Content string `json:"content"`
-	}
-	if err := json.Unmarshal(resp.Data, &result); err != nil {
-		return fmt.Errorf("parse export response: %w", err)
-	}
-
-	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
-	if mkErr := os.MkdirAll(filepath.Join(projectRoot, "docs"), 0o755); mkErr != nil {
-		return mkErr
-	}
-	return os.WriteFile(jsonPath, []byte(result.Content), 0o644)
 }
 
 // getBranchID extracts the workspace branch identifier from the current directory.
@@ -260,30 +237,21 @@ func handoffNotifyMergeCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "merge",
-		Short: "머지 완료 알림",
+		Short: "머지 완료 — 전체 파이프라인 실행 (lock→export→rebase→push→merge→finalize)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := getBranchID()
-			params := map[string]any{
-				"branch":    branch,
-				"workspace": branch,
-				"summary":   summary,
-			}
-
 			root, err := projectRoot()
 			if err != nil {
-				root = "."
+				return fmt.Errorf("프로젝트 루트를 찾을 수 없습니다: %w", err)
 			}
-
-			// IPC 경유 sync-import (Phase 2 대체)
-			syncImportViaIPC(root)
-
-			// IPC 경유 sync-export (Phase 3 대체)
-			if exportErr := syncExportViaIPC(root); exportErr != nil {
-				return fmt.Errorf("머지 전 backlog export 실패: %w", exportErr)
+			params := map[string]any{
+				"branch":       branch,
+				"workspace":    branch,
+				"summary":      summary,
+				"project_root": root,
 			}
-
-			// mgr=nil: SyncImport/SyncExport는 위에서 IPC로 처리 완료
-			if err := workflow.MergePipeline(context.Background(), params, root, nil, ipcWrapper); err != nil {
+			// Extended timeout: lock 대기(최대30분) + rebase + push + merge + finalize
+			if _, err := sendRequestMapWithTimeout("handoff", "notify-merge", params, "", 45*time.Minute); err != nil {
 				return err
 			}
 			fmt.Printf("[handoff] branch merged (branch=%s)\n", branch)

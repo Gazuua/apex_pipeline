@@ -6,19 +6,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/workflow"
 )
 
 // Module implements the daemon.Module interface for handoff management.
 type Module struct {
-	manager *Manager
+	manager    *Manager
+	backlogMgr *backlog.Manager // full manager for SyncExport/SyncImport in merge pipeline
 }
 
 // New creates a new handoff Module backed by the given store.
-func New(s *store.Store, bm BacklogOperator) *Module {
-	return &Module{manager: NewManager(s, bm)}
+// backlogMgr is the full backlog manager (for export/import); bm is the operator interface.
+func New(s *store.Store, bm BacklogOperator, qm QueueOperator, backlogMgr *backlog.Manager) *Module {
+	return &Module{
+		manager:    NewManager(s, bm, qm),
+		backlogMgr: backlogMgr,
+	}
 }
 
 func (m *Module) Name() string { return "handoff" }
@@ -390,9 +398,10 @@ func (m *Module) handleValidateEdit(ctx context.Context, params json.RawMessage,
 // --- Merge / Drop / ListActive handlers ---
 
 type notifyMergeParams struct {
-	Branch    string `json:"branch"`
-	Workspace string `json:"workspace"`
-	Summary   string `json:"summary"`
+	Branch      string `json:"branch"`
+	Workspace   string `json:"workspace"`
+	Summary     string `json:"summary"`
+	ProjectRoot string `json:"project_root"` // 있으면 MergeFullPipeline 실행
 }
 
 func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, _ string) (any, error) {
@@ -400,6 +409,51 @@ func (m *Module) handleNotifyMerge(ctx context.Context, params json.RawMessage, 
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("decode params: %w", err)
 	}
+
+	// project_root가 있으면 MergeFullPipeline 실행 (새 경로)
+	if p.ProjectRoot != "" {
+		// 사전 검증: FIXING 백로그가 남아있으면 머지 파이프라인 진입 전 차단
+		if err := m.manager.ValidateMergeGate(ctx, p.Branch); err != nil {
+			return nil, err
+		}
+
+		mergeParams := workflow.MergeFullParams{
+			ProjectRoot: p.ProjectRoot,
+			Branch:      p.Branch,
+			Workspace:   p.Workspace,
+			Summary:     p.Summary,
+			ImportFn: func(root string) {
+				if m.backlogMgr != nil {
+					if _, err := workflow.SyncImport(ctx, root, m.backlogMgr); err != nil {
+						ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
+					}
+				}
+			},
+			ExportFn: func(root string) error {
+				if m.backlogMgr != nil {
+					if _, err := workflow.SyncExport(ctx, root, m.backlogMgr); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+			FinalizeFn: func(fCtx context.Context) error {
+				return m.manager.NotifyMerge(fCtx, p.Branch, p.Workspace, p.Summary)
+			},
+			LockAcquireFn: func(lCtx context.Context) error {
+				return m.manager.queueManager.Acquire(lCtx, "merge", p.Branch, os.Getpid())
+			},
+			LockReleaseFn: func(lCtx context.Context) error {
+				return m.manager.queueManager.Release(lCtx, "merge")
+			},
+		}
+		if err := workflow.MergeFullPipeline(ctx, mergeParams); err != nil {
+			return nil, err
+		}
+		return map[string]string{"status": "merged"}, nil
+	}
+
+	// Fallback: project_root 없으면 기존 동작 (DB finalize만)
 	if err := m.manager.NotifyMerge(ctx, p.Branch, p.Workspace, p.Summary); err != nil {
 		return nil, err
 	}
