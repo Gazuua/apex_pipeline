@@ -1032,7 +1032,7 @@ func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
 
 	// Import with identical fields — updated_at should NOT change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, got.Title, got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1073,7 +1073,7 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 
 	// Import with changed title — updated_at SHOULD change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, "changed title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1095,11 +1095,100 @@ func TestUpdateFromImport_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	mgr := NewManager(s)
 
-	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN")
+	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN", "")
 	if err == nil {
 		t.Fatal("expected error for non-existent item, got nil")
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected 'not found' in error message, got: %v", err)
+	}
+}
+
+// TestUpdateFromImport_StaleGuard: import with older updated_at is skipped (DB wins).
+func TestUpdateFromImport_StaleGuard(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	item := &BacklogItem{
+		Title:       "original title",
+		Severity:    "MAJOR",
+		Timeframe:   "IN_VIEW",
+		Scope:       "CORE",
+		Type:        "BUG",
+		Description: "original desc",
+	}
+	if err := mgr.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	// Simulate a CLI update that bumps updated_at.
+	if err := mgr.Update(context.Background(), item.ID, map[string]string{"title": "updated title"}); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	got, err := mgr.Get(context.Background(), item.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Title != "updated title" {
+		t.Fatalf("expected 'updated title', got %q", got.Title)
+	}
+	dbUpdatedAt := got.UpdatedAt
+
+	// Import with an older updated_at — should be skipped.
+	staleUpdatedAt := "2020-01-01 00:00:00"
+	err = mgr.UpdateFromImport(context.Background(), item.ID, "stale title", got.Severity, got.Timeframe,
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, staleUpdatedAt)
+	if err != nil {
+		t.Fatalf("UpdateFromImport: %v", err)
+	}
+
+	got2, err := mgr.Get(context.Background(), item.ID)
+	if err != nil {
+		t.Fatalf("Get after stale import: %v", err)
+	}
+	if got2.Title != "updated title" {
+		t.Errorf("stale import should not overwrite: expected 'updated title', got %q", got2.Title)
+	}
+	if got2.UpdatedAt != dbUpdatedAt {
+		t.Errorf("stale import should not bump updated_at: expected %q, got %q", dbUpdatedAt, got2.UpdatedAt)
+	}
+}
+
+// TestUpdateFromImport_EmptyTimestamp: import with empty updated_at always applies (backward compat).
+func TestUpdateFromImport_EmptyTimestamp(t *testing.T) {
+	s := setupTestDB(t)
+	mgr := NewManager(s)
+
+	item := &BacklogItem{
+		Title:       "original title",
+		Severity:    "MAJOR",
+		Timeframe:   "IN_VIEW",
+		Scope:       "CORE",
+		Type:        "BUG",
+		Description: "desc",
+	}
+	if err := mgr.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	got, err := mgr.Get(context.Background(), item.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+
+	// Import with empty updated_at — should always apply (legacy/MD import).
+	err = mgr.UpdateFromImport(context.Background(), item.ID, "new title", got.Severity, got.Timeframe,
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, "")
+	if err != nil {
+		t.Fatalf("UpdateFromImport: %v", err)
+	}
+
+	got2, err := mgr.Get(context.Background(), item.ID)
+	if err != nil {
+		t.Fatalf("Get after import: %v", err)
+	}
+	if got2.Title != "new title" {
+		t.Errorf("empty timestamp import should apply: expected 'new title', got %q", got2.Title)
 	}
 }

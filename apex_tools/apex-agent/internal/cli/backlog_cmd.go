@@ -36,6 +36,36 @@ func sendBacklogRequest(action string, params any) (*ipc.Response, error) {
 	return sendRequest("backlog", action, params, "")
 }
 
+// autoExport writes DB → docs/BACKLOG.json after a mutating operation.
+// Failure is non-fatal — the primary operation already succeeded.
+func autoExport() {
+	resp, err := sendBacklogRequest("export", nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[auto-export] warning: daemon unavailable: %v\n", err)
+		return
+	}
+	if resp.Error != "" {
+		fmt.Fprintf(os.Stderr, "[auto-export] warning: %s\n", resp.Error)
+		return
+	}
+	var result struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		fmt.Fprintf(os.Stderr, "[auto-export] warning: parse response: %v\n", err)
+		return
+	}
+	root, err := projectRoot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[auto-export] warning: project root not found: %v\n", err)
+		return
+	}
+	jsonPath := filepath.Join(root, "docs", "BACKLOG.json")
+	if err := os.WriteFile(jsonPath, []byte(result.Content), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "[auto-export] warning: write failed: %v\n", err)
+	}
+}
+
 // ── backlog add ──
 
 func backlogAddCmd() *cobra.Command {
@@ -99,6 +129,7 @@ func backlogAddCmd() *cobra.Command {
 			} else {
 				fmt.Printf("Added #%d: %s\n", result.ID, title)
 			}
+			autoExport()
 			return nil
 		},
 	}
@@ -323,6 +354,7 @@ func backlogResolveCmd() *cobra.Command {
 				return fmt.Errorf("backlog resolve: %s", resp.Error)
 			}
 			fmt.Printf("Resolved #%d: %s\n", id, resolution)
+			autoExport()
 			return nil
 		},
 	}
@@ -454,6 +486,7 @@ func backlogUpdateCmd() *cobra.Command {
 				return fmt.Errorf("backlog update: %s", resp.Error)
 			}
 			fmt.Printf("Updated #%d: %d fields\n", id, len(fields))
+			autoExport()
 			return nil
 		},
 	}
@@ -494,6 +527,7 @@ func backlogReleaseCmd() *cobra.Command {
 				return fmt.Errorf("backlog release: %s", resp.Error)
 			}
 			fmt.Printf("Released #%d: %s\n", id, reason)
+			autoExport()
 			return nil
 		},
 	}
@@ -532,6 +566,7 @@ func backlogFixCmd() *cobra.Command {
 				}
 				fmt.Printf("Fixed #%d → FIXING (branch: %s)\n", id, branch)
 			}
+			autoExport()
 			return nil
 		},
 	}
