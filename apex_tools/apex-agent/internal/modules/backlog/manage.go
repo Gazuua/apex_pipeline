@@ -301,10 +301,10 @@ func (m *Manager) ListAll(ctx context.Context) ([]BacklogItem, error) {
 
 // UpdateFromImport updates metadata fields for an existing item from JSON/MD import.
 // Only updates (and bumps updated_at) if at least one field actually changed.
-// Does NOT touch resolution/resolved_at — those are managed by Resolve().
+// Does NOT touch status/resolution/resolved_at — those are managed exclusively by CLI (Resolve/Release/Fix).
 // If importUpdatedAt is non-empty and the DB item's updated_at is strictly newer,
 // the import data is considered stale and the update is skipped (DB wins).
-func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity, timeframe, scope, itemType, description, related string, position int, status, importUpdatedAt string) error {
+func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity, timeframe, scope, itemType, description, related string, position int, importUpdatedAt string) error {
 	// Read current values to detect changes.
 	existing, err := m.Get(ctx, id)
 	if err != nil {
@@ -320,7 +320,7 @@ func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity,
 		return nil
 	}
 
-	// Compare all import-managed fields.
+	// Compare all import-managed fields (status excluded — DB owns status).
 	if existing.Title == title &&
 		existing.Severity == severity &&
 		existing.Timeframe == timeframe &&
@@ -328,19 +328,18 @@ func (m *Manager) UpdateFromImport(ctx context.Context, id int, title, severity,
 		existing.Type == itemType &&
 		existing.Description == description &&
 		existing.Related == related &&
-		existing.Position == position &&
-		existing.Status == status {
+		existing.Position == position {
 		return nil
 	}
 
 	_, err = m.q.Exec(ctx, `
 		UPDATE backlog_items
 		SET title = ?, severity = ?, timeframe = ?, scope = ?, type = ?,
-		    description = ?, related = ?, position = ?, status = ?,
+		    description = ?, related = ?, position = ?,
 		    updated_at = datetime('now','localtime')
 		WHERE id = ?`,
 		title, severity, timeframe, scope, itemType,
-		description, related, position, status, id,
+		description, related, position, id,
 	)
 	if err != nil {
 		return fmt.Errorf("UpdateFromImport #%d: %w", id, err)
@@ -385,7 +384,7 @@ func (m *Manager) SetStatus(ctx context.Context, id int, status string) error {
 
 // SetStatusWith updates the status of a backlog item using the provided store
 // (which may be a transaction-bound copy from RunInTx).
-// FIXING 전이 시 이미 FIXING인 항목은 DB 레벨에서 차단 (rows affected=0).
+// DB 레벨 가드: FIXING 전이 시 이미 FIXING이면 차단, OPEN 전이 시 FIXING만 허용 (RESOLVED 원복 방지).
 func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, status string) error {
 	if err := ValidateStatus(status); err != nil {
 		return err
@@ -394,9 +393,14 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 	query := `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ?`
 	args := []any{status, id}
 
-	// FIXING 전이 시 이미 FIXING인 항목을 DB 레벨에서 방어
-	if status == StatusFixing {
+	switch status {
+	case StatusFixing:
+		// FIXING 전이 시 이미 FIXING인 항목을 DB 레벨에서 방어
 		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status != ?`
+		args = append(args, StatusFixing)
+	case StatusOpen:
+		// OPEN 전이는 FIXING에서만 허용 — RESOLVED 원복 방지
+		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status = ?`
 		args = append(args, StatusFixing)
 	}
 
@@ -409,10 +413,14 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 		return fmt.Errorf("SetStatus RowsAffected: %w", err)
 	}
 	if n == 0 {
-		if status == StatusFixing {
+		switch status {
+		case StatusFixing:
 			return fmt.Errorf("SetStatus: item %d not found or already FIXING", id)
+		case StatusOpen:
+			return fmt.Errorf("SetStatus: item %d not found or not FIXING (RESOLVED items cannot revert to OPEN)", id)
+		default:
+			return fmt.Errorf("SetStatus: item %d not found", id)
 		}
-		return fmt.Errorf("SetStatus: item %d not found", id)
 	}
 	ml.Info("status changed", "id", id, "status", status)
 	return nil

@@ -130,7 +130,7 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 ## AI Agent-Driven Development
 
 <div align="center">
-<img src="docs/showcase/agent_ecosystem_arch.svg" alt="AI Agent-Driven Development Ecosystem Architecture" width="860"/>
+<img src="docs/apex_common/showcase/agent_ecosystem_arch.svg" alt="AI Agent-Driven Development Ecosystem Architecture" width="860"/>
 </div>
 
 <table>

@@ -532,6 +532,74 @@ func TestSetStatusWith_UsesTxStore(t *testing.T) {
 	}
 }
 
+func TestSetStatus_ResolvedCannotRevertToOpen(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "Guard test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "RESOLVED items must not revert to OPEN",
+	}
+	if err := m.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if err := m.SetStatus(context.Background(), 1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+	if err := m.Resolve(context.Background(), 1, "FIXED"); err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
+
+	// RESOLVED → OPEN must be rejected
+	err := m.SetStatus(context.Background(), 1, "OPEN")
+	if err == nil {
+		t.Fatal("expected error for RESOLVED → OPEN transition")
+	}
+	if !strings.Contains(err.Error(), "not FIXING") {
+		t.Errorf("expected 'not FIXING' in error, got: %v", err)
+	}
+
+	// Status must remain RESOLVED
+	got, err := m.Get(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "RESOLVED" {
+		t.Errorf("Status: want %q, got %q", "RESOLVED", got.Status)
+	}
+}
+
+func TestSetStatus_FixingToOpen(t *testing.T) {
+	s := setupTestDB(t)
+	m := NewManager(s)
+
+	item := &BacklogItem{
+		ID: 1, Title: "FIXING→OPEN test", Severity: "MAJOR",
+		Timeframe: "NOW", Scope: "CORE", Type: "BUG",
+		Description: "FIXING items can revert to OPEN",
+	}
+	if err := m.Add(context.Background(), item); err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+	if err := m.SetStatus(context.Background(), 1, "FIXING"); err != nil {
+		t.Fatalf("SetStatus FIXING failed: %v", err)
+	}
+
+	// FIXING → OPEN must succeed
+	if err := m.SetStatus(context.Background(), 1, "OPEN"); err != nil {
+		t.Fatalf("SetStatus OPEN failed: %v", err)
+	}
+
+	got, err := m.Get(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if got.Status != "OPEN" {
+		t.Errorf("Status: want %q, got %q", "OPEN", got.Status)
+	}
+}
+
 // ── Release ──
 
 func TestRelease_FixingToOpen(t *testing.T) {
@@ -1032,7 +1100,7 @@ func TestUpdateFromImport_PreservesUpdatedAt(t *testing.T) {
 
 	// Import with identical fields — updated_at should NOT change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, got.Title, got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1073,7 +1141,7 @@ func TestUpdateFromImport_UpdatesOnChange(t *testing.T) {
 
 	// Import with changed title — updated_at SHOULD change.
 	err = mgr.UpdateFromImport(context.Background(),item.ID, "changed title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, got.UpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, got.UpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1095,7 +1163,7 @@ func TestUpdateFromImport_NotFound(t *testing.T) {
 	s := setupTestDB(t)
 	mgr := NewManager(s)
 
-	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "OPEN", "")
+	err := mgr.UpdateFromImport(context.Background(),999, "title", "MAJOR", "NOW", "CORE", "BUG", "desc", "", 1, "")
 	if err == nil {
 		t.Fatal("expected error for non-existent item, got nil")
 	}
@@ -1138,7 +1206,7 @@ func TestUpdateFromImport_StaleGuard(t *testing.T) {
 	// Import with an older updated_at — should be skipped.
 	staleUpdatedAt := "2020-01-01 00:00:00"
 	err = mgr.UpdateFromImport(context.Background(), item.ID, "stale title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, staleUpdatedAt)
+		got.Scope, got.Type, got.Description, got.Related, got.Position, staleUpdatedAt)
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
@@ -1179,7 +1247,7 @@ func TestUpdateFromImport_EmptyTimestamp(t *testing.T) {
 
 	// Import with empty updated_at — should always apply (legacy/MD import).
 	err = mgr.UpdateFromImport(context.Background(), item.ID, "new title", got.Severity, got.Timeframe,
-		got.Scope, got.Type, got.Description, got.Related, got.Position, got.Status, "")
+		got.Scope, got.Type, got.Description, got.Related, got.Position, "")
 	if err != nil {
 		t.Fatalf("UpdateFromImport: %v", err)
 	}
