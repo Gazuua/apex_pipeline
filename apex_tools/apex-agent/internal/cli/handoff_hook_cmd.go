@@ -44,8 +44,13 @@ func hookValidateHandoffCmd() *cobra.Command {
 			}
 
 			// workspace ID + git branch로 daemon에서 등록된 브랜치 조회
-			branch, _ := resolveHandoffBranch(cwd, gitBranch)
+			branch, resolveErr := resolveHandoffBranch(cwd, gitBranch)
 			if branch == "" {
+				if resolveErr != nil {
+					// daemon IPC 실패 — fail-close
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
+				}
 				// 미등록 브랜치: git commit은 차단, 그 외는 통과
 				if isGitCommit(command) {
 					fmt.Fprintln(os.Stderr, "차단: 핸드오프 미등록 브랜치에서 커밋 불가. 'apex-agent handoff notify start'로 등록하세요.")
@@ -58,8 +63,8 @@ func hookValidateHandoffCmd() *cobra.Command {
 			if isGitCommit(command) {
 				resp, err := sendHandoffRaw("validate-commit", map[string]any{"branch": branch})
 				if err != nil {
-					// 데몬 연결 실패 시 통과 (graceful degradation)
-					return nil
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
 				}
 				if resp.Error != "" {
 					fmt.Fprintln(os.Stderr, resp.Error)
@@ -68,10 +73,11 @@ func hookValidateHandoffCmd() *cobra.Command {
 			}
 
 			// 2) gh pr merge 게이트
-			if strings.Contains(command, "gh pr merge") {
+			if containsShellCommand(command, "gh pr merge") {
 				resp, err := sendHandoffRaw("validate-merge-gate", map[string]any{"branch": branch})
 				if err != nil {
-					return nil
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
 				}
 				if resp.Error != "" {
 					fmt.Fprintln(os.Stderr, resp.Error)
@@ -122,7 +128,8 @@ func hookHandoffProbeCmd() *cobra.Command {
 				"file_path": filePath,
 			})
 			if err != nil {
-				return nil // 데몬 연결 실패 시 통과
+				fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+				os.Exit(2)
 			}
 			if resp.Error != "" {
 				fmt.Fprintln(os.Stderr, resp.Error)

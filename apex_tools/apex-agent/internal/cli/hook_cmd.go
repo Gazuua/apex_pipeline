@@ -76,8 +76,8 @@ func hookValidateMergeCmd() *cobra.Command {
 				// Check merge lock via daemon IPC (DB-based queue)
 				result, err := sendRequestMap("queue", "status", map[string]any{"channel": "merge"}, "")
 				if err != nil {
-					// Daemon unavailable → fail-open (allow merge)
-					return nil
+					fmt.Fprintf(os.Stderr, "[hook] error: daemon unreachable — run 'apex-agent daemon start'\n")
+					os.Exit(2)
 				}
 				if result["active"] == nil {
 					fmt.Fprintln(os.Stderr, "차단: 먼저 apex-agent queue merge acquire를 실행하세요.")
@@ -111,7 +111,11 @@ func hookEnforceRebaseCmd() *cobra.Command {
 				return nil
 			}
 			// Determine project root from cwd
-			cwd, _ := os.Getwd()
+			cwd, cwdErr := os.Getwd()
+			if cwdErr != nil {
+				fmt.Fprintf(os.Stderr, "[hook] error: cannot determine working directory: %v\n", cwdErr)
+				os.Exit(2)
+			}
 			msg, err := hook.EnforceRebase(command, cwd)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())

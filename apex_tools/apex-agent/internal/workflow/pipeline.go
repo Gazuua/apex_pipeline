@@ -21,7 +21,6 @@ type IPCFunc func(action string, params map[string]any) (map[string]any, error)
 //  1. ValidateNewBranch(branchName)
 //  2. ipcFn("notify-start", params) → DB TX
 //  3. CreateAndPushBranch(branchName)
-//  4. SyncImport(projectRoot, mgr) — non-fatal
 func StartPipeline(ctx context.Context, branchName string, params map[string]any,
 	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
 
@@ -41,15 +40,6 @@ func StartPipeline(ctx context.Context, branchName string, params map[string]any
 	// 기존 항목 정리 로직(branch replace)이 자동 복구한다.
 	if err := CreateAndPushBranch(projectRoot, branchName); err != nil {
 		return fmt.Errorf("브랜치 생성 실패: %w", err)
-	}
-
-	// Phase 4: backlog import (non-fatal)
-	if mgr != nil {
-		if n, syncErr := SyncImport(ctx, projectRoot, mgr); syncErr != nil {
-			ml.Warn("착수 시 backlog import 실패 (작업 진행에 영향 없음)", "err", syncErr)
-		} else if n > 0 {
-			ml.Info("착수 시 backlog import 완료", "items", n)
-		}
 	}
 
 	return nil

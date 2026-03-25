@@ -336,40 +336,55 @@ func (m *Manager) Status(ctx context.Context, channel string) (*QueueEntry, []Qu
 
 // CleanupStale removes queue entries whose owning process is no longer alive.
 // Returns the number of removed entries.
+// Entire operation (SELECT → filter → DELETE + history) is wrapped in a single
+// transaction to prevent TOCTOU races with concurrent Acquire/Release.
 func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
-	rows, err := m.store.Query(ctx,
-		`SELECT id, pid FROM queue WHERE status IN (?, ?)`,
-		StatusActive, StatusWaiting,
-	)
+	var count int
+	err := m.store.RunInTx(ctx, func(tx *store.TxStore) error {
+		rows, err := tx.Query(ctx,
+			`SELECT id, channel, branch, pid FROM queue WHERE status IN (?, ?)`,
+			StatusActive, StatusWaiting,
+		)
+		if err != nil {
+			return fmt.Errorf("queue.CleanupStale: query: %w", err)
+		}
+		defer rows.Close()
+
+		// Collect rows into memory before executing DELETE (rows must be closed first).
+		type row struct {
+			id      int
+			channel string
+			branch  string
+			pid     int
+		}
+		var entries []row
+		for rows.Next() {
+			var r row
+			if err := rows.Scan(&r.id, &r.channel, &r.branch, &r.pid); err != nil {
+				return fmt.Errorf("queue.CleanupStale: scan: %w", err)
+			}
+			entries = append(entries, r)
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("queue.CleanupStale: rows: %w", err)
+		}
+		rows.Close()
+
+		// Filter dead PIDs and delete within the transaction.
+		for _, r := range entries {
+			if platform.IsProcessAlive(r.pid) {
+				continue
+			}
+			if _, err := tx.Exec(ctx, `DELETE FROM queue WHERE id=?`, r.id); err != nil {
+				return fmt.Errorf("queue.CleanupStale: delete id=%d: %w", r.id, err)
+			}
+			m.insertHistoryTx(ctx, tx, r.channel, r.branch, "STALE_REMOVED")
+			count++
+		}
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("queue.CleanupStale: query: %w", err)
-	}
-	defer rows.Close()
-
-	type row struct {
-		id  int
-		pid int
-	}
-	var stale []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.id, &r.pid); err != nil {
-			return 0, fmt.Errorf("queue.CleanupStale: scan: %w", err)
-		}
-		if !platform.IsProcessAlive(r.pid) {
-			stale = append(stale, r)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("queue.CleanupStale: rows: %w", err)
-	}
-
-	count := 0
-	for _, r := range stale {
-		if _, err := m.store.Exec(ctx, `DELETE FROM queue WHERE id=?`, r.id); err != nil {
-			return count, fmt.Errorf("queue.CleanupStale: delete id=%d: %w", r.id, err)
-		}
-		count++
+		return 0, err
 	}
 	return count, nil
 }
