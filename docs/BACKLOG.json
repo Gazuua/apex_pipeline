@@ -28,19 +28,6 @@
       "updated_at": "2026-03-25 10:07:26"
     },
     {
-      "id": 230,
-      "title": "helm-validation CI CreateContainerConfigError — securityContext runAsNonRoot + minikube image metadata",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "INFRA",
-      "type": "BUG",
-      "description": "PR #163에서 추가된 securityContext(runAsNonRoot:true)가 minikube image load 시 USER 메타데이터 미보존으로 CreateContainerConfigError 유발. Dockerfile UID 고정 + Helm runAsUser 명시 + CI debug 강화 필요",
-      "position": 11,
-      "status": "FIXING",
-      "created_at": "2026-03-25 16:27:39",
-      "updated_at": "2026-03-25 16:27:54"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
@@ -644,6 +631,21 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:42",
       "updated_at": "2026-03-25 15:59:42"
+    },
+    {
+      "id": 230,
+      "title": "helm-validation CI CreateContainerConfigError — securityContext runAsNonRoot + minikube image metadata",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "INFRA",
+      "type": "BUG",
+      "description": "PR #163에서 추가된 securityContext(runAsNonRoot:true)가 minikube image load 시 USER 메타데이터 미보존으로 CreateContainerConfigError 유발. Dockerfile UID 고정 + Helm runAsUser 명시 + CI debug 강화 필요",
+      "position": 11,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-25 16:44:52",
+      "created_at": "2026-03-25 16:27:39",
+      "updated_at": "2026-03-25 16:44:52"
     },
     {
       "id": 195,
