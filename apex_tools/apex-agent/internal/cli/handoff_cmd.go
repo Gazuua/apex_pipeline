@@ -33,30 +33,6 @@ func syncImportViaIPC(projectRoot string) {
 	}
 }
 
-// syncExportViaIPC fetches export JSON from daemon and writes to docs/BACKLOG.json.
-// Returns error on failure (export is critical for merge workflow).
-func syncExportViaIPC(projectRoot string) error {
-	resp, err := sendBacklogRequest("export", nil)
-	if err != nil {
-		return fmt.Errorf("daemon unavailable: %w", err)
-	}
-	if resp.Error != "" {
-		return fmt.Errorf("backlog export: %s", resp.Error)
-	}
-	var result struct {
-		Content string `json:"content"`
-	}
-	if err := json.Unmarshal(resp.Data, &result); err != nil {
-		return fmt.Errorf("parse export response: %w", err)
-	}
-
-	jsonPath := filepath.Join(projectRoot, "docs", "BACKLOG.json")
-	if mkErr := os.MkdirAll(filepath.Join(projectRoot, "docs"), 0o755); mkErr != nil {
-		return mkErr
-	}
-	return os.WriteFile(jsonPath, []byte(result.Content), 0o644)
-}
-
 // getBranchID extracts the workspace branch identifier from the current directory.
 func getBranchID() string {
 	cwd, _ := os.Getwd()

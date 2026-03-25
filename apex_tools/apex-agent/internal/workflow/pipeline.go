@@ -163,38 +163,6 @@ func ghPRMerge(projectRoot string) error {
 	return nil
 }
 
-// Deprecated: MergePipeline is replaced by MergeFullPipeline.
-// Retained temporarily for CLI transition. Will be removed in Task 8.
-func MergePipeline(ctx context.Context, params map[string]any,
-	projectRoot string, mgr *backlog.Manager, ipcFn IPCFunc) error {
-
-	if msg, err := RebaseOnMain(projectRoot); err != nil {
-		return err
-	} else if msg != "" {
-		fmt.Println(msg)
-	}
-	if mgr != nil {
-		if _, err := SyncImport(ctx, projectRoot, mgr); err != nil {
-			return fmt.Errorf("머지 전 backlog import 실패: %w", err)
-		}
-	}
-	if mgr != nil {
-		if _, err := SyncExport(ctx, projectRoot, mgr); err != nil {
-			return fmt.Errorf("머지 전 backlog export 실패: %w", err)
-		}
-	}
-	if err := autoCommitExport(projectRoot); err != nil {
-		return fmt.Errorf("export 결과 커밋 실패: %w", err)
-	}
-	if err := CheckoutMain(projectRoot); err != nil {
-		return fmt.Errorf("checkout main 실패: %w", err)
-	}
-	if _, err := ipcFn("notify-merge", params); err != nil {
-		return fmt.Errorf("notify-merge 실패: %w", err)
-	}
-	return nil
-}
-
 // autoCommitExport stages and commits backlog export results.
 // No-op if there are no changes to commit.
 func autoCommitExport(projectRoot string) error {
