@@ -89,42 +89,55 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         active_sessions_->fetch_add(1, std::memory_order_relaxed);
         ActiveSessionGuard guard{active_sessions_};
 
-        while (session->is_open())
+        try
         {
-            auto& rb = session->recv_buffer();
-            auto writable = rb.writable();
-            if (writable.empty())
+            while (session->is_open())
             {
-                if (logger_)
-                    logger_->warn("session {} recv_buffer full — closing connection", session->id());
-                session->close();
-                break;
-            }
-
-            auto [ec, n] =
-                co_await session->socket().async_read_some(boost::asio::buffer(writable.data(), writable.size()),
-                                                           boost::asio::as_tuple(boost::asio::use_awaitable));
-            if (ec || n == 0)
-            {
-                if (ec && ec != boost::asio::error::eof)
+                auto& rb = session->recv_buffer();
+                auto writable = rb.writable();
+                if (writable.empty())
                 {
                     if (logger_)
-                        logger_->warn("session {} abnormal disconnect: {}", session->id(), ec.message());
+                        logger_->warn("session {} recv_buffer full — closing connection", session->id());
+                    session->close();
+                    break;
                 }
-                else
+
+                auto [ec, n] =
+                    co_await session->socket().async_read_some(boost::asio::buffer(writable.data(), writable.size()),
+                                                               boost::asio::as_tuple(boost::asio::use_awaitable));
+                if (ec || n == 0)
                 {
-                    if (logger_)
-                        logger_->debug("session {} disconnected (EOF)", session->id());
+                    if (ec && ec != boost::asio::error::eof)
+                    {
+                        if (logger_)
+                            logger_->warn("session {} abnormal disconnect: {}", session->id(), ec.message());
+                    }
+                    else
+                    {
+                        if (logger_)
+                            logger_->debug("session {} disconnected (EOF)", session->id());
+                    }
+                    break;
                 }
-                break;
+
+                rb.commit_write(n);
+                co_await process_frames(session);
+                if (!session->is_open())
+                    break;
+
+                session_mgr_.touch_session(session->id());
             }
-
-            rb.commit_write(n);
-            co_await process_frames(session);
-            if (!session->is_open())
-                break;
-
-            session_mgr_.touch_session(session->id());
+        }
+        catch (const std::exception& e)
+        {
+            if (logger_)
+                logger_->error("session {} read_loop exception: {}", session->id(), e.what());
+        }
+        catch (...)
+        {
+            if (logger_)
+                logger_->error("session {} read_loop unknown exception", session->id());
         }
 
         session_mgr_.remove_session(session->id());

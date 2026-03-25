@@ -81,7 +81,18 @@ void PeriodicTaskScheduler::schedule_next(TaskHandle handle)
 
         // 작업 실행 후 다음 주기 예약
         s_logger().trace("execute handle={}", handle);
-        it->second.task();
+        try
+        {
+            it->second.task();
+        }
+        catch (const std::exception& e)
+        {
+            s_logger().error("task exception handle={}: {}", handle, e.what());
+        }
+        catch (...)
+        {
+            s_logger().error("task unknown exception handle={}", handle);
+        }
         schedule_next(handle);
     });
 }

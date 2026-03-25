@@ -122,7 +122,6 @@ cross-core 메시지 공유를 위한 atomic refcount 기반 zero-copy 구조체
 
 ### 다음
 
-- **v0.6.3 — K8s manifests + Helm**
 - **v0.6.4 — CI/CD 고도화** (이미지 빌드 + 배포)
 - **v1.0.0.0 — 프레임워크 완성**
 
@@ -250,9 +249,22 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Services | `apex_infra/docker/service.Dockerfile` | 통합 서비스 (ARG 파라미터화) |
 | Bake | `apex_infra/docker/docker-bake.hcl` | 서비스 빌드 매트릭스 |
 
-## 현재 상태 — v0.6.2.0
+## 현재 상태 — v0.6.3.0
 
 ### 완료
+
+- **v0.6.3.0 — K8s manifests + Helm 차트 서비스 오케스트레이션 (PR #147)**
+  - umbrella+library chart, 2-release 네임스페이스 분리, expand_env Secret 주입
+  - Bitnami 하이브리드 인프라, minikube 로컬 검증
+
+- **도구: IPC ctx 전파 + Dispatcher 통합 + client 재사용 (BACKLOG-189,193,194, PR #150)**
+  - Store Querier에 context 전파, dispatch 패키지 공유 인터페이스, sync.Once 싱글톤 client
+
+- **테스트: CORE+SHARED 유닛 테스트 커버리지 보강 (PR #146, BACKLOG-148/191/192)**
+  - 핵심 경로 22건 추가, AdapterBase init 롤백 수정
+
+- **도구: 큐 히스토리 이벤트 로그 + 백로그 updated_at 버그 수정 (PR #145)**
+  - queue_history 테이블, Build/Merge 좌우 분리 대시보드, 시간 범위 필터, 무한 스크롤
 
 - **v0.6.2.0 — Docker 멀티스테이지 빌드 고도화**
   - CI 이미지 2단계 분리 (tools-base + ci), Docker Bake 서비스 통합 (3개 Dockerfile → 1개 + Bake 타겟)
