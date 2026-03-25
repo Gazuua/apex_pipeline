@@ -9,9 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 // mockIPC records calls and returns configurable results.
@@ -24,26 +21,6 @@ type mockIPC struct {
 func (m *mockIPC) fn(action string, params map[string]any) (map[string]any, error) {
 	m.calls = append(m.calls, action)
 	return m.result, m.err
-}
-
-func setupPipelineTest(t *testing.T) (string, *backlog.Manager, func()) {
-	t.Helper()
-	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "docs"), 0o755)
-
-	dbPath := filepath.Join(dir, "test.db")
-	s, err := store.Open(dbPath)
-	if err != nil {
-		t.Fatalf("store.Open: %v", err)
-	}
-	mig := store.NewMigrator(s)
-	mod := backlog.New(s)
-	mod.RegisterSchema(mig)
-	if err := mig.Migrate(); err != nil {
-		s.Close()
-		t.Fatalf("migrate: %v", err)
-	}
-	return dir, mod.Manager(), func() { s.Close() }
 }
 
 // ── DropPipeline ──
@@ -81,13 +58,10 @@ func TestDropPipeline_IPCFails(t *testing.T) {
 func TestStartPipeline_OK(t *testing.T) {
 	dir := initTestRepo(t)
 
-	_, mgr, cleanup := setupPipelineTest(t)
-	defer cleanup()
-
 	mock := &mockIPC{result: map[string]any{"notification_id": float64(1)}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline(context.Background(), "feature/start-test", params, dir, mgr, mock.fn)
+	err := StartPipeline(context.Background(), "feature/start-test", params, dir, mock.fn)
 	if err != nil {
 		t.Fatalf("StartPipeline: %v", err)
 	}
@@ -106,7 +80,7 @@ func TestStartPipeline_BranchExists(t *testing.T) {
 	mock := &mockIPC{result: map[string]any{}}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline(context.Background(), "feature/exists", params, dir, nil, mock.fn)
+	err := StartPipeline(context.Background(), "feature/exists", params, dir, mock.fn)
 	if err == nil {
 		t.Fatal("expected error for existing branch")
 	}
@@ -122,7 +96,7 @@ func TestStartPipeline_IPCFails(t *testing.T) {
 	mock := &mockIPC{err: fmt.Errorf("daemon unavailable")}
 	params := map[string]any{"branch": "test", "summary": "start"}
 
-	err := StartPipeline(context.Background(), "feature/ipc-fail", params, dir, nil, mock.fn)
+	err := StartPipeline(context.Background(), "feature/ipc-fail", params, dir, mock.fn)
 	if err == nil {
 		t.Fatal("expected error when IPC fails")
 	}

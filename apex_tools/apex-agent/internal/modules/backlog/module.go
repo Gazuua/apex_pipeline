@@ -11,6 +11,47 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
+// ── Params types ──
+
+type addParams struct {
+	BacklogItem
+	Fix    bool   `json:"fix"`
+	Branch string `json:"branch"`
+}
+
+type getParams struct {
+	ID int `json:"id"`
+}
+
+type resolveParams struct {
+	ID         int    `json:"id"`
+	Resolution string `json:"resolution"`
+}
+
+type checkParams struct {
+	ID int `json:"id"`
+}
+
+type updateParams struct {
+	ID     int               `json:"id"`
+	Fields map[string]string `json:"fields"`
+}
+
+type releaseParams struct {
+	ID     int    `json:"id"`
+	Reason string `json:"reason"`
+	Branch string `json:"branch"`
+}
+
+type fixParams struct {
+	ID     int    `json:"id"`
+	Branch string `json:"branch"`
+}
+
+type syncImportParams struct {
+	JSONData string `json:"json_data"`
+}
+
 // Module implements the daemon.Module interface for backlog management.
 type Module struct {
 	manager *Manager
@@ -172,17 +213,17 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 
 // RegisterRoutes registers all backlog action handlers.
 func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
-	reg.Handle("add", m.handleAdd)
-	reg.Handle("list", m.handleList)
-	reg.Handle("get", m.handleGet)
-	reg.Handle("resolve", m.handleResolve)
-	reg.Handle("check", m.handleCheck)
-	reg.Handle("next-id", m.handleNextID)
-	reg.Handle("export", m.handleExport)
-	reg.Handle("release", m.handleRelease)
-	reg.Handle("update", m.handleUpdate)
-	reg.Handle("fix", m.handleFix)
-	reg.Handle("sync-import", m.handleSyncImport)
+	reg.Handle("add", daemon.Typed(m.handleAdd))
+	reg.Handle("list", m.handleList) // custom null-check logic
+	reg.Handle("get", daemon.Typed(m.handleGet))
+	reg.Handle("resolve", daemon.Typed(m.handleResolve))
+	reg.Handle("check", daemon.Typed(m.handleCheck))
+	reg.Handle("next-id", daemon.NoParams(m.handleNextID))
+	reg.Handle("export", daemon.NoParams(m.handleExport))
+	reg.Handle("release", daemon.Typed(m.handleRelease))
+	reg.Handle("update", daemon.Typed(m.handleUpdate))
+	reg.Handle("fix", daemon.Typed(m.handleFix))
+	reg.Handle("sync-import", daemon.Typed(m.handleSyncImport))
 }
 
 func (m *Module) OnStart(_ context.Context) error { return nil }
@@ -190,15 +231,7 @@ func (m *Module) OnStop() error                   { return nil }
 
 // ── Route handlers ──
 
-func (m *Module) handleAdd(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		BacklogItem
-		Fix    bool   `json:"fix"`
-		Branch string `json:"branch"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.add: decode params: %w", err)
-	}
+func (m *Module) handleAdd(ctx context.Context, p addParams, _ string) (any, error) {
 	if err := m.manager.Add(ctx, &p.BacklogItem); err != nil {
 		return nil, err
 	}
@@ -211,6 +244,7 @@ func (m *Module) handleAdd(ctx context.Context, params json.RawMessage, _ string
 	return map[string]any{"id": p.BacklogItem.ID, "position": p.BacklogItem.Position, "fixed": p.Fix}, nil
 }
 
+// handleList has custom null-check logic so it keeps the raw HandlerFunc signature.
 func (m *Module) handleList(ctx context.Context, params json.RawMessage, _ string) (any, error) {
 	var filter ListFilter
 	if len(params) > 0 && string(params) != "null" {
@@ -225,13 +259,7 @@ func (m *Module) handleList(ctx context.Context, params json.RawMessage, _ strin
 	return items, nil
 }
 
-func (m *Module) handleGet(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID int `json:"id"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.get: decode params: %w", err)
-	}
+func (m *Module) handleGet(ctx context.Context, p getParams, _ string) (any, error) {
 	item, err := m.manager.Get(ctx, p.ID)
 	if err != nil {
 		return nil, err
@@ -239,27 +267,14 @@ func (m *Module) handleGet(ctx context.Context, params json.RawMessage, _ string
 	return item, nil
 }
 
-func (m *Module) handleResolve(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID         int    `json:"id"`
-		Resolution string `json:"resolution"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.resolve: decode params: %w", err)
-	}
+func (m *Module) handleResolve(ctx context.Context, p resolveParams, _ string) (any, error) {
 	if err := m.manager.Resolve(ctx, p.ID, p.Resolution); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "resolved"}, nil
 }
 
-func (m *Module) handleCheck(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID int `json:"id"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.check: decode params: %w", err)
-	}
+func (m *Module) handleCheck(ctx context.Context, p checkParams, _ string) (any, error) {
 	exists, status, err := m.manager.Check(ctx, p.ID)
 	if err != nil {
 		return nil, err
@@ -267,7 +282,7 @@ func (m *Module) handleCheck(ctx context.Context, params json.RawMessage, _ stri
 	return map[string]any{"exists": exists, "status": status}, nil
 }
 
-func (m *Module) handleNextID(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleNextID(ctx context.Context, _ string) (any, error) {
 	id, err := m.manager.NextID(ctx)
 	if err != nil {
 		return nil, err
@@ -275,7 +290,7 @@ func (m *Module) handleNextID(ctx context.Context, _ json.RawMessage, _ string) 
 	return map[string]int{"id": id}, nil
 }
 
-func (m *Module) handleExport(ctx context.Context, _ json.RawMessage, _ string) (any, error) {
+func (m *Module) handleExport(ctx context.Context, _ string) (any, error) {
 	out, err := m.manager.ExportJSON(ctx)
 	if err != nil {
 		return nil, err
@@ -283,56 +298,28 @@ func (m *Module) handleExport(ctx context.Context, _ json.RawMessage, _ string) 
 	return map[string]string{"content": string(out)}, nil
 }
 
-func (m *Module) handleUpdate(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID     int               `json:"id"`
-		Fields map[string]string `json:"fields"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.update: decode params: %w", err)
-	}
+func (m *Module) handleUpdate(ctx context.Context, p updateParams, _ string) (any, error) {
 	if err := m.manager.Update(ctx, p.ID, p.Fields); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "updated"}, nil
 }
 
-func (m *Module) handleRelease(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID     int    `json:"id"`
-		Reason string `json:"reason"`
-		Branch string `json:"branch"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.release: decode params: %w", err)
-	}
+func (m *Module) handleRelease(ctx context.Context, p releaseParams, _ string) (any, error) {
 	if err := m.manager.Release(ctx, p.ID, p.Reason, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "released"}, nil
 }
 
-func (m *Module) handleFix(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		ID     int    `json:"id"`
-		Branch string `json:"branch"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.fix: decode params: %w", err)
-	}
+func (m *Module) handleFix(ctx context.Context, p fixParams, _ string) (any, error) {
 	if err := m.manager.Fix(ctx, p.ID, p.Branch); err != nil {
 		return nil, err
 	}
 	return map[string]string{"status": "fixing"}, nil
 }
 
-func (m *Module) handleSyncImport(ctx context.Context, params json.RawMessage, _ string) (any, error) {
-	var p struct {
-		JSONData string `json:"json_data"`
-	}
-	if err := json.Unmarshal(params, &p); err != nil {
-		return nil, fmt.Errorf("backlog.sync-import: decode params: %w", err)
-	}
+func (m *Module) handleSyncImport(ctx context.Context, p syncImportParams, _ string) (any, error) {
 	if p.JSONData == "" {
 		return map[string]any{"imported": 0}, nil
 	}

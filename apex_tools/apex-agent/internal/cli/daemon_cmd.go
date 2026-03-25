@@ -27,7 +27,6 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	queuemod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
 
 func daemonCmd() *cobra.Command {
@@ -98,14 +97,8 @@ func daemonRunCmd() *cobra.Command {
 			d.Register(queueMod)
 
 			// Junction 콜백 주입: backlog 모듈이 handoff 소유 branch_backlogs를 직접 접근하지 않도록 콜백 위임
-			backlogMod.Manager().SetJunctionCleaner(func(ctx context.Context, q store.Querier, backlogID int) error {
-				_, err := q.Exec(ctx, `DELETE FROM branch_backlogs WHERE backlog_id = ?`, backlogID)
-				return err
-			})
-			backlogMod.Manager().SetJunctionCreator(func(ctx context.Context, q store.Querier, branch string, backlogID int) error {
-				_, err := q.Exec(ctx, `INSERT OR IGNORE INTO branch_backlogs (branch, backlog_id) VALUES (?, ?)`, branch, backlogID)
-				return err
-			})
+			backlogMod.Manager().SetJunctionCleaner(handoffMod.Manager().JunctionCleaner())
+			backlogMod.Manager().SetJunctionCreator(handoffMod.Manager().JunctionCreator())
 
 			// HTTP 서버 팩토리 설정: 어댑터를 통해 모듈 Manager를 httpd에 주입
 			bqa := &backlogQuerierAdapter{mgr: backlogMod.Manager()}
