@@ -294,6 +294,7 @@ jobs:
           Invoke-WebRequest -Uri $url -OutFile sccache.zip
           Expand-Archive sccache.zip -DestinationPath sccache-bin
           $sccachePath = "$env:RUNNER_TEMP\sccache-bin"
+          New-Item -ItemType Directory -Force -Path $sccachePath | Out-Null
           Copy-Item sccache-bin/sccache-v0.14.0-x86_64-pc-windows-msvc/sccache.exe "$sccachePath\sccache.exe"
           "$sccachePath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           sccache --version
