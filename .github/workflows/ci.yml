@@ -597,7 +597,9 @@ jobs:
 
       - name: Install Argo Rollouts CRD
         run: |
-          kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/install.yaml
+          kubectl create namespace argo-rollouts
+          kubectl apply -n argo-rollouts \
+            -f https://github.com/argoproj/argo-rollouts/releases/download/v1.7.2/install.yaml
 
       - name: Wait for Argo Rollouts controller
         run: |
