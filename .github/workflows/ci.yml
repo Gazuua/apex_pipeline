@@ -357,7 +357,7 @@ jobs:
     permissions:
       contents: read
     needs: [bake-services]
-    if: needs.bake-services.result == 'success'
+    if: always() && needs.bake-services.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -376,7 +376,7 @@ jobs:
       contents: read
       packages: read
     needs: [bake-services]
-    if: needs.bake-services.result == 'success'
+    if: always() && needs.bake-services.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
