@@ -1,7 +1,11 @@
 @echo off
 REM apex-agent build script — Windows double-click friendly
 REM Usage: build.bat [test|clean]
-REM Default (no args): build + install (daemon stop → build → copy → daemon start)
+REM Default (no args): build + install (build → daemon stop → rename → copy → daemon start)
+REM
+REM Windows allows renaming a running exe. This avoids killing other workspaces'
+REM apex-agent CLI processes. The old binary continues running in memory and the
+REM .old file is cleaned up on next install.
 
 cd /d "%~dp0"
 
@@ -33,28 +37,25 @@ if %ERRORLEVEL% NEQ 0 (
     goto :end
 )
 
-REM Step 2: Stop daemon + kill all apex-agent processes (release file locks)
+REM Step 2: Stop daemon (creates maintenance lock → suppresses auto-restart)
 "%INSTALL_DIR%\apex-agent.exe" daemon stop >nul 2>&1
-REM Wait briefly for graceful shutdown, then force-kill stragglers
-timeout /t 1 /nobreak >nul 2>&1
-taskkill /F /IM apex-agent.exe >nul 2>&1
 
-REM Step 3: Copy to install dir (retry once after brief wait if still locked)
+REM Step 3: Rename-then-replace (running exe can be renamed on Windows)
+del /q "%INSTALL_DIR%\apex-agent.exe.old" 2>nul
+ren "%INSTALL_DIR%\apex-agent.exe" apex-agent.exe.old 2>nul
 copy /y apex-agent.exe "%INSTALL_DIR%\apex-agent.exe" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo Retrying copy after 2s...
-    timeout /t 2 /nobreak >nul 2>&1
-    copy /y apex-agent.exe "%INSTALL_DIR%\apex-agent.exe" >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo Install FAILED: %INSTALL_DIR%\apex-agent.exe is locked.
-        echo Kill all apex-agent processes and retry.
-        del /q apex-agent.exe 2>nul
-        goto :end
+    echo Install FAILED: could not copy to %INSTALL_DIR%\apex-agent.exe
+    REM Restore old binary if rename succeeded
+    if not exist "%INSTALL_DIR%\apex-agent.exe" (
+        ren "%INSTALL_DIR%\apex-agent.exe.old" apex-agent.exe 2>nul
     )
+    del /q apex-agent.exe 2>nul
+    goto :end
 )
 del /q apex-agent.exe 2>nul
 
-REM Step 4: Start daemon with new binary
+REM Step 4: Start daemon with new binary (clears maintenance lock)
 "%INSTALL_DIR%\apex-agent.exe" daemon start >nul 2>&1 && echo daemon restarted
 echo Installed: %INSTALL_DIR%\apex-agent.exe [%VERSION%]
 
