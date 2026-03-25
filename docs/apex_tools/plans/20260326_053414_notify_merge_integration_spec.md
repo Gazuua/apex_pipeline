@@ -26,6 +26,8 @@ queue merge acquire → rebase → build → push → gh pr merge → queue merg
 
 ### 2.2 데몬 파이프라인
 
+**실행 주체**: 데몬이 전체 파이프라인을 실행한다. CLI는 `notify merge --summary "..."` IPC 요청만 보내고, 데몬이 IPC 요청에 포함된 `project_root`를 사용하여 git/gh 명령을 `exec.Command`로 실행한다. 이미 기존 파이프라인(`MergePipeline`)이 동일 방식으로 rebase, export commit, checkout main을 수행하고 있으므로 패턴 변경 없음.
+
 `notify merge --summary "..."` 호출 시 데몬이 실행하는 파이프라인:
 
 | # | 단계 | 명령 | 실패 시 |
@@ -35,15 +37,21 @@ queue merge acquire → rebase → build → push → gh pr merge → queue merg
 | ③ | rebase | `git fetch origin main` → `git rebase origin/main` | `git rebase --abort`, 에러 반환, lock release |
 | ④ | push | `git push --force-with-lease` | 에러 반환, lock release |
 | ⑤ | merge | `gh pr merge --squash --delete-branch --admin` | 에러 반환, lock release |
-| ⑥ | finalize | active_branches → branch_history (MERGED) | 경고 로그 + 가이드 출력 (머지는 완료됨) |
-| ⑦ | checkout main | `git checkout main` → `git pull origin main` | 경고 로그 + 가이드 출력 |
+| ⑥ | finalize | active_branches → branch_history (MERGED) | 에러 반환 (exit 1) + 가이드 출력 |
+| ⑦ | checkout main | `git checkout main` → `git pull origin main` | 경고 출력 (exit 0) + 가이드 출력 |
 | ⑧ | lock release | 내부 (defer) | 항상 실행 |
 
-**에러 처리 원칙:**
-- ⑤ 이전 실패: 깔끔한 롤백. lock release + 에러 메시지 반환
-- ⑤ 이후 실패 (⑥⑦): 머지는 이미 완료. best-effort 시도 후 실패 시 경고 + 에이전트가 조치할 수 있는 명확한 가이드 출력
-  - ⑥ 실패 가이드: "머지 완료됐으나 핸드오프 정리 실패. `handoff notify merge --summary ...`를 재실행하거나 다음 세션에서 자동 정리됩니다"
-  - ⑦ 실패 가이드: "`git checkout main && git pull origin main`을 수동 실행하세요"
+**주**: ② backlog export 시 변경이 없으면 commit은 no-op (에러 아님). `git diff --cached --quiet`의 ExitError(변경 있음)와 실행 에러를 구분하여 처리.
+
+**에러 처리:**
+
+| Case | 단계 | exit code | 동작 | 에이전트 가이드 |
+|------|------|:---------:|------|----------------|
+| A | ①~⑤ 실패 | 1 | 롤백 (③ 실패 시 `rebase --abort`), lock release | 원인 해결 후 `notify merge` 재실행 |
+| B | ⑥ finalize 실패 | 1 | 머지 완료됨, DB 상태만 불일치 | `handoff notify merge --summary "..."` 재실행 (멱등: 이미 머지된 브랜치는 정리만 수행) |
+| C | ⑦ checkout 실패 | 0 | 머지+정리 모두 완료, 로컬 브랜치만 전환 안 됨 | `git checkout main && git pull origin main` 수동 실행 |
+
+**멱등성**: ⑥ finalize는 active_branches에 레코드가 있을 때만 이관. 이미 이관됐으면 no-op. 따라서 Case B에서 재실행 시 안전.
 
 ### 2.3 gh pr merge 직접 호출 차단
 
@@ -53,8 +61,8 @@ queue merge acquire → rebase → build → push → gh pr merge → queue merg
 - merge lock 확인 로직 제거 (데몬 내부에서 처리)
 - `gh pr create` 검증은 그대로 유지
 
-**`validate-handoff` hook 정리:**
-- `gh pr merge` 감지 시 `ValidateMergeGate` IPC 호출 제거 (validate-merge에서 이미 전면 차단)
+**`validate-handoff` hook (defense in depth):**
+- `gh pr merge` 감지 시 `ValidateMergeGate` IPC 호출 **유지** — validate-merge가 entry gate, validate-handoff가 daemon-side gate로 다층 방어. FIXING 백로그 최종 검증은 데몬에서 수행
 
 ### 2.4 CLI 변경
 
@@ -74,9 +82,10 @@ queue merge acquire → rebase → build → push → gh pr merge → queue merg
 
 | 문서 | 갱신 내용 |
 |------|----------|
-| `CLAUDE.md` (루트) | § 머지 절차를 `notify merge` 원커맨드로 교체, `queue merge` 언급 제거 |
-| `apex_tools/apex-agent/CLAUDE.md` | § 핸드오프/큐 CLI 갱신, § Hook 게이트 역할 변경 반영 |
+| `CLAUDE.md` (루트) | § 머지 절차를 `notify merge` 원커맨드로 교체, `queue merge acquire/release` 언급 제거 |
+| `apex_tools/apex-agent/CLAUDE.md` | § 핸드오프 CLI (notify merge 파이프라인 명시), § 큐 CLI (merge 서브커맨드 제거), § Hook 게이트 (validate-merge 역할 변경) |
 | `docs/Apex_Pipeline.md` | 로드맵/변경 이력 반영 |
+| `docs/BACKLOG.json` | 파이프라인 ② 에서 자동 export (에이전트 수동 export 불필요) |
 
 ## 3. 에이전트 워크플로우 변경
 
