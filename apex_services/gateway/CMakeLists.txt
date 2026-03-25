@@ -60,6 +60,13 @@ target_link_libraries(apex_gateway
 
 apex_set_warnings(apex_gateway)
 
+# GCC 14 -O3: picojson (jwt-cpp 의존) false positive -Wmaybe-uninitialized.
+# 템플릿 인라이닝 경로에서 발생하는 외부 라이브러리 경고 — 코드 수정 불가.
+if(NOT MSVC)
+    set_source_files_properties(src/jwt_verifier.cpp PROPERTIES
+        COMPILE_OPTIONS "-Wno-maybe-uninitialized")
+endif()
+
 if(WIN32)
     target_compile_options(apex_gateway PRIVATE /utf-8)
     target_compile_definitions(apex_gateway PRIVATE _WIN32_WINNT=0x0A00)
