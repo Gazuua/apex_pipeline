@@ -241,3 +241,16 @@ serviceMonitor:
   port: metrics
   path: /metrics
   interval: 15s
+
+# ---------------------------------------------------------------------------
+# Argo Rollouts (Canary 배포)
+# ---------------------------------------------------------------------------
+rollouts:
+  enabled: false
+  canary:
+    steps:
+      - setWeight: 10
+      - pause: {}
+      - setWeight: 50
+      - pause: {}
+      - setWeight: 100

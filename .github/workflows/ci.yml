@@ -331,9 +331,7 @@ jobs:
     needs: [changes, build]
     if: >-
       always() &&
-      needs.build.result == 'success' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-       github.event_name == 'workflow_dispatch')
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -347,12 +345,21 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Bake and push service images
+      - name: Bake service images
         env:
           CI_IMAGE_TAG: ${{ needs.changes.outputs.ci_image_tag }}
           SHA_TAG: sha-${{ github.sha }}
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
+          CMAKE_PRESET: ${{ github.ref == 'refs/heads/main' && 'release' || 'debug' }}
           BUILDX_BAKE_ENTITLEMENTS_FS: "0"
-        run: docker buildx bake -f apex_infra/docker/docker-bake.hcl services --push
+        run: |
+          if [ "$IS_MAIN" = "true" ]; then
+            docker buildx bake -f apex_infra/docker/docker-bake.hcl services --push
+          else
+            docker buildx bake -f apex_infra/docker/docker-bake.hcl services \
+              --set '*.output=type=docker' \
+              --set '*.cache-to='
+          fi
 
   # ── Trivy security scan ──────────────────────────────
   scan:
@@ -475,4 +482,190 @@ jobs:
               echo "=== Logs: $ns/$pod ==="
               kubectl logs $pod -n $ns --tail=30 2>/dev/null || true
             done
+          done
+
+  # ── Docker compose 스모크 테스트 ─────────────────
+  smoke-test:
+    permissions:
+      contents: read
+    needs: [changes, build, bake-services]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.bake-services.result == 'success' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download E2E binary
+        uses: actions/download-artifact@v4
+        with:
+          name: service-binaries
+          path: artifacts
+
+      - name: Make binary executable
+        run: chmod +x artifacts/tests/e2e/apex_e2e_tests
+
+      - name: Pull service images
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          for svc in gateway auth-svc chat-svc; do
+            docker pull ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG || true
+          done
+
+      - name: Start full stack
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          docker compose -f apex_infra/docker/docker-compose.smoke.yml up -d \
+            --wait --timeout 120
+
+      - name: Health check
+        run: |
+          echo "Waiting for gateway health..."
+          timeout 30 bash -c 'until curl -sf http://localhost:8081/health 2>/dev/null; do sleep 2; done' || {
+            echo "Health check failed, checking gateway TCP port..."
+            nc -z localhost 8443 && echo "TCP port OK but metrics not available" || echo "TCP port also unreachable"
+          }
+
+      - name: Run smoke E2E subset
+        run: |
+          artifacts/tests/e2e/apex_e2e_tests \
+            --gtest_filter="*Login*:*SendMessage*" \
+            --gtest_output=xml:smoke-results.xml
+        env:
+          E2E_GATEWAY_HOST: "127.0.0.1"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose -f apex_infra/docker/docker-compose.smoke.yml logs > smoke-logs.txt 2>&1
+
+      - name: Upload logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-logs
+          path: smoke-logs.txt
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f apex_infra/docker/docker-compose.smoke.yml down -v
+
+  # ── Argo Rollouts canary 배포 검증 ──────────────
+  deploy:
+    permissions:
+      contents: read
+      packages: read
+    needs: [bake-services, smoke-test, helm-validation]
+    if: >-
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.smoke-test.result == 'success' &&
+      needs.helm-validation.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: azure/setup-helm@v4
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@v0.0.21
+        with:
+          memory: '4096'
+          cpus: '2'
+
+      - name: Install Argo Rollouts CRD
+        run: |
+          kubectl apply -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+      - name: Wait for Argo Rollouts controller
+        run: |
+          kubectl wait --for=condition=available deployment/argo-rollouts \
+            -n argo-rollouts --timeout=120s
+
+      - name: Load images into minikube
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          for svc in gateway auth-svc chat-svc; do
+            echo "Loading $svc..."
+            docker pull ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG
+            minikube image load ghcr.io/gazuua/apex-pipeline-$svc:$SHA_TAG
+          done
+
+      - name: Helm dependency update
+        working-directory: apex_infra/k8s/apex-pipeline
+        run: helm dependency update .
+
+      - name: Install infra release
+        working-directory: apex_infra/k8s/apex-pipeline
+        run: |
+          helm upgrade --install apex-infra . \
+            -n apex-infra --create-namespace \
+            --set gateway.enabled=false \
+            --set auth-svc.enabled=false \
+            --set chat-svc.enabled=false \
+            --set log-svc.enabled=false \
+            --wait --timeout 7m
+
+      - name: Install services with Rollouts
+        working-directory: apex_infra/k8s/apex-pipeline
+        env:
+          SHA_TAG: sha-${{ github.sha }}
+        run: |
+          helm upgrade --install apex-services . \
+            -n apex-services --create-namespace \
+            --set kafka.enabled=false \
+            --set redis-auth.enabled=false \
+            --set redis-ratelimit.enabled=false \
+            --set redis-chat.enabled=false \
+            --set redis-pubsub.enabled=false \
+            --set postgresql.enabled=false \
+            --set pgbouncer.enabled=false \
+            --set namespaces.create=false \
+            --set gateway.rollouts.enabled=true \
+            --set auth-svc.rollouts.enabled=true \
+            --set chat-svc.rollouts.enabled=true \
+            --set gateway.serviceMonitor.enabled=false \
+            --set auth-svc.serviceMonitor.enabled=false \
+            --set chat-svc.serviceMonitor.enabled=false \
+            --set gateway.image.tag=$SHA_TAG \
+            --set auth-svc.image.tag=$SHA_TAG \
+            --set chat-svc.image.tag=$SHA_TAG \
+            --wait --timeout 5m
+
+      - name: Verify Rollout resources
+        run: |
+          echo "=== Rollouts ==="
+          kubectl get rollouts -n apex-services -o wide 2>/dev/null || echo "No rollouts found"
+          echo "=== Pods ==="
+          kubectl get pods -n apex-services -o wide
+          kubectl wait --for=condition=ready pod --all -n apex-services --timeout=120s
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Argo Rollouts Controller ==="
+          kubectl get pods -n argo-rollouts -o wide 2>/dev/null || true
+          kubectl logs -n argo-rollouts -l app.kubernetes.io/name=argo-rollouts --tail=30 2>/dev/null || true
+          echo "=== Rollouts ==="
+          kubectl get rollouts -n apex-services -o wide 2>/dev/null || true
+          echo "=== Pods ==="
+          kubectl get pods -n apex-services -o wide
+          for pod in $(kubectl get pods -n apex-services --no-headers -o custom-columns=":metadata.name" 2>/dev/null); do
+            echo "=== Describe: $pod ==="
+            kubectl describe pod $pod -n apex-services 2>/dev/null | tail -30 || true
+            echo "=== Logs: $pod ==="
+            kubectl logs $pod -n apex-services --tail=30 2>/dev/null || true
           done

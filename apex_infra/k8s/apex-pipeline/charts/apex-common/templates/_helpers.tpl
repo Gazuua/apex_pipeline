@@ -105,7 +105,90 @@ spec:
 {{- end }}
 
 {{/* ===================================================================
-    Deployment — 컨테이너, 프로브 3종, 볼륨, envFrom
+    Pod template — Deployment/Rollout 공통 Pod spec
+    checksum/config annotation 포함.
+    =================================================================== */}}
+{{- define "apex-common.podTemplate" -}}
+metadata:
+  annotations:
+    checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+  labels:
+    {{- include "apex-common.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.serviceAccount.create }}
+  serviceAccountName: {{ include "apex-common.serviceAccountName" . }}
+  {{- end }}
+  containers:
+    - name: {{ .Chart.Name }}
+      image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+      imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+      securityContext:
+      {{- if .Values.securityContext }}
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      {{- else }}
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        allowPrivilegeEscalation: false
+      {{- end }}
+      ports:
+        {{- range .Values.service.ports }}
+        - name: {{ .name }}
+          containerPort: {{ .targetPort | default .port }}
+          protocol: TCP
+        {{- end }}
+      {{- if or (and .Values.secrets .Values.secrets.existingSecret) (and .Values.secrets .Values.secrets.data) }}
+      envFrom:
+        {{- if .Values.secrets.existingSecret }}
+        - secretRef:
+            name: {{ .Values.secrets.existingSecret }}
+        {{- else }}
+        - secretRef:
+            name: {{ include "apex-common.fullname" . }}-secrets
+        {{- end }}
+      {{- end }}
+      {{- if .Values.extraEnv }}
+      env:
+        {{- toYaml .Values.extraEnv | nindent 8 }}
+      {{- end }}
+      volumeMounts:
+        - name: config
+          mountPath: {{ .Values.config.mountPath }}/config.toml
+          subPath: {{ .Values.config.fileName }}
+          readOnly: true
+        {{- if .Values.extraVolumeMounts }}
+        {{- toYaml .Values.extraVolumeMounts | nindent 8 }}
+        {{- end }}
+      {{- if .Values.probes }}
+      {{- if .Values.probes.startup }}
+      startupProbe:
+        {{- toYaml .Values.probes.startup | nindent 8 }}
+      {{- end }}
+      {{- if .Values.probes.liveness }}
+      livenessProbe:
+        {{- toYaml .Values.probes.liveness | nindent 8 }}
+      {{- end }}
+      {{- if .Values.probes.readiness }}
+      readinessProbe:
+        {{- toYaml .Values.probes.readiness | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.resources }}
+      resources:
+        {{- toYaml .Values.resources | nindent 8 }}
+      {{- end }}
+  volumes:
+    - name: config
+      configMap:
+        name: {{ include "apex-common.fullname" . }}-config
+    {{- if .Values.extraVolumes }}
+    {{- toYaml .Values.extraVolumes | nindent 4 }}
+    {{- end }}
+{{- end }}
+
+{{/* ===================================================================
+    Deployment — podTemplate을 포함하는 Deployment 리소스.
+    rollouts.enabled=true 시 서비스 deployment.yaml에서 가드로 비활성화.
     =================================================================== */}}
 {{- define "apex-common.deployment" -}}
 apiVersion: apps/v1
@@ -120,81 +203,32 @@ spec:
     matchLabels:
       {{- include "apex-common.selectorLabels" . | nindent 6 }}
   template:
-    metadata:
-      annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-      labels:
-        {{- include "apex-common.labels" . | nindent 8 }}
-    spec:
-      {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ include "apex-common.serviceAccountName" . }}
-      {{- end }}
-      containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
-          securityContext:
-          {{- if .Values.securityContext }}
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          {{- else }}
-            runAsNonRoot: true
-            runAsUser: 10001
-            runAsGroup: 10001
-            allowPrivilegeEscalation: false
-          {{- end }}
-          ports:
-            {{- range .Values.service.ports }}
-            - name: {{ .name }}
-              containerPort: {{ .targetPort | default .port }}
-              protocol: TCP
-            {{- end }}
-          {{- if or (and .Values.secrets .Values.secrets.existingSecret) (and .Values.secrets .Values.secrets.data) }}
-          envFrom:
-            {{- if .Values.secrets.existingSecret }}
-            - secretRef:
-                name: {{ .Values.secrets.existingSecret }}
-            {{- else }}
-            - secretRef:
-                name: {{ include "apex-common.fullname" . }}-secrets
-            {{- end }}
-          {{- end }}
-          {{- if .Values.extraEnv }}
-          env:
-            {{- toYaml .Values.extraEnv | nindent 12 }}
-          {{- end }}
-          volumeMounts:
-            - name: config
-              mountPath: {{ .Values.config.mountPath }}/config.toml
-              subPath: {{ .Values.config.fileName }}
-              readOnly: true
-            {{- if .Values.extraVolumeMounts }}
-            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
-            {{- end }}
-          {{- if .Values.probes }}
-          {{- if .Values.probes.startup }}
-          startupProbe:
-            {{- toYaml .Values.probes.startup | nindent 12 }}
-          {{- end }}
-          {{- if .Values.probes.liveness }}
-          livenessProbe:
-            {{- toYaml .Values.probes.liveness | nindent 12 }}
-          {{- end }}
-          {{- if .Values.probes.readiness }}
-          readinessProbe:
-            {{- toYaml .Values.probes.readiness | nindent 12 }}
-          {{- end }}
-          {{- end }}
-          {{- if .Values.resources }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- end }}
-      volumes:
-        - name: config
-          configMap:
-            name: {{ include "apex-common.fullname" . }}-config
-        {{- if .Values.extraVolumes }}
-        {{- toYaml .Values.extraVolumes | nindent 8 }}
-        {{- end }}
+    {{- include "apex-common.podTemplate" . | nindent 4 }}
+{{- end }}
+
+{{/* ===================================================================
+    Rollout — Argo Rollouts CRD (조건부).
+    rollouts.enabled=true 시 Deployment 대신 Rollout 리소스 생성.
+    =================================================================== */}}
+{{- define "apex-common.rollout" -}}
+{{- if and .Values.rollouts .Values.rollouts.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "apex-common.fullname" . }}
+  labels:
+    {{- include "apex-common.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "apex-common.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "apex-common.podTemplate" . | nindent 4 }}
+  strategy:
+    canary:
+      {{- toYaml .Values.rollouts.canary | nindent 6 }}
+{{- end }}
 {{- end }}
 
 {{/* ===================================================================

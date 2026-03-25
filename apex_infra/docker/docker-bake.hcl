@@ -14,6 +14,14 @@ variable "SHA_TAG" {
   default = "latest"
 }
 
+variable "IS_MAIN" {
+  default = "false"
+}
+
+variable "CMAKE_PRESET" {
+  default = "debug"
+}
+
 // ── Service group ─────────────────────────────────
 group "services" {
   targets = ["gateway", "auth-svc", "chat-svc"]
@@ -23,6 +31,9 @@ group "services" {
 target "service-base" {
   dockerfile = "apex_infra/docker/service.Dockerfile"
   context    = "."
+  args = {
+    CMAKE_PRESET = CMAKE_PRESET
+  }
   cache-from = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache"]
   cache-to   = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache,mode=max"]
 }
@@ -36,7 +47,9 @@ target "gateway" {
     CONFIG_FILE  = "gateway_e2e.toml"
     CI_IMAGE_TAG = CI_IMAGE_TAG
   }
-  tags = [
+  tags = notequal(IS_MAIN, "true") ? [
+    "${REGISTRY}/apex-pipeline-gateway:${SHA_TAG}",
+  ] : [
     "${REGISTRY}/apex-pipeline-gateway:${SHA_TAG}",
     "${REGISTRY}/apex-pipeline-gateway:latest",
   ]
@@ -51,7 +64,9 @@ target "auth-svc" {
     CONFIG_FILE  = "auth_svc_e2e.toml"
     CI_IMAGE_TAG = CI_IMAGE_TAG
   }
-  tags = [
+  tags = notequal(IS_MAIN, "true") ? [
+    "${REGISTRY}/apex-pipeline-auth-svc:${SHA_TAG}",
+  ] : [
     "${REGISTRY}/apex-pipeline-auth-svc:${SHA_TAG}",
     "${REGISTRY}/apex-pipeline-auth-svc:latest",
   ]
@@ -66,7 +81,9 @@ target "chat-svc" {
     CONFIG_FILE  = "chat_svc_e2e.toml"
     CI_IMAGE_TAG = CI_IMAGE_TAG
   }
-  tags = [
+  tags = notequal(IS_MAIN, "true") ? [
+    "${REGISTRY}/apex-pipeline-chat-svc:${SHA_TAG}",
+  ] : [
     "${REGISTRY}/apex-pipeline-chat-svc:${SHA_TAG}",
     "${REGISTRY}/apex-pipeline-chat-svc:latest",
   ]

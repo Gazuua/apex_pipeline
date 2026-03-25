@@ -1,0 +1,82 @@
+# Gateway Docker E2E Configuration
+# Docker 환경용 — 컨테이너 내부 경로 + Docker 네트워크 엔드포인트
+
+[logging]
+service_name = "gateway"
+
+[logging.file]
+enabled = true
+
+[server]
+ws_port = 8444
+tcp_port = 8443
+num_cores = 1
+
+[kafka]
+brokers = "kafka:9092"
+consumer_group = "gateway-e2e"
+response_topic = "gateway.responses"
+
+[redis.auth]
+host = "redis-auth"
+port = 6379
+password = "dev_redis_pass"
+
+[redis.pubsub]
+host = "redis-pubsub"
+port = 6379
+password = "dev_redis_pass"
+
+[redis.ratelimit]
+host = "redis-ratelimit"
+port = 6379
+password = "dev_redis_pass"
+
+[jwt]
+public_key_file = "keys/test_rs256_pub.pem"
+algorithm = "RS256"
+issuer = "apex-auth"
+clock_skew_seconds = 0
+
+[auth.exempt]
+LoginRequest = 1000
+LogoutRequest = 1002
+RefreshTokenRequest = 1004
+
+# Auth Service routes: msg_id 1000-1099
+[[routes]]
+range_begin = 1000
+range_end = 1099
+kafka_topic = "auth.requests"
+
+# Chat Service routes: msg_id 2000-2999
+[[routes]]
+range_begin = 2000
+range_end = 2999
+kafka_topic = "chat.requests"
+
+[pubsub]
+max_subscriptions_per_session = 50
+global_channels = ["pub:global:chat"]
+
+[rate_limit.ip]
+total_limit = 30
+window_size_seconds = 2
+
+[rate_limit.user]
+default_limit = 10
+window_size_seconds = 3
+
+[rate_limit.endpoint]
+default_limit = 60
+window_size_seconds = 3
+
+[rate_limit.endpoint.overrides]
+2001 = 5
+
+[timeouts]
+request_timeout_ms = 5000
+
+[metrics]
+enabled = true
+port = 8081
