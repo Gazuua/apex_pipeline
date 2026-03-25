@@ -111,7 +111,11 @@ func hookEnforceRebaseCmd() *cobra.Command {
 				return nil
 			}
 			// Determine project root from cwd
-			cwd, _ := os.Getwd()
+			cwd, cwdErr := os.Getwd()
+			if cwdErr != nil {
+				fmt.Fprintf(os.Stderr, "[hook] error: cannot determine working directory: %v\n", cwdErr)
+				os.Exit(2)
+			}
 			msg, err := hook.EnforceRebase(command, cwd)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())

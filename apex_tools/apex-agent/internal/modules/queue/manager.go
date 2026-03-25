@@ -348,6 +348,7 @@ func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
 		if err != nil {
 			return fmt.Errorf("queue.CleanupStale: query: %w", err)
 		}
+		defer rows.Close()
 
 		// Collect rows into memory before executing DELETE (rows must be closed first).
 		type row struct {
@@ -360,13 +361,11 @@ func (m *Manager) CleanupStale(ctx context.Context) (int, error) {
 		for rows.Next() {
 			var r row
 			if err := rows.Scan(&r.id, &r.channel, &r.branch, &r.pid); err != nil {
-				rows.Close()
 				return fmt.Errorf("queue.CleanupStale: scan: %w", err)
 			}
 			entries = append(entries, r)
 		}
 		if err := rows.Err(); err != nil {
-			rows.Close()
 			return fmt.Errorf("queue.CleanupStale: rows: %w", err)
 		}
 		rows.Close()
