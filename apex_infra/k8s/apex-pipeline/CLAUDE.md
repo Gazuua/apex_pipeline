@@ -145,7 +145,6 @@ helm upgrade --install apex-infra . -n apex-infra --create-namespace \
   --set gateway.enabled=false \
   --set auth-svc.enabled=false \
   --set chat-svc.enabled=false \
-  --set log-svc.enabled=false \
   --wait --timeout 5m
 
 # 3. 서비스 release
@@ -236,8 +235,7 @@ helm template apex-services . \
 helm template apex-infra . \
   --set gateway.enabled=false \
   --set auth-svc.enabled=false \
-  --set chat-svc.enabled=false \
-  --set log-svc.enabled=false
+  --set chat-svc.enabled=false
 ```
 
 ### apex-common 변경 시 추가 확인
