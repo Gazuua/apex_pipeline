@@ -1,5 +1,5 @@
 {
-  "next_id": 243,
+  "next_id": 245,
   "items": [
     {
       "id": 242,
@@ -25,9 +25,9 @@
       "description": "`KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.",
       "related": "131(이번PR에서도입)",
       "position": 2,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 17:54:56"
     },
     {
       "id": 113,
@@ -109,31 +109,30 @@
       "updated_at": "2026-03-26 12:48:23"
     },
     {
-      "id": 238,
-      "title": "워크스페이스 + 세션 관리 모듈 신설 — ConPTY 독립 프로세스 기반 멀티브랜치 제어",
+      "id": 243,
+      "title": "Branches 대시보드 HandoffStatus/BacklogIDs/BlockedBacklogs 채움",
       "severity": "MAJOR",
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 완료, Phase 2-3 후속 작업 필요\n[RELEASED] branch_agent: Phase 2-3 구현 완료 후 resolve 예정 — 세션 서버(ConPTY+WebSocket) + 대시보드 확장 미완",
-      "position": 70,
+      "type": "DESIGN_DEBT",
+      "description": "workspaceQuerierAdapter.DashboardBranchesList()가 HandoffStatus, BacklogIDs, BlockedBacklogs 필드를 채우지 않음. active_branches LEFT JOIN + backlog_items 서브쿼리 추가 필요. 현재 UI에서 해당 정보 미표시.",
+      "position": 73,
       "status": "OPEN",
-      "created_at": "2026-03-26 15:24:04",
-      "updated_at": "2026-03-26 17:30:22"
+      "created_at": "2026-03-26 18:07:42",
+      "updated_at": "2026-03-26 18:07:42"
     },
     {
-      "id": 239,
-      "title": "백로그 FIX 자동화 — 대시보드 FIX 버튼 + blocked_reason + 글로벌 알림",
+      "id": 244,
+      "title": "Windows session server graceful shutdown (HTTP 엔드포인트)",
       "severity": "MAJOR",
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "backlog_items에 blocked_reason 컬럼 추가. /backlog 페이지에 행별/다중 선택 FIX 버튼 신설, 브랜치 선택 모달→세션 ConPTY stdin에 자연어 프롬프트 주입. 네비 바 blocked 뱃지, 대시보드 요약 카드, 브랜치/백로그 행 강조. CLI --blocked 플래그 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 blocked_reason 완료, Phase 3 FIX UI 후속 작업 필요",
-      "related": "238",
-      "position": 71,
+      "description": "Windows에서 SIGTERM 미지원으로 session stop이 Kill 강제 종료. graceful shutdown HTTP 엔드포인트(/api/shutdown) 추가하여 세션 정리 후 종료하도록 개선 필요. 현재는 stale PID 파일이 남을 수 있으나 isSessionRunning()의 IsProcessAlive 체크로 동작은 정상.",
+      "position": 74,
       "status": "OPEN",
-      "created_at": "2026-03-26 15:24:17",
-      "updated_at": "2026-03-26 16:38:21"
+      "created_at": "2026-03-26 18:07:54",
+      "updated_at": "2026-03-26 18:07:54"
     },
     {
       "id": 36,
@@ -235,9 +234,9 @@
       "type": "SECURITY",
       "description": "v0.6.3에서 프로덕션 Secret은 existingSecret 참조로 인터페이스만 준비. 실제 클라우드 환경 결정 후 Vault Agent Injector 또는 AWS Secrets Manager CSI Driver로 자동 시크릿 주입 파이프라인 구축 필요.",
       "position": 15,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 23:01:31",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 17:54:56"
     },
     {
       "id": 232,
@@ -265,6 +264,37 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 238,
+      "title": "워크스페이스 + 세션 관리 모듈 신설 — ConPTY 독립 프로세스 기반 멀티브랜치 제어",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 완료, Phase 2-3 후속 작업 필요\n[RELEASED] branch_agent: Phase 2-3 구현 완료 후 resolve 예정 — 세션 서버(ConPTY+WebSocket) + 대시보드 확장 미완",
+      "position": 70,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 18:12:11",
+      "created_at": "2026-03-26 15:24:04",
+      "updated_at": "2026-03-26 18:12:11"
+    },
+    {
+      "id": 239,
+      "title": "백로그 FIX 자동화 — 대시보드 FIX 버튼 + blocked_reason + 글로벌 알림",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "backlog_items에 blocked_reason 컬럼 추가. /backlog 페이지에 행별/다중 선택 FIX 버튼 신설, 브랜치 선택 모달→세션 ConPTY stdin에 자연어 프롬프트 주입. 네비 바 blocked 뱃지, 대시보드 요약 카드, 브랜치/백로그 행 강조. CLI --blocked 플래그 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 blocked_reason 완료, Phase 3 FIX UI 후속 작업 필요",
+      "related": "238",
+      "position": 71,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 18:12:11",
+      "created_at": "2026-03-26 15:24:17",
+      "updated_at": "2026-03-26 18:12:11"
     },
     {
       "id": 241,
