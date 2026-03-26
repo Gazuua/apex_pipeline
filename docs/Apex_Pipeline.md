@@ -445,6 +445,8 @@ Tier 상세:
 
 > **도구: 세션 서버 Phase 2-3 (BACKLOG-238,239)** — ConPTY 기반 독립 프로세스 세션 서버(:7601), WebSocket 실시간 터미널, Watchdog 자동 재시작, session CLI(run/start/stop/status/send), 대시보드 /branches 페이지(xterm.js 웹 터미널), 리버스 프록시(:7600→:7601), Workspace REST API, blocked_reason ⚠ 뱃지. 대시보드 5페이지 체제(Dashboard/Backlog/Handoff/Queue/Branches). 프레임워크 버전 변경 없음.
 
+> **도구: /branches 검증 + 외부 세션 감지 (BACKLOG-242, PR #206)** — 외부 Claude Code 세션 감지(Hook+mtime 폴백+좀비 정리), ref count 중복 세션 추적, EXTERNAL/MANAGED Sync 차단, plugin reload 방지(multi-workspace 경로 불일치). /branches CSS 스타일링+HTMX 깜빡임 방지, 워크스페이스 정렬 정규화. backlog show blocked_reason CLI 출력, queue build 콘솔 실시간 출력. Go 1.22 ServeMux 라우트 충돌 panic 수정, build.bat 괄호 파싱 버그 수정, auto-review ref count 정합성+경로 정규화 수정. 프레임워크 버전 변경 없음.
+
 ### 활성 로드맵
 
 > v0.x = 프레임워크 개발, v1.0.0.0 = 프레임워크 완성 (커스텀 서비스 자유 배포 가능)
@@ -509,6 +511,8 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [수정] K8s Helm logging.file 비활성화 — readOnlyRootFilesystem 충돌 수정 (BACKLOG-255, PR #203)
          [보안+게이트웨이] SecureString constant-time 비교 + Gateway RL 라이프사이클/포인터 소탕 (BACKLOG-245,250,251, PR #204)
          [보안] Kafka manual commit + Gateway 시스템 메시지 인증 + auth exempt rate limit + K8s NetworkPolicy (BACKLOG-247,248,249,253, PR #207)
+         [보안] SecureString SSO 버퍼 소멸/move 시 제로화 (BACKLOG-246, PR #205)
+         [도구] /branches 검증 + 외부 세션 감지 (BACKLOG-242, PR #206 — Hook+mtime 폴백, ref count, Sync 차단, CSS/HTMX 개선, build.bat/ServeMux 수정)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```
