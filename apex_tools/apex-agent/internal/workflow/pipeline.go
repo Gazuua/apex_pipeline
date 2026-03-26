@@ -50,8 +50,8 @@ type MergeFullParams struct {
 	Workspace       string
 	Summary         string
 	PreMergeCheckFn func(ctx context.Context) error            // pre-merge validation (after lock, before export); nil = skip
-	ImportFn        func(projectRoot string)                   // backlog import (non-fatal)
-	ExportFn        func(projectRoot string) error             // backlog export (DB → JSON file)
+	ImportFn        func(ctx context.Context, projectRoot string)        // backlog import (non-fatal)
+	ExportFn        func(ctx context.Context, projectRoot string) error // backlog export (DB → JSON file)
 	FinalizeFn      func(ctx context.Context) error            // DB finalize (active → history MERGED)
 	LockAcquireFn   func(ctx context.Context) error            // queue merge acquire
 	LockReleaseFn   func(ctx context.Context) error            // queue merge release
@@ -97,10 +97,10 @@ func MergeFullPipeline(ctx context.Context, params MergeFullParams) error {
 
 	// ② backlog import (non-fatal) + export + commit
 	if params.ImportFn != nil {
-		params.ImportFn(root)
+		params.ImportFn(ctx, root)
 	}
 	if params.ExportFn != nil {
-		if err := params.ExportFn(root); err != nil {
+		if err := params.ExportFn(ctx, root); err != nil {
 			return fmt.Errorf("backlog export 실패: %w", err)
 		}
 	}

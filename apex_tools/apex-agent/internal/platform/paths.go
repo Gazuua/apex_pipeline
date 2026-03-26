@@ -22,15 +22,26 @@ const (
 
 // DataDir returns the platform-specific data directory for apex-agent.
 // Windows: %LOCALAPPDATA%/apex-agent, Unix: $XDG_DATA_HOME/apex-agent or ~/.local/share/apex-agent.
+// Falls back to os.UserHomeDir if environment variables are unset.
 func DataDir() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("LOCALAPPDATA"), AppName)
+		if dir := os.Getenv("LOCALAPPDATA"); dir != "" {
+			return filepath.Join(dir, AppName)
+		}
+		// LOCALAPPDATA unset — fall back to user home
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, "AppData", "Local", AppName)
+		}
+	} else {
+		if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+			return filepath.Join(xdg, AppName)
+		}
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, ".local", "share", AppName)
+		}
 	}
-	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
-		return filepath.Join(xdg, AppName)
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".local", "share", AppName)
+	// Last resort: current working directory (should never happen in practice)
+	return AppName
 }
 
 // DBPath returns the full path to the SQLite database file.
@@ -88,8 +99,11 @@ func GitCurrentBranch(root string) (string, error) {
 // On Windows, handles MSYS-style paths (/c/Users/...) and forward slashes.
 func NormalizePath(p string) string {
 	if runtime.GOOS == "windows" && len(p) >= 3 && p[0] == '/' && p[2] == '/' {
-		drive := strings.ToUpper(string(p[1]))
-		p = drive + ":" + p[2:]
+		ch := p[1]
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+			drive := strings.ToUpper(string(ch))
+			p = drive + ":" + p[2:]
+		}
 	}
 	return filepath.Clean(filepath.FromSlash(p))
 }

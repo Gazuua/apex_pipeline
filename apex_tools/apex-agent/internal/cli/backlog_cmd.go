@@ -181,13 +181,13 @@ func backlogShowCmd() *cobra.Command {
 			fmt.Printf("Type:        %s\n", item.Type)
 			fmt.Printf("Status:      %s\n", item.Status)
 			if item.Related != "" {
-				// "50,89" → "#50, #89"
+				// "50,89" → "BACKLOG-50, BACKLOG-89"
 				parts := strings.Split(item.Related, ",")
 				var refs []string
 				for _, p := range parts {
 					p = strings.TrimSpace(p)
 					if p != "" {
-						refs = append(refs, "#"+p)
+						refs = append(refs, "BACKLOG-"+p)
 					}
 				}
 				fmt.Printf("Related:     %s\n", strings.Join(refs, ", "))
@@ -253,12 +253,12 @@ func backlogListCmd() *cobra.Command {
 				fmt.Println("(백로그 항목 없음)")
 				return nil
 			}
-			fmt.Printf("%-6s %-10s %-10s %-10s %-10s %s\n",
-				"ID", "SEVERITY", "TIMEFRAME", "SCOPE", "TYPE", "TITLE")
-			fmt.Println(strings.Repeat("-", 70))
+			fmt.Printf("%-6s %-10s %-10s %-10s %-10s %-10s %s\n",
+				"ID", "STATUS", "SEVERITY", "TIMEFRAME", "SCOPE", "TYPE", "TITLE")
+			fmt.Println(strings.Repeat("-", 80))
 			for _, item := range items {
-				fmt.Printf("%-6d %-10s %-10s %-10s %-10s %s\n",
-					item.ID, item.Severity, item.Timeframe, item.Scope, item.Type, item.Title)
+				fmt.Printf("%-6d %-10s %-10s %-10s %-10s %-10s %s\n",
+					item.ID, item.Status, item.Severity, item.Timeframe, item.Scope, item.Type, item.Title)
 				if verbose && item.Description != "" {
 					// Show first line of description, indented
 					firstLine := item.Description
@@ -319,7 +319,6 @@ func backlogResolveCmd() *cobra.Command {
 
 	return cmd
 }
-
 
 // ── backlog export ──
 

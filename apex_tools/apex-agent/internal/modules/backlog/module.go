@@ -147,6 +147,9 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 			}
 			pairs = append(pairs, p)
 		}
+		if rowsErr := rows.Err(); rowsErr != nil {
+			return fmt.Errorf("iterate scope rows: %w", rowsErr)
+		}
 		rows.Close()
 		for _, p := range pairs {
 			normalized := NormalizeScope(p.scope)
@@ -174,6 +177,9 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 				return fmt.Errorf("scan resolution: %w", scanErr)
 			}
 			resPairs = append(resPairs, p)
+		}
+		if resRowsErr := resRows.Err(); resRowsErr != nil {
+			return fmt.Errorf("iterate resolution rows: %w", resRowsErr)
 		}
 		resRows.Close()
 		for _, p := range resPairs {

@@ -94,7 +94,7 @@ func TestBacklog_CRUDAndExport(t *testing.T) {
 		t.Errorf("backlog.get: expected Timeframe='NOW', got %v", getItem["timeframe"])
 	}
 	if getItem["status"] != "OPEN" {
-		t.Errorf("backlog.get: expected Status='open', got %v", getItem["status"])
+		t.Errorf("backlog.get: expected Status='OPEN', got %v", getItem["status"])
 	}
 
 	// Step 5: resolve → check status

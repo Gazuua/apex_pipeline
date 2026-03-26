@@ -154,10 +154,10 @@ func TestMergeFullPipeline_OK(t *testing.T) {
 		Branch:      "feature/merge-test",
 		Workspace:   "test-ws",
 		Summary:     "테스트 머지",
-		ImportFn: func(projectRoot string) {
+		ImportFn: func(_ context.Context, projectRoot string) {
 			rec.record("Import")
 		},
-		ExportFn: func(projectRoot string) error {
+		ExportFn: func(_ context.Context, projectRoot string) error {
 			rec.record("Export")
 			return nil
 		},
@@ -222,10 +222,10 @@ func TestMergeFullPipeline_LockFails(t *testing.T) {
 		Branch:      "feature/merge-test",
 		Workspace:   "test-ws",
 		Summary:     "테스트 머지",
-		ImportFn: func(projectRoot string) {
+		ImportFn: func(_ context.Context, projectRoot string) {
 			rec.record("Import")
 		},
-		ExportFn: func(projectRoot string) error {
+		ExportFn: func(_ context.Context, projectRoot string) error {
 			rec.record("Export")
 			return nil
 		},
@@ -273,10 +273,10 @@ func TestMergeFullPipeline_ExportFails(t *testing.T) {
 		Branch:      "feature/merge-test",
 		Workspace:   "test-ws",
 		Summary:     "테스트 머지",
-		ImportFn: func(projectRoot string) {
+		ImportFn: func(_ context.Context, projectRoot string) {
 			rec.record("Import")
 		},
-		ExportFn: func(projectRoot string) error {
+		ExportFn: func(_ context.Context, projectRoot string) error {
 			rec.record("Export")
 			return fmt.Errorf("DB export 실패: disk full")
 		},
@@ -341,10 +341,10 @@ func TestMergeFullPipeline_FinalizeFails_NoError(t *testing.T) {
 		Branch:      "feature/merge-test",
 		Workspace:   "test-ws",
 		Summary:     "테스트 머지",
-		ImportFn: func(projectRoot string) {
+		ImportFn: func(_ context.Context, projectRoot string) {
 			rec.record("Import")
 		},
-		ExportFn: func(projectRoot string) error {
+		ExportFn: func(_ context.Context, projectRoot string) error {
 			rec.record("Export")
 			return nil
 		},
@@ -398,10 +398,10 @@ func TestMergeFullPipeline_CheckoutFails_NoError(t *testing.T) {
 		Branch:      "feature/merge-test",
 		Workspace:   "test-ws",
 		Summary:     "테스트 머지",
-		ImportFn: func(projectRoot string) {
+		ImportFn: func(_ context.Context, projectRoot string) {
 			rec.record("Import")
 		},
-		ExportFn: func(projectRoot string) error {
+		ExportFn: func(_ context.Context, projectRoot string) error {
 			rec.record("Export")
 			return nil
 		},

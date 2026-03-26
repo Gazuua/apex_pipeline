@@ -147,7 +147,10 @@ func (e *TestEnv) Restart(t *testing.T) {
 		DBPath:      e.DBPath,
 		PIDFilePath: filepath.Join(e.Dir, "test.pid"),
 		SocketAddr:  e.SocketAddr,
-
+		HTTP: config.HTTPConfig{
+			Enabled: true,
+			Addr:    "localhost:0",
+		},
 	}
 
 	d, err := daemon.New(cfg)
@@ -165,16 +168,28 @@ func (e *TestEnv) Restart(t *testing.T) {
 	backlogMod2.Manager().SetJunctionCleaner(handoffMod2.Manager().JunctionCleaner())
 	backlogMod2.Manager().SetJunctionCreator(handoffMod2.Manager().JunctionCreator())
 
+	// HTTP server factory (same as New) — restart must also restore HTTP
+	bqa2 := &testBacklogQuerier{mgr: backlogMod2.Manager()}
+	hqa2 := &testHandoffQuerier{mgr: handoffMod2.Manager()}
+	qqa2 := &testQueueQuerier{mgr: queueMod2.Manager()}
+	d.SetHTTPServerFactory(func(addr string) *httpd.Server {
+		return httpd.New(bqa2, hqa2, qqa2, d.Router(), addr)
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- d.Run(ctx) }()
 	waitForSocket(t, e.SocketAddr)
+
+	// Wait for HTTP server readiness on restart too
+	httpAddr := waitForHTTP(t, d)
 
 	e.Cancel = cancel
 	e.daemon = d
 	e.done = done
 	e.stopped = false
 	e.Client = ipc.NewClient(e.SocketAddr)
+	e.HTTPAddr = httpAddr
 
 	t.Cleanup(func() {
 		if !e.stopped {

@@ -134,21 +134,19 @@ func (q *testHandoffQuerier) DashboardActiveBranchesList() ([]ActiveBranch, erro
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var branches []ActiveBranch
 	for rows.Next() {
 		var ab ActiveBranch
 		if err := rows.Scan(&ab.Branch, &ab.WorkspaceID, &ab.GitBranch, &ab.Summary,
 			&ab.Status, &ab.CreatedAt); err != nil {
-			rows.Close()
 			return nil, err
 		}
 		branches = append(branches, ab)
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return nil, err
 	}
-	rows.Close()
 
 	for i := range branches {
 		bbRows, err := q.st.Query(context.Background(), `SELECT backlog_id FROM branch_backlogs WHERE branch = ?`, branches[i].Branch)

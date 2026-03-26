@@ -56,7 +56,9 @@ func TestQuery_SelectRows(t *testing.T) {
 	var names []string
 	for rows.Next() {
 		var name string
-		rows.Scan(&name)
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("Scan error: %v", err)
+		}
 		names = append(names, name)
 	}
 
