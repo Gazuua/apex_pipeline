@@ -268,6 +268,10 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - Gateway RL RedisAdapter → Server::add_adapter() 라이프사이클 통합 (graceful shutdown 포함)
   - GatewayPipeline rate_limiter_ atomic 제거 → 초기화 전용 plain pointer
 
+- **보안: SecureString SSO 버퍼 소멸/move 시 제로화 (PR #205, BACKLOG-246)**
+  - 소멸자에서 `sizeof(std::string)` 전체 제로화 — SSO 버퍼 잔류 데이터 방지
+  - move 생성자/대입에서 소스 객체 SSO 버퍼 제로화
+
 - **인프라: Helm Chart.lock 커밋 + charts/ tgz gitignore (PR #198)**
   - 빌드 재현성을 위한 Chart.lock 버전 관리, 패키징 산출물 gitignore 처리
 
