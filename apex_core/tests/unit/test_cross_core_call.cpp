@@ -34,6 +34,7 @@ class CrossCoreCallTest : public ::testing::Test
             .arena_block_bytes = 4096,
             .arena_max_bytes = 1024 * 1024,
             .metrics = {},
+            .admin = {},
         });
         server_->listen<TcpBinaryProtocol>(0);
         server_thread_ = std::thread([this] { server_->run(); });

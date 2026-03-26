@@ -34,6 +34,7 @@ TEST(ServerMulticoreTest, RunAndStop)
         .arena_block_bytes = 4096,
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -54,7 +55,8 @@ TEST(ServerMulticoreTest, CoreCount)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     EXPECT_EQ(server.core_count(), 4u);
 }
 
@@ -105,7 +107,8 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -135,7 +138,8 @@ TEST_F(CountingServiceFixture, AddServiceChaining)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
 
     // Chaining compiles and works
     server.listen<TcpBinaryProtocol>(0).add_service<CountingService>().add_service<CountingService>();
@@ -207,7 +211,8 @@ TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     server.add_service_factory([&core_id_bits](PerCoreState& state) -> std::unique_ptr<ServiceBaseInterface> {
@@ -252,7 +257,8 @@ TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows)
                          .bump_capacity_bytes = 64 * 1024,
                          .arena_block_bytes = 4096,
                          .arena_max_bytes = 1024 * 1024,
-                         .metrics = {}}),
+                         .metrics = {},
+                         .admin = {}}),
                  std::invalid_argument);
 }
 
@@ -272,7 +278,8 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -297,6 +304,7 @@ TEST(ServerMulticoreTest, DoubleRunThrows)
         .arena_block_bytes = 4096,
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/adapter_interface.hpp>
+#include <apex/core/admin_http_server.hpp>
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/assert.hpp>
 #include <apex/core/bump_allocator.hpp>
@@ -10,7 +11,6 @@
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
-#include <apex/core/admin_http_server.hpp>
 #include <apex/core/metrics_http_server.hpp>
 #include <apex/core/metrics_registry.hpp>
 #include <apex/core/periodic_task_scheduler.hpp>
