@@ -201,7 +201,8 @@ type workspaceQuerierAdapter struct {
 }
 
 func (a *workspaceQuerierAdapter) DashboardBranchesList() ([]httpd.BranchInfo, error) {
-	branches, err := a.mgr.List(context.Background())
+	ctx := context.Background()
+	branches, err := a.mgr.DashboardBranchesList(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -214,6 +215,19 @@ func (a *workspaceQuerierAdapter) DashboardBranchesList() ([]httpd.BranchInfo, e
 			GitStatus:     b.GitStatus,
 			SessionStatus: b.SessionStatus,
 			SessionID:     b.SessionID,
+			HandoffStatus: b.HandoffStatus,
+			BacklogIDs:    b.BacklogIDs,
+		}
+		// Fetch blocked backlogs for branches that have backlog IDs.
+		if b.BacklogIDs != "" {
+			blocked, _ := a.mgr.DashboardBlockedBacklogs(ctx, b.BacklogIDs)
+			for _, bb := range blocked {
+				result[i].BlockedBacklogs = append(result[i].BlockedBacklogs, httpd.BlockedBacklogInfo{
+					ID:            bb.ID,
+					Title:         bb.Title,
+					BlockedReason: bb.BlockedReason,
+				})
+			}
 		}
 	}
 	return result, nil

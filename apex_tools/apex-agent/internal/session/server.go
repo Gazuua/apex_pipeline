@@ -22,12 +22,13 @@ import (
 
 // Server is the standalone session server process (:7601).
 type Server struct {
-	cfg     config.SessionConfig
-	mgr     *Manager
-	dog     *Watchdog
-	wsMgr   *workspace.Manager
-	httpSrv *http.Server
-	ln      net.Listener
+	cfg        config.SessionConfig
+	mgr        *Manager
+	dog        *Watchdog
+	wsMgr      *workspace.Manager
+	httpSrv    *http.Server
+	ln         net.Listener
+	shutdownCh chan struct{}
 }
 
 // NewServer creates a session server.
@@ -52,10 +53,11 @@ func NewServer(cfg config.SessionConfig, wsCfg config.WorkspaceConfig, st *store
 	dog := NewWatchdog(mgr, cfg.WatchdogInterval, onUpdate)
 
 	return &Server{
-		cfg:   cfg,
-		mgr:   mgr,
-		dog:   dog,
-		wsMgr: wsMgr,
+		cfg:        cfg,
+		mgr:        mgr,
+		dog:        dog,
+		wsMgr:      wsMgr,
+		shutdownCh: make(chan struct{}, 1),
 	}
 }
 
@@ -78,18 +80,23 @@ func (s *Server) Run(ctx context.Context) error {
 	mux.HandleFunc("POST /api/session/{id}/send", s.handleSendInput)
 	mux.HandleFunc("/ws/session/{id}", s.handleWS)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{"ok":true}`))
+		w.Write([]byte(`{"ok":true}`)) //nolint:errcheck
 	})
+	mux.HandleFunc("POST /api/shutdown", s.handleShutdown)
 
 	ln, err := net.Listen("tcp", s.cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("session server listen: %w", err)
 	}
 	s.ln = ln
+	// ReadTimeout and WriteTimeout are intentionally 0 (unlimited) because this
+	// server hosts long-lived WebSocket connections. Go's http.Server sets a
+	// conn-level deadline that persists after Hijack, so a finite timeout would
+	// kill WebSocket connections after that duration. Non-WebSocket handlers are
+	// short-lived REST calls on localhost only, so the risk of slowloris-style
+	// abuse is negligible.
 	s.httpSrv = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Handler: mux,
 	}
 
 	ml.Info("session server started", "addr", ln.Addr().String())
@@ -104,6 +111,9 @@ func (s *Server) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
+		ml.Info("shutdown: context canceled")
+	case <-s.shutdownCh:
+		ml.Info("shutdown: requested via API")
 	case err := <-errCh:
 		return err
 	}
@@ -284,6 +294,16 @@ func (s *Server) handleSendInput(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "text": text})
+}
+
+func (s *Server) handleShutdown(w http.ResponseWriter, _ *http.Request) {
+	select {
+	case s.shutdownCh <- struct{}{}:
+		ml.Audit("shutdown requested via HTTP API")
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "shutting_down"})
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "already_shutting_down"})
+	}
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {

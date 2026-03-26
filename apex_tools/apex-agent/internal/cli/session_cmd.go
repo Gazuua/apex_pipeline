@@ -116,22 +116,38 @@ func sessionStopCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("session server not running")
 			}
+
+			// Graceful shutdown via HTTP API (works on all platforms including Windows).
+			appCfg, _ := config.Load(config.DefaultPath())
+			addr := appCfg.Session.Addr
+			if addr == "" {
+				addr = "localhost:7601"
+			}
+			if resp, err := sendHTTPPost("http://"+addr+"/api/shutdown", "{}"); err == nil && strings.Contains(resp, "shutting_down") {
+				// Wait for process to exit.
+				for i := 0; i < 50; i++ {
+					time.Sleep(100 * time.Millisecond)
+					if !platform.IsProcessAlive(pid) {
+						fmt.Println("session server stopped (graceful)")
+						return nil
+					}
+				}
+			}
+
+			// Fallback: force kill if HTTP shutdown failed or timed out.
 			proc, err := os.FindProcess(pid)
 			if err != nil {
 				return err
 			}
-			// On Windows, SIGTERM is not supported — use Kill.
-			if err := proc.Signal(syscall.SIGTERM); err != nil {
-				proc.Kill()
-			}
+			_ = proc.Kill() // best-effort — process may already be dead
 			for i := 0; i < 50; i++ {
 				time.Sleep(100 * time.Millisecond)
 				if !platform.IsProcessAlive(pid) {
-					break
+					fmt.Println("session server stopped (forced)")
+					return nil
 				}
 			}
-			fmt.Println("session server stopped")
-			return nil
+			return fmt.Errorf("session server (pid %d) did not exit after force kill", pid)
 		},
 	}
 }
@@ -220,6 +236,8 @@ func startSessionProcess() (int, error) {
 			return child.Process.Pid, nil
 		}
 	}
+	// Health check failed — kill the orphaned child process to prevent leak.
+	child.Process.Kill()
 	return 0, fmt.Errorf("session server failed to start within 5 seconds")
 }
 
