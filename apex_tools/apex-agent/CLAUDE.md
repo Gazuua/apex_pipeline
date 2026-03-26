@@ -388,12 +388,19 @@ apex-agent session send <workspace_id> <text>  # 세션에 텍스트 전송
 | `/api/sessions/{id}` | DELETE | 세션 중지 |
 | `/api/sessions/{id}/send` | POST | 텍스트 전송 |
 | `/ws/{id}` | WebSocket | xterm.js 터미널 연결 |
+| `/api/shutdown` | POST | graceful shutdown 요청 |
+
+### Graceful Shutdown
+
+- `session stop`이 HTTP `/api/shutdown` 엔드포인트로 graceful shutdown 요청 (Windows SIGTERM 미지원 대응)
+- 성공 시 세션 서버가 모든 ConPTY 세션을 정리한 뒤 종료
+- HTTP 요청 실패 또는 타임아웃 시 `Kill()` fallback
 
 ### Watchdog
 
 - 데몬이 세션 서버 프로세스의 PID를 추적
 - `watchdog_interval` (기본 1초) 주기로 프로세스 생존 확인
-- 비정상 종료 감지 시 자동 재시작
+- 비정상 종료 감지 시 DB 상태(session_status) STOP으로 리셋
 - 데몬 종료 시 세션 서버도 함께 종료
 
 ### 백로그 blocked_reason
