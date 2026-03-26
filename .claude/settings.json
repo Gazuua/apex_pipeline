@@ -77,6 +77,17 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./apex_tools/apex-agent/run-hook plugin teardown",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

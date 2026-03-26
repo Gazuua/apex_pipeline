@@ -564,6 +564,183 @@ body {
   text-decoration: underline;
 }
 
+/* ── Buttons ── */
+.btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+}
+
+.btn-primary {
+  background: rgba(52,211,153,0.15);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.btn-primary:hover {
+  background: rgba(52,211,153,0.25);
+}
+
+.btn-danger {
+  background: rgba(248,113,113,0.12);
+  border-color: rgba(248,113,113,0.4);
+  color: var(--accent-red);
+}
+
+.btn-danger:hover {
+  background: rgba(248,113,113,0.25);
+  border-color: var(--accent-red);
+}
+
+.btn:disabled, .btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Text Utilities ── */
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* ── Branch Page ── */
+.branch-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.branch-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+}
+
+.branch-card:hover {
+  border-color: var(--border-hover);
+}
+
+.branch-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(51,65,85,0.4);
+}
+
+.branch-id {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent-blue);
+}
+
+.branch-dir {
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.branch-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.git-branch {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.git-status,
+.session-status,
+.handoff-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.git-status.status-CLEAN  { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+.git-status.status-DIRTY  { background: rgba(248,113,113,0.15); color: var(--accent-red); }
+.git-status.status-UNKNOWN { background: rgba(148,163,184,0.15); color: var(--text-secondary); }
+
+.session-status.status-STOP    { background: rgba(148,163,184,0.12); color: var(--text-muted); }
+.session-status.status-MANAGED { background: rgba(52,211,153,0.15); color: var(--accent-green); }
+.session-status.status-EXTERNAL { background: rgba(56,189,248,0.15); color: var(--accent-blue); }
+
+.handoff-status { background: rgba(167,139,250,0.15); color: var(--accent-purple); }
+
+.blocked-item {
+  background: rgba(248,113,113,0.08);
+  border-left: 3px solid var(--accent-red);
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.82rem;
+  color: var(--accent-red);
+}
+
+.branch-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(51,65,85,0.4);
+}
+
+.terminal-container {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+  min-height: 320px;
+  overflow: hidden;
+}
+
+/* ── Blocked Badge (nav) ── */
+.badge-warn {
+  background: rgba(248,113,113,0.15);
+  color: var(--accent-red);
+  text-decoration: none;
+}
+
+.badge-warn:hover {
+  background: rgba(248,113,113,0.25);
+}
+
 /* Queue datetime filter inputs */
 .dt-input {
   background: var(--bg-card);

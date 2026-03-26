@@ -42,11 +42,15 @@ func Setup(workspaceRoot string) error {
 	// Read plugin version from plugin.json
 	version := readPluginVersion(pluginPath)
 
-	// Quick check: if already installed with same path+version, skip
+	// Quick check: if already installed with matching version + valid path, skip.
+	// This avoids file writes that trigger Claude Code's "reload plugin" prompt
+	// when switching between workspace copies of the same repo.
 	installedFile := filepath.Join(pluginsDir, "installed_plugins.json")
 	if isAlreadyInstalled(installedFile, pluginPath, version) {
 		ml.Debug("plugin already installed, skipping", "plugin", pluginID, "version", version)
-		return nil
+		// Still ensure enabledPlugins is set (no file write if already present)
+		settingsFile := filepath.Join(claudeDir, "settings.json")
+		return updateEnabledPlugins(settingsFile)
 	}
 	ml.Info("installing plugin", "plugin", pluginID, "version", version, "path", pluginPath)
 
@@ -83,7 +87,9 @@ func readPluginVersion(pluginPath string) string {
 }
 
 // isAlreadyInstalled returns true if the plugin entry in installedFile already
-// has the exact same installPath and version (no update needed).
+// has the matching version and a valid installPath (no update needed).
+// Multi-workspace: different workspaces share the same repo content, so we
+// only compare versions and check that the existing path is still reachable.
 func isAlreadyInstalled(installedFile, pluginPath, version string) bool {
 	data, err := os.ReadFile(installedFile)
 	if err != nil {
@@ -98,7 +104,14 @@ func isAlreadyInstalled(installedFile, pluginPath, version string) bool {
 		return false
 	}
 	e := entries[0]
-	return filepath.Clean(e.InstallPath) == filepath.Clean(pluginPath) && e.Version == version
+	if e.Version != version {
+		return false
+	}
+	// Version matches — check that the existing path is still valid.
+	// Even if it points to a different workspace copy, the content is identical.
+	pluginJSON := filepath.Join(filepath.Clean(e.InstallPath), ".claude-plugin", "plugin.json")
+	_, err = os.Stat(pluginJSON)
+	return err == nil
 }
 
 // updateKnownMarketplaces ensures the marketplace entry exists and points to

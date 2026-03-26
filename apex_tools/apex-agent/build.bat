@@ -1,9 +1,9 @@
 @echo off
-REM apex-agent build script — Windows double-click friendly
+REM apex-agent build script -- Windows double-click friendly
 REM Usage: build.bat [test|clean]
-REM Default (no args): build + install (build → daemon stop → rename → copy → daemon start)
+REM Default (no args): build + install (build -> daemon stop -> rename -> copy -> daemon start)
 REM
-REM Windows allows renaming a running exe. This avoids killing other workspaces'
+REM Windows allows renaming a running exe. This avoids killing other workspaces
 REM apex-agent CLI processes. The old binary continues running in memory and the
 REM .old file is cleaned up on next install.
 
@@ -16,7 +16,7 @@ set LDFLAGS=-s -w -X github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/inter
 set INSTALL_DIR=%LOCALAPPDATA%\apex-agent
 
 if "%1"=="test" (
-    echo === Running tests (unit + e2e) ===
+    echo === Running tests [unit + e2e] ===
     go test ./... -cover -v -count=1 -timeout 120s
     goto :end
 )
@@ -37,7 +37,7 @@ if %ERRORLEVEL% NEQ 0 (
     goto :end
 )
 
-REM Step 2: Stop daemon (creates maintenance lock → suppresses auto-restart)
+REM Step 2: Stop daemon -- creates maintenance lock, suppresses auto-restart
 "%INSTALL_DIR%\apex-agent.exe" daemon stop >nul 2>&1
 
 REM Step 3: Rename-then-replace (running exe can be renamed on Windows)

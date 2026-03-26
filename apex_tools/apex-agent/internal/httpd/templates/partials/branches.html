@@ -8,7 +8,7 @@
   <div class="branch-meta">
     <span class="git-branch">{{.GitBranch}}</span>
     <span class="git-status status-{{.GitStatus}}">{{.GitStatus}}</span>
-    <span class="session-status status-{{.SessionStatus}}">{{.SessionStatus}}</span>
+    <span class="session-status status-{{.SessionStatus}}">{{.SessionStatus}}{{.SessionRefLabel}}</span>
     {{if .HandoffStatus}}<span class="handoff-status">{{.HandoffStatus}}</span>{{end}}
   </div>
   {{range .BlockedBacklogs}}
@@ -26,7 +26,13 @@
     {{else}}
       <span class="text-muted">External session</span>
     {{end}}
-    <button onclick="syncBranch('{{.WorkspaceID}}')" class="btn btn-sm">Sync</button>
+    {{if eq .SessionStatus "EXTERNAL"}}
+      <button class="btn btn-sm" disabled title="활성 세션이 있어 Sync 불가">Sync</button>
+    {{else if eq .SessionStatus "MANAGED"}}
+      <button class="btn btn-sm" disabled title="활성 세션이 있어 Sync 불가">Sync</button>
+    {{else}}
+      <button onclick="syncBranch('{{.WorkspaceID}}')" class="btn btn-sm">Sync</button>
+    {{end}}
   </div>
   <div class="terminal-container" id="term-{{.WorkspaceID}}" style="display:none;"></div>
 </div>

@@ -1,19 +1,19 @@
 {
-  "next_id": 258,
+  "next_id": 259,
   "items": [
     {
-      "id": 242,
-      "title": "유저 수동 검증: workspace 모듈 + blocked_reason 기능 테스트",
+      "id": 258,
+      "title": "대시보드 Branches 후속 — FIX UI + 좀비 개별 정리 + workspace CLI + 크로스플랫폼",
       "severity": "MAJOR",
       "timeframe": "NOW",
       "scope": "TOOLS",
-      "type": "TEST",
-      "description": "[유저 대상 — 에이전트 자율 수행 아님] PR #195 머지 후 아래 항목을 수동 검증: (1) config.toml에 [workspace] 섹션 추가 후 데몬 재시작. apex-agent config show로 workspace/session 섹션 출력 확인. root 경로를 실제 워크스페이스 루트로 설정. (2) workspace scan 동작 확인. 바이너리 갱신(apex-agent queue 빌드) 후 데몬 재시작. 대시보드 localhost:7600 정상 동작 확인. DB local_branches 테이블 생성 확인. (3) backlog --blocked 동작 확인. apex-agent backlog update {ID} --blocked 테스트사유 → show로 확인 → --blocked 빈문자열로 해제 확인. (4) 하위 호환성: 다른 워크스페이스 에이전트가 정상 동작하는지 확인 (hook, 핸드오프, 빌드 큐 등).",
-      "related": "238,239",
-      "position": 15,
-      "status": "FIXING",
-      "created_at": "2026-03-26 16:37:49",
-      "updated_at": "2026-03-26 22:13:22"
+      "type": "INFRA",
+      "description": "PR #206 후속 작업 4건 통합: (1) /backlog FIX 버튼 — 브랜치 선택 모달 + ConPTY stdin 프롬프트 주입 (BACKLOG-239 Phase 3). (2) ReapZombieSessions 개별 정리 — 전역 hasClaudeProcess 대신 워크스페이스별 mtime 검사로 개별 좀비 STOP 전환 (auto-review ISSUE-3). (3) workspace CLI — scan/list/get/sync 서브커맨드 구현 (현재 API/IPC만 존재, CLAUDE.md 정의와 불일치). (4) hasClaudeProcess 크로스플랫폼 — Windows tasklist.exe 전용을 //go:build 태그로 분리, Linux pgrep 대응 (auto-review LOW-3).",
+      "related": "239",
+      "position": 17,
+      "status": "OPEN",
+      "created_at": "2026-03-26 22:37:57",
+      "updated_at": "2026-03-26 22:37:57"
     },
     {
       "id": 113,
@@ -41,19 +41,6 @@
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
       "updated_at": "2026-03-26 21:45:34"
-    },
-    {
-      "id": 149,
-      "title": "Whisper core_id=0 하드코딩 — SessionId core 인코딩",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CHAT_SVC, GATEWAY",
-      "type": "DESIGN_DEBT",
-      "description": "Whisper unicast 전송 시 core_id=0 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).\n\n**[FSD 분석 2026-03-26]** 설계 확정 상태이나 Auth/Chat/Gateway 3개 서비스에 걸친 변경으로 FSD 규모 초과. 전용 작업으로 진행 필요.",
-      "position": 15,
-      "status": "FIXING",
-      "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-26 21:55:08"
     },
     {
       "id": 187,
@@ -264,6 +251,37 @@
       "status": "OPEN",
       "created_at": "2026-03-26 22:17:10",
       "updated_at": "2026-03-26 22:17:10"
+    },
+    {
+      "id": 149,
+      "title": "Whisper core_id=0 하드코딩 — SessionId core 인코딩",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CHAT_SVC, GATEWAY",
+      "type": "DESIGN_DEBT",
+      "description": "Whisper unicast 전송 시 core_id=0 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).\n\n**[FSD 분석 2026-03-26]** 설계 확정 상태이나 Auth/Chat/Gateway 3개 서비스에 걸친 변경으로 FSD 규모 초과. 전용 작업으로 진행 필요.",
+      "position": 15,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 22:43:47",
+      "created_at": "2026-03-23 02:29:17",
+      "updated_at": "2026-03-26 22:43:47"
+    },
+    {
+      "id": 242,
+      "title": "유저 수동 검증: workspace 모듈 + blocked_reason 기능 테스트",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "[유저 대상 — 에이전트 자율 수행 아님] PR #195 머지 후 아래 항목을 수동 검증: (1) config.toml에 [workspace] 섹션 추가 후 데몬 재시작. apex-agent config show로 workspace/session 섹션 출력 확인. root 경로를 실제 워크스페이스 루트로 설정. (2) workspace scan 동작 확인. 바이너리 갱신(apex-agent queue 빌드) 후 데몬 재시작. 대시보드 localhost:7600 정상 동작 확인. DB local_branches 테이블 생성 확인. (3) backlog --blocked 동작 확인. apex-agent backlog update {ID} --blocked 테스트사유 → show로 확인 → --blocked 빈문자열로 해제 확인. (4) 하위 호환성: 다른 워크스페이스 에이전트가 정상 동작하는지 확인 (hook, 핸드오프, 빌드 큐 등).",
+      "related": "238,239",
+      "position": 15,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 22:41:53",
+      "created_at": "2026-03-26 16:37:49",
+      "updated_at": "2026-03-26 22:41:53"
     },
     {
       "id": 253,

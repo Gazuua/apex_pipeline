@@ -168,19 +168,20 @@ func backlogShowCmd() *cobra.Command {
 				return fmt.Errorf("backlog item %d not found", id)
 			}
 			var item struct {
-				ID          int    `json:"id"`
-				Title       string `json:"title"`
-				Severity    string `json:"severity"`
-				Timeframe   string `json:"timeframe"`
-				Scope       string `json:"scope"`
-				Type        string `json:"type"`
-				Description string `json:"description"`
-				Related     string `json:"related"`
-				Status      string `json:"status"`
-				Resolution  string `json:"resolution"`
-				ResolvedAt  string `json:"resolved_at"`
-				CreatedAt   string `json:"created_at"`
-				UpdatedAt   string `json:"updated_at"`
+				ID            int    `json:"id"`
+				Title         string `json:"title"`
+				Severity      string `json:"severity"`
+				Timeframe     string `json:"timeframe"`
+				Scope         string `json:"scope"`
+				Type          string `json:"type"`
+				Description   string `json:"description"`
+				Related       string `json:"related"`
+				Status        string `json:"status"`
+				Resolution    string `json:"resolution"`
+				ResolvedAt    string `json:"resolved_at"`
+				BlockedReason string `json:"blocked_reason"`
+				CreatedAt     string `json:"created_at"`
+				UpdatedAt     string `json:"updated_at"`
 			}
 			if err := json.Unmarshal(resp.Data, &item); err != nil {
 				return fmt.Errorf("parse response: %w", err)
@@ -204,6 +205,9 @@ func backlogShowCmd() *cobra.Command {
 					}
 				}
 				fmt.Printf("Related:     %s\n", strings.Join(refs, ", "))
+			}
+			if item.BlockedReason != "" {
+				fmt.Printf("Blocked:     %s\n", item.BlockedReason)
 			}
 			if item.Resolution != "" {
 				fmt.Printf("Resolution:  %s\n", item.Resolution)

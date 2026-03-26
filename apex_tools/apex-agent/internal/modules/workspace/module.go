@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
@@ -55,6 +56,8 @@ func (m *Module) RegisterRoutes(reg daemon.RouteRegistrar) {
 	reg.Handle("list", daemon.NoParams(m.handleList))
 	reg.Handle("get", m.handleGet)
 	reg.Handle("sync", m.handleSync)
+	reg.Handle("session-register", m.handleSessionRegister)
+	reg.Handle("session-unregister", m.handleSessionUnregister)
 }
 
 func (m *Module) OnStart(ctx context.Context) error {
@@ -86,6 +89,42 @@ func (m *Module) handleGet(ctx context.Context, params json.RawMessage, _ string
 		return nil, fmt.Errorf("parse get params: %w", err)
 	}
 	return m.manager.Get(ctx, p.WorkspaceID)
+}
+
+func (m *Module) handleSessionRegister(ctx context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		Directory string `json:"directory"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("parse session-register params: %w", err)
+	}
+	wsID, err := m.manager.FindWorkspaceByDir(ctx, filepath.Clean(p.Directory))
+	if err != nil {
+		return map[string]any{"ok": false, "reason": "workspace not found"}, nil
+	}
+	if err := m.manager.IncrementExternalSession(ctx, wsID); err != nil {
+		return nil, err
+	}
+	ml.Info("external session registered", "workspace", wsID)
+	return map[string]any{"ok": true, "workspace_id": wsID}, nil
+}
+
+func (m *Module) handleSessionUnregister(ctx context.Context, params json.RawMessage, _ string) (any, error) {
+	var p struct {
+		Directory string `json:"directory"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil, fmt.Errorf("parse session-unregister params: %w", err)
+	}
+	wsID, err := m.manager.FindWorkspaceByDir(ctx, filepath.Clean(p.Directory))
+	if err != nil {
+		return map[string]any{"ok": false, "reason": "workspace not found"}, nil
+	}
+	if err := m.manager.DecrementExternalSession(ctx, wsID); err != nil {
+		return nil, err
+	}
+	ml.Info("external session unregistered", "workspace", wsID)
+	return map[string]any{"ok": true, "workspace_id": wsID}, nil
 }
 
 func (m *Module) handleSync(ctx context.Context, params json.RawMessage, _ string) (any, error) {

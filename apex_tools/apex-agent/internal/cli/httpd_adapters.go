@@ -209,14 +209,16 @@ func (a *workspaceQuerierAdapter) DashboardBranchesList() ([]httpd.BranchInfo, e
 	result := make([]httpd.BranchInfo, len(branches))
 	for i, b := range branches {
 		result[i] = httpd.BranchInfo{
-			WorkspaceID:   b.WorkspaceID,
-			Directory:     b.Directory,
-			GitBranch:     b.GitBranch,
-			GitStatus:     b.GitStatus,
-			SessionStatus: b.SessionStatus,
-			SessionID:     b.SessionID,
-			HandoffStatus: b.HandoffStatus,
-			BacklogIDs:    b.BacklogIDs,
+			WorkspaceID:     b.WorkspaceID,
+			Directory:       b.Directory,
+			GitBranch:       b.GitBranch,
+			GitStatus:       b.GitStatus,
+			SessionStatus:   b.SessionStatus,
+			SessionID:       b.SessionID,
+			SessionPID:      b.SessionPID,
+			SessionRefLabel: b.SessionRefLabel,
+			HandoffStatus:   b.HandoffStatus,
+			BacklogIDs:      b.BacklogIDs,
 		}
 		// Fetch blocked backlogs for branches that have backlog IDs.
 		if b.BacklogIDs != "" {
