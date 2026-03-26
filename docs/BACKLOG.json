@@ -1,5 +1,5 @@
 {
-  "next_id": 259,
+  "next_id": 260,
   "items": [
     {
       "id": 258,
@@ -107,19 +107,6 @@
       "status": "FIXING",
       "created_at": "2026-03-26 22:11:05",
       "updated_at": "2026-03-26 22:51:54"
-    },
-    {
-      "id": 36,
-      "title": "Acceptor core 0 부하 불균형",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "CORE",
-      "type": "PERF",
-      "description": "단일 acceptor core 0 집중. per-core acceptor 검토. **[FSD 분석 2026-03-22]** per-core acceptor 설계 + 벤치마크 비교 필요. 자동화 불가.",
-      "position": 3,
-      "status": "OPEN",
-      "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 09:42:04"
     },
     {
       "id": 40,
@@ -238,6 +225,34 @@
       "status": "OPEN",
       "created_at": "2026-03-26 22:17:10",
       "updated_at": "2026-03-26 22:17:10"
+    },
+    {
+      "id": 259,
+      "title": "SO_REUSEPORT + eBPF IP-affinity steering — per-IP 연결 카운팅 커널 레벨 최적화",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "CORE",
+      "type": "PERF",
+      "description": "Owner-shard 패턴(BACKLOG-256)의 cross_core_call 오버헤드(~0.2-1μs/accept)가 프로덕션에서 병목이 될 경우 대안. BPF_PROG_TYPE_SK_REUSEPORT로 source IP 해싱하여 같은 IP → 같은 코어 스티어링. per-core 카운터가 곧 글로벌 카운터가 되어 크로스코어 통신 불필요. 구현 비용: eBPF C 프로그램 작성+빌드 인프라+verifier 대응+Windows 미지원. 로드 밸런싱 불균형 리스크(대량 연결 IP가 단일 코어에 몰림). Linux 4.19+ 전용. Seastar도 미채택 — DPDK/io_uring 제공하면서도 owner-shard 패턴을 선호.",
+      "position": 27,
+      "status": "OPEN",
+      "created_at": "2026-03-26 23:12:28",
+      "updated_at": "2026-03-26 23:12:28"
+    },
+    {
+      "id": 36,
+      "title": "Acceptor core 0 부하 불균형",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "CORE",
+      "type": "PERF",
+      "description": "단일 acceptor core 0 집중. per-core acceptor 검토. **[FSD 분석 2026-03-22]** per-core acceptor 설계 + 벤치마크 비교 필요. 자동화 불가.",
+      "position": 3,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 23:13:06",
+      "created_at": "2026-03-22 17:32:29",
+      "updated_at": "2026-03-26 23:13:06"
     },
     {
       "id": 252,
