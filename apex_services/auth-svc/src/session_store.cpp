@@ -89,15 +89,15 @@ boost::asio::awaitable<apex::core::Result<void>> SessionStore::remove(uint64_t u
     co_return apex::core::ok();
 }
 
-boost::asio::awaitable<apex::core::Result<void>> SessionStore::set_user_session_id(uint64_t user_id,
-                                                                                   apex::core::SessionId session_id)
+boost::asio::awaitable<apex::core::Result<void>>
+SessionStore::set_user_session_id(uint64_t user_id, apex::core::SessionId session_id, uint16_t core_id)
 {
     auto key = std::format("session:user:{}", user_id);
-    auto value = std::to_string(apex::core::to_underlying(session_id));
+    auto value = std::format("{}:{}", apex::core::to_underlying(session_id), core_id);
     auto ttl_sec = static_cast<int>(ttl_.count());
 
-    auto core_id = apex::core::CoreEngine::current_core_id();
-    auto& mux = redis_.multiplexer(core_id);
+    auto current_core = apex::core::CoreEngine::current_core_id();
+    auto& mux = redis_.multiplexer(current_core);
     auto result = co_await mux.command("SETEX %s %d %s", key.c_str(), ttl_sec, value.c_str());
     if (!result.has_value())
     {

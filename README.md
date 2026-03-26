@@ -272,6 +272,11 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - 소멸자에서 `sizeof(std::string)` 전체 제로화 — SSO 버퍼 잔류 데이터 방지
   - move 생성자/대입에서 소스 객체 SSO 버퍼 제로화
 
+- **서비스: Whisper O(1) core routing (PR #208, BACKLOG-149)**
+  - Auth SessionStore에 `core_id`를 `"session_id:core_id"` 형태로 Redis 저장
+  - Chat whisper에서 파싱 후 실제 `core_id`를 MetadataPrefix에 설정
+  - Gateway ResponseDispatcher가 단일 코어에만 post → O(N_cores) → O(1)
+
 - **인프라: Helm Chart.lock 커밋 + charts/ tgz gitignore (PR #198)**
   - 빌드 재현성을 위한 Chart.lock 버전 관리, 패키징 산출물 gitignore 처리
 

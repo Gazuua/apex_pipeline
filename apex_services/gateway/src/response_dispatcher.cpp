@@ -46,18 +46,12 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
     auto& routing = *rh_result;
     auto& meta = *meta_result;
 
-    // 3. Validate core_id range
     uint16_t target_core = meta.core_id;
-    if (target_core >= pending_maps_.size())
-    {
-        logger_.warn("Invalid core_id {} in response", target_core);
-        return apex::core::error(apex::core::ErrorCode::ParseFailed);
-    }
 
-    // 4. Copy payload for capture (Kafka buffer lifetime is callback-scoped)
+    // 3. Copy payload for capture (Kafka buffer lifetime is callback-scoped)
     auto payload_copy = std::make_shared<std::vector<uint8_t>>(payload.begin(), payload.end());
 
-    // 5. Post to target core's io_context so PendingRequestsMap access
+    // 4. Post to target core's io_context so PendingRequestsMap access
     //    and session write happen on the core thread — no data race.
     auto corr_id = meta.corr_id;
     auto routing_copy = routing;
@@ -65,12 +59,9 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
 
     // Server push path: corr_id == 0 means this is a push message (e.g., whisper),
     // not a request-response correlation. Deliver directly by session_id.
-    // Since we don't know which core owns the target session, post to ALL cores
-    // and let each core check its own SessionManager.
     if (corr_id == 0)
     {
-        for (uint16_t core = 0; core < session_mgrs_.size(); ++core)
-        {
+        auto deliver_to_core = [this, routing_copy, target_session_id, payload_copy](uint16_t core) {
             boost::asio::post(engine_.io_context(core), [this, core, routing_copy, target_session_id, payload_copy]() {
                 auto* session_mgr = session_mgrs_[core];
                 auto session = session_mgr->find_session(target_session_id);
@@ -89,8 +80,27 @@ apex::core::Result<void> ResponseDispatcher::on_response(std::span<const uint8_t
                 auto wire_response = build_wire_response(routing_copy, fbs_payload, routing_copy.msg_id);
                 (void)session->enqueue_write(std::move(wire_response));
             });
+        };
+
+        if (target_core < session_mgrs_.size())
+        {
+            // O(1): core_id specified — post to single core
+            deliver_to_core(target_core);
+        }
+        else
+        {
+            // Fallback: unknown core_id — scan all cores (legacy compat)
+            for (uint16_t core = 0; core < session_mgrs_.size(); ++core)
+                deliver_to_core(core);
         }
         return apex::core::ok();
+    }
+
+    // Validate core_id range for request-response path
+    if (target_core >= pending_maps_.size())
+    {
+        logger_.warn("Invalid core_id {} in response", target_core);
+        return apex::core::error(apex::core::ErrorCode::ParseFailed);
     }
 
     boost::asio::post(engine_.io_context(target_core), [this, target_core, corr_id, routing_copy,

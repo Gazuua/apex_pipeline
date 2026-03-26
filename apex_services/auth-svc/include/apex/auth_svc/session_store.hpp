@@ -38,9 +38,9 @@ class SessionStore
     /// Delete session (logout)
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> remove(uint64_t user_id);
 
-    /// Store session:user:{uid} -> session_id mapping (for cross-service session lookup)
+    /// Store session:user:{uid} -> "session_id:core_id" mapping (for cross-service session lookup + O(1) core routing)
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>>
-    set_user_session_id(uint64_t user_id, apex::core::SessionId session_id);
+    set_user_session_id(uint64_t user_id, apex::core::SessionId session_id, uint16_t core_id);
 
     /// Remove session:user:{uid} mapping
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<void>> remove_user_session_id(uint64_t user_id);
