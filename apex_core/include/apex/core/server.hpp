@@ -6,6 +6,7 @@
 #include <apex/core/admin_http_server.hpp>
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/assert.hpp>
+#include <apex/core/blocking_task_executor.hpp>
 #include <apex/core/bump_allocator.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
@@ -240,6 +241,12 @@ class Server
         return *core_engine_;
     }
 
+    /// Access BlockingTaskExecutor for CPU-bound work offload.
+    [[nodiscard]] BlockingTaskExecutor& blocking_executor() noexcept
+    {
+        return *blocking_executor_;
+    }
+
     /// Access MetricsRegistry for Prometheus metric registration.
     [[nodiscard]] MetricsRegistry& metrics_registry() noexcept
     {
@@ -337,6 +344,7 @@ class Server
     ServerConfig config_;
     boost::asio::io_context control_io_;
     std::unique_ptr<CoreEngine> core_engine_;
+    std::unique_ptr<BlockingTaskExecutor> blocking_executor_;
 
     // [D3] Cross-core global resources. 선언 위치 중요: per_core_ 앞.
     // 소멸 순서에서 per_core_(서비스) → globals_ 순으로 소멸되어
