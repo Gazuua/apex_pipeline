@@ -235,14 +235,16 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                 if (!connection_limiters_ || ip.empty())
                     return;
                 uint32_t owner = ConnectionLimiter::owner_core(ip, num_cores);
+                auto* limiter = (*connection_limiters_)[owner].get();
+                if (!limiter)
+                    return; // Already destroyed during shutdown
                 if (owner == i)
                 {
-                    (*connection_limiters_)[owner]->decrement(ip);
+                    limiter->decrement(ip);
                 }
                 else
                 {
-                    boost::asio::post(engine_.io_context(owner),
-                                      [limiter = (*connection_limiters_)[owner].get(), ip] { limiter->decrement(ip); });
+                    boost::asio::post(engine_.io_context(owner), [limiter, ip] { limiter->decrement(ip); });
                 }
             });
         }
@@ -317,6 +319,18 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
             auto result = co_await cross_core_call(engine_, owner, [this, owner, ip = remote_ip] {
                 return (*connection_limiters_)[owner]->try_increment(ip);
             });
+            if (!result.has_value())
+            {
+                // Timeout/error: try_increment may or may not have executed on the owner core.
+                // Post a compensating decrement — safe because decrement() handles unknown/zero-count IPs.
+                logger_.warn("cross_core_call timeout for per-IP check (ip={})", remote_ip);
+                auto* comp_limiter = (*connection_limiters_)[owner].get();
+                if (comp_limiter)
+                {
+                    boost::asio::post(engine_.io_context(owner),
+                                      [comp_limiter, ip = remote_ip] { comp_limiter->decrement(ip); });
+                }
+            }
             allowed = result.has_value() && *result;
         }
 

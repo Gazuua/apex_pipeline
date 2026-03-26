@@ -2,6 +2,8 @@
 
 #include <apex/core/connection_limiter.hpp>
 
+#include <cassert>
+
 namespace apex::core
 {
 
@@ -10,10 +12,18 @@ ConnectionLimiter::ConnectionLimiter(uint32_t core_id, uint32_t num_cores, uint3
     , num_cores_(num_cores)
     , max_per_ip_(max_per_ip)
     , logger_("ConnLimiter", core_id, "core")
-{}
+{
+    assert(num_cores > 0 && "ConnectionLimiter: num_cores must be > 0");
+    assert(max_per_ip > 0 && "ConnectionLimiter: max_per_ip must be > 0 (0 would reject all connections)");
+}
 
 bool ConnectionLimiter::try_increment(std::string_view ip)
 {
+    if (ip.empty())
+    {
+        logger_.debug("try_increment called with empty IP, rejecting");
+        return false;
+    }
     auto [it, inserted] = counts_.try_emplace(std::string(ip), 0);
     if (it->second >= max_per_ip_)
     {
@@ -34,12 +44,22 @@ void ConnectionLimiter::decrement(std::string_view ip)
         logger_.debug("decrement for unknown ip={} (already cleaned up)", ip);
         return;
     }
+    if (it->second == 0)
+    {
+        logger_.warn("decrement underflow prevented: ip={}, count already 0", ip);
+        counts_.erase(it);
+        return;
+    }
     if (--it->second == 0)
         counts_.erase(it);
 }
 
 uint32_t ConnectionLimiter::owner_core(std::string_view ip, uint32_t num_cores) noexcept
 {
+    // Guard: num_cores == 0 would cause division by zero (UB).
+    // Return core 0 as a safe fallback — single-core or misconfiguration.
+    if (num_cores == 0)
+        return 0;
     // FNV-1a hash — deterministic, fast, good distribution
     uint64_t hash = 14695981039346656037ULL;
     for (auto c : ip)

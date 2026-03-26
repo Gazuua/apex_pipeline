@@ -344,8 +344,9 @@ class Server
 
     ServerConfig config_;
     boost::asio::io_context control_io_;
-    // 소멸 순서: per_core_limiters_ 는 core_engine_ 보다 앞에 선언하여
-    // RAII 역순 소멸 시 CoreEngine 이후에 소멸. 명시적 정리는 finalize_shutdown() Step 6.5.
+    // 소멸 순서: ~Server에서 io.poll() → core_engine_.reset() → per_core_limiters_.clear()
+    // 순으로 명시적 정리. connection_closed_cb_에서 asio::post된 decrement handler가
+    // io.poll()에서 모두 소진된 후에 limiter를 소멸시켜 dangling 방지.
     std::vector<std::unique_ptr<ConnectionLimiter>> per_core_limiters_;
     std::unique_ptr<CoreEngine> core_engine_;
     std::unique_ptr<BlockingTaskExecutor> blocking_executor_;

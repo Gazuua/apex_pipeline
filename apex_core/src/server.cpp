@@ -107,6 +107,8 @@ Server::~Server()
     //   2) per_core_ schedulers : 타이머가 io_context에 등록됨
     //   3) core_engine_ : io_context 소유. per_core_의 Session slab 메모리가
     //      유효한 상태에서 실행되어야 함.
+    //   4) per_core_limiters_ : io.poll()에서 connection_closed_cb_의 decrement
+    //      handler가 limiter를 참조할 수 있으므로 core_engine_ 이후에 소멸.
     if (core_engine_)
     {
         for (uint32_t i = 0; i < config_.num_cores; ++i)
@@ -141,6 +143,12 @@ Server::~Server()
         state->scheduler.reset();
     }
     core_engine_.reset();
+
+    // ConnectionLimiter 정리 — io.poll()이 pending decrement handler를
+    // 모두 소진한 뒤, core_engine(io_context) 소멸 후 안전하게 clear.
+    // finalize_shutdown에서 조기 clear하면 io.poll()의 decrement handler가
+    // dangling pointer에 접근하는 UAF 발생 가능.
+    per_core_limiters_.clear();
 }
 
 void Server::run()
@@ -561,10 +569,12 @@ void Server::finalize_shutdown()
         blocking_executor_->shutdown();
     }
 
-    // 6.6. ConnectionLimiter 정리 — CoreEngine drain 완료 후 안전하게 소멸.
-    // INVARIANT: 모든 SPSC cross_core_post(decrement) 메시지가 drain_remaining()에서 소진됨.
-    // RAII 역순 소멸은 백업. 여기서 명시적으로 정리하여 순서를 코드로 강제.
-    per_core_limiters_.clear();
+    // 6.6. ConnectionLimiter: 여기서 clear 하지 않음.
+    // connection_closed_cb_에서 boost::asio::post로 스케줄된 decrement 핸들러가
+    // io_context::stop() 이후 pending 상태로 남아 있을 수 있다.
+    // ~Server의 io.restart()+poll()에서 이 핸들러가 실행되므로,
+    // per_core_limiters_는 그때까지 유효해야 한다.
+    // 소멸은 ~Server에서 io.poll() 완료 후 명시적으로 수행.
 
     // 7. [D3] Global resources 정리
     globals_.clear();
