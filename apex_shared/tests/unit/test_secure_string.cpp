@@ -83,13 +83,18 @@ TEST(SecureStringTest, ZeroizesOnDestruction)
 TEST(SecureStringTest, SelfMoveAssignment)
 {
     SecureString s(std::string_view{"self"});
-#ifdef __clang__
+#if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-move"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-move"
 #endif
     s = std::move(s); // NOLINT(bugprone-use-after-move)
-#ifdef __clang__
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
     // Should not crash — either preserved or empty is acceptable
     (void)s.empty();
