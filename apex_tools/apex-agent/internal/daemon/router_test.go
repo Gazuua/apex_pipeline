@@ -22,9 +22,14 @@ func TestRouter_Dispatch(t *testing.T) {
 		t.Fatalf("Dispatch error: %v", err)
 	}
 
-	data, _ := json.Marshal(result)
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("Marshal result: %v", err)
+	}
 	var m map[string]string
-	json.Unmarshal(data, &m)
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("Unmarshal result: %v", err)
+	}
 	if m["pong"] != "branch_02" {
 		t.Errorf("got %v, want pong=branch_02", m)
 	}

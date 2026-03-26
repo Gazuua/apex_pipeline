@@ -53,7 +53,9 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	var data map[string]string
-	json.Unmarshal(resp.Data, &data)
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		t.Fatalf("Unmarshal response data: %v", err)
+	}
 	if data["ws"] != "branch_01" {
 		t.Errorf("got %v, want ws=branch_01", data)
 	}

@@ -28,7 +28,9 @@ func TestServer_StartStop(t *testing.T) {
 	}
 
 	var body map[string]any
-	json.NewDecoder(resp.Body).Decode(&body)
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
 	if body["ok"] != true {
 		t.Fatalf("expected ok=true, got %v", body["ok"])
 	}

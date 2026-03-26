@@ -236,9 +236,14 @@ func TestSyncExport_IncludesResolved(t *testing.T) {
 	}
 
 	outPath := filepath.Join(dir, "docs", "BACKLOG.json")
-	data, _ := os.ReadFile(outPath)
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read exported file: %v", err)
+	}
 	var exported backlog.BacklogJSON
-	json.Unmarshal(data, &exported)
+	if err := json.Unmarshal(data, &exported); err != nil {
+		t.Fatalf("unmarshal exported JSON: %v", err)
+	}
 
 	if len(exported.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(exported.Items))

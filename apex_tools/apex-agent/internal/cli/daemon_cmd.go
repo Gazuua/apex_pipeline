@@ -149,8 +149,14 @@ func daemonStopCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			if _, err := client.Send(ctx, "daemon", "shutdown", nil, ""); err == nil {
-				// shutdown 요청 성공 — 데몬에 종료 시간 부여
-				time.Sleep(500 * time.Millisecond)
+				// shutdown 요청 성공 — 프로세스 종료 대기 (최대 5초)
+				pid, _ := readPID()
+				for i := 0; i < 50; i++ {
+					time.Sleep(100 * time.Millisecond)
+					if pid > 0 && !platform.IsProcessAlive(pid) {
+						break
+					}
+				}
 				fmt.Println("daemon stopped (graceful)")
 				return nil
 			}
