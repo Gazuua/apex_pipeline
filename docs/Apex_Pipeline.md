@@ -514,6 +514,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [보안] SecureString SSO 버퍼 소멸/move 시 제로화 (BACKLOG-246, PR #205)
          [도구] /branches 검증 + 외부 세션 감지 (BACKLOG-242, PR #206 — Hook+mtime 폴백, ref count, Sync 차단, CSS/HTMX 개선, build.bat/ServeMux 수정)
          [서비스] Whisper O(1) core routing — Auth SessionStore에 core_id 저장, Chat/Gateway 단일 코어 직접 전달 (BACKLOG-149, PR #208)
+         [코어] Acceptor per-IP 연결 제한 — owner-shard 패턴, cross_core_call 기반 no-locking (BACKLOG-256, PR #211)
          [인프라] Loki+Vector+Grafana 옵저빌리티 — KafkaSink 제거, log-svc C++ 폐기, apex-observability 차트 (BACKLOG-199)
          [보안] ESO SecretStore per-service RBAC — 서비스별 SA+SecretStore+IAM role 격리 (BACKLOG-252, PR #209)
               └──→ v1.0.0.0 — 프레임워크 완성

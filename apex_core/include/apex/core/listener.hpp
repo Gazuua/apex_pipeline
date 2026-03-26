@@ -3,7 +3,9 @@
 #pragma once
 
 #include <apex/core/connection_handler.hpp>
+#include <apex/core/connection_limiter.hpp>
 #include <apex/core/core_engine.hpp>
+#include <apex/core/cross_core_call.hpp>
 #include <apex/core/message_dispatcher.hpp>
 #include <apex/core/protocol.hpp>
 #include <apex/core/scoped_logger.hpp>
@@ -11,6 +13,8 @@
 #include <apex/core/tcp_acceptor.hpp>
 #include <apex/core/transport.hpp>
 
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/post.hpp>
 
 #include <atomic>
@@ -51,6 +55,9 @@ class ListenerBase
     /// Copy all handlers (default + msg_id handlers) from source to this listener's per-core dispatcher.
     /// Replaces sync_default_handler for full handler replication across multi-protocol listeners.
     virtual void sync_all_handlers(uint32_t core_id, const MessageDispatcher& source) = 0;
+
+    /// Inject per-IP connection limiters. Called once before start(). No-op by default.
+    virtual void inject_connection_limiters(std::vector<std::unique_ptr<ConnectionLimiter>>* /*limiters*/) {}
 };
 
 /// 프로토콜별 리스너. 포트 바인딩 + accept loop + per-core ConnectionHandler 관리.
@@ -117,8 +124,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                                 return;
                             }
                         }
-                        per_core_handlers_[i]->handler.accept_connection(
-                            T::wrap_socket(std::move(socket), listener_state_), engine_.io_context(i));
+                        dispatch_accept(std::move(socket), i, i);
                     },
                     bind_address_,
                     /*reuseport=*/true));
@@ -217,7 +223,128 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         }
     }
 
+    /// Inject per-core ConnectionLimiters. Sets up release callbacks on ConnectionHandlers.
+    /// Must be called before start(). Pointer must outlive this Listener.
+    void inject_connection_limiters(std::vector<std::unique_ptr<ConnectionLimiter>>* limiters) override
+    {
+        connection_limiters_ = limiters;
+        uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
+        for (uint32_t i = 0; i < num_cores; ++i)
+        {
+            per_core_handlers_[i]->handler.set_connection_closed_callback([this, i, num_cores](const std::string& ip) {
+                if (!connection_limiters_ || ip.empty())
+                    return;
+                uint32_t owner = ConnectionLimiter::owner_core(ip, num_cores);
+                auto* limiter = (*connection_limiters_)[owner].get();
+                if (!limiter)
+                    return; // Already destroyed during shutdown
+                if (owner == i)
+                {
+                    limiter->decrement(ip);
+                }
+                else
+                {
+                    boost::asio::post(engine_.io_context(owner), [limiter, ip] { limiter->decrement(ip); });
+                }
+            });
+        }
+    }
+
   private:
+    /// Extract client IP from raw socket (before Transport::wrap_socket).
+    static std::string extract_ip(const boost::asio::ip::tcp::socket& socket)
+    {
+        boost::system::error_code ec;
+        auto ep = socket.remote_endpoint(ec);
+        return ec ? std::string{} : ep.address().to_string();
+    }
+
+    /// Common dispatch: extract IP → per-IP check → accept_connection.
+    /// @param accepting_core the core where this callback runs (for co_spawn)
+    /// @param target_core the core where the session will be handled
+    void dispatch_accept(boost::asio::ip::tcp::socket socket, uint32_t accepting_core, uint32_t target_core)
+    {
+        auto ip = extract_ip(socket);
+
+        if (connection_limiters_ && !ip.empty())
+        {
+            // Per-IP check requires coroutine for potential cross-core call
+            boost::asio::co_spawn(engine_.io_context(accepting_core),
+                                  checked_accept(std::move(socket), std::move(ip), accepting_core, target_core),
+                                  boost::asio::detached);
+        }
+        else
+        {
+            // No per-IP limit — direct accept
+            forward_to_handler(std::move(socket), std::move(ip), target_core);
+        }
+    }
+
+    /// Wrap socket and post to target core's ConnectionHandler.
+    void forward_to_handler(boost::asio::ip::tcp::socket socket, std::string remote_ip, uint32_t target_core)
+    {
+        auto wrapped = T::wrap_socket(std::move(socket), listener_state_);
+        if (target_core == CoreEngine::current_core_id())
+        {
+            per_core_handlers_[target_core]->handler.accept_connection(
+                std::move(wrapped), engine_.io_context(target_core), std::move(remote_ip));
+        }
+        else
+        {
+            auto& core_io = engine_.io_context(target_core);
+            boost::asio::post(core_io,
+                              [this, target_core, s = std::move(wrapped), ip = std::move(remote_ip)]() mutable {
+                                  per_core_handlers_[target_core]->handler.accept_connection(
+                                      std::move(s), engine_.io_context(target_core), std::move(ip));
+                              });
+        }
+    }
+
+    /// Coroutine: check per-IP limit (owner-shard pattern) then accept.
+    boost::asio::awaitable<void> checked_accept(boost::asio::ip::tcp::socket socket, std::string remote_ip,
+                                                uint32_t accepting_core, uint32_t target_core)
+    {
+        uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
+        uint32_t owner = ConnectionLimiter::owner_core(remote_ip, num_cores);
+
+        bool allowed = false;
+        if (owner == accepting_core)
+        {
+            // Same core — direct local check (no locking, no cross-core)
+            allowed = (*connection_limiters_)[owner]->try_increment(remote_ip);
+        }
+        else
+        {
+            // Cross-core call to owner shard
+            auto result = co_await cross_core_call(engine_, owner, [this, owner, ip = remote_ip] {
+                return (*connection_limiters_)[owner]->try_increment(ip);
+            });
+            if (!result.has_value())
+            {
+                // Timeout/error: try_increment may or may not have executed on the owner core.
+                // Post a compensating decrement — safe because decrement() handles unknown/zero-count IPs.
+                logger_.warn("cross_core_call timeout for per-IP check (ip={})", remote_ip);
+                auto* comp_limiter = (*connection_limiters_)[owner].get();
+                if (comp_limiter)
+                {
+                    boost::asio::post(engine_.io_context(owner),
+                                      [comp_limiter, ip = remote_ip] { comp_limiter->decrement(ip); });
+                }
+            }
+            allowed = result.has_value() && *result;
+        }
+
+        if (!allowed)
+        {
+            logger_.info("Connection rejected: per-IP limit (ip={})", remote_ip);
+            boost::system::error_code ec;
+            socket.close(ec);
+            co_return;
+        }
+
+        forward_to_handler(std::move(socket), std::move(remote_ip), target_core);
+    }
+
     void on_accept(boost::asio::ip::tcp::socket socket)
     {
         if (max_connections_ > 0)
@@ -233,13 +360,10 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         }
 
         uint32_t num_cores = static_cast<uint32_t>(per_core_handlers_.size());
-        uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed) % num_cores;
+        uint32_t target_core = next_core_.fetch_add(1, std::memory_order_relaxed) % num_cores;
 
-        auto& core_io = engine_.io_context(core_id);
-        auto wrapped = T::wrap_socket(std::move(socket), listener_state_);
-        boost::asio::post(core_io, [this, core_id, s = std::move(wrapped)]() mutable {
-            per_core_handlers_[core_id]->handler.accept_connection(std::move(s), engine_.io_context(core_id));
-        });
+        // on_accept runs on core 0 (single-acceptor path)
+        dispatch_accept(std::move(socket), 0, target_core);
     }
 
     ScopedLogger logger_{"Listener", ScopedLogger::NO_CORE};
@@ -254,6 +378,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
     std::vector<std::unique_ptr<TcpAcceptor>> acceptors_;
     std::atomic<bool> started_{false}; // guards acceptors_ against concurrent access
     std::atomic<uint32_t> next_core_{0};
+    std::vector<std::unique_ptr<ConnectionLimiter>>* connection_limiters_{nullptr};
 };
 
 } // namespace apex::core

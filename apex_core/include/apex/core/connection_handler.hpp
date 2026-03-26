@@ -49,10 +49,21 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         , logger_("ConnectionHandler", core_id)
     {}
 
+    using ConnectionClosedCallback = std::function<void(const std::string& remote_ip)>;
+
+    /// Set callback invoked when a session's read_loop exits (before remove_session).
+    /// Used by Listener to release per-IP connection counters.
+    void set_connection_closed_callback(ConnectionClosedCallback cb)
+    {
+        connection_closed_cb_ = std::move(cb);
+    }
+
     /// Accept a new connection -- create session + spawn read_loop.
     /// Must be called on the owning core's io_context thread.
     /// @param socket SocketBase 소유권. Listener가 Transport::wrap_socket()으로 생성.
-    void accept_connection(std::unique_ptr<SocketBase> socket, boost::asio::io_context& io_ctx)
+    /// @param remote_ip 클라이언트 IP (Listener에서 accept 시점에 추출, close 시 release용)
+    void accept_connection(std::unique_ptr<SocketBase> socket, boost::asio::io_context& io_ctx,
+                           std::string remote_ip = {})
     {
         if (config_.tcp_nodelay)
         {
@@ -60,6 +71,8 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         }
 
         auto session = session_mgr_.create_session(std::move(socket));
+        if (!remote_ip.empty())
+            session->set_remote_ip(std::move(remote_ip));
         // Socket executor가 acceptor의 io_context(core 0)를 가리킬 수 있으므로,
         // 실제 실행 core의 executor를 명시적으로 설정.
         // Session 내부의 timer/write_pump가 올바른 io_context에서 동작하게 보장.
@@ -93,6 +106,8 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         {
             logger_.warn(session, "handshake failed");
             session->close();
+            if (connection_closed_cb_ && !session->remote_ip().empty())
+                connection_closed_cb_(session->remote_ip());
             session_mgr_.remove_session(session->id());
             co_return;
         }
@@ -142,6 +157,8 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
             logger_.error(session, "read_loop unknown exception");
         }
 
+        if (connection_closed_cb_ && !session->remote_ip().empty())
+            connection_closed_cb_(session->remote_ip());
         session_mgr_.remove_session(session->id());
     }
 
@@ -216,6 +233,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
     ConnectionHandlerConfig config_;
     ScopedLogger logger_;
     std::shared_ptr<std::atomic<uint32_t>> active_sessions_ = std::make_shared<std::atomic<uint32_t>>(0);
+    ConnectionClosedCallback connection_closed_cb_;
 };
 
 } // namespace apex::core

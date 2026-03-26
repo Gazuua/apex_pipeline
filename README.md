@@ -278,6 +278,11 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - Chat whisper에서 파싱 후 실제 `core_id`를 MetadataPrefix에 설정
   - Gateway ResponseDispatcher가 단일 코어에만 post → O(N_cores) → O(1)
 
+- **코어: Acceptor per-IP 연결 제한 (PR #211, BACKLOG-256)**
+  - Seastar-style owner-shard 패턴 — `hash(IP) % num_cores`로 담당 코어 결정
+  - mutex/atomic 없는 진정한 no-locking, shared-nothing 원칙 완전 준수
+  - `ServerConfig::max_connections_per_ip = 100` (0=비활성)
+
 - **인프라: Helm Chart.lock 커밋 + charts/ tgz gitignore (PR #198)**
   - 빌드 재현성을 위한 Chart.lock 버전 관리, 패키징 산출물 gitignore 처리
 

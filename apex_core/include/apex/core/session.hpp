@@ -150,6 +150,16 @@ class Session
         core_executor_ = std::move(exe);
     }
 
+    /// Cache client IP at accept time (socket may be closed when session ends).
+    void set_remote_ip(std::string ip) noexcept
+    {
+        remote_ip_ = std::move(ip);
+    }
+    [[nodiscard]] const std::string& remote_ip() const noexcept
+    {
+        return remote_ip_;
+    }
+
   private:
     // M-1: Assert valid state transition — Closed is a terminal state
     void set_state(State s) noexcept
@@ -167,6 +177,7 @@ class Session
     std::atomic<State> state_{State::Connected}; // atomic for safe cross-thread destructor access
     std::unique_ptr<SocketBase> socket_;
     boost::asio::any_io_executor core_executor_; // 실제 core io_context의 executor (socket executor와 다를 수 있음)
+    std::string remote_ip_;                      // cached at accept time for release on close
     RingBuffer recv_buf_;
 
     // I-07: Timer entry ID embedded in Session to eliminate session_to_timer_ map
