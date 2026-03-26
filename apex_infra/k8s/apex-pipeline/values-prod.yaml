@@ -109,12 +109,14 @@ pgbouncer:
 externalSecrets:
   enabled: true
   refreshInterval: "1h"
-  serviceAccount: apex-secrets-sa
   aws:
     region: ap-northeast-2
     secretPrefix: apex
+  # Per-service RBAC: 각 서비스별 IAM role ARN 설정 (BACKLOG-252)
+  # 배포 시 운영팀이 실제 ARN으로 교체. SA 이름은 {{ name }}-secrets-sa로 자동 생성
   secrets:
     gateway:
+      iamRoleArn: ""  # arn:aws:iam::ACCOUNT_ID:role/apex-gateway-secrets-role
       targetSecret: apex-gateway-secrets
       keys:
         - envVar: REDIS_AUTH_PASSWORD
@@ -124,6 +126,7 @@ externalSecrets:
         - envVar: REDIS_PUBSUB_PASSWORD
           property: redis_pubsub_password
     auth-svc:
+      iamRoleArn: ""  # arn:aws:iam::ACCOUNT_ID:role/apex-auth-secrets-role
       targetSecret: apex-auth-secrets
       keys:
         - envVar: REDIS_AUTH_PASSWORD
@@ -131,6 +134,7 @@ externalSecrets:
         - envVar: PG_SERVICE_PASSWORD
           property: pg_password
     chat-svc:
+      iamRoleArn: ""  # arn:aws:iam::ACCOUNT_ID:role/apex-chat-secrets-role
       targetSecret: apex-chat-secrets
       keys:
         - envVar: REDIS_CHAT_PASSWORD
@@ -140,6 +144,7 @@ externalSecrets:
         - envVar: PG_SERVICE_PASSWORD
           property: pg_password
     rsa-keys:
+      iamRoleArn: ""  # arn:aws:iam::ACCOUNT_ID:role/apex-rsa-keys-role
       targetSecret: apex-rsa-keys
       keys:
         - envVar: RSA_PRIVATE_KEY

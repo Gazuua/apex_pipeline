@@ -324,7 +324,7 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - JWT 로컬 검증 → 블룸필터 체크 → 필요 시만 Redis 블랙리스트 조회
 - 보안 민감 작업은 메시지 타입별 강제 Redis 검증
 - SecureString 메모리 제로화 + constant-time 비교 — password/시크릿 필드에 explicit_bzero/SecureZeroMemory 적용 (Kafka SASL, Redis, PG, Gateway, JWT), constant_time_equal() 메서드로 타이밍 사이드채널 방지
-- External Secrets Operator (ESO) + AWS Secrets Manager 연동 — K8s Secret 자동 동기화
+- External Secrets Operator (ESO) + AWS Secrets Manager 연동 — K8s Secret 자동 동기화, per-service SecretStore+SA RBAC 격리 (BACKLOG-252)
 
 ---
 
@@ -514,6 +514,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [보안] SecureString SSO 버퍼 소멸/move 시 제로화 (BACKLOG-246, PR #205)
          [도구] /branches 검증 + 외부 세션 감지 (BACKLOG-242, PR #206 — Hook+mtime 폴백, ref count, Sync 차단, CSS/HTMX 개선, build.bat/ServeMux 수정)
          [서비스] Whisper O(1) core routing — Auth SessionStore에 core_id 저장, Chat/Gateway 단일 코어 직접 전달 (BACKLOG-149, PR #208)
+         [보안] ESO SecretStore per-service RBAC — 서비스별 SA+SecretStore+IAM role 격리 (BACKLOG-252, PR #209)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```
