@@ -102,6 +102,7 @@ pgbouncer:
 # === External Secrets Operator ===
 externalSecrets:
   enabled: true
+  refreshInterval: "1h"
   serviceAccount: apex-secrets-sa
   aws:
     region: ap-northeast-2

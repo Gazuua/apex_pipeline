@@ -4,6 +4,7 @@
 
 #include <apex/core/result.hpp>
 #include <apex/core/scoped_logger.hpp>
+#include <apex/shared/secure_string.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -52,8 +53,8 @@ class JwtManager
     }
 
   private:
-    std::string private_key_; // PEM string (loaded from file)
-    std::string public_key_;  // PEM string
+    apex::shared::SecureString private_key_; // PEM string (loaded from file, zeroized on destruction)
+    std::string public_key_;                 // PEM string (public — no zeroization needed)
     std::string issuer_;
     std::chrono::seconds access_token_ttl_;
     apex::core::ScopedLogger logger_{"JwtManager", apex::core::ScopedLogger::NO_CORE, "app"};

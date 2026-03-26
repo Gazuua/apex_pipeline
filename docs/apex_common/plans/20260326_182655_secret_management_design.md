@@ -55,6 +55,14 @@ public:
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] std::size_t size() const noexcept;
 
+    // 비교 연산자
+    [[nodiscard]] bool operator==(const SecureString& other) const noexcept;
+    [[nodiscard]] bool operator==(std::string_view other) const noexcept;
+    [[nodiscard]] bool operator==(const char* other) const noexcept;
+    [[nodiscard]] bool operator!=(const SecureString& other) const noexcept;
+    [[nodiscard]] bool operator!=(std::string_view other) const noexcept;
+    [[nodiscard]] bool operator!=(const char* other) const noexcept;
+
 private:
     std::string data_;
     void clear() noexcept;                    // 제로화 + shrink

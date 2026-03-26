@@ -54,7 +54,7 @@ std::string generate_jti()
 
 JwtManager::JwtManager(std::string_view private_key_path, std::string_view public_key_path, std::string_view issuer,
                        std::chrono::seconds access_token_ttl)
-    : private_key_(read_file(private_key_path))
+    : private_key_(apex::shared::SecureString(read_file(private_key_path)))
     , public_key_(read_file(public_key_path))
     , issuer_(issuer)
     , access_token_ttl_(access_token_ttl)
@@ -97,7 +97,7 @@ std::string JwtManager::create_access_token(uint64_t user_id, std::string_view e
                          .set_payload_claim("uid", jwt::claim(std::to_string(user_id)))
                          .set_subject(std::string(email))
                          .set_payload_claim("jti", jwt::claim(std::string(jti)))
-                         .sign(jwt::algorithm::rs256(public_key_, private_key_));
+                         .sign(jwt::algorithm::rs256(public_key_, std::string{private_key_.view()}));
 
         logger_.debug("token issued uid={} jti={} ttl={}s", user_id, jti, access_token_ttl_.count());
         return token;

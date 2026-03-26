@@ -19,6 +19,10 @@ spec:
         - name: pgbouncer
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
           ports:
             - name: pgbouncer
               containerPort: {{ .Values.pgbouncer.port }}

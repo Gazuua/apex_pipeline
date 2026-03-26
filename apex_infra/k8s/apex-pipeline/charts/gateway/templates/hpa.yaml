@@ -8,8 +8,13 @@ metadata:
     {{- include "apex-common.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
+{{- if and .Values.rollouts .Values.rollouts.enabled }}
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+{{- else }}
     apiVersion: apps/v1
     kind: Deployment
+{{- end }}
     name: {{ include "apex-common.fullname" . }}
   minReplicas: {{ .Values.hpa.minReplicas }}
   maxReplicas: {{ .Values.hpa.maxReplicas }}

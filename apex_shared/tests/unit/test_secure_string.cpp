@@ -99,3 +99,145 @@ TEST(SecureStringTest, SelfMoveAssignment)
     // Should not crash — either preserved or empty is acceptable
     (void)s.empty();
 }
+
+// ============================================================
+// Construct from const char*
+// ============================================================
+
+TEST(SecureStringTest, ConstructFromConstCharPtr)
+{
+    SecureString s("normal");
+    EXPECT_FALSE(s.empty());
+    EXPECT_EQ(s.size(), 6u);
+    EXPECT_STREQ(s.c_str(), "normal");
+    EXPECT_EQ(s.view(), "normal");
+}
+
+TEST(SecureStringTest, ConstructFromEmptyConstCharPtr)
+{
+    SecureString s("");
+    EXPECT_TRUE(s.empty());
+    EXPECT_EQ(s.size(), 0u);
+    EXPECT_STREQ(s.c_str(), "");
+}
+
+TEST(SecureStringTest, ConstructFromNullptr)
+{
+    const char* p = nullptr;
+    SecureString s(p);
+    EXPECT_TRUE(s.empty());
+    EXPECT_EQ(s.size(), 0u);
+}
+
+// ============================================================
+// Copy assignment
+// ============================================================
+
+TEST(SecureStringTest, CopyAssignmentAfterClear)
+{
+    SecureString a(std::string_view{"alpha"});
+    SecureString b;
+    b = a;
+    EXPECT_STREQ(b.c_str(), "alpha");
+    EXPECT_STREQ(a.c_str(), "alpha"); // original unchanged
+}
+
+TEST(SecureStringTest, CopyAssignmentOverwrite)
+{
+    SecureString a(std::string_view{"first_value"});
+    SecureString b(std::string_view{"second_value"});
+    b = a;
+    EXPECT_STREQ(b.c_str(), "first_value");
+    EXPECT_STREQ(a.c_str(), "first_value");
+}
+
+// ============================================================
+// Equality with SecureString
+// ============================================================
+
+TEST(SecureStringTest, EqualityWithSecureStringSameValue)
+{
+    SecureString a(std::string_view{"same"});
+    SecureString b(std::string_view{"same"});
+    EXPECT_TRUE(a == b);
+    EXPECT_FALSE(a != b);
+}
+
+TEST(SecureStringTest, EqualityWithSecureStringDifferentValue)
+{
+    SecureString a(std::string_view{"aaa"});
+    SecureString b(std::string_view{"bbb"});
+    EXPECT_FALSE(a == b);
+    EXPECT_TRUE(a != b);
+}
+
+// ============================================================
+// Equality with string_view
+// ============================================================
+
+TEST(SecureStringTest, EqualityWithStringViewSameValue)
+{
+    SecureString s(std::string_view{"hello"});
+    EXPECT_TRUE(s == std::string_view{"hello"});
+    EXPECT_FALSE(s != std::string_view{"hello"});
+}
+
+TEST(SecureStringTest, EqualityWithStringViewDifferentValue)
+{
+    SecureString s(std::string_view{"hello"});
+    EXPECT_FALSE(s == std::string_view{"world"});
+    EXPECT_TRUE(s != std::string_view{"world"});
+}
+
+// ============================================================
+// Equality with const char*
+// ============================================================
+
+TEST(SecureStringTest, EqualityWithConstCharPtrSameValue)
+{
+    SecureString s(std::string_view{"test"});
+    EXPECT_TRUE(s == "test");
+    EXPECT_FALSE(s != "test");
+}
+
+TEST(SecureStringTest, EqualityWithConstCharPtrDifferentValue)
+{
+    SecureString s(std::string_view{"test"});
+    EXPECT_FALSE(s == "other");
+    EXPECT_TRUE(s != "other");
+}
+
+TEST(SecureStringTest, EqualityWithConstCharPtrNullptr)
+{
+    SecureString s(std::string_view{"notnull"});
+    const char* p = nullptr;
+    EXPECT_FALSE(s == p);
+    EXPECT_TRUE(s != p);
+}
+
+// ============================================================
+// Inequality operators (all overloads)
+// ============================================================
+
+TEST(SecureStringTest, InequalityOperatorsSecureString)
+{
+    SecureString a(std::string_view{"x"});
+    SecureString b(std::string_view{"y"});
+    SecureString c(std::string_view{"x"});
+    EXPECT_TRUE(a != b);
+    EXPECT_FALSE(a != c);
+}
+
+TEST(SecureStringTest, InequalityOperatorsStringView)
+{
+    SecureString s(std::string_view{"abc"});
+    EXPECT_TRUE(s != std::string_view{"xyz"});
+    EXPECT_FALSE(s != std::string_view{"abc"});
+}
+
+TEST(SecureStringTest, InequalityOperatorsConstCharPtr)
+{
+    SecureString s(std::string_view{"abc"});
+    EXPECT_TRUE(s != "xyz");
+    EXPECT_FALSE(s != "abc");
+}

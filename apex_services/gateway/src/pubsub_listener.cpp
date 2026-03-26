@@ -185,8 +185,22 @@ void PubSubListener::run_thread()
         if (!config_.password.empty())
         {
             auto* reply = static_cast<redisReply*>(redisCommand(sync_ctx, "AUTH %s", config_.password.c_str()));
-            if (reply)
+            if (!reply)
+            {
+                logger_.error("PubSub AUTH returned null reply, reconnecting...");
+                redisFree(sync_ctx);
+                std::this_thread::sleep_for(std::chrono::milliseconds{config_.reconnect_interval_ms});
+                continue;
+            }
+            if (reply->type == REDIS_REPLY_ERROR)
+            {
+                logger_.error("PubSub AUTH failed: {}", reply->str ? reply->str : "unknown");
                 freeReplyObject(reply);
+                redisFree(sync_ctx);
+                std::this_thread::sleep_for(std::chrono::milliseconds{config_.reconnect_interval_ms});
+                continue;
+            }
+            freeReplyObject(reply);
         }
 
         // Initial subscriptions — merge initial_channels into subscribed set

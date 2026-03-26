@@ -4,7 +4,7 @@
 
 **Goal:** password 필드의 메모리 안전성 확보(SecureString) + K8s 외부 Secret Manager 연동(ESO/AWS SM) 인프라 구축
 
-**Architecture:** `SecureString` move-only 래퍼를 `apex_shared`에 추가하고, Kafka/Redis/PG/Gateway/서비스 config의 password 필드를 마이그레이션. Helm umbrella chart에 ESO SecretStore/ExternalSecret 템플릿을 추가하되, 로컬은 `enabled: false`로 무영향.
+**Architecture:** `SecureString` 래퍼 (copyable, 각 복사본 독립 제로화)를 `apex_shared`에 추가하고, Kafka/Redis/PG/Gateway/서비스 config의 password 필드를 마이그레이션. Helm umbrella chart에 ESO SecretStore/ExternalSecret 템플릿을 추가하되, 로컬은 `enabled: false`로 무영향.
 
 **Tech Stack:** C++23, Google Test, Helm v2, External Secrets Operator v1beta1, AWS Secrets Manager
 
