@@ -16,8 +16,13 @@
     <li><a href="/backlog" {{if eq .Page "backlog"}}class="active"{{end}}>Backlog</a></li>
     <li><a href="/handoff" {{if eq .Page "handoff"}}class="active"{{end}}>Handoff</a></li>
     <li><a href="/queue" {{if eq .Page "queue"}}class="active"{{end}}>Queue</a></li>
+    <li><a href="/branches" {{if eq .Page "branches"}}class="active"{{end}}>Branches</a></li>
   </ul>
   <div class="nav-right">
+    <span id="blocked-badge"
+          hx-get="/partials/blocked-badge"
+          hx-trigger="load, every 2s"
+          data-poll></span>
     <div class="poll-rate">
       <button onclick="setPollRate('500ms')" class="rate-btn" data-rate="500ms">Fast</button>
       <button onclick="setPollRate('1s')" class="rate-btn active" data-rate="1s">Normal</button>

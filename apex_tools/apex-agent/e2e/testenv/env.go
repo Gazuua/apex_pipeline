@@ -90,7 +90,7 @@ func New(t *testing.T) *TestEnv {
 	hqa := &testHandoffQuerier{mgr: handoffMod.Manager()}
 	qqa := &testQueueQuerier{mgr: queueMod.Manager()}
 	d.SetHTTPServerFactory(func(addr string) *httpd.Server {
-		return httpd.New(bqa, hqa, qqa, d.Router(), addr)
+		return httpd.New(bqa, hqa, qqa, nil, d.Router(), addr, "")
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -181,7 +181,7 @@ func (e *TestEnv) Restart(t *testing.T) {
 	hqa2 := &testHandoffQuerier{mgr: handoffMod2.Manager()}
 	qqa2 := &testQueueQuerier{mgr: queueMod2.Manager()}
 	d.SetHTTPServerFactory(func(addr string) *httpd.Server {
-		return httpd.New(bqa2, hqa2, qqa2, d.Router(), addr)
+		return httpd.New(bqa2, hqa2, qqa2, nil, d.Router(), addr, "")
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

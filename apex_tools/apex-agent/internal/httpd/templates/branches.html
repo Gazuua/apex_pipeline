@@ -1,0 +1,19 @@
+{{define "content"}}
+<h1>Branches</h1>
+<div class="toolbar">
+  <button hx-post="/api/workspace/scan" hx-swap="none" class="btn btn-sm" onclick="setTimeout(function(){htmx.trigger('#branches-list','load')},500)">Scan</button>
+  <button hx-post="/api/workspace/sync-all" hx-swap="none" class="btn btn-sm">Sync All</button>
+</div>
+
+<div id="branches-list"
+     hx-get="/partials/branches"
+     hx-trigger="load, every 2s"
+     data-poll>
+  {{template "branches-list" .Branches}}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
+<script src="/static/terminal.js"></script>
+{{end}}

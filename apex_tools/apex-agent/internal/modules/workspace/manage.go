@@ -175,6 +175,17 @@ func (m *Manager) Scan(ctx context.Context) (*ScanResult, error) {
 	return &ScanResult{Added: added, Removed: removed}, nil
 }
 
+// DashboardBlockedCount returns the number of FIXING backlogs with a non-empty blocked_reason.
+func (m *Manager) DashboardBlockedCount(ctx context.Context) (int, error) {
+	row := m.q.QueryRow(ctx, `
+		SELECT COUNT(*) FROM backlog_items
+		WHERE status = 'FIXING' AND blocked_reason IS NOT NULL AND blocked_reason != ''
+	`)
+	var count int
+	err := row.Scan(&count)
+	return count, err
+}
+
 // SyncBranch runs git fetch + pull on a branch directory (main only).
 func (m *Manager) SyncBranch(ctx context.Context, workspaceID string) (string, error) {
 	b, err := m.Get(ctx, workspaceID)

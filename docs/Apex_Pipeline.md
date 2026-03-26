@@ -439,6 +439,10 @@ Tier 상세:
 
 > **도구: apex-agent Go 백엔드 완전 재작성 (#126)** — 11개 bash 스크립트(~2,080줄) → Go 단일 바이너리(14,000+ LOC, 프로덕션 ~7,100 + 테스트 ~6,900)로 전면 재작성. 데몬 모드(Named Pipe/Unix Socket IPC), SQLite WAL 상태 저장소, 4개 모듈(Hook Gate/Backlog 강타입 관리/Handoff 상태머신/Queue FIFO 빌드·머지 큐), 6종 hook 게이트(validate-build, validate-merge, validate-handoff, enforce-rebase, handoff-probe, validate-backlog), E2E 테스트 14 패키지 전체 PASS. CI Go 빌드+테스트 파이프라인 추가. auto-review 5라운드 수정 완료. 프레임워크 버전 변경 없음.
 
+> **도구: 워크스페이스 모듈 + blocked_reason Phase 1 (PR #195, BACKLOG-238,239)** — workspace 모듈(디렉토리 스캔, REST API, local_branches 테이블), backlog blocked_reason 필드 + ⚠ 뱃지, session config 섹션. Phase 2-3 기반.
+
+> **도구: 세션 서버 Phase 2-3 (BACKLOG-238,239)** — ConPTY 기반 독립 프로세스 세션 서버(:7601), WebSocket 실시간 터미널, Watchdog 자동 재시작, session CLI(run/start/stop/status/send), 대시보드 /branches 페이지(xterm.js 웹 터미널), 리버스 프록시(:7600→:7601), Workspace REST API, blocked_reason ⚠ 뱃지. 대시보드 5페이지 체제(Dashboard/Backlog/Handoff/Queue/Branches). 프레임워크 버전 변경 없음.
+
 ### 활성 로드맵
 
 > v0.x = 프레임워크 개발, v1.0.0.0 = 프레임워크 완성 (커스텀 서비스 자유 배포 가능)
@@ -493,6 +497,8 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [도구] idle timeout 제거 + IPC auto-restart + hook 바이패스 (PR #169, BACKLOG-231)
          v0.6.4.0 CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary, 조건부 태깅, auto-tag, 3단계 검증, BACKLOG-178,147,190,217)
          [도구] notify merge 통합 — 머지 유일 진입점, 데몬 파이프라인 원자적 수행, gh pr merge 직접 차단 (PR #174, BACKLOG-234)
+         [도구] 워크스페이스 모듈 + blocked_reason Phase 1 (PR #195, BACKLOG-238,239 — 디렉토리 스캔, REST API, blocked ⚠ 뱃지)
+         [도구] 세션 서버 Phase 2-3 (BACKLOG-238,239 — ConPTY 독립 프로세스 :7601, WebSocket, Watchdog, session CLI, 대시보드 /branches xterm.js, 리버스 프록시, Workspace REST API)
          [테스트] CrashHandler death test + Gateway config parser 22개 케이스 + intrusive_ptr 벤치마크 (BACKLOG-142,171,200)
          [코어] SocketBase virtual interface — apex_core OpenSSL 의존 해소, TcpSocket/TlsSocket, Transport concept 확장 (BACKLOG-133, PR #191)
          [코어] HttpServerBase 추출 + AdminHttpServer — 런타임 로그 레벨 동적 전환 (BACKLOG-179, BACKLOG-237 뼈대)
