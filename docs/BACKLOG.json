@@ -189,19 +189,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 236,
-      "title": "DashboardList scope 필터 정확 매칭 불일치 — multi-value scope 데이터 클렌징 필요",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "DESIGN_DEBT",
-      "description": "backlog/manage.go DashboardList의 scope 필터가 SQL IN (정확 매칭)을 사용하는데, scope 컬럼이 쉼표 구분 multi-value(예: CORE, SHARED). CORE 필터 시 CORE, SHARED 항목이 누락됨. scope 테이블 정규화 또는 데이터 클렌징으로 해결.",
-      "position": 68,
-      "status": "OPEN",
-      "created_at": "2026-03-26 09:27:08",
-      "updated_at": "2026-03-26 09:27:08"
-    },
-    {
       "id": 36,
       "title": "Acceptor core 0 부하 불균형",
       "severity": "MINOR",
@@ -306,32 +293,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 226,
-      "title": "cleanup 모듈 함수별 단위 테스트 보강 필요",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "TOOLS",
-      "type": "TEST",
-      "description": "cleanup 모듈에 E2E 테스트(TestCleanup_MergedBranchDetection, ActiveBranchProtection)는 있지만, 개별 함수(filterMergedBranches, filterOrphans 등) 단위 테스트가 부족. 단위 테스트 추가로 에지 케이스 커버리지 향상 필요.",
-      "position": 21,
-      "status": "OPEN",
-      "created_at": "2026-03-25 15:59:37",
-      "updated_at": "2026-03-25 15:59:37"
-    },
-    {
-      "id": 227,
-      "title": "E2E testenv.Restart 소켓 경쟁 — Linux CI 추가 시 주의",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "TOOLS",
-      "type": "BUG",
-      "description": "E2E testenv에서 Restart 시 Unix 소켓 바인딩 경쟁 조건 가능성. 현재 Windows Named Pipe만 사용하므로 영향 없지만, Linux CI 추가 시 소켓 재사용 경합 발생 가능. SO_REUSEADDR 또는 고유 소켓 경로 사용 필요.",
-      "position": 22,
-      "status": "OPEN",
-      "created_at": "2026-03-25 15:59:42",
-      "updated_at": "2026-03-25 15:59:42"
-    },
-    {
       "id": 232,
       "title": "Grafana 대시보드 + 서비스 메트릭 안정화 — Argo Rollouts AnalysisTemplate 자동 승격 전제조건",
       "severity": "MINOR",
@@ -343,6 +304,51 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 227,
+      "title": "E2E testenv.Restart 소켓 경쟁 — Linux CI 추가 시 주의",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "BUG",
+      "description": "E2E testenv에서 Restart 시 Unix 소켓 바인딩 경쟁 조건 가능성. 현재 Windows Named Pipe만 사용하므로 영향 없지만, Linux CI 추가 시 소켓 재사용 경합 발생 가능. SO_REUSEADDR 또는 고유 소켓 경로 사용 필요.",
+      "position": 22,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 10:37:08",
+      "created_at": "2026-03-25 15:59:42",
+      "updated_at": "2026-03-26 10:37:08"
+    },
+    {
+      "id": 226,
+      "title": "cleanup 모듈 함수별 단위 테스트 보강 필요",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "cleanup 모듈에 E2E 테스트(TestCleanup_MergedBranchDetection, ActiveBranchProtection)는 있지만, 개별 함수(filterMergedBranches, filterOrphans 등) 단위 테스트가 부족. 단위 테스트 추가로 에지 케이스 커버리지 향상 필요.",
+      "position": 21,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 10:37:07",
+      "created_at": "2026-03-25 15:59:37",
+      "updated_at": "2026-03-26 10:37:07"
+    },
+    {
+      "id": 236,
+      "title": "DashboardList scope 필터 정확 매칭 불일치 — multi-value scope 데이터 클렌징 필요",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "backlog/manage.go DashboardList의 scope 필터가 SQL IN (정확 매칭)을 사용하는데, scope 컬럼이 쉼표 구분 multi-value(예: CORE, SHARED). CORE 필터 시 CORE, SHARED 항목이 누락됨. scope 테이블 정규화 또는 데이터 클렌징으로 해결.",
+      "position": 68,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 10:37:07",
+      "created_at": "2026-03-26 09:27:08",
+      "updated_at": "2026-03-26 10:37:07"
     },
     {
       "id": 221,
