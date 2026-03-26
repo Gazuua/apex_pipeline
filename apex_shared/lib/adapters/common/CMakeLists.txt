@@ -19,6 +19,7 @@ find_package(Boost REQUIRED)
 target_link_libraries(apex_shared_adapters_common
     PUBLIC
         apex::core
+        apex::shared
         Boost::boost
 )
 

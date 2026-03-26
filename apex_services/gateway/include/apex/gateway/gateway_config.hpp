@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/shared/secure_string.hpp>
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -99,18 +101,18 @@ struct GatewayConfig
     // Redis (Pub/Sub)
     std::string redis_pubsub_host = "localhost";
     uint16_t redis_pubsub_port = 6379;
-    std::string redis_pubsub_password;
+    apex::shared::SecureString redis_pubsub_password;
     std::vector<std::string> global_channels = {};
 
     // Redis (Auth / blacklist)
     std::string redis_auth_host = "localhost";
     uint16_t redis_auth_port = 6379;
-    std::string redis_auth_password;
+    apex::shared::SecureString redis_auth_password;
 
     // Redis (Rate Limit)
     std::string redis_ratelimit_host = "localhost";
     uint16_t redis_ratelimit_port = 6379;
-    std::string redis_ratelimit_password;
+    apex::shared::SecureString redis_ratelimit_password;
 
     // Timeouts
     std::chrono::milliseconds request_timeout{5000}; // Pending request timeout

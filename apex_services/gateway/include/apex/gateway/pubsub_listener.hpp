@@ -5,6 +5,7 @@
 #include <apex/core/core_engine.hpp>
 #include <apex/core/scoped_logger.hpp>
 #include <apex/core/session_manager.hpp>
+#include <apex/shared/secure_string.hpp>
 
 #include <hiredis/hiredis.h>
 
@@ -43,12 +44,12 @@ class PubSubListener
     {
         std::string host = "localhost";
         uint16_t port = 6379;
-        std::string password;
+        apex::shared::SecureString password;
         std::vector<std::string> initial_channels; // Auto-subscribe on start
         uint32_t reconnect_interval_ms = 1000;     ///< 재연결 대기 간격 (ms)
     };
 
-    explicit PubSubListener(const Config& config, MessageCallback on_message);
+    explicit PubSubListener(Config config, MessageCallback on_message);
     ~PubSubListener();
 
     PubSubListener(const PubSubListener&) = delete;

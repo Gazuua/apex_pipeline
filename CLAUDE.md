@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 상위 3자리는 루트 `VERSION` 파일, 4번째 자리는 CI auto-tag가 자동 관리. 상세: `docs/apex_infra/cicd_guide.md` §10
-- **현재**: v0.6.4 — CI/CD 고도화 + SocketBase virtual interface(BACKLOG-133) + HttpServerBase/AdminHttpServer 런타임 로그 레벨(BACKLOG-179) + BlockingTaskExecutor CPU offload(BACKLOG-146) + session 독립 프로세스(ConPTY+WebSocket+Watchdog) + 대시보드 /branches 페이지(xterm.js 웹 터미널). Helm Rollout CRD 지원, 3단계 검증 파이프라인
+- **현재**: v0.6.4 — CI/CD 고도화 + SocketBase virtual interface(BACKLOG-133) + HttpServerBase/AdminHttpServer 런타임 로그 레벨(BACKLOG-179) + BlockingTaskExecutor CPU offload(BACKLOG-146) + SecureString 메모리 제로화(BACKLOG-135) + ESO/AWS SM 연동(BACKLOG-198). Helm Rollout CRD 지원, 3단계 검증 파이프라인
 - **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`, 5개 페이지: Dashboard/Backlog/Handoff/Queue/Branches), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할, 워크스페이스 모듈(디렉토리 스캔/동기화+REST API), 백로그 blocked_reason(⚠ 뱃지), session CLI(run/start/stop/status/send), 세션 서버(:7601, ConPTY+WebSocket+Watchdog), 리버스 프록시(:7600→:7601). 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할), #169(idle timeout 제거+auto-restart), #174(notify merge 통합), #176(Go build.bat 허용+watchdog), #195(워크스페이스+blocked_reason Phase 1), #199(세션 서버 Phase 2-3), #200(BranchInfo JOIN+graceful shutdown)
 - **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146) — 핵심 경로 22건 추가. CrashHandler death test + Gateway config parser 22케이스 + intrusive_ptr 벤치마크 (PR #189, BACKLOG-142,171,200)
 - **다음**: v1.0.0.0 (프레임워크 완성)

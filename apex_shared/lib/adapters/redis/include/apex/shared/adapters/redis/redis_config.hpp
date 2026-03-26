@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/shared/secure_string.hpp>
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -15,8 +17,8 @@ struct RedisConfig
 {
     std::string host = "localhost";
     uint16_t port = 6379;
-    std::string password; ///< AUTH 비밀번호 (빈 문자열 = 미사용)
-    uint32_t db = 0;      ///< SELECT DB 번호
+    apex::shared::SecureString password; ///< AUTH 비밀번호 (빈 문자열 = 미사용)
+    uint32_t db = 0;                     ///< SELECT DB 번호
 
     std::chrono::milliseconds connect_timeout{3000};        ///< 커넥션 타임아웃
     std::chrono::milliseconds command_timeout{1000};        ///< 커맨드 타임아웃

@@ -86,7 +86,8 @@ ParsedConfig parse_config(const std::string& path)
         cfg.redis_data.host = redis_data["host"].value_or(std::string{"localhost"});
         cfg.redis_data.port = static_cast<uint16_t>(redis_data["port"].value_or(int64_t{6379}));
         cfg.redis_data.db = static_cast<uint32_t>(redis_data["db"].value_or(int64_t{0}));
-        cfg.redis_data.password = apex::shared::expand_env(redis_data["password"].value_or(std::string{}));
+        cfg.redis_data.password =
+            apex::shared::SecureString(apex::shared::expand_env(redis_data["password"].value_or(std::string{})));
     }
 
     // [redis_pubsub] -- Redis for pub/sub broadcast
@@ -95,14 +96,15 @@ ParsedConfig parse_config(const std::string& path)
         cfg.redis_pubsub.host = redis_pubsub["host"].value_or(std::string{"localhost"});
         cfg.redis_pubsub.port = static_cast<uint16_t>(redis_pubsub["port"].value_or(int64_t{6379}));
         cfg.redis_pubsub.db = static_cast<uint32_t>(redis_pubsub["db"].value_or(int64_t{0}));
-        cfg.redis_pubsub.password = apex::shared::expand_env(redis_pubsub["password"].value_or(std::string{}));
+        cfg.redis_pubsub.password =
+            apex::shared::SecureString(apex::shared::expand_env(redis_pubsub["password"].value_or(std::string{})));
     }
 
     // [pg]
     if (auto pg = tbl["pg"]; pg)
     {
-        cfg.pg.connection_string = apex::shared::expand_env(
-            pg["connection_string"].value_or(std::string{"host=localhost port=6432 dbname=apex user=apex"}));
+        cfg.pg.connection_string = apex::shared::SecureString(apex::shared::expand_env(
+            pg["connection_string"].value_or(std::string{"host=localhost port=6432 dbname=apex user=apex"})));
         cfg.pg.pool_size_per_core = static_cast<size_t>(pg["pool_size_per_core"].value_or(int64_t{2}));
     }
 

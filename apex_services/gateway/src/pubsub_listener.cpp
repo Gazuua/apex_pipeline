@@ -14,8 +14,8 @@
 namespace apex::gateway
 {
 
-PubSubListener::PubSubListener(const Config& config, MessageCallback on_message)
-    : config_(config)
+PubSubListener::PubSubListener(Config config, MessageCallback on_message)
+    : config_(std::move(config))
     , on_message_(std::move(on_message))
 {}
 

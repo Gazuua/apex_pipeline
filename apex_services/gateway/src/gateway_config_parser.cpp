@@ -90,7 +90,8 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
         {
             cfg.redis_pubsub_host = rpub["host"].value_or(std::string{"localhost"});
             cfg.redis_pubsub_port = static_cast<uint16_t>(rpub["port"].value_or(int64_t{6379}));
-            cfg.redis_pubsub_password = apex::shared::expand_env(rpub["password"].value_or(std::string{}));
+            cfg.redis_pubsub_password =
+                apex::shared::SecureString(apex::shared::expand_env(rpub["password"].value_or(std::string{})));
         }
 
         // [redis.auth]
@@ -98,7 +99,8 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
         {
             cfg.redis_auth_host = rauth["host"].value_or(std::string{"localhost"});
             cfg.redis_auth_port = static_cast<uint16_t>(rauth["port"].value_or(int64_t{6379}));
-            cfg.redis_auth_password = apex::shared::expand_env(rauth["password"].value_or(std::string{}));
+            cfg.redis_auth_password =
+                apex::shared::SecureString(apex::shared::expand_env(rauth["password"].value_or(std::string{})));
         }
 
         // [redis.ratelimit]
@@ -106,7 +108,8 @@ apex::core::Result<GatewayConfig> parse_gateway_config(std::string_view path)
         {
             cfg.redis_ratelimit_host = rrl["host"].value_or(std::string{"localhost"});
             cfg.redis_ratelimit_port = static_cast<uint16_t>(rrl["port"].value_or(int64_t{6379}));
-            cfg.redis_ratelimit_password = apex::shared::expand_env(rrl["password"].value_or(std::string{}));
+            cfg.redis_ratelimit_password =
+                apex::shared::SecureString(apex::shared::expand_env(rrl["password"].value_or(std::string{})));
         }
 
         // [pubsub]

@@ -36,6 +36,7 @@ endif()
 # --- 라이브러리 ---
 add_library(apex_shared STATIC
     lib/src/config_utils.cpp
+    lib/src/secure_string.cpp
 )
 add_library(apex::shared ALIAS apex_shared)
 

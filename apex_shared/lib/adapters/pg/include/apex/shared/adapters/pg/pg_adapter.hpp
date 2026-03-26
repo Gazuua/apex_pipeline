@@ -37,7 +37,8 @@ namespace apex::shared::adapters::pg
 class PgAdapter : public AdapterBase<PgAdapter>
 {
   public:
-    explicit PgAdapter(PgAdapterConfig config = {});
+    PgAdapter();
+    explicit PgAdapter(PgAdapterConfig config);
     ~PgAdapter();
 
     // --- AdapterBase CRTP requirements ---

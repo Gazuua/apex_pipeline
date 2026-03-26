@@ -66,15 +66,16 @@ ParsedConfig parse_config(const std::string& path)
     {
         cfg.redis.host = redis["host"].value_or(std::string{"localhost"});
         cfg.redis.port = static_cast<uint16_t>(redis["port"].value_or(int64_t{6380}));
-        cfg.redis.password = apex::shared::expand_env(redis["password"].value_or(std::string{}));
+        cfg.redis.password =
+            apex::shared::SecureString(apex::shared::expand_env(redis["password"].value_or(std::string{})));
         cfg.redis.db = static_cast<uint32_t>(redis["db"].value_or(int64_t{0}));
     }
 
     // [pg]
     if (auto pg = tbl["pg"]; pg)
     {
-        cfg.pg.connection_string = apex::shared::expand_env(pg["connection_string"].value_or(
-            std::string{"host=localhost port=5432 dbname=apex_db user=apex_user password=${PG_AUTH_PASSWORD:-}"}));
+        cfg.pg.connection_string = apex::shared::SecureString(apex::shared::expand_env(pg["connection_string"].value_or(
+            std::string{"host=localhost port=5432 dbname=apex_db user=apex_user password=${PG_AUTH_PASSWORD:-}"})));
         cfg.pg.pool_size_per_core = static_cast<size_t>(pg["pool_size_per_core"].value_or(int64_t{2}));
     }
 

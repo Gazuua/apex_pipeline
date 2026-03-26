@@ -30,6 +30,16 @@ apex_set_warnings(test_config_utils)
 add_test(NAME test_config_utils COMMAND test_config_utils)
 set_tests_properties(test_config_utils PROPERTIES TIMEOUT 30)
 
+add_executable(test_secure_string test_secure_string.cpp)
+target_link_libraries(test_secure_string
+    PRIVATE
+        apex::shared
+        GTest::gtest_main
+)
+apex_set_warnings(test_secure_string)
+add_test(NAME test_secure_string COMMAND test_secure_string)
+set_tests_properties(test_secure_string PROPERTIES TIMEOUT 30)
+
 # CancellationToken test needs Boost.Asio for coroutine testing
 add_executable(test_cancellation_token test_cancellation_token.cpp)
 target_link_libraries(test_cancellation_token
