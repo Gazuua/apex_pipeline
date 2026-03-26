@@ -44,11 +44,23 @@ func configShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("socket_path: %s\n", cfg.Daemon.SocketPath)
-			fmt.Printf("db_path: %s\n", cfg.Store.DBPath)
-			fmt.Printf("log.level: %s\n", cfg.Log.Level)
-			fmt.Printf("log.file: %s\n", cfg.Log.File)
-			fmt.Printf("log.audit: %v\n", cfg.Log.Audit)
+			fmt.Printf("[daemon]\n")
+			fmt.Printf("  socket_path: %s\n", cfg.Daemon.SocketPath)
+			fmt.Printf("[store]\n")
+			fmt.Printf("  db_path: %s\n", cfg.Store.DBPath)
+			fmt.Printf("[queue]\n")
+			fmt.Printf("  stale_timeout: %v\n", cfg.Queue.StaleTimeout)
+			fmt.Printf("  poll_interval: %v\n", cfg.Queue.PollInterval)
+			fmt.Printf("[log]\n")
+			fmt.Printf("  level: %s\n", cfg.Log.Level)
+			fmt.Printf("  max_days: %d\n", cfg.Log.MaxDays)
+			fmt.Printf("  audit: %v\n", cfg.Log.Audit)
+			fmt.Printf("[build]\n")
+			fmt.Printf("  command: %s\n", cfg.Build.Command)
+			fmt.Printf("  presets: %v\n", cfg.Build.Presets)
+			fmt.Printf("[http]\n")
+			fmt.Printf("  enabled: %v\n", cfg.HTTP.Enabled)
+			fmt.Printf("  addr: %s\n", cfg.HTTP.Addr)
 			return nil
 		},
 	}

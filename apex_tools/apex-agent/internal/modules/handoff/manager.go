@@ -114,6 +114,10 @@ func (m *Manager) NotifyStart(ctx context.Context, branch, workspace, summary, g
 				ml.Warn("backlog already FIXING — rejecting NotifyStart", "backlog_id", bid)
 				return fmt.Errorf("backlog item %d is already FIXING", bid)
 			}
+			if bStatus == "RESOLVED" {
+				ml.Warn("backlog already RESOLVED — rejecting NotifyStart", "backlog_id", bid)
+				return fmt.Errorf("backlog item %d is already RESOLVED (resolved items cannot be re-fixed)", bid)
+			}
 			ml.Debug("backlog pre-check passed", "backlog_id", bid, "status", bStatus)
 		}
 	}

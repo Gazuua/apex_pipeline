@@ -24,7 +24,9 @@ func TestE2E_FullRoundtrip(t *testing.T) {
 	}
 
 	var data map[string]string
-	json.Unmarshal(resp.Data, &data)
+	if err := json.Unmarshal(resp.Data, &data); err != nil {
+		t.Fatalf("unmarshal version data: %v", err)
+	}
 	if _, ok := data["version"]; !ok {
 		t.Error("version response missing 'version' field")
 	}

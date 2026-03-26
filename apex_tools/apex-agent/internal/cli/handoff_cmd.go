@@ -361,9 +361,9 @@ func handoffBacklogCheckCmd() *cobra.Command {
 		Short: "백로그 번호 사용 여부 확인",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("N must be an integer: %s", args[0])
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
 			}
 			result, err := sendHandoffRequest("backlog-check", map[string]any{"backlog_id": id})
 			if err != nil {

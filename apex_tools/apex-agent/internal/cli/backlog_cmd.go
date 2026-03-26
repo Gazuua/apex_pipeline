@@ -15,6 +15,16 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
+// parseID parses a CLI argument as a positive integer ID.
+// Centralizes the repeated fmt.Sscanf pattern across backlog/handoff commands.
+func parseID(arg string) (int, error) {
+	var id int
+	if _, err := fmt.Sscanf(arg, "%d", &id); err != nil {
+		return 0, fmt.Errorf("ID must be an integer: %s", arg)
+	}
+	return id, nil
+}
+
 func backlogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backlog",
@@ -143,8 +153,11 @@ func backlogShowCmd() *cobra.Command {
 		Short: "백로그 항목 상세 조회",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id := args[0]
-			resp, err := sendBacklogRequest("get", map[string]any{"id": json.Number(id)})
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := sendBacklogRequest("get", map[string]any{"id": id})
 			if err != nil {
 				return fmt.Errorf("daemon unavailable: %w", err)
 			}
@@ -152,7 +165,7 @@ func backlogShowCmd() *cobra.Command {
 				return fmt.Errorf("backlog show: %s", resp.Error)
 			}
 			if resp.Data == nil || string(resp.Data) == "null" {
-				return fmt.Errorf("backlog item %s not found", id)
+				return fmt.Errorf("backlog item %d not found", id)
 			}
 			var item struct {
 				ID          int    `json:"id"`
@@ -293,9 +306,9 @@ func backlogResolveCmd() *cobra.Command {
 		Short: "백로그 항목 해결 처리",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("ID must be an integer: %s", args[0])
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
 			}
 			params := map[string]any{
 				"id":         id,
@@ -393,9 +406,9 @@ func backlogUpdateCmd() *cobra.Command {
 		Short: "백로그 항목 메타데이터 수정",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("ID must be an integer: %s", args[0])
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
 			}
 
 			fields := make(map[string]string)
@@ -467,9 +480,9 @@ func backlogReleaseCmd() *cobra.Command {
 		Short: "백로그 항목 착수 해제 (FIXING → OPEN)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("ID must be an integer: %s", args[0])
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
 			}
 			branch := getBranchID()
 			params := map[string]any{"id": id, "reason": reason, "branch": branch}
@@ -506,9 +519,9 @@ func backlogFixCmd() *cobra.Command {
 			}
 
 			for _, arg := range args {
-				var id int
-				if _, err := fmt.Sscanf(arg, "%d", &id); err != nil {
-					return fmt.Errorf("ID must be an integer: %s", arg)
+				id, err := parseID(arg)
+				if err != nil {
+					return err
 				}
 				params := map[string]any{"id": id, "branch": branch}
 				resp, err := sendBacklogRequest("fix", params)
@@ -534,9 +547,9 @@ func backlogCheckCmd() *cobra.Command {
 		Short: "백로그 번호 사용 여부 확인",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var id int
-			if _, err := fmt.Sscanf(args[0], "%d", &id); err != nil {
-				return fmt.Errorf("ID must be an integer: %s", args[0])
+			id, err := parseID(args[0])
+			if err != nil {
+				return err
 			}
 			params := map[string]any{"id": id}
 			resp, err := sendBacklogRequest("check", params)

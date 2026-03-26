@@ -158,7 +158,9 @@ func TestImportItems_Basic(t *testing.T) {
 	mig := store.NewMigrator(s)
 	mod := New(s)
 	mod.RegisterSchema(mig)
-	mig.Migrate()
+	if err := mig.Migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
 
 	items := []BacklogItem{
 		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix it", Position: 1, Status: "OPEN"},
@@ -174,13 +176,19 @@ func TestImportItems_Basic(t *testing.T) {
 	}
 
 	// Verify open item
-	item, _ := mod.manager.Get(context.Background(),1)
+	item, err := mod.manager.Get(context.Background(),1)
+	if err != nil {
+		t.Fatalf("Get item 1: %v", err)
+	}
 	if item.Status != "OPEN" {
 		t.Errorf("item 1 status = %q, want 'OPEN'", item.Status)
 	}
 
 	// Verify resolved item
-	item2, _ := mod.manager.Get(context.Background(),2)
+	item2, err := mod.manager.Get(context.Background(),2)
+	if err != nil {
+		t.Fatalf("Get item 2: %v", err)
+	}
 	if item2.Status != "RESOLVED" {
 		t.Errorf("item 2 status = %q, want 'RESOLVED'", item2.Status)
 	}
@@ -204,7 +212,9 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix", Position: 1, Status: "OPEN"},
 	}
 
-	mod.manager.ImportItems(context.Background(),items)
+	if _, err := mod.manager.ImportItems(context.Background(),items); err != nil {
+		t.Fatalf("first ImportItems: %v", err)
+	}
 	count, _ := mod.manager.ImportItems(context.Background(),items) // second import — updates existing
 	if count != 1 {
 		t.Errorf("duplicate import count = %d, want 1 (update)", count)

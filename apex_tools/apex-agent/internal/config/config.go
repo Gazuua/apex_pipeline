@@ -51,6 +51,9 @@ type QueueConfig struct {
 	StaleTimeout time.Duration
 	PollInterval time.Duration
 
+	// RawStaleTimeout and RawPollInterval are exported only because the TOML
+	// decoder requires exported fields. They are internal to Load() — callers
+	// should use StaleTimeout and PollInterval instead.
 	RawStaleTimeout Duration `toml:"stale_timeout"`
 	RawPollInterval Duration `toml:"poll_interval"`
 }

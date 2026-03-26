@@ -78,6 +78,19 @@ func RebaseOnMain(projectRoot string) (string, error) {
 		return "", nil
 	}
 
+	// Block rebase if there are staged (cached) changes — rebase on top of uncommitted
+	// staged changes can cause unexpected merge behavior or data loss.
+	if exec.Command("git", "-C", projectRoot, "diff", "--cached", "--quiet").Run() != nil {
+		stagedOut, _ := exec.Command("git", "-C", projectRoot,
+			"diff", "--cached", "--name-only").Output()
+		staged := strings.TrimSpace(string(stagedOut))
+		if staged != "" {
+			return "", fmt.Errorf("차단: staged(커밋 대기) 변경이 있어 rebase 불가.\n"+
+				"  staged 파일: %s\n"+
+				"  커밋하거나 git reset HEAD로 unstage 후 다시 시도하세요", staged)
+		}
+	}
+
 	// Handle unstaged changes before rebase (BACKLOG-202).
 	// Auto-generated files (BACKLOG.json etc.) are auto-committed to preserve backup.
 	// Unknown dirty files block rebase to prevent data loss.

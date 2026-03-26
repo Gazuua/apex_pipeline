@@ -26,7 +26,9 @@ func TestHTTP_HealthCheck(t *testing.T) {
 	}
 
 	var body map[string]any
-	json.NewDecoder(resp.Body).Decode(&body)
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode health response: %v", err)
+	}
 	if body["ok"] != true {
 		t.Errorf("expected ok=true, got %v", body)
 	}
@@ -129,7 +131,9 @@ func TestHTTP_BacklogAPI(t *testing.T) {
 	}
 
 	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode backlog API response: %v", err)
+	}
 	if result["ok"] != true {
 		t.Errorf("expected ok=true, got %v", result)
 	}
@@ -154,7 +158,9 @@ func TestHTTP_HandoffAPI(t *testing.T) {
 	}
 
 	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode handoff API response: %v", err)
+	}
 	if result["ok"] != true {
 		t.Errorf("expected ok=true, got %v", result)
 	}
@@ -174,7 +180,9 @@ func TestHTTP_QueueAPI(t *testing.T) {
 	}
 
 	var result map[string]any
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("decode queue API response: %v", err)
+	}
 	if result["ok"] != true {
 		t.Errorf("expected ok=true, got %v", result)
 	}

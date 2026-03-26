@@ -14,7 +14,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/ipc"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 )
 
@@ -29,11 +28,6 @@ func queueCmd() *cobra.Command {
 	cmd.AddCommand(queueBuildCmd())
 	cmd.AddCommand(queueBenchmarkCmd())
 	return cmd
-}
-
-// sendQueueRequest sends a request to the queue module and returns the raw response.
-func sendQueueRequest(action string, params any) (*ipc.Response, error) {
-	return sendRequest("queue", action, params, getBranchID())
 }
 
 // sendQueueRequestMap sends a request and parses the response data as map[string]any.
