@@ -5,9 +5,8 @@
 #include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/slab_allocator.hpp>
+#include <apex/core/socket_base.hpp>
 #include <apex/core/timing_wheel.hpp>
-
-#include <boost/asio/ip/tcp.hpp>
 
 #include <boost/unordered/unordered_flat_map.hpp>
 
@@ -32,7 +31,7 @@ class SessionManager
     SessionManager(const SessionManager&) = delete;
     SessionManager& operator=(const SessionManager&) = delete;
 
-    [[nodiscard]] SessionPtr create_session(boost::asio::ip::tcp::socket socket);
+    [[nodiscard]] SessionPtr create_session(std::unique_ptr<SocketBase> socket);
 
     void remove_session(SessionId id);
 

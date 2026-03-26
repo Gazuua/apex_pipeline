@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <apex/core/socket_base.hpp>
 #include <apex/core/transport.hpp>
 
 #include <boost/asio/as_tuple.hpp>
@@ -17,8 +18,10 @@ struct PlainTcpTransport
     struct Config
     {};
     using Socket = boost::asio::ip::tcp::socket;
+    struct ListenerState
+    {};
 
-    static Socket make_socket(boost::asio::io_context& ctx, const apex::core::TransportContext& /*tx_ctx*/)
+    static Socket make_socket(boost::asio::io_context& ctx)
     {
         return Socket(ctx);
     }
@@ -43,6 +46,16 @@ struct PlainTcpTransport
         boost::system::error_code ec;
         sock.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         co_return;
+    }
+
+    static ListenerState make_listener_state(const Config&)
+    {
+        return {};
+    }
+
+    static std::unique_ptr<apex::core::SocketBase> wrap_socket(boost::asio::ip::tcp::socket socket, ListenerState&)
+    {
+        return apex::core::make_tcp_socket(std::move(socket));
     }
 };
 

@@ -67,11 +67,12 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         {}
     };
 
-    Listener(uint16_t port, typename P::Config protocol_config, CoreEngine& engine,
+    Listener(uint16_t port, typename P::Config protocol_config, typename T::Config transport_config, CoreEngine& engine,
              std::vector<SessionManager*> session_mgrs, ConnectionHandlerConfig handler_config,
              std::string bind_address = "0.0.0.0", uint32_t max_connections = 0, bool reuseport = false)
         : port_(port)
         , protocol_config_(std::move(protocol_config))
+        , listener_state_(T::make_listener_state(transport_config))
         , engine_(engine)
         , bind_address_(std::move(bind_address))
         , max_connections_(max_connections)
@@ -116,7 +117,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
                                 return;
                             }
                         }
-                        per_core_handlers_[i]->handler.accept_connection(std::move(socket), engine_.io_context(i));
+                        per_core_handlers_[i]->handler.accept_connection(
+                            T::wrap_socket(std::move(socket), listener_state_), engine_.io_context(i));
                     },
                     bind_address_,
                     /*reuseport=*/true));
@@ -234,7 +236,8 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
         uint32_t core_id = next_core_.fetch_add(1, std::memory_order_relaxed) % num_cores;
 
         auto& core_io = engine_.io_context(core_id);
-        boost::asio::post(core_io, [this, core_id, s = std::move(socket)]() mutable {
+        auto wrapped = T::wrap_socket(std::move(socket), listener_state_);
+        boost::asio::post(core_io, [this, core_id, s = std::move(wrapped)]() mutable {
             per_core_handlers_[core_id]->handler.accept_connection(std::move(s), engine_.io_context(core_id));
         });
     }
@@ -242,6 +245,7 @@ template <Protocol P, Transport T = DefaultTransport> class Listener : public Li
     ScopedLogger logger_{"Listener", ScopedLogger::NO_CORE};
     uint16_t port_;
     [[maybe_unused]] typename P::Config protocol_config_;
+    typename T::ListenerState listener_state_;
     CoreEngine& engine_;
     std::string bind_address_;
     uint32_t max_connections_;

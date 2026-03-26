@@ -42,12 +42,13 @@ void intrusive_ptr_release(Session* s) noexcept
 
 using boost::asio::awaitable;
 
-Session::Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t core_id, size_t recv_buf_capacity,
+Session::Session(SessionId id, std::unique_ptr<SocketBase> socket, uint32_t core_id, size_t recv_buf_capacity,
                  size_t max_queue_depth)
     : id_(id)
     , core_id_(core_id)
     , socket_(std::move(socket))
-    , core_executor_(socket_.get_executor()) // 기본값: socket executor. accept_connection에서 core executor로 재설정됨.
+    , core_executor_(
+          socket_->get_executor()) // 기본값: socket executor. accept_connection에서 core executor로 재설정됨.
     , recv_buf_(recv_buf_capacity)
     , max_queue_depth_(max_queue_depth)
 {}
@@ -97,16 +98,7 @@ void Session::close() noexcept
     state_.store(State::Closed, std::memory_order_relaxed);
     s_logger().debug("close id={} prev_state={}", id_, static_cast<int>(prev));
 
-    boost::system::error_code ec;
-    if (socket_.is_open())
-    {
-        socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        socket_.close(ec);
-        if (ec)
-        {
-            s_logger().warn("close id={} socket error: {}", id_, ec.message());
-        }
-    }
+    socket_->close();
 }
 
 // --- Write Queue (v0.5) ---
@@ -164,8 +156,7 @@ awaitable<void> Session::write_pump()
         auto req = std::move(write_queue_.front());
         write_queue_.pop_front();
 
-        auto [ec, bytes_written] = co_await boost::asio::async_write(socket_, boost::asio::buffer(req.data),
-                                                                     boost::asio::as_tuple(boost::asio::use_awaitable));
+        auto [ec, bytes_written] = co_await socket_->async_write(boost::asio::buffer(req.data));
         (void)bytes_written;
 
         if (ec)

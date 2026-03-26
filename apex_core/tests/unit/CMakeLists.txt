@@ -36,6 +36,9 @@ apex_add_unit_test(test_core_metrics test_core_metrics.cpp)
 apex_add_unit_test(test_spsc_queue test_spsc_queue.cpp)
 apex_add_unit_test(test_spsc_mesh test_spsc_mesh.cpp)
 
+# 소켓 추상화 테스트
+apex_add_unit_test(test_socket_base test_socket_base.cpp)
+
 # 세션 / 에러 처리 테스트
 apex_add_unit_test(test_session test_session.cpp)
 apex_add_unit_test(test_session_manager test_session_manager.cpp)
@@ -114,6 +117,7 @@ set_tests_properties(
     test_service_base
     test_wire_header
     test_frame_codec
+    test_socket_base
     test_session
     test_session_manager
     test_error_propagation

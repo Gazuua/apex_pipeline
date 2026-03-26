@@ -65,7 +65,7 @@ TEST(ConnectionHandlerTest, AcceptConnectionCreatesSession)
     auto [server_sock, client] = make_socket_pair(io_ctx);
 
     EXPECT_EQ(session_mgr.session_count(), 0u);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     // read_loop 코루틴이 스폰됨 — io_ctx 실행 전에도 세션은 생성됨
     EXPECT_EQ(session_mgr.session_count(), 1u);
@@ -103,7 +103,7 @@ TEST(ConnectionHandlerTest, NormalFrameDispatchesCorrectly)
 
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     // 프레임 전송
     std::vector<uint8_t> payload = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -140,7 +140,7 @@ TEST(ConnectionHandlerTest, IncompleteFrameWaitsForMoreData)
 
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     // 헤더만 보내고 body는 아직 미전송
     std::vector<uint8_t> payload = {0x01, 0x02, 0x03, 0x04};
@@ -179,7 +179,7 @@ TEST(ConnectionHandlerTest, InvalidFrameClosesSession)
     ConnectionHandlerConfig config{.tcp_nodelay = true};
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -211,7 +211,7 @@ TEST(ConnectionHandlerTest, ClientDisconnectCleansUpSession)
     ConnectionHandlerConfig config{.tcp_nodelay = true};
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -237,7 +237,7 @@ TEST(ConnectionHandlerTest, DispatchFailureSendsErrorResponse)
     // HandlerNotFound를 유도 — 핸들러 미등록 msg_id로 프레임 전송
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -293,7 +293,7 @@ TEST(ConnectionHandlerTest, MultipleFramesProcessedSequentially)
 
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -336,7 +336,7 @@ TEST(ConnectionHandlerTest, RecvBufferOverflowClosesSession)
     ConnectionHandlerConfig config{.tcp_nodelay = true};
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -376,7 +376,7 @@ TEST(ConnectionHandlerTest, TcpNodelayFalseSkipsOptionSet)
     ConnectionHandlerConfig config{.tcp_nodelay = false};
     ConnectionHandler<MockProtocol> handler(session_mgr, dispatcher, config);
     auto [server_sock, client] = make_socket_pair(io_ctx);
-    handler.accept_connection(std::move(server_sock), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(server_sock)), io_ctx);
 
     {
         IoRunner runner(io_ctx);
@@ -405,8 +405,8 @@ TEST(ConnectionHandlerTest, ActiveSessionsCountAccurate)
     auto [s1, c1] = make_socket_pair(io_ctx);
     auto [s2, c2] = make_socket_pair(io_ctx);
 
-    handler.accept_connection(std::move(s1), io_ctx);
-    handler.accept_connection(std::move(s2), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(s1)), io_ctx);
+    handler.accept_connection(make_tcp_socket(std::move(s2)), io_ctx);
 
     {
         IoRunner runner(io_ctx);

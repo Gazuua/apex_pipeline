@@ -131,7 +131,8 @@ class Server
 
     /// 프로토콜별 리스너 등록. 포트 분리.
     /// listen<P>()는 run() 전에 호출해야 한다.
-    template <Protocol P, Transport T = DefaultTransport> Server& listen(uint16_t port, typename P::Config config = {})
+    template <Protocol P, Transport T = DefaultTransport>
+    Server& listen(uint16_t port, typename P::Config config = {}, typename T::Config transport_config = {})
     {
         std::vector<SessionManager*> mgrs;
         for (auto& state : per_core_)
@@ -139,9 +140,9 @@ class Server
             mgrs.push_back(&state->session_mgr);
         }
         ConnectionHandlerConfig handler_config{.tcp_nodelay = config_.tcp_nodelay};
-        auto listener =
-            std::make_unique<Listener<P, T>>(port, std::move(config), *core_engine_, std::move(mgrs), handler_config,
-                                             config_.bind_address, config_.max_connections, config_.reuseport);
+        auto listener = std::make_unique<Listener<P, T>>(
+            port, std::move(config), std::move(transport_config), *core_engine_, std::move(mgrs), handler_config,
+            config_.bind_address, config_.max_connections, config_.reuseport);
 
         // 서비스 바인딩: 기존에 등록된 서비스 팩토리는 첫 번째 listener의
         // dispatcher에 바인딩된다. 다중 프로토콜 시 서비스별 dispatcher 분리는

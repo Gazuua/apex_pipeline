@@ -57,7 +57,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 ## 로드맵
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 상위 3자리는 루트 `VERSION` 파일, 4번째 자리는 CI auto-tag가 자동 관리. 상세: `docs/apex_infra/cicd_guide.md` §10
-- **현재**: v0.6.4 — CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, 조건부 태깅, auto-tag). Helm Rollout CRD 지원, 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
+- **현재**: v0.6.4 — CI/CD 고도화 + SocketBase virtual interface(BACKLOG-133, PR #191) — apex_core OpenSSL 의존 해소, TcpSocket/TlsSocket, Transport concept 확장(ListenerState/wrap_socket). Helm Rollout CRD 지원, 3단계 검증 파이프라인
 - **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할), #169(idle timeout 제거+auto-restart), #174(notify merge 통합), #176(Go build.bat 허용+watchdog)
 - **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146) — 핵심 경로 22건 추가. CrashHandler death test + Gateway config parser 22케이스 + intrusive_ptr 벤치마크 (PR #189, BACKLOG-142,171,200)
 - **다음**: v1.0.0.0 (프레임워크 완성)
