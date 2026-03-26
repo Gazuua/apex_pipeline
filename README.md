@@ -256,7 +256,8 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - 서비스 이미지 빌드 파이프라인 (PR/main 분기, debug/release preset)
   - docker-compose 스모크 테스트 (health check + 서비스 기동 검증)
   - Argo Rollouts canary 배포 (10→50→100%, Helm Rollout CRD 지원)
-  - 조건부 태깅 (sha/latest/main), 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
+  - 조건부 태깅 (sha/latest/main), auto-tag (CI 전체 통과 시 버전 태그 자동 생성)
+  - 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
 - **도구: notify merge 통합 — 머지 유일 진입점 (PR #174, BACKLOG-234)**
   - `handoff notify merge`가 데몬 파이프라인에서 lock→export→rebase→push→merge→finalize를 원자적 수행

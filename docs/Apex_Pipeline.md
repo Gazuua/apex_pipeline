@@ -491,7 +491,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [도구] 데몬 로그 일별 분할(YYYYMMDD.log) + 워크플로우 로그 보강 (PR #167)
          v0.6.3.0 K8s manifests + Helm 차트 (umbrella+library chart, 2-release, expand_env, Bitnami 하이브리드, PR #147, minikube 검증 + Bitnami ECR 이전 + bake 수정 + CI helm-validation PR #158-161)
          [도구] idle timeout 제거 + IPC auto-restart + hook 바이패스 (PR #169, BACKLOG-231)
-         v0.6.4.0 CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary, 조건부 태깅, 3단계 검증, BACKLOG-178,147,190,217)
+         v0.6.4.0 CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary, 조건부 태깅, auto-tag, 3단계 검증, BACKLOG-178,147,190,217)
          [도구] notify merge 통합 — 머지 유일 진입점, 데몬 파이프라인 원자적 수행, gh pr merge 직접 차단 (PR #174, BACKLOG-234)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
@@ -518,7 +518,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
 | v0.6.1.0 | 중 | Prometheus 메트릭 노출 | v0.5.4 |
 | v0.6.2.0 | 중 | Docker 멀티스테이지 빌드 고도화 (tools-base/ci 분리, Bake, sccache, MSVC CI, Trivy) | v0.6.1 |
 | v0.6.3.0 | 중 | K8s manifests + Helm | v0.6.2 |
-| v0.6.4.0 | 중 | CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, auto-tag, 3단계 검증) | v0.6.3 |
+| v0.6.4.0 | 중 | CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, 조건부 태깅, auto-tag, 3단계 검증) | v0.6.3 |
 | **v1.0.0.0** | **메이저** | **프레임워크 완성** | v0.6 |
 
 v1.0.0.0 포함 항목:

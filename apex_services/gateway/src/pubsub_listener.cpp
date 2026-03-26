@@ -276,6 +276,17 @@ void PubSubListener::run_thread()
 
                     if (type == "message")
                     {
+                        // Defensive null check: Redis message reply elements
+                        // should always have str set, but malformed/corrupt
+                        // replies could have null str, which would cause UB
+                        // (std::string_view/std::span from nullptr is undefined).
+                        if (!reply->element[1]->str || !reply->element[2]->str)
+                        {
+                            logger_.warn("PubSub: message reply with null "
+                                         "channel or data, skipping");
+                            freeReplyObject(reply);
+                            continue;
+                        }
                         std::string_view channel(reply->element[1]->str, reply->element[1]->len);
                         auto* data = reinterpret_cast<const uint8_t*>(reply->element[2]->str);
                         size_t len = reply->element[2]->len;
