@@ -59,6 +59,9 @@ Server::Server(ServerConfig config)
     // the actual core count to avoid division-by-zero UB.
     config_.num_cores = core_engine_->core_count();
 
+    // BlockingTaskExecutor — CPU-bound 작업 offload용 스레드 풀
+    blocking_executor_ = std::make_unique<BlockingTaskExecutor>(config_.blocking_pool_threads);
+
     // PerCoreState (no longer contains ConnectionHandler/MessageDispatcher)
     for (uint32_t i = 0; i < config_.num_cores; ++i)
     {
@@ -217,7 +220,8 @@ void Server::run()
         ConfigureContext ctx{*this, core_id, state};
         for (auto& svc : state.services)
         {
-            svc->bind_io_context(io); // [D7] spawn()용 io_context 주입
+            svc->bind_io_context(io);                         // [D7] spawn()용 io_context 주입
+            svc->bind_blocking_executor(*blocking_executor_); // CPU offload용 executor 주입
             svc->internal_configure(ctx);
         }
     }
@@ -536,6 +540,12 @@ void Server::finalize_shutdown()
     core_engine_->stop();
     core_engine_->join();
     core_engine_->drain_remaining();
+
+    // 6.5. BlockingTaskExecutor shutdown — 진행 중인 CPU offload 작업 완료 대기
+    if (blocking_executor_)
+    {
+        blocking_executor_->shutdown();
+    }
 
     // 7. [D3] Global resources 정리
     globals_.clear();

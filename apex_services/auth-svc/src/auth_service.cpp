@@ -72,7 +72,7 @@ void AuthService::on_start()
     if (pg_)
     {
         spawn([this]() -> boost::asio::awaitable<void> {
-            auto hash = password_hasher_.hash("password123");
+            auto hash = co_await blocking_executor().run([this] { return password_hasher_.hash("password123"); });
             if (!hash.empty())
             {
                 std::array<std::string, 1> params = {hash};
@@ -171,10 +171,10 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
         co_return co_await send_login_error(meta, apex::auth_svc::schemas::LoginError_ACCOUNT_LOCKED);
     }
 
-    // --- Step 4: bcrypt password verification ---
+    // --- Step 4: bcrypt password verification (thread pool offload) ---
     logger_.debug("on_login: bcrypt verify start (user_id={})", user_id);
     auto bcrypt_start = std::chrono::steady_clock::now();
-    auto bcrypt_ok = password_hasher_.verify(password, password_hash);
+    auto bcrypt_ok = co_await blocking_executor().run([&] { return password_hasher_.verify(password, password_hash); });
     auto bcrypt_elapsed =
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - bcrypt_start);
     logger_.debug("on_login: bcrypt verify done (user_id={}, elapsed={}ms, result={})", user_id, bcrypt_elapsed.count(),

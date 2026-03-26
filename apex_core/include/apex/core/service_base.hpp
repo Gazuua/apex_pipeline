@@ -35,6 +35,10 @@
 namespace apex::core
 {
 
+// 순환 의존 방지: blocking_task_executor.hpp는 무거운 Boost.Asio 헤더를 포함하므로
+// service_base.hpp에서는 전방 선언만 사용. 실제 사용은 server.hpp include 후에 가능.
+class BlockingTaskExecutor;
+
 /// 비템플릿 서비스 인터페이스. Server가 서비스를 소유하기 위해 사용.
 class ServiceBaseInterface
 {
@@ -62,6 +66,9 @@ class ServiceBaseInterface
     /// [D7] Server가 internal_configure 전에 호출하여 io_context를 주입.
     /// ConfigureContext에 io_context를 노출하지 않고 spawn()을 사용 가능하게 함.
     virtual void bind_io_context(boost::asio::io_context&) {}
+
+    /// Server가 internal_configure 전에 호출하여 BlockingTaskExecutor를 주입.
+    virtual void bind_blocking_executor(BlockingTaskExecutor&) {}
 
     /// Server가 호출하는 진입점. 프레임워크 전처리 + on_wire 호출.
     virtual void internal_wire(WireContext& ctx)
@@ -197,6 +204,12 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     void bind_io_context(boost::asio::io_context& io) override
     {
         io_ctx_ = &io;
+    }
+
+    /// BlockingTaskExecutor 바인딩 — Server가 internal_configure 전에 호출.
+    void bind_blocking_executor(BlockingTaskExecutor& executor) override
+    {
+        blocking_executor_ = &executor;
     }
 
     /// Phase 2: on_wire 호출.
@@ -346,6 +359,14 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
         return io_ctx_->get_executor();
     }
 
+    /// CPU-bound 작업 offload용 BlockingTaskExecutor 반환.
+    /// Usage: co_await blocking_executor().run([&]{ return heavy_work(); });
+    [[nodiscard]] BlockingTaskExecutor& blocking_executor() noexcept
+    {
+        assert(blocking_executor_ && "blocking_executor() called before internal_configure");
+        return *blocking_executor_;
+    }
+
     // ── ScopedLogger ────────────────────────────────────────────────────
     // internal_configure()에서 초기화. 그 전에는 inert (no-op).
     ScopedLogger logger_;
@@ -383,8 +404,9 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     bool started_{false};
     boost::unordered_flat_set<uint32_t> registered_msg_ids_;
     PerCoreState* per_core_{nullptr};
-    boost::asio::io_context* io_ctx_{nullptr};   // D7: spawn()용
-    std::atomic<uint32_t> outstanding_coros_{0}; // D7: outstanding 코루틴 카운터
+    boost::asio::io_context* io_ctx_{nullptr};         // D7: spawn()용
+    BlockingTaskExecutor* blocking_executor_{nullptr}; // CPU offload용
+    std::atomic<uint32_t> outstanding_coros_{0};       // D7: outstanding 코루틴 카운터
 
     // ── Kafka 디스패치 ──────────────────────────────────────────────────
     KafkaHandlerMap kafka_handlers_;

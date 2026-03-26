@@ -1,6 +1,20 @@
 {
-  "next_id": 241,
+  "next_id": 243,
   "items": [
+    {
+      "id": 242,
+      "title": "유저 수동 검증: workspace 모듈 + blocked_reason 기능 테스트",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "TEST",
+      "description": "[유저 대상 — 에이전트 자율 수행 아님] PR #195 머지 후 아래 항목을 수동 검증: (1) config.toml에 [workspace] 섹션 추가 후 데몬 재시작. apex-agent config show로 workspace/session 섹션 출력 확인. root 경로를 실제 워크스페이스 루트로 설정. (2) workspace scan 동작 확인. 바이너리 갱신(apex-agent queue 빌드) 후 데몬 재시작. 대시보드 localhost:7600 정상 동작 확인. DB local_branches 테이블 생성 확인. (3) backlog --blocked 동작 확인. apex-agent backlog update {ID} --blocked 테스트사유 → show로 확인 → --blocked 빈문자열로 해제 확인. (4) 하위 호환성: 다른 워크스페이스 에이전트가 정상 동작하는지 확인 (hook, 핸드오프, 빌드 큐 등).",
+      "related": "238,239",
+      "position": 15,
+      "status": "OPEN",
+      "created_at": "2026-03-26 16:37:49",
+      "updated_at": "2026-03-26 16:37:49"
+    },
     {
       "id": 135,
       "title": "KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장",
@@ -41,19 +55,6 @@
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
       "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 146,
-      "title": "AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "AUTH_SVC",
-      "type": "PERF",
-      "description": "password_hasher_.verify()가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 co_spawn 분리 필요.",
-      "position": 9,
-      "status": "OPEN",
-      "created_at": "2026-03-23 01:55:42",
-      "updated_at": "2026-03-25 09:49:17"
     },
     {
       "id": 149,
@@ -114,11 +115,11 @@
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md",
+      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 완료, Phase 2-3 후속 작업 필요",
       "position": 70,
-      "status": "FIXING",
+      "status": "OPEN",
       "created_at": "2026-03-26 15:24:04",
-      "updated_at": "2026-03-26 15:31:16"
+      "updated_at": "2026-03-26 16:38:11"
     },
     {
       "id": 239,
@@ -133,6 +134,19 @@
       "status": "FIXING",
       "created_at": "2026-03-26 15:24:17",
       "updated_at": "2026-03-26 15:31:21"
+    },
+    {
+      "id": 241,
+      "title": "smoke test Chat Service 타임아웃 — healthcheck 미비 + warmup 누락",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "BUG",
+      "description": "docker-compose.smoke.yml에 chat-svc/auth-svc healthcheck 없음. E2E warmup이 Auth만 프로브하여 Chat Service Kafka 컨슈머 미준비 상태에서 테스트 시작. Gateway 5s 타임아웃으로 ListRooms 실패.",
+      "position": 72,
+      "status": "FIXING",
+      "created_at": "2026-03-26 16:16:06",
+      "updated_at": "2026-03-26 16:16:30"
     },
     {
       "id": 36,
@@ -264,6 +278,21 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 146,
+      "title": "AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "AUTH_SVC",
+      "type": "PERF",
+      "description": "password_hasher_.verify()가 bcrypt 해시 비교(work factor 12, ~250ms)를 코어 스레드에서 동기 실행. 해당 코어의 모든 비동기 작업이 250ms 블로킹됨. 동시 로그인 요청 폭주 시 코어 처리량 급격 저하. thread pool offload 또는 co_spawn 분리 필요.",
+      "position": 9,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 16:30:29",
+      "created_at": "2026-03-23 01:55:42",
+      "updated_at": "2026-03-26 16:30:29"
     },
     {
       "id": 179,

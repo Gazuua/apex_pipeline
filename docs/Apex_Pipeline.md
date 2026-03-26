@@ -496,6 +496,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [테스트] CrashHandler death test + Gateway config parser 22개 케이스 + intrusive_ptr 벤치마크 (BACKLOG-142,171,200)
          [코어] SocketBase virtual interface — apex_core OpenSSL 의존 해소, TcpSocket/TlsSocket, Transport concept 확장 (BACKLOG-133, PR #191)
          [코어] HttpServerBase 추출 + AdminHttpServer — 런타임 로그 레벨 동적 전환 (BACKLOG-179, BACKLOG-237 뼈대)
+         [코어+서비스] BlockingTaskExecutor — CPU-bound 작업 thread pool offload + AuthService bcrypt 블로킹 해소 (BACKLOG-146, PR #196)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```

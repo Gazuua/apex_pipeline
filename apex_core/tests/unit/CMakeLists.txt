@@ -97,6 +97,9 @@ apex_add_unit_test(test_crash_handler test_crash_handler.cpp)
 # AdminHttpServer (runtime log-level control)
 apex_add_unit_test(test_admin_http_server test_admin_http_server.cpp)
 
+# BlockingTaskExecutor (CPU-bound offload thread pool)
+apex_add_unit_test(test_blocking_task_executor test_blocking_task_executor.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -157,5 +160,6 @@ set_tests_properties(
     test_server_shutdown_drain
     test_crash_handler
     test_admin_http_server
+    test_blocking_task_executor
     PROPERTIES TIMEOUT 60
 )

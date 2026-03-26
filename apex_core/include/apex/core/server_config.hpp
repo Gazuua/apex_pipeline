@@ -66,6 +66,9 @@ struct ServerConfig
 
     // Admin (runtime management — log level, etc.)
     AdminConfig admin;
+
+    // Blocking task executor (CPU-bound offload thread pool)
+    uint32_t blocking_pool_threads = 2;
 };
 
 } // namespace apex::core

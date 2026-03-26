@@ -195,6 +195,10 @@ struct ServerConfig {
 
     // Metrics (v0.6.1+)
     MetricsConfig metrics;                              // Prometheus 메트릭 엔드포인트 설정
+    AdminConfig admin;                                   // Admin HTTP 서버 설정 (런타임 로그 레벨 등)
+
+    // CPU offload
+    uint32_t blocking_pool_threads = 2;                  // BlockingTaskExecutor 스레드 수 (§7)
 };
 ```
 
@@ -843,6 +847,26 @@ co_await timer.async_wait(boost::asio::use_awaitable);
 
 둘 다 `on_configure` 이후(internal_configure에서 io_context 바인딩 완료)부터 사용 가능.
 
+### blocking_executor() — CPU-bound 작업 offload
+
+CPU-intensive 작업(bcrypt, JWT 서명 등)을 코어 IO 스레드에서 실행하면 해당 코어의 모든 비동기 작업이 블로킹된다. `blocking_executor()`를 사용하여 별도 thread pool로 offload한다:
+
+```cpp
+// ❌ BAD — 코어 스레드에서 bcrypt 250ms 블로킹
+auto ok = password_hasher_.verify(password, hash);
+
+// ✅ GOOD — thread pool offload, 코어 스레드 즉시 반환
+auto ok = co_await blocking_executor().run([&] {
+    return password_hasher_.verify(password, hash);
+});
+```
+
+**동작 원리**: `run()`은 작업을 thread pool에 post하고 호출자 코루틴을 suspend한다. 작업 완료 후 호출자의 코어 executor로 자동 resume되어 shared-nothing 모델을 유지한다.
+
+**소유**: `Server`가 단일 `BlockingTaskExecutor`를 소유. 스레드 수는 `ServerConfig::blocking_pool_threads` (기본 2).
+
+**Shutdown**: `finalize_shutdown()` Step 6.5에서 `pool_.join()` — 진행 중인 작업 완료 대기 후 종료.
+
 ### spawn_tracked() — 인프라 코루틴
 
 `CoreEngine::spawn_tracked(core_id, coro_factory)`는 어댑터 레벨의 인프라 코루틴을 추적한다. 서비스의 `spawn()`과 별도로 관리된다.
@@ -938,6 +962,11 @@ std::this_thread::sleep_for(std::chrono::seconds{1});
 boost::asio::steady_timer timer(co_await boost::asio::this_coro::executor);
 timer.expires_after(std::chrono::seconds{1});
 co_await timer.async_wait(boost::asio::use_awaitable);
+
+// ✅ GOOD — CPU-bound 작업은 blocking_executor()로 offload (§7)
+auto result = co_await blocking_executor().run([&] {
+    return expensive_cpu_work();
+});
 ```
 
 ### #6. 핸들러 error 반환의 의미

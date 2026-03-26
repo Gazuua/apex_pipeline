@@ -259,6 +259,11 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - 조건부 태깅 (sha/latest/main), auto-tag (CI 전체 통과 시 버전 태그 자동 생성)
   - 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
+- **코어+서비스: BlockingTaskExecutor — CPU-bound offload (PR #196, BACKLOG-146)**
+  - `BlockingTaskExecutor`: awaitable thread pool wrapper (Server 소유, 기본 2스레드)
+  - `ServiceBase::blocking_executor()` 접근자로 모든 서비스에서 사용 가능
+  - AuthService bcrypt verify/hash를 thread pool offload → 코어 IO 스레드 블로킹 해소
+
 - **도구: notify merge 통합 — 머지 유일 진입점 (PR #174, BACKLOG-234)**
   - `handoff notify merge`가 데몬 파이프라인에서 lock→export→rebase→push→merge→finalize를 원자적 수행
   - `gh pr merge` 직접 호출 전면 차단, `queue merge` CLI 서브커맨드 제거
