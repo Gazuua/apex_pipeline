@@ -47,6 +47,7 @@ apex_add_benchmark(bench_timing_wheel  micro/bench_timing_wheel.cpp)
 apex_add_benchmark(bench_allocators    micro/bench_allocators.cpp)
 apex_add_benchmark(bench_serialization   micro/bench_serialization.cpp)
 apex_add_benchmark(bench_session_lifecycle micro/bench_session_lifecycle.cpp)
+apex_add_benchmark(bench_intrusive_vs_shared micro/bench_intrusive_vs_shared.cpp)
 
 # --- Integration benchmarks ---
 apex_add_benchmark(bench_cross_core_latency       integration/bench_cross_core_latency.cpp)
