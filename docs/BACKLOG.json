@@ -1,5 +1,5 @@
 {
-  "next_id": 238,
+  "next_id": 241,
   "items": [
     {
       "id": 135,
@@ -106,6 +106,33 @@
       "status": "OPEN",
       "created_at": "2026-03-26 12:48:23",
       "updated_at": "2026-03-26 12:48:23"
+    },
+    {
+      "id": 238,
+      "title": "워크스페이스 + 세션 관리 모듈 신설 — ConPTY 독립 프로세스 기반 멀티브랜치 제어",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md",
+      "position": 70,
+      "status": "FIXING",
+      "created_at": "2026-03-26 15:24:04",
+      "updated_at": "2026-03-26 15:31:16"
+    },
+    {
+      "id": 239,
+      "title": "백로그 FIX 자동화 — 대시보드 FIX 버튼 + blocked_reason + 글로벌 알림",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "backlog_items에 blocked_reason 컬럼 추가. /backlog 페이지에 행별/다중 선택 FIX 버튼 신설, 브랜치 선택 모달→세션 ConPTY stdin에 자연어 프롬프트 주입. 네비 바 blocked 뱃지, 대시보드 요약 카드, 브랜치/백로그 행 강조. CLI --blocked 플래그 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md",
+      "related": "238",
+      "position": 71,
+      "status": "FIXING",
+      "created_at": "2026-03-26 15:24:17",
+      "updated_at": "2026-03-26 15:31:21"
     },
     {
       "id": 36,
@@ -223,6 +250,20 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 240,
+      "title": "대시보드 React 리팩토링 검토 — HTMX/Go 템플릿에서 React SPA로 전환 가능성",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "현재 Go 템플릿 + HTMX 기반 대시보드가 기능 확장에 따라 복잡해지고 있음. React SPA + REST API 구조로 전환 시 컴포넌트 재사용, 상태 관리, xterm.js 통합 등에서 이점. 워크스페이스/세션 기능 완성 후 검토.",
+      "related": "238,239",
+      "position": 25,
+      "status": "OPEN",
+      "created_at": "2026-03-26 15:24:30",
+      "updated_at": "2026-03-26 15:24:30"
     },
     {
       "id": 179,
