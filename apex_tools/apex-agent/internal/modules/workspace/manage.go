@@ -191,12 +191,13 @@ func (m *Manager) Scan(ctx context.Context) (*ScanResult, error) {
 		if wsID == "" {
 			continue
 		}
-		// Only promote STOP → EXTERNAL (don't override MANAGED)
+		// Only promote STOP → EXTERNAL (don't override MANAGED).
+		// Use IncrementExternalSession (not UpdateSession) to correctly set ref count to 1.
 		b, err := m.Get(ctx, wsID)
 		if err != nil || b.SessionStatus != "STOP" {
 			continue
 		}
-		if err := m.UpdateSession(ctx, wsID, SessionUpdate{SessionStatus: "EXTERNAL"}); err == nil {
+		if err := m.IncrementExternalSession(ctx, wsID); err == nil {
 			ml.Info("detected active Claude session via mtime", "workspace", wsID)
 		}
 	}
@@ -221,6 +222,8 @@ func (m *Manager) IncrementExternalSession(ctx context.Context, wsID string) err
 
 // DecrementExternalSession decrements the ref count. Reverts to STOP when it reaches zero.
 // Does nothing if the session is not EXTERNAL (e.g., MANAGED sessions are untouched).
+// NOTE: SQLite evaluates SET using pre-update row values, so session_pid in the CASE
+// refers to the value before decrement. pid=1 → STOP is correct (will become 0).
 func (m *Manager) DecrementExternalSession(ctx context.Context, wsID string) error {
 	_, err := m.q.Exec(ctx, `
 		UPDATE local_branches

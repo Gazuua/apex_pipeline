@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/daemon"
@@ -97,7 +98,7 @@ func (m *Module) handleSessionRegister(ctx context.Context, params json.RawMessa
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("parse session-register params: %w", err)
 	}
-	wsID, err := m.manager.FindWorkspaceByDir(ctx, p.Directory)
+	wsID, err := m.manager.FindWorkspaceByDir(ctx, filepath.Clean(p.Directory))
 	if err != nil {
 		return map[string]any{"ok": false, "reason": "workspace not found"}, nil
 	}
@@ -115,7 +116,7 @@ func (m *Module) handleSessionUnregister(ctx context.Context, params json.RawMes
 	if err := json.Unmarshal(params, &p); err != nil {
 		return nil, fmt.Errorf("parse session-unregister params: %w", err)
 	}
-	wsID, err := m.manager.FindWorkspaceByDir(ctx, p.Directory)
+	wsID, err := m.manager.FindWorkspaceByDir(ctx, filepath.Clean(p.Directory))
 	if err != nil {
 		return map[string]any{"ok": false, "reason": "workspace not found"}, nil
 	}

@@ -79,6 +79,7 @@ func pluginTeardownCmd() *cobra.Command {
 		Short: "외부 세션 해제",
 		Long:  "SessionEnd 훅에서 호출 — 워크스페이스 세션을 STOP으로 복원합니다.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ensureDaemon()
 			cwd, err := os.Getwd()
 			if err != nil {
 				return fmt.Errorf("getwd: %w", err)
