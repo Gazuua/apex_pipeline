@@ -381,7 +381,6 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
     // Server::add_adapter()가 라이프사이클(init/drain/close)을 관리하므로 수동 init 불필요.
     if (rl_redis_adapter_)
     {
-
         // EndpointRateConfig 빌드
         apex::shared::rate_limit::EndpointRateConfig ep_config;
         ep_config.default_limit = config_.rate_limit.endpoint.default_limit;
