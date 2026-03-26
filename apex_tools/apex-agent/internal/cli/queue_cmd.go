@@ -223,16 +223,19 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	}
 
 	// Watchdog: kill child if log file has no output for buildStaleTimeout.
-	var killed atomic.Bool
+	// Two separate flags:
+	//   - stopped: main → watchdog "process exited, stop polling"
+	//   - killed:  watchdog → main "I killed the process"
+	var stopped, killed atomic.Bool
 	watchDone := make(chan struct{})
 	go func() {
 		defer close(watchDone)
-		watchBuildLog(logPath, execCmd.Process, &killed)
+		watchBuildLog(logPath, execCmd.Process, &stopped, &killed)
 	}()
 
 	runErr := execCmd.Wait()
-	// Signal watchdog to stop (process exited naturally).
-	killed.Store(true)
+	// Signal watchdog to stop (process exited naturally or was killed).
+	stopped.Store(true)
 	<-watchDone
 
 	// Release lock explicitly before printing result.
@@ -276,15 +279,17 @@ func createBuildLogFile(label string) (string, *os.File, error) {
 }
 
 // watchBuildLog monitors a log file and kills the process if no output is
-// written for buildStaleTimeout. Exits when killed flag is set (process exited).
-func watchBuildLog(logPath string, proc *os.Process, killed *atomic.Bool) {
-	watchBuildLogWithTimeout(logPath, proc, killed, buildStaleTimeout, 30*time.Second)
+// written for buildStaleTimeout.
+// stopped: set by caller when process exits naturally — watchdog should stop polling.
+// killed: set by watchdog when it kills the process — caller reads this to distinguish kill vs normal exit.
+func watchBuildLog(logPath string, proc *os.Process, stopped, killed *atomic.Bool) {
+	watchBuildLogWithTimeout(logPath, proc, stopped, killed, buildStaleTimeout, 30*time.Second)
 }
 
 // watchBuildLogWithTimeout is the parameterized version of watchBuildLog for testability.
 // timeout: duration of no log output before killing the process.
 // pollInterval: how often to check the log file size.
-func watchBuildLogWithTimeout(logPath string, proc *os.Process, killed *atomic.Bool, timeout, pollInterval time.Duration) {
+func watchBuildLogWithTimeout(logPath string, proc *os.Process, stopped, killed *atomic.Bool, timeout, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
@@ -292,7 +297,7 @@ func watchBuildLogWithTimeout(logPath string, proc *os.Process, killed *atomic.B
 	lastChange := time.Now()
 
 	for range ticker.C {
-		if killed.Load() {
+		if stopped.Load() {
 			return
 		}
 		info, err := os.Stat(logPath)

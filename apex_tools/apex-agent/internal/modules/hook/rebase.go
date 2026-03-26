@@ -21,6 +21,7 @@ func EnforceRebase(command, projectRoot string) (string, error) {
 	// Get current branch
 	branch, err := platform.GitCurrentBranch(projectRoot)
 	if err != nil {
+		ml.Warn("EnforceRebase: branch 확인 실패 — rebase 스킵", "err", err)
 		return "", nil // can't determine branch → allow
 	}
 

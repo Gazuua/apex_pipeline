@@ -16,13 +16,13 @@ func contextCmd() *cobra.Command {
 		Use:   "context",
 		Short: "세션 컨텍스트 출력",
 		Long:  "SessionStart 훅에서 호출 — 현재 Git 상태, 브랜치 핸드오프 현황 등 프로젝트 컨텍스트를 stdout으로 출력합니다.",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "getwd:", err)
-				os.Exit(1)
+				return fmt.Errorf("getwd: %w", err)
 			}
 			fmt.Print(context.Generate(cwd))
+			return nil
 		},
 	}
 }

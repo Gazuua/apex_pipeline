@@ -149,7 +149,9 @@ func DefaultPath() string {
 
 // WriteDefault creates a config.toml with documented defaults.
 func WriteDefault(path string) error {
-	os.MkdirAll(filepath.Dir(path), 0o755)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
 	content := `# apex-agent configuration
 # 값을 비우면 플랫폼 기본값 사용. 이 파일이 없어도 전부 기본값으로 동작.
 

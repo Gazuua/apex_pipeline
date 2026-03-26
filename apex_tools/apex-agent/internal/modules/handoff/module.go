@@ -369,7 +369,7 @@ type notifyMergeParams struct {
 func (m *Module) handleNotifyMerge(ctx context.Context, p notifyMergeParams, _ string) (any, error) {
 	// project_root가 있으면 MergeFullPipeline 실행 (새 경로)
 	if p.ProjectRoot != "" {
-		mergeParams := m.buildMergeParams(ctx, p)
+		mergeParams := m.buildMergeParams(p)
 		if err := workflow.MergeFullPipeline(ctx, mergeParams); err != nil {
 			return nil, err
 		}
@@ -384,7 +384,7 @@ func (m *Module) handleNotifyMerge(ctx context.Context, p notifyMergeParams, _ s
 }
 
 // buildMergeParams assembles MergeFullParams from the parsed notifyMergeParams.
-func (m *Module) buildMergeParams(ctx context.Context, p notifyMergeParams) workflow.MergeFullParams {
+func (m *Module) buildMergeParams(p notifyMergeParams) workflow.MergeFullParams {
 	return workflow.MergeFullParams{
 		ProjectRoot: p.ProjectRoot,
 		Branch:      p.Branch,
@@ -394,16 +394,16 @@ func (m *Module) buildMergeParams(ctx context.Context, p notifyMergeParams) work
 			// ValidateMergeGate를 lock 획득 후 실행 — TOCTOU 윈도우 최소화.
 			return m.manager.ValidateMergeGate(checkCtx, p.Branch)
 		},
-		ImportFn: func(root string) {
+		ImportFn: func(importCtx context.Context, root string) {
 			if m.backlogSyncer != nil {
-				if _, err := workflow.SyncImport(ctx, root, m.backlogSyncer); err != nil {
+				if _, err := workflow.SyncImport(importCtx, root, m.backlogSyncer); err != nil {
 					ml.Warn("merge pipeline import 실패 (non-fatal)", "err", err)
 				}
 			}
 		},
-		ExportFn: func(root string) error {
+		ExportFn: func(exportCtx context.Context, root string) error {
 			if m.backlogSyncer != nil {
-				if _, err := workflow.SyncExport(ctx, root, m.backlogSyncer); err != nil {
+				if _, err := workflow.SyncExport(exportCtx, root, m.backlogSyncer); err != nil {
 					return err
 				}
 			}

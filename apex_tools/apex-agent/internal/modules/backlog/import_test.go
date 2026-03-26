@@ -196,7 +196,9 @@ func TestImportItems_SkipDuplicates(t *testing.T) {
 	mig := store.NewMigrator(s)
 	mod := New(s)
 	mod.RegisterSchema(mig)
-	mig.Migrate()
+	if err := mig.Migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
 
 	items := []BacklogItem{
 		{ID: 1, Title: "Bug", Severity: "CRITICAL", Timeframe: "NOW", Scope: "CORE", Type: "BUG", Description: "Fix", Position: 1, Status: "OPEN"},

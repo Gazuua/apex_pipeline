@@ -34,14 +34,14 @@ func TestWatchBuildLog_KillsStaleProcess(t *testing.T) {
 		t.Fatalf("start long-running process: %v", err)
 	}
 
-	var killed atomic.Bool
+	var stopped, killed atomic.Bool
 	timeout := 200 * time.Millisecond
 	pollInterval := 50 * time.Millisecond
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		watchBuildLogWithTimeout(logPath, cmd.Process, &killed, timeout, pollInterval)
+		watchBuildLogWithTimeout(logPath, cmd.Process, &stopped, &killed, timeout, pollInterval)
 	}()
 
 	// watchdog이 프로세스를 kill할 때까지 대기 (최대 2초)
@@ -63,8 +63,8 @@ func TestWatchBuildLog_KillsStaleProcess(t *testing.T) {
 	}
 }
 
-func TestWatchBuildLog_ExitsWhenKilledExternally(t *testing.T) {
-	// 프로세스가 외부에서 종료된 경우 (killed flag 설정), watchdog이 즉시 반환하는지 검증.
+func TestWatchBuildLog_ExitsWhenStoppedExternally(t *testing.T) {
+	// 프로세스가 외부에서 종료된 경우 (stopped flag 설정), watchdog이 즉시 반환하는지 검증.
 	logDir := t.TempDir()
 	logPath := filepath.Join(logDir, "test_build.log")
 	os.WriteFile(logPath, []byte("initial output\n"), 0o644)
@@ -83,25 +83,29 @@ func TestWatchBuildLog_ExitsWhenKilledExternally(t *testing.T) {
 		_ = cmd.Wait()
 	}()
 
-	var killed atomic.Bool
+	var stopped, killed atomic.Bool
 	timeout := 5 * time.Second // 충분히 길게 — watchdog이 timeout으로 kill하면 안 됨
 	pollInterval := 50 * time.Millisecond
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		watchBuildLogWithTimeout(logPath, cmd.Process, &killed, timeout, pollInterval)
+		watchBuildLogWithTimeout(logPath, cmd.Process, &stopped, &killed, timeout, pollInterval)
 	}()
 
-	// 100ms 후 외부에서 killed 플래그 설정 (프로세스 자연 종료 시뮬레이션)
+	// 100ms 후 외부에서 stopped 플래그 설정 (프로세스 자연 종료 시뮬레이션)
 	time.Sleep(100 * time.Millisecond)
-	killed.Store(true)
+	stopped.Store(true)
 
 	select {
 	case <-done:
-		// 정상 — killed 플래그 감지 후 반환
+		// 정상 — stopped 플래그 감지 후 반환
 	case <-time.After(2 * time.Second):
-		t.Fatal("watchdog should exit promptly when killed flag is set")
+		t.Fatal("watchdog should exit promptly when stopped flag is set")
+	}
+
+	if killed.Load() {
+		t.Error("killed flag should NOT be set when process exits naturally")
 	}
 }
 
@@ -125,14 +129,14 @@ func TestWatchBuildLog_ActiveLogPreventsKill(t *testing.T) {
 		_ = cmd.Wait()
 	}()
 
-	var killed atomic.Bool
+	var stopped, killed atomic.Bool
 	timeout := 300 * time.Millisecond
 	pollInterval := 50 * time.Millisecond
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		watchBuildLogWithTimeout(logPath, cmd.Process, &killed, timeout, pollInterval)
+		watchBuildLogWithTimeout(logPath, cmd.Process, &stopped, &killed, timeout, pollInterval)
 	}()
 
 	// 로그 파일에 주기적으로 쓰기 (timeout보다 짧은 간격)
@@ -159,11 +163,11 @@ func TestWatchBuildLog_ActiveLogPreventsKill(t *testing.T) {
 		t.Error("watchdog should NOT kill process while log is actively written")
 	}
 
-	// 정리: killed 플래그로 watchdog 종료
-	killed.Store(true)
+	// 정리: stopped 플래그로 watchdog 종료
+	stopped.Store(true)
 	select {
 	case <-done:
 	case <-time.After(2 * time.Second):
-		t.Fatal("watchdog did not exit after killed flag set")
+		t.Fatal("watchdog did not exit after stopped flag set")
 	}
 }

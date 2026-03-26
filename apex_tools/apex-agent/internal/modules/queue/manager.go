@@ -236,7 +236,10 @@ func (m *Manager) tryPromote(ctx context.Context, channel, branch string) (bool,
 		if err != nil {
 			return err
 		}
-		n, _ := res.RowsAffected()
+		n, rowsErr := res.RowsAffected()
+		if rowsErr != nil {
+			return fmt.Errorf("tryPromote RowsAffected: %w", rowsErr)
+		}
 		promoted = n > 0
 		if promoted {
 			m.insertHistoryTx(ctx, tx, channel, branch, StatusActive)
@@ -257,7 +260,10 @@ func (m *Manager) UpdatePID(ctx context.Context, channel, branch string, newPID 
 	if err != nil {
 		return fmt.Errorf("queue.UpdatePID: %w", err)
 	}
-	n, _ := res.RowsAffected()
+	n, rowsErr := res.RowsAffected()
+	if rowsErr != nil {
+		return fmt.Errorf("queue.UpdatePID RowsAffected: %w", rowsErr)
+	}
 	if n == 0 {
 		return fmt.Errorf("queue.UpdatePID: no active entry for channel %q", channel)
 	}
@@ -285,7 +291,10 @@ func (m *Manager) Release(ctx context.Context, channel string) error {
 		if err != nil {
 			return fmt.Errorf("queue.Release: %w", err)
 		}
-		n, _ := res.RowsAffected()
+		n, rowsErr := res.RowsAffected()
+		if rowsErr != nil {
+			return fmt.Errorf("queue.Release RowsAffected: %w", rowsErr)
+		}
 		if n == 0 {
 			ml.Warn("release: no active entry found (already released or stale-cleaned)", "channel", channel)
 		} else {
