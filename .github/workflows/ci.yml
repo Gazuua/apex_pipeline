@@ -150,7 +150,7 @@ jobs:
       - name: Restore sccache cache
         uses: actions/cache@v4
         with:
-          path: /root/.cache/sccache
+          path: /github/home/.cache/sccache
           key: sccache-linux-${{ matrix.preset }}-${{ github.ref_name }}-${{ github.run_number }}
           restore-keys: |
             sccache-linux-${{ matrix.preset }}-${{ github.ref_name }}-
