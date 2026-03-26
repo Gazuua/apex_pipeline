@@ -115,11 +115,11 @@
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 완료, Phase 2-3 후속 작업 필요",
+      "description": "apex-agent에 workspace 모듈(디렉토리 스캔/DB 등록/git 동기화) + session 독립 프로세스(ConPTY + WebSocket + xterm.js) 신설. 대시보드에 /branches 페이지 추가, 세션 시작/종료/모니터링 UI, MANAGED/EXTERNAL 세션 구분, 리버스 프록시(:7600→:7601). local_branches 테이블, config [workspace]/[session] 섹션 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 완료, Phase 2-3 후속 작업 필요\n[RELEASED] branch_agent: Phase 2-3 구현 완료 후 resolve 예정 — 세션 서버(ConPTY+WebSocket) + 대시보드 확장 미완",
       "position": 70,
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:04",
-      "updated_at": "2026-03-26 16:38:11"
+      "updated_at": "2026-03-26 17:30:22"
     },
     {
       "id": 239,
