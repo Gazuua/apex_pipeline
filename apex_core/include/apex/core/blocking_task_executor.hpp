@@ -51,10 +51,8 @@ class BlockingTaskExecutor
     {
         using R = std::invoke_result_t<F>;
 
-        auto caller_executor = co_await boost::asio::this_coro::executor;
-
-        // promise를 통해 thread pool 작업 결과를 전달
-        // co_spawn으로 thread pool에서 실행 후 caller executor로 resume
+        // co_spawn(pool_, ..., use_awaitable)는 작업을 thread pool에서 실행하고,
+        // 완료 시 호출자 코루틴의 associated executor로 자동 resume한다.
         R result = co_await boost::asio::co_spawn(
             pool_, [f = std::forward<F>(fn)]() -> boost::asio::awaitable<R> { co_return f(); },
             boost::asio::use_awaitable);

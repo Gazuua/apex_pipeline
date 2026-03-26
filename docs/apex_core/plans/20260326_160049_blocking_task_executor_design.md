@@ -56,11 +56,13 @@ on_login() 코루틴 실행 중
 #pragma once
 
 #include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/asio/this_coro.hpp>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/use_awaitable.hpp>
-#include <boost/asio/this_coro.hpp>
 
+#include <cstdint>
 #include <type_traits>
 
 namespace apex::core {
@@ -70,6 +72,7 @@ class BlockingTaskExecutor
   public:
     explicit BlockingTaskExecutor(uint32_t thread_count)
         : pool_(thread_count)
+        , thread_count_(thread_count)
     {}
 
     ~BlockingTaskExecutor() { shutdown(); }
@@ -77,21 +80,35 @@ class BlockingTaskExecutor
     BlockingTaskExecutor(const BlockingTaskExecutor&) = delete;
     BlockingTaskExecutor& operator=(const BlockingTaskExecutor&) = delete;
 
-    /// CPU-bound 작업을 스레드 풀로 offload하고 결과를 호출자 코어로 반환
+    /// CPU-bound 작업을 스레드 풀에서 실행하고 결과를 호출자 코어로 반환 (non-void)
     template <typename F>
+        requires(!std::is_void_v<std::invoke_result_t<F>>)
     auto run(F&& fn) -> boost::asio::awaitable<std::invoke_result_t<F>>
     {
         using R = std::invoke_result_t<F>;
 
         auto caller_executor = co_await boost::asio::this_coro::executor;
 
-        // thread pool에서 실행, 완료 후 caller executor로 resume
-        co_return co_await boost::asio::co_spawn(
+        R result = co_await boost::asio::co_spawn(
             pool_,
-            [f = std::forward<F>(fn)]() -> boost::asio::awaitable<R> {
-                co_return f();
+            [f = std::forward<F>(fn)]() -> boost::asio::awaitable<R> { co_return f(); },
+            boost::asio::use_awaitable);
+
+        co_return result;
+    }
+
+    /// void 반환 작업용 오버로드.
+    template <typename F>
+        requires(std::is_void_v<std::invoke_result_t<F>>)
+    auto run(F&& fn) -> boost::asio::awaitable<void>
+    {
+        co_await boost::asio::co_spawn(
+            pool_,
+            [f = std::forward<F>(fn)]() -> boost::asio::awaitable<void> {
+                f();
+                co_return;
             },
-            boost::asio::use_awaitable_t<decltype(caller_executor)>{});
+            boost::asio::use_awaitable);
     }
 
     void shutdown()
@@ -99,8 +116,14 @@ class BlockingTaskExecutor
         pool_.join();
     }
 
+    [[nodiscard]] uint32_t thread_count() const noexcept
+    {
+        return thread_count_;
+    }
+
   private:
     boost::asio::thread_pool pool_;
+    uint32_t thread_count_;
 };
 
 }  // namespace apex::core
@@ -109,8 +132,10 @@ class BlockingTaskExecutor
 **핵심 메커니즘**:
 - `co_await this_coro::executor` — 호출자의 코어 executor 캡처
 - `co_spawn(pool_, ...)` — 작업을 thread pool executor에서 실행
-- `use_awaitable_t<caller_executor_type>` — 완료 시 호출자 executor로 resume
+- `use_awaitable` — 완료 시 호출자 executor로 resume
+- C++20 `requires` 절로 non-void/void 오버로드 분리 — void 작업도 자연스럽게 지원
 - 템플릿이라 반환 타입 자동 추론 (`bool`, `std::string` 등)
+- `thread_count()` 접근자로 설정된 스레드 수 조회 가능
 
 ### 4.2 ServerConfig 확장
 
@@ -127,9 +152,9 @@ uint32_t blocking_pool_threads = 2;  // BlockingTaskExecutor 스레드 수
 **파일**: `apex_core/include/apex/core/server.hpp`, `apex_core/src/server.cpp`
 
 - `Server` 멤버: `std::unique_ptr<BlockingTaskExecutor> blocking_executor_`
-- 생성 시점: `Server::run()` 초기, CoreEngine 시작 전
+- 생성 시점: `Server` 생성자 내, CoreEngine 생성 직후
 - 접근자: `BlockingTaskExecutor& blocking_executor()`
-- Shutdown: `finalize_shutdown()` 내 CoreEngine stop 이후, Adapter close 이전
+- Shutdown: `finalize_shutdown()` step 6.5 — CoreEngine stop/join/drain 이후, globals clear 이전
 
 ### 4.4 ServiceBase 접근자
 
@@ -143,8 +168,8 @@ uint32_t blocking_pool_threads = 2;  // BlockingTaskExecutor 스레드 수
 }
 ```
 
-- `BlockingTaskExecutor*` 포인터를 `internal_configure()` 시점에 Server가 주입
-- 기존 `io_ctx_` 주입 패턴과 동일
+- `BlockingTaskExecutor*` 포인터를 `bind_blocking_executor()` 가상 함수로 Server가 `internal_configure()` 직전에 주입
+- 기존 `bind_io_context()` 주입 패턴과 동일
 
 ## 5. AuthService 수정
 
@@ -205,8 +230,8 @@ spawn([this]() -> boost::asio::awaitable<void> {
 | `apex_core/include/apex/core/server.hpp` | 수정 — 멤버 + 접근자 |
 | `apex_core/src/server.cpp` | 수정 — 생성/shutdown 통합 |
 | `apex_core/include/apex/core/service_base.hpp` | 수정 — 접근자 + 포인터 |
-| `apex_core/src/service_base.cpp` | 수정 — 포인터 초기화 (있는 경우) |
-| `apex_core/CMakeLists.txt` | 수정 — 헤더 등록 (있는 경우) |
+| ~~`apex_core/src/service_base.cpp`~~ | 해당 없음 — 헤더 온리 템플릿, 별도 .cpp 없음 |
+| ~~`apex_core/CMakeLists.txt`~~ | 해당 없음 — 헤더 온리라 별도 등록 불필요 |
 | `apex_services/auth-svc/src/auth_service.cpp` | 수정 — offload 적용 |
 | `apex_core/tests/unit/test_blocking_task_executor.cpp` | **신규** |
 | `apex_core/tests/unit/CMakeLists.txt` | 수정 — 테스트 등록 |
