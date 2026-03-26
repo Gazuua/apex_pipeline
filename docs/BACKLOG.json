@@ -1,5 +1,5 @@
 {
-  "next_id": 236,
+  "next_id": 237,
   "items": [
     {
       "id": 133,
@@ -200,6 +200,19 @@
       "status": "OPEN",
       "created_at": "2026-03-25 15:59:08",
       "updated_at": "2026-03-25 15:59:08"
+    },
+    {
+      "id": 236,
+      "title": "DashboardList scope 필터 정확 매칭 불일치 — multi-value scope 데이터 클렌징 필요",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "backlog/manage.go DashboardList의 scope 필터가 SQL IN (정확 매칭)을 사용하는데, scope 컬럼이 쉼표 구분 multi-value(예: CORE, SHARED). CORE 필터 시 CORE, SHARED 항목이 누락됨. scope 테이블 정규화 또는 데이터 클렌징으로 해결.",
+      "position": 68,
+      "status": "OPEN",
+      "created_at": "2026-03-26 09:27:08",
+      "updated_at": "2026-03-26 09:27:08"
     },
     {
       "id": 59,
