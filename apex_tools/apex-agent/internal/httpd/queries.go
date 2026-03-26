@@ -74,27 +74,6 @@ type QueueEntry struct {
 	Duration   string // computed: finished_at - created_at
 }
 
-// BranchInfo represents a workspace branch for the dashboard.
-type BranchInfo struct {
-	WorkspaceID     string
-	Directory       string
-	GitBranch       string
-	GitStatus       string
-	SessionStatus   string
-	SessionID       string
-	SessionPID      int
-	SessionRefLabel string // "×2", "×3", etc. (empty for ref count <= 1)
-	HandoffStatus   string // from LEFT JOIN active_branches
-	BacklogIDs      string // comma-separated
-	BlockedBacklogs []BlockedBacklogInfo
-}
-
-type BlockedBacklogInfo struct {
-	ID            int
-	Title         string
-	BlockedReason string
-}
-
 // ── Query adapters — delegate to module querier interfaces ──
 
 func queryDashboardSummary(bm BacklogQuerier, hm HandoffQuerier, qm QueueQuerier) (*DashboardSummary, error) {

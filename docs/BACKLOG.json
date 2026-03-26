@@ -1,20 +1,6 @@
 {
-  "next_id": 260,
+  "next_id": 261,
   "items": [
-    {
-      "id": 258,
-      "title": "대시보드 Branches 후속 — FIX UI + 좀비 개별 정리 + workspace CLI + 크로스플랫폼",
-      "severity": "MAJOR",
-      "timeframe": "NOW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "PR #206 후속 작업 4건 통합: (1) /backlog FIX 버튼 — 브랜치 선택 모달 + ConPTY stdin 프롬프트 주입 (BACKLOG-239 Phase 3). (2) ReapZombieSessions 개별 정리 — 전역 hasClaudeProcess 대신 워크스페이스별 mtime 검사로 개별 좀비 STOP 전환 (auto-review ISSUE-3). (3) workspace CLI — scan/list/get/sync 서브커맨드 구현 (현재 API/IPC만 존재, CLAUDE.md 정의와 불일치). (4) hasClaudeProcess 크로스플랫폼 — Windows tasklist.exe 전용을 //go:build 태그로 분리, Linux pgrep 대응 (auto-review LOW-3).",
-      "related": "239",
-      "position": 17,
-      "status": "FIXING",
-      "created_at": "2026-03-26 22:37:57",
-      "updated_at": "2026-03-26 22:47:12"
-    },
     {
       "id": 113,
       "title": "Docker E2E 풀 인프라 벤치마킹",
@@ -211,6 +197,38 @@
       "status": "OPEN",
       "created_at": "2026-03-26 23:12:28",
       "updated_at": "2026-03-26 23:12:28"
+    },
+    {
+      "id": 258,
+      "title": "대시보드 Branches 후속 — FIX UI + 좀비 개별 정리 + workspace CLI + 크로스플랫폼",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "PR #206 후속 작업 4건 통합: (1) /backlog FIX 버튼 — 브랜치 선택 모달 + ConPTY stdin 프롬프트 주입 (BACKLOG-239 Phase 3). (2) ReapZombieSessions 개별 정리 — 전역 hasClaudeProcess 대신 워크스페이스별 mtime 검사로 개별 좀비 STOP 전환 (auto-review ISSUE-3). (3) workspace CLI — scan/list/get/sync 서브커맨드 구현 (현재 API/IPC만 존재, CLAUDE.md 정의와 불일치). (4) hasClaudeProcess 크로스플랫폼 — Windows tasklist.exe 전용을 //go:build 태그로 분리, Linux pgrep 대응 (auto-review LOW-3).\n[RELEASED] branch_agent: 세션 서버/Branches 페이지 전체 제거 결정 — 대시보드 관찰 전용화로 방향 전환, 기존 인터랙션 기반 접근은 버그 빈도가 높아 재설계 필요",
+      "related": "239",
+      "position": 17,
+      "status": "RESOLVED",
+      "resolution": "SUPERSEDED",
+      "resolved_at": "2026-03-27 02:11:39",
+      "created_at": "2026-03-26 22:37:57",
+      "updated_at": "2026-03-27 02:11:39"
+    },
+    {
+      "id": 260,
+      "title": "세션 서버 + Branches 페이지 + local_branches 제거, 대시보드 관찰 전용화",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "PR #199/#200/#206에서 추가된 세션 서버(ConPTY, WebSocket, xterm.js), Branches 대시보드 페이지, local_branches 테이블/모듈, 대시보드 인터랙션 기능을 전부 제거. 대시보드는 관찰 전용으로 전환. 이유: HTMX innerHTML swap과 xterm.js 터미널의 근본적 비호환(DOM 파괴, 포커스 유실, 크기 불일치 reflow). 향후 React SPA 또는 별도 파이프라인 기반 통신으로 재설계 시 재도입 검토 (BACKLOG-240 참조). 관련: BACKLOG-238, BACKLOG-239, BACKLOG-258",
+      "related": "238,239,258",
+      "position": 18,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-27 02:11:17",
+      "created_at": "2026-03-27 01:42:54",
+      "updated_at": "2026-03-27 02:11:17"
     },
     {
       "id": 256,

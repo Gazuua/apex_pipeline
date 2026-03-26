@@ -10,7 +10,6 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
-	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/workspace"
 )
 
 // ── BacklogQuerier adapter ──
@@ -194,47 +193,3 @@ func (a *queueQuerierAdapter) DashboardQueueHistory(channel string, offset, limi
 	return result, nil
 }
 
-// ── WorkspaceQuerier adapter ──
-
-type workspaceQuerierAdapter struct {
-	mgr *workspace.Manager
-}
-
-func (a *workspaceQuerierAdapter) DashboardBranchesList() ([]httpd.BranchInfo, error) {
-	ctx := context.Background()
-	branches, err := a.mgr.DashboardBranchesList(ctx)
-	if err != nil {
-		return nil, err
-	}
-	result := make([]httpd.BranchInfo, len(branches))
-	for i, b := range branches {
-		result[i] = httpd.BranchInfo{
-			WorkspaceID:     b.WorkspaceID,
-			Directory:       b.Directory,
-			GitBranch:       b.GitBranch,
-			GitStatus:       b.GitStatus,
-			SessionStatus:   b.SessionStatus,
-			SessionID:       b.SessionID,
-			SessionPID:      b.SessionPID,
-			SessionRefLabel: b.SessionRefLabel,
-			HandoffStatus:   b.HandoffStatus,
-			BacklogIDs:      b.BacklogIDs,
-		}
-		// Fetch blocked backlogs for branches that have backlog IDs.
-		if b.BacklogIDs != "" {
-			blocked, _ := a.mgr.DashboardBlockedBacklogs(ctx, b.BacklogIDs)
-			for _, bb := range blocked {
-				result[i].BlockedBacklogs = append(result[i].BlockedBacklogs, httpd.BlockedBacklogInfo{
-					ID:            bb.ID,
-					Title:         bb.Title,
-					BlockedReason: bb.BlockedReason,
-				})
-			}
-		}
-	}
-	return result, nil
-}
-
-func (a *workspaceQuerierAdapter) DashboardBlockedCount() (int, error) {
-	return a.mgr.DashboardBlockedCount(context.Background())
-}
