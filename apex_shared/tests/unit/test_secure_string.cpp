@@ -75,7 +75,7 @@ TEST(SecureStringTest, ZeroizesOnDestruction)
     // After destruction, the memory should be zeroed.
     // NOTE: Accessing freed memory is technically UB, but this is a best-effort
     // verification for testing purposes. ASAN/MSAN may flag this.
-#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_MEMORY__)
+#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_MEMORY__) && !defined(__SANITIZE_THREAD__)
     EXPECT_NE(raw_ptr[0], kSecret[0]);
 #endif
 }
