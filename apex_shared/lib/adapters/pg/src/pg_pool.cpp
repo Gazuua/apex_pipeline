@@ -187,7 +187,7 @@ bool PgPool::do_validate(Connection& conn)
 boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>> PgPool::create_connected()
 {
     auto conn = std::make_unique<PgConnection>(io_ctx_);
-    auto result = co_await conn->connect_async(config_.connection_string);
+    auto result = co_await conn->connect_async(config_.connection_string.view());
     if (!result.has_value())
     {
         co_return std::unexpected(result.error());
@@ -213,7 +213,7 @@ boost::asio::awaitable<apex::core::Result<std::unique_ptr<PgConnection>>> PgPool
     }
 
     // Not yet connected -> establish connection
-    auto connect_result = co_await conn->connect_async(config_.connection_string);
+    auto connect_result = co_await conn->connect_async(config_.connection_string.view());
     if (!connect_result.has_value())
     {
         discard(std::move(conn));
@@ -241,9 +241,9 @@ boost::asio::awaitable<apex::core::Result<PgPool::Connection>> PgPool::acquire_w
     co_return std::unexpected(apex::core::ErrorCode::PoolExhausted);
 }
 
-const std::string& PgPool::connection_string() const noexcept
+std::string_view PgPool::connection_string() const noexcept
 {
-    return config_.connection_string;
+    return config_.connection_string.view();
 }
 
 } // namespace apex::shared::adapters::pg

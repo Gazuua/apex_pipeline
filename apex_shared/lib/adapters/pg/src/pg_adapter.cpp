@@ -12,6 +12,8 @@
 namespace apex::shared::adapters::pg
 {
 
+PgAdapter::PgAdapter() = default;
+
 PgAdapter::PgAdapter(PgAdapterConfig config)
     : config_(std::move(config))
 {}
@@ -43,7 +45,7 @@ void PgAdapter::do_init(apex::core::CoreEngine& engine)
     }
 
     // Mask password in connection string for logging
-    auto masked = config_.connection_string;
+    auto masked = std::string{config_.connection_string.view()};
     auto pos = masked.find("password=");
     if (pos != std::string::npos)
     {

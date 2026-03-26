@@ -84,7 +84,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_route_table PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_route_table PRIVATE
-        apex_core spdlog::spdlog GTest::gtest GTest::gtest_main)
+        apex_core apex_shared spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_route_table PRIVATE /utf-8)
         target_compile_definitions(test_gateway_route_table PRIVATE _WIN32_WINNT=0x0A00)
@@ -99,7 +99,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_jwt_verifier PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_jwt_verifier PRIVATE
-        apex_core jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto
+        apex_core apex_shared jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto
         spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_jwt_verifier PRIVATE /utf-8)
@@ -115,7 +115,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_file_watcher PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_file_watcher PRIVATE
-        apex_core spdlog::spdlog GTest::gtest GTest::gtest_main
+        apex_core apex_shared spdlog::spdlog GTest::gtest GTest::gtest_main
         Boost::headers)
     if(WIN32)
         target_compile_options(test_gateway_file_watcher PRIVATE /utf-8)
@@ -132,7 +132,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_pending_requests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_pending_requests PRIVATE
-        apex_core spdlog::spdlog GTest::gtest GTest::gtest_main)
+        apex_core apex_shared spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_pending_requests PRIVATE /utf-8)
         target_compile_definitions(test_gateway_pending_requests PRIVATE _WIN32_WINNT=0x0A00)
@@ -147,7 +147,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_channel_session_map PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_channel_session_map PRIVATE
-        apex_core spdlog::spdlog GTest::gtest GTest::gtest_main)
+        apex_core apex_shared spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_channel_session_map PRIVATE /utf-8)
         target_compile_definitions(test_gateway_channel_session_map PRIVATE _WIN32_WINNT=0x0A00)
@@ -164,7 +164,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/apex_services)
     target_link_libraries(test_gateway_message_router PRIVATE
-        apex_core apex_protocols_kafka apex_shared_adapters_kafka
+        apex_core apex_shared apex_protocols_kafka apex_shared_adapters_kafka
         spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_message_router PRIVATE /utf-8)
@@ -183,7 +183,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_pipeline PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_pipeline PRIVATE
-        apex_core apex_shared_rate_limit apex_shared_adapters_redis
+        apex_core apex_shared apex_shared_rate_limit apex_shared_adapters_redis
         jwt-cpp::jwt-cpp OpenSSL::SSL OpenSSL::Crypto
         spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
     if(WIN32)
@@ -200,7 +200,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_pipeline_errors PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_pipeline_errors PRIVATE
-        apex_core
+        apex_core apex_shared
         spdlog::spdlog Boost::headers GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_pipeline_errors PRIVATE /utf-8)
@@ -217,7 +217,7 @@ if(BUILD_TESTING)
     target_include_directories(test_gateway_jwt_blacklist PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_link_libraries(test_gateway_jwt_blacklist PRIVATE
-        apex_core apex_shared_adapters_redis
+        apex_core apex_shared apex_shared_adapters_redis
         spdlog::spdlog GTest::gtest GTest::gtest_main)
     if(WIN32)
         target_compile_options(test_gateway_jwt_blacklist PRIVATE /utf-8)

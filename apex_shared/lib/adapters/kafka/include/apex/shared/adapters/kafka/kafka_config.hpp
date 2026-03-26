@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <apex/shared/secure_string.hpp>
+
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -16,13 +18,13 @@ namespace apex::shared::adapters::kafka
 /// Empty strings are not forwarded to librdkafka — only non-empty values are applied.
 struct KafkaSecurityConfig
 {
-    std::string protocol = "PLAINTEXT"; ///< security.protocol (PLAINTEXT, SSL, SASL_SSL, SASL_PLAINTEXT)
-    std::string ssl_ca_location;        ///< ssl.ca.location
-    std::string ssl_cert_location;      ///< ssl.certificate.location
-    std::string ssl_key_location;       ///< ssl.key.location
-    std::string sasl_mechanism;         ///< sasl.mechanism (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512)
-    std::string sasl_username;          ///< sasl.username
-    std::string sasl_password;          ///< sasl.password
+    std::string protocol = "PLAINTEXT";       ///< security.protocol (PLAINTEXT, SSL, SASL_SSL, SASL_PLAINTEXT)
+    std::string ssl_ca_location;              ///< ssl.ca.location
+    std::string ssl_cert_location;            ///< ssl.certificate.location
+    std::string ssl_key_location;             ///< ssl.key.location
+    std::string sasl_mechanism;               ///< sasl.mechanism (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512)
+    std::string sasl_username;                ///< sasl.username
+    apex::shared::SecureString sasl_password; ///< sasl.password
 };
 
 /// Kafka adapter configuration. Parsed from TOML [adapters.kafka].

@@ -99,6 +99,47 @@ postgresql:
 pgbouncer:
   enabled: false
 
+# === External Secrets Operator ===
+externalSecrets:
+  enabled: true
+  serviceAccount: apex-secrets-sa
+  aws:
+    region: ap-northeast-2
+    secretPrefix: apex
+  secrets:
+    gateway:
+      targetSecret: apex-gateway-secrets
+      keys:
+        - envVar: REDIS_AUTH_PASSWORD
+          property: redis_auth_password
+        - envVar: REDIS_RATELIMIT_PASSWORD
+          property: redis_ratelimit_password
+        - envVar: REDIS_PUBSUB_PASSWORD
+          property: redis_pubsub_password
+    auth-svc:
+      targetSecret: apex-auth-secrets
+      keys:
+        - envVar: REDIS_AUTH_PASSWORD
+          property: redis_password
+        - envVar: PG_SERVICE_PASSWORD
+          property: pg_password
+    chat-svc:
+      targetSecret: apex-chat-secrets
+      keys:
+        - envVar: REDIS_CHAT_PASSWORD
+          property: redis_data_password
+        - envVar: REDIS_PUBSUB_PASSWORD
+          property: redis_pubsub_password
+        - envVar: PG_SERVICE_PASSWORD
+          property: pg_password
+    rsa-keys:
+      targetSecret: apex-rsa-keys
+      keys:
+        - envVar: RSA_PRIVATE_KEY
+          property: private_key
+        - envVar: RSA_PUBLIC_KEY
+          property: public_key
+
 # === 보안 ===
 global:
   security:

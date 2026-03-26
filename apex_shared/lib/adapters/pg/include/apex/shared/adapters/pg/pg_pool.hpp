@@ -57,7 +57,7 @@ class PgPool
     /// Returns PoolExhausted on retry limit exceeded.
     [[nodiscard]] boost::asio::awaitable<apex::core::Result<Connection>> acquire_with_retry();
 
-    [[nodiscard]] const std::string& connection_string() const noexcept;
+    [[nodiscard]] std::string_view connection_string() const noexcept;
 
     /// Increment query counter (called by PgAdapter on each query/execute).
     void record_query() noexcept
