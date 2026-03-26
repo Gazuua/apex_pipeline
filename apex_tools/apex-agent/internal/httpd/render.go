@@ -25,7 +25,6 @@ var pageFiles = map[string]string{
 	"backlog":   "templates/backlog.html",
 	"handoff":   "templates/handoff.html",
 	"queue":     "templates/queue.html",
-	"branches":  "templates/branches.html",
 }
 
 // loadAllPages builds a per-page template set. Each set includes

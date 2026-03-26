@@ -25,7 +25,6 @@ import (
 	backlogmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	handoffmod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
-	workspacemod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/workspace"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/platform"
 	queuemod "github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
 )
@@ -92,13 +91,10 @@ func daemonRunCmd() *cobra.Command {
 			queueMod := queuemod.New(d.Store())
 			handoffMod := handoffmod.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
 
-			workspaceMod := workspacemod.New(d.Store(), &appCfg.Workspace)
-
 			d.Register(hook.New())
 			d.Register(backlogMod)
 			d.Register(handoffMod)
 			d.Register(queueMod)
-			d.Register(workspaceMod)
 
 			// Junction 콜백 주입: backlog 모듈이 handoff 소유 branch_backlogs를 직접 접근하지 않도록 콜백 위임
 			backlogMod.Manager().SetJunctionCleaner(handoffMod.Manager().JunctionCleaner())
@@ -108,9 +104,8 @@ func daemonRunCmd() *cobra.Command {
 			bqa := &backlogQuerierAdapter{mgr: backlogMod.Manager()}
 			hqa := &handoffQuerierAdapter{mgr: handoffMod.Manager()}
 			qqa := &queueQuerierAdapter{mgr: queueMod.Manager()}
-			wqa := &workspaceQuerierAdapter{mgr: workspaceMod.Manager()}
 			d.SetHTTPServerFactory(func(addr string) *httpd.Server {
-				return httpd.New(bqa, hqa, qqa, wqa, d.Router(), addr, appCfg.Session.Addr)
+				return httpd.New(bqa, hqa, qqa, addr)
 			})
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
