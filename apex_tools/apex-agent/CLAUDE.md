@@ -69,7 +69,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 http://localhost:7600
 ```
 
-- **5개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세, blocked_reason ⚠ 뱃지), Handoff (상태 머신), Queue (히스토리 이벤트 로그 — Build/Merge 좌우 분리, 시간 범위 필터, 무한 스크롤), Branches (워크스페이스 목록, xterm.js 웹 터미널, 세션 시작/중지, git 상태 표시)
+- **4개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세, blocked_reason ⚠ 뱃지), Handoff (상태 머신), Queue (히스토리 이벤트 로그 — Build/Merge 좌우 분리, 시간 범위 필터, 무한 스크롤)
 - **Go 템플릿 + HTMX** — 1초 폴링 실시간 갱신, 폴링 속도 조절 (Fast 0.5s / Normal 1s / Slow 2s)
 - **JSON API**: `/api/backlog`, `/api/handoff`, `/api/queue`
 - **설정**: `config.toml`의 `[http]` 섹션 (`enabled`, `addr`). 기본: `localhost:7600`
@@ -93,26 +93,18 @@ apex-agent config show   # 현재 설정 출력
 | `[log]` | `level`, `max_days`, `audit` | `info`, `30`, `true` | 일별 로그 |
 | `[build]` | `command`, `presets` | `build.bat`, `[debug, release]` | 빌드 명령 |
 | `[http]` | `enabled`, `addr` | `true`, `localhost:7600` | 대시보드 |
-| `[workspace]` | `root`, `repo_name`, `scan_on_start` | `""`, `apex_pipeline`, `true` | 워크스페이스 스캔 |
-| `[session]` | `enabled`, `addr`, `watchdog_interval`, `output_buffer_lines` | `true`, `localhost:7601`, `1s`, `500` | 세션 서버 (Phase 2) |
-
-- `[workspace].root`: 워크스페이스 디렉토리들이 모여있는 루트 경로 (예: `D:/.workspace`). 비어있으면 스캔 비활성
-- `[workspace].repo_name`: 스캔 시 이 접두어로 시작하는 디렉토리만 인식 (예: `apex_pipeline` → `apex_pipeline_branch_02` 매칭)
-- `[session]` 섹션: 세션 서버 설정. `enabled=true`이면 데몬 시작 시 세션 서버 프로세스를 자동 기동. `addr`은 세션 서버 HTTP/WebSocket 바인드 주소, `watchdog_interval`은 프로세스 감시 주기, `output_buffer_lines`은 ConPTY 출력 버퍼 크기
 
 ### 모듈 등록 순서
 
-backlog → queue → handoff 순서 필수 (handoff가 backlog.Manager + queue.Manager를 참조). workspace는 독립 모듈이라 순서 무관:
+backlog → queue → handoff 순서 필수 (handoff가 backlog.Manager + queue.Manager를 참조):
 ```go
 backlogMod := backlog.New(d.Store())
 queueMod := queue.New(d.Store())
 handoffMod := handoff.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
-workspaceMod := workspace.New(d.Store(), &appCfg.Workspace)
 d.Register(hook.New())
 d.Register(backlogMod)
 d.Register(handoffMod)
 d.Register(queueMod)
-d.Register(workspaceMod)
 ```
 
 ## Hook 게이트
@@ -307,103 +299,6 @@ apex-agent cleanup --execute    # 실제 삭제 수행
 - CWD 브랜치 보호 (현재 체크아웃된 브랜치 삭제 안 함)
 - 정리 대상: 머지 완료 로컬/리모트 브랜치, 고아 워크트리, 워크스페이스 복사본 로컬 브랜치 (같은 origin URL의 형제 디렉토리)
 
-## 워크스페이스 관리
-
-멀티 브랜치 디렉토리를 스캔하고 DB에 등록하여 한눈에 관리.
-
-```bash
-apex-agent workspace scan                       # 수동 스캔 (root 디렉토리 탐색)
-apex-agent workspace list                       # 전체 로컬 브랜치 목록
-apex-agent workspace get <workspace_id>         # 단일 브랜치 상세
-apex-agent workspace sync <workspace_id>        # git fetch + pull (main 브랜치만)
-apex-agent workspace sync-all                   # 전체 main 브랜치 일괄 동기화
-```
-
-### 스캔 동작
-
-1. `[workspace].root` 경로에서 `[workspace].repo_name` 접두어로 시작하는 디렉토리 탐색
-2. 각 디렉토리에서 `.git` 존재 확인 → `git branch --show-current` + `git status --porcelain`
-3. `local_branches` 테이블에 UPSERT (신규 등록 / 기존 갱신)
-4. DB에 있지만 디스크에 없는 항목 자동 제거
-
-- 데몬 시작 시 `scan_on_start=true`면 자동 실행
-- 수동: IPC `workspace.scan` 또는 대시보드 API (Phase 3)
-
-### DB 테이블: `local_branches`
-
-```sql
-workspace_id    TEXT PRIMARY KEY        -- 디렉토리명에서 추출 (branch_02 등)
-directory       TEXT NOT NULL UNIQUE    -- 절대 경로
-git_branch      TEXT                    -- 현재 체크아웃 브랜치
-git_status      TEXT DEFAULT 'UNKNOWN'  -- CLEAN / DIRTY / UNKNOWN
-session_id      TEXT                    -- Claude Code 세션 ID (Phase 2)
-session_pid     INTEGER DEFAULT 0       -- 세션 프로세스 PID (Phase 2)
-session_status  TEXT DEFAULT 'STOP'     -- STOP / MANAGED / EXTERNAL (Phase 2)
-session_log     TEXT                    -- 세션 로그 파일 경로 (Phase 2)
-last_scanned    TEXT                    -- 마지막 스캔 시각
-created_at      TEXT
-```
-
-- 기존 `active_branches`(핸드오프 전용)와 독립 — `local_branches LEFT JOIN active_branches ON workspace_id = branch`
-- 핸드오프 미등록 브랜치(main 등)도 관리 가능
-- session 관련 필드는 세션 서버가 관리 (session_id, session_pid, session_status, session_log)
-
-### Workspace REST API
-
-대시보드에서 워크스페이스 데이터를 조회하는 HTTP API (`:7600` 메인 대시보드 서버):
-
-| 엔드포인트 | 메서드 | 설명 |
-|------------|--------|------|
-| `/api/workspace` | GET | 전체 워크스페이스 목록 (JSON) |
-| `/api/workspace/{id}` | GET | 단일 워크스페이스 상세 |
-| `/api/workspace/scan` | POST | 수동 스캔 트리거 |
-
-## 세션 서버
-
-ConPTY 기반 독립 프로세스로 Claude Code 세션을 관리. 데몬과 별도 프로세스로 실행 (`:7601`).
-
-### 아키텍처
-
-- **독립 프로세스**: 데몬이 `session run` 커맨드로 세션 서버를 자식 프로세스로 기동
-- **ConPTY**: Windows Pseudo Console API로 각 세션에 가상 터미널 할당
-- **WebSocket**: xterm.js 클라이언트와 실시간 양방향 통신 (`/ws/{workspace_id}`)
-- **Watchdog**: 세션 서버 프로세스 감시, 비정상 종료 시 자동 재시작
-- **리버스 프록시**: 메인 대시보드(`:7600`)가 `/session/` 경로를 세션 서버(`:7601`)로 프록시
-
-### CLI
-
-```bash
-apex-agent session run                    # 포그라운드 실행 (데몬이 내부 호출)
-apex-agent session start <workspace_id>   # 특정 워크스페이스에 세션 시작
-apex-agent session stop <workspace_id>    # 세션 중지
-apex-agent session status                 # 전체 세션 상태 조회
-apex-agent session send <workspace_id> <text>  # 세션에 텍스트 전송
-```
-
-### HTTP API (`:7601`)
-
-| 엔드포인트 | 메서드 | 설명 |
-|------------|--------|------|
-| `/api/sessions` | GET | 전체 세션 목록 |
-| `/api/sessions/{id}` | POST | 세션 시작 |
-| `/api/sessions/{id}` | DELETE | 세션 중지 |
-| `/api/sessions/{id}/send` | POST | 텍스트 전송 |
-| `/ws/{id}` | WebSocket | xterm.js 터미널 연결 |
-| `/api/shutdown` | POST | graceful shutdown 요청 |
-
-### Graceful Shutdown
-
-- `session stop`이 HTTP `/api/shutdown` 엔드포인트로 graceful shutdown 요청 (Windows SIGTERM 미지원 대응)
-- 성공 시 세션 서버가 모든 ConPTY 세션을 정리한 뒤 종료
-- HTTP 요청 실패 또는 타임아웃 시 `Kill()` fallback
-
-### Watchdog
-
-- 데몬이 세션 서버 프로세스의 PID를 추적
-- `watchdog_interval` (기본 1초) 주기로 프로세스 생존 확인
-- 비정상 종료 감지 시 DB 상태(session_status) STOP으로 리셋
-- 데몬 종료 시 세션 서버도 함께 종료
-
 ### 백로그 blocked_reason
 
 에이전트가 작업 중 유저 결정이 필요한 상황을 표시하는 필드.
@@ -480,7 +375,6 @@ go test ./e2e/... -run TestBacklog_Enum    # 특정 테스트
 | queue | v2 | status UPPER_CASE 정규화 |
 | queue | v3 | finished_at 컬럼 추가 |
 | queue | v4 | queue_history 이벤트 로그 테이블 + 인덱스 |
-| workspace | v1 | local_branches 테이블 생성 |
 
 daemon 시작 시 자동 실행. 롤백 미지원 — 항상 전진 마이그레이션.
 
