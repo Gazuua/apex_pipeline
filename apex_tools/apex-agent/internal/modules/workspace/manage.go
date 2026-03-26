@@ -175,6 +175,84 @@ func (m *Manager) Scan(ctx context.Context) (*ScanResult, error) {
 	return &ScanResult{Added: added, Removed: removed}, nil
 }
 
+// DashboardBranch is a LocalBranch enriched with handoff and backlog info for the dashboard.
+type DashboardBranch struct {
+	LocalBranch
+	HandoffStatus string `json:"handoff_status,omitempty"`
+	BacklogIDs    string `json:"backlog_ids,omitempty"`
+}
+
+// BlockedBacklog holds a backlog item that is FIXING with a non-empty blocked_reason.
+type BlockedBacklog struct {
+	ID            int    `json:"id"`
+	Title         string `json:"title"`
+	BlockedReason string `json:"blocked_reason"`
+}
+
+// DashboardBranchesList returns all local branches LEFT JOINed with handoff + backlog data.
+func (m *Manager) DashboardBranchesList(ctx context.Context) ([]DashboardBranch, error) {
+	rows, err := m.q.Query(ctx, `
+		SELECT lb.workspace_id, lb.directory,
+			COALESCE(lb.git_branch,''), COALESCE(lb.git_status,'UNKNOWN'),
+			COALESCE(lb.session_id,''), COALESCE(lb.session_pid,0), COALESCE(lb.session_status,'STOP'),
+			COALESCE(lb.session_log,''), COALESCE(lb.last_scanned,''), COALESCE(lb.created_at,''),
+			COALESCE(ab.status,''),
+			COALESCE(
+				(SELECT GROUP_CONCAT(bb.backlog_id) FROM branch_backlogs bb WHERE bb.branch = ab.branch),
+				''
+			)
+		FROM local_branches lb
+		LEFT JOIN active_branches ab ON lb.workspace_id = ab.branch
+		ORDER BY lb.workspace_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []DashboardBranch
+	for rows.Next() {
+		var db DashboardBranch
+		if err := rows.Scan(
+			&db.WorkspaceID, &db.Directory, &db.GitBranch, &db.GitStatus,
+			&db.SessionID, &db.SessionPID, &db.SessionStatus, &db.SessionLog,
+			&db.LastScanned, &db.CreatedAt,
+			&db.HandoffStatus, &db.BacklogIDs,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, db)
+	}
+	return result, rows.Err()
+}
+
+// DashboardBlockedBacklogs returns FIXING backlogs with non-empty blocked_reason for the given IDs.
+func (m *Manager) DashboardBlockedBacklogs(ctx context.Context, backlogIDs string) ([]BlockedBacklog, error) {
+	if backlogIDs == "" {
+		return nil, nil
+	}
+	// backlogIDs is comma-separated from GROUP_CONCAT — use IN with split.
+	query := fmt.Sprintf(`
+		SELECT id, COALESCE(title,''), COALESCE(blocked_reason,'')
+		FROM backlog_items
+		WHERE id IN (%s) AND status = 'FIXING'
+			AND blocked_reason IS NOT NULL AND blocked_reason != ''
+	`, backlogIDs) // Safe: backlogIDs is GROUP_CONCAT of integer IDs from DB
+	rows, err := m.q.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []BlockedBacklog
+	for rows.Next() {
+		var b BlockedBacklog
+		if err := rows.Scan(&b.ID, &b.Title, &b.BlockedReason); err != nil {
+			return nil, err
+		}
+		result = append(result, b)
+	}
+	return result, rows.Err()
+}
+
 // DashboardBlockedCount returns the number of FIXING backlogs with a non-empty blocked_reason.
 func (m *Manager) DashboardBlockedCount(ctx context.Context) (int, error) {
 	row := m.q.QueryRow(ctx, `
