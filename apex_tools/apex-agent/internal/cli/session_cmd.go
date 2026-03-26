@@ -139,15 +139,15 @@ func sessionStopCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proc.Kill()
+			_ = proc.Kill() // best-effort — process may already be dead
 			for i := 0; i < 50; i++ {
 				time.Sleep(100 * time.Millisecond)
 				if !platform.IsProcessAlive(pid) {
-					break
+					fmt.Println("session server stopped (forced)")
+					return nil
 				}
 			}
-			fmt.Println("session server stopped (forced)")
-			return nil
+			return fmt.Errorf("session server (pid %d) did not exit after force kill", pid)
 		},
 	}
 }
@@ -236,6 +236,8 @@ func startSessionProcess() (int, error) {
 			return child.Process.Pid, nil
 		}
 	}
+	// Health check failed — kill the orphaned child process to prevent leak.
+	child.Process.Kill()
 	return 0, fmt.Errorf("session server failed to start within 5 seconds")
 }
 

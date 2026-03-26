@@ -89,10 +89,14 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("session server listen: %w", err)
 	}
 	s.ln = ln
+	// ReadTimeout and WriteTimeout are intentionally 0 (unlimited) because this
+	// server hosts long-lived WebSocket connections. Go's http.Server sets a
+	// conn-level deadline that persists after Hijack, so a finite timeout would
+	// kill WebSocket connections after that duration. Non-WebSocket handlers are
+	// short-lived REST calls on localhost only, so the risk of slowloris-style
+	// abuse is negligible.
 	s.httpSrv = &http.Server{
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Handler: mux,
 	}
 
 	ml.Info("session server started", "addr", ln.Addr().String())
