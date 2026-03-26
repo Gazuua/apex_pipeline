@@ -188,6 +188,18 @@ MetricsConfig parse_metrics(const toml::table& root)
     return cfg;
 }
 
+AdminConfig parse_admin(const toml::table& root)
+{
+    AdminConfig cfg;
+    auto* tbl = root["admin"].as_table();
+    if (!tbl)
+        return cfg;
+
+    cfg.enabled = get_or<bool>(*tbl, "enabled", cfg.enabled);
+    cfg.port = checked_narrow<uint16_t>(get_or<int64_t>(*tbl, "port", int64_t{8082}), "admin.port");
+    return cfg;
+}
+
 } // anonymous namespace
 
 AppConfig AppConfig::from_file(const std::string& path)
@@ -208,8 +220,10 @@ AppConfig AppConfig::from_file(const std::string& path)
     config.server = parse_server(tbl);
     config.logging = parse_logging(tbl);
     config.metrics = parse_metrics(tbl);
-    // Sync metrics config into ServerConfig so Server can access it directly
+    config.admin = parse_admin(tbl);
+    // Sync metrics/admin config into ServerConfig so Server can access it directly
     config.server.metrics = config.metrics;
+    config.server.admin = config.admin;
     s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
     return config;
 }

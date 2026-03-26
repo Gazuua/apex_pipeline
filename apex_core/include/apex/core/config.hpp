@@ -43,6 +43,7 @@ struct AppConfig
     ServerConfig server;
     LogConfig logging;
     MetricsConfig metrics;
+    AdminConfig admin;
 
     /// TOML 파일에서 설정 로딩. 파일 없으면 std::runtime_error.
     static AppConfig from_file(const std::string& path);
