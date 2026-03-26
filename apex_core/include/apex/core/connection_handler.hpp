@@ -9,16 +9,14 @@
 #include <apex/core/scoped_logger.hpp>
 #include <apex/core/session.hpp>
 #include <apex/core/session_manager.hpp>
+#include <apex/core/socket_base.hpp>
 #include <apex/core/transport.hpp>
 
-#include <boost/asio/as_tuple.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/use_awaitable.hpp>
 
 #include <atomic>
 #include <cstdint>
@@ -53,12 +51,12 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
 
     /// Accept a new connection -- create session + spawn read_loop.
     /// Must be called on the owning core's io_context thread.
-    void accept_connection(boost::asio::ip::tcp::socket socket, boost::asio::io_context& io_ctx)
+    /// @param socket SocketBase 소유권. Listener가 Transport::wrap_socket()으로 생성.
+    void accept_connection(std::unique_ptr<SocketBase> socket, boost::asio::io_context& io_ctx)
     {
         if (config_.tcp_nodelay)
         {
-            boost::system::error_code ec;
-            socket.set_option(boost::asio::ip::tcp::no_delay(true), ec);
+            socket->set_option_no_delay(true);
         }
 
         auto session = session_mgr_.create_session(std::move(socket));
@@ -89,6 +87,16 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
         active_sessions_->fetch_add(1, std::memory_order_relaxed);
         ActiveSessionGuard guard{active_sessions_};
 
+        // Handshake (TcpSocket: no-op, TlsSocket: TLS handshake)
+        auto hs = co_await session->socket().async_handshake();
+        if (!hs.has_value())
+        {
+            logger_.warn(session, "handshake failed");
+            session->close();
+            session_mgr_.remove_session(session->id());
+            co_return;
+        }
+
         try
         {
             while (session->is_open())
@@ -103,8 +111,7 @@ template <Protocol P, Transport T = DefaultTransport> class ConnectionHandler
                 }
 
                 auto [ec, n] =
-                    co_await session->socket().async_read_some(boost::asio::buffer(writable.data(), writable.size()),
-                                                               boost::asio::as_tuple(boost::asio::use_awaitable));
+                    co_await session->socket().async_read_some(boost::asio::buffer(writable.data(), writable.size()));
                 if (ec || n == 0)
                 {
                     if (ec && ec != boost::asio::error::eof)

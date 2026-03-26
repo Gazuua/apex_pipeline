@@ -17,9 +17,10 @@ SessionManager::SessionManager(uint32_t core_id, uint32_t heartbeat_timeout_tick
 
 SessionManager::~SessionManager() = default;
 
-SessionPtr SessionManager::create_session(boost::asio::ip::tcp::socket socket)
+SessionPtr SessionManager::create_session(std::unique_ptr<SocketBase> socket)
 {
     SessionId id = make_session_id(next_id_++);
+    // SlabAllocator::construct: allocate 실패 시 생성자 미호출 → socket move 미발생 → heap fallback에서 재사용 안전
     Session* raw = session_pool_.construct(id, std::move(socket), core_id_, recv_buf_capacity_, max_queue_depth_);
     if (raw)
     {

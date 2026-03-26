@@ -4,40 +4,32 @@
 
 #include <apex/core/error_code.hpp>
 #include <apex/core/result.hpp>
+#include <apex/core/socket_base.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/context.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
 #include <concepts>
-#include <cstddef>
-#include <span>
+#include <memory>
 
 namespace apex::core
 {
-
-/// Transport에 전달되는 번들 컨텍스트.
-/// make_socket() 시그니처를 확장 가능하게 유지하면서
-/// concept 자체는 변경하지 않아도 되도록 한다.
-/// TLS Transport는 ssl_ctx를 사용하고, Plain TCP Transport는 무시한다.
-struct TransportContext
-{
-    boost::asio::ssl::context* ssl_ctx = nullptr;
-    // 향후 확장: metrics*, buffer_pool* 등
-};
 
 /// Transport concept — core에서 정의, shared에서 구현.
 /// 의존성 역전: core는 concept만, 구체 Transport는 shared가 제공.
 ///
 /// 요구사항:
-///   - T::Config       — Transport별 설정 타입
-///   - T::Socket       — 소켓 타입 (tcp::socket 또는 ssl::stream<tcp::socket>)
-///   - T::make_socket(io_context&, const TransportContext&) -> Socket
+///   - T::Config          — Transport별 설정 타입
+///   - T::Socket          — 소켓 타입 (tcp::socket 또는 ssl::stream<tcp::socket>)
+///   - T::ListenerState   — Listener가 소유하는 Transport별 상태 (Plain: 빈 구조체, TLS: ssl::context)
+///   - T::make_socket(io_context&) -> Socket
 ///   - T::async_accept(acceptor, socket) -> awaitable<Result<void>>
 ///   - T::async_handshake(socket, config) -> awaitable<Result<void>>
 ///   - T::async_shutdown(socket) -> awaitable<void>
+///   - T::make_listener_state(config) -> ListenerState
+///   - T::wrap_socket(tcp::socket, ListenerState&) -> unique_ptr<SocketBase>
 ///
 /// Note: async_read/write는 Socket이 AsyncReadStream/AsyncWriteStream을
 /// 만족하면 Boost.Asio의 async_read/async_write가 직접 사용 가능하므로
@@ -46,14 +38,19 @@ template <typename T>
 concept Transport = requires {
     typename T::Config;
     typename T::Socket;
-} && requires(boost::asio::io_context& io_ctx, const TransportContext& tx_ctx) {
-    { T::make_socket(io_ctx, tx_ctx) } -> std::same_as<typename T::Socket>;
+    typename T::ListenerState;
+} && requires(boost::asio::io_context& io_ctx) {
+    { T::make_socket(io_ctx) } -> std::same_as<typename T::Socket>;
 } && requires(boost::asio::ip::tcp::acceptor& acceptor, typename T::Socket& sock) {
     { T::async_accept(acceptor, sock) } -> std::same_as<boost::asio::awaitable<Result<void>>>;
 } && requires(typename T::Socket& sock, const typename T::Config& cfg) {
     { T::async_handshake(sock, cfg) } -> std::same_as<boost::asio::awaitable<Result<void>>>;
 } && requires(typename T::Socket& sock) {
     { T::async_shutdown(sock) } -> std::same_as<boost::asio::awaitable<void>>;
+} && requires(const typename T::Config& cfg) {
+    { T::make_listener_state(cfg) } -> std::same_as<typename T::ListenerState>;
+} && requires(boost::asio::ip::tcp::socket raw, typename T::ListenerState& state) {
+    { T::wrap_socket(std::move(raw), state) } -> std::same_as<std::unique_ptr<SocketBase>>;
 };
 
 /// 기본 Transport — Plain TCP (TLS 없음).
@@ -64,7 +61,11 @@ struct DefaultTransport
     {};
     using Socket = boost::asio::ip::tcp::socket;
 
-    static Socket make_socket(boost::asio::io_context& ctx, const TransportContext& /*tx_ctx*/)
+    /// Plain TCP는 Listener 상태 불필요.
+    struct ListenerState
+    {};
+
+    static Socket make_socket(boost::asio::io_context& ctx)
     {
         return Socket(ctx);
     }
@@ -89,6 +90,16 @@ struct DefaultTransport
         sock.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         co_return;
     }
+
+    static ListenerState make_listener_state(const Config&)
+    {
+        return {};
+    }
+
+    static std::unique_ptr<SocketBase> wrap_socket(boost::asio::ip::tcp::socket socket, ListenerState&)
+    {
+        return make_tcp_socket(std::move(socket));
+    }
 };
 
 static_assert(Transport<DefaultTransport>, "DefaultTransport must satisfy Transport concept");
@@ -102,8 +113,10 @@ struct MockTransport
     struct Config
     {};
     using Socket = boost::asio::ip::tcp::socket;
+    struct ListenerState
+    {};
 
-    static Socket make_socket(boost::asio::io_context& ctx, const TransportContext& /*tx_ctx*/)
+    static Socket make_socket(boost::asio::io_context& ctx)
     {
         return Socket(ctx);
     }
@@ -121,6 +134,16 @@ struct MockTransport
     static boost::asio::awaitable<void> async_shutdown(Socket&)
     {
         co_return;
+    }
+
+    static ListenerState make_listener_state(const Config&)
+    {
+        return {};
+    }
+
+    static std::unique_ptr<SocketBase> wrap_socket(boost::asio::ip::tcp::socket socket, ListenerState&)
+    {
+        return make_tcp_socket(std::move(socket));
     }
 };
 

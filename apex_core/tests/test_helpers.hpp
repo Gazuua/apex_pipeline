@@ -5,6 +5,8 @@
 /// 공용 테스트 헬퍼 -- run_coro, make_socket_pair
 /// 여러 테스트 파일에서 중복 정의되었던 유틸리티를 통합.
 
+#include <apex/core/socket_base.hpp>
+
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
 #include <boost/asio/io_context.hpp>
@@ -37,7 +39,7 @@ inline void run_coro(boost::asio::io_context& ctx, boost::asio::awaitable<void> 
     future.get();
 }
 
-/// 테스트용 연결된 소켓 쌍 생성.
+/// 테스트용 연결된 소켓 쌍 생성 (raw tcp::socket).
 inline std::pair<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>
 make_socket_pair(boost::asio::io_context& ctx)
 {
@@ -50,6 +52,15 @@ make_socket_pair(boost::asio::io_context& ctx)
     auto server = acceptor.accept();
 
     return {std::move(server), std::move(client)};
+}
+
+/// 테스트용 연결된 소켓 쌍 생성 (SocketBase + raw client).
+/// Session/SessionManager 테스트용.
+inline std::pair<std::unique_ptr<apex::core::SocketBase>, boost::asio::ip::tcp::socket>
+make_session_socket_pair(boost::asio::io_context& ctx)
+{
+    auto [server, client] = make_socket_pair(ctx);
+    return {apex::core::make_tcp_socket(std::move(server)), std::move(client)};
 }
 
 /// TSAN/ASAN 환경에서는 타임아웃을 자동 확대

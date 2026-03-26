@@ -24,7 +24,9 @@ include(${CMAKE_CURRENT_LIST_DIR}/../cmake/ApexWarnings.cmake)
 
 # --- Dependencies ---
 find_package(Boost REQUIRED)  # asio, unordered (header-only)
-find_package(OpenSSL REQUIRED)  # TransportContext uses ssl::context*
+# OpenSSL은 apex_core에서 더 이상 직접 의존하지 않음 (BACKLOG-133).
+# ssl::context 소유권이 apex_shared의 TlsTcpTransport::ListenerState로 이동.
+# Transport concept 템플릿은 인스턴스화 시점에 호출자가 OpenSSL을 링크.
 find_package(flatbuffers CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(tomlplusplus CONFIG REQUIRED)
@@ -94,8 +96,6 @@ target_include_directories(apex_core
 target_link_libraries(apex_core
     PUBLIC
         Boost::boost
-        OpenSSL::SSL
-        OpenSSL::Crypto
         flatbuffers::flatbuffers
         spdlog::spdlog
         tomlplusplus::tomlplusplus

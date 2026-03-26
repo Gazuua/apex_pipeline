@@ -6,11 +6,11 @@
 #include <apex/core/result.hpp>
 #include <apex/core/ring_buffer.hpp>
 #include <apex/core/session_id.hpp>
+#include <apex/core/socket_base.hpp>
 #include <apex/core/timing_wheel.hpp>
 #include <apex/core/wire_header.hpp>
 
 #include <boost/asio/awaitable.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <fmt/format.h>
@@ -55,7 +55,7 @@ class Session
     /// @param recv_buf_capacity Receive buffer size. When used with Server,
     ///        must be >= Server::TMP_BUF_SIZE (validated in Server constructor).
     /// @param max_queue_depth  Per-session write queue depth limit (0 = unlimited).
-    Session(SessionId id, boost::asio::ip::tcp::socket socket, uint32_t core_id, size_t recv_buf_capacity = 8192,
+    Session(SessionId id, std::unique_ptr<SocketBase> socket, uint32_t core_id, size_t recv_buf_capacity = 8192,
             size_t max_queue_depth = 256);
     ~Session();
 
@@ -133,9 +133,9 @@ class Session
         auto s = state_.load(std::memory_order_relaxed);
         return s == State::Connected || s == State::Active;
     }
-    [[nodiscard]] boost::asio::ip::tcp::socket& socket() noexcept
+    [[nodiscard]] SocketBase& socket() noexcept
     {
-        return socket_;
+        return *socket_;
     }
     [[nodiscard]] RingBuffer& recv_buffer() noexcept
     {
@@ -165,7 +165,7 @@ class Session
     SessionId id_;
     uint32_t core_id_;
     std::atomic<State> state_{State::Connected}; // atomic for safe cross-thread destructor access
-    boost::asio::ip::tcp::socket socket_;
+    std::unique_ptr<SocketBase> socket_;
     boost::asio::any_io_executor core_executor_; // 실제 core io_context의 executor (socket executor와 다를 수 있음)
     RingBuffer recv_buf_;
 

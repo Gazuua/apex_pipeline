@@ -4,14 +4,18 @@
 
 #include <apex/core/assert.hpp>
 #include <apex/core/scoped_logger.hpp>
+#include <apex/core/socket_base.hpp>
 #include <apex/core/transport.hpp>
+#include <apex/shared/protocols/tcp/tls_socket.hpp>
 
 #include <boost/asio/as_tuple.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/use_awaitable.hpp>
 
+#include <memory>
 #include <string>
+#include <utility>
 
 namespace apex::shared::protocols::tcp
 {
@@ -30,13 +34,26 @@ struct TlsTcpTransport
 
     using Socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
-    static Socket make_socket(boost::asio::io_context& ctx, const apex::core::TransportContext& tx_ctx)
+    /// Listener가 소유하는 TLS 상태 — ssl::context를 보유.
+    struct ListenerState
     {
-        APEX_ASSERT(tx_ctx.ssl_ctx != nullptr, "TlsTcpTransport requires TransportContext::ssl_ctx");
-        return Socket(ctx, *tx_ctx.ssl_ctx);
+        boost::asio::ssl::context ssl_ctx;
+        explicit ListenerState(boost::asio::ssl::context ctx)
+            : ssl_ctx(std::move(ctx))
+        {}
+    };
+
+    static Socket make_socket(boost::asio::io_context& ctx)
+    {
+        // concept 충족용 — 실제 TLS 소켓 생성은 wrap_socket 경유.
+        // 이 경로는 직접 호출되지 않음.
+        APEX_ASSERT(false, "TlsTcpTransport::make_socket: use wrap_socket instead");
+        // unreachable이지만 컴파일러 경고 방지
+        static boost::asio::ssl::context dummy(boost::asio::ssl::context::tlsv13);
+        return Socket(ctx, dummy);
     }
 
-    /// Initialize SSL context (per-core).
+    /// Initialize SSL context.
     /// @return Initialized ssl::context. Caller manages lifetime.
     [[nodiscard]] static boost::asio::ssl::context create_ssl_context(const Config& cfg)
     {
@@ -95,6 +112,17 @@ struct TlsTcpTransport
         // Ignore errors -- client may have already disconnected.
         auto [ec] = co_await sock.async_shutdown(boost::asio::as_tuple(boost::asio::use_awaitable));
         co_return;
+    }
+
+    static ListenerState make_listener_state(const Config& cfg)
+    {
+        return ListenerState{create_ssl_context(cfg)};
+    }
+
+    static std::unique_ptr<apex::core::SocketBase> wrap_socket(boost::asio::ip::tcp::socket socket,
+                                                               ListenerState& state)
+    {
+        return make_tls_socket(std::move(socket), state.ssl_ctx);
     }
 };
 
