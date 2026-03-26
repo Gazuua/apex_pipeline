@@ -68,7 +68,7 @@ apex-agent daemon run     # 포그라운드 (디버깅용)
 http://localhost:7600
 ```
 
-- **4개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세), Handoff (상태 머신), Queue (히스토리 이벤트 로그 — Build/Merge 좌우 분리, 시간 범위 필터, 무한 스크롤). Phase 3에서 Branches 페이지 추가 예정 (xterm.js 웹 터미널, 세션 제어, FIX 버튼)
+- **5개 페이지**: Dashboard (요약), Backlog (필터/정렬/상세, blocked_reason ⚠ 뱃지), Handoff (상태 머신), Queue (히스토리 이벤트 로그 — Build/Merge 좌우 분리, 시간 범위 필터, 무한 스크롤), Branches (워크스페이스 목록, xterm.js 웹 터미널, 세션 시작/중지, git 상태 표시)
 - **Go 템플릿 + HTMX** — 1초 폴링 실시간 갱신, 폴링 속도 조절 (Fast 0.5s / Normal 1s / Slow 2s)
 - **JSON API**: `/api/backlog`, `/api/handoff`, `/api/queue`
 - **설정**: `config.toml`의 `[http]` 섹션 (`enabled`, `addr`). 기본: `localhost:7600`
@@ -97,7 +97,7 @@ apex-agent config show   # 현재 설정 출력
 
 - `[workspace].root`: 워크스페이스 디렉토리들이 모여있는 루트 경로 (예: `D:/.workspace`). 비어있으면 스캔 비활성
 - `[workspace].repo_name`: 스캔 시 이 접두어로 시작하는 디렉토리만 인식 (예: `apex_pipeline` → `apex_pipeline_branch_02` 매칭)
-- `[session]` 섹션은 Phase 2 (ConPTY + WebSocket 독립 프로세스)에서 사용 예정
+- `[session]` 섹션: 세션 서버 설정. `enabled=true`이면 데몬 시작 시 세션 서버 프로세스를 자동 기동. `addr`은 세션 서버 HTTP/WebSocket 바인드 주소, `watchdog_interval`은 프로세스 감시 주기, `output_buffer_lines`은 ConPTY 출력 버퍼 크기
 
 ### 모듈 등록 순서
 
@@ -345,7 +345,56 @@ created_at      TEXT
 
 - 기존 `active_branches`(핸드오프 전용)와 독립 — `local_branches LEFT JOIN active_branches ON workspace_id = branch`
 - 핸드오프 미등록 브랜치(main 등)도 관리 가능
-- session 관련 필드는 Phase 2 (ConPTY 독립 프로세스)에서 활성화 예정
+- session 관련 필드는 세션 서버가 관리 (session_id, session_pid, session_status, session_log)
+
+### Workspace REST API
+
+대시보드에서 워크스페이스 데이터를 조회하는 HTTP API (`:7600` 메인 대시보드 서버):
+
+| 엔드포인트 | 메서드 | 설명 |
+|------------|--------|------|
+| `/api/workspace` | GET | 전체 워크스페이스 목록 (JSON) |
+| `/api/workspace/{id}` | GET | 단일 워크스페이스 상세 |
+| `/api/workspace/scan` | POST | 수동 스캔 트리거 |
+
+## 세션 서버
+
+ConPTY 기반 독립 프로세스로 Claude Code 세션을 관리. 데몬과 별도 프로세스로 실행 (`:7601`).
+
+### 아키텍처
+
+- **독립 프로세스**: 데몬이 `session run` 커맨드로 세션 서버를 자식 프로세스로 기동
+- **ConPTY**: Windows Pseudo Console API로 각 세션에 가상 터미널 할당
+- **WebSocket**: xterm.js 클라이언트와 실시간 양방향 통신 (`/ws/{workspace_id}`)
+- **Watchdog**: 세션 서버 프로세스 감시, 비정상 종료 시 자동 재시작
+- **리버스 프록시**: 메인 대시보드(`:7600`)가 `/session/` 경로를 세션 서버(`:7601`)로 프록시
+
+### CLI
+
+```bash
+apex-agent session run                    # 포그라운드 실행 (데몬이 내부 호출)
+apex-agent session start <workspace_id>   # 특정 워크스페이스에 세션 시작
+apex-agent session stop <workspace_id>    # 세션 중지
+apex-agent session status                 # 전체 세션 상태 조회
+apex-agent session send <workspace_id> <text>  # 세션에 텍스트 전송
+```
+
+### HTTP API (`:7601`)
+
+| 엔드포인트 | 메서드 | 설명 |
+|------------|--------|------|
+| `/api/sessions` | GET | 전체 세션 목록 |
+| `/api/sessions/{id}` | POST | 세션 시작 |
+| `/api/sessions/{id}` | DELETE | 세션 중지 |
+| `/api/sessions/{id}/send` | POST | 텍스트 전송 |
+| `/ws/{id}` | WebSocket | xterm.js 터미널 연결 |
+
+### Watchdog
+
+- 데몬이 세션 서버 프로세스의 PID를 추적
+- `watchdog_interval` (기본 1초) 주기로 프로세스 생존 확인
+- 비정상 종료 감지 시 자동 재시작
+- 데몬 종료 시 세션 서버도 함께 종료
 
 ### 백로그 blocked_reason
 
@@ -357,7 +406,7 @@ apex-agent backlog update 146 --blocked ""                                      
 ```
 
 - `blocked_reason`이 설정되면 status는 FIXING 유지, 별도 상태 전이 없음
-- 대시보드에서 ⚠ 뱃지로 표시 예정 (Phase 3)
+- 대시보드 네비 바 + Backlog 페이지에서 ⚠ 뱃지로 표시
 - `DashboardBlockedCount()`: `status='FIXING' AND blocked_reason IS NOT NULL AND blocked_reason != ''` 카운트
 
 ## 핸드오프 CLI
