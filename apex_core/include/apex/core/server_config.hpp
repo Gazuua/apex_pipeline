@@ -44,7 +44,8 @@ struct ServerConfig
     size_t timer_wheel_slots = 1024;
 
     // Connection limits
-    uint32_t max_connections = 10000; // Maximum concurrent connections (0 = unlimited, default 10000)
+    uint32_t max_connections = 10000;      // Maximum concurrent connections (0 = unlimited, default 10000)
+    uint32_t max_connections_per_ip = 100; // Per-IP connection limit (0 = disabled)
 
     // Platform I/O
     bool reuseport = false; // Linux: per-core SO_REUSEPORT, Windows: ignored

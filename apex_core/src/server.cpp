@@ -317,6 +317,20 @@ void Server::run()
     core_engine_->start();
 
     // Start listeners (accept loops)
+    // Per-IP connection limiter (owner-shard pattern)
+    if (config_.max_connections_per_ip > 0)
+    {
+        per_core_limiters_.reserve(config_.num_cores);
+        for (uint32_t i = 0; i < config_.num_cores; ++i)
+        {
+            per_core_limiters_.push_back(
+                std::make_unique<ConnectionLimiter>(i, config_.num_cores, config_.max_connections_per_ip));
+        }
+        for (auto& listener : listeners_)
+            listener->inject_connection_limiters(&per_core_limiters_);
+        logger_.info("per-IP connection limiter enabled (max={}/IP)", config_.max_connections_per_ip);
+    }
+
     for (auto& listener : listeners_)
         listener->start();
 
@@ -546,6 +560,11 @@ void Server::finalize_shutdown()
     {
         blocking_executor_->shutdown();
     }
+
+    // 6.6. ConnectionLimiter 정리 — CoreEngine drain 완료 후 안전하게 소멸.
+    // INVARIANT: 모든 SPSC cross_core_post(decrement) 메시지가 drain_remaining()에서 소진됨.
+    // RAII 역순 소멸은 백업. 여기서 명시적으로 정리하여 순서를 코드로 강제.
+    per_core_limiters_.clear();
 
     // 7. [D3] Global resources 정리
     globals_.clear();

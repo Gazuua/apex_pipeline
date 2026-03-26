@@ -8,6 +8,7 @@
 #include <apex/core/assert.hpp>
 #include <apex/core/blocking_task_executor.hpp>
 #include <apex/core/bump_allocator.hpp>
+#include <apex/core/connection_limiter.hpp>
 #include <apex/core/core_engine.hpp>
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/listener.hpp>
@@ -343,6 +344,9 @@ class Server
 
     ServerConfig config_;
     boost::asio::io_context control_io_;
+    // 소멸 순서: per_core_limiters_ 는 core_engine_ 보다 앞에 선언하여
+    // RAII 역순 소멸 시 CoreEngine 이후에 소멸. 명시적 정리는 finalize_shutdown() Step 6.5.
+    std::vector<std::unique_ptr<ConnectionLimiter>> per_core_limiters_;
     std::unique_ptr<CoreEngine> core_engine_;
     std::unique_ptr<BlockingTaskExecutor> blocking_executor_;
 

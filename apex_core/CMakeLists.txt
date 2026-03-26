@@ -74,6 +74,7 @@ add_library(apex_core STATIC
     src/session_manager.cpp
     src/error_sender.cpp
     src/tcp_acceptor.cpp
+    src/connection_limiter.cpp
     src/config.cpp
     src/logging.cpp
     src/scoped_logger.cpp

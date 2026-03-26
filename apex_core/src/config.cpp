@@ -136,6 +136,15 @@ ServerConfig parse_server(const toml::table& root)
         }
     }
 
+    // Connection limits
+    cfg.max_connections =
+        checked_narrow<uint32_t>(get_or<int64_t>(*tbl, "max_connections", cfg.max_connections), "max_connections");
+    cfg.max_connections_per_ip = checked_narrow<uint32_t>(
+        get_or<int64_t>(*tbl, "max_connections_per_ip", cfg.max_connections_per_ip), "max_connections_per_ip");
+
+    cfg.reuseport = get_or<bool>(*tbl, "reuseport", cfg.reuseport);
+    cfg.tcp_nodelay = get_or<bool>(*tbl, "tcp_nodelay", cfg.tcp_nodelay);
+
     return cfg;
 }
 
