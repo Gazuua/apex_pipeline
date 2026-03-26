@@ -432,7 +432,11 @@ deploy 성공
 
 ### 빌드 시간 단축
 
-- **sccache**: CI 이미지에 내장, `--mount=type=cache` 레이어 캐시
+- **sccache (컴파일 캐시)**:
+  - **MSVC**: `actions/cache`로 `sccache` 캐시 영속화, `release-sccache` CMake 프리셋, 캐시 키 `sccache-msvc-{branch}-{run#}` + 브랜치→main 폴백
+  - **Linux (5개 빌드)**: `actions/cache`로 `/root/.cache/sccache` 영속화, `-DCMAKE_*_COMPILER_LAUNCHER=sccache` 주입, 프리셋별 캐시 분리
+  - **통계 확인**: 각 빌드 잡에서 `sccache --show-stats` 스텝으로 히트율 확인 가능
+  - **예상 효과**: 증분 빌드 시 5-8분 → 2-3분 (캐시 히트 시)
 - **buildx cache**: `cache-from/cache-to` registry 기반
 - **path filter**: 소스 미변경 시 빌드 자동 스킵
 

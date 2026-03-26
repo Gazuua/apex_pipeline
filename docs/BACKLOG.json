@@ -1,5 +1,5 @@
 {
-  "next_id": 237,
+  "next_id": 238,
   "items": [
     {
       "id": 135,
@@ -78,9 +78,9 @@
       "description": "## 개요\n운영 중 재시작 없이 로그 레벨을 변경할 수 있는 기능. 프로덕션에서 이슈 발생 시 trace/debug 레벨로 전환하여 실시간 진단.\n\n## 현재 상태\n- 로그 레벨은 TOML 설정 파일에서 초기화 시 1회 설정 (init_logging)\n- 런타임 변경 미지원 (BACKLOG-117 스코프)\n- ScopedLogger 구현 완료 후 착수 가능\n\n## 작업 내용\n1. 레벨 변경 API — HTTP /admin/log-level 엔드포인트 또는 TOML hot-reload 연계\n2. ScopedLogger가 참조하는 레벨을 atomic으로 관리\n3. 프레임워크(apex) 로거와 앱(app) 로거 독립 레벨 전환\n4. 보안 — admin 엔드포인트 인증 (내부 네트워크 전용 또는 토큰)\n\n## 의존성\n- ScopedLogger 통합 완료 필수\n- 관련: BACKLOG-117\n\n## 핵심 파일\n- apex_core/src/logging.cpp\n- apex_core/include/apex/core/scoped_logger.hpp (신규)",
       "related": "117",
       "position": 36,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 01:35:51",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 12:34:08"
     },
     {
       "id": 187,
@@ -102,11 +102,24 @@
       "timeframe": "IN_VIEW",
       "scope": "INFRA",
       "type": "INFRA",
-      "description": "프로덕션 운영 필수 컴포넌트. 각 서비스가 Kafka 토픽으로 발행하는 로그를 log-svc가 consume하여 중앙 집중 저장/검색/분석. 현재 log-svc 디렉토리 구조만 존재(코드 없음). v0.6.3 Helm 차트에 sub-chart 템플릿은 준비 완료(enabled: false). 구현 완료 시 values에서 enabled: true로 전환하면 K8s 배포 가능.",
+      "description": "프로덕션 운영 필수 컴포넌트. 각 서비스가 Kafka 토픽으로 발행하는 로그를 log-svc가 consume하여 중앙 집중 저장/검색/분석. 현재 log-svc 디렉토리 구조만 존재(코드 없음). v0.6.3 Helm 차트에 sub-chart 템플릿은 준비 완료(enabled: false). 구현 완료 시 values에서 enabled: true로 전환하면 K8s 배포 가능.\n[RELEASED] branch_01: 179 먼저 진행, 199는 별도 브랜치에서 후속 처리",
       "position": 50,
       "status": "OPEN",
       "created_at": "2026-03-24 23:26:37",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 12:44:04"
+    },
+    {
+      "id": 237,
+      "title": "Admin HTTP 대시보드 — 런타임 설정 변경 + 서비스 상태 모니터링 UI",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "INFRA",
+      "description": "MetricsHttpServer와 별도 포트로 운영하는 Admin 전용 HTTP 서버. 로그 레벨 동적 변경 외에 향후 런타임 설정 조회/변경, 서비스 상태 대시보드 등을 확장 제공. #179에서 AdminHttpServer 뼈대 + log-level 엔드포인트가 먼저 구현되고, 이 백로그에서 UI 대시보드를 추가한다.",
+      "position": 69,
+      "status": "OPEN",
+      "created_at": "2026-03-26 12:48:23",
+      "updated_at": "2026-03-26 12:48:23"
     },
     {
       "id": 36,
