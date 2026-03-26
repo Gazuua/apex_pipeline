@@ -61,6 +61,15 @@ func configShowCmd() *cobra.Command {
 			fmt.Printf("[http]\n")
 			fmt.Printf("  enabled: %v\n", cfg.HTTP.Enabled)
 			fmt.Printf("  addr: %s\n", cfg.HTTP.Addr)
+			fmt.Printf("[workspace]\n")
+			fmt.Printf("  root: %s\n", cfg.Workspace.Root)
+			fmt.Printf("  repo_name: %s\n", cfg.Workspace.RepoName)
+			fmt.Printf("  scan_on_start: %v\n", cfg.Workspace.ScanOnStart)
+			fmt.Printf("[session]\n")
+			fmt.Printf("  enabled: %v\n", cfg.Session.Enabled)
+			fmt.Printf("  addr: %s\n", cfg.Session.Addr)
+			fmt.Printf("  watchdog_interval: %v\n", cfg.Session.WatchdogInterval)
+			fmt.Printf("  output_buffer_lines: %d\n", cfg.Session.OutputBufferLines)
 			return nil
 		},
 	}
