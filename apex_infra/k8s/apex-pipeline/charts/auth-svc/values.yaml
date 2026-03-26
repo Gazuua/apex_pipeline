@@ -27,7 +27,7 @@ config:
     service_name = "auth-svc"
 
     [logging.file]
-    enabled = true
+    enabled = false
 
     [jwt]
     private_key_file = "keys/auth_rs256.pem"

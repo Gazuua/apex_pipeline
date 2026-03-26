@@ -39,7 +39,7 @@ config:
     service_name = "gateway"
 
     [logging.file]
-    enabled = true
+    enabled = false
 
     [server]
     ws_port = 8443

@@ -27,7 +27,7 @@ config:
     service_name = "chat-svc"
 
     [logging.file]
-    enabled = true
+    enabled = false
 
     [chat]
     request_topic = "chat.requests"
