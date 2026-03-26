@@ -31,7 +31,7 @@ config:
     service_name = "log-svc"
 
     [logging.file]
-    enabled = true
+    enabled = false
 
     [kafka]
     brokers = "apex-infra-kafka.apex-infra.svc.cluster.local:9092"
