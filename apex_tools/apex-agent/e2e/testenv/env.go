@@ -140,8 +140,11 @@ func (e *TestEnv) Stop() {
 func (e *TestEnv) Restart(t *testing.T) {
 	t.Helper()
 
-	// Unix 소켓 파일 잔여 제거 (Linux에서 flaky 방지)
-	os.Remove(e.SocketAddr)
+	// Unix 소켓 파일 잔여 제거 — Stop() 후에도 소켓 파일이 남아
+	// "address already in use" 경쟁 조건 발생 가능 (Linux CI 대비)
+	if runtime.GOOS != "windows" {
+		os.Remove(e.SocketAddr)
+	}
 
 	cfg := daemon.Config{
 		DBPath:      e.DBPath,
