@@ -69,20 +69,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 179,
-      "title": "런타임 로그 레벨 동적 전환 — ScopedLogger 기반 핫 리로드",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "INFRA",
-      "description": "## 개요\n운영 중 재시작 없이 로그 레벨을 변경할 수 있는 기능. 프로덕션에서 이슈 발생 시 trace/debug 레벨로 전환하여 실시간 진단.\n\n## 현재 상태\n- 로그 레벨은 TOML 설정 파일에서 초기화 시 1회 설정 (init_logging)\n- 런타임 변경 미지원 (BACKLOG-117 스코프)\n- ScopedLogger 구현 완료 후 착수 가능\n\n## 작업 내용\n1. 레벨 변경 API — HTTP /admin/log-level 엔드포인트 또는 TOML hot-reload 연계\n2. ScopedLogger가 참조하는 레벨을 atomic으로 관리\n3. 프레임워크(apex) 로거와 앱(app) 로거 독립 레벨 전환\n4. 보안 — admin 엔드포인트 인증 (내부 네트워크 전용 또는 토큰)\n\n## 의존성\n- ScopedLogger 통합 완료 필수\n- 관련: BACKLOG-117\n\n## 핵심 파일\n- apex_core/src/logging.cpp\n- apex_core/include/apex/core/scoped_logger.hpp (신규)",
-      "related": "117",
-      "position": 36,
-      "status": "FIXING",
-      "created_at": "2026-03-24 01:35:51",
-      "updated_at": "2026-03-26 12:34:08"
-    },
-    {
       "id": 187,
       "title": "HTTP 대시보드 워크플로우 트리거 UI — auto-review / FSD 백로그 소탕 버튼",
       "severity": "MAJOR",
@@ -237,6 +223,22 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 179,
+      "title": "런타임 로그 레벨 동적 전환 — ScopedLogger 기반 핫 리로드",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "INFRA",
+      "description": "## 개요\n운영 중 재시작 없이 로그 레벨을 변경할 수 있는 기능. 프로덕션에서 이슈 발생 시 trace/debug 레벨로 전환하여 실시간 진단.\n\n## 현재 상태\n- 로그 레벨은 TOML 설정 파일에서 초기화 시 1회 설정 (init_logging)\n- 런타임 변경 미지원 (BACKLOG-117 스코프)\n- ScopedLogger 구현 완료 후 착수 가능\n\n## 작업 내용\n1. 레벨 변경 API — HTTP /admin/log-level 엔드포인트 또는 TOML hot-reload 연계\n2. ScopedLogger가 참조하는 레벨을 atomic으로 관리\n3. 프레임워크(apex) 로거와 앱(app) 로거 독립 레벨 전환\n4. 보안 — admin 엔드포인트 인증 (내부 네트워크 전용 또는 토큰)\n\n## 의존성\n- ScopedLogger 통합 완료 필수\n- 관련: BACKLOG-117\n\n## 핵심 파일\n- apex_core/src/logging.cpp\n- apex_core/include/apex/core/scoped_logger.hpp (신규)",
+      "related": "117",
+      "position": 36,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 13:34:06",
+      "created_at": "2026-03-24 01:35:51",
+      "updated_at": "2026-03-26 13:34:06"
     },
     {
       "id": 133,
