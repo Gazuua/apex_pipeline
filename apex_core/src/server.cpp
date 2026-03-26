@@ -356,6 +356,12 @@ void Server::run()
         metrics_http_server_.start(control_io_, config_.metrics.port, metrics_registry_, running_);
     }
 
+    // Start admin HTTP server if enabled (runtime log-level control etc.)
+    if (config_.admin.enabled)
+    {
+        admin_http_server_.start(control_io_, config_.admin.port);
+    }
+
     // I-18: Set running_ after all initialization (services, CoreEngine,
     // listeners) completes. External observers see running()==true only when
     // the server is fully ready to accept connections.
@@ -449,8 +455,9 @@ void Server::finalize_shutdown()
     logger_.debug("finalize_shutdown");
     shutdown_timer_.reset();
 
-    // 0. Stop metrics HTTP server (no more scrape requests)
+    // 0. Stop HTTP servers (no more scrape/admin requests)
     metrics_http_server_.stop();
+    admin_http_server_.stop();
 
     // 1. Stop listeners completely
     for (auto& listener : listeners_)

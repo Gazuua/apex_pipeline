@@ -17,6 +17,13 @@ struct MetricsConfig
     uint16_t port = 8081;
 };
 
+/// Admin HTTP server configuration (runtime management).
+struct AdminConfig
+{
+    bool enabled = false;
+    uint16_t port = 8082;
+};
+
 /// Server configuration. Fields are ordered for designated-initializer convenience.
 struct ServerConfig
 {
@@ -56,6 +63,9 @@ struct ServerConfig
 
     // Metrics
     MetricsConfig metrics;
+
+    // Admin (runtime management — log level, etc.)
+    AdminConfig admin;
 };
 
 } // namespace apex::core

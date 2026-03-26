@@ -495,6 +495,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [도구] notify merge 통합 — 머지 유일 진입점, 데몬 파이프라인 원자적 수행, gh pr merge 직접 차단 (PR #174, BACKLOG-234)
          [테스트] CrashHandler death test + Gateway config parser 22개 케이스 + intrusive_ptr 벤치마크 (BACKLOG-142,171,200)
          [코어] SocketBase virtual interface — apex_core OpenSSL 의존 해소, TcpSocket/TlsSocket, Transport concept 확장 (BACKLOG-133, PR #191)
+         [코어] HttpServerBase 추출 + AdminHttpServer — 런타임 로그 레벨 동적 전환 (BACKLOG-179, BACKLOG-237 뼈대)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```

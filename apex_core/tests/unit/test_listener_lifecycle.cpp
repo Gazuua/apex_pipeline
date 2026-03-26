@@ -34,6 +34,7 @@ class ListenerLifecycleTest : public ::testing::Test
             .arena_block_bytes = 4096,
             .arena_max_bytes = 1024 * 1024,
             .metrics = {},
+            .admin = {},
         };
     }
 

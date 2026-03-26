@@ -139,6 +139,7 @@ int main(int argc, char* argv[])
     apex::core::ServerConfig server_config;
     server_config.num_cores = 1;
     server_config.metrics = app_config.metrics;
+    server_config.admin = app_config.admin;
     apex::core::Server server(server_config);
 
     server.add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(parsed.kafka)

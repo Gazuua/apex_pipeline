@@ -31,7 +31,8 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
                     .bump_capacity_bytes = 64 * 1024,
                     .arena_block_bytes = 4096,
                     .arena_max_bytes = 1024 * 1024,
-                    .metrics = {}});
+                    .metrics = {},
+                    .admin = {}});
     server1.listen<TcpBinaryProtocol>(0);
 
     std::thread t1([&] { server1.run(); });
@@ -48,7 +49,8 @@ TEST(ServerErrorPaths, ListenOnOccupiedPortFails)
                     .bump_capacity_bytes = 64 * 1024,
                     .arena_block_bytes = 4096,
                     .arena_max_bytes = 1024 * 1024,
-                    .metrics = {}});
+                    .metrics = {},
+                    .admin = {}});
     server2.listen<TcpBinaryProtocol>(occupied_port);
 
     // listen<P>()는 lazy binding (start()에서 bind) — run()에서 실패
@@ -100,7 +102,8 @@ TEST(ServerErrorPaths, DoubleRunThrowsLogicError)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -121,6 +124,7 @@ TEST(ServerErrorPaths, GracefulShutdownDrainsToZero)
         .heartbeat_timeout_ticks = 0,
         .handle_signals = false,
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -159,7 +163,8 @@ TEST(ServerErrorPaths, DoubleStopIsSafe)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     server.listen<TcpBinaryProtocol>(0);
 
     std::thread t([&] { server.run(); });
@@ -183,7 +188,8 @@ TEST(ServerErrorPaths, RunWithoutListenersWorks)
                    .bump_capacity_bytes = 64 * 1024,
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
-                   .metrics = {}});
+                   .metrics = {},
+                   .admin = {}});
     // listen<P>() 호출 없음 — listeners_ 비어있음
 
     std::thread t([&] { server.run(); });

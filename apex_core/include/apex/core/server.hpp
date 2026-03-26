@@ -3,6 +3,7 @@
 #pragma once
 
 #include <apex/core/adapter_interface.hpp>
+#include <apex/core/admin_http_server.hpp>
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/assert.hpp>
 #include <apex/core/bump_allocator.hpp>
@@ -352,6 +353,7 @@ class Server
 
     MetricsRegistry metrics_registry_;
     MetricsHttpServer metrics_http_server_;
+    AdminHttpServer admin_http_server_;
 
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};

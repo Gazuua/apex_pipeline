@@ -31,6 +31,7 @@ TEST(ServerShutdownDrain, ShortDrainTimeoutForcesShutdown)
         .handle_signals = false,
         .drain_timeout = std::chrono::seconds{0}, // 0초 — 즉시 타임아웃
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -68,6 +69,7 @@ TEST(ServerShutdownDrain, ClientDisconnectBeforeDrainTimeout)
         .handle_signals = false,
         .drain_timeout = std::chrono::seconds{10},
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -106,6 +108,7 @@ TEST(ServerShutdownDrain, MultipleClientsForceShutdownOnTimeout)
         .handle_signals = false,
         .drain_timeout = std::chrono::seconds{0}, // 즉시 타임아웃
         .metrics = {},
+        .admin = {},
     });
     server.listen<TcpBinaryProtocol>(0);
 
