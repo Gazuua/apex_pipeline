@@ -129,6 +129,17 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Docker 이미지 태깅 전략 변경
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
+### apex-agent 워크플로우 가이드 유지보수
+- **갱신 트리거**: apex-agent 기능 변경 시 `docs/apex_tools/apex_agent_workflow_guide.md` + `apex_tools/apex-agent/CLAUDE.md` 동시 갱신 필수
+  - 모듈 추가/삭제 (workspace, session 등)
+  - 핸드오프 상태 머신 변경
+  - 백로그 상태 전이 변경 (blocked_reason 등 신규 필드)
+  - Hook 게이트 추가/삭제/조건 변경
+  - IPC 액션 추가/삭제
+  - config.toml 섹션 추가
+  - 머지 파이프라인 단계 변경
+- **정합성**: `apex_tools/apex-agent/CLAUDE.md`(CLI 레퍼런스)와 `docs/apex_tools/apex_agent_workflow_guide.md`(워크플로우 운영 레퍼런스)는 동일 사실을 다른 관점에서 기술 — 양쪽 불일치 금지
+
 ### 백로그
 - **저장**: DB가 source of truth, `docs/BACKLOG.json`은 git 백업. 상세 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
 - **파일 직접 접근 금지** — `validate-backlog` hook이 Read/Edit/Write 모두 차단. CLI(`backlog list/show/add/update/resolve/release/fix/export`)만 사용
@@ -179,6 +190,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | 문서 작성/리뷰/브레인스토밍 | `docs/CLAUDE.md` |
 | 도구/플러그인 캐시/auto-review | `apex_tools/CLAUDE.md` |
 | **apex-agent Go 백엔드** ★ | `apex_tools/apex-agent/CLAUDE.md` |
+| **apex-agent 워크플로우 가이드** (상태 전이, 동시성, 데이터 정합성) | `docs/apex_tools/apex_agent_workflow_guide.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
 | **CI/CD 파이프라인 가이드** (전체 구조, 설정 변경, 트러블슈팅) | `docs/apex_infra/cicd_guide.md` |
