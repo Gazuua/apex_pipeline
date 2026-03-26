@@ -226,6 +226,23 @@ if(BUILD_TESTING)
     apex_set_warnings(test_gateway_jwt_blacklist)
     add_test(NAME test_gateway_jwt_blacklist COMMAND test_gateway_jwt_blacklist)
 
+    # --- Config Parser tests (parse_gateway_config TOML field coverage) ---
+    add_executable(test_gateway_config_parser
+        tests/test_gateway_config_parser.cpp
+        src/gateway_config_parser.cpp
+    )
+    target_include_directories(test_gateway_config_parser PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test_gateway_config_parser PRIVATE
+        apex_core apex_shared tomlplusplus::tomlplusplus
+        spdlog::spdlog GTest::gtest GTest::gtest_main)
+    if(WIN32)
+        target_compile_options(test_gateway_config_parser PRIVATE /utf-8)
+        target_compile_definitions(test_gateway_config_parser PRIVATE _WIN32_WINNT=0x0A00)
+    endif()
+    apex_set_warnings(test_gateway_config_parser)
+    add_test(NAME test_gateway_config_parser COMMAND test_gateway_config_parser)
+
     # --- Config Reloader tests (TOML parse + RouteTable build) ---
     add_executable(test_gateway_config_reloader
         tests/test_config_reloader.cpp
@@ -255,6 +272,7 @@ if(BUILD_TESTING)
         test_gateway_message_router
         test_gateway_pipeline
         test_gateway_pipeline_errors
+        test_gateway_config_parser
         test_gateway_config_reloader
         PROPERTIES TIMEOUT 30
     )

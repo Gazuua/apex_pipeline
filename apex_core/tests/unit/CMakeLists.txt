@@ -88,6 +88,9 @@ apex_add_unit_test(test_websocket_process_frames test_websocket_process_frames.c
 apex_add_unit_test(test_server_shutdown_drain test_server_shutdown_drain.cpp)
 target_link_libraries(test_server_shutdown_drain PRIVATE apex::shared::protocols::tcp)
 
+# CrashHandler death test
+apex_add_unit_test(test_crash_handler test_crash_handler.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -145,5 +148,6 @@ set_tests_properties(
     test_metrics_http_server
     test_websocket_process_frames
     test_server_shutdown_drain
+    test_crash_handler
     PROPERTIES TIMEOUT 60
 )

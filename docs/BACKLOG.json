@@ -2,19 +2,6 @@
   "next_id": 237,
   "items": [
     {
-      "id": 59,
-      "title": "문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS, DOCS",
-      "type": "INFRA",
-      "description": "에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **후순위 강등(2026-03-22)**: 현재 스크립트 후킹으로 문서 규칙 준수율 충분. #126 Go 백엔드 완료(2026-03-23). 재평가 가능. **[FSD 분석 2026-03-23]** 5가지 자동화 시스템(스크립트 + pre-commit hook + 템플릿) 대규모 인프라 구축. 자동화 불가.",
-      "position": 1,
-      "status": "OPEN",
-      "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-26 09:47:21"
-    },
-    {
       "id": 133,
       "title": "TransportContext의 ssl::context* — apex_core에 OpenSSL 직접 의존",
       "severity": "MAJOR",
@@ -24,9 +11,9 @@
       "description": "`TransportContext`가 `boost::asio::ssl::context*`를 직접 보유하여 apex_core에 OpenSSL 의존이 발생. **[FSD 설계 확정 2026-03-22]** B안 채택: Virtual SocketBase wrapper. Session이 `unique_ptr<SocketBase>` 보유, TcpSocket/TlsSocket 구현체. ssl::context는 Listener<P, TlsTcpTransport>가 소유. Session/SessionManager 비템플릿 유지. 상세: `docs/apex_common/plans/20260322_162133_fsd_design_decisions_batch.md` **[FSD 분석 2026-03-23]** SocketBase virtual interface + TcpSocket/TlsSocket 구현체 + Session 소유권 변경 등 다중 파일 대규모 리팩터링. 설계는 확정되었으나 구현 범위가 FSD 자동화 한계 초과.",
       "related": "130(이번PR에서도입)",
       "position": 1,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 10:52:27"
     },
     {
       "id": 135,
@@ -83,20 +70,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 142,
-      "title": "CrashHandler 단위 테스트 부재",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "TEST",
-      "description": "crash_handler.cpp의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치. **[FSD 분석 2026-03-26]** subprocess 기반 크로스플랫폼 테스트 설계 필요(Unix fork/waitpid vs Windows CreateProcess, stderr 캡처, Sanitizer별 조건부 빌드). 선행 설계 다수 필요.",
-      "related": "4(HISTORY)",
-      "position": 8,
-      "status": "OPEN",
-      "created_at": "2026-03-22 22:37:32",
-      "updated_at": "2026-03-26 05:43:08"
-    },
-    {
       "id": 146,
       "title": "AuthService bcrypt 검증이 코루틴 스레드에서 동기 블로킹",
       "severity": "MAJOR",
@@ -120,19 +93,6 @@
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 171,
-      "title": "Gateway 내부 컴포넌트 단위 테스트 추가",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "GATEWAY",
-      "type": "TEST",
-      "description": "broadcast_fanout, pubsub_listener, response_dispatcher, gateway_service, gateway_config_parser에 대응하는 단위 테스트 파일이 없음. E2E 테스트에만 의존 중. 최소 gateway_config_parser(TOML 파싱 에러, 기본값), broadcast_fanout(fanout 로직), Server adapter init 실패 복구 경로 테스트 필요.",
-      "position": 30,
-      "status": "OPEN",
-      "created_at": "2026-03-24 00:05:41",
       "updated_at": "2026-03-25 09:42:04"
     },
     {
@@ -173,19 +133,6 @@
       "position": 50,
       "status": "OPEN",
       "created_at": "2026-03-24 23:26:37",
-      "updated_at": "2026-03-25 09:42:04"
-    },
-    {
-      "id": 200,
-      "title": "intrusive_ptr vs shared_ptr 멀티스레드 경합 벤치마크 추가",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "PERF",
-      "description": "현재 SessionPtr/SharedPtr Copy 벤치마크는 단일 스레드 측정. 멀티스레드 환경에서 atomic increment 경합 시 intrusive_ptr(non-atomic)과 shared_ptr(atomic)의 성능 격차를 정량화하는 벤치마크 추가 필요. v0.6.1 보고서 섹션 8에서 단일 스레드 동등(10.5ns vs 10.7ns)이 확인되었으나, Per-Core 아키텍처에서의 non-atomic 이점은 미측정.",
-      "position": 51,
-      "status": "OPEN",
-      "created_at": "2026-03-24 23:35:47",
       "updated_at": "2026-03-25 09:42:04"
     },
     {
@@ -304,6 +251,67 @@
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
       "updated_at": "2026-03-25 22:41:48"
+    },
+    {
+      "id": 59,
+      "title": "문서 자동화 — 생성 스크립트 + pre-commit 검증 + 템플릿",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS, DOCS",
+      "type": "INFRA",
+      "description": "에이전트가 문서 규칙을 무시하는 문제를 규칙이 아닌 코드로 강제. 5가지 자동화: ① `new-doc.sh` — category/project/version/topic 인자, `date` 기반 타임스탬프, 시스템 시간 sanity check, etc 경로 WARNING + 머지 전 보고. ② superpowers 파일 차단 — `.gitignore` + pre-commit hook 워킹 디렉토리 스캔, 커밋 실패 + 재작성 안내. ③ 빈 문서 차단 — pre-commit hook N줄 미만 reject. ④ 타임스탬프 사후 보정 — `fix-doc-timestamps.sh` git log 대조 + 신규 파일 현재 시각 비교. ⑤ 카테고리별 `.template.md`. **후순위 강등(2026-03-22)**: 현재 스크립트 후킹으로 문서 규칙 준수율 충분. #126 Go 백엔드 완료(2026-03-23). 재평가 가능. **[FSD 분석 2026-03-23]** 5가지 자동화 시스템(스크립트 + pre-commit hook + 템플릿) 대규모 인프라 구축. 자동화 불가.",
+      "position": 1,
+      "status": "RESOLVED",
+      "resolution": "WONTFIX",
+      "resolved_at": "2026-03-26 11:13:29",
+      "created_at": "2026-03-22 17:32:29",
+      "updated_at": "2026-03-26 11:13:29"
+    },
+    {
+      "id": 200,
+      "title": "intrusive_ptr vs shared_ptr 멀티스레드 경합 벤치마크 추가",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "PERF",
+      "description": "현재 SessionPtr/SharedPtr Copy 벤치마크는 단일 스레드 측정. 멀티스레드 환경에서 atomic increment 경합 시 intrusive_ptr(non-atomic)과 shared_ptr(atomic)의 성능 격차를 정량화하는 벤치마크 추가 필요. v0.6.1 보고서 섹션 8에서 단일 스레드 동등(10.5ns vs 10.7ns)이 확인되었으나, Per-Core 아키텍처에서의 non-atomic 이점은 미측정.",
+      "position": 51,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 11:07:56",
+      "created_at": "2026-03-24 23:35:47",
+      "updated_at": "2026-03-26 11:07:56"
+    },
+    {
+      "id": 142,
+      "title": "CrashHandler 단위 테스트 부재",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "TEST",
+      "description": "crash_handler.cpp의 signal handler 설치/해제 및 크래시 시 로깅 동작이 미검증. 프로세스 전역 상태 변경이므로 fork/subprocess 기반 테스트 필요. Windows SEH 핸들러 테스트도 고려 대상. 구현 비용이 높으므로 IN VIEW 배치. **[FSD 분석 2026-03-26]** subprocess 기반 크로스플랫폼 테스트 설계 필요(Unix fork/waitpid vs Windows CreateProcess, stderr 캡처, Sanitizer별 조건부 빌드). 선행 설계 다수 필요.",
+      "related": "4(HISTORY)",
+      "position": 8,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 11:07:55",
+      "created_at": "2026-03-22 22:37:32",
+      "updated_at": "2026-03-26 11:07:55"
+    },
+    {
+      "id": 171,
+      "title": "Gateway 내부 컴포넌트 단위 테스트 추가",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "GATEWAY",
+      "type": "TEST",
+      "description": "broadcast_fanout, pubsub_listener, response_dispatcher, gateway_service, gateway_config_parser에 대응하는 단위 테스트 파일이 없음. E2E 테스트에만 의존 중. 최소 gateway_config_parser(TOML 파싱 에러, 기본값), broadcast_fanout(fanout 로직), Server adapter init 실패 복구 경로 테스트 필요.",
+      "position": 30,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 11:07:55",
+      "created_at": "2026-03-24 00:05:41",
+      "updated_at": "2026-03-26 11:07:55"
     },
     {
       "id": 227,
