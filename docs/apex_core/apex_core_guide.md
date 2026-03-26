@@ -745,10 +745,11 @@ session->enqueue_write(std::vector<uint8_t> data);     // write queue 적재 (fi
 session->enqueue_write_raw(std::span<const uint8_t>);  // raw 데이터 적재 (fire-and-forget)
 co_await session->async_send(WireHeader, span);        // write queue 경유, 완료 대기 (awaitable)
 co_await session->async_send_raw(span);                // write queue 경유, 완료 대기 (awaitable)
-session->close();                                       // graceful 종료
+session->close();                                       // graceful 종료 (SocketBase::close 위임)
 session->id();                                          // SessionId (enum class)
 session->core_id();                                     // 소속 코어
 session->is_open();                                     // 연결 상태
+session->socket();                                      // SocketBase& (virtual, TCP/TLS 투명)
 ```
 
 **SessionId 강타입**: `enum class SessionId : uint64_t {}` — `corr_id`, `user_id` 등과의 암묵적 변환 차단.
@@ -1077,15 +1078,15 @@ Server
  ├── GlobalResourceRegistry [D3]      ← server.global<T>() 자원 소유
  ├── CoreEngine                       ← 스레드 풀, SPSC mesh 드레인, spawn_tracked
  │    └── PerCoreState[] (코어별 독립)
- │         ├── SessionManager         ← intrusive_ptr<Session> 소유
+ │         ├── SessionManager         ← intrusive_ptr<Session> 소유, unique_ptr<SocketBase>
  │         ├── ServiceRegistry [D1]   ← 타입 기반 서비스 조회
  │         ├── MessageDispatcher      ← msg_id → handler 라우팅
  │         ├── BumpAllocator          ← 요청 스코프 할당
  │         ├── ArenaAllocator         ← 트랜잭션 스코프 할당
  │         ├── PeriodicTaskScheduler  ← 주기 태스크
  │         └── services[]             ← ServiceBaseInterface 인스턴스
- ├── Listener<P>[]                    ← 프로토콜별 (TCP, WebSocket 등)
- │    └── ConnectionHandler<P>[]      ← 코어별, read_loop + frame dispatch
+ ├── Listener<P, T>[]                 ← 프로토콜별 (TCP, WebSocket 등), T::ListenerState 소유
+ │    └── ConnectionHandler<P, T>[]   ← 코어별, handshake + read_loop + frame dispatch
  └── Adapters[]                       ← Kafka, Redis, PG (역할별 다중)
 ```
 
@@ -1126,9 +1127,15 @@ engine.spawn_tracked(0, [bridge, buf = std::move(pooled_buf)]()
 ### §10.3 TCP 요청 처리 흐름
 
 ```
-Client → TCP → Session(recv_buffer)
+Client → TCP/TLS → TcpAcceptor → T::wrap_socket → unique_ptr<SocketBase>
+                                     ↓
+         ConnectionHandler<P,T>::accept_connection(SocketBase)
                   ↓
-         ConnectionHandler<P>::read_loop()
+         Session(unique_ptr<SocketBase>) 생성
+                  ↓
+         read_loop: SocketBase::async_handshake() (TLS handshake / TCP no-op)
+                  ↓
+         SocketBase::async_read_some → Session(recv_buffer)
                   ↓
          P::try_decode(RingBuffer) → Frame
                   ↓
@@ -1136,7 +1143,7 @@ Client → TCP → Session(recv_buffer)
                   ↓
          Handler 코루틴 (route<T> / handle / default_handler)
                   ↓
-         session->enqueue_write(response) → write_pump → Client
+         session->enqueue_write(response) → write_pump → SocketBase::async_write → Client
 ```
 
 ### §10.4 Kafka 메시지 흐름

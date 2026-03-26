@@ -494,6 +494,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          v0.6.4.0 CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary, 조건부 태깅, auto-tag, 3단계 검증, BACKLOG-178,147,190,217)
          [도구] notify merge 통합 — 머지 유일 진입점, 데몬 파이프라인 원자적 수행, gh pr merge 직접 차단 (PR #174, BACKLOG-234)
          [테스트] CrashHandler death test + Gateway config parser 22개 케이스 + intrusive_ptr 벤치마크 (BACKLOG-142,171,200)
+         [코어] SocketBase virtual interface — apex_core OpenSSL 의존 해소, TcpSocket/TlsSocket, Transport concept 확장 (BACKLOG-133, PR #191)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```
