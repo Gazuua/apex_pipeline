@@ -136,19 +136,6 @@
       "updated_at": "2026-03-26 16:38:21"
     },
     {
-      "id": 241,
-      "title": "smoke test Chat Service 타임아웃 — healthcheck 미비 + warmup 누락",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "BUG",
-      "description": "docker-compose.smoke.yml에 chat-svc/auth-svc healthcheck 없음. E2E warmup이 Auth만 프로브하여 Chat Service Kafka 컨슈머 미준비 상태에서 테스트 시작. Gateway 5s 타임아웃으로 ListRooms 실패.",
-      "position": 72,
-      "status": "FIXING",
-      "created_at": "2026-03-26 16:16:06",
-      "updated_at": "2026-03-26 16:16:30"
-    },
-    {
       "id": 36,
       "title": "Acceptor core 0 부하 불균형",
       "severity": "MINOR",
@@ -278,6 +265,21 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 241,
+      "title": "smoke test Chat Service 타임아웃 — healthcheck 미비 + warmup 누락",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "BUG",
+      "description": "docker-compose.smoke.yml에 chat-svc/auth-svc healthcheck 없음. E2E warmup이 Auth만 프로브하여 Chat Service Kafka 컨슈머 미준비 상태에서 테스트 시작. Gateway 5s 타임아웃으로 ListRooms 실패.",
+      "position": 72,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 16:41:56",
+      "created_at": "2026-03-26 16:16:06",
+      "updated_at": "2026-03-26 16:41:56"
     },
     {
       "id": 146,
