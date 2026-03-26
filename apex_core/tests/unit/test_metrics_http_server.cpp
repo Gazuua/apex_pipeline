@@ -349,13 +349,16 @@ TEST_F(MetricsHttpServerTest, InFlightSessionCancelledOnStop)
 TEST_F(MetricsHttpServerTest, MultipleConcurrentSessionsCancelledOnStop)
 {
     constexpr int kSlowClients = 5;
+
+    // 소켓이 참조하는 io_context가 소켓보다 먼저 소멸하면 dangling executor.
+    // 단일 io_context를 소켓 벡터보다 먼저 선언하여 수명 보장.
+    net::io_context client_io;
     std::vector<tcp::socket> slow_sockets;
     slow_sockets.reserve(kSlowClients);
 
     // 1) 여러 slow client: 연결만 하고 요청 미전송
     for (int i = 0; i < kSlowClients; ++i)
     {
-        net::io_context client_io;
         tcp::socket sock(client_io);
         sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
         slow_sockets.push_back(std::move(sock));
@@ -370,7 +373,7 @@ TEST_F(MetricsHttpServerTest, MultipleConcurrentSessionsCancelledOnStop)
     server_.stop();
     SUCCEED();
 
-    // 6) 소켓 정리
+    // 4) 소켓 정리
     for (auto& sock : slow_sockets)
     {
         if (sock.is_open())
