@@ -1,5 +1,5 @@
 {
-  "next_id": 255,
+  "next_id": 256,
   "items": [
     {
       "id": 242,
@@ -49,11 +49,11 @@
       "timeframe": "IN_VIEW",
       "scope": "CHAT_SVC, GATEWAY",
       "type": "DESIGN_DEBT",
-      "description": "Whisper unicast 전송 시 `core_id=0` 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).",
+      "description": "Whisper unicast 전송 시 core_id=0 하드코딩. auto-review L1 수정으로 모든 코어 순회 방식으로 동작하나 O(N_cores) 비용. SessionId에 core_id를 인코딩하면 단일 코어 post로 O(1) 전달 가능. **[FSD 설계 확정 2026-03-23]** SessionId 인코딩 변경 없이 기존 MetadataPrefix의 core_id/session_id 필드 활용: ① Auth SessionStore에 core_id 함께 저장 ② Chat whisper에서 target의 session_id+core_id 모두 조회 ③ ResponseDispatcher에서 corr_id==0이면 session_id 기반 직접 전달 분기(기존 #138 설계 계승).\n\n**[FSD 분석 2026-03-26]** 설계 확정 상태이나 Auth/Chat/Gateway 3개 서비스에 걸친 변경으로 FSD 규모 초과. 전용 작업으로 진행 필요.",
       "position": 15,
       "status": "OPEN",
       "created_at": "2026-03-23 02:29:17",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-26 21:36:18"
     },
     {
       "id": 187,
@@ -88,11 +88,11 @@
       "timeframe": "IN_VIEW",
       "scope": "CORE",
       "type": "INFRA",
-      "description": "MetricsHttpServer와 별도 포트로 운영하는 Admin 전용 HTTP 서버. 로그 레벨 동적 변경 외에 향후 런타임 설정 조회/변경, 서비스 상태 대시보드 등을 확장 제공. #179에서 AdminHttpServer 뼈대 + log-level 엔드포인트가 먼저 구현되고, 이 백로그에서 UI 대시보드를 추가한다.",
+      "description": "MetricsHttpServer와 별도 포트로 운영하는 Admin 전용 HTTP 서버. 로그 레벨 동적 변경 외에 향후 런타임 설정 조회/변경, 서비스 상태 대시보드 등을 확장 제공. #179에서 AdminHttpServer 뼈대 + log-level 엔드포인트가 먼저 구현되고, 이 백로그에서 UI 대시보드를 추가한다.\n\n## 후보 기능 목록 (우선순위 미정, 착수 시 논의)\n\n### API 엔드포인트\n- GET /status — 서비스 상태 (uptime, 버전, 빌드 정보, 현재 phase)\n- GET /config — 현재 적용된 설정 조회 (읽기 전용, 민감 정보 마스킹)\n- PUT /config/{key} — 런타임 설정 변경 (hot-reload 연동, 251 해결 후)\n- GET /connections — 활성 연결 수, per-core 분포\n- GET /adapters — 어댑터 상태 (Redis/Kafka/PG 연결 풀, health, latency)\n- GET /rate-limit/stats — Rate limiter 통계 (per-IP 엔트리 수, Redis RL 히트율)\n- GET /sessions — 활성 세션 수, per-core 분포 (Gateway 전용)\n- GET /kafka/lag — Kafka consumer lag per partition\n- GET /metrics/summary — Prometheus 메트릭 요약 (전체 /metrics와 별도로 핵심 지표만)\n- GET /cores — per-core CPU 사용률, 코루틴 수, 큐 깊이\n\n### HTML 대시보드\n- 위 API를 시각화하는 단일 페이지 대시보드\n- auto-refresh (SSE 또는 polling)\n- 각 서비스 공통 레이아웃 + 서비스별 커스텀 섹션",
       "position": 69,
       "status": "OPEN",
       "created_at": "2026-03-26 12:48:23",
-      "updated_at": "2026-03-26 12:48:23"
+      "updated_at": "2026-03-26 21:13:47"
     },
     {
       "id": 245,
@@ -103,9 +103,9 @@
       "type": "SECURITY",
       "description": "SecureString::operator==가 std::string::operator==(early-return)에 위임하여 타이밍 사이드채널에 노출. 현재 프로덕션에서 password 직접 비교는 없고 테스트/gtest용이지만, 향후 토큰 검증 등에 사용되면 취약점. 설계 결정: (A) constant_time_equal() 별도 메서드 추가 + operator==는 현행 유지, (B) operator== 자체를 constant-time으로 변경(성능 트레이드오프), (C) CRYPTO_memcmp 사용(OpenSSL 의존 추가). SSO 잔류 이슈(BACKLOG-TBD)와 함께 SecureString v2 강화 작업으로 묶어서 진행 권장.",
       "position": 75,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-26 20:04:45",
-      "updated_at": "2026-03-26 20:04:45"
+      "updated_at": "2026-03-26 21:24:21"
     },
     {
       "id": 246,
@@ -114,11 +114,11 @@
       "timeframe": "IN_VIEW",
       "scope": "SHARED",
       "type": "SECURITY",
-      "description": "std::string의 SSO(Small String Optimization)로 인해 15자 이하 문자열은 힙이 아닌 객체 내부 버퍼에 저장됨. clear()+shrink_to_fit() 후에도 SSO 버퍼에 민감 데이터가 잔류할 수 있음. 또한 move 시 소스 객체의 SSO 버퍼도 미제로화. 프로덕션 password는 보통 SSO 임계(15자) 초과이므로 실질 위험은 낮지만 완전한 보장이 필요. 설계 결정: (A) clear()에서 sizeof(std::string) 전체를 SecureZeroMemory로 제로화 — 이식성 우려, (B) std::vector<char> + secure_allocator로 교체 — SSO 자체를 제거, (C) 현행 유지 + 문서 경고만. BACKLOG-245(타이밍)와 묶어서 SecureString v2로 진행 권장.",
+      "description": "std::string의 SSO(Small String Optimization)로 인해 15자 이하 문자열은 힙이 아닌 객체 내부 버퍼에 저장됨. clear()+shrink_to_fit() 후에도 SSO 버퍼에 민감 데이터가 잔류할 수 있음. 또한 move 시 소스 객체의 SSO 버퍼도 미제로화. 프로덕션 password는 보통 SSO 임계(15자) 초과이므로 실질 위험은 낮지만 완전한 보장이 필요. 설계 결정: (A) clear()에서 sizeof(std::string) 전체를 SecureZeroMemory로 제로화 — 이식성 우려, (B) std::vector<char> + secure_allocator로 교체 — SSO 자체를 제거, (C) 현행 유지 + 문서 경고만. BACKLOG-245(타이밍)와 묶어서 SecureString v2로 진행 권장.\n\n**[FSD 분석 2026-03-26]** 소멸자에서 sizeof(string) 전체 제로화(A안)는 이미 파괴된 string 객체의 raw bytes를 다시 밟는 UB 경계 이슈. B안(vector+secure_allocator)은 대규모 리팩토링. 설계 결정이 필요하여 FSD 자동화 부적합.",
       "position": 76,
       "status": "OPEN",
       "created_at": "2026-03-26 20:05:11",
-      "updated_at": "2026-03-26 20:05:11"
+      "updated_at": "2026-03-26 21:32:38"
     },
     {
       "id": 247,
@@ -127,11 +127,11 @@
       "timeframe": "IN_VIEW",
       "scope": "SHARED",
       "type": "SECURITY",
-      "description": "KafkaConsumer가 enable.auto.commit=true 상태에서 DLQ produce 실패 시 메시지가 영구 유실됨. 오프셋이 이미 커밋되어 재처리 불가. 설계 결정: (A) enable.auto.commit=false로 전환 + DLQ produce 성공 후 수동 커밋 — 소비 의미론 전체 변경, at-least-once 보장, (B) DLQ produce 재시도 메커니즘 도입 (exponential backoff, max retry) — auto-commit 유지하되 유실 확률 감소, (C) 메시지 유실 메트릭/알림만 추가 — 운영 가시성 확보 후 판단. 프로덕션 배포 전 반드시 결정 필요.",
+      "description": "KafkaConsumer가 enable.auto.commit=true 상태에서 DLQ produce 실패 시 메시지가 영구 유실됨. 오프셋이 이미 커밋되어 재처리 불가. 설계 결정: (A) enable.auto.commit=false로 전환 + DLQ produce 성공 후 수동 커밋 — 소비 의미론 전체 변경, at-least-once 보장, (B) DLQ produce 재시도 메커니즘 도입 (exponential backoff, max retry) — auto-commit 유지하되 유실 확률 감소, (C) 메시지 유실 메트릭/알림만 추가 — 운영 가시성 확보 후 판단. 프로덕션 배포 전 반드시 결정 필요.\n\n**[FSD 분석 2026-03-26]** 설계 확정: A안(manual commit + 동기 DLQ + 3회 재시도). Kafka consumer 의미론 전체 변경으로 FSD 규모 초과, 전용 작업으로 진행 필요.",
       "position": 77,
       "status": "OPEN",
       "created_at": "2026-03-26 20:05:27",
-      "updated_at": "2026-03-26 20:05:27"
+      "updated_at": "2026-03-26 21:35:18"
     },
     {
       "id": 248,
@@ -140,11 +140,11 @@
       "timeframe": "IN_VIEW",
       "scope": "GATEWAY",
       "type": "SECURITY",
-      "description": "auth_exempt msg_id(LoginRequest 등)에 해당하는 요청이 per-user/per-endpoint rate limit을 완전히 스킵함. state.authenticated=false이므로 Layer 2/3 rate limit이 적용되지 않아, exempt msg_id를 통한 rate limit 우회 공격 가능. user_id=0으로 Kafka produce되어 백엔드가 유효하지 않은 user_id를 받게 됨. 설계 결정: (A) exempt 메시지에 per-IP rate limit은 이미 적용되므로 충분한지 평가, (B) exempt 메시지 전용 per-session 또는 per-IP 기반 별도 rate limiting 추가, (C) 백엔드 서비스에서 user_id=0 검증 필수화. Per-IP rate limit만으로 충분한지 부하 테스트로 검증 필요.",
+      "description": "Gateway auth exempt msg_id(Login 등)에 per-IP rate limit만 적용되어 Layer 2-3(per-user, per-endpoint)이 무방비. 프록시/NAT 환경에서 IP 공유 시 정상 유저도 차단됨. 설계 결정: (A) exempt msg_id별 per-IP 한도 별도 설정 — 일반 1000/60s와 별개로 Login은 10/60s per IP, (B) per-session rate limit 추가, (C) fingerprint 기반 제한.\n\n**[FSD 분석 2026-03-26]** 설계 확정: A안(exempt msg_id별 per-IP 한도 분리) + Acceptor 연결 제한. BACKLOG-249와 묶어 Gateway 보안 대규모 변경, 전용 작업으로 진행 필요.",
       "position": 78,
       "status": "OPEN",
       "created_at": "2026-03-26 20:05:44",
-      "updated_at": "2026-03-26 20:05:44"
+      "updated_at": "2026-03-26 21:35:50"
     },
     {
       "id": 249,
@@ -153,11 +153,11 @@
       "timeframe": "IN_VIEW",
       "scope": "GATEWAY",
       "type": "SECURITY",
-      "description": "AUTHENTICATE/SUBSCRIBE/UNSUBSCRIBE 시스템 메시지가 GatewayPipeline을 거치지 않아 per-IP rate limit도 미적용. 미인증 상태에서 무한히 채널을 구독하여 ChannelSessionMap 메모리 소진 가능 (per-session limit 50이지만 미인증 세션 무한 연결 가능). 설계 결정: (A) 시스템 메시지에도 최소 per-IP rate limit 적용, (B) SUBSCRIBE/UNSUBSCRIBE는 authenticated 상태에서만 허용 (state.authenticated 검사 추가), (C) per-session 채널 구독 수 + 전체 연결 수 제한 조합으로 방어. BACKLOG-248(auth exempt)과 연관.",
+      "description": "Gateway 시스템 메시지(SUBSCRIBE/UNSUBSCRIBE)가 GatewayPipeline을 완전히 우회하여 미인증 상태에서 채널 구독 가능. rate limit도 미적용. 공격자가 대량 WebSocket 연결 + SUBSCRIBE 무한 전송으로 ChannelSessionMap 메모리 폭주 → OOM.\n\n**[FSD 분석 2026-03-26]** 설계 확정: 인증 필수화 + 시스템 메시지 per-IP rate limit + Acceptor per-IP 연결 제한. BACKLOG-248과 묶어 Gateway 보안 대규모 변경, 전용 작업으로 진행 필요.",
       "position": 79,
       "status": "OPEN",
       "created_at": "2026-03-26 20:05:51",
-      "updated_at": "2026-03-26 20:05:51"
+      "updated_at": "2026-03-26 21:35:51"
     },
     {
       "id": 250,
@@ -168,9 +168,9 @@
       "type": "DESIGN_DEBT",
       "description": "Rate limit용 RedisAdapter가 Server::add_adapter()가 아닌 GatewayService 생성자에서 전달받은 standalone 인스턴스. init()이 on_wire(Phase 2)에서 호출되고, Server의 drain()/close() 시퀀스에 포함되지 않아 graceful shutdown 시 per-core 코루틴 누수 가능. outstanding_adapter_coros() 폴링에도 미포함. 설계 결정: (A) Server::add_adapter()로 등록하여 라이프사이클 통합 — add_adapter 타이밍 조정 필요, (B) GatewayGlobals 소멸자에서 명시적 close() 호출 추가 — 현행 구조 유지하면서 정리만.",
       "position": 80,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-26 20:05:58",
-      "updated_at": "2026-03-26 20:05:58"
+      "updated_at": "2026-03-26 21:24:21"
     },
     {
       "id": 251,
@@ -181,9 +181,9 @@
       "type": "BUG",
       "description": "rate_limiter_가 std::atomic<LimiterT*>로 저장되어 set_rate_limiter()로 hot-swap 가능. process() 코루틴에서 load()로 포인터를 얻은 뒤 co_await 전후로 다른 스레드에서 교체하면 old 포인터 dangling. per-core 아키텍처에서 같은 코어 스레드라면 안전하지만, config hot-reload 시 메인 스레드가 호출하면 레이스 발생. 설계 결정: (A) set_rate_limiter를 io_context.post()로 코어 스레드에서만 실행하도록 보장, (B) std::atomic<std::shared_ptr<LimiterT>>로 전환하여 수명 보장 (C++20), (C) RCU 패턴 적용.",
       "position": 81,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-26 20:06:06",
-      "updated_at": "2026-03-26 20:06:06"
+      "updated_at": "2026-03-26 21:24:21"
     },
     {
       "id": 252,
@@ -192,11 +192,11 @@
       "timeframe": "IN_VIEW",
       "scope": "INFRA",
       "type": "SECURITY",
-      "description": "현재 단일 SecretStore + 단일 ServiceAccount로 모든 ExternalSecret이 AWS SM 전체에 접근 가능. 한 서비스 Pod 침해 시 다른 서비스의 시크릿까지 노출. 설계 결정: (A) 서비스별 ServiceAccount 분리 + IAM 역할에서 접근 가능한 SM key prefix 제한 (apex/gateway/*, apex/auth-svc/* 등), (B) 서비스별 SecretStore 분리 (각각 다른 SA → 다른 IAM 역할), (C) ClusterSecretStore + namespace 기반 격리 (인프라/서비스 네임스페이스 분리 시). AWS 인프라 셋업과 함께 진행.",
+      "description": "현재 단일 SecretStore + 단일 ServiceAccount로 모든 ExternalSecret이 AWS SM 전체에 접근 가능. 한 서비스 Pod 침해 시 다른 서비스의 시크릿까지 노출. 설계 결정: (A) 서비스별 ServiceAccount 분리 + IAM 역할에서 접근 가능한 SM key prefix 제한 (apex/gateway/*, apex/auth-svc/* 등), (B) 서비스별 SecretStore 분리 (각각 다른 SA → 다른 IAM 역할), (C) ClusterSecretStore + namespace 기반 격리 (인프라/서비스 네임스페이스 분리 시). AWS 인프라 셋업과 함께 진행.\n\n**[FSD 분석 2026-03-26]** AWS IAM 역할 분리 + K8s ServiceAccount 매핑이 필요하며 인프라 셋업과 함께 진행해야 함. 코드 변경만으로 해결 불가, FSD 자동화 부적합.",
       "position": 82,
       "status": "OPEN",
       "created_at": "2026-03-26 20:06:12",
-      "updated_at": "2026-03-26 20:06:12"
+      "updated_at": "2026-03-26 21:34:39"
     },
     {
       "id": 253,
@@ -205,11 +205,11 @@
       "timeframe": "IN_VIEW",
       "scope": "INFRA",
       "type": "SECURITY",
-      "description": "프로덕션에서 Pod 간 네트워크 격리가 없어 한 Pod 침해 시 같은 네임스페이스 내 모든 서비스에 무제한 접근 가능. Gateway만 외부 트래픽을 수신해야 하고 나머지는 Kafka 경유만 허용해야 하는 MSA 원칙이 네트워크 레벨에서 강제되지 않음. 설계 결정: (A) 기본 Deny-All ingress + 서비스별 명시적 allow 규칙 (Gateway: 외부 + Kafka, Auth/Chat: Kafka만, 인프라: 내부만), (B) networkPolicy.enabled 토글로 로컬 비활성화 가능하게 구성, (C) Calico/Cilium 등 CNI별 차이 검토. values-prod.yaml에 주석으로만 언급되어 있으나 실제 템플릿 없음.",
+      "description": "프로덕션에서 Pod 간 네트워크 격리가 없어 한 Pod 침해 시 같은 네임스페이스 내 모든 서비스에 무제한 접근 가능. Gateway만 외부 트래픽을 수신해야 하고 나머지는 Kafka 경유만 허용해야 하는 MSA 원칙이 네트워크 레벨에서 강제되지 않음. 설계 결정: (A) 기본 Deny-All ingress + 서비스별 명시적 allow 규칙 (Gateway: 외부 + Kafka, Auth/Chat: Kafka만, 인프라: 내부만), (B) networkPolicy.enabled 토글로 로컬 비활성화 가능하게 구성, (C) Calico/Cilium 등 CNI별 차이 검토. values-prod.yaml에 주석으로만 언급되어 있으나 실제 템플릿 없음.\n\n**[FSD 분석 2026-03-26]** 설계 확정: Deny-All + 서비스별 allow + enabled 토글. 표준 K8s NetworkPolicy API 사용(CNI 무관). 서비스별 Helm 템플릿 작업량 상당, 전용 작업으로 진행 필요.",
       "position": 83,
       "status": "OPEN",
       "created_at": "2026-03-26 20:06:20",
-      "updated_at": "2026-03-26 20:06:20"
+      "updated_at": "2026-03-26 21:36:18"
     },
     {
       "id": 254,
@@ -322,11 +322,11 @@
       "timeframe": "DEFERRED",
       "scope": "INFRA",
       "type": "INFRA",
-      "description": "Argo Rollouts canary 자동 승격(AnalysisTemplate)에는 Prometheus 메트릭 기반 판단이 필요. 현재 Prometheus는 Helm 차트에 포함되어 있으나 Grafana 미설정, 서비스 메트릭 export 미검증 상태. Grafana 대시보드 구축 + 서비스별 메트릭 안정화 후 AnalysisTemplate 도입 가능.",
+      "description": "Argo Rollouts canary 자동 승격(AnalysisTemplate)에는 Prometheus 메트릭 기반 판단이 필요. 현재 Prometheus는 Helm 차트에 포함되어 있으나 Grafana 미설정, 서비스 메트릭 export 미검증 상태. Grafana 대시보드 구축 + 서비스별 메트릭 안정화 후 AnalysisTemplate 도입 가능.\n\n## DEFERRED 사유\n프로덕션 트래픽이 실제로 유입되기 전까지는 canary 자동 승격이 불필요하며 수동 승격으로 충분. Grafana는 자동 승격 도입 시점에 맞춰 올리면 됨. 착수 트리거: 프로덕션 배포 시작 또는 canary 자동 승격 필요성이 확인될 때.",
       "position": 24,
       "status": "OPEN",
       "created_at": "2026-03-25 22:41:48",
-      "updated_at": "2026-03-25 22:41:48"
+      "updated_at": "2026-03-26 21:18:12"
     },
     {
       "id": 240,
@@ -341,6 +341,21 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 255,
+      "title": "Helm readOnlyRootFilesystem + file logging 충돌로 CI helm-validation 실패",
+      "severity": "CRITICAL",
+      "timeframe": "NOW",
+      "scope": "INFRA",
+      "type": "BUG",
+      "description": "auto-review에서 추가한 readOnlyRootFilesystem: true가 서비스 TOML의 logging.file.enabled=true와 충돌. K8s TOML에서 file logging 비활성화로 수정",
+      "position": 16,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 21:38:20",
+      "created_at": "2026-03-26 21:36:27",
+      "updated_at": "2026-03-26 21:38:20"
     },
     {
       "id": 198,
