@@ -232,9 +232,8 @@ boost::asio::awaitable<apex::core::Result<void>> AuthService::on_login(const ape
         // Non-fatal: login still succeeds
     }
 
-    // Store session:user:{uid} -> session_id (integer string)
-    // Used by other services (e.g., Chat whisper) for online check + unicast routing
-    auto user_session_result = co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    // Store session:user:{uid} -> "session_id:core_id" (for cross-service O(1) core routing)
+    auto user_session_result = co_await session_store_->set_user_session_id(user_id, meta.session_id, meta.core_id);
     if (!user_session_result.has_value())
     {
         logger_.error("set_user_session_id failed for user_id={}: {}", user_id,
@@ -542,8 +541,8 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
                       apex::core::error_code_name(session_set.error()));
         // Non-fatal: refresh still succeeds
     }
-    // Also refresh session:user:{uid} -> session_id mapping
-    auto refresh_user_session = co_await session_store_->set_user_session_id(user_id, meta.session_id);
+    // Also refresh session:user:{uid} -> "session_id:core_id" mapping
+    auto refresh_user_session = co_await session_store_->set_user_session_id(user_id, meta.session_id, meta.core_id);
     if (!refresh_user_session.has_value())
     {
         logger_.error("set_user_session_id failed for user_id={}: {}", user_id,

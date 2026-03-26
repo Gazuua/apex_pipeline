@@ -52,6 +52,36 @@ apex::core::Result<uint64_t> safe_parse_u64(std::string_view sv, std::string_vie
     return value;
 }
 
+struct SessionCore
+{
+    uint64_t session_id;
+    uint16_t core_id;
+};
+
+/// Parse "session_id:core_id" from Redis value. Falls back to core_id=0 if no delimiter (legacy compat).
+apex::core::Result<SessionCore> parse_session_core(std::string_view sv) noexcept
+{
+    auto colon = sv.find(':');
+    if (colon == std::string_view::npos)
+    {
+        // Legacy format: session_id only → core_id=0 fallback
+        auto sid = safe_parse_u64(sv, "parse_session_core.session_id");
+        if (!sid.has_value())
+            return std::unexpected(sid.error());
+        return SessionCore{*sid, 0};
+    }
+
+    auto sid = safe_parse_u64(sv.substr(0, colon), "parse_session_core.session_id");
+    if (!sid.has_value())
+        return std::unexpected(sid.error());
+
+    auto cid = safe_parse_u64(sv.substr(colon + 1), "parse_session_core.core_id");
+    if (!cid.has_value())
+        return std::unexpected(cid.error());
+
+    return SessionCore{*sid, static_cast<uint16_t>(*cid)};
+}
+
 } // anonymous namespace
 
 // ============================================================
@@ -599,11 +629,12 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
         co_return co_await send_whisper_error(meta, fbs::ChatMessageError_TARGET_OFFLINE);
     }
 
-    // Parse target session_id from Redis value
-    auto target_session_id_result = safe_parse_u64(session_result->str, "whisper.target_session_id");
-    if (!target_session_id_result.has_value())
-        co_return std::unexpected(target_session_id_result.error());
-    auto target_session_id = apex::core::make_session_id(*target_session_id_result);
+    // Parse "session_id:core_id" from Redis value (O(1) core routing)
+    auto target_result = parse_session_core(session_result->str);
+    if (!target_result.has_value())
+        co_return std::unexpected(target_result.error());
+    auto target_session_id = apex::core::make_session_id(target_result->session_id);
+    auto target_core_id = target_result->core_id;
 
     // 3. Build WhisperMessage FBS and send to target via Kafka unicast
     {
@@ -613,12 +644,12 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
         auto whisper_msg = fbs::CreateWhisperMessage(fbb_msg, sender_id, sender_name_off, content_off, timestamp);
         fbb_msg.Finish(whisper_msg);
 
-        // Unicast to target session via Gateway
+        // Unicast to target session via Gateway (O(1) — target core_id from Redis)
         send_response_with_flags(msg_ids::WHISPER_MESSAGE,
                                  envelope::routing_flags::DIRECTION_RESPONSE |
                                      envelope::routing_flags::DELIVERY_UNICAST,
-                                 0 /* corr_id=0 for push */, 0 /* core_id=0 -- Gateway routes by session_id */,
-                                 target_session_id, {fbb_msg.GetBufferPointer(), fbb_msg.GetSize()}, "");
+                                 0 /* corr_id=0 for push */, target_core_id, target_session_id,
+                                 {fbb_msg.GetBufferPointer(), fbb_msg.GetSize()}, "");
     }
 
     // 4. Sender confirmation
