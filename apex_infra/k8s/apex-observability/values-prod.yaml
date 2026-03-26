@@ -1,0 +1,49 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+# Apex Observability — 프로덕션 오버라이드
+# 사용: helm install ... -f values.yaml -f values-prod.yaml
+
+# ---------------------------------------------------------------------------
+# Loki
+# ---------------------------------------------------------------------------
+loki:
+  singleBinary:
+    replicas: 1
+    persistence:
+      size: 50Gi
+  loki:
+    limits_config:
+      retention_period: 720h    # 30일
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+# ---------------------------------------------------------------------------
+# Vector
+# ---------------------------------------------------------------------------
+vector:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# Grafana
+# ---------------------------------------------------------------------------
+grafana:
+  adminPassword: "${GRAFANA_ADMIN_PASSWORD}"    # 환경 변수 또는 existingSecret으로 교체
+  persistence:
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
