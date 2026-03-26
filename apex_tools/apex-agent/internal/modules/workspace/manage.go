@@ -9,8 +9,11 @@ import (
 	"strings"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/store"
 )
+
+var ml = log.WithModule("workspace")
 
 // LocalBranch represents a workspace directory entry in local_branches table.
 type LocalBranch struct {
@@ -149,18 +152,22 @@ func (m *Manager) Scan(ctx context.Context) (*ScanResult, error) {
 		if !existingMap[e.WorkspaceID] {
 			added++
 		}
-		_ = m.Upsert(ctx, &LocalBranch{
+		if err := m.Upsert(ctx, &LocalBranch{
 			WorkspaceID: e.WorkspaceID,
 			Directory:   e.Directory,
 			GitBranch:   e.GitBranch,
 			GitStatus:   e.GitStatus,
-		})
+		}); err != nil {
+			ml.Warn("scan upsert failed", "workspace", e.WorkspaceID, "err", err)
+		}
 	}
 
 	removed := 0
 	for _, b := range existing {
 		if !scannedIDs[b.WorkspaceID] {
-			_ = m.Delete(ctx, b.WorkspaceID)
+			if err := m.Delete(ctx, b.WorkspaceID); err != nil {
+				ml.Warn("scan delete failed", "workspace", b.WorkspaceID, "err", err)
+			}
 			removed++
 		}
 	}
