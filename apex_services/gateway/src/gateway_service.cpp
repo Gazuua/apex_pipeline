@@ -171,7 +171,7 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
     }
 
     auto& state = auth_states_[session->id()];
-    state.token = token->str();
+    state.token = apex::shared::SecureString(token->str());
     logger_.info(session, "JWT bound");
     return apex::core::ok();
 }

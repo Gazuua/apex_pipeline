@@ -159,3 +159,4 @@ pgbouncer:
 # 로컬 환경에서는 ESO 비활성화 — 기존 secrets.data로 K8s Secret 직접 생성
 externalSecrets:
   enabled: false
+  refreshInterval: "0"  # 로컬 환경: 갱신 불필요

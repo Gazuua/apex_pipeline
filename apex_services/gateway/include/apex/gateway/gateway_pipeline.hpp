@@ -9,6 +9,7 @@
 #include <apex/core/wire_header.hpp>
 #include <apex/gateway/gateway_config.hpp>
 #include <apex/gateway/gateway_error.hpp>
+#include <apex/shared/secure_string.hpp>
 
 #include <apex/core/scoped_logger.hpp>
 
@@ -27,8 +28,8 @@ struct AuthState
 {
     bool authenticated = false;
     uint64_t user_id = 0;
-    std::string jti;   // JWT ID (for blacklist check)
-    std::string token; // JWT token (set by handshake/login response handler)
+    std::string jti;                  // JWT ID (for blacklist check)
+    apex::shared::SecureString token; // JWT token (set by handshake/login response handler)
 };
 
 /// Gateway request pipeline (template policy pattern).
@@ -132,7 +133,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         }
 
         // 3. JWT signature + expiry verification (local, zero network cost)
-        auto claims_result = jwt_verifier_.verify(state.token);
+        auto claims_result = jwt_verifier_.verify(state.token.view());
         if (!claims_result)
         {
             logger_.debug("authenticate: JWT verify failed for msg_id={}, error={}", header.msg_id,

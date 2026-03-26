@@ -259,10 +259,31 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - 조건부 태깅 (sha/latest/main), auto-tag (CI 전체 통과 시 버전 태그 자동 생성)
   - 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
+- **시크릿 관리: SecureString 메모리 제로화 + ESO/AWS SM 연동 (PR #201, BACKLOG-135,198)**
+  - `SecureString` 래퍼 (copyable, 각 복사본 독립 제로화) — Kafka SASL, Redis, PG, Gateway, JWT password 필드 전체 적용
+  - External Secrets Operator + AWS Secrets Manager Helm 템플릿 (로컬 `enabled: false`)
+
+- **인프라: Helm Chart.lock 커밋 + charts/ tgz gitignore (PR #198)**
+  - 빌드 재현성을 위한 Chart.lock 버전 관리, 패키징 산출물 gitignore 처리
+
+- **테스트: smoke test Chat Service 타임아웃 수정 (PR #197, BACKLOG-241)**
+  - Chat Service health check 타임아웃 튜닝으로 CI 안정성 개선
+
 - **코어+서비스: BlockingTaskExecutor — CPU-bound offload (PR #196, BACKLOG-146)**
   - `BlockingTaskExecutor`: awaitable thread pool wrapper (Server 소유, 기본 2스레드)
   - `ServiceBase::blocking_executor()` 접근자로 모든 서비스에서 사용 가능
   - AuthService bcrypt verify/hash를 thread pool offload → 코어 IO 스레드 블로킹 해소
+
+- **도구: 워크스페이스 모듈 + blocked_reason Phase 1 (PR #195, BACKLOG-238,239)**
+  - apex-agent 워크스페이스 관리 모듈, 핸드오프 blocked_reason 상태 추적
+
+- **코어: HttpServerBase + AdminHttpServer — 런타임 로그 레벨 동적 전환 (PR #193, BACKLOG-179)**
+  - `AdminHttpServer`: `PUT /log-level?level=debug|info|warn|error` API
+  - `AdminConfig { enabled, port }` — `admin.enabled = true`이면 자동 시작
+
+- **코어: SocketBase virtual interface — OpenSSL 의존 해소 (PR #191, BACKLOG-133)**
+  - `SocketBase` 추상 인터페이스 → `TcpSocket`/`TlsSocket` 구체 구현 분리
+  - `apex_core`에서 OpenSSL 직접 의존 제거
 
 - **도구: notify merge 통합 — 머지 유일 진입점 (PR #174, BACKLOG-234)**
   - `handoff notify merge`가 데몬 파이프라인에서 lock→export→rebase→push→merge→finalize를 원자적 수행

@@ -61,7 +61,8 @@ class alignas(64) SpscQueue
     bool try_enqueue(const T& item) noexcept;
 
     /// Awaitable enqueue. Suspends if queue is full, resumes when space available.
-    boost::asio::awaitable<void> enqueue(const T& item);
+    /// Takes item by value so that it survives in the coroutine frame across suspend points.
+    boost::asio::awaitable<void> enqueue(T item);
 
     // === Consumer API (단일 스레드) ===
 
@@ -150,7 +151,7 @@ bool SpscQueue<T>::try_enqueue(const T& item) noexcept
 
 template <typename T>
     requires std::is_trivially_copyable_v<T>
-boost::asio::awaitable<void> SpscQueue<T>::enqueue(const T& item)
+boost::asio::awaitable<void> SpscQueue<T>::enqueue(T item)
 {
     if (try_enqueue(item))
         co_return;
@@ -158,22 +159,21 @@ boost::asio::awaitable<void> SpscQueue<T>::enqueue(const T& item)
     // Queue full → suspend via async_initiate
     co_await boost::asio::async_initiate<decltype(boost::asio::use_awaitable), void(boost::system::error_code)>(
         [this, &item](auto handler) {
-            // Set waiting flag FIRST (release)
-            producer_waiting_.store(true, std::memory_order_release);
-
             // Re-check: consumer may have drained between our full check and now
             auto consumed = consumed_.load(std::memory_order_acquire);
             if (head_ - consumed < capacity_)
             {
                 // Space available — don't suspend
-                producer_waiting_.store(false, std::memory_order_relaxed);
                 auto ex = boost::asio::get_associated_executor(handler, producer_io_.get_executor());
                 boost::asio::post(ex, [h = std::move(handler)]() mutable { h(boost::system::error_code{}); });
                 return;
             }
 
-            // Still full — store handler, consumer will invoke it during drain
+            // Still full — store handler FIRST, then set waiting flag (release).
+            // Release fence ensures handler write is visible to consumer before
+            // the consumer reads producer_waiting_ (acquire).
             pending_handler_ = std::move(handler);
+            producer_waiting_.store(true, std::memory_order_release);
         },
         boost::asio::use_awaitable);
 

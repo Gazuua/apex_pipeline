@@ -323,6 +323,8 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - Gateway TLS 종단 (내부 평문)
 - JWT 로컬 검증 → 블룸필터 체크 → 필요 시만 Redis 블랙리스트 조회
 - 보안 민감 작업은 메시지 타입별 강제 Redis 검증
+- SecureString 메모리 제로화 — password/시크릿 필드에 explicit_bzero/SecureZeroMemory 적용 (Kafka SASL, Redis, PG, Gateway, JWT)
+- External Secrets Operator (ESO) + AWS Secrets Manager 연동 — K8s Secret 자동 동기화
 
 ---
 

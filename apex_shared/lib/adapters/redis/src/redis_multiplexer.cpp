@@ -220,9 +220,11 @@ void RedisMultiplexer::static_on_reply(redisAsyncContext* /*ac*/, void* reply, v
     auto* self = static_cast<RedisMultiplexer*>(privdata);
     auto* r = static_cast<redisReply*>(reply);
 
+    // Guard: if pending_ is empty, this is an orphan reply (e.g., after close()
+    // drained all pending commands). Do NOT access logger_ here — self may be
+    // partially destroyed if this callback fires during/after destructor.
     if (self->pending_.empty())
     {
-        self->logger_.trace("static_on_reply: no pending commands (orphan reply)");
         return;
     }
 

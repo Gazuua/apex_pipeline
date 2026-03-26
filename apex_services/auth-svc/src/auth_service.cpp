@@ -2,10 +2,12 @@
 
 #include <apex/auth_svc/auth_service.hpp>
 #include <apex/auth_svc/crypto_util.hpp>
+#include <apex/core/core_engine.hpp>
 #include <apex/core/server.hpp>
 #include <apex/shared/adapters/adapter_base.hpp>
 #include <apex/shared/adapters/kafka/kafka_adapter.hpp>
 #include <apex/shared/adapters/pg/pg_adapter.hpp>
+#include <apex/shared/adapters/pg/pg_transaction.hpp>
 #include <apex/shared/adapters/redis/redis_adapter.hpp>
 #include <apex/shared/protocols/kafka/envelope_builder.hpp>
 
@@ -434,17 +436,8 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
         co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_TOKEN_EXPIRED);
     }
 
-    // --- Step 5: Token Rotation — revoke old, issue new ---
-    // Revoke the current refresh token
-    std::array<std::string, 1> revoke_params = {token_hash};
-    auto revoke_result =
-        co_await pg_->execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1", revoke_params);
-    if (!revoke_result.has_value())
-    {
-        logger_.warn("Best-effort revoke_result failed: {}", apex::core::error_code_name(revoke_result.error()));
-    }
-
-    // Generate new refresh token
+    // --- Step 5: Token Rotation — revoke old, issue new (atomic transaction) ---
+    // Generate new refresh token before starting transaction
     auto new_rt_result = generate_secure_token();
     if (!new_rt_result.has_value())
     {
@@ -453,19 +446,65 @@ AuthService::on_refresh_token(const apex::core::KafkaMessageMeta& meta, uint32_t
     }
     auto& new_refresh_token = *new_rt_result;
     auto new_refresh_hash = sha256_hex(new_refresh_token);
-
-    // Store new refresh token in PG (same family for reuse detection)
     auto user_id_s = std::to_string(user_id);
     auto ttl_s = std::to_string(config_.refresh_token_ttl.count());
-    std::array<std::string, 4> insert_params = {new_refresh_hash, user_id_s, ttl_s, token_family};
-    auto insert_result =
-        co_await pg_->execute("INSERT INTO refresh_tokens (token_hash, user_id, expires_at, token_family) "
-                              "VALUES ($1, $2, NOW() + make_interval(secs => $3::int), $4)",
-                              insert_params);
-    if (!insert_result.has_value())
+
+    // Acquire a PG connection and wrap revoke + insert in a single transaction
     {
-        logger_.error("Failed to insert new refresh token: {}", apex::core::error_code_name(insert_result.error()));
-        co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        auto core_id = apex::core::CoreEngine::current_core_id();
+        auto conn_result = co_await pg_->pool(core_id).acquire_connected();
+        if (!conn_result.has_value())
+        {
+            logger_.error("Failed to acquire PG connection for token rotation: {}",
+                          apex::core::error_code_name(conn_result.error()));
+            co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        }
+        auto conn = std::move(*conn_result);
+
+        apex::shared::adapters::pg::PgTransaction txn(*conn);
+        auto begin_result = co_await txn.begin();
+        if (!begin_result.has_value())
+        {
+            logger_.error("BEGIN failed for token rotation");
+            pg_->pool(core_id).discard(std::move(conn));
+            co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        }
+
+        // Revoke the current refresh token
+        std::array<std::string, 1> revoke_params = {token_hash};
+        auto revoke_result = co_await txn.execute_params(
+            "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1", revoke_params);
+        if (!revoke_result.has_value())
+        {
+            logger_.error("Revoke failed in token rotation: {}", apex::core::error_code_name(revoke_result.error()));
+            (void)co_await txn.rollback();
+            pg_->pool(core_id).discard(std::move(conn));
+            co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        }
+
+        // Insert new refresh token (same family for reuse detection)
+        std::array<std::string, 4> insert_params = {new_refresh_hash, user_id_s, ttl_s, token_family};
+        auto insert_result =
+            co_await txn.execute_params("INSERT INTO refresh_tokens (token_hash, user_id, expires_at, token_family) "
+                                        "VALUES ($1, $2, NOW() + make_interval(secs => $3::int), $4)",
+                                        insert_params);
+        if (!insert_result.has_value())
+        {
+            logger_.error("Insert failed in token rotation: {}", apex::core::error_code_name(insert_result.error()));
+            (void)co_await txn.rollback();
+            pg_->pool(core_id).discard(std::move(conn));
+            co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        }
+
+        auto commit_result = co_await txn.commit();
+        if (!commit_result.has_value())
+        {
+            logger_.error("COMMIT failed for token rotation");
+            pg_->pool(core_id).discard(std::move(conn));
+            co_return co_await send_refresh_token_error(meta, rt_schemas::RefreshTokenError_INTERNAL_ERROR);
+        }
+
+        pg_->pool(core_id).release(std::move(conn));
     }
 
     // --- Step 6: Issue new access token ---

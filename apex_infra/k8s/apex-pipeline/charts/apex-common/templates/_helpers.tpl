@@ -130,6 +130,7 @@ spec:
         runAsUser: 10001
         runAsGroup: 10001
         allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
       {{- end }}
       ports:
         {{- range .Values.service.ports }}
@@ -156,6 +157,8 @@ spec:
           mountPath: {{ .Values.config.mountPath }}/config.toml
           subPath: {{ .Values.config.fileName }}
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
         {{- if .Values.extraVolumeMounts }}
         {{- toYaml .Values.extraVolumeMounts | nindent 8 }}
         {{- end }}
@@ -181,6 +184,8 @@ spec:
     - name: config
       configMap:
         name: {{ include "apex-common.fullname" . }}-config
+    - name: tmp
+      emptyDir: {}
     {{- if .Values.extraVolumes }}
     {{- toYaml .Values.extraVolumes | nindent 4 }}
     {{- end }}
