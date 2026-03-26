@@ -535,13 +535,34 @@ type mockBacklogManagerForReplace struct {
 }
 
 func (m *mockBacklogManagerForReplace) SetStatus(ctx context.Context, id int, status string) error {
-	_, err := m.store.Exec(ctx, `UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
-	return err
+	return m.SetStatusWith(ctx, m.store, id, status)
 }
 
 func (m *mockBacklogManagerForReplace) SetStatusWith(ctx context.Context, q store.Querier, id int, status string) error {
-	_, err := q.Exec(ctx, `UPDATE backlog_items SET status = ? WHERE id = ?`, status, id)
-	return err
+	var query string
+	var args []any
+	switch status {
+	case "FIXING":
+		// FIXING 전이는 OPEN에서만 허용 — 실제 Manager.SetStatusWith와 동일 가드
+		query = `UPDATE backlog_items SET status = ? WHERE id = ? AND status = 'OPEN'`
+		args = []any{status, id}
+	case "OPEN":
+		// OPEN 전이는 FIXING에서만 허용 — RESOLVED 원복 방지
+		query = `UPDATE backlog_items SET status = ? WHERE id = ? AND status = 'FIXING'`
+		args = []any{status, id}
+	default:
+		query = `UPDATE backlog_items SET status = ? WHERE id = ?`
+		args = []any{status, id}
+	}
+	res, err := q.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 && (status == "FIXING" || status == "OPEN") {
+		return fmt.Errorf("mock SetStatusWith: item %d guard rejected (%s transition)", id, status)
+	}
+	return nil
 }
 
 func (m *mockBacklogManagerForReplace) Check(ctx context.Context, id int) (bool, string, error) {
