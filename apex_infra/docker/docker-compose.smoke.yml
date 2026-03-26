@@ -171,7 +171,7 @@ services:
     networks:
       - apex-smoke-net
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8443 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ready || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -192,6 +192,12 @@ services:
         condition: service_healthy
     networks:
       - apex-smoke-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   chat-svc:
     image: ghcr.io/gazuua/apex-pipeline-chat-svc:${SHA_TAG:?SHA_TAG is required}
@@ -209,6 +215,12 @@ services:
         condition: service_healthy
     networks:
       - apex-smoke-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
 volumes:
   kafka-smoke-data:
