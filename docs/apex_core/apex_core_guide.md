@@ -172,7 +172,7 @@ private:
 struct MetricsConfig {
     bool enabled = false;                          // true로 설정 시 /metrics, /health, /ready HTTP 엔드포인트 노출
     uint16_t port = 8081;                          // 메트릭 HTTP 서버 포트
-    std::string bind_address = "127.0.0.1";        // 바인드 주소 (K8s에서는 "0.0.0.0" 오버라이드)
+    std::string bind_address = "0.0.0.0";          // 바인드 주소 (로컬 전용 시 "127.0.0.1" 오버라이드)
 };
 
 struct ServerConfig {
@@ -863,7 +863,7 @@ co_await timer.async_wait(boost::asio::use_awaitable);
 struct AdminConfig {
     bool enabled = false;                          // true이면 Server 시작 시 자동 기동
     uint16_t port = 8082;                          // Admin HTTP 포트
-    std::string bind_address = "127.0.0.1";        // 바인드 주소 (K8s에서는 "0.0.0.0" 오버라이드)
+    std::string bind_address = "0.0.0.0";          // 바인드 주소 (로컬 전용 시 "127.0.0.1" 오버라이드)
 };
 ```
 
