@@ -42,7 +42,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/workspace/{id}/sync", s.handleWorkspaceSync)
 	mux.HandleFunc("POST /api/workspace/sync-all", s.handleWorkspaceSyncAll)
 
-	// Session proxy routes (→ session server)
+	// Session proxy routes (→ session server).
+	// No method restriction: the session server handles method dispatch internally.
 	if s.sessionProxy != nil {
 		mux.HandleFunc("/api/session/", func(w http.ResponseWriter, r *http.Request) {
 			s.sessionProxy.HandleHTTP(w, r)

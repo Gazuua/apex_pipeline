@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,9 +74,16 @@ func (m *Manager) Register(workspaceID, sessionID string, term Terminal) (*Sessi
 		return nil, fmt.Errorf("session already active for %s", workspaceID)
 	}
 
+	// Reject workspace IDs that could escape the log directory.
+	if strings.Contains(workspaceID, "..") || strings.ContainsAny(workspaceID, `/\`) || workspaceID == "" {
+		return nil, fmt.Errorf("invalid workspace_id: %q", workspaceID)
+	}
+
 	// Ensure log directory exists.
 	logDir := filepath.Join(m.cfg.LogDir, workspaceID)
-	os.MkdirAll(logDir, 0o755)
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		ml.Warn("session log directory creation failed", "path", logDir, "err", err)
+	}
 	logPath := filepath.Join(logDir, time.Now().Format("20060102_150405")+".log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
@@ -172,6 +180,8 @@ func (m *Manager) StopAll(ctx context.Context) {
 }
 
 // Remove removes a dead session from tracking (called by watchdog).
+// The process is already dead, so we close the terminal to unblock readPump,
+// then wait for readPump to finish before cleaning up resources.
 func (m *Manager) Remove(workspaceID string) {
 	m.mu.Lock()
 	info, exists := m.sessions[workspaceID]
@@ -180,13 +190,35 @@ func (m *Manager) Remove(workspaceID string) {
 	}
 	m.mu.Unlock()
 
-	if exists && info.logFile != nil {
+	if !exists {
+		return
+	}
+
+	// Close terminal to unblock readPump (process is dead, but pipes may still be open).
+	if err := info.term.Close(); err != nil {
+		ml.Debug("terminal close in remove", "workspace", workspaceID, "err", err)
+	}
+
+	// Wait for readPump to finish so logFile.Write is no longer racing.
+	<-info.done
+
+	if info.logFile != nil {
 		info.logFile.Close()
 	}
+
+	// Close all subscriber channels so WebSocket write pumps can exit.
+	info.mu.Lock()
+	for ch := range info.clients {
+		close(ch)
+		delete(info.clients, ch)
+	}
+	info.mu.Unlock()
 }
 
 // Subscribe registers a WebSocket client for output broadcast.
-// Returns a channel that receives terminal output and a cleanup function.
+// Returns a channel that receives terminal output and an unsubscribe function.
+// The unsubscribe function removes the channel from the broadcast map and closes it,
+// which unblocks any range loop on the channel. It is safe to call multiple times.
 func (s *SessionInfo) Subscribe() (<-chan []byte, func()) {
 	ch := make(chan []byte, 256)
 	s.mu.Lock()
@@ -195,8 +227,11 @@ func (s *SessionInfo) Subscribe() (<-chan []byte, func()) {
 
 	return ch, func() {
 		s.mu.Lock()
-		delete(s.clients, ch)
-		s.mu.Unlock()
+		defer s.mu.Unlock()
+		if _, exists := s.clients[ch]; exists {
+			delete(s.clients, ch)
+			close(ch)
+		}
 	}
 }
 
@@ -219,7 +254,9 @@ func (s *SessionInfo) readPump() {
 			s.ring.Write(data)
 
 			if s.logFile != nil {
-				s.logFile.Write(data)
+				if _, wErr := s.logFile.Write(data); wErr != nil {
+					ml.Warn("session log write failed", "workspace", s.WorkspaceID, "err", wErr)
+				}
 			}
 
 			s.mu.Lock()

@@ -12,7 +12,10 @@ func (s *Server) handleBranches(w http.ResponseWriter, r *http.Request) {
 		"Page": "branches",
 	}
 	if s.workspaceMgr != nil {
-		branches, _ := s.workspaceMgr.DashboardBranchesList()
+		branches, err := s.workspaceMgr.DashboardBranchesList()
+		if err != nil {
+			ml.Warn("branches page: list failed", "err", err)
+		}
 		data["Branches"] = branches
 	}
 	s.renderPage(w, "branches", data)

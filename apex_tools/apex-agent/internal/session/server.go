@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -108,10 +109,11 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	ml.Info("session server shutting down")
-	s.mgr.StopAll(ctx)
 
 	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	s.mgr.StopAll(shutCtx)
+
 	return s.httpSrv.Shutdown(shutCtx)
 }
 
@@ -266,7 +268,8 @@ func (s *Server) handleSendInput(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Text string `json:"text"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	// Limit body to 1MB to prevent unbounded memory allocation.
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid body"})
 		return
 	}

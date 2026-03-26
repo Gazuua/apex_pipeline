@@ -30,6 +30,11 @@ func HandleWebSocket(mgr *Manager, w http.ResponseWriter, r *http.Request, works
 	}
 	defer conn.Close()
 
+	// Limit incoming message size. Terminal input is typically a few bytes per
+	// keystroke; 64 KB is generous enough for paste operations while preventing
+	// memory exhaustion from a misbehaving client.
+	conn.SetReadLimit(64 * 1024)
+
 	// Replay buffered output on connect.
 	snap := info.ring.Snapshot()
 	if len(snap) > 0 {
@@ -40,7 +45,6 @@ func HandleWebSocket(mgr *Manager, w http.ResponseWriter, r *http.Request, works
 
 	// Subscribe to live output.
 	ch, unsub := info.Subscribe()
-	defer unsub()
 
 	// Write pump: terminal output → WebSocket.
 	done := make(chan struct{})
@@ -65,6 +69,8 @@ func HandleWebSocket(mgr *Manager, w http.ResponseWriter, r *http.Request, works
 		}
 	}
 
+	// Unsubscribe removes from broadcast map and closes the channel,
+	// which terminates the write pump's range loop.
 	unsub()
 	<-done
 }

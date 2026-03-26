@@ -22,7 +22,11 @@ type Watchdog struct {
 }
 
 // NewWatchdog creates a watchdog that checks at the given interval.
+// If interval <= 0, it defaults to 1 second to avoid time.NewTicker panic.
 func NewWatchdog(mgr *Manager, interval time.Duration, onUpdate DBUpdater) *Watchdog {
+	if interval <= 0 {
+		interval = 1 * time.Second
+	}
 	return &Watchdog{
 		mgr:      mgr,
 		interval: interval,

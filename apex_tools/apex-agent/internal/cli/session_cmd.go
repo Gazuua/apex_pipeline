@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -165,7 +166,7 @@ func sessionSendCmd() *cobra.Command {
 				addr = "localhost:7601"
 			}
 
-			url := fmt.Sprintf("http://%s/api/session/%s/send", addr, wsID)
+			url := fmt.Sprintf("http://%s/api/session/%s/send", addr, url.PathEscape(wsID))
 			body := fmt.Sprintf(`{"text":%q}`, text)
 			resp, err := sendHTTPPost(url, body)
 			if err != nil {

@@ -20,8 +20,12 @@ type SessionProxy struct {
 }
 
 // NewSessionProxy creates a reverse proxy to the session server.
+// Panics if targetAddr is not a valid host:port — caller must validate.
 func NewSessionProxy(targetAddr string) *SessionProxy {
-	target, _ := url.Parse("http://" + targetAddr)
+	target, err := url.Parse("http://" + targetAddr)
+	if err != nil {
+		panic("invalid session server address: " + err.Error())
+	}
 	httpRP := httputil.NewSingleHostReverseProxy(target)
 	httpRP.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		ml.Debug("session proxy error", "path", r.URL.Path, "err", err)
@@ -74,6 +78,10 @@ func (p *SessionProxy) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer clientConn.Close()
 
+	// Limit incoming message sizes to prevent memory exhaustion.
+	clientConn.SetReadLimit(64 * 1024)
+	backendConn.SetReadLimit(1024 * 1024) // backend output can be larger (terminal output)
+
 	// Bidirectional pipe.
 	done := make(chan struct{})
 
@@ -102,6 +110,8 @@ func (p *SessionProxy) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Close backend to unblock the backend→client goroutine.
+	backendConn.Close()
 	<-done
 }
 

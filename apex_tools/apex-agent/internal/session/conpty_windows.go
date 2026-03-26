@@ -47,6 +47,10 @@ type ConPTY struct {
 
 // NewConPTY creates a ConPTY with the given dimensions and spawns cmdLine inside it.
 func NewConPTY(cmdLine string, cols, rows int) (*ConPTY, error) {
+	if cols <= 0 || cols > 32767 || rows <= 0 || rows > 32767 {
+		return nil, fmt.Errorf("invalid terminal dimensions: cols=%d, rows=%d (must be 1..32767)", cols, rows)
+	}
+
 	// Create pipes for ConPTY I/O.
 	ptyInR, ptyInW, err := os.Pipe()
 	if err != nil {
@@ -173,6 +177,9 @@ func (c *ConPTY) Close() error {
 }
 
 func (c *ConPTY) Resize(cols, rows int) error {
+	if cols <= 0 || cols > 32767 || rows <= 0 || rows > 32767 {
+		return fmt.Errorf("invalid terminal dimensions: cols=%d, rows=%d (must be 1..32767)", cols, rows)
+	}
 	size := conPTYCoord{X: int16(cols), Y: int16(rows)}
 	r, _, _ := procResizePseudoConsole.Call(
 		uintptr(c.hPC),
