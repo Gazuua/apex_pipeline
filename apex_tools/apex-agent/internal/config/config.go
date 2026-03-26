@@ -26,12 +26,30 @@ func (d *Duration) UnmarshalText(text []byte) error {
 }
 
 type Config struct {
-	Daemon DaemonConfig `toml:"daemon"`
-	Store  StoreConfig  `toml:"store"`
-	Queue  QueueConfig  `toml:"queue"`
-	Log    LogConfig    `toml:"log"`
-	Build  BuildConfig  `toml:"build"`
-	HTTP   HTTPConfig   `toml:"http"`
+	Daemon    DaemonConfig    `toml:"daemon"`
+	Store     StoreConfig     `toml:"store"`
+	Queue     QueueConfig     `toml:"queue"`
+	Log       LogConfig       `toml:"log"`
+	Build     BuildConfig     `toml:"build"`
+	HTTP      HTTPConfig      `toml:"http"`
+	Workspace WorkspaceConfig `toml:"workspace"`
+	Session   SessionConfig   `toml:"session"`
+}
+
+type WorkspaceConfig struct {
+	Root        string `toml:"root"`
+	RepoName    string `toml:"repo_name"`
+	ScanOnStart bool   `toml:"scan_on_start"`
+}
+
+type SessionConfig struct {
+	Enabled           bool   `toml:"enabled"`
+	Addr              string `toml:"addr"`
+	LogDir            string `toml:"log_dir"`
+	OutputBufferLines int    `toml:"output_buffer_lines"`
+
+	WatchdogInterval    time.Duration
+	RawWatchdogInterval Duration `toml:"watchdog_interval"`
 }
 
 type HTTPConfig struct {
@@ -97,6 +115,16 @@ func Defaults() *Config {
 			Enabled: true,
 			Addr:    "localhost:7600",
 		},
+		Workspace: WorkspaceConfig{
+			RepoName:    "apex_pipeline",
+			ScanOnStart: true,
+		},
+		Session: SessionConfig{
+			Enabled:           true,
+			Addr:              "localhost:7601",
+			WatchdogInterval:  1 * time.Second,
+			OutputBufferLines: 500,
+		},
 	}
 }
 
@@ -122,6 +150,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Queue.RawPollInterval != 0 {
 		cfg.Queue.PollInterval = time.Duration(cfg.Queue.RawPollInterval)
+	}
+	if cfg.Session.RawWatchdogInterval != 0 {
+		cfg.Session.WatchdogInterval = time.Duration(cfg.Session.RawWatchdogInterval)
 	}
 
 	// Warn if HTTP addr is not localhost-bound (no authentication).
@@ -181,6 +212,18 @@ presets = ["debug", "release"]
 [http]
 enabled = true
 addr = "localhost:7600"     # 대시보드 바인딩 주소
+
+[workspace]
+# root = ""                 # 워크스페이스 루트 경로
+repo_name = "apex_pipeline" # 스캔 대상 디렉토리 접두어
+scan_on_start = true        # 데몬 시작 시 자동 스캔
+
+[session]
+enabled = true
+addr = "localhost:7601"     # session 서버 바인딩
+# log_dir = ""              # 기본: $LOCALAPPDATA/apex-agent/sessions/
+watchdog_interval = "1s"
+output_buffer_lines = 500   # WebSocket 재연결 시 리플레이 버퍼
 `
 	return os.WriteFile(path, []byte(content), 0o644)
 }

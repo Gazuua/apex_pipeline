@@ -19,20 +19,21 @@ var ml = log.WithModule("backlog")
 
 // BacklogItem represents a single entry in the backlog_items table.
 type BacklogItem struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	Severity    string `json:"severity"`             // CRITICAL, MAJOR, MINOR
-	Timeframe   string `json:"timeframe"`            // NOW, IN_VIEW, DEFERRED
-	Scope       string `json:"scope"`
-	Type        string `json:"type"`
-	Description string `json:"description"`
-	Related     string `json:"related,omitempty"`
-	Position    int    `json:"position"`
-	Status      string `json:"status"`               // OPEN, FIXING, RESOLVED
-	Resolution  string `json:"resolution,omitempty"`
-	ResolvedAt  string `json:"resolved_at,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID            int    `json:"id"`
+	Title         string `json:"title"`
+	Severity      string `json:"severity"`             // CRITICAL, MAJOR, MINOR
+	Timeframe     string `json:"timeframe"`            // NOW, IN_VIEW, DEFERRED
+	Scope         string `json:"scope"`
+	Type          string `json:"type"`
+	Description   string `json:"description"`
+	Related       string `json:"related,omitempty"`
+	Position      int    `json:"position"`
+	Status        string `json:"status"`               // OPEN, FIXING, RESOLVED
+	Resolution    string `json:"resolution,omitempty"`
+	ResolvedAt    string `json:"resolved_at,omitempty"`
+	BlockedReason string `json:"blocked_reason,omitempty"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // BacklogJSON is the top-level structure for docs/BACKLOG.json.
@@ -179,7 +180,7 @@ func scanBacklogItem(scanner interface{ Scan(dest ...any) error }) (*BacklogItem
 	err := scanner.Scan(
 		&item.ID, &item.Title, &item.Severity, &item.Timeframe, &item.Scope, &item.Type,
 		&item.Description, &item.Related, &item.Position, &item.Status,
-		&item.Resolution, &item.ResolvedAt, &item.CreatedAt, &item.UpdatedAt,
+		&item.Resolution, &item.ResolvedAt, &item.BlockedReason, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -193,7 +194,7 @@ func (m *Manager) Get(ctx context.Context, id int) (*BacklogItem, error) {
 	row := m.q.QueryRow(ctx, `
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
-		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
+		       COALESCE(resolution, ''), COALESCE(resolved_at, ''), COALESCE(blocked_reason, ''),
 		       created_at, updated_at
 		FROM backlog_items WHERE id = ?`, id)
 
@@ -219,7 +220,7 @@ func (m *Manager) List(ctx context.Context, filter ListFilter) ([]BacklogItem, e
 	query := `
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
-		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
+		       COALESCE(resolution, ''), COALESCE(resolved_at, ''), COALESCE(blocked_reason, ''),
 		       created_at, updated_at
 		FROM backlog_items
 		WHERE status = ?`
@@ -271,7 +272,7 @@ func (m *Manager) ListAll(ctx context.Context) ([]BacklogItem, error) {
 	query := `
 		SELECT id, title, severity, timeframe, scope, type, description,
 		       COALESCE(related, ''), position, status,
-		       COALESCE(resolution, ''), COALESCE(resolved_at, ''),
+		       COALESCE(resolution, ''), COALESCE(resolved_at, ''), COALESCE(blocked_reason, ''),
 		       created_at, updated_at
 		FROM backlog_items
 		ORDER BY
@@ -569,6 +570,7 @@ var allowedUpdateFields = map[string]string{
 	"description": "description",
 	"related":     "related",
 	"position":    "position",
+	"blocked":     "blocked_reason",
 }
 
 // Update modifies specified fields of an existing item.
@@ -774,18 +776,19 @@ func (m *Manager) DashboardSeverityCounts(ctx context.Context) (map[string]int, 
 
 // DashboardItem is a lightweight view for dashboard/API display.
 type DashboardItem struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	Severity    string `json:"severity"`
-	Timeframe   string `json:"timeframe"`
-	Scope       string `json:"scope"`
-	Type        string `json:"type"`
-	Status      string `json:"status"`
-	Description string `json:"description"`
-	Related     string `json:"related"`
-	Resolution  string `json:"resolution"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID            int    `json:"id"`
+	Title         string `json:"title"`
+	Severity      string `json:"severity"`
+	Timeframe     string `json:"timeframe"`
+	Scope         string `json:"scope"`
+	Type          string `json:"type"`
+	Status        string `json:"status"`
+	Description   string `json:"description"`
+	Related       string `json:"related"`
+	Resolution    string `json:"resolution"`
+	BlockedReason string `json:"blocked_reason"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // DashboardFilter specifies optional multi-value filters for dashboard queries.
@@ -831,7 +834,7 @@ func (m *Manager) DashboardList(ctx context.Context, f DashboardFilter) ([]Dashb
 	addInFilter("type", f.Type)
 
 	query := `SELECT id, title, severity, timeframe, scope, type, status, description,
-	          COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
+	          COALESCE(related,''), COALESCE(resolution,''), COALESCE(blocked_reason,''), created_at, updated_at
 	          FROM backlog_items`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -868,7 +871,7 @@ func (m *Manager) DashboardList(ctx context.Context, f DashboardFilter) ([]Dashb
 	for rows.Next() {
 		var b DashboardItem
 		if err := rows.Scan(&b.ID, &b.Title, &b.Severity, &b.Timeframe, &b.Scope, &b.Type,
-			&b.Status, &b.Description, &b.Related, &b.Resolution, &b.CreatedAt, &b.UpdatedAt); err != nil {
+			&b.Status, &b.Description, &b.Related, &b.Resolution, &b.BlockedReason, &b.CreatedAt, &b.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("DashboardList scan: %w", err)
 		}
 		items = append(items, b)
@@ -882,11 +885,11 @@ func (m *Manager) DashboardList(ctx context.Context, f DashboardFilter) ([]Dashb
 // DashboardGetByID returns a single backlog item for inline display.
 func (m *Manager) DashboardGetByID(ctx context.Context, id int) (*DashboardItem, error) {
 	row := m.q.QueryRow(ctx, `SELECT id, title, severity, timeframe, scope, type, status, description,
-		COALESCE(related,''), COALESCE(resolution,''), created_at, updated_at
+		COALESCE(related,''), COALESCE(resolution,''), COALESCE(blocked_reason,''), created_at, updated_at
 		FROM backlog_items WHERE id = ?`, id)
 	var b DashboardItem
 	err := row.Scan(&b.ID, &b.Title, &b.Severity, &b.Timeframe, &b.Scope, &b.Type,
-		&b.Status, &b.Description, &b.Related, &b.Resolution, &b.CreatedAt, &b.UpdatedAt)
+		&b.Status, &b.Description, &b.Related, &b.Resolution, &b.BlockedReason, &b.CreatedAt, &b.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -896,3 +899,11 @@ func (m *Manager) DashboardGetByID(ctx context.Context, id int) (*DashboardItem,
 	return &b, nil
 }
 
+// DashboardBlockedCount returns the number of FIXING items with a non-empty blocked_reason.
+func (m *Manager) DashboardBlockedCount(ctx context.Context) (int, error) {
+	var count int
+	err := m.q.QueryRow(ctx,
+		`SELECT COUNT(*) FROM backlog_items WHERE status = 'FIXING' AND blocked_reason IS NOT NULL AND blocked_reason != ''`,
+	).Scan(&count)
+	return count, err
+}

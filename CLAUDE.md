@@ -58,7 +58,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 
 - **버전 체계**: `v[메이저].[대].[중].[소]` — 메이저 0=개발중, 1=프레임워크 완성. 상위 3자리는 루트 `VERSION` 파일, 4번째 자리는 CI auto-tag가 자동 관리. 상세: `docs/apex_infra/cicd_guide.md` §10
 - **현재**: v0.6.4 — CI/CD 고도화 + SocketBase virtual interface(BACKLOG-133) + HttpServerBase/AdminHttpServer 런타임 로그 레벨(BACKLOG-179) + BlockingTaskExecutor CPU offload(BACKLOG-146). Helm Rollout CRD 지원, 3단계 검증 파이프라인
-- **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할), #169(idle timeout 제거+auto-restart), #174(notify merge 통합), #176(Go build.bat 허용+watchdog)
+- **도구**: apex-agent Go 백엔드 — HTTP 대시보드(`localhost:7600`), 빌드/머지 큐, 백로그 DB+CLI, 핸드오프 상태 머신, cleanup, 일별 로그 분할, 워크스페이스 모듈(디렉토리 스캔/동기화), 백로그 blocked_reason. 주요 완료: PR #126(재작성), #130(대시보드), #145(큐 히스토리), #150(IPC), #156(stale guard), #162(RESOLVED 원복 방지), #164(로직 강화), #167(로그 분할), #169(idle timeout 제거+auto-restart), #174(notify merge 통합), #176(Go build.bat 허용+watchdog), #195(워크스페이스+blocked_reason Phase 1)
 - **테스트**: CORE+SHARED 유닛 테스트 커버리지 보강 완료 (PR #146) — 핵심 경로 22건 추가. CrashHandler death test + Gateway config parser 22케이스 + intrusive_ptr 벤치마크 (PR #189, BACKLOG-142,171,200)
 - **다음**: v1.0.0.0 (프레임워크 완성)
 - 상세: `docs/Apex_Pipeline.md` §10
@@ -129,6 +129,17 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
   - Docker 이미지 태깅 전략 변경
 - **머지 전 체크**: 코어 영역 PR에서 가이드 갱신 여부 확인
 
+### apex-agent 워크플로우 가이드 유지보수
+- **갱신 트리거**: apex-agent 기능 변경 시 `docs/apex_tools/apex_agent_workflow_guide.md` + `apex_tools/apex-agent/CLAUDE.md` 동시 갱신 필수
+  - 모듈 추가/삭제 (workspace, session 등)
+  - 핸드오프 상태 머신 변경
+  - 백로그 상태 전이 변경 (blocked_reason 등 신규 필드)
+  - Hook 게이트 추가/삭제/조건 변경
+  - IPC 액션 추가/삭제
+  - config.toml 섹션 추가
+  - 머지 파이프라인 단계 변경
+- **정합성**: `apex_tools/apex-agent/CLAUDE.md`(CLI 레퍼런스)와 `docs/apex_tools/apex_agent_workflow_guide.md`(워크플로우 운영 레퍼런스)는 동일 사실을 다른 관점에서 기술 — 양쪽 불일치 금지
+
 ### 백로그
 - **저장**: DB가 source of truth, `docs/BACKLOG.json`은 git 백업. 상세 운영 규칙: `docs/CLAUDE.md` § 백로그 운영
 - **파일 직접 접근 금지** — `validate-backlog` hook이 Read/Edit/Write 모두 차단. CLI(`backlog list/show/add/update/resolve/release/fix/export`)만 사용
@@ -179,6 +190,7 @@ C++23 코루틴 기반 고성능 서버 프레임워크 모노레포.
 | 문서 작성/리뷰/브레인스토밍 | `docs/CLAUDE.md` |
 | 도구/플러그인 캐시/auto-review | `apex_tools/CLAUDE.md` |
 | **apex-agent Go 백엔드** ★ | `apex_tools/apex-agent/CLAUDE.md` |
+| **apex-agent 워크플로우 가이드** (상태 전이, 동시성, 데이터 정합성) | `docs/apex_tools/apex_agent_workflow_guide.md` |
 | E2E 테스트 실행/트러블슈팅 | `apex_services/tests/e2e/CLAUDE.md` |
 | CI/CD 트러블슈팅 | `.github/CLAUDE.md` |
 | **CI/CD 파이프라인 가이드** (전체 구조, 설정 변경, 트러블슈팅) | `docs/apex_infra/cicd_guide.md` |

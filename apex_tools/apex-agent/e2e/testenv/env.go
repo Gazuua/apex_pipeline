@@ -23,6 +23,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/hook"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/workspace"
 )
 
 type TestEnv struct {
@@ -73,10 +74,12 @@ func New(t *testing.T) *TestEnv {
 	backlogMod := backlog.New(d.Store())
 	queueMod := queue.New(d.Store())
 	handoffMod := handoff.New(d.Store(), backlogMod.Manager(), queueMod.Manager(), backlogMod.Manager())
+	workspaceMod := workspace.New(d.Store(), &config.WorkspaceConfig{})
 	d.Register(hook.New())
 	d.Register(backlogMod)
 	d.Register(handoffMod)
 	d.Register(queueMod)
+	d.Register(workspaceMod)
 
 	// Junction 콜백 (same as daemon_cmd.go)
 	backlogMod.Manager().SetJunctionCleaner(handoffMod.Manager().JunctionCleaner())
@@ -163,10 +166,12 @@ func (e *TestEnv) Restart(t *testing.T) {
 	backlogMod2 := backlog.New(d.Store())
 	queueMod2 := queue.New(d.Store())
 	handoffMod2 := handoff.New(d.Store(), backlogMod2.Manager(), queueMod2.Manager(), backlogMod2.Manager())
+	workspaceMod2 := workspace.New(d.Store(), &config.WorkspaceConfig{})
 	d.Register(hook.New())
 	d.Register(backlogMod2)
 	d.Register(handoffMod2)
 	d.Register(queueMod2)
+	d.Register(workspaceMod2)
 
 	backlogMod2.Manager().SetJunctionCleaner(handoffMod2.Manager().JunctionCleaner())
 	backlogMod2.Manager().SetJunctionCreator(handoffMod2.Manager().JunctionCreator())

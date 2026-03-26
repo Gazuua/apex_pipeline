@@ -215,6 +215,12 @@ func (m *Module) RegisterSchema(mig *store.Migrator) {
 		`)
 		return err
 	})
+
+	mig.Register("backlog", 4, func(tx *store.TxStore) error {
+		ctx := context.Background()
+		_, err := tx.Exec(ctx, `ALTER TABLE backlog_items ADD COLUMN blocked_reason TEXT`)
+		return err
+	})
 }
 
 // RegisterRoutes registers all backlog action handlers.

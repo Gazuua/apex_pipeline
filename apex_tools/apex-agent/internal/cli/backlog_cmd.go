@@ -399,6 +399,7 @@ func backlogExportCmd() *cobra.Command {
 
 func backlogUpdateCmd() *cobra.Command {
 	var title, severity, timeframe, scope, itemType, description, related string
+	var blocked string
 	var position int
 
 	cmd := &cobra.Command{
@@ -436,6 +437,9 @@ func backlogUpdateCmd() *cobra.Command {
 			if cmd.Flags().Changed("position") {
 				fields["position"] = fmt.Sprintf("%d", position)
 			}
+			if cmd.Flags().Changed("blocked") {
+				fields["blocked"] = blocked
+			}
 
 			if len(fields) == 0 {
 				return fmt.Errorf("최소 1개 필드를 지정하세요 (--title, --severity, --description 등)")
@@ -466,6 +470,7 @@ func backlogUpdateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "description", "", "설명")
 	cmd.Flags().StringVar(&related, "related", "", "연관 (예: 150,151)")
 	cmd.Flags().IntVar(&position, "position", 0, "섹션 내 순서 (같은 timeframe 내 다른 항목 자동 재배치)")
+	cmd.Flags().StringVar(&blocked, "blocked", "", "결정 대기 사유 설정 (빈 문자열로 해제)")
 
 	return cmd
 }

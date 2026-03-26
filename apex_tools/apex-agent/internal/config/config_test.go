@@ -106,6 +106,77 @@ addr = "127.0.0.1:9090"
 	}
 }
 
+func TestWorkspaceConfigDefaults(t *testing.T) {
+	cfg := Defaults()
+	if cfg.Workspace.RepoName != "apex_pipeline" {
+		t.Errorf("want repo_name=apex_pipeline, got %s", cfg.Workspace.RepoName)
+	}
+	if !cfg.Workspace.ScanOnStart {
+		t.Error("want scan_on_start=true")
+	}
+	if cfg.Workspace.Root != "" {
+		t.Errorf("want empty root, got %s", cfg.Workspace.Root)
+	}
+}
+
+func TestSessionConfigDefaults(t *testing.T) {
+	cfg := Defaults()
+	if !cfg.Session.Enabled {
+		t.Error("want session.enabled=true")
+	}
+	if cfg.Session.Addr != "localhost:7601" {
+		t.Errorf("want addr=localhost:7601, got %s", cfg.Session.Addr)
+	}
+	if cfg.Session.WatchdogInterval != 1*time.Second {
+		t.Errorf("want watchdog_interval=1s, got %v", cfg.Session.WatchdogInterval)
+	}
+	if cfg.Session.OutputBufferLines != 500 {
+		t.Errorf("want output_buffer_lines=500, got %d", cfg.Session.OutputBufferLines)
+	}
+}
+
+func TestWorkspaceSessionConfigLoad(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	os.WriteFile(path, []byte(`
+[workspace]
+root = "/tmp/workspaces"
+repo_name = "my_project"
+scan_on_start = false
+
+[session]
+enabled = false
+addr = "localhost:9999"
+watchdog_interval = "5s"
+output_buffer_lines = 100
+`), 0o644)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Workspace.Root != "/tmp/workspaces" {
+		t.Errorf("want root=/tmp/workspaces, got %s", cfg.Workspace.Root)
+	}
+	if cfg.Workspace.RepoName != "my_project" {
+		t.Errorf("want repo_name=my_project, got %s", cfg.Workspace.RepoName)
+	}
+	if cfg.Workspace.ScanOnStart {
+		t.Error("want scan_on_start=false")
+	}
+	if cfg.Session.Enabled {
+		t.Error("want session.enabled=false")
+	}
+	if cfg.Session.Addr != "localhost:9999" {
+		t.Errorf("want addr=localhost:9999, got %s", cfg.Session.Addr)
+	}
+	if cfg.Session.WatchdogInterval != 5*time.Second {
+		t.Errorf("want 5s, got %v", cfg.Session.WatchdogInterval)
+	}
+	if cfg.Session.OutputBufferLines != 100 {
+		t.Errorf("want 100, got %d", cfg.Session.OutputBufferLines)
+	}
+}
+
 func TestWriteDefault_CreatesFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
