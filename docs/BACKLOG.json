@@ -109,32 +109,6 @@
       "updated_at": "2026-03-26 12:48:23"
     },
     {
-      "id": 243,
-      "title": "Branches 대시보드 HandoffStatus/BacklogIDs/BlockedBacklogs 채움",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "DESIGN_DEBT",
-      "description": "workspaceQuerierAdapter.DashboardBranchesList()가 HandoffStatus, BacklogIDs, BlockedBacklogs 필드를 채우지 않음. active_branches LEFT JOIN + backlog_items 서브쿼리 추가 필요. 현재 UI에서 해당 정보 미표시.",
-      "position": 73,
-      "status": "OPEN",
-      "created_at": "2026-03-26 18:07:42",
-      "updated_at": "2026-03-26 18:07:42"
-    },
-    {
-      "id": 244,
-      "title": "Windows session server graceful shutdown (HTTP 엔드포인트)",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "Windows에서 SIGTERM 미지원으로 session stop이 Kill 강제 종료. graceful shutdown HTTP 엔드포인트(/api/shutdown) 추가하여 세션 정리 후 종료하도록 개선 필요. 현재는 stale PID 파일이 남을 수 있으나 isSessionRunning()의 IsProcessAlive 체크로 동작은 정상.",
-      "position": 74,
-      "status": "OPEN",
-      "created_at": "2026-03-26 18:07:54",
-      "updated_at": "2026-03-26 18:07:54"
-    },
-    {
       "id": 36,
       "title": "Acceptor core 0 부하 불균형",
       "severity": "MINOR",
@@ -264,6 +238,36 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 243,
+      "title": "Branches 대시보드 HandoffStatus/BacklogIDs/BlockedBacklogs 채움",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "workspaceQuerierAdapter.DashboardBranchesList()가 HandoffStatus, BacklogIDs, BlockedBacklogs 필드를 채우지 않음. active_branches LEFT JOIN + backlog_items 서브쿼리 추가 필요. 현재 UI에서 해당 정보 미표시.",
+      "position": 73,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 18:28:13",
+      "created_at": "2026-03-26 18:07:42",
+      "updated_at": "2026-03-26 18:28:13"
+    },
+    {
+      "id": 244,
+      "title": "Windows session server graceful shutdown (HTTP 엔드포인트)",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "Windows에서 SIGTERM 미지원으로 session stop이 Kill 강제 종료. graceful shutdown HTTP 엔드포인트(/api/shutdown) 추가하여 세션 정리 후 종료하도록 개선 필요. 현재는 stale PID 파일이 남을 수 있으나 isSessionRunning()의 IsProcessAlive 체크로 동작은 정상.",
+      "position": 74,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 18:28:13",
+      "created_at": "2026-03-26 18:07:54",
+      "updated_at": "2026-03-26 18:28:13"
     },
     {
       "id": 238,
