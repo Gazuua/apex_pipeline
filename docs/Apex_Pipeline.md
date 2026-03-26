@@ -323,7 +323,7 @@ shared-nothing 코어 간 안전한 통신 메커니즘:
 - Gateway TLS 종단 (내부 평문)
 - JWT 로컬 검증 → 블룸필터 체크 → 필요 시만 Redis 블랙리스트 조회
 - 보안 민감 작업은 메시지 타입별 강제 Redis 검증
-- SecureString 메모리 제로화 — password/시크릿 필드에 explicit_bzero/SecureZeroMemory 적용 (Kafka SASL, Redis, PG, Gateway, JWT)
+- SecureString 메모리 제로화 + constant-time 비교 — password/시크릿 필드에 explicit_bzero/SecureZeroMemory 적용 (Kafka SASL, Redis, PG, Gateway, JWT), constant_time_equal() 메서드로 타이밍 사이드채널 방지
 - External Secrets Operator (ESO) + AWS Secrets Manager 연동 — K8s Secret 자동 동기화
 
 ---
@@ -507,6 +507,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [코어+서비스] BlockingTaskExecutor — CPU-bound 작업 thread pool offload + AuthService bcrypt 블로킹 해소 (BACKLOG-146, PR #196)
          [보안] SecureString 메모리 제로화 + ESO/AWS Secrets Manager 연동 (BACKLOG-135,198, PR #201)
          [수정] K8s Helm logging.file 비활성화 — readOnlyRootFilesystem 충돌 수정 (BACKLOG-255, PR #203)
+         [보안+게이트웨이] SecureString constant-time 비교 + Gateway RL 라이프사이클/포인터 소탕 (BACKLOG-245,250,251, PR #204)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```

@@ -263,6 +263,11 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - `SecureString` 래퍼 (copyable, 각 복사본 독립 제로화) — Kafka SASL, Redis, PG, Gateway, JWT password 필드 전체 적용
   - External Secrets Operator + AWS Secrets Manager Helm 템플릿 (로컬 `enabled: false`)
 
+- **보안+게이트웨이: SecureString constant-time 비교 + Gateway 라이프사이클/포인터 소탕 (PR #204, BACKLOG-245,250,251)**
+  - `SecureString::constant_time_equal()` — XOR 누적 기반 타이밍 사이드채널 방지
+  - Gateway RL RedisAdapter → Server::add_adapter() 라이프사이클 통합 (graceful shutdown 포함)
+  - GatewayPipeline rate_limiter_ atomic 제거 → 초기화 전용 plain pointer
+
 - **인프라: Helm Chart.lock 커밋 + charts/ tgz gitignore (PR #198)**
   - 빌드 재현성을 위한 Chart.lock 버전 관리, 패키징 산출물 gitignore 처리
 

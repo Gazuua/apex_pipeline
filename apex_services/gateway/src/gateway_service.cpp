@@ -45,14 +45,12 @@ GatewayGlobals::~GatewayGlobals()
     }
 }
 
-GatewayService::GatewayService(const GatewayConfig& config, const JwtVerifier& jwt_verifier, RouteTablePtr route_table,
-                               apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter)
+GatewayService::GatewayService(const GatewayConfig& config, const JwtVerifier& jwt_verifier, RouteTablePtr route_table)
     : ServiceBase("gateway")
     , config_(config)
     , jwt_verifier_(&jwt_verifier)
     , route_table_(std::move(route_table))
     , pending_requests_(config_.max_pending_per_core, config_.request_timeout)
-    , rl_redis_adapter_(rl_redis_adapter)
 {}
 
 GatewayService::~GatewayService() = default;
@@ -60,8 +58,9 @@ GatewayService::~GatewayService() = default;
 // ── Phase 1: 어댑터 참조 획득 + per-core 컴포넌트 초기화 ─────────────────
 void GatewayService::on_configure(apex::core::ConfigureContext& ctx)
 {
-    // Kafka 어댑터 참조 획득
+    // 어댑터 참조 획득 (Server가 라이프사이클 관리)
     kafka_ = &ctx.server.adapter<apex::shared::adapters::kafka::KafkaAdapter>();
+    rl_redis_adapter_ = &ctx.server.adapter<apex::shared::adapters::redis::RedisAdapter>("ratelimit");
 
     // per-core 컴포넌트 초기화 (어댑터 참조 필요)
     pipeline_ = std::make_unique<GatewayPipeline>(config_, *jwt_verifier_, nullptr, nullptr);
@@ -379,10 +378,9 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
     g.pubsub_listener->start();
 
     // ── Rate Limiting ────────────────────────────────────────────────
+    // Server::add_adapter()가 라이프사이클(init/drain/close)을 관리하므로 수동 init 불필요.
     if (rl_redis_adapter_)
     {
-        rl_redis_adapter_->init(ctx.server.core_engine());
-
         // EndpointRateConfig 빌드
         apex::shared::rate_limit::EndpointRateConfig ep_config;
         ep_config.default_limit = config_.rate_limit.endpoint.default_limit;
