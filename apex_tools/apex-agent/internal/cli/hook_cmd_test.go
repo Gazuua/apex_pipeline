@@ -53,3 +53,83 @@ func TestExtractFlag_Missing(t *testing.T) {
 		t.Errorf("expected empty string, got %q", got)
 	}
 }
+
+// --- Additional edge-case tests (BACKLOG-223) ---
+
+func TestExtractFlag_Table(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		flag    string
+		want    string
+	}{
+		{name: "flag at end without value", command: "gh pr create --base", flag: "--base", want: ""},
+		{name: "flag=value no spaces", command: "--target=apex_core", flag: "--target", want: "apex_core"},
+		{name: "multiple flags", command: "cmd --foo bar --base main --baz", flag: "--base", want: "main"},
+		{name: "flag with equals and trailing args", command: "cmd --base=dev --squash", flag: "--base", want: "dev"},
+		{name: "similar flag prefix", command: "cmd --base-ref main", flag: "--base", want: ""},
+		{name: "empty command", command: "", flag: "--base", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFlag(tt.command, tt.flag)
+			if got != tt.want {
+				t.Errorf("extractFlag(%q, %q) = %q, want %q", tt.command, tt.flag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindShellSubcommand_Table(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		prefix  string
+		want    string
+	}{
+		{name: "exact match", command: "gh pr create", prefix: "gh pr create", want: "gh pr create"},
+		{name: "no match", command: "git push origin", prefix: "gh pr create", want: ""},
+		{name: "semicolon chain", command: "echo ok; gh pr create --base main", prefix: "gh pr create", want: "gh pr create --base main"},
+		{name: "pipe chain", command: "echo ok || gh pr create", prefix: "gh pr create", want: "gh pr create"},
+		{name: "triple chain", command: "a && b && gh pr create --title t", prefix: "gh pr create", want: "gh pr create --title t"},
+		{name: "prefix in middle of word", command: "gh pr create-draft", prefix: "gh pr create", want: "gh pr create-draft"},
+		{name: "empty command", command: "", prefix: "gh pr", want: ""},
+		{name: "whitespace padding", command: "  gh pr create  ", prefix: "gh pr create", want: "gh pr create"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findShellSubcommand(tt.command, tt.prefix)
+			if got != tt.want {
+				t.Errorf("findShellSubcommand(%q, %q) = %q, want %q", tt.command, tt.prefix, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContainsShellCommand_Table(t *testing.T) {
+	tests := []struct {
+		name    string
+		command string
+		prefix  string
+		want    bool
+	}{
+		{name: "simple match", command: "gh pr merge --squash", prefix: "gh pr merge", want: true},
+		{name: "no match", command: "git status", prefix: "gh pr merge", want: false},
+		{name: "empty command", command: "", prefix: "gh pr merge", want: false},
+		{name: "empty prefix", command: "anything", prefix: "", want: true},
+		{name: "chained &&", command: "echo hi && gh pr merge", prefix: "gh pr merge", want: true},
+		{name: "chained ||", command: "echo hi || gh pr merge", prefix: "gh pr merge", want: true},
+		{name: "chained ;", command: "echo hi; gh pr merge", prefix: "gh pr merge", want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := containsShellCommand(tt.command, tt.prefix)
+			if got != tt.want {
+				t.Errorf("containsShellCommand(%q, %q) = %v, want %v", tt.command, tt.prefix, got, tt.want)
+			}
+		})
+	}
+}

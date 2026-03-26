@@ -409,9 +409,9 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 
 	switch status {
 	case StatusFixing:
-		// FIXING 전이 시 이미 FIXING인 항목을 DB 레벨에서 방어
-		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status != ?`
-		args = append(args, StatusFixing)
+		// FIXING 전이는 OPEN에서만 허용 — RESOLVED→FIXING, FIXING→FIXING 원복 방지 (TOCTOU 해소)
+		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status = ?`
+		args = append(args, StatusOpen)
 	case StatusOpen:
 		// OPEN 전이는 FIXING에서만 허용 — RESOLVED 원복 방지
 		query = `UPDATE backlog_items SET status = ?, updated_at = datetime('now','localtime') WHERE id = ? AND status = ?`
@@ -437,12 +437,15 @@ func (m *Manager) SetStatusWith(ctx context.Context, q store.Querier, id int, st
 			}
 			if scanErr != nil {
 				// Fallback to generic message if diagnostic query fails.
-				return fmt.Errorf("SetStatus: item %d not found or already FIXING", id)
+				return fmt.Errorf("SetStatus: item %d not found or not OPEN", id)
 			}
 			if currentStatus == StatusFixing {
 				return fmt.Errorf("SetStatus: item %d already FIXING (possibly concurrent registration)", id)
 			}
-			return fmt.Errorf("SetStatus: item %d unexpected state %s for FIXING transition", id, currentStatus)
+			if currentStatus == StatusResolved {
+				return fmt.Errorf("SetStatus: item %d is RESOLVED (resolved items cannot transition to FIXING)", id)
+			}
+			return fmt.Errorf("SetStatus: item %d unexpected state %s for FIXING transition (expected OPEN)", id, currentStatus)
 		case StatusOpen:
 			return fmt.Errorf("SetStatus: item %d not found or not FIXING (RESOLVED items cannot revert to OPEN)", id)
 		default:

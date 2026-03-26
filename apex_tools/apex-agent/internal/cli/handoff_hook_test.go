@@ -39,3 +39,56 @@ func TestIsDaemonManagementCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestIsGitCommit(t *testing.T) {
+	tests := []struct {
+		command string
+		want    bool
+	}{
+		{"git commit -m 'test'", true},
+		{`git commit -m "fix: something"`, true},
+		{"git commit --amend", true},
+		{"git commit", true},
+		{"git push origin main", false},
+		{"echo git commit", true}, // Contains "git commit" — simple substring match
+		{"git status", false},
+		{"", false},
+		{"gitcommit", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			if got := isGitCommit(tt.command); got != tt.want {
+				t.Errorf("isGitCommit(%q) = %v, want %v", tt.command, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsFeatureBranch(t *testing.T) {
+	tests := []struct {
+		branch string
+		want   bool
+	}{
+		{"feature/cli-tests", true},
+		{"feature/", true},
+		{"bugfix/fix-typo", true},
+		{"bugfix/", true},
+		{"main", false},
+		{"master", false},
+		{"develop", false},
+		{"release/1.0", false},
+		{"", false},
+		{"Feature/uppercase", false}, // case-sensitive
+		{"feature", false},           // no trailing slash
+		{"bugfix", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.branch, func(t *testing.T) {
+			if got := isFeatureBranch(tt.branch); got != tt.want {
+				t.Errorf("isFeatureBranch(%q) = %v, want %v", tt.branch, got, tt.want)
+			}
+		})
+	}
+}
