@@ -70,8 +70,9 @@ apex::core::Result<void> KafkaConsumer::init()
     conf_set("client.id", (config_.client_id + "-consumer-" + std::to_string(core_id_)).c_str());
     // auto.offset.reset = earliest (for new consumer groups)
     conf_set("auto.offset.reset", "earliest");
-    // enable.auto.commit = true (default, kept for convenience)
-    conf_set("enable.auto.commit", "true");
+    // Manual commit for at-least-once delivery (BACKLOG-247).
+    // Offset is committed only after successful processing or DLQ routing.
+    conf_set("enable.auto.commit", "false");
 
     // Security settings (only apply non-empty values).
     // Security config failures are fatal — falling through to plaintext is worse than failing init.
@@ -191,12 +192,54 @@ void KafkaConsumer::stop_consuming()
         poll_timer_->cancel();
 }
 
+void KafkaConsumer::commit_offset(const rd_kafka_message_t* msg)
+{
+    // Async commit — non-blocking, at-least-once semantics.
+    // If commit fails, the message will be redelivered on next consumer start.
+    rd_kafka_resp_err_t err = rd_kafka_commit_message(rk_, msg, /* async */ 1);
+    if (err != RD_KAFKA_RESP_ERR_NO_ERROR)
+    {
+        logger_.warn("commit failed (topic={}, offset={}): {}", rd_kafka_topic_name(msg->rkt), msg->offset,
+                     rd_kafka_err2str(err));
+    }
+}
+
+bool KafkaConsumer::produce_to_dlq(const rd_kafka_message_t* msg, std::span<const uint8_t> key_span,
+                                   std::span<const uint8_t> payload_span)
+{
+    auto dlq_topic = std::string(rd_kafka_topic_name(msg->rkt)) + "-dlq";
+    std::string_view key_sv;
+    if (!key_span.empty())
+    {
+        key_sv = std::string_view(reinterpret_cast<const char*>(key_span.data()), key_span.size());
+    }
+
+    const int max_retries = config_.dlq_max_retries;
+    for (int attempt = 1; attempt <= max_retries; ++attempt)
+    {
+        auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
+        if (dlq_result.has_value())
+        {
+            return true;
+        }
+        logger_.warn("DLQ produce attempt {}/{} failed (topic={}, offset={})", attempt, max_retries, dlq_topic,
+                     msg->offset);
+    }
+
+    logger_.error("DLQ produce exhausted {} retries (topic={}, offset={}) — "
+                  "offset NOT committed, message will be redelivered",
+                  max_retries, dlq_topic, msg->offset);
+    return false;
+}
+
 void KafkaConsumer::poll_messages()
 {
     if (!rk_ || !consuming_)
         return;
 
-    // Non-blocking batch poll
+    // Non-blocking batch poll with manual commit (at-least-once delivery).
+    // Commit occurs only after: (a) successful processing, or (b) successful DLQ routing.
+    // If both fail, offset is NOT committed — message will be redelivered.
     const int max_batch = config_.consumer_max_batch;
     int consumed_count = 0;
     for (int i = 0; i < max_batch; ++i)
@@ -221,35 +264,39 @@ void KafkaConsumer::poll_messages()
                 }
                 auto result =
                     message_cb_(rd_kafka_topic_name(msg->rkt), msg->partition, key_span, payload_span, msg->offset);
-                // DLQ routing: failed callback + producer available
-                if (!result.has_value() && !producer_)
+
+                if (result.has_value())
                 {
-                    logger_.warn("Message processing failed (topic={}, offset={}) "
-                                 "but no DLQ producer configured — message dropped",
+                    // Success — safe to commit
+                    commit_offset(msg);
+                }
+                else if (!producer_)
+                {
+                    // No DLQ producer — cannot safely commit, message will be redelivered
+                    logger_.warn("processing failed (topic={}, offset={}) "
+                                 "but no DLQ producer — offset not committed",
                                  rd_kafka_topic_name(msg->rkt), msg->offset);
                 }
-                if (!result.has_value() && producer_)
+                else
                 {
-                    auto dlq_topic = std::string(rd_kafka_topic_name(msg->rkt)) + "-dlq";
-                    logger_.warn("Message processing failed (topic={}, offset={}), "
-                                 "routing to DLQ: {}",
+                    // Route to DLQ with retries
+                    logger_.warn("processing failed (topic={}, offset={}), routing to DLQ: {}",
                                  rd_kafka_topic_name(msg->rkt), msg->offset,
                                  apex::core::error_code_name(result.error()));
-                    // Convert key_span to string_view for producer API
-                    std::string_view key_sv;
-                    if (!key_span.empty())
-                    {
-                        key_sv = std::string_view(reinterpret_cast<const char*>(key_span.data()), key_span.size());
-                    }
                     metric_dlq_total_.fetch_add(1, std::memory_order_relaxed);
-                    auto dlq_result = producer_->produce(dlq_topic, key_sv, payload_span);
-                    if (!dlq_result.has_value())
+
+                    if (produce_to_dlq(msg, key_span, payload_span))
                     {
-                        logger_.error("DLQ produce failed (topic={}, offset={}): "
-                                      "message permanently lost",
-                                      dlq_topic, msg->offset);
+                        // DLQ succeeded — message is safe, commit original offset
+                        commit_offset(msg);
                     }
+                    // else: DLQ exhausted retries — offset NOT committed, will redeliver
                 }
+            }
+            else
+            {
+                // No callback registered — commit anyway (no processing expected)
+                commit_offset(msg);
             }
             metric_consume_total_.fetch_add(1, std::memory_order_relaxed);
             ++consumed_count;

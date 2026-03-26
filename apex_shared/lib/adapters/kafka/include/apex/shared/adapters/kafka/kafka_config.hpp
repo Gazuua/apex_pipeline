@@ -48,6 +48,7 @@ struct KafkaConfig
     uint32_t consumer_poll_timeout_ms = 0;               ///< rd_kafka_consumer_poll timeout
     std::chrono::milliseconds consumer_poll_interval{5}; ///< Windows poll interval
     int consumer_max_batch = 64;                         ///< poll당 최대 메시지 수
+    int dlq_max_retries = 3;                             ///< DLQ produce 실패 시 재시도 횟수
 
     // Consumer Payload Pool
     size_t payload_pool_initial_count = 64; ///< 사전 할당 버퍼 수

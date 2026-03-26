@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "apex-common.fullname" . }}
+  labels:
+    {{- include "apex-common.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "apex-common.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # External WebSocket traffic via Ingress controller
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - port: 8443
+          protocol: TCP
+    # Prometheus metrics scrape
+    - ports:
+        - port: 8081
+          protocol: TCP
+  egress:
+    # Kafka (produce/consume)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apex-infra
+      ports:
+        - port: 9092
+          protocol: TCP
+    # Redis (auth, ratelimit, pubsub)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apex-infra
+      ports:
+        - port: 6379
+          protocol: TCP
+    # DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}

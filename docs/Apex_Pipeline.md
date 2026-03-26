@@ -508,6 +508,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [보안] SecureString 메모리 제로화 + ESO/AWS Secrets Manager 연동 (BACKLOG-135,198, PR #201)
          [수정] K8s Helm logging.file 비활성화 — readOnlyRootFilesystem 충돌 수정 (BACKLOG-255, PR #203)
          [보안+게이트웨이] SecureString constant-time 비교 + Gateway RL 라이프사이클/포인터 소탕 (BACKLOG-245,250,251, PR #204)
+         [보안] Kafka manual commit + Gateway 시스템 메시지 인증 + auth exempt rate limit + K8s NetworkPolicy (BACKLOG-247,248,249,253, PR #207)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```

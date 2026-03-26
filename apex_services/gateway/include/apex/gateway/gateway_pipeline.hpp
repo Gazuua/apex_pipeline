@@ -89,7 +89,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             co_return apex::core::error(apex::core::ErrorCode::ServiceError);
         }
 
-        // Layer 2 + 3: Per-User + Per-Endpoint rate limit (Redis) -- only for authenticated users
+        // Layer 2 + 3: Per-User + Per-Endpoint rate limit (Redis)
         if (state.authenticated)
         {
             auto user_result = co_await check_user_rate_limit(state.user_id);
@@ -106,6 +106,20 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
             {
                 logger_.debug(session, header.msg_id, "pipeline::process denied at endpoint rate-limit (user_id={})",
                               state.user_id);
+                send_error(ep_result.error());
+                co_return apex::core::error(apex::core::ErrorCode::ServiceError);
+            }
+        }
+        else if (config_.auth.auth_exempt_msg_ids.contains(header.msg_id))
+        {
+            // BACKLOG-248: Auth-exempt messages get per-endpoint rate limit keyed by IP.
+            // Prevents brute-force via LoginRequest etc. (e.g., Login is 10/60s per IP).
+            auto ip_key = fnv1a_hash(remote_ip);
+            auto ep_result = co_await check_endpoint_rate_limit(ip_key, header.msg_id);
+            if (!ep_result)
+            {
+                logger_.debug(session, header.msg_id, "pipeline::process denied at endpoint rate-limit (exempt, ip={})",
+                              remote_ip);
                 send_error(ep_result.error());
                 co_return apex::core::error(apex::core::ErrorCode::ServiceError);
             }
@@ -252,6 +266,14 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     }
 
   private:
+    [[nodiscard]] static uint64_t fnv1a_hash(std::string_view s) noexcept
+    {
+        uint64_t h = 14695981039346656037ULL;
+        for (char c : s)
+            h = (h ^ static_cast<uint64_t>(static_cast<unsigned char>(c))) * 1099511628211ULL;
+        return h;
+    }
+
     [[nodiscard]] static uint64_t now_ms() noexcept
     {
         return static_cast<uint64_t>(
