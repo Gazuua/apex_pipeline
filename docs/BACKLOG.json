@@ -1,5 +1,5 @@
 {
-  "next_id": 256,
+  "next_id": 258,
   "items": [
     {
       "id": 242,
@@ -13,7 +13,7 @@
       "position": 15,
       "status": "FIXING",
       "created_at": "2026-03-26 16:37:49",
-      "updated_at": "2026-03-26 20:24:39"
+      "updated_at": "2026-03-26 22:13:22"
     },
     {
       "id": 113,
@@ -95,19 +95,6 @@
       "updated_at": "2026-03-26 21:45:52"
     },
     {
-      "id": 246,
-      "title": "SecureString SSO 버퍼 잔류 — 소멸 시 sizeof(string) 전체 제로화 또는 커스텀 allocator",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "SHARED",
-      "type": "SECURITY",
-      "description": "std::string의 SSO(Small String Optimization)로 인해 15자 이하 문자열은 힙이 아닌 객체 내부 버퍼에 저장됨. clear()+shrink_to_fit() 후에도 SSO 버퍼에 민감 데이터가 잔류할 수 있음. 또한 move 시 소스 객체의 SSO 버퍼도 미제로화. 프로덕션 password는 보통 SSO 임계(15자) 초과이므로 실질 위험은 낮지만 완전한 보장이 필요. 설계 결정: (A) clear()에서 sizeof(std::string) 전체를 SecureZeroMemory로 제로화 — 이식성 우려, (B) std::vector<char> + secure_allocator로 교체 — SSO 자체를 제거, (C) 현행 유지 + 문서 경고만. BACKLOG-245(타이밍)와 묶어서 SecureString v2로 진행 권장.\n\n**[FSD 분석 2026-03-26]** 소멸자에서 sizeof(string) 전체 제로화(A안)는 이미 파괴된 string 객체의 raw bytes를 다시 밟는 UB 경계 이슈. B안(vector+secure_allocator)은 대규모 리팩토링. 설계 결정이 필요하여 FSD 자동화 부적합.",
-      "position": 76,
-      "status": "OPEN",
-      "created_at": "2026-03-26 20:05:11",
-      "updated_at": "2026-03-26 21:32:38"
-    },
-    {
       "id": 247,
       "title": "Kafka Consumer auto-commit + DLQ 실패 시 메시지 영구 유실 — manual commit 전환 검토",
       "severity": "MAJOR",
@@ -184,6 +171,20 @@
       "status": "OPEN",
       "created_at": "2026-03-26 20:07:22",
       "updated_at": "2026-03-26 21:45:58"
+    },
+    {
+      "id": 256,
+      "title": "Acceptor per-IP 연결 제한 — Listener 프레임워크 레벨 구현",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE,GATEWAY",
+      "type": "SECURITY",
+      "description": "BACKLOG-249에서 설계된 per-IP 연결 제한. Listener/ConnectionHandler/Session 생애주기에 걸친 프레임워크 변경 필요 (per-IP 카운터 + RAII release). BACKLOG-249의 핵심 보안(시스템 메시지 인증+rate limit)은 완료, 이것은 추가 defense-in-depth.",
+      "related": "249",
+      "position": 85,
+      "status": "OPEN",
+      "created_at": "2026-03-26 22:11:05",
+      "updated_at": "2026-03-26 22:11:05"
     },
     {
       "id": 36,
@@ -302,6 +303,34 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 257,
+      "title": "MetadataPrefix trace_id 필드 도입 — corr_id/trace_id 분리 + OpenTelemetry 호환",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "CORE,SHARED",
+      "type": "DESIGN_DEBT",
+      "description": "현재 corr_id가 trace_id 역할을 겸하고 있음. ScopedLogger::with_trace(corr_id)로 요청 추적 가능하나 구조적 한계 존재: (1) corr_id==0인 server push 메시지(Whisper 등)는 추적 불가 — push 메시지에도 발신 요청까지 역추적할 trace 컨텍스트 필요 (2) 서비스 간 멀티 hop 체이닝(A→B→C) 시 각 구간마다 새 corr_id가 발급되면 단일 요청을 이어서 추적 불가 — trace_id는 전 구간 동일, corr_id(span_id)는 구간별 신규 (3) OpenTelemetry/W3C Trace Context 표준과 호환 안 됨 — 프로덕션 APM 도구 연동 불가. 구현 방향: MetadataPrefix에 trace_id(uint64 또는 128bit) 필드 추가, KafkaSink의 주석 처리된 trace_id 출력 활성화, ScopedLogger MDC 연동. 현재 단일 hop(Gateway↔Service) 구조에서는 corr_id로 충분하므로 멀티 hop 체이닝 또는 APM 도입 시점에 착수.",
+      "position": 26,
+      "status": "OPEN",
+      "created_at": "2026-03-26 22:17:10",
+      "updated_at": "2026-03-26 22:17:10"
+    },
+    {
+      "id": 246,
+      "title": "SecureString SSO 버퍼 잔류 — 소멸 시 sizeof(string) 전체 제로화 또는 커스텀 allocator",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "SHARED",
+      "type": "SECURITY",
+      "description": "std::string의 SSO(Small String Optimization)로 인해 15자 이하 문자열은 힙이 아닌 객체 내부 버퍼에 저장됨. clear()+shrink_to_fit() 후에도 SSO 버퍼에 민감 데이터가 잔류할 수 있음. 또한 move 시 소스 객체의 SSO 버퍼도 미제로화. 프로덕션 password는 보통 SSO 임계(15자) 초과이므로 실질 위험은 낮지만 완전한 보장이 필요. 설계 결정: (A) clear()에서 sizeof(std::string) 전체를 SecureZeroMemory로 제로화 — 이식성 우려, (B) std::vector<char> + secure_allocator로 교체 — SSO 자체를 제거, (C) 현행 유지 + 문서 경고만. BACKLOG-245(타이밍)와 묶어서 SecureString v2로 진행 권장.\n\n**[FSD 분석 2026-03-26]** 소멸자에서 sizeof(string) 전체 제로화(A안)는 이미 파괴된 string 객체의 raw bytes를 다시 밟는 UB 경계 이슈. B안(vector+secure_allocator)은 대규모 리팩토링. 설계 결정이 필요하여 FSD 자동화 부적합.",
+      "position": 76,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 22:06:56",
+      "created_at": "2026-03-26 20:05:11",
+      "updated_at": "2026-03-26 22:06:56"
     },
     {
       "id": 251,
