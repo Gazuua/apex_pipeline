@@ -11,9 +11,9 @@
       "description": "[유저 대상 — 에이전트 자율 수행 아님] PR #195 머지 후 아래 항목을 수동 검증: (1) config.toml에 [workspace] 섹션 추가 후 데몬 재시작. apex-agent config show로 workspace/session 섹션 출력 확인. root 경로를 실제 워크스페이스 루트로 설정. (2) workspace scan 동작 확인. 바이너리 갱신(apex-agent queue 빌드) 후 데몬 재시작. 대시보드 localhost:7600 정상 동작 확인. DB local_branches 테이블 생성 확인. (3) backlog --blocked 동작 확인. apex-agent backlog update {ID} --blocked 테스트사유 → show로 확인 → --blocked 빈문자열로 해제 확인. (4) 하위 호환성: 다른 워크스페이스 에이전트가 정상 동작하는지 확인 (hook, 핸드오프, 빌드 큐 등).",
       "related": "238,239",
       "position": 15,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-26 16:37:49",
-      "updated_at": "2026-03-26 16:37:49"
+      "updated_at": "2026-03-26 20:24:39"
     },
     {
       "id": 113,
