@@ -108,8 +108,9 @@ func daemonRunCmd() *cobra.Command {
 			bqa := &backlogQuerierAdapter{mgr: backlogMod.Manager()}
 			hqa := &handoffQuerierAdapter{mgr: handoffMod.Manager()}
 			qqa := &queueQuerierAdapter{mgr: queueMod.Manager()}
+			wqa := &workspaceQuerierAdapter{mgr: workspaceMod.Manager()}
 			d.SetHTTPServerFactory(func(addr string) *httpd.Server {
-				return httpd.New(bqa, hqa, qqa, d.Router(), addr)
+				return httpd.New(bqa, hqa, qqa, wqa, d.Router(), addr, appCfg.Session.Addr)
 			})
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()

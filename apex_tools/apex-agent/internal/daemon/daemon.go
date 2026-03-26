@@ -166,7 +166,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 			hs = d.httpFactory(d.cfg.HTTP.Addr)
 		} else {
 			// Fallback: health-only mode (no module managers)
-			hs = httpd.New(nil, nil, nil, d.router, d.cfg.HTTP.Addr)
+			hs = httpd.New(nil, nil, nil, nil, d.router, d.cfg.HTTP.Addr, "")
 		}
 		if err := hs.Start(); err != nil {
 			ml.Warn("HTTP server failed to start, dashboard unavailable", "error", err)

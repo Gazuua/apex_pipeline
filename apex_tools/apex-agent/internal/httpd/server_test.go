@@ -12,7 +12,7 @@ import (
 )
 
 func TestServer_StartStop(t *testing.T) {
-	srv := New(nil, nil, nil, nil, "localhost:0")
+	srv := New(nil, nil, nil, nil, nil, "localhost:0", "")
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestServer_StartStop(t *testing.T) {
 }
 
 func TestServer_LastRequestTime(t *testing.T) {
-	srv := New(nil, nil, nil, nil, "localhost:0")
+	srv := New(nil, nil, nil, nil, nil, "localhost:0", "")
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestServer_LastRequestTime(t *testing.T) {
 }
 
 func TestServer_StaticFiles(t *testing.T) {
-	srv := New(nil, nil, nil, nil, "localhost:0")
+	srv := New(nil, nil, nil, nil, nil, "localhost:0", "")
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestServer_StaticFiles(t *testing.T) {
 }
 
 func TestServer_StaticCSS(t *testing.T) {
-	srv := New(nil, nil, nil, nil, "localhost:0")
+	srv := New(nil, nil, nil, nil, nil, "localhost:0", "")
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestServer_StaticCSS(t *testing.T) {
 }
 
 func TestServer_StopIdempotent(t *testing.T) {
-	srv := New(nil, nil, nil, nil, "localhost:0")
+	srv := New(nil, nil, nil, nil, nil, "localhost:0", "")
 	if err := srv.Start(); err != nil {
 		t.Fatalf("Start failed: %v", err)
 	}

@@ -26,8 +26,33 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Backlog inline detail (for handoff page)
 	mux.HandleFunc("GET /partials/backlog-inline/{id}", s.handlePartialBacklogInline)
 
+	// Branches page + partials
+	mux.HandleFunc("GET /branches", s.handleBranches)
+	mux.HandleFunc("GET /partials/branches", s.handlePartialBranches)
+	mux.HandleFunc("GET /partials/blocked-badge", s.handlePartialBlockedBadge)
+
 	// JSON API
 	mux.HandleFunc("GET /api/backlog", s.handleAPIBacklog)
 	mux.HandleFunc("GET /api/handoff", s.handleAPIHandoff)
 	mux.HandleFunc("GET /api/queue", s.handleAPIQueue)
+
+	// Workspace API
+	mux.HandleFunc("GET /api/workspace", s.handleAPIWorkspace)
+	mux.HandleFunc("POST /api/workspace/scan", s.handleWorkspaceScan)
+	mux.HandleFunc("POST /api/workspace/{id}/sync", s.handleWorkspaceSync)
+	mux.HandleFunc("POST /api/workspace/sync-all", s.handleWorkspaceSyncAll)
+
+	// Session proxy routes (→ session server)
+	if s.sessionProxy != nil {
+		mux.HandleFunc("/api/session/", func(w http.ResponseWriter, r *http.Request) {
+			s.sessionProxy.HandleHTTP(w, r)
+		})
+		mux.HandleFunc("/ws/session/", func(w http.ResponseWriter, r *http.Request) {
+			if IsWebSocket(r) {
+				s.sessionProxy.HandleWebSocket(w, r)
+			} else {
+				s.sessionProxy.HandleHTTP(w, r)
+			}
+		})
+	}
 }

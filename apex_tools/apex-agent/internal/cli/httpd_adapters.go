@@ -10,6 +10,7 @@ import (
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/backlog"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/handoff"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/queue"
+	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/modules/workspace"
 )
 
 // ── BacklogQuerier adapter ──
@@ -191,4 +192,33 @@ func (a *queueQuerierAdapter) DashboardQueueHistory(channel string, offset, limi
 		}
 	}
 	return result, nil
+}
+
+// ── WorkspaceQuerier adapter ──
+
+type workspaceQuerierAdapter struct {
+	mgr *workspace.Manager
+}
+
+func (a *workspaceQuerierAdapter) DashboardBranchesList() ([]httpd.BranchInfo, error) {
+	branches, err := a.mgr.List(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]httpd.BranchInfo, len(branches))
+	for i, b := range branches {
+		result[i] = httpd.BranchInfo{
+			WorkspaceID:   b.WorkspaceID,
+			Directory:     b.Directory,
+			GitBranch:     b.GitBranch,
+			GitStatus:     b.GitStatus,
+			SessionStatus: b.SessionStatus,
+			SessionID:     b.SessionID,
+		}
+	}
+	return result, nil
+}
+
+func (a *workspaceQuerierAdapter) DashboardBlockedCount() (int, error) {
+	return a.mgr.DashboardBlockedCount(context.Background())
 }

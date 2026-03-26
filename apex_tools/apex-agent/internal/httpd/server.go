@@ -41,28 +41,41 @@ type QueueQuerier interface {
 	DashboardQueueHistory(channel string, offset, limit int, from, to string) ([]QueueHistoryEntry, error)
 }
 
+// WorkspaceQuerier abstracts workspace module queries for the dashboard.
+// Implemented by adapter in daemon_cmd.go to avoid import cycles.
+type WorkspaceQuerier interface {
+	DashboardBranchesList() ([]BranchInfo, error)
+	DashboardBlockedCount() (int, error)
+}
+
 // Server is the HTTP dashboard server embedded in the daemon.
 type Server struct {
-	backlogMgr  BacklogQuerier
-	handoffMgr  HandoffQuerier
-	queueMgr    QueueQuerier
-	router      dispatch.Dispatcher
-	httpSrv     *http.Server
-	listener    net.Listener
-	lastRequest atomic.Int64
-	pages       map[string]*template.Template
-	addr        string
+	backlogMgr    BacklogQuerier
+	handoffMgr    HandoffQuerier
+	queueMgr      QueueQuerier
+	workspaceMgr  WorkspaceQuerier
+	sessionProxy  *SessionProxy
+	router        dispatch.Dispatcher
+	httpSrv       *http.Server
+	listener      net.Listener
+	lastRequest   atomic.Int64
+	pages         map[string]*template.Template
+	addr          string
 }
 
 // New creates a new HTTP server.
-// backlogMgr, handoffMgr, queueMgr may be nil for health-only mode.
-func New(backlogMgr BacklogQuerier, handoffMgr HandoffQuerier, queueMgr QueueQuerier, router dispatch.Dispatcher, addr string) *Server {
+// backlogMgr, handoffMgr, queueMgr, workspaceMgr may be nil for health-only mode.
+func New(backlogMgr BacklogQuerier, handoffMgr HandoffQuerier, queueMgr QueueQuerier, workspaceMgr WorkspaceQuerier, router dispatch.Dispatcher, addr string, sessionAddr string) *Server {
 	s := &Server{
-		backlogMgr: backlogMgr,
-		handoffMgr: handoffMgr,
-		queueMgr:   queueMgr,
-		router:     router,
-		addr:       addr,
+		backlogMgr:   backlogMgr,
+		handoffMgr:   handoffMgr,
+		queueMgr:     queueMgr,
+		workspaceMgr: workspaceMgr,
+		router:       router,
+		addr:         addr,
+	}
+	if sessionAddr != "" {
+		s.sessionProxy = NewSessionProxy(sessionAddr)
 	}
 
 	mux := http.NewServeMux()
