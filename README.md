@@ -259,9 +259,10 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
   - 조건부 태깅 (sha/latest/main), auto-tag (CI 전체 통과 시 버전 태그 자동 생성)
   - 3단계 검증 파이프라인 (e2e → smoke → helm-validation)
 
-- **시크릿 관리: SecureString 메모리 제로화 + ESO/AWS SM 연동 (PR #201, BACKLOG-135,198)**
+- **시크릿 관리: SecureString 메모리 제로화 + ESO/AWS SM 연동 + per-service RBAC (PR #201,#209, BACKLOG-135,198,252)**
   - `SecureString` 래퍼 (copyable, 각 복사본 독립 제로화) — Kafka SASL, Redis, PG, Gateway, JWT password 필드 전체 적용
   - External Secrets Operator + AWS Secrets Manager Helm 템플릿 (로컬 `enabled: false`)
+  - Per-service SecretStore + ServiceAccount RBAC 격리 — 서비스별 IAM role 기반 AWS SM 접근 제한
 
 - **보안+게이트웨이: SecureString constant-time 비교 + Gateway 라이프사이클/포인터 소탕 (PR #204, BACKLOG-245,250,251)**
   - `SecureString::constant_time_equal()` — XOR 누적 기반 타이밍 사이드채널 방지
