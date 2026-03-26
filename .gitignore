@@ -45,6 +45,9 @@ venv/
 # Benchmark results
 apex_core/benchmark_results/
 
+# Helm downloaded dependency charts (regenerable via helm dependency build)
+apex_infra/k8s/apex-pipeline/charts/*/charts/
+
 # Worktrees
 .worktrees/
 .superpowers/
