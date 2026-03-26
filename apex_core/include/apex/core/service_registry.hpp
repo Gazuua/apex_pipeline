@@ -4,7 +4,6 @@
 
 #include <apex/core/service_base.hpp>
 
-#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -107,7 +106,8 @@ class ServiceRegistryView
     {}
 
     /// 전 코어의 특정 타입 서비스 순회 (읽기 전용).
-    template <typename T> void for_each_core(std::function<void(uint32_t core_id, const T&)> fn) const
+    /// Fn: void(uint32_t core_id, const T&)
+    template <typename T, typename Fn> void for_each_core(Fn&& fn) const
     {
         for (uint32_t i = 0; i < registries_.size(); ++i)
         {

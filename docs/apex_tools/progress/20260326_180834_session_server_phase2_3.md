@@ -36,5 +36,4 @@
 
 ## 잔여 이슈
 
-- **BACKLOG-243**: BranchInfo 필드 미채움 (handoff/backlog 연동 데이터)
-- **BACKLOG-244**: Windows graceful shutdown 시그널 처리 개선
+잔여 이슈: BACKLOG-243, BACKLOG-244로 이관 완료.

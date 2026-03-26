@@ -110,23 +110,23 @@ std::size_t SecureString::size() const noexcept
 
 bool SecureString::operator==(const SecureString& other) const noexcept
 {
-    return data_ == other.data_;
+    return constant_time_equal(other.view());
 }
 bool SecureString::operator==(std::string_view other) const noexcept
 {
-    return data_ == other;
+    return constant_time_equal(other);
 }
 bool SecureString::operator==(const char* other) const noexcept
 {
-    return other ? data_ == other : data_.empty();
+    return other ? constant_time_equal(std::string_view{other}) : data_.empty();
 }
 bool SecureString::operator!=(const SecureString& other) const noexcept
 {
-    return data_ != other.data_;
+    return !constant_time_equal(other.view());
 }
 bool SecureString::operator!=(std::string_view other) const noexcept
 {
-    return data_ != other;
+    return !constant_time_equal(other);
 }
 bool SecureString::operator!=(const char* other) const noexcept
 {

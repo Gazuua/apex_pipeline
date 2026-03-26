@@ -35,6 +35,6 @@
 - 전체 설계서: `docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md`
 - Phase 1 구현 계획: `docs/apex_tools/plans/20260326_152349_phase1_foundation.md`
 
-## 후속 작업 (Phase 2-3)
-- Phase 2: ConPTY + WebSocket 독립 프로세스 (세션 서버)
-- Phase 3: 대시보드 /branches 페이지 + xterm.js + FIX UI
+## 후속
+
+후속: BACKLOG-260에서 방향 전환 — 세션 서버+Branches 페이지+local_branches 제거, 대시보드 관찰 전용화.

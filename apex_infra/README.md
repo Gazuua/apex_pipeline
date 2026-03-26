@@ -97,6 +97,7 @@ docker compose -f apex_infra/docker/docker-compose.smoke.yml down -v
 | Kafka (KRaft) | apache/kafka:4.2.0 | 9092 | 메시징 |
 | Redis × 4 | redis:7.4.2-alpine | 6380-6383 | auth, ratelimit, chat, pubsub |
 | PostgreSQL | postgres:16.8-alpine | 5432 | RDBMS |
+| PgBouncer | bitnami/pgbouncer | 6432 | 커넥션 풀링 |
 
 ## Helm 차트
 
@@ -115,7 +116,7 @@ apex-services (namespace: apex-services)
   ├── Gateway
   ├── Auth-svc
   ├── Chat-svc
-  └── (Log-svc — 미구현)
+  └── (log-svc 제거됨, Loki+Vector 대체 — BACKLOG-199)
 ```
 
 ### Argo Rollouts (canary 배포)

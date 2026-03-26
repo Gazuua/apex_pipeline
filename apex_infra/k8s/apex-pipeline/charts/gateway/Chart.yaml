@@ -4,7 +4,7 @@ name: gateway
 description: Apex Gateway — WebSocket 서버 + Kafka 라우터
 type: application
 version: 0.1.0
-appVersion: "0.6.3"
+appVersion: "0.6.5"
 dependencies:
   - name: apex-common
     version: "0.1.0"

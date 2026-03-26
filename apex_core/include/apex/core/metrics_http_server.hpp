@@ -20,11 +20,13 @@ class MetricsHttpServer : public HttpServerBase
     MetricsHttpServer();
 
     /// Bind dependencies and start accepting.
-    /// @param io       control_io_ from Server
-    /// @param port     HTTP listen port (e.g., 8081)
-    /// @param registry MetricsRegistry reference for /metrics serialization
-    /// @param running  Server's running_ flag for /ready endpoint
-    void start(boost::asio::io_context& io, uint16_t port, MetricsRegistry& registry, const std::atomic<bool>& running);
+    /// @param io           control_io_ from Server
+    /// @param port         HTTP listen port (e.g., 8081)
+    /// @param registry     MetricsRegistry reference for /metrics serialization
+    /// @param running      Server's running_ flag for /ready endpoint
+    /// @param bind_address IP address to bind (default "127.0.0.1" for loopback only)
+    void start(boost::asio::io_context& io, uint16_t port, MetricsRegistry& registry, const std::atomic<bool>& running,
+               const std::string& bind_address = "127.0.0.1");
 
   protected:
     [[nodiscard]] HttpResponse handle_request(boost::beast::http::verb method, std::string_view target) override;

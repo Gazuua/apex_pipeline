@@ -194,6 +194,7 @@ MetricsConfig parse_metrics(const toml::table& root)
 
     cfg.enabled = get_or<bool>(*tbl, "enabled", cfg.enabled);
     cfg.port = checked_narrow<uint16_t>(get_or<int64_t>(*tbl, "port", int64_t{8081}), "metrics.port");
+    cfg.bind_address = get_or<std::string>(*tbl, "bind_address", cfg.bind_address);
     return cfg;
 }
 
@@ -206,6 +207,7 @@ AdminConfig parse_admin(const toml::table& root)
 
     cfg.enabled = get_or<bool>(*tbl, "enabled", cfg.enabled);
     cfg.port = checked_narrow<uint16_t>(get_or<int64_t>(*tbl, "port", int64_t{8082}), "admin.port");
+    cfg.bind_address = get_or<std::string>(*tbl, "bind_address", cfg.bind_address);
     return cfg;
 }
 
@@ -230,7 +232,9 @@ AppConfig AppConfig::from_file(const std::string& path)
     config.logging = parse_logging(tbl);
     config.metrics = parse_metrics(tbl);
     config.admin = parse_admin(tbl);
-    // Sync metrics/admin config into ServerConfig so Server can access it directly
+    // TOML 최상위 [metrics]/[admin] → ServerConfig로 동기화.
+    // Server는 ServerConfig만 참조하므로 이 복사가 유일한 전달 경로.
+    // AppConfig 최상위 metrics/admin은 이후 사용하지 않음.
     config.server.metrics = config.metrics;
     config.server.admin = config.admin;
     s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);

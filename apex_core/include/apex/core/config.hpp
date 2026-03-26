@@ -42,6 +42,10 @@ struct AppConfig
 {
     ServerConfig server;
     LogConfig logging;
+
+    // TOML 파싱용 최상위 필드 — [metrics]/[admin] 섹션을 직접 매핑.
+    // from_file()이 파싱 후 server.metrics / server.admin으로 자동 동기화하므로
+    // 런타임에는 server 내부 필드를 사용할 것. 이 필드를 직접 참조하지 말 것.
     MetricsConfig metrics;
     AdminConfig admin;
 

@@ -33,6 +33,7 @@ target "service-base" {
   context    = "."
   args = {
     CMAKE_PRESET = CMAKE_PRESET
+    CI_IMAGE_TAG = CI_IMAGE_TAG
   }
   cache-from = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache"]
   cache-to   = ["type=registry,ref=${REGISTRY}/apex-pipeline-cache:buildcache,mode=max"]
@@ -45,7 +46,6 @@ target "gateway" {
     CMAKE_TARGET = "apex_gateway"
     SERVICE_DIR  = "gateway"
     CONFIG_FILE  = "gateway_e2e.toml"
-    CI_IMAGE_TAG = CI_IMAGE_TAG
   }
   tags = notequal(IS_MAIN, "true") ? [
     "${REGISTRY}/apex-pipeline-gateway:${SHA_TAG}",
@@ -62,7 +62,6 @@ target "auth-svc" {
     CMAKE_TARGET = "auth_svc_main"
     SERVICE_DIR  = "auth-svc"
     CONFIG_FILE  = "auth_svc_e2e.toml"
-    CI_IMAGE_TAG = CI_IMAGE_TAG
   }
   tags = notequal(IS_MAIN, "true") ? [
     "${REGISTRY}/apex-pipeline-auth-svc:${SHA_TAG}",
@@ -79,7 +78,6 @@ target "chat-svc" {
     CMAKE_TARGET = "chat_svc_main"
     SERVICE_DIR  = "chat-svc"
     CONFIG_FILE  = "chat_svc_e2e.toml"
-    CI_IMAGE_TAG = CI_IMAGE_TAG
   }
   tags = notequal(IS_MAIN, "true") ? [
     "${REGISTRY}/apex-pipeline-chat-svc:${SHA_TAG}",

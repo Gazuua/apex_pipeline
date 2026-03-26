@@ -58,7 +58,7 @@ build.bat release  # 릴리스 빌드
 
 **현재 사용 중**: benchmark, boost-asio, boost-beast, boost-unordered, flatbuffers, gtest, hiredis, jwt-cpp, libpq, librdkafka, openssl, redis-plus-plus, spdlog, tomlplusplus
 
-**향후 추가 예정**: prometheus-cpp (v0.6.1.0)
+**사용 중**: 자체 MetricsHttpServer (Beast HTTP 기반, v0.6.1.0부터)
 
 ## 문서
 

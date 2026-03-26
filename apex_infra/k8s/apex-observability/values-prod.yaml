@@ -11,6 +11,7 @@ loki:
     persistence:
       size: 50Gi
   loki:
+    auth_enabled: true
     limits_config:
       retention_period: 720h    # 30일
   resources:
@@ -37,7 +38,10 @@ vector:
 # Grafana
 # ---------------------------------------------------------------------------
 grafana:
-  adminPassword: "${GRAFANA_ADMIN_PASSWORD}"    # 환경 변수 또는 existingSecret으로 교체
+  admin:
+    existingSecret: "grafana-admin-secret"
+    userKey: "admin-user"
+    passwordKey: "admin-password"
   persistence:
     size: 5Gi
   resources:

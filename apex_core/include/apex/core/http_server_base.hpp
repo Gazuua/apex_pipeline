@@ -67,10 +67,11 @@ class HttpServerBase
     HttpServerBase(const HttpServerBase&) = delete;
     HttpServerBase& operator=(const HttpServerBase&) = delete;
 
-    /// Start accepting HTTP connections on the given port.
-    /// @param io  control_io_ from Server
-    /// @param port HTTP listen port (0 for OS-assigned)
-    void start(boost::asio::io_context& io, uint16_t port);
+    /// Start accepting HTTP connections on the given address and port.
+    /// @param io           control_io_ from Server
+    /// @param port         HTTP listen port (0 for OS-assigned)
+    /// @param bind_address IP address to bind (default "127.0.0.1" for loopback only)
+    void start(boost::asio::io_context& io, uint16_t port, const std::string& bind_address = "127.0.0.1");
 
     /// Stop accepting new connections and cancel in-flight sessions.
     void stop();

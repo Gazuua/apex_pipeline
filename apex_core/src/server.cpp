@@ -379,13 +379,14 @@ void Server::run()
     // Start metrics HTTP server if enabled
     if (config_.metrics.enabled)
     {
-        metrics_http_server_.start(control_io_, config_.metrics.port, metrics_registry_, running_);
+        metrics_http_server_.start(control_io_, config_.metrics.port, metrics_registry_, running_,
+                                   config_.metrics.bind_address);
     }
 
     // Start admin HTTP server if enabled (runtime log-level control etc.)
     if (config_.admin.enabled)
     {
-        admin_http_server_.start(control_io_, config_.admin.port);
+        admin_http_server_.start(control_io_, config_.admin.port, config_.admin.bind_address);
     }
 
     // I-18: Set running_ after all initialization (services, CoreEngine,

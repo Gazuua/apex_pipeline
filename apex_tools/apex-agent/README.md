@@ -9,7 +9,7 @@ apex-agent (CLI)
   ├─ daemon run/start/stop    — 백그라운드 데몬 관리
   ├─ hook validate-*          — Claude Code PreToolUse hook 게이트
   ├─ backlog add/list/resolve — 백로그 CRUD
-  ├─ handoff notify/ack/check — 브랜치 핸드오프 상태 머신
+  ├─ handoff notify/status/backlog-check — 브랜치 핸드오프 상태 머신
   └─ queue acquire/release    — 빌드/머지 큐 잠금
 
 데몬 (Named Pipe IPC)
@@ -74,7 +74,7 @@ e2e/                  E2E 통합 테스트
 - 상태 머신: `started → design-notified → implementing → merge-notified`
 - `branch_backlogs` junction 테이블로 복수 백로그 연결
 - `git_branch` 컬럼 fallback — workspace ID 불일치 시 git branch name으로 조회
-- 머지 게이트: 미ack 알림 + FIXING 백로그 차단
+- 머지 게이트: FIXING 백로그 차단
 
 ### Hook 게이트
 - `validate-build`: cmake/ninja 직접 호출 차단 → `apex-agent queue build` 강제

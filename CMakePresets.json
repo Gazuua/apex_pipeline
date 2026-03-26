@@ -105,7 +105,8 @@
         "CMAKE_C_COMPILER_LAUNCHER": "sccache",
         "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
         "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded",
-        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW"
+        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW",
+        "BUILD_TESTING": "ON"
       }
     }
   ],

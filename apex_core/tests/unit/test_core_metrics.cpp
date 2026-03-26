@@ -79,8 +79,8 @@ TEST(CoreMetrics, PostToFailureIncrementsFailures)
     // Wait for coroutine to complete
     ASSERT_TRUE(apex::test::wait_for([&] { return done.load(std::memory_order_acquire); }));
 
-    EXPECT_GE(engine.metrics(1).post_total.load(), 3u);
-    EXPECT_GE(engine.metrics(1).post_failures.load(), 1u);
+    EXPECT_EQ(engine.metrics(1).post_total.load(), 3u);
+    EXPECT_EQ(engine.metrics(1).post_failures.load(), 1u);
 
     engine.stop();
     engine.join();

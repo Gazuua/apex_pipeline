@@ -1,6 +1,6 @@
 # apex_core 프레임워크 가이드
 
-**버전**: v0.6.4.0 | **최종 갱신**: 2026-03-26
+**버전**: v0.6.5.0 | **최종 갱신**: 2026-03-27
 **목적**: 이 문서 하나만 읽고 apex_core 위에 새 서비스를 올릴 수 있다.
 
 > **설계 결정 D1-D7**: D2-D7은 v0.5.6.0에서 구현 완료. `[D*]` 태그는 설계 결정의 출처 추적용으로 유지한다.
@@ -170,8 +170,9 @@ private:
 ```cpp
 /// Prometheus metrics endpoint configuration (v0.6.1+).
 struct MetricsConfig {
-    bool enabled = false;       // true로 설정 시 /metrics, /health, /ready HTTP 엔드포인트 노출
-    uint16_t port = 8081;       // 메트릭 HTTP 서버 포트
+    bool enabled = false;                          // true로 설정 시 /metrics, /health, /ready HTTP 엔드포인트 노출
+    uint16_t port = 8081;                          // 메트릭 HTTP 서버 포트
+    std::string bind_address = "127.0.0.1";        // 바인드 주소 (K8s에서는 "0.0.0.0" 오버라이드)
 };
 
 struct ServerConfig {
@@ -185,6 +186,7 @@ struct ServerConfig {
     size_t session_max_queue_depth = 256;             // per-session write queue depth 제한
     size_t timer_wheel_slots = 1024;                  // TimingWheel 슬롯 수
     uint32_t max_connections = 10000;                   // 최대 동시 연결 수 (0 = 무제한, 기본 10000)
+    uint32_t max_connections_per_ip = 100;             // IP당 최대 연결 수 (0 = 비활성화, 기본 100)
     bool reuseport = false;                           // Linux: per-core SO_REUSEPORT
     bool handle_signals = true;                       // SIGINT/SIGTERM 자동 처리
     std::chrono::seconds drain_timeout{25};            // Graceful Shutdown drain timeout
@@ -238,6 +240,8 @@ server.run();  // 블로킹. SIGINT/SIGTERM으로 graceful shutdown
 struct AppConfig {
     ServerConfig server;
     LogConfig logging;
+    MetricsConfig metrics;                               // Prometheus 메트릭 엔드포인트 설정 (v0.6.1+)
+    AdminConfig admin;                                    // Admin HTTP 서버 설정 — 런타임 로그 레벨 등 (v0.6.3+)
     static AppConfig from_file(const std::string& path);  // TOML 파싱
     static AppConfig defaults();
 };
@@ -857,13 +861,15 @@ co_await timer.async_wait(boost::asio::use_awaitable);
 
 ```cpp
 struct AdminConfig {
-    bool enabled = false;     // true이면 Server 시작 시 자동 기동
-    uint16_t port = 8082;     // Admin HTTP 포트
+    bool enabled = false;                          // true이면 Server 시작 시 자동 기동
+    uint16_t port = 8082;                          // Admin HTTP 포트
+    std::string bind_address = "127.0.0.1";        // 바인드 주소 (K8s에서는 "0.0.0.0" 오버라이드)
 };
 ```
 
 **API**:
-- `PUT /log-level?level=debug|info|warn|error` — 런타임에 spdlog 전역 로그 레벨을 동적 전환
+- `GET /admin/log-level` — 현재 로그 레벨 조회 (`?logger=apex` 단일 로거 지정, 미지정 시 전체)
+- `POST /admin/log-level?logger=apex&level=debug` — 런타임 로그 레벨 동적 전환
 
 **라이프사이클**:
 - `ServerConfig::admin.enabled = true`이면 Server 시작 시 자동 기동

@@ -14,11 +14,11 @@ MetricsHttpServer::MetricsHttpServer()
 }
 
 void MetricsHttpServer::start(boost::asio::io_context& io, uint16_t port, MetricsRegistry& registry,
-                              const std::atomic<bool>& running)
+                              const std::atomic<bool>& running, const std::string& bind_address)
 {
     registry_ = &registry;
     running_ = &running;
-    HttpServerBase::start(io, port);
+    HttpServerBase::start(io, port, bind_address);
 }
 
 HttpResponse MetricsHttpServer::handle_request(http::verb method, std::string_view target)
