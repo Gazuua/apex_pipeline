@@ -290,6 +290,7 @@ minikube에서 Helm 차트로 실배포 검증.
 minikube start
   → GHCR 이미지 pull + load
   → helm install apex-infra (인프라)
+  → helm install apex-observability (옵저빌리티: Loki+Vector+Grafana)
   → helm install apex-services (서비스)
   → pod ready 대기
   → helm test

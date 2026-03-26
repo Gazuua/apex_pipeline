@@ -65,9 +65,6 @@ chat-svc:
   secrets:
     existingSecret: "apex-chat-secrets"
 
-log-svc:
-  enabled: false  # 구현 완료 시 true로 전환
-
 # === 인프라 (프로덕션: 전부 비활성 — 관리형 서비스 사용) ===
 # 자체 호스팅 시 Kafka SASL/SSL 설정 필수:
 #   kafka:

@@ -8,9 +8,6 @@ dependencies:
 - name: chat-svc
   repository: ""
   version: 0.1.0
-- name: log-svc
-  repository: ""
-  version: 0.1.0
 - name: kafka
   repository: https://charts.bitnami.com/bitnami
   version: 32.4.3

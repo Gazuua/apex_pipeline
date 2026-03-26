@@ -1,0 +1,128 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+#
+# Apex Observability Stack — 로컬 환경 기본값
+# Loki (monolithic) + Vector (DaemonSet) + Grafana
+# 프로덕션 오버라이드: values-prod.yaml
+
+# ---------------------------------------------------------------------------
+# Loki — 로그 저장/인덱싱
+# ---------------------------------------------------------------------------
+loki:
+  enabled: true
+  deploymentMode: SingleBinary
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    limits_config:
+      retention_period: 168h    # 7일
+  singleBinary:
+    replicas: 1
+    persistence:
+      enabled: true
+      size: 10Gi
+  # 로컬 환경: 최소 리소스
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # 로컬: self-monitoring/canary 비활성
+  monitoring:
+    selfMonitoring:
+      enabled: false
+    lokiCanary:
+      enabled: false
+  # 로컬: gateway 비활성 (monolithic이면 불필요)
+  gateway:
+    enabled: false
+  # 로컬: 캐시 비활성
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# Vector — 로그 수집 (DaemonSet)
+# ---------------------------------------------------------------------------
+vector:
+  enabled: true
+  role: Agent
+  customConfig:
+    data_dir: /vector-data-dir
+    sources:
+      kubernetes_logs:
+        type: kubernetes_logs
+    transforms:
+      parse_structured:
+        type: remap
+        inputs:
+          - kubernetes_logs
+        source: |
+          # spdlog JSON 형식 파싱 (ts, level, logger, msg, file, line)
+          parsed, err = parse_json(.message)
+          if err == null {
+            .ts = parsed.ts
+            .level = parsed.level
+            .logger = parsed.logger
+            .msg = parsed.msg
+            .source_file = parsed.file
+            .source_line = parsed.line
+          }
+    sinks:
+      loki:
+        type: loki
+        inputs:
+          - parse_structured
+        endpoint: http://apex-observability-loki:3100
+        labels:
+          namespace: '{{ "{{ kubernetes.pod_namespace }}" }}'
+          pod: '{{ "{{ kubernetes.pod_name }}" }}'
+          container: '{{ "{{ kubernetes.container_name }}" }}'
+          level: '{{ "{{ level }}" }}'
+          logger: '{{ "{{ logger }}" }}'
+        encoding:
+          codec: json
+  # 로컬 환경: 최소 리소스
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ---------------------------------------------------------------------------
+# Grafana — 시각화/대시보드
+# ---------------------------------------------------------------------------
+grafana:
+  enabled: true
+  adminUser: admin
+  adminPassword: admin       # 로컬 전용 — 프로덕션은 existingSecret 사용
+  persistence:
+    enabled: true
+    size: 1Gi
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          url: http://apex-observability-loki:3100
+          access: proxy
+          isDefault: true
+  service:
+    type: ClusterIP
+    port: 3000
+  # 로컬 환경: 최소 리소스
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi

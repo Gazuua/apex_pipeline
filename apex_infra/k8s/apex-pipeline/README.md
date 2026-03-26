@@ -116,7 +116,6 @@ apex_infra/k8s/apex-pipeline/
 │   │           └── test-connection.yaml
 │   ├── auth-svc/               # Auth 서비스 (동일 패턴)
 │   ├── chat-svc/               # Chat 서비스 (동일 패턴)
-│   ├── log-svc/                # Log 서비스 (enabled: false 기본)
 │   └── pgbouncer/              # PgBouncer (로컬 sub-chart, Bitnami Docker 이미지)
 ├── templates/                  # umbrella 레벨 리소스
 │   ├── namespaces.yaml         #   apex-infra, apex-services namespace 생성
@@ -144,7 +143,6 @@ apex-pipeline (umbrella)
 ├── gateway          ← apex-common (library)
 ├── auth-svc         ← apex-common
 ├── chat-svc         ← apex-common
-├── log-svc          ← apex-common
 ├── kafka            ← bitnami/kafka ~32.x
 ├── redis-auth       ← bitnami/redis ~21.x (alias)
 ├── redis-ratelimit  ← bitnami/redis ~21.x (alias)
@@ -174,7 +172,6 @@ helm upgrade --install apex-infra . \
   --set gateway.enabled=false \
   --set auth-svc.enabled=false \
   --set chat-svc.enabled=false \
-  --set log-svc.enabled=false \
   --wait --timeout 5m
 ```
 
@@ -258,8 +255,6 @@ helm install apex-services . -n apex-services -f values.yaml -f values-prod.yaml
 ```yaml
 gateway:
   enabled: true     # Gateway 배포
-log-svc:
-  enabled: false    # Log 서비스 스킵 (바이너리 미구현)
 kafka:
   enabled: true     # Bitnami Kafka 배포
 ```
@@ -734,8 +729,7 @@ helm dependency update .
 helm install apex-infra . -n apex-infra --create-namespace \
   --set gateway.enabled=false \
   --set auth-svc.enabled=false \
-  --set chat-svc.enabled=false \
-  --set log-svc.enabled=false
+  --set chat-svc.enabled=false
 
 # 서비스 release
 helm install apex-services . -n apex-services --create-namespace \

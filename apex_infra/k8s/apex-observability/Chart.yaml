@@ -1,0 +1,21 @@
+# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
+apiVersion: v2
+name: apex-observability
+description: Apex Observability Stack — Loki + Vector + Grafana (BACKLOG-199)
+type: application
+version: 0.1.0
+appVersion: "0.6.5"
+
+dependencies:
+  - name: loki
+    version: "~6.x"
+    repository: https://grafana.github.io/helm-charts
+    condition: loki.enabled
+  - name: vector
+    version: "~0.x"
+    repository: https://helm.vector.dev
+    condition: vector.enabled
+  - name: grafana
+    version: "~8.x"
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled

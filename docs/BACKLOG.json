@@ -56,19 +56,6 @@
       "updated_at": "2026-03-26 21:45:40"
     },
     {
-      "id": 199,
-      "title": "log-svc 구현 — KafkaSink 기반 중앙 집중식 로그 서비스",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "INFRA",
-      "type": "INFRA",
-      "description": "프로덕션 운영 필수 컴포넌트. 각 서비스가 Kafka 토픽으로 발행하는 로그를 log-svc가 consume하여 중앙 집중 저장/검색/분석. 현재 log-svc 디렉토리 구조만 존재(코드 없음). v0.6.3 Helm 차트에 sub-chart 템플릿은 준비 완료(enabled: false). 구현 완료 시 values에서 enabled: true로 전환하면 K8s 배포 가능.\n[RELEASED] branch_01: 179 먼저 진행, 199는 별도 브랜치에서 후속 처리\n\n**[FSD 분석 2026-03-26]** 신규 서비스 구현 (C++ ServiceBase 상속 + Kafka consumer + 저장 로직). 설계 문서 필요, FSD 규모 초과.",
-      "position": 50,
-      "status": "FIXING",
-      "created_at": "2026-03-24 23:26:37",
-      "updated_at": "2026-03-26 22:48:46"
-    },
-    {
       "id": 237,
       "title": "Admin HTTP 대시보드 — 런타임 설정 변경 + 서비스 상태 모니터링 UI",
       "severity": "MINOR",
@@ -238,6 +225,21 @@
       "status": "OPEN",
       "created_at": "2026-03-26 23:12:28",
       "updated_at": "2026-03-26 23:12:28"
+    },
+    {
+      "id": 199,
+      "title": "log-svc 구현 — KafkaSink 기반 중앙 집중식 로그 서비스",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "INFRA",
+      "description": "프로덕션 운영 필수 컴포넌트. 각 서비스가 Kafka 토픽으로 발행하는 로그를 log-svc가 consume하여 중앙 집중 저장/검색/분석. 현재 log-svc 디렉토리 구조만 존재(코드 없음). v0.6.3 Helm 차트에 sub-chart 템플릿은 준비 완료(enabled: false). 구현 완료 시 values에서 enabled: true로 전환하면 K8s 배포 가능.\n[RELEASED] branch_01: 179 먼저 진행, 199는 별도 브랜치에서 후속 처리\n\n**[FSD 분석 2026-03-26]** 신규 서비스 구현 (C++ ServiceBase 상속 + Kafka consumer + 저장 로직). 설계 문서 필요, FSD 규모 초과.",
+      "position": 50,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 23:40:43",
+      "created_at": "2026-03-24 23:26:37",
+      "updated_at": "2026-03-26 23:40:43"
     },
     {
       "id": 36,
