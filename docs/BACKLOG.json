@@ -11,9 +11,9 @@
       "description": "PR #206 후속 작업 4건 통합: (1) /backlog FIX 버튼 — 브랜치 선택 모달 + ConPTY stdin 프롬프트 주입 (BACKLOG-239 Phase 3). (2) ReapZombieSessions 개별 정리 — 전역 hasClaudeProcess 대신 워크스페이스별 mtime 검사로 개별 좀비 STOP 전환 (auto-review ISSUE-3). (3) workspace CLI — scan/list/get/sync 서브커맨드 구현 (현재 API/IPC만 존재, CLAUDE.md 정의와 불일치). (4) hasClaudeProcess 크로스플랫폼 — Windows tasklist.exe 전용을 //go:build 태그로 분리, Linux pgrep 대응 (auto-review LOW-3).",
       "related": "239",
       "position": 17,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-26 22:37:57",
-      "updated_at": "2026-03-26 22:37:57"
+      "updated_at": "2026-03-26 22:47:12"
     },
     {
       "id": 113,
@@ -64,9 +64,9 @@
       "type": "INFRA",
       "description": "프로덕션 운영 필수 컴포넌트. 각 서비스가 Kafka 토픽으로 발행하는 로그를 log-svc가 consume하여 중앙 집중 저장/검색/분석. 현재 log-svc 디렉토리 구조만 존재(코드 없음). v0.6.3 Helm 차트에 sub-chart 템플릿은 준비 완료(enabled: false). 구현 완료 시 values에서 enabled: true로 전환하면 K8s 배포 가능.\n[RELEASED] branch_01: 179 먼저 진행, 199는 별도 브랜치에서 후속 처리\n\n**[FSD 분석 2026-03-26]** 신규 서비스 구현 (C++ ServiceBase 상속 + Kafka consumer + 저장 로직). 설계 문서 필요, FSD 규모 초과.",
       "position": 50,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-24 23:26:37",
-      "updated_at": "2026-03-26 21:45:46"
+      "updated_at": "2026-03-26 22:48:46"
     },
     {
       "id": 237,
