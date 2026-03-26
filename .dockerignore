@@ -12,3 +12,8 @@ apex_services/gateway/certs/
 **/*.key
 **/*.crt
 **/*.pem
+
+# Build artifacts and scripts not needed in Docker context
+*_suppressions.txt
+build.bat
+build.sh

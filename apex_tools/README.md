@@ -12,7 +12,6 @@
 | 커맨드 | 설명 |
 |--------|------|
 | `apex-agent queue build <preset>` | 빌드 잠금 획득 후 빌드 실행 |
-| `apex-agent queue merge <acquire\|release>` | 머지 잠금 관리 |
 | `apex-agent handoff notify start` | 브랜치 핸드오프 착수 |
 | `apex-agent handoff status` | 핸드오프 상태 조회 |
 | `apex-agent backlog list` | 백로그 조회 |
@@ -27,8 +26,9 @@
 |------|------|
 | `validate-build` | cmake/ninja/build.bat 직접 호출 차단 |
 | `validate-merge` | merge lock 미획득 시 `gh pr merge` 차단 |
-| `validate-handoff` | 미등록 커밋 차단 + 머지 시 미ack/FIXING 차단 |
+| `validate-handoff` | 미등록 커밋 차단 + 머지 시 FIXING 백로그 차단 |
 | `enforce-rebase` | push 전 자동 리베이스 |
+| `validate-backlog` | docs/BACKLOG.json 직접 접근 차단 (Read/Edit/Write 모두) |
 | `handoff-probe` | 미등록 편집 차단 + 상태별 소스 게이트 |
 
 ## Git Hooks

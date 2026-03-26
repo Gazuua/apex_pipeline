@@ -159,3 +159,19 @@ apex_shared_add_rate_limit_test(test_sliding_window_counter test_sliding_window_
 apex_shared_add_rate_limit_test(test_per_ip_rate_limiter test_per_ip_rate_limiter.cpp)
 apex_shared_add_rate_limit_test(test_redis_rate_limiter test_redis_rate_limiter.cpp)
 apex_shared_add_rate_limit_test(test_endpoint_rate_config test_endpoint_rate_config.cpp)
+apex_shared_add_rate_limit_test(test_rate_limit_facade test_rate_limit_facade.cpp)
+
+# --- TLS transport tests ---
+find_package(OpenSSL QUIET)
+add_executable(test_tls_transport test_tls_transport.cpp)
+target_link_libraries(test_tls_transport
+    PRIVATE
+        apex::shared::protocols::tcp
+        GTest::gtest_main
+)
+if(TARGET OpenSSL::SSL)
+    target_link_libraries(test_tls_transport PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
+apex_set_warnings(test_tls_transport)
+add_test(NAME test_tls_transport COMMAND test_tls_transport)
+set_tests_properties(test_tls_transport PROPERTIES TIMEOUT 30)

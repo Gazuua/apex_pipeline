@@ -43,14 +43,15 @@ struct SessionGuard
 
 } // anonymous namespace
 
-void HttpServerBase::start(net::io_context& io, uint16_t port)
+void HttpServerBase::start(net::io_context& io, uint16_t port, const std::string& bind_address)
 {
     tracker_ = std::make_shared<HttpSessionTracker>();
 
-    auto endpoint = tcp::endpoint(tcp::v4(), port);
+    auto addr = net::ip::make_address(bind_address);
+    auto endpoint = tcp::endpoint(addr, port);
     acceptor_ = std::make_unique<tcp::acceptor>(io, endpoint);
 
-    logger_.info("started on port {}", acceptor_->local_endpoint().port());
+    logger_.info("started on {}:{}", bind_address, acceptor_->local_endpoint().port());
     do_accept();
 }
 

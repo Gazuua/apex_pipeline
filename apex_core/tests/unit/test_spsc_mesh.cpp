@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <atomic>
+#include <memory>
 
 namespace apex::core
 {
@@ -91,14 +92,20 @@ TEST_F(SpscMeshTest, DrainAllFor_BatchLimit)
 
 TEST_F(SpscMeshTest, Shutdown_CleansLegacyClosures)
 {
-    // Verify no leak — ASAN catches if not deleted
-    auto* task = new std::function<void()>([] {});
+    // shared_ptr marker: use_count drops to 1 when task is deleted by shutdown
+    auto marker = std::make_shared<bool>(false);
+    auto* task = new std::function<void()>([marker] { *marker = true; });
+
+    // Precondition: marker is held by both 'marker' local and lambda inside *task
+    ASSERT_EQ(marker.use_count(), 2);
 
     CoreMessage msg{.op = CrossCoreOp::LegacyCrossCoreFn, .source_core = 0, .data = reinterpret_cast<uintptr_t>(task)};
     mesh_->queue(0, 1).try_enqueue(msg);
 
     mesh_->shutdown();
-    // If task was not deleted during shutdown, ASAN will report a leak
+
+    // After shutdown, task is deleted → lambda destroyed → marker use_count == 1
+    EXPECT_EQ(marker.use_count(), 1);
 }
 
 TEST_F(SpscMeshTest, DrainAllFor_DispatchesRegisteredOp)

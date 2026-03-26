@@ -447,4 +447,113 @@ TEST_F(GatewayPipelineErrorTest, NullBlacklistSkipsCheck)
     });
 }
 
+// ============================================================
+// Auth-exempt endpoint rate limiting (BACKLOG-248)
+// ============================================================
+
+TEST_F(GatewayPipelineErrorTest, AuthExemptEndpointRateLimitDenied)
+{
+    // Auth-exempt msg_id (1000) + endpoint rate limit 거부
+    limiter_.set_endpoint_allowed(false);
+    TestPipeline pipeline(config_, verifier_, &blacklist_, &limiter_);
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto result = co_await pipeline.check_endpoint_rate_limit(42, 1000);
+        EXPECT_FALSE(result.has_value());
+        EXPECT_EQ(result.error(), apex::gateway::GatewayError::RateLimitedEndpoint);
+    });
+}
+
+TEST_F(GatewayPipelineErrorTest, AuthExemptEndpointRateLimitAllowed)
+{
+    // Auth-exempt msg_id (1000) + endpoint rate limit 허용
+    limiter_.set_endpoint_allowed(true);
+    TestPipeline pipeline(config_, verifier_, &blacklist_, &limiter_);
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto result = co_await pipeline.check_endpoint_rate_limit(42, 1000);
+        EXPECT_TRUE(result.has_value());
+    });
+}
+
+TEST_F(GatewayPipelineErrorTest, EndpointRateLimitRedisErrorFailOpen)
+{
+    // Endpoint rate limit Redis 에러 → fail-open (허용)
+    limiter_.set_endpoint_error();
+    TestPipeline pipeline(config_, verifier_, nullptr, &limiter_);
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto result = co_await pipeline.check_endpoint_rate_limit(42, 2000);
+        EXPECT_TRUE(result.has_value()); // fail-open: Redis error → allow
+    });
+}
+
+// ============================================================
+// Null limiter for User/Endpoint rate limit
+// ============================================================
+
+TEST_F(GatewayPipelineErrorTest, NullLimiterAllowsUser)
+{
+    TestPipeline pipeline(config_, verifier_, &blacklist_, nullptr);
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto result = co_await pipeline.check_user_rate_limit(42);
+        EXPECT_TRUE(result.has_value());
+    });
+}
+
+TEST_F(GatewayPipelineErrorTest, NullLimiterAllowsEndpoint)
+{
+    TestPipeline pipeline(config_, verifier_, &blacklist_, nullptr);
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto result = co_await pipeline.check_endpoint_rate_limit(42, 2000);
+        EXPECT_TRUE(result.has_value());
+    });
+}
+
+// ============================================================
+// Authenticated user - all layers pass
+// ============================================================
+
+TEST_F(GatewayPipelineErrorTest, AllLayersPassForAuthenticatedUser)
+{
+    // 모든 rate limit 허용 + 인증 성공
+    limiter_.set_ip_allowed(true);
+    limiter_.set_user_allowed(true);
+    limiter_.set_endpoint_allowed(true);
+    verifier_.set_verify_success(100, "jti-all-pass");
+    verifier_.set_sensitive(false);
+    TestPipeline pipeline(config_, verifier_, &blacklist_, &limiter_);
+
+    auto result = pipeline.check_ip_rate_limit("192.168.1.1");
+    EXPECT_TRUE(result.has_value());
+
+    run_coro([&]() -> boost::asio::awaitable<void> {
+        auto user_result = co_await pipeline.check_user_rate_limit(100);
+        EXPECT_TRUE(user_result.has_value());
+
+        auto ep_result = co_await pipeline.check_endpoint_rate_limit(100, 2000);
+        EXPECT_TRUE(ep_result.has_value());
+    });
+}
+
+// ============================================================
+// IP rate limit denied + remaining layers not reached
+// ============================================================
+
+TEST_F(GatewayPipelineErrorTest, IpDeniedShortCircuits)
+{
+    // IP rate limit에서 거부되면 나머지 레이어에 도달하지 않아야 함
+    limiter_.set_ip_allowed(false);
+    limiter_.set_user_allowed(false);     // would also deny
+    limiter_.set_endpoint_allowed(false); // would also deny
+    TestPipeline pipeline(config_, verifier_, &blacklist_, &limiter_);
+
+    auto result = pipeline.check_ip_rate_limit("192.168.1.1");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), apex::gateway::GatewayError::RateLimitedIp);
+    // 에러가 IP 레이어에서 발생했음을 확인 (User/Endpoint 에러가 아님)
+}
+
 } // namespace

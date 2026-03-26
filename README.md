@@ -248,9 +248,14 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 | Services | `apex_infra/docker/service.Dockerfile` | 통합 서비스 (ARG 파라미터화) |
 | Bake | `apex_infra/docker/docker-bake.hcl` | 서비스 빌드 매트릭스 |
 
-## 현재 상태 — v0.6.4.0
+## 현재 상태 — v0.6.5.0
 
 ### 완료
+
+- **v0.6.5.0 — 옵저빌리티 + 코어 강화 + 대시보드 관찰 전용화**
+  - Loki+Vector+Grafana 옵저빌리티 스택 — KafkaSink 제거, log-svc C++ 폐기, apex-observability Helm 차트 (BACKLOG-199)
+  - Acceptor per-IP 연결 제한 — owner-shard 패턴, cross_core_call 기반 no-locking (BACKLOG-256)
+  - 대시보드 관찰 전용화 — 세션 서버+Branches 페이지+local_branches 제거, 4페이지 체제 (BACKLOG-260)
 
 - **v0.6.4.0 — CI/CD 고도화 (BACKLOG-178,147,190,217)**
   - 서비스 이미지 빌드 파이프라인 (PR/main 분기, debug/release preset)

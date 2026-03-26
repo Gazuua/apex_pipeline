@@ -3,6 +3,8 @@
 #include <apex/core/metrics_http_server.hpp>
 #include <apex/core/metrics_registry.hpp>
 
+#include "../test_helpers.hpp"
+
 #include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -305,7 +307,7 @@ TEST_F(MetricsHttpServerTest, InFlightSessionCancelledOnStop)
     // 2) 서버가 accept → co_spawn → async_read 대기에 진입할 시간 확보.
     //    server_thread_가 io_ctx_.run()을 구동 중이므로 곧바로 처리됨.
     //    네트워크 왕복 + 코루틴 스케줄링 포함 여유 있는 대기.
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50) * apex::test::timeout_multiplier());
 
     // 3) stop() 호출 → acceptor 닫기 + cancel_all() (소켓 cancel)
     //    cancel()은 async_read에 operation_aborted를 전달.
@@ -316,7 +318,7 @@ TEST_F(MetricsHttpServerTest, InFlightSessionCancelledOnStop)
     // 4) cancel 신호 처리를 위한 drain 대기.
     //    server_thread_가 io_ctx_.run()을 구동 중이므로 cancel 핸들러는
     //    해당 스레드에서 실행됨. 테스트 스레드에서는 충분한 시간만 보장.
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100) * apex::test::timeout_multiplier());
 
     // 5) 검증: slow client 소켓에서 read 시도 → 서버가 세션을 cancel하여
     //    종료했으므로 EOF 또는 에러가 발생해야 함.
@@ -340,4 +342,113 @@ TEST_F(MetricsHttpServerTest, InFlightSessionCancelledOnStop)
 
     // TearDown에서 server_.stop() 재호출은 안전 (acceptor 이미 닫힘).
     // io_ctx_.stop()으로 server_thread_ 종료.
+}
+
+/// 여러 slow client가 동시에 연결된 상태에서 stop() 호출 시
+/// cancel_all()이 모든 in-flight session을 정리하는지 검증.
+TEST_F(MetricsHttpServerTest, MultipleConcurrentSessionsCancelledOnStop)
+{
+    constexpr int kSlowClients = 5;
+    std::vector<tcp::socket> slow_sockets;
+    slow_sockets.reserve(kSlowClients);
+
+    // 1) 여러 slow client: 연결만 하고 요청 미전송
+    for (int i = 0; i < kSlowClients; ++i)
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+        slow_sockets.push_back(std::move(sock));
+    }
+
+    // 2) 서버가 모든 연결을 accept하여 async_read 대기에 진입할 시간 확보
+    std::this_thread::sleep_for(std::chrono::milliseconds(100) * apex::test::timeout_multiplier());
+
+    // 3) stop() — 모든 세션 cancel
+    server_.stop();
+
+    // 4) cancel 처리 대기
+    std::this_thread::sleep_for(std::chrono::milliseconds(150) * apex::test::timeout_multiplier());
+
+    // 5) 모든 slow client에서 EOF 또는 에러 확인
+    for (int i = 0; i < kSlowClients; ++i)
+    {
+        boost::system::error_code ec;
+        char buf[64];
+        auto n = slow_sockets[static_cast<size_t>(i)].read_some(net::buffer(buf), ec);
+        bool terminated = ec || n == 0;
+        EXPECT_TRUE(terminated) << "Slow client " << i << " should observe termination, ec=" << ec.message();
+    }
+
+    // 6) 소켓 정리
+    for (auto& sock : slow_sockets)
+    {
+        if (sock.is_open())
+        {
+            boost::system::error_code ec;
+            sock.close(ec);
+        }
+    }
+}
+
+/// 큰 HTTP 헤더를 보내도 서버가 크래시하지 않고 다음 요청을 처리하는지 검증.
+/// HttpServerBase는 Beast의 flat_buffer + empty_body로 파싱하므로
+/// 과도하게 큰 헤더는 Beast가 거부하고 세션이 예외로 종료될 수 있다.
+TEST_F(MetricsHttpServerTest, OversizedHeaderDoesNotCrashServer)
+{
+    // 1) 매우 긴 헤더를 포함한 요청 전송
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+
+        // 64KB 크기의 헤더 값 생성
+        std::string huge_header(64 * 1024, 'X');
+        std::string request =
+            "GET /health HTTP/1.1\r\nHost: localhost\r\nX-Big: " + huge_header + "\r\nConnection: close\r\n\r\n";
+        boost::system::error_code ec;
+        net::write(sock, net::buffer(request), ec);
+        // 응답 드레인 (에러 무시)
+        char buf[1024];
+        ec = {};
+        while (!ec)
+        {
+            sock.read_some(net::buffer(buf), ec);
+        }
+    }
+
+    // 2) 서버가 여전히 정상 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
+}
+
+/// 큰 HTTP body를 보내도 서버가 크래시하지 않고 다음 요청을 처리하는지 검증.
+/// HttpServerBase의 run_session은 http::request<http::empty_body>를 사용하므로
+/// body 데이터는 파싱되지 않지만, 소켓 버퍼에 남은 데이터가 문제를 일으키지 않아야 함.
+TEST_F(MetricsHttpServerTest, LargeBodyDoesNotCrashServer)
+{
+    // 1) Content-Length가 큰 요청 전송
+    {
+        net::io_context client_io;
+        tcp::socket sock(client_io);
+        sock.connect(tcp::endpoint(net::ip::address_v4::loopback(), port_));
+
+        std::string body(32 * 1024, 'A');
+        std::string request =
+            "POST /health HTTP/1.1\r\nHost: localhost\r\nContent-Length: " + std::to_string(body.size()) +
+            "\r\nConnection: close\r\n\r\n" + body;
+        boost::system::error_code ec;
+        net::write(sock, net::buffer(request), ec);
+        // 응답 드레인
+        char buf[1024];
+        ec = {};
+        while (!ec)
+        {
+            sock.read_some(net::buffer(buf), ec);
+        }
+    }
+
+    // 2) 서버가 다음 요청을 처리할 수 있는지 확인
+    auto response = send_http_request(port_, "GET", "/health");
+    EXPECT_EQ(extract_status_code(response), 200);
 }

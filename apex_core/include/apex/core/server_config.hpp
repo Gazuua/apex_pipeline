@@ -15,6 +15,7 @@ struct MetricsConfig
 {
     bool enabled = false;
     uint16_t port = 8081;
+    std::string bind_address = "127.0.0.1"; // 기본 로컬 전용. K8s에서는 "0.0.0.0"으로 오버라이드
 };
 
 /// Admin HTTP server configuration (runtime management).
@@ -22,6 +23,7 @@ struct AdminConfig
 {
     bool enabled = false;
     uint16_t port = 8082;
+    std::string bind_address = "127.0.0.1"; // 기본 로컬 전용. 외부 노출 필요 시 오버라이드
 };
 
 /// Server configuration. Fields are ordered for designated-initializer convenience.
