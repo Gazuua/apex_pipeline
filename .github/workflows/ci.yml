@@ -688,6 +688,7 @@ jobs:
       contents: write
     needs: [changes, deploy]
     if: >-
+      always() &&
       github.ref == 'refs/heads/main' &&
       needs.changes.outputs.source == 'true' &&
       needs.deploy.result == 'success'
