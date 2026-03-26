@@ -29,6 +29,13 @@ void SecureString::clear() noexcept
 SecureString::~SecureString()
 {
     clear();
+    // SSO 버퍼 잔류 방지 — clear() 후 string은 empty 상태이므로
+    // 전체 바이트 제로화 후 소멸자가 no-op (MSVC/libstdc++/libc++).
+#ifdef _WIN32
+    SecureZeroMemory(&data_, sizeof(data_));
+#else
+    explicit_bzero(&data_, sizeof(data_));
+#endif
 }
 
 SecureString::SecureString(const char* s)
@@ -59,7 +66,14 @@ SecureString& SecureString::operator=(const SecureString& other)
 
 SecureString::SecureString(SecureString&& other) noexcept
     : data_(std::move(other.data_))
-{}
+{
+    // move 후 소스 SSO 버퍼 잔류 방지
+#ifdef _WIN32
+    SecureZeroMemory(&other.data_, sizeof(other.data_));
+#else
+    explicit_bzero(&other.data_, sizeof(other.data_));
+#endif
+}
 
 SecureString& SecureString::operator=(SecureString&& other) noexcept
 {
@@ -67,6 +81,12 @@ SecureString& SecureString::operator=(SecureString&& other) noexcept
     {
         clear();
         data_ = std::move(other.data_);
+        // move 후 소스 SSO 버퍼 잔류 방지
+#ifdef _WIN32
+        SecureZeroMemory(&other.data_, sizeof(other.data_));
+#else
+        explicit_bzero(&other.data_, sizeof(other.data_));
+#endif
     }
     return *this;
 }
