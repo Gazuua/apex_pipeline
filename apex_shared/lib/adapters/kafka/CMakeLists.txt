@@ -9,7 +9,6 @@ add_library(apex_shared_adapters_kafka STATIC
     src/kafka_producer.cpp
     src/kafka_consumer.cpp
     src/kafka_adapter.cpp
-    src/kafka_sink.cpp
     src/consumer_payload_pool.cpp
 )
 add_library(apex::shared::adapters::kafka ALIAS apex_shared_adapters_kafka)

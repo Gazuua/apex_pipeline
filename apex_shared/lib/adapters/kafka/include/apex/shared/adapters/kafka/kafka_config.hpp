@@ -55,9 +55,6 @@ struct KafkaConfig
     size_t payload_pool_buffer_size = 4096; ///< 각 버퍼 초기 reserve 크기 (bytes)
     size_t payload_pool_max_count = 4096;   ///< 풀 최대 크기 (0=무제한)
 
-    // KafkaSink
-    std::string log_topic = "apex-logs"; ///< log-dedicated topic
-
     // Common
     std::string client_id = "apex";
 

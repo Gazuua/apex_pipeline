@@ -14,7 +14,6 @@ TEST(KafkaConfig, DefaultValues)
     KafkaConfig config;
     EXPECT_EQ(config.brokers, "localhost:9092");
     EXPECT_EQ(config.consumer_group, "apex-group");
-    EXPECT_EQ(config.log_topic, "apex-logs");
     EXPECT_EQ(config.compression_type, "lz4");
     EXPECT_EQ(config.producer_batch_ms.count(), 5);
 }

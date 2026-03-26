@@ -80,7 +80,6 @@ endfunction()
 apex_shared_add_kafka_test(test_kafka_producer test_kafka_producer.cpp)
 apex_shared_add_kafka_test(test_kafka_consumer test_kafka_consumer.cpp)
 apex_shared_add_kafka_test(test_kafka_adapter test_kafka_adapter.cpp)
-apex_shared_add_kafka_test(test_kafka_sink test_kafka_sink.cpp)
 apex_shared_add_kafka_test(test_consumer_payload_pool test_consumer_payload_pool.cpp)
 
 # --- Redis adapter tests ---
