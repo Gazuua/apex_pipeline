@@ -58,6 +58,7 @@ TEST(TlsTcpTransportTest, CreateSslContextThrowsOnMissingCertFile)
     TlsTcpTransport::Config cfg{
         .cert_file = "/nonexistent/cert.pem",
         .key_file = "/nonexistent/key.pem",
+        .ca_file = "",
     };
 
     EXPECT_THROW((void)TlsTcpTransport::create_ssl_context(cfg), boost::system::system_error);
@@ -72,6 +73,7 @@ TEST(TlsTcpTransportTest, CreateSslContextThrowsOnInvalidCertContent)
     TlsTcpTransport::Config cfg{
         .cert_file = cert.path,
         .key_file = key.path,
+        .ca_file = "",
     };
 
     EXPECT_THROW((void)TlsTcpTransport::create_ssl_context(cfg), boost::system::system_error);

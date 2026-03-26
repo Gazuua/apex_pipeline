@@ -110,7 +110,7 @@ struct TlsTcpTransport
     {
         // SSL shutdown is bidirectional; may timeout.
         // Ignore errors -- client may have already disconnected.
-        auto [ec] = co_await sock.async_shutdown(boost::asio::as_tuple(boost::asio::use_awaitable));
+        [[maybe_unused]] auto [ec] = co_await sock.async_shutdown(boost::asio::as_tuple(boost::asio::use_awaitable));
         co_return;
     }
 
