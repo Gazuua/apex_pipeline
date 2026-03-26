@@ -94,6 +94,9 @@ target_link_libraries(test_server_shutdown_drain PRIVATE apex::shared::protocols
 # CrashHandler death test
 apex_add_unit_test(test_crash_handler test_crash_handler.cpp)
 
+# AdminHttpServer (runtime log-level control)
+apex_add_unit_test(test_admin_http_server test_admin_http_server.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -153,5 +156,6 @@ set_tests_properties(
     test_websocket_process_frames
     test_server_shutdown_drain
     test_crash_handler
+    test_admin_http_server
     PROPERTIES TIMEOUT 60
 )

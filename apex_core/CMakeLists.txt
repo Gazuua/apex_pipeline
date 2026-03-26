@@ -81,6 +81,8 @@ add_library(apex_core STATIC
     src/periodic_task_scheduler.cpp
     src/metrics_registry.cpp
     src/metrics_http_server.cpp
+    src/http_server_base.cpp
+    src/admin_http_server.cpp
 )
 add_library(apex::core ALIAS apex_core)
 

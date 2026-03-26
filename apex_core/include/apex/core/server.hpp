@@ -10,6 +10,7 @@
 #include <apex/core/cross_core_call.hpp>
 #include <apex/core/listener.hpp>
 #include <apex/core/message_dispatcher.hpp>
+#include <apex/core/admin_http_server.hpp>
 #include <apex/core/metrics_http_server.hpp>
 #include <apex/core/metrics_registry.hpp>
 #include <apex/core/periodic_task_scheduler.hpp>
@@ -352,6 +353,7 @@ class Server
 
     MetricsRegistry metrics_registry_;
     MetricsHttpServer metrics_http_server_;
+    AdminHttpServer admin_http_server_;
 
     std::atomic<bool> running_{false};
     std::atomic<bool> stopping_{false};
