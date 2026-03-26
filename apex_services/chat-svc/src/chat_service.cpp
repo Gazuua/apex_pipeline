@@ -615,7 +615,8 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
     auto timestamp = current_timestamp_ms();
     auto sender_id = meta.user_id;
 
-    logger_.info("on_whisper (target: {}, corr_id: {}, session: {})", target_user_id, meta.corr_id, meta.session_id);
+    logger_.info("on_whisper (target_user: {}, corr_id: {}, session: {})", target_user_id, meta.corr_id,
+                 meta.session_id);
 
     auto core_id = apex::core::CoreEngine::current_core_id();
 
@@ -635,6 +636,8 @@ ChatService::on_whisper(const apex::core::KafkaMessageMeta& meta, uint32_t /*msg
         co_return std::unexpected(target_result.error());
     auto target_session_id = apex::core::make_session_id(target_result->session_id);
     auto target_core_id = target_result->core_id;
+
+    logger_.debug("whisper routing (target_session: {}, target_core: {})", target_result->session_id, target_core_id);
 
     // 3. Build WhisperMessage FBS and send to target via Kafka unicast
     {
