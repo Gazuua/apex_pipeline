@@ -10,7 +10,7 @@
   - `src/` — 구현
   - `adapters/` — 외부 어댑터 라이브러리 (apex::shared::adapters)
     - `common/` — AdapterBase CRTP, PoolLike concept, PoolStats/PoolConfig
-    - `kafka/` — KafkaProducer, KafkaConsumer, KafkaAdapter, KafkaSink
+    - `kafka/` — KafkaProducer, KafkaConsumer, KafkaAdapter
     - `redis/` — RedisConnection, RedisMultiplexer, RedisAdapter, HiredisAsioAdapter, RedisReply
     - `pg/` — PgConnection, PgResult, PgPool, PgAdapter, PgTransaction
   - `protocols/` — 프로토콜 구현 (apex::shared::protocols)

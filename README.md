@@ -532,7 +532,7 @@ docker compose -f apex_infra/docker/docker-compose.e2e.yml up -d --wait
 
 - **v0.4 — 외부 어댑터** (PR #15 merged)
   - 공통 추상화: AdapterBase CRTP + PoolLike concept + AdapterInterface 타입 소거
-  - Kafka 어댑터: librdkafka Producer/Consumer + Asio 통합 + KafkaSink (spdlog → Kafka)
+  - Kafka 어댑터: librdkafka Producer/Consumer + Asio 통합
   - Redis 어댑터: hiredis fd → Asio 직접 등록 (HiredisAsioAdapter) + 코루틴 브릿지
   - PostgreSQL 어댑터: libpq async → Asio + PgPool lazy connect + PgBouncer 전제
   - Server 통합: add_adapter API + Graceful Shutdown 순서 보장
