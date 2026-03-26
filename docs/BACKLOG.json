@@ -128,12 +128,25 @@
       "timeframe": "IN_VIEW",
       "scope": "TOOLS",
       "type": "INFRA",
-      "description": "backlog_items에 blocked_reason 컬럼 추가. /backlog 페이지에 행별/다중 선택 FIX 버튼 신설, 브랜치 선택 모달→세션 ConPTY stdin에 자연어 프롬프트 주입. 네비 바 blocked 뱃지, 대시보드 요약 카드, 브랜치/백로그 행 강조. CLI --blocked 플래그 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md",
+      "description": "backlog_items에 blocked_reason 컬럼 추가. /backlog 페이지에 행별/다중 선택 FIX 버튼 신설, 브랜치 선택 모달→세션 ConPTY stdin에 자연어 프롬프트 주입. 네비 바 blocked 뱃지, 대시보드 요약 카드, 브랜치/백로그 행 강조. CLI --blocked 플래그 추가. 설계서: docs/apex_tools/plans/20260326_152349_workspace_session_mgmt.md\n[RELEASED] branch_agent: Phase 1 blocked_reason 완료, Phase 3 FIX UI 후속 작업 필요",
       "related": "238",
       "position": 71,
-      "status": "FIXING",
+      "status": "OPEN",
       "created_at": "2026-03-26 15:24:17",
-      "updated_at": "2026-03-26 15:31:21"
+      "updated_at": "2026-03-26 16:38:21"
+    },
+    {
+      "id": 241,
+      "title": "smoke test Chat Service 타임아웃 — healthcheck 미비 + warmup 누락",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "INFRA",
+      "type": "BUG",
+      "description": "docker-compose.smoke.yml에 chat-svc/auth-svc healthcheck 없음. E2E warmup이 Auth만 프로브하여 Chat Service Kafka 컨슈머 미준비 상태에서 테스트 시작. Gateway 5s 타임아웃으로 ListRooms 실패.",
+      "position": 72,
+      "status": "FIXING",
+      "created_at": "2026-03-26 16:16:06",
+      "updated_at": "2026-03-26 16:16:30"
     },
     {
       "id": 241,
