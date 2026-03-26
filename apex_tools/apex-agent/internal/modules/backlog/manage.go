@@ -819,7 +819,15 @@ func (m *Manager) DashboardList(ctx context.Context, f DashboardFilter) ([]Dashb
 	addInFilter("status", f.Status)
 	addInFilter("severity", f.Severity)
 	addInFilter("timeframe", f.Timeframe)
-	addInFilter("scope", f.Scope)
+	// scope는 쉼표 구분 multi-value ("CORE, SHARED") — LIKE로 부분 매칭 (OR)
+	if len(f.Scope) > 0 {
+		scopeConds := make([]string, len(f.Scope))
+		for i, s := range f.Scope {
+			scopeConds[i] = "scope LIKE ?"
+			args = append(args, "%"+s+"%")
+		}
+		where = append(where, "("+strings.Join(scopeConds, " OR ")+")")
+	}
 	addInFilter("type", f.Type)
 
 	query := `SELECT id, title, severity, timeframe, scope, type, status, description,
