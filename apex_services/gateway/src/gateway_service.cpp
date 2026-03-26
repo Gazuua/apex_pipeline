@@ -124,11 +124,43 @@ GatewayService::on_default_message(apex::core::SessionPtr session, uint32_t msg_
     if (msg_id == system_msg_ids::AUTHENTICATE_SESSION)
         co_return handle_authenticate_session(session, payload);
 
-    if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL)
-        co_return handle_subscribe_channel(session, payload);
+    // SUBSCRIBE/UNSUBSCRIBE: require authentication + IP rate limit (BACKLOG-249).
+    // Without this guard, unauthenticated clients can flood SUBSCRIBE to exhaust
+    // ChannelSessionMap memory → OOM.
+    if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL || msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL)
+    {
+        auto it = auth_states_.find(session->id());
+        if (it == auth_states_.end() || !it->second.authenticated)
+        {
+            logger_.debug(session, msg_id, "system message rejected: not authenticated");
+            auto frame = apex::core::ErrorSender::build_error_frame(
+                msg_id, apex::core::ErrorCode::ServiceError, "", static_cast<uint16_t>(GatewayError::JwtVerifyFailed));
+            (void)session->enqueue_write(std::move(frame));
+            co_return apex::core::ok();
+        }
 
-    if (msg_id == system_msg_ids::UNSUBSCRIBE_CHANNEL)
-        co_return handle_unsubscribe_channel(session, payload);
+        if (pipeline_)
+        {
+            boost::system::error_code ec;
+            auto ep = session->socket().remote_endpoint(ec);
+            auto ip = ec ? std::string("unknown") : ep.address().to_string();
+            auto ip_result = pipeline_->check_ip_rate_limit(ip);
+            if (!ip_result)
+            {
+                logger_.debug(session, msg_id, "system message rate-limited (ip={})", ip);
+                auto frame =
+                    apex::core::ErrorSender::build_error_frame(msg_id, apex::core::ErrorCode::ServiceError, "",
+                                                               static_cast<uint16_t>(GatewayError::RateLimitedIp));
+                (void)session->enqueue_write(std::move(frame));
+                co_return apex::core::ok();
+            }
+        }
+
+        if (msg_id == system_msg_ids::SUBSCRIBE_CHANNEL)
+            co_return handle_subscribe_channel(session, payload);
+        else
+            co_return handle_unsubscribe_channel(session, payload);
+    }
 
     co_return co_await handle_request(std::move(session), msg_id, payload);
 }

@@ -17,6 +17,8 @@ gateway:
   # image.tag: "v0.6.3"  # 릴리스 시 태그 지정
   # rollouts:
   #   enabled: true  # Argo Rollouts 활성화 시 Deployment 대신 Rollout 생성
+  networkPolicy:
+    enabled: true
   ingress:
     host: apex.example.com
     tls:
@@ -37,6 +39,8 @@ gateway:
 
 auth-svc:
   enabled: true
+  networkPolicy:
+    enabled: true
   resources:
     requests:
       cpu: 250m
@@ -49,6 +53,8 @@ auth-svc:
 
 chat-svc:
   enabled: true
+  networkPolicy:
+    enabled: true
   resources:
     requests:
       cpu: 250m

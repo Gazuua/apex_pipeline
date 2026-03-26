@@ -109,6 +109,13 @@ class KafkaConsumer : public std::enable_shared_from_this<KafkaConsumer>
     /// Message polling + callback invocation (non-blocking)
     void poll_messages();
 
+    /// Manual offset commit for at-least-once delivery.
+    void commit_offset(const rd_kafka_message_t* msg);
+
+    /// DLQ produce with retry. Returns true if message was safely routed to DLQ.
+    bool produce_to_dlq(const rd_kafka_message_t* msg, std::span<const uint8_t> key_span,
+                        std::span<const uint8_t> payload_span);
+
     /// Linux: pipe fd event wait -> message poll loop
     void schedule_async_wait();
 
