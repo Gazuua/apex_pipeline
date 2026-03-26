@@ -12,12 +12,14 @@ import (
 
 // AppName is the application identifier used for directory and pipe names.
 const (
-	AppName         = "apex-agent"
-	pipeName        = `\\.\pipe\apex-agent`
-	socketName      = "apex-agent.sock"
-	dbName          = "apex-agent.db"
-	pidName         = "apex-agent.pid"
-	maintenanceName = "apex-agent.maintenance"
+	AppName            = "apex-agent"
+	pipeName           = `\\.\pipe\apex-agent`
+	socketName         = "apex-agent.sock"
+	dbName             = "apex-agent.db"
+	pidName            = "apex-agent.pid"
+	sessionPIDName     = "apex-session.pid"
+	sessionLogDirName  = "sessions"
+	maintenanceName    = "apex-agent.maintenance"
 )
 
 // DataDir returns the platform-specific data directory for apex-agent.
@@ -93,6 +95,18 @@ func GitCurrentBranch(root string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// SessionPIDFilePath returns the full path to the session server PID file.
+func SessionPIDFilePath() string { return filepath.Join(DataDir(), sessionPIDName) }
+
+// SessionLogDir returns the directory for session log files.
+// Falls back to DataDir()/sessions if configDir is empty.
+func SessionLogDir(configDir string) string {
+	if configDir != "" {
+		return configDir
+	}
+	return filepath.Join(DataDir(), sessionLogDirName)
 }
 
 // NormalizePath normalizes a file path for the current platform.
