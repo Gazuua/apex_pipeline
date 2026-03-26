@@ -17,10 +17,6 @@ dependencies:
   - name: chat-svc
     version: "0.1.0"
     condition: chat-svc.enabled
-  - name: log-svc
-    version: "0.1.0"
-    condition: log-svc.enabled
-
   # --- 인프라 (Bitnami, 로컬 전용) ---
   - name: kafka
     version: "~32.x"

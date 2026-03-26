@@ -39,7 +39,6 @@ helm upgrade --install apex-infra . \
     --set gateway.enabled=false \
     --set auth-svc.enabled=false \
     --set chat-svc.enabled=false \
-    --set log-svc.enabled=false \
     --wait --timeout 7m
 
 # 5. Services release (apex-services namespace)

@@ -1,4 +1,0 @@
-# Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
-{{- if not (and .Values.rollouts .Values.rollouts.enabled) }}
-{{ include "apex-common.deployment" . }}
-{{- end }}
