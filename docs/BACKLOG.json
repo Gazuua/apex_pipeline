@@ -16,20 +16,6 @@
       "updated_at": "2026-03-26 16:37:49"
     },
     {
-      "id": 135,
-      "title": "KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "SHARED",
-      "type": "SECURITY",
-      "description": "`KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.",
-      "related": "131(이번PR에서도입)",
-      "position": 2,
-      "status": "FIXING",
-      "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-26 17:54:56"
-    },
-    {
       "id": 113,
       "title": "Docker E2E 풀 인프라 벤치마킹",
       "severity": "MAJOR",
@@ -200,19 +186,6 @@
       "updated_at": "2026-03-25 09:42:04"
     },
     {
-      "id": 198,
-      "title": "외부 Secret Manager 연동 — Vault/AWS Secrets Manager",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "INFRA",
-      "type": "SECURITY",
-      "description": "v0.6.3에서 프로덕션 Secret은 existingSecret 참조로 인터페이스만 준비. 실제 클라우드 환경 결정 후 Vault Agent Injector 또는 AWS Secrets Manager CSI Driver로 자동 시크릿 주입 파이프라인 구축 필요.",
-      "position": 15,
-      "status": "FIXING",
-      "created_at": "2026-03-24 23:01:31",
-      "updated_at": "2026-03-26 17:54:56"
-    },
-    {
       "id": 232,
       "title": "Grafana 대시보드 + 서비스 메트릭 안정화 — Argo Rollouts AnalysisTemplate 자동 승격 전제조건",
       "severity": "MINOR",
@@ -238,6 +211,37 @@
       "status": "OPEN",
       "created_at": "2026-03-26 15:24:30",
       "updated_at": "2026-03-26 15:24:30"
+    },
+    {
+      "id": 198,
+      "title": "외부 Secret Manager 연동 — Vault/AWS Secrets Manager",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "INFRA",
+      "type": "SECURITY",
+      "description": "v0.6.3에서 프로덕션 Secret은 existingSecret 참조로 인터페이스만 준비. 실제 클라우드 환경 결정 후 Vault Agent Injector 또는 AWS Secrets Manager CSI Driver로 자동 시크릿 주입 파이프라인 구축 필요.",
+      "position": 15,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 19:38:58",
+      "created_at": "2026-03-24 23:01:31",
+      "updated_at": "2026-03-26 19:38:58"
+    },
+    {
+      "id": 135,
+      "title": "KafkaSecurityConfig 시크릿 처리 — sasl_password 평문 저장",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "SHARED",
+      "type": "SECURITY",
+      "description": "`KafkaSecurityConfig::sasl_password`가 `std::string` 평문 저장. 로그 출력은 마스킹 처리됐으나, 메모리 상 평문 잔존. v0.6 운영 인프라 마일스톤에서 secure secret 처리 방식(환경 변수 참조, 암호화 등) 결정. **[FSD 분석 2026-03-22]** v0.6 운영 인프라 마일스톤에서 시크릿 관리 방식 결정 후 착수. 현재 자동화 불가.",
+      "related": "131(이번PR에서도입)",
+      "position": 2,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-26 19:38:57",
+      "created_at": "2026-03-22 17:32:29",
+      "updated_at": "2026-03-26 19:38:57"
     },
     {
       "id": 243,
