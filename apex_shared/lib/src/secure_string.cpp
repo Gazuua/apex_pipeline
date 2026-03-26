@@ -113,4 +113,23 @@ bool SecureString::operator!=(const char* other) const noexcept
     return !(*this == other);
 }
 
+bool SecureString::constant_time_equal(const SecureString& other) const noexcept
+{
+    return constant_time_equal(other.view());
+}
+
+bool SecureString::constant_time_equal(std::string_view other) const noexcept
+{
+    if (data_.size() != other.size())
+    {
+        return false;
+    }
+    volatile unsigned char acc = 0;
+    for (std::size_t i = 0; i < data_.size(); ++i)
+    {
+        acc |= static_cast<unsigned char>(data_[i]) ^ static_cast<unsigned char>(other[i]);
+    }
+    return acc == 0;
+}
+
 } // namespace apex::shared

@@ -39,6 +39,12 @@ class SecureString
     [[nodiscard]] bool operator!=(std::string_view other) const noexcept;
     [[nodiscard]] bool operator!=(const char* other) const noexcept;
 
+    /// Constant-time comparison — immune to timing side-channel attacks.
+    /// Use for security-sensitive comparisons (token validation, password verification, etc.).
+    /// operator== remains as fast early-return comparison for non-security contexts.
+    [[nodiscard]] bool constant_time_equal(const SecureString& other) const noexcept;
+    [[nodiscard]] bool constant_time_equal(std::string_view other) const noexcept;
+
   private:
     std::string data_;
     void clear() noexcept;

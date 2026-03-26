@@ -241,3 +241,51 @@ TEST(SecureStringTest, InequalityOperatorsConstCharPtr)
     EXPECT_TRUE(s != "xyz");
     EXPECT_FALSE(s != "abc");
 }
+
+// ============================================================
+// constant_time_equal (timing-safe comparison)
+// ============================================================
+
+TEST(SecureStringTest, ConstantTimeEqualSameValue)
+{
+    SecureString a(std::string_view{"secret_token_12345"});
+    SecureString b(std::string_view{"secret_token_12345"});
+    EXPECT_TRUE(a.constant_time_equal(b));
+}
+
+TEST(SecureStringTest, ConstantTimeEqualDifferentValue)
+{
+    SecureString a(std::string_view{"secret_token_12345"});
+    SecureString b(std::string_view{"secret_token_12346"});
+    EXPECT_FALSE(a.constant_time_equal(b));
+}
+
+TEST(SecureStringTest, ConstantTimeEqualDifferentLength)
+{
+    SecureString a(std::string_view{"short"});
+    SecureString b(std::string_view{"longer_string"});
+    EXPECT_FALSE(a.constant_time_equal(b));
+}
+
+TEST(SecureStringTest, ConstantTimeEqualWithStringView)
+{
+    SecureString s(std::string_view{"matching_value"});
+    EXPECT_TRUE(s.constant_time_equal(std::string_view{"matching_value"}));
+    EXPECT_FALSE(s.constant_time_equal(std::string_view{"different_value"}));
+}
+
+TEST(SecureStringTest, ConstantTimeEqualEmptyStrings)
+{
+    SecureString a;
+    SecureString b;
+    EXPECT_TRUE(a.constant_time_equal(b));
+    EXPECT_TRUE(a.constant_time_equal(std::string_view{""}));
+}
+
+TEST(SecureStringTest, ConstantTimeEqualEmptyVsNonEmpty)
+{
+    SecureString a;
+    SecureString b(std::string_view{"notempty"});
+    EXPECT_FALSE(a.constant_time_equal(b));
+    EXPECT_FALSE(b.constant_time_equal(a));
+}

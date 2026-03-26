@@ -72,14 +72,11 @@ int main(int argc, char* argv[])
     redis_auth_cfg.port = gw_config.redis_auth_port;
     redis_auth_cfg.password = gw_config.redis_auth_password;
 
-    // ── Rate limit standalone Redis adapter ──────────────────────────
-    // Server의 어댑터 레지스트리와 분리된 독립 어댑터.
-    // GatewayService가 on_wire()에서 직접 초기화.
+    // ── Rate limit Redis adapter config ─────────────────────────────
     apex::shared::adapters::redis::RedisConfig redis_rl_cfg;
     redis_rl_cfg.host = gw_config.redis_ratelimit_host;
     redis_rl_cfg.port = gw_config.redis_ratelimit_port;
     redis_rl_cfg.password = gw_config.redis_ratelimit_password;
-    auto rl_redis_adapter = std::make_unique<apex::shared::adapters::redis::RedisAdapter>(redis_rl_cfg);
 
     // ── Server 설정 ──────────────────────────────────────────────────
     apex::core::Server server({
@@ -99,7 +96,8 @@ int main(int argc, char* argv[])
 
     // 어댑터 등록 (role 기반 다중 등록)
     server.add_adapter<apex::shared::adapters::kafka::KafkaAdapter>(kafka_cfg)
-        .add_adapter<apex::shared::adapters::redis::RedisAdapter>("auth", redis_auth_cfg);
+        .add_adapter<apex::shared::adapters::redis::RedisAdapter>("auth", redis_auth_cfg)
+        .add_adapter<apex::shared::adapters::redis::RedisAdapter>("ratelimit", redis_rl_cfg);
 
     // ── GatewayService per-core 팩토리 ───────────────────────────────
     // GatewayService의 라이프사이클 훅이 모든 와이어링을 수행:
@@ -109,13 +107,11 @@ int main(int argc, char* argv[])
     //   on_start     — 기본 핸들러 등록
     //   on_session_closed — auth_states/채널 구독 정리
     auto gw_config_copy = gw_config;
-    auto* rl_adapter_ptr = rl_redis_adapter.get();
 
     server.add_service_factory(
-        [gw_config_copy, route_table, jwt_verifier,
-         rl_adapter_ptr](apex::core::PerCoreState& /*state*/) -> std::unique_ptr<apex::core::ServiceBaseInterface> {
-            return std::make_unique<apex::gateway::GatewayService>(gw_config_copy, *jwt_verifier, route_table,
-                                                                   rl_adapter_ptr);
+        [gw_config_copy, route_table,
+         jwt_verifier](apex::core::PerCoreState& /*state*/) -> std::unique_ptr<apex::core::ServiceBaseInterface> {
+            return std::make_unique<apex::gateway::GatewayService>(gw_config_copy, *jwt_verifier, route_table);
         });
 
     // post_init_callback 불필요 — GatewayService 라이프사이클이 모든 와이어링 수행.

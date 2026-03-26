@@ -89,8 +89,7 @@ struct GatewayGlobals
 class GatewayService : public apex::core::ServiceBase<GatewayService>
 {
   public:
-    GatewayService(const GatewayConfig& config, const JwtVerifier& jwt_verifier, RouteTablePtr route_table,
-                   apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter);
+    GatewayService(const GatewayConfig& config, const JwtVerifier& jwt_verifier, RouteTablePtr route_table);
     ~GatewayService();
 
     // ── ServiceBase 라이프사이클 훅 ─────────────────────────────────────────
@@ -163,7 +162,7 @@ class GatewayService : public apex::core::ServiceBase<GatewayService>
     // cross-core 글로벌 — Server.global<T>()가 소유, raw pointer로 참조
     GatewayGlobals* globals_{nullptr};
 
-    // Rate limit standalone Redis adapter (main에서 전달, 글로벌 생성 시 사용)
+    // Rate limit Redis adapter (on_configure에서 Server 레지스트리를 통해 획득)
     apex::shared::adapters::redis::RedisAdapter* rl_redis_adapter_{nullptr};
 };
 

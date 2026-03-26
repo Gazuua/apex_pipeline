@@ -15,7 +15,6 @@
 
 #include <boost/asio/awaitable.hpp>
 
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 
@@ -56,7 +55,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         : config_(config)
         , jwt_verifier_(jwt_verifier)
         , blacklist_(blacklist)
-        , rate_limiter_(rate_limiter)
+        , rate_limiter_{rate_limiter}
     {}
 
     /// Full pipeline check for a request.
@@ -177,14 +176,13 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     /// Per-IP rate limit check (Layer 1, local memory, no I/O).
     [[nodiscard]] GatewayResult check_ip_rate_limit(std::string_view remote_ip)
     {
-        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
-        if (!limiter)
+        if (!rate_limiter_)
         {
             return {};
         }
 
         auto now = std::chrono::steady_clock::now();
-        if (!limiter->check_ip(remote_ip, now))
+        if (!rate_limiter_->check_ip(remote_ip, now))
         {
             logger_.debug("Per-IP rate limit exceeded: {}", remote_ip);
             return std::unexpected(GatewayError::RateLimitedIp);
@@ -196,13 +194,12 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     /// Per-User rate limit check (Layer 2, Redis).
     [[nodiscard]] boost::asio::awaitable<GatewayResult> check_user_rate_limit(uint64_t user_id)
     {
-        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
-        if (!limiter)
+        if (!rate_limiter_)
         {
             co_return GatewayResult{};
         }
 
-        auto result = co_await limiter->check_user(user_id, now_ms());
+        auto result = co_await rate_limiter_->check_user(user_id, now_ms());
         if (!result)
         {
             logger_.warn("Per-User rate limit check failed (Redis error), allowing: user_id={}", user_id);
@@ -222,13 +219,12 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     /// Per-Endpoint rate limit check (Layer 3, Redis).
     [[nodiscard]] boost::asio::awaitable<GatewayResult> check_endpoint_rate_limit(uint64_t user_id, uint32_t msg_id)
     {
-        auto* limiter = rate_limiter_.load(std::memory_order_acquire);
-        if (!limiter)
+        if (!rate_limiter_)
         {
             co_return GatewayResult{};
         }
 
-        auto result = co_await limiter->check_endpoint(user_id, msg_id, now_ms());
+        auto result = co_await rate_limiter_->check_endpoint(user_id, msg_id, now_ms());
         if (!result)
         {
             logger_.warn("Per-Endpoint rate limit check failed (Redis error), allowing: "
@@ -248,10 +244,11 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
         co_return GatewayResult{};
     }
 
-    /// Update rate limiter reference (for hot-reload / lazy init).
+    /// Set rate limiter reference (initialization only — call during on_wire before processing starts).
+    /// For runtime config changes, use RateLimitFacade::update_endpoint_config() instead.
     void set_rate_limiter(LimiterT* limiter) noexcept
     {
-        rate_limiter_.store(limiter, std::memory_order_release);
+        rate_limiter_ = limiter;
     }
 
   private:
@@ -265,7 +262,7 @@ template <typename VerifierT, typename BlacklistT, typename LimiterT> class Gate
     const GatewayConfig& config_;
     const VerifierT& jwt_verifier_;
     BlacklistT* blacklist_;
-    std::atomic<LimiterT*> rate_limiter_;
+    LimiterT* rate_limiter_;
     apex::core::ScopedLogger logger_{"GatewayPipeline", apex::core::ScopedLogger::NO_CORE, "app"};
 };
 
