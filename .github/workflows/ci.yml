@@ -146,14 +146,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── sccache 캐시 복원 ──────────────────────────
+      - name: Restore sccache cache
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/sccache
+          key: sccache-linux-${{ matrix.preset }}-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            sccache-linux-${{ matrix.preset }}-${{ github.ref_name }}-
+            sccache-linux-${{ matrix.preset }}-main-
+            sccache-linux-${{ matrix.preset }}-
+          save-always: true
+
+      - name: Zero sccache stats
+        run: sccache --zero-stats || true
+
       # ── Build & test ─────────────────────────────
       - name: Configure
         run: >-
           cmake --preset ${{ matrix.preset }}
           -DVCPKG_INSTALLED_DIR=/opt/vcpkg_installed
+          -DCMAKE_C_COMPILER_LAUNCHER=sccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build
         run: cmake --build build/Linux/${{ matrix.preset }}
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats || true
+
+      - name: Stop sccache server
+        if: always()
+        run: sccache --stop-server || true
 
       - name: Upload service binaries
         if: matrix.name == 'linux-gcc'
@@ -309,8 +334,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~\AppData\Local\Mozilla\sccache\cache
-          key: sccache-msvc-${{ github.sha }}
-          restore-keys: sccache-msvc-
+          key: sccache-msvc-${{ github.ref_name }}-${{ github.run_number }}
+          restore-keys: |
+            sccache-msvc-${{ github.ref_name }}-
+            sccache-msvc-main-
+            sccache-msvc-
+          save-always: true
 
       - name: Restore vcpkg binary cache
         uses: actions/cache@v4
@@ -319,11 +348,18 @@ jobs:
           key: vcpkg-bin-msvc-${{ hashFiles('**/vcpkg.json') }}
           restore-keys: vcpkg-bin-msvc-
 
+      - name: Zero sccache stats
+        run: sccache --zero-stats
+
       - name: Configure
         run: cmake --preset release-sccache
 
       - name: Build
         run: cmake --build build/Windows/release-sccache
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Test
         run: ctest --preset release-sccache -LE e2e
