@@ -32,3 +32,7 @@ work_factor = 12
 
 [session]
 ttl_sec = 86400
+
+[metrics]
+enabled = true
+port = 8081

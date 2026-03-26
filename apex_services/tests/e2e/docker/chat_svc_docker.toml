@@ -32,3 +32,7 @@ password = "dev_redis_pass"
 
 [pg]
 connection_string = "host=postgres port=5432 dbname=apex_db user=apex_admin password=apex_e2e_password options='-c search_path=chat_svc,public'"
+
+[metrics]
+enabled = true
+port = 8081

@@ -133,6 +133,91 @@ void E2EEnvironment::SetUp()
         std::cerr << "[E2E] Warning: Kafka pipeline warm-up failed. Tests may fail.\n";
     }
 
+    // Chat Service 파이프라인 warm-up: 인증 후 ListRooms 요청으로 Chat Service Kafka 컨슈머 준비 확인.
+    // Auth 프로브만으로는 Chat Service 준비 상태를 보장할 수 없음 (Docker 환경에서 컨슈머 초기화 지연).
+    std::cout << "[E2E] Warming up Chat Service pipeline (ListRooms probe)...\n";
+    auto chat_deadline = std::chrono::steady_clock::now() + config_.startup_timeout;
+    bool chat_ready = false;
+
+    while (std::chrono::steady_clock::now() < chat_deadline)
+    {
+        try
+        {
+            boost::asio::io_context chat_io;
+            E2ETestFixture::TcpClient chat_client(chat_io, config_);
+            chat_client.connect();
+
+            // 1. Login
+            {
+                flatbuffers::FlatBufferBuilder fbb(256);
+                auto email_off = fbb.CreateString("alice@apex.dev");
+                auto pw_off = fbb.CreateString("password123");
+                auto start = fbb.StartTable();
+                fbb.AddOffset(4, email_off);
+                fbb.AddOffset(6, pw_off);
+                auto loc = fbb.EndTable(start);
+                fbb.Finish(flatbuffers::Offset<void>(loc));
+                chat_client.send(1000, fbb.GetBufferPointer(), fbb.GetSize());
+            }
+
+            auto login_resp = chat_client.recv(std::chrono::seconds{5});
+            if (login_resp.msg_id != 1001 || login_resp.payload.empty())
+            {
+                std::this_thread::sleep_for(std::chrono::seconds{2});
+                continue;
+            }
+
+            // Extract access_token from LoginResponse
+            auto* root = flatbuffers::GetRoot<flatbuffers::Table>(login_resp.payload.data());
+            auto* at = root ? root->GetPointer<const flatbuffers::String*>(6) : nullptr;
+            if (!at || at->size() == 0)
+            {
+                std::this_thread::sleep_for(std::chrono::seconds{2});
+                continue;
+            }
+            std::string token = at->str();
+
+            // 2. Authenticate (bind JWT to session, msg_id=3)
+            {
+                flatbuffers::FlatBufferBuilder fbb(static_cast<size_t>(256) + token.size());
+                auto token_off = fbb.CreateString(token);
+                auto start = fbb.StartTable();
+                fbb.AddOffset(4, token_off);
+                auto loc = fbb.EndTable(start);
+                fbb.Finish(flatbuffers::Offset<void>(loc));
+                chat_client.send(3, fbb.GetBufferPointer(), fbb.GetSize());
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds{100});
+
+            // 3. ListRoomsRequest (msg_id=2007)
+            {
+                flatbuffers::FlatBufferBuilder fbb(128);
+                auto start = fbb.StartTable();
+                auto loc = fbb.EndTable(start);
+                fbb.Finish(flatbuffers::Offset<void>(loc));
+                chat_client.send(2007, fbb.GetBufferPointer(), fbb.GetSize());
+            }
+
+            auto chat_resp = chat_client.recv(std::chrono::seconds{8});
+            if (chat_resp.msg_id == 2008)
+            {
+                chat_ready = true;
+                std::cout << "[E2E] Chat Service pipeline ready (ListRooms response received).\n";
+                break;
+            }
+        }
+        catch (...)
+        {
+            // 타임아웃 또는 연결 실패 — 재시도
+        }
+        std::this_thread::sleep_for(std::chrono::seconds{2});
+    }
+
+    if (!chat_ready)
+    {
+        std::cerr << "[E2E] Warning: Chat Service warm-up failed. Chat tests may fail.\n";
+    }
+
     // PubSub + consumer 안정화 추가 대기
     std::this_thread::sleep_for(std::chrono::seconds{3});
 
