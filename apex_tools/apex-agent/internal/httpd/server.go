@@ -44,8 +44,8 @@ type QueueQuerier interface {
 type Server struct {
 	backlogMgr  BacklogQuerier
 	handoffMgr  HandoffQuerier
-	queueMgr QueueQuerier
-	httpSrv  *http.Server
+	queueMgr    QueueQuerier
+	httpSrv     *http.Server
 	listener    net.Listener
 	lastRequest atomic.Int64
 	pages       map[string]*template.Template
