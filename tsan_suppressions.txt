@@ -1,6 +1,12 @@
-# Boost.Asio internal false positive suppression
-# atomic_thread_fence is not instrumented by TSAN, causing false positives
-# in Boost.Asio's internal scheduler and epoll reactor.
-race:boost::asio::detail::*
-race:boost::asio::io_context::*
+# Boost.Asio false positive suppression (narrowed from detail::*)
+# Root cause: TSAN does not instrument atomic_thread_fence, which Boost.Asio
+# uses internally for acquire/release semantics in the scheduler and reactor.
+#
+# scheduler — do_run_one, wake_one_thread, shutdown use fences
+race:boost::asio::detail::scheduler
+# epoll_reactor — descriptor_state transitions use fences
+race:boost::asio::detail::epoll_reactor
+# io_context — thin wrapper around scheduler (run/poll/restart)
+race:boost::asio::io_context
+# posix_mutex — io_context destruction ordering false positive
 mutex:boost::asio::detail::posix_mutex
