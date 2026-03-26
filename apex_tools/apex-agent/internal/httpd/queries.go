@@ -82,6 +82,8 @@ type BranchInfo struct {
 	GitStatus       string
 	SessionStatus   string
 	SessionID       string
+	SessionPID      int
+	SessionRefLabel string // "×2", "×3", etc. (empty for ref count <= 1)
 	HandoffStatus   string // from LEFT JOIN active_branches
 	BacklogIDs      string // comma-separated
 	BlockedBacklogs []BlockedBacklogInfo

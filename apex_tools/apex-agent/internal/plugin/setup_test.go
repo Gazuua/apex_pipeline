@@ -47,6 +47,9 @@ func TestIsAlreadyInstalled_False_WhenFileAbsent(t *testing.T) {
 
 func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
 	tmp := t.TempDir()
+	// Create a real plugin.json at the install path so the validity check passes.
+	pluginPath := writePluginJSON(t, tmp, "3.1.0")
+
 	installedFile := filepath.Join(tmp, "installed_plugins.json")
 	installed := installedPluginsFile{
 		Version: 2,
@@ -54,7 +57,7 @@ func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
 			pluginID: {
 				{
 					Scope:       "project",
-					InstallPath: "/some/path",
+					InstallPath: pluginPath,
 					Version:     "3.1.0",
 				},
 			},
@@ -65,8 +68,9 @@ func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !isAlreadyInstalled(installedFile, "/some/path", "3.1.0") {
-		t.Error("expected true when path+version match")
+	// Same version + valid path → true (even if called from a different workspace)
+	if !isAlreadyInstalled(installedFile, "/other/workspace/claude-plugin", "3.1.0") {
+		t.Error("expected true when version matches and existing path is valid")
 	}
 }
 

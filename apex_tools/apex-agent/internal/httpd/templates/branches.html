@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>Branches</h1>
-<div class="toolbar">
+<h1 class="page-title">Branches</h1>
+<div class="branch-toolbar">
   <button hx-post="/api/workspace/scan" hx-swap="none" class="btn btn-sm" onclick="setTimeout(function(){htmx.trigger('#branches-list','load')},500)">Scan</button>
   <button hx-post="/api/workspace/sync-all" hx-swap="none" class="btn btn-sm">Sync All</button>
 </div>
@@ -16,4 +16,14 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
 <script src="/static/terminal.js"></script>
+<script>
+// Prevent HTMX swap when response is identical — eliminates hover flicker on polling.
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+  if (evt.detail.target.id === 'branches-list') {
+    if (evt.detail.target.innerHTML.trim() === evt.detail.xhr.responseText.trim()) {
+      evt.detail.shouldSwap = false;
+    }
+  }
+});
+</script>
 {{end}}

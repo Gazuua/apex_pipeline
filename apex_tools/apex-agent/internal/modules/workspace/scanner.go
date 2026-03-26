@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // ScanEntry represents a discovered workspace directory.
@@ -67,6 +68,67 @@ func gitCurrentBranch(dir string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// DetectActiveClaudeSessions returns workspace directories that have an active
+// Claude Code session, detected by recent .jsonl file modification in
+// ~/.claude/projects/{encoded_dir}/. This is a fallback for sessions that
+// started before the SessionStart hook was installed.
+func DetectActiveClaudeSessions(workspaceDirs []string, maxAge time.Duration) map[string]bool {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	projectsDir := filepath.Join(homeDir, ".claude", "projects")
+	active := make(map[string]bool)
+	cutoff := time.Now().Add(-maxAge)
+
+	for _, dir := range workspaceDirs {
+		encoded := encodeClaudeProjectDir(dir)
+		projDir := filepath.Join(projectsDir, encoded)
+		entries, err := os.ReadDir(projDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".jsonl") {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil {
+				continue
+			}
+			if info.ModTime().After(cutoff) {
+				active[dir] = true
+				break
+			}
+		}
+	}
+	return active
+}
+
+// encodeClaudeProjectDir converts a workspace directory path to the format
+// used by Claude Code in ~/.claude/projects/.
+// e.g., "D:\.workspace\apex_pipeline_branch_01" → "D---workspace-apex-pipeline-branch-01"
+func encodeClaudeProjectDir(dir string) string {
+	r := strings.NewReplacer(
+		":", "-",
+		"\\", "-",
+		"/", "-",
+		".", "-",
+		"_", "-",
+	)
+	return r.Replace(dir)
+}
+
+// hasClaudeProcess checks if any claude.exe process is running on the system.
+func hasClaudeProcess() bool {
+	cmd := exec.Command("tasklist.exe", "/FI", "IMAGENAME eq claude.exe", "/FO", "CSV", "/NH")
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "claude.exe")
 }
 
 func gitStatus(dir string) string {

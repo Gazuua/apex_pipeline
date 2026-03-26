@@ -4,6 +4,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,11 +195,10 @@ func runWithBuildLock(label string, makeCmd func() (*exec.Cmd, string)) error {
 	defer logFile.Close()
 	fmt.Printf("[queue-lock] log: %s\n", logPath)
 
-	// Build the command — output to log file only.
-	// Agents read the log file directly after completion (no stdout pipe dependency).
+	// Build the command — stream to both console and log file.
 	execCmd, displayStr := makeCmd()
-	execCmd.Stdout = logFile
-	execCmd.Stderr = logFile
+	execCmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+	execCmd.Stderr = io.MultiWriter(os.Stderr, logFile)
 
 	fmt.Printf("[queue-lock] starting %s: %s\n", label, displayStr)
 

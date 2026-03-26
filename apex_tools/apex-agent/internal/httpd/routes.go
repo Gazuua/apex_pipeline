@@ -43,12 +43,15 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/workspace/sync-all", s.handleWorkspaceSyncAll)
 
 	// Session proxy routes (→ session server).
-	// No method restriction: the session server handles method dispatch internally.
+	// Go 1.22+ ServeMux requires explicit methods to avoid conflict with "GET /".
 	if s.sessionProxy != nil {
-		mux.HandleFunc("/api/session/", func(w http.ResponseWriter, r *http.Request) {
+		sessionHTTP := func(w http.ResponseWriter, r *http.Request) {
 			s.sessionProxy.HandleHTTP(w, r)
-		})
-		mux.HandleFunc("/ws/session/", func(w http.ResponseWriter, r *http.Request) {
+		}
+		mux.HandleFunc("GET /api/session/", sessionHTTP)
+		mux.HandleFunc("POST /api/session/", sessionHTTP)
+		mux.HandleFunc("DELETE /api/session/", sessionHTTP)
+		mux.HandleFunc("GET /ws/session/", func(w http.ResponseWriter, r *http.Request) {
 			if IsWebSocket(r) {
 				s.sessionProxy.HandleWebSocket(w, r)
 			} else {

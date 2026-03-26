@@ -19,6 +19,7 @@ func pluginCmd() *cobra.Command {
 		Short: "플러그인 관리",
 	}
 	cmd.AddCommand(pluginSetupCmd())
+	cmd.AddCommand(pluginTeardownCmd())
 	return cmd
 }
 
@@ -52,17 +53,52 @@ func ensureDaemon() {
 func pluginSetupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "setup",
-		Short: "auto-review 플러그인 등록",
-		Long:  "SessionStart 훅에서 호출 — apex-auto-review 플러그인을 ~/.claude에 idempotent하게 등록합니다.",
+		Short: "auto-review 플러그인 등록 + 외부 세션 감지",
+		Long:  "SessionStart 훅에서 호출 — 플러그인 등록 + 워크스페이스 세션을 EXTERNAL로 마킹합니다.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 데몬 자동 기동 — 미실행 시 시작
 			ensureDaemon()
 
 			cwd, err := os.Getwd()
 			if err != nil {
 				return fmt.Errorf("getwd: %w", err)
 			}
-			return plugin.Setup(cwd)
+			if err := plugin.Setup(cwd); err != nil {
+				return err
+			}
+			// Register this workspace as having an external Claude Code session.
+			// Best-effort: don't fail the hook if registration fails.
+			registerExternalSession(cwd)
+			return nil
 		},
+	}
+}
+
+func pluginTeardownCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "teardown",
+		Short: "외부 세션 해제",
+		Long:  "SessionEnd 훅에서 호출 — 워크스페이스 세션을 STOP으로 복원합니다.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("getwd: %w", err)
+			}
+			unregisterExternalSession(cwd)
+			return nil
+		},
+	}
+}
+
+func registerExternalSession(cwd string) {
+	params := map[string]string{"directory": cwd}
+	if _, err := sendRequest("workspace", "session-register", params, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "[apex-agent] session register: %v\n", err)
+	}
+}
+
+func unregisterExternalSession(cwd string) {
+	params := map[string]string{"directory": cwd}
+	if _, err := sendRequest("workspace", "session-unregister", params, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "[apex-agent] session unregister: %v\n", err)
 	}
 }

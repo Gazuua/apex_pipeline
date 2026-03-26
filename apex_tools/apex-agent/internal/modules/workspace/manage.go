@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/config"
 	"github.com/Gazuua/apex_pipeline/apex_tools/apex-agent/internal/log"
@@ -172,14 +173,105 @@ func (m *Manager) Scan(ctx context.Context) (*ScanResult, error) {
 		}
 	}
 
+	// Detect active Claude Code sessions via .jsonl mtime fallback.
+	// This catches sessions that started before the SessionStart hook was installed.
+	var dirs []string
+	for _, e := range entries {
+		dirs = append(dirs, e.Directory)
+	}
+	activeSessions := DetectActiveClaudeSessions(dirs, 5*time.Minute)
+	for dir := range activeSessions {
+		wsID := ""
+		for _, e := range entries {
+			if e.Directory == dir {
+				wsID = e.WorkspaceID
+				break
+			}
+		}
+		if wsID == "" {
+			continue
+		}
+		// Only promote STOP → EXTERNAL (don't override MANAGED)
+		b, err := m.Get(ctx, wsID)
+		if err != nil || b.SessionStatus != "STOP" {
+			continue
+		}
+		if err := m.UpdateSession(ctx, wsID, SessionUpdate{SessionStatus: "EXTERNAL"}); err == nil {
+			ml.Info("detected active Claude session via mtime", "workspace", wsID)
+		}
+	}
+
+	// Reap zombie EXTERNAL sessions (e.g., SessionEnd hook was never called)
+	m.ReapZombieSessions(ctx)
+
 	return &ScanResult{Added: added, Removed: removed}, nil
+}
+
+// IncrementExternalSession bumps the ref count and sets status to EXTERNAL.
+// session_pid is reused as ref count for EXTERNAL sessions.
+func (m *Manager) IncrementExternalSession(ctx context.Context, wsID string) error {
+	_, err := m.q.Exec(ctx, `
+		UPDATE local_branches
+		SET session_status = 'EXTERNAL',
+			session_pid = CASE WHEN session_status = 'EXTERNAL' THEN session_pid + 1 ELSE 1 END
+		WHERE workspace_id = ?
+	`, wsID)
+	return err
+}
+
+// DecrementExternalSession decrements the ref count. Reverts to STOP when it reaches zero.
+// Does nothing if the session is not EXTERNAL (e.g., MANAGED sessions are untouched).
+func (m *Manager) DecrementExternalSession(ctx context.Context, wsID string) error {
+	_, err := m.q.Exec(ctx, `
+		UPDATE local_branches
+		SET session_pid = MAX(session_pid - 1, 0),
+			session_status = CASE WHEN session_pid <= 1 THEN 'STOP' ELSE 'EXTERNAL' END
+		WHERE workspace_id = ? AND session_status = 'EXTERNAL'
+	`, wsID)
+	return err
+}
+
+// FindWorkspaceByDir looks up workspace_id by its directory path.
+func (m *Manager) FindWorkspaceByDir(ctx context.Context, dir string) (string, error) {
+	row := m.q.QueryRow(ctx, `
+		SELECT workspace_id FROM local_branches WHERE directory = ?
+	`, dir)
+	var wsID string
+	if err := row.Scan(&wsID); err != nil {
+		return "", fmt.Errorf("workspace not found for directory %s: %w", dir, err)
+	}
+	return wsID, nil
+}
+
+// ReapZombieSessions resets EXTERNAL sessions to STOP when no claude.exe
+// process is running. Called during Scan to clean up stale entries left by
+// sessions that exited without triggering the SessionEnd hook.
+func (m *Manager) ReapZombieSessions(ctx context.Context) int {
+	if !hasClaudeProcess() {
+		// No claude.exe running at all — clear all EXTERNAL sessions
+		res, err := m.q.Exec(ctx, `
+			UPDATE local_branches SET session_status = 'STOP', session_pid = 0
+			WHERE session_status = 'EXTERNAL'
+		`)
+		if err != nil {
+			ml.Warn("reap zombie sessions failed", "err", err)
+			return 0
+		}
+		n, _ := res.RowsAffected()
+		if n > 0 {
+			ml.Info("reaped zombie EXTERNAL sessions", "count", n)
+		}
+		return int(n)
+	}
+	return 0
 }
 
 // DashboardBranch is a LocalBranch enriched with handoff and backlog info for the dashboard.
 type DashboardBranch struct {
 	LocalBranch
-	HandoffStatus string `json:"handoff_status,omitempty"`
-	BacklogIDs    string `json:"backlog_ids,omitempty"`
+	HandoffStatus   string `json:"handoff_status,omitempty"`
+	BacklogIDs      string `json:"backlog_ids,omitempty"`
+	SessionRefLabel string `json:"session_ref_label,omitempty"` // "×2", "×3", etc.
 }
 
 // BlockedBacklog holds a backlog item that is FIXING with a non-empty blocked_reason.
@@ -203,7 +295,12 @@ func (m *Manager) DashboardBranchesList(ctx context.Context) ([]DashboardBranch,
 			)
 		FROM local_branches lb
 		LEFT JOIN active_branches ab ON lb.workspace_id = ab.branch
-		ORDER BY lb.workspace_id
+		ORDER BY
+			CASE WHEN lb.workspace_id GLOB 'branch_[0-9]*' THEN 1 ELSE 0 END,
+			CASE WHEN lb.workspace_id GLOB 'branch_[0-9]*'
+				THEN CAST(REPLACE(lb.workspace_id, 'branch_', '') AS INTEGER)
+				ELSE 0 END,
+			lb.workspace_id
 	`)
 	if err != nil {
 		return nil, err
@@ -219,6 +316,9 @@ func (m *Manager) DashboardBranchesList(ctx context.Context) ([]DashboardBranch,
 			&db.HandoffStatus, &db.BacklogIDs,
 		); err != nil {
 			return nil, err
+		}
+		if db.SessionStatus == "EXTERNAL" && db.SessionPID > 1 {
+			db.SessionRefLabel = fmt.Sprintf("×%d", db.SessionPID)
 		}
 		result = append(result, db)
 	}
@@ -265,10 +365,14 @@ func (m *Manager) DashboardBlockedCount(ctx context.Context) (int, error) {
 }
 
 // SyncBranch runs git fetch + pull on a branch directory (main only).
+// Refuses to sync workspaces with an active session (EXTERNAL or MANAGED).
 func (m *Manager) SyncBranch(ctx context.Context, workspaceID string) (string, error) {
 	b, err := m.Get(ctx, workspaceID)
 	if err != nil {
 		return "", err
+	}
+	if b.SessionStatus == "EXTERNAL" || b.SessionStatus == "MANAGED" {
+		return "", fmt.Errorf("sync blocked: workspace %s has an active %s session", workspaceID, b.SessionStatus)
 	}
 	if b.GitBranch != "main" && b.GitBranch != "master" {
 		return "", fmt.Errorf("sync only available on main/master branch, current: %s", b.GitBranch)

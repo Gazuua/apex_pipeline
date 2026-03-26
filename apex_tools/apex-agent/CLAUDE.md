@@ -3,7 +3,7 @@
 ## 빌드
 
 ```bash
-# Claude Code 세션 — 빌드+install+데몬 재시작 (권장)
+# 빌드+install+데몬 재시작 (필수 — go build 직접 호출 금지)
 cmd.exe //c "<프로젝트루트절대경로>\apex_tools\apex-agent\build.bat"
 
 # 테스트만 (install 불필요)
@@ -11,6 +11,7 @@ export PATH="/c/Program Files/Go/bin:$PATH"
 go test ./... -count=1
 ```
 
+- **`build.bat` 경유 필수** — daemon stop → build → rename → install → daemon start를 원자적으로 수행. `go build` 직접 호출은 install 누락+데몬 미재시작으로 구/신 바이너리 불일치를 유발하므로 금지
 - **`build.bat`은 `cmd.exe //c` + 절대 경로로 호출** — batch 파일이므로 bash 직접 실행 불가. `run-hook` 경유도 금지 (자기 자신 파일 잠금으로 install 실패)
 - **validate-build hook이 `apex-agent/build.bat`/`go build` 허용** — 경로에 `apex-agent/` 포함 시 통과, 루트 C++ `build.bat`은 차단
 - 설치 경로: `$LOCALAPPDATA/apex-agent/` (Windows) / `$HOME/.local/bin/` (Linux)
