@@ -6,9 +6,18 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace apex::core
 {
+
+/// CPU affinity and NUMA binding configuration.
+struct AffinityConfig
+{
+    bool enabled = true;                     ///< false = no affinity (legacy behavior)
+    std::vector<uint32_t> worker_cores = {}; ///< Empty = auto (all physical cores). Manual: logical core IDs.
+    bool numa_aware = true;                  ///< Enable NUMA memory policy binding (Linux only)
+};
 
 /// Prometheus metrics endpoint configuration.
 struct MetricsConfig
@@ -72,6 +81,9 @@ struct ServerConfig
 
     // Blocking task executor (CPU-bound offload thread pool)
     uint32_t blocking_pool_threads = 2;
+
+    // CPU affinity
+    AffinityConfig affinity;
 };
 
 } // namespace apex::core

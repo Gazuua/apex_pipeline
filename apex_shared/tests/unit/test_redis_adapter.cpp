@@ -41,7 +41,9 @@ TEST(RedisAdapter, InitCreatesPerCoreMultiplexers)
     CoreEngineConfig engine_config{.num_cores = 4,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -61,7 +63,9 @@ TEST(RedisAdapter, DrainSetsNotReady)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -78,7 +82,9 @@ TEST(RedisAdapter, CloseCallsCleanup)
     CoreEngineConfig engine_config{.num_cores = 1,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -135,7 +141,9 @@ TEST(RedisAdapter, DoubleInit)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -151,7 +159,9 @@ TEST(RedisAdapter, ActiveConnectionsInitiallyZero)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -179,7 +189,9 @@ TEST(RedisAdapter, FullLifecycle)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);
@@ -204,7 +216,9 @@ TEST(RedisAdapter, MultiplexerInitialState)
     CoreEngineConfig engine_config{.num_cores = 1,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     RedisAdapter adapter(config);

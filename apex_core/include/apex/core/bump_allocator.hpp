@@ -49,6 +49,11 @@ class BumpAllocator
     /// Total capacity in bytes.
     [[nodiscard]] std::size_t capacity() const noexcept;
 
+    /// Free and re-allocate the backing memory on the current thread's NUMA node.
+    /// Must be called when the allocator is empty (used_bytes() == 0).
+    /// Used by CoreEngine::run_core() after set_mempolicy() to ensure NUMA locality.
+    void rebind_memory();
+
   private:
     ScopedLogger logger_{"BumpAllocator", ScopedLogger::NO_CORE};
     char* base_{nullptr};

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/core_engine.hpp>
+#include <apex/core/thread_affinity.hpp>
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
@@ -77,6 +78,12 @@ void CoreEngine::set_tick_callback(TickCallback callback)
 {
     assert(!running_.load(std::memory_order_acquire) && "set_tick_callback must be called before start()");
     tick_callback_ = std::move(callback);
+}
+
+void CoreEngine::set_core_init_callback(CoreInitCallback callback)
+{
+    assert(!running_.load(std::memory_order_acquire) && "set_core_init_callback must be called before start()");
+    core_init_callback_ = std::move(callback);
 }
 
 void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler)
@@ -315,6 +322,43 @@ uint32_t CoreEngine::current_core_id() noexcept
 void CoreEngine::run_core(uint32_t core_id)
 {
     tls_core_id_ = core_id;
+
+    // Apply CPU affinity and NUMA memory policy before any allocations.
+    if (!config_.core_assignments.empty() && core_id < config_.core_assignments.size())
+    {
+        const auto& assignment = config_.core_assignments[core_id];
+        if (apply_thread_affinity(assignment.logical_core_id))
+        {
+            logger_.info("worker[{}] pinned to logical core {}", core_id, assignment.logical_core_id);
+        }
+
+        if (config_.numa_aware)
+        {
+            if (apply_numa_memory_policy(assignment.numa_node))
+            {
+                logger_.info("worker[{}] bound to NUMA node {}", core_id, assignment.numa_node);
+            }
+            else
+            {
+                logger_.warn("worker[{}] NUMA bind failed for node {}", core_id, assignment.numa_node);
+            }
+        }
+    }
+
+    // Per-core init callback — NUMA-aware memory re-allocation etc.
+    if (core_init_callback_)
+    {
+        try
+        {
+            core_init_callback_(core_id);
+        }
+        catch (const std::exception& e)
+        {
+            logger_.error("core_init_callback failed core={}: {}", core_id, e.what());
+            throw; // NUMA rebind failure is unrecoverable — propagate to terminate
+        }
+    }
+
     auto& ctx = *cores_[core_id];
 
     ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);

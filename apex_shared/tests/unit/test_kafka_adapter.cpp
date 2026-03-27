@@ -34,7 +34,9 @@ TEST(KafkaAdapter, InitMakesReady)
     apex::core::CoreEngineConfig engine_config{.num_cores = 2,
                                                .spsc_queue_capacity = 64,
                                                .tick_interval = std::chrono::milliseconds{100},
-                                               .drain_batch_limit = 1024};
+                                               .drain_batch_limit = 1024,
+                                               .core_assignments = {},
+                                               .numa_aware = true};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -50,7 +52,9 @@ TEST(KafkaAdapter, DrainMakesNotReady)
     apex::core::CoreEngineConfig engine_config{.num_cores = 1,
                                                .spsc_queue_capacity = 64,
                                                .tick_interval = std::chrono::milliseconds{100},
-                                               .drain_batch_limit = 1024};
+                                               .drain_batch_limit = 1024,
+                                               .core_assignments = {},
+                                               .numa_aware = true};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 
@@ -69,7 +73,9 @@ TEST(KafkaAdapter, ProduceAfterDrainFails)
     apex::core::CoreEngineConfig engine_config{.num_cores = 1,
                                                .spsc_queue_capacity = 64,
                                                .tick_interval = std::chrono::milliseconds{100},
-                                               .drain_batch_limit = 1024};
+                                               .drain_batch_limit = 1024,
+                                               .core_assignments = {},
+                                               .numa_aware = true};
     apex::core::CoreEngine engine(engine_config);
     KafkaAdapter adapter(config);
 

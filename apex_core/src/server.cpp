@@ -1,10 +1,13 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/configure_context.hpp>
+#include <apex/core/cpu_topology.hpp>
 #include <apex/core/crash_handler.hpp>
 #include <apex/core/detail/math_utils.hpp>
 #include <apex/core/server.hpp>
 #include <apex/core/wire_context.hpp>
+
+#include <algorithm>
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
@@ -45,17 +48,102 @@ Server::Server(ServerConfig config)
         }
     }
 
+    // --- CPU Topology + Affinity ---
+    std::vector<CoreAssignment> core_assignments;
+    if (config_.affinity.enabled)
+    {
+        auto topology = discover_topology();
+
+        if (!config_.affinity.worker_cores.empty())
+        {
+            // Manual mode: user-specified logical core IDs
+            core_assignments.reserve(config_.affinity.worker_cores.size());
+            for (auto logical_id : config_.affinity.worker_cores)
+            {
+                uint32_t numa = 0;
+                // Find NUMA node for this logical core
+                bool found = false;
+                for (const auto& pc : topology.physical_cores)
+                {
+                    for (auto lid : pc.logical_ids)
+                    {
+                        if (lid == logical_id)
+                        {
+                            numa = pc.numa_node;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                        break;
+                }
+                core_assignments.push_back({.logical_core_id = logical_id, .numa_node = numa});
+            }
+            // Override num_cores to match manual assignment count
+            config_.num_cores = static_cast<uint32_t>(core_assignments.size());
+        }
+        else
+        {
+            // Auto mode: use all physical cores, P-Core first, then same NUMA node grouping
+            auto& cores = topology.physical_cores;
+
+            // Sort: P-Core first, then by NUMA node (keep cores in same node together)
+            std::vector<const PhysicalCore*> sorted;
+            sorted.reserve(cores.size());
+            for (const auto& pc : cores)
+                sorted.push_back(&pc);
+
+            std::stable_sort(sorted.begin(), sorted.end(), [](const PhysicalCore* a, const PhysicalCore* b) {
+                // P-Core (Performance) first, then E-Core, then Unknown
+                auto rank = [](CoreType t) -> int {
+                    switch (t)
+                    {
+                        case CoreType::Performance:
+                            return 0;
+                        case CoreType::Unknown:
+                            return 1;
+                        case CoreType::Efficiency:
+                            return 2;
+                    }
+                    return 1;
+                };
+                if (rank(a->type) != rank(b->type))
+                    return rank(a->type) < rank(b->type);
+                return a->numa_node < b->numa_node;
+            });
+
+            // Determine worker count
+            uint32_t worker_count = config_.num_cores;
+            if (worker_count == 0)
+            {
+                // Auto-detect: all physical cores
+                worker_count = topology.physical_core_count();
+            }
+            worker_count = std::min(worker_count, static_cast<uint32_t>(sorted.size()));
+
+            core_assignments.reserve(worker_count);
+            for (uint32_t i = 0; i < worker_count; ++i)
+            {
+                core_assignments.push_back(
+                    {.logical_core_id = sorted[i]->primary_logical_id(), .numa_node = sorted[i]->numa_node});
+            }
+            config_.num_cores = worker_count;
+        }
+    }
+
     // CoreEngine
     CoreEngineConfig engine_config{
         .num_cores = config_.num_cores,
         .spsc_queue_capacity = config_.spsc_queue_capacity,
         .tick_interval = config_.tick_interval,
         .drain_batch_limit = 1024,
+        .core_assignments = std::move(core_assignments),
+        .numa_aware = config_.affinity.numa_aware,
     };
     core_engine_ = std::make_unique<CoreEngine>(engine_config);
 
     // Sync num_cores with CoreEngine's resolved value.
-    // CoreEngine normalizes 0 → hardware_concurrency, so we must use
+    // CoreEngine normalizes 0 → hardware_concurrency (if no assignments), so we must use
     // the actual core count to avoid division-by-zero UB.
     config_.num_cores = core_engine_->core_count();
 
@@ -310,6 +398,20 @@ void Server::run()
     if (post_init_cb_)
     {
         post_init_cb_(*this);
+    }
+
+    // Per-core init callback — re-allocate allocator backing memory on NUMA-local node.
+    // Called from each core thread after affinity/mempolicy is applied, before io_ctx.run().
+    if (config_.affinity.enabled && config_.affinity.numa_aware)
+    {
+        core_engine_->set_core_init_callback([this](uint32_t core_id) {
+            if (core_id < per_core_.size())
+            {
+                per_core_[core_id]->bump_allocator.rebind_memory();
+                per_core_[core_id]->arena_allocator.rebind_memory();
+                logger_.debug("core[{}] allocators rebound to NUMA-local memory", core_id);
+            }
+        });
     }
 
     // Tick callback — SessionManager tick on each tick cycle (heartbeat, timing wheel)

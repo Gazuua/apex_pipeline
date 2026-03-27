@@ -208,3 +208,90 @@ num_cores = 0
     auto config = AppConfig::from_file(path);
     EXPECT_EQ(config.server.num_cores, 0u);
 }
+
+// --- AffinityConfig 파싱 ---
+
+TEST_F(ConfigTest, AffinityDefaultValues)
+{
+    auto path = write_toml("affinity_default.toml", "");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_TRUE(config.server.affinity.numa_aware);
+    EXPECT_TRUE(config.server.affinity.worker_cores.empty());
+}
+
+TEST_F(ConfigTest, AffinityDisabled)
+{
+    auto path = write_toml("affinity_off.toml", R"(
+[affinity]
+enabled = false
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_FALSE(config.server.affinity.enabled);
+}
+
+TEST_F(ConfigTest, AffinityManualCores)
+{
+    auto path = write_toml("affinity_manual.toml", R"(
+[affinity]
+enabled = true
+worker_cores = [0, 2, 4, 6]
+numa_aware = false
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_FALSE(config.server.affinity.numa_aware);
+    ASSERT_EQ(config.server.affinity.worker_cores.size(), 4u);
+    EXPECT_EQ(config.server.affinity.worker_cores[0], 0u);
+    EXPECT_EQ(config.server.affinity.worker_cores[1], 2u);
+    EXPECT_EQ(config.server.affinity.worker_cores[2], 4u);
+    EXPECT_EQ(config.server.affinity.worker_cores[3], 6u);
+}
+
+TEST_F(ConfigTest, AffinityEmptyWorkerCoresIsAuto)
+{
+    auto path = write_toml("affinity_auto.toml", R"(
+[affinity]
+enabled = true
+worker_cores = []
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_TRUE(config.server.affinity.worker_cores.empty());
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresNegativeThrows)
+{
+    auto path = write_toml("affinity_neg.toml", R"(
+[affinity]
+worker_cores = [0, -1, 4]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresOverflowThrows)
+{
+    auto path = write_toml("affinity_overflow.toml", R"(
+[affinity]
+worker_cores = [0, 5000000000]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresNonIntegerThrows)
+{
+    auto path = write_toml("affinity_mixed.toml", R"(
+[affinity]
+worker_cores = [0, "invalid", 4]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresDuplicateThrows)
+{
+    auto path = write_toml("affinity_dup.toml", R"(
+[affinity]
+worker_cores = [0, 2, 4, 2]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}

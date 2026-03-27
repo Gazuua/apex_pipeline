@@ -19,6 +19,7 @@ TEST(ServerMulticoreTest, CreateAndDestroy)
 {
     ServerConfig cfg;
     cfg.num_cores = 2;
+    cfg.affinity.enabled = false;
     Server server(cfg);
     // Create/destroy without crash
 }
@@ -35,6 +36,7 @@ TEST(ServerMulticoreTest, RunAndStop)
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
         .admin = {},
+        .affinity = {.enabled = false},
     });
     server.listen<TcpBinaryProtocol>(0);
 
@@ -56,7 +58,8 @@ TEST(ServerMulticoreTest, CoreCount)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     EXPECT_EQ(server.core_count(), 4u);
 }
 
@@ -108,7 +111,8 @@ TEST_F(CountingServiceFixture, ServicePerCoreInstance)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -139,7 +143,8 @@ TEST_F(CountingServiceFixture, AddServiceChaining)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
 
     // Chaining compiles and works
     server.listen<TcpBinaryProtocol>(0).add_service<CountingService>().add_service<CountingService>();
@@ -212,7 +217,8 @@ TEST_F(CoreAwareServiceFixture, AddServiceFactoryCreatesPerCoreInstances)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
 
     server.add_service_factory([&core_id_bits](PerCoreState& state) -> std::unique_ptr<ServiceBaseInterface> {
@@ -258,7 +264,8 @@ TEST(ServerMulticoreTest, HeartbeatExceedsTimerWheelThrows)
                          .arena_block_bytes = 4096,
                          .arena_max_bytes = 1024 * 1024,
                          .metrics = {},
-                         .admin = {}}),
+                         .admin = {},
+                         .affinity = {.enabled = false}}),
                  std::invalid_argument);
 }
 
@@ -279,7 +286,8 @@ TEST_F(CountingServiceFixture, CounterIsolationBetweenTests)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<CountingService>();
 
@@ -305,6 +313,7 @@ TEST(ServerMulticoreTest, DoubleRunThrows)
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
         .admin = {},
+        .affinity = {.enabled = false},
     });
     server.listen<TcpBinaryProtocol>(0);
 

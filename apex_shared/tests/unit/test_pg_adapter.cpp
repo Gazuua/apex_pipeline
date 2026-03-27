@@ -37,7 +37,9 @@ TEST(PgAdapter, ReadyAfterInit)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -56,7 +58,9 @@ TEST(PgAdapter, InitCreatesPerCorePools)
     CoreEngineConfig engine_config{.num_cores = 4,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -81,7 +85,9 @@ TEST(PgAdapter, DrainMakesNotReady)
     CoreEngineConfig engine_config{.num_cores = 1,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -103,7 +109,9 @@ TEST(PgAdapter, CloseReleasesResources)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -138,7 +146,9 @@ TEST(PgAdapter, FullLifecycle)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     EXPECT_FALSE(adapter.is_ready());
@@ -193,7 +203,9 @@ TEST(PgAdapter, PoolConfigMatchesPgConfig)
     CoreEngineConfig engine_config{.num_cores = 1,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -216,7 +228,9 @@ TEST(PgAdapter, ActiveAndIdleConnectionsInitiallyZero)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);
@@ -244,7 +258,9 @@ TEST(PgAdapter, DoubleInit)
     CoreEngineConfig engine_config{.num_cores = 2,
                                    .spsc_queue_capacity = 64,
                                    .tick_interval = std::chrono::milliseconds{100},
-                                   .drain_batch_limit = 1024};
+                                   .drain_batch_limit = 1024,
+                                   .core_assignments = {},
+                                   .numa_aware = true};
     CoreEngine engine(engine_config);
 
     adapter.init(engine);

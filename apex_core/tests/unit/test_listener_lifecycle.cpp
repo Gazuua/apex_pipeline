@@ -35,6 +35,7 @@ class ListenerLifecycleTest : public ::testing::Test
             .arena_max_bytes = 1024 * 1024,
             .metrics = {},
             .admin = {},
+            .affinity = {.enabled = false},
         };
     }
 

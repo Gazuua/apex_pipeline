@@ -49,6 +49,13 @@ struct CoreContext
     CoreContext& operator=(const CoreContext&) = delete;
 };
 
+/// Per-worker core assignment for CPU affinity.
+struct CoreAssignment
+{
+    uint32_t logical_core_id{0}; ///< OS logical processor ID for SetThreadAffinityMask / pthread_setaffinity_np
+    uint32_t numa_node{0};       ///< NUMA node for set_mempolicy
+};
+
 /// Configuration for CoreEngine.
 struct CoreEngineConfig
 {
@@ -56,6 +63,11 @@ struct CoreEngineConfig
     size_t spsc_queue_capacity{1024};
     std::chrono::milliseconds tick_interval{100}; // per-core tick timer interval
     size_t drain_batch_limit{1024};               // max messages per drain cycle
+
+    /// Per-worker affinity assignments. Empty = no affinity (legacy behavior).
+    /// Size must equal num_cores when non-empty; assignments[i] pins worker i.
+    std::vector<CoreAssignment> core_assignments;
+    bool numa_aware{true}; ///< Apply NUMA memory policy (Linux only)
 };
 
 /// io_context-per-core engine. Creates N cores, each with its own
@@ -87,6 +99,11 @@ class CoreEngine
 
     /// Set callback invoked on each tick cycle per core (heartbeat, timing wheel, etc.).
     void set_tick_callback(TickCallback callback);
+
+    /// Set callback invoked once per core thread after affinity/NUMA is applied
+    /// but before io_context::run(). Use for NUMA-aware memory re-allocation.
+    using CoreInitCallback = std::function<void(uint32_t core_id)>;
+    void set_core_init_callback(CoreInitCallback callback);
 
     /// Register a cross-core message handler by op code. Must be called before start().
     void register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler);
@@ -172,6 +189,7 @@ class CoreEngine
     std::vector<std::thread> threads_;
     MessageHandler message_handler_;
     TickCallback tick_callback_;
+    CoreInitCallback core_init_callback_;
     std::atomic<bool> running_{false};
     std::atomic<uint32_t> outstanding_infra_coros_{0};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;

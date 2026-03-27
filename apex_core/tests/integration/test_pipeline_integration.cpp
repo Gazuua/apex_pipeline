@@ -150,7 +150,9 @@ TEST(PipelineIntegration, CoreEngineInterCoreDelivery)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 1024,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<int> core0_received{0};
     std::atomic<int> core1_received{0};

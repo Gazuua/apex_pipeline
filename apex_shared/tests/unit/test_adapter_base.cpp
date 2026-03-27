@@ -50,7 +50,9 @@ TEST(AdapterBase, ReadyAfterInit)
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     EXPECT_TRUE(adapter.is_ready());
@@ -63,7 +65,9 @@ TEST(AdapterBase, NotReadyAfterDrain)
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     adapter.drain();
@@ -103,7 +107,9 @@ TEST(AdapterWrapper, LifecycleDelegation)
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     apex::core::CoreEngine engine(config);
     iface->init(engine);
     EXPECT_TRUE(mock.init_called);
@@ -144,7 +150,9 @@ TEST(AdapterBase, SpawnRejectsInDrainingState)
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     adapter.drain();
@@ -160,7 +168,9 @@ TEST(AdapterBase, SpawnRejectsAfterClose)
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     apex::core::CoreEngine engine(config);
     adapter.init(engine);
     adapter.close();

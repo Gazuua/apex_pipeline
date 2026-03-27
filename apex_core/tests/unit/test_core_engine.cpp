@@ -34,7 +34,9 @@ TEST(CoreEngineTest, CreateWithExplicitCores)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
     EXPECT_EQ(engine.core_count(), 2u);
     EXPECT_FALSE(engine.running());
 }
@@ -44,7 +46,9 @@ TEST(CoreEngineTest, RunAndStop)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::thread runner([&]() { engine.run(); });
 
@@ -62,7 +66,9 @@ TEST(CoreEngineTest, PostToCore)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<uint64_t> received_data{0};
     std::atomic<uint32_t> received_core{UINT32_MAX};
@@ -96,7 +102,9 @@ TEST(CoreEngineTest, Broadcast)
     CoreEngine engine({.num_cores = num_cores,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<uint32_t> count{0};
 
@@ -124,7 +132,9 @@ TEST(CoreEngineTest, PostToFullSpscQueueReturnsFalse)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 4,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&]() { return engine.running(); }));
@@ -192,7 +202,9 @@ TEST(CoreEngineTest, IoContextAccessValid)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
     // Valid access
     EXPECT_NO_THROW((void)engine.io_context(0));
     EXPECT_NO_THROW((void)engine.io_context(1));
@@ -205,7 +217,9 @@ TEST(CoreEngineTest, StartAndJoin)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<uint64_t> received{0};
     engine.set_message_handler(
@@ -232,7 +246,9 @@ TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
     CoreMessage msg;
     msg.op = CrossCoreOp::Custom;
     msg.data = 1;
@@ -241,7 +257,11 @@ TEST(CoreEngineTest, PostToInvalidCoreReturnsFalse)
 
 TEST(CoreEngineTest, TickCallback)
 {
-    CoreEngine engine({.num_cores = 2, .tick_interval = std::chrono::milliseconds(50), .drain_batch_limit = 1024});
+    CoreEngine engine({.num_cores = 2,
+                       .tick_interval = std::chrono::milliseconds(50),
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<uint32_t> tick_count{0};
     engine.set_tick_callback([&](uint32_t) { tick_count.fetch_add(1, std::memory_order_relaxed); });
@@ -261,7 +281,9 @@ TEST(CoreEngineTest, CrossCoreMessageViaHandler)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<uint16_t> received_type{0xFFFF};
     engine.set_message_handler([&](uint32_t, const CoreMessage& msg) {
@@ -289,7 +311,9 @@ TEST(CoreEngineTest, CrossCoreRequestAutoExecuted)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<int> value{0};
     auto* task = new std::function<void()>([&value] { value.store(42, std::memory_order_relaxed); });
@@ -317,7 +341,9 @@ TEST(CoreEngineTest, DrainRemainingCleansUpPointers)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 1024,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     // Shared pointers captured by tasks — use_count tracks whether tasks are deleted
     auto marker1 = std::make_shared<bool>(false);
@@ -380,7 +406,9 @@ TEST(CoreEngineTest, DestructorDrainsRemaining)
         CoreEngine engine({.num_cores = 2,
                            .spsc_queue_capacity = 64,
                            .tick_interval = std::chrono::milliseconds{100},
-                           .drain_batch_limit = 1024});
+                           .drain_batch_limit = 1024,
+                           .core_assignments = {},
+                           .numa_aware = true});
         // Engine not started — destructor path exercises drain_remaining on empty mesh.
     }
     // If ASAN doesn't report a leak, we're good.
@@ -393,7 +421,9 @@ TEST(CoreEngineTest, CrossCoreDispatcherPriorityOverMessageHandler)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<int> dispatcher_count{0};
     std::atomic<int> handler_count{0};
@@ -432,7 +462,9 @@ TEST(CoreEngineTest, LegacyCrossCoreFnExceptionDoesNotStopDrain)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<int> after_exception{0};
 
@@ -465,7 +497,9 @@ TEST(CoreEngineTest, DoubleStartThrows)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
     engine.start();
     ASSERT_TRUE(apex::test::wait_for([&] { return engine.running(); }));
 
@@ -480,7 +514,9 @@ TEST(CoreEngineTest, MultipleInterCoreMessages)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 65536,
                        .tick_interval = std::chrono::milliseconds{100},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     constexpr int num_messages = 100;
     std::atomic<uint64_t> sum{0};
@@ -521,7 +557,9 @@ TEST(CoreEngineTest, CoPostToBackpressure)
     CoreEngine engine({.num_cores = 2,
                        .spsc_queue_capacity = 2,
                        .tick_interval = std::chrono::milliseconds{50},
-                       .drain_batch_limit = 1024});
+                       .drain_batch_limit = 1024,
+                       .core_assignments = {},
+                       .numa_aware = true});
 
     std::atomic<int> received_count{0};
     engine.set_message_handler(

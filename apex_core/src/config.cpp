@@ -7,6 +7,7 @@
 
 #include <fstream>
 #include <limits>
+#include <set>
 #include <stdexcept>
 #include <type_traits>
 
@@ -211,6 +212,42 @@ AdminConfig parse_admin(const toml::table& root)
     return cfg;
 }
 
+AffinityConfig parse_affinity(const toml::table& root)
+{
+    AffinityConfig cfg;
+    auto* tbl = root["affinity"].as_table();
+    if (!tbl)
+        return cfg;
+
+    cfg.enabled = get_or<bool>(*tbl, "enabled", cfg.enabled);
+    cfg.numa_aware = get_or<bool>(*tbl, "numa_aware", cfg.numa_aware);
+
+    // worker_cores: array of integers
+    if (auto* arr = (*tbl)["worker_cores"].as_array())
+    {
+        cfg.worker_cores.clear();
+        std::set<uint32_t> seen;
+        for (size_t i = 0; i < arr->size(); ++i)
+        {
+            auto val = (*arr)[i].value<int64_t>();
+            if (!val)
+            {
+                throw std::invalid_argument("Config: affinity.worker_cores[" + std::to_string(i) +
+                                            "] is not an integer");
+            }
+            auto core_id = checked_narrow<uint32_t>(*val, "affinity.worker_cores");
+            if (!seen.insert(core_id).second)
+            {
+                throw std::invalid_argument("Config: duplicate logical core " + std::to_string(core_id) +
+                                            " in affinity.worker_cores");
+            }
+            cfg.worker_cores.push_back(core_id);
+        }
+    }
+
+    return cfg;
+}
+
 } // anonymous namespace
 
 AppConfig AppConfig::from_file(const std::string& path)
@@ -237,7 +274,9 @@ AppConfig AppConfig::from_file(const std::string& path)
     // AppConfig 최상위 metrics/admin은 이후 사용하지 않음.
     config.server.metrics = config.metrics;
     config.server.admin = config.admin;
-    s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
+    config.server.affinity = parse_affinity(tbl);
+    s_logger().info("config loaded: cores={}, log_level={}, affinity={}", config.server.num_cores, config.logging.level,
+                    config.server.affinity.enabled ? "on" : "off");
     return config;
 }
 

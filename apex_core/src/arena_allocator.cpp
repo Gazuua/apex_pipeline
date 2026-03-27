@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <apex/core/arena_allocator.hpp>
 #include <apex/core/scoped_logger.hpp>
+#include <cassert>
 #include <cstdint>
 #include <cstdlib>
 #include <utility>
@@ -163,6 +164,21 @@ void ArenaAllocator::free_block(Block& block)
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc,cppcoreguidelines-owning-memory)
     std::free(block.base);
     block.base = nullptr;
+}
+
+void ArenaAllocator::rebind_memory()
+{
+    assert(used_bytes() == 0 && "rebind_memory() requires empty allocator (call reset() first)");
+
+    // Free all blocks and re-allocate the initial block on the current NUMA node.
+    for (auto& block : blocks_)
+    {
+        free_block(block);
+    }
+    blocks_.clear();
+    total_allocated_ = 0;
+    blocks_.push_back(make_block(block_size_));
+    total_allocated_ = block_size_;
 }
 
 } // namespace apex::core
