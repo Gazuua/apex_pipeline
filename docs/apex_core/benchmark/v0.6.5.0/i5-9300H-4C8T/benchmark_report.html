@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Core Benchmark Report — v0.6.5 3-Way Comparison (i5-9300H)</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+
+:root {
+  --primary: #1B5E7B;
+  --primary-light: rgba(27,94,123,0.1);
+  --accent: #D4A843;
+  --accent-light: rgba(212,168,67,0.1);
+  --bg: #0F172A;
+  --card: #1E293B;
+  --text: #F1F5F9;
+  --text-sec: #94A3B8;
+  --improve: #34D399;
+  --warn: #F59E0B;
+  --danger: #EF4444;
+  --border: rgba(255,255,255,0.05);
+  --purple: #A78BFA;
+  --cyan: #22D3EE;
+  --sidebar-w: 240px;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* Header */
+.header-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 60px;
+  background: linear-gradient(135deg, #0F172A 0%, #1B3A5C 100%);
+  z-index: 1000; display: flex; align-items: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.header-content {
+  width: 100%; max-width: 1400px; margin: 0 auto;
+  padding: 0 24px 0 calc(var(--sidebar-w) + 24px);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.header-left { display: flex; align-items: baseline; gap: 12px; }
+.header-title { font-size: 22px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px; }
+.header-subtitle { font-size: 14px; color: var(--accent); font-weight: 900; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.header-version {
+  font-size: 15px; font-weight: 600; color: #F8FAFC;
+  background: rgba(255,255,255,0.1); padding: 4px 14px; border-radius: 6px;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 60px; left: 0; width: var(--sidebar-w);
+  height: calc(100vh - 60px); background: #0F172A;
+  border-right: 1px solid var(--border); padding: 20px 0;
+  overflow-y: auto; z-index: 999;
+}
+.nav-label {
+  font-size: 11px; font-weight: 900; color: var(--text-sec);
+  letter-spacing: 1.5px; padding: 8px 20px; margin-bottom: 4px;
+}
+.nav-item {
+  display: block; padding: 8px 20px 8px 24px; font-size: 13px;
+  color: var(--text-sec); text-decoration: none;
+  border-left: 3px solid transparent; transition: all 0.2s;
+}
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); border-left-color: var(--text-sec); }
+.nav-item.active { background: rgba(52,211,153,0.05); color: var(--improve); font-weight: 600; border-left-color: var(--improve); }
+
+/* Main content */
+.main-content {
+  margin-left: var(--sidebar-w); margin-top: 60px;
+  padding: 32px 40px 64px; max-width: 1100px;
+}
+
+/* Cards */
+.card {
+  background: var(--card); border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  border: 1px solid var(--border); padding: 28px 32px; margin-bottom: 24px;
+}
+.card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.section-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #34D399, #3B82F6);
+  color: #FFFFFF; font-weight: 900; font-size: 16px; flex-shrink: 0;
+}
+.section-title { font-size: 20px; font-weight: 900; color: var(--text); }
+
+/* Sub-headers */
+.sub-header {
+  font-size: 15px; font-weight: 600; color: #38BDF8;
+  margin: 18px 0 10px; padding-bottom: 4px;
+  border-bottom: 2px solid rgba(56,189,248,0.15);
+}
+
+/* KPI Cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
+.kpi-card {
+  background: linear-gradient(135deg, rgba(27,94,123,0.15), rgba(52,211,153,0.05));
+  border: 1px solid rgba(52,211,153,0.2); border-radius: 10px; padding: 20px; text-align: center;
+}
+.kpi-value { font-size: 32px; font-weight: 900; color: var(--improve); line-height: 1.2; }
+.kpi-value.warn { color: var(--warn); }
+.kpi-value.danger { color: var(--danger); }
+.kpi-value.purple { color: var(--purple); }
+.kpi-value.cyan { color: var(--cyan); }
+.kpi-label { font-size: 12px; color: var(--text-sec); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.kpi-sub { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+
+/* Tables */
+.data-table {
+  width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0;
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;
+}
+.data-table thead th {
+  background: rgba(27,94,123,0.3); color: var(--text-sec); font-weight: 600;
+  padding: 10px 12px; text-align: left; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.data-table thead th:not(:first-child) { text-align: right; }
+.data-table tbody td {
+  padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text);
+}
+.data-table tbody td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.data-table tbody tr:hover { background: rgba(255,255,255,0.05); }
+
+/* Analysis box */
+.analysis-box {
+  border-left: 4px solid rgba(212,168,67,0.3); background: rgba(212,168,67,0.1);
+  padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  font-size: 14px; line-height: 1.7; color: var(--text-sec);
+}
+.analysis-box-alt { border-left-color: rgba(27,94,123,0.3); background: rgba(27,94,123,0.1); }
+.analysis-box-warn { border-left-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.1); }
+.analysis-box-danger { border-left-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); }
+
+/* Chart containers */
+.chart-container { margin: 24px 0; padding-top: 8px; border-radius: 8px; overflow: hidden; background: var(--card); }
+
+/* Info grid */
+.info-grid { display: grid; grid-template-columns: 140px 1fr; gap: 6px 16px; font-size: 14px; margin: 12px 0; }
+.info-label { color: var(--text-sec); font-weight: 900; }
+.info-value { font-weight: 600; color: var(--text); }
+
+/* Tags */
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.tag-improve { background: rgba(52,211,153,0.15); color: var(--improve); border: 1px solid rgba(52,211,153,0.3); }
+.tag-warn { background: rgba(245,158,11,0.15); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+.tag-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+.tag-neutral { background: rgba(148,163,184,0.15); color: var(--text-sec); border: 1px solid rgba(148,163,184,0.3); }
+
+[id^="section-"] { scroll-margin-top: 80px; }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main-content { margin-left: 0; }
+  .header-content { padding-left: 24px; }
+}
+@media print {
+  .sidebar { display: none; }
+  .header-bar { position: relative; }
+  .main-content { margin-left: 0; margin-top: 0; }
+  .card { break-inside: avoid; box-shadow: none; border: 1px solid var(--border); }
+}
+
+</style>
+</head>
+<body>
+
+<!-- Header Bar -->
+<header class="header-bar">
+  <div class="header-content">
+    <div class="header-left">
+      <h1 class="header-title">Apex Core</h1>
+      <span class="header-subtitle">3-Way Benchmark Report</span>
+    </div>
+    <div class="header-right">
+      <span class="header-version">v0.6.5 &mdash; i5-9300H</span>
+    </div>
+  </div>
+</header>
+
+<!-- Sidebar Navigation -->
+<nav class="sidebar" id="sidebar">
+  <div class="nav-label">SECTIONS</div>
+  <a href="#section-summary" class="nav-item">1. Executive Summary</a>
+  <a href="#section-version" class="nav-item">2. Version Comparison</a>
+  <a href="#section-affinity" class="nav-item">3. Affinity Impact</a>
+  <a href="#section-3way" class="nav-item">4. 3-Way Comparison</a>
+  <a href="#section-conclusion" class="nav-item">5. Conclusions</a>
+</nav>
+
+<!-- Main Content -->
+<main class="main-content">
+
+<div class="card" style="border-top: 4px solid var(--accent); margin-bottom: 24px;">
+  <p style="font-size: 15px; line-height: 1.8; color: var(--text-sec);">
+    이 보고서는 <b style="color: var(--text);">Apex Core v0.5.10.0 (baseline)</b>과
+    <b style="color: var(--text);">v0.6.5.0</b>의 성능을 비교하고,
+    v0.6.5.0에서 추가된 <b style="color: var(--text);">Core Affinity (NUMA binding + CPU pinning)</b>의
+    효과를 i5-9300H (4C/8T, Coffee Lake) 환경에서 3-way로 분석한다.
+  </p>
+</div>
+
+<!-- ==================== Section 1: Executive Summary ==================== -->
+<div id="section-summary" class="card">
+  <div class="card-header">
+    <span class="section-number">1</span>
+    <h2 class="section-title">Executive Summary</h2>
+  </div>
+
+  <div class="sub-header">테스트 환경</div>
+  <div class="info-grid">
+    <span class="info-label">CPU</span>
+    <span class="info-value">Intel Core i5-9300H @ 2.40GHz (Turbo 4.10GHz)</span>
+    <span class="info-label">Core / Thread</span>
+    <span class="info-value">4 Physical / 8 Logical (Coffee Lake, UMA)</span>
+    <span class="info-label">Memory</span>
+    <span class="info-value">12 GB DDR4-2400</span>
+    <span class="info-label">Cache</span>
+    <span class="info-value">L1d 32KB, L2 256KB, L3 8MB (shared)</span>
+    <span class="info-label">Compiler</span>
+    <span class="info-value">MSVC 19.44, C++23, Release (/O2)</span>
+    <span class="info-label">Benchmark Lib</span>
+    <span class="info-value">Google Benchmark v1.9.4</span>
+    <span class="info-label">Versions</span>
+    <span class="info-value">v0.5.10.0 (2026-03-21) vs v0.6.5.0 (2026-03-27)</span>
+  </div>
+
+  <div class="sub-header">핵심 지표</div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-value">+82%</div>
+      <div class="kpi-label">Micro 평균 개선율</div>
+      <div class="kpi-sub">v0.5.10 &rarr; v0.6.5 (대표 9종)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value">-19.3%</div>
+      <div class="kpi-label">Cross-Core RTT</div>
+      <div class="kpi-sub">Affinity ON 최대 효과</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value purple">+5.8%</div>
+      <div class="kpi-label">PerCore @4코어</div>
+      <div class="kpi-sub">Affinity ON vs OFF</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-value cyan">2.36M</div>
+      <div class="kpi-label">Peak items/sec</div>
+      <div class="kpi-sub">PerCore @8코어, v0.6.5 OFF</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Section 2: Version Comparison ==================== -->
+<div id="section-version" class="card">
+  <div class="card-header">
+    <span class="section-number">2</span>
+    <h2 class="section-title">Version Comparison (v0.5.10.0 &rarr; v0.6.5.0)</h2>
+  </div>
+
+  <p style="color: var(--text-sec); font-size: 14px; margin-bottom: 16px;">
+    Micro 벤치마크 9종의 대표 수치를 비교한다. v0.6.5.0은 Affinity OFF 상태 (기본 OS 스케줄링) 기준.
+  </p>
+
+  <div class="chart-container" id="chart-version-bar" style="height: 480px;"></div>
+
+  <div class="sub-header">상세 비교 테이블</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>컴포넌트</th>
+        <th>대표 벤치마크</th>
+        <th>v0.5.10</th>
+        <th>v0.6.5</th>
+        <th>변화율</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>MPSC Queue (1P1C)</td>
+        <td>1P1C/1024 items/s</td>
+        <td>70.8M</td>
+        <td>103.9M</td>
+        <td><span class="tag tag-improve">+46.7%</span></td>
+      </tr>
+      <tr>
+        <td>SPSC Queue</td>
+        <td>Throughput/1024 items/s</td>
+        <td>101.0M</td>
+        <td>271.0M</td>
+        <td><span class="tag tag-improve">+168.3%</span></td>
+      </tr>
+      <tr>
+        <td>Slab Allocator</td>
+        <td>AllocDealloc/64 items/s</td>
+        <td>90.2M</td>
+        <td>155.8M</td>
+        <td><span class="tag tag-improve">+72.7%</span></td>
+      </tr>
+      <tr>
+        <td>RingBuffer</td>
+        <td>WriteRead/512 bytes/s</td>
+        <td>12.6 GB/s</td>
+        <td>31.0 GB/s</td>
+        <td><span class="tag tag-improve">+146.3%</span></td>
+      </tr>
+      <tr>
+        <td>Frame Codec</td>
+        <td>Encode/512 bytes/s</td>
+        <td>7.15 GB/s</td>
+        <td>18.8 GB/s</td>
+        <td><span class="tag tag-improve">+163.2%</span></td>
+      </tr>
+      <tr>
+        <td>Dispatcher</td>
+        <td>Lookup/1000 items/s</td>
+        <td>193.9M</td>
+        <td>200.0M</td>
+        <td><span class="tag tag-improve">+3.1%</span></td>
+      </tr>
+      <tr>
+        <td>Timing Wheel</td>
+        <td>ScheduleTick/1000 items/s</td>
+        <td>15.6M</td>
+        <td>34.7M</td>
+        <td><span class="tag tag-improve">+122.4%</span></td>
+      </tr>
+      <tr>
+        <td>Serialization</td>
+        <td>FlatBuffers Build/512 bytes/s</td>
+        <td>4.88 GB/s</td>
+        <td>4.89 GB/s</td>
+        <td><span class="tag tag-neutral">+0.3%</span></td>
+      </tr>
+      <tr>
+        <td>Session Create</td>
+        <td>Create items/s</td>
+        <td>2,256</td>
+        <td>4,655</td>
+        <td><span class="tag tag-improve">+106.3%</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box-warn analysis-box">
+    <b style="color: var(--warn);">MPSC 2P1C 주의:</b> v0.6.5.0에서 벤치마크 로직이 수정됨 (비결정성 제거를 위해 5-repeat mean 도입).
+    이전 버전(단일 실행)과 직접 비교 불가. v0.5.10 = 46.7M items/s (1회), v0.6.5 = 14.4M items/s (5회 mean, CV 8.5%).
+  </div>
+
+  <div class="analysis-box-warn analysis-box">
+    <b style="color: var(--warn);">SessionPtr_Copy 주의:</b> v0.6.5.0에서 atomic refcount 전환 (PR #60) 완료.
+    <code>intrusive_ptr</code>가 <code>shared_ptr</code>와 동일한 atomic increment를 사용하게 되어 Copy 성능이 수렴 (둘 다 ~81.5M items/s).
+    v0.5.10에서의 159M items/s는 non-atomic 구현. 안전성-성능 의도적 트레이드오프.
+  </div>
+</div>
+
+<!-- ==================== Section 3: Affinity Impact ==================== -->
+<div id="section-affinity" class="card">
+  <div class="card-header">
+    <span class="section-number">3</span>
+    <h2 class="section-title">Affinity Impact Analysis (v0.6.5.0 OFF vs ON)</h2>
+  </div>
+
+  <p style="color: var(--text-sec); font-size: 14px; margin-bottom: 16px;">
+    Core Affinity (물리 코어 1:1 핀닝 + NUMA <code>set_mempolicy</code>)의 ON/OFF 비교.
+  </p>
+
+  <div class="sub-header">Cross-Core Latency</div>
+  <div class="chart-container" id="chart-affinity-latency" style="height: 360px;"></div>
+
+  <table class="data-table" style="margin-top: 12px;">
+    <thead>
+      <tr>
+        <th>지표</th>
+        <th>OFF</th>
+        <th>ON</th>
+        <th>변화</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>RTT (ns)</td>
+        <td>16,609</td>
+        <td>13,405</td>
+        <td><span class="tag tag-improve">-19.3%</span></td>
+      </tr>
+      <tr>
+        <td>One-Way (ns)</td>
+        <td>8,304</td>
+        <td>6,703</td>
+        <td><span class="tag tag-improve">-19.3%</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sub-header">Cross-Core Message Passing Throughput</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>지표</th>
+        <th>OFF</th>
+        <th>ON</th>
+        <th>변화</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PostThroughput (items/s)</td>
+        <td>1.053M</td>
+        <td>1.051M</td>
+        <td><span class="tag tag-neutral">-0.2%</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box analysis-box-alt">
+    Cross-core message throughput는 Affinity ON/OFF에서 거의 동일한 결과를 보인다.
+    이는 throughput이 큐 구현의 처리량에 바운드되기 때문이며, Affinity의 주된 효과는 <b style="color:var(--text);">latency 개선</b>에 집중된다.
+    RTT -19.3%는 OS 스케줄러의 코어 마이그레이션 제거 효과로, 캐시 라인 무효화가 줄어들어 나타나는 결과이다.
+  </div>
+
+  <div class="sub-header">Architecture Comparison: PerCore Throughput</div>
+  <div class="chart-container" id="chart-affinity-percore" style="height: 420px;"></div>
+
+  <table class="data-table" style="margin-top: 12px;">
+    <thead>
+      <tr>
+        <th>코어 수</th>
+        <th>OFF (items/s)</th>
+        <th>ON (items/s)</th>
+        <th>변화</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>564K</td><td>569K</td><td><span class="tag tag-improve">+0.9%</span></td></tr>
+      <tr><td>2</td><td>1.025M</td><td>1.038M</td><td><span class="tag tag-improve">+1.3%</span></td></tr>
+      <tr><td>3</td><td>1.480M</td><td>1.473M</td><td><span class="tag tag-neutral">-0.4%</span></td></tr>
+      <tr><td>4</td><td>1.808M</td><td>1.913M</td><td><span class="tag tag-improve">+5.8%</span></td></tr>
+      <tr><td>8</td><td>2.362M</td><td>1.936M</td><td><span class="tag tag-danger">-18.0%</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box analysis-box-danger">
+    <b style="color: var(--danger);">8코어 Affinity 역효과:</b> HT(Hyper-Threading) 코어까지 물리 핀닝하면
+    동일 물리 코어의 두 논리 코어가 자원을 경쟁한다. OS 스케줄러가 없으면 HT 페어의 부하 분산이 불가능해져
+    오히려 throughput이 18% 하락한다. <b style="color:var(--text);">Affinity는 물리 코어 수 이하에서만 유효</b>하다.
+  </div>
+
+  <div class="sub-header">Shared / LockFree: Affinity 비교</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>아키텍처</th>
+        <th>코어</th>
+        <th>OFF (items/s)</th>
+        <th>ON (items/s)</th>
+        <th>변화</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Shared (mutex)</td><td>1</td><td>568K</td><td>565K</td><td><span class="tag tag-neutral">-0.5%</span></td></tr>
+      <tr><td>Shared (mutex)</td><td>4</td><td>813K</td><td>817K</td><td><span class="tag tag-neutral">+0.5%</span></td></tr>
+      <tr><td>Shared (mutex)</td><td>8</td><td>864K</td><td>826K</td><td><span class="tag tag-danger">-4.4%</span></td></tr>
+      <tr><td>LockFree</td><td>1</td><td>576K</td><td>577K</td><td><span class="tag tag-neutral">+0.2%</span></td></tr>
+      <tr><td>LockFree</td><td>4</td><td>835K</td><td>826K</td><td><span class="tag tag-neutral">-1.0%</span></td></tr>
+      <tr><td>LockFree</td><td>8</td><td>884K</td><td>833K</td><td><span class="tag tag-danger">-5.8%</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box">
+    Shared/LockFree 아키텍처에서는 Affinity 효과가 미미하거나 역효과. 이들은 공유 상태 기반이므로
+    캐시 라인 경쟁이 지배적이고, 코어 핀닝만으로는 lock contention을 줄일 수 없다.
+    <b style="color:var(--text);">PerCore 아키텍처에서만 Affinity가 유의미</b>하다 (물리 코어 범위 내 한정).
+  </div>
+</div>
+
+<!-- ==================== Section 4: 3-Way Comparison ==================== -->
+<div id="section-3way" class="card">
+  <div class="card-header">
+    <span class="section-number">4</span>
+    <h2 class="section-title">3-Way Comparison</h2>
+  </div>
+
+  <p style="color: var(--text-sec); font-size: 14px; margin-bottom: 16px;">
+    v0.5.10.0 / v0.6.5.0 (OFF) / v0.6.5.0 (ON) 세 가지 조건의 PerCore Architecture 확장성을 오버레이한다.
+  </p>
+
+  <div class="sub-header">PerCore Stateful: 3선 오버레이</div>
+  <div class="chart-container" id="chart-3way-percore" style="height: 480px;"></div>
+
+  <div class="sub-header">코어 수별 확장 효율 (1코어 대비 N코어 throughput 비율)</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>코어</th>
+        <th>v0.5.10 (items/s)</th>
+        <th>v0.5.10 효율</th>
+        <th>v0.6.5 OFF (items/s)</th>
+        <th>v0.6.5 OFF 효율</th>
+        <th>v0.6.5 ON (items/s)</th>
+        <th>v0.6.5 ON 효율</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td><td>512K</td><td>1.00x</td>
+        <td>564K</td><td>1.00x</td>
+        <td>569K</td><td>1.00x</td>
+      </tr>
+      <tr>
+        <td>2</td><td>901K</td><td>1.76x</td>
+        <td>1.025M</td><td>1.82x</td>
+        <td>1.038M</td><td>1.82x</td>
+      </tr>
+      <tr>
+        <td>3</td><td>1.244M</td><td>2.43x</td>
+        <td>1.480M</td><td>2.62x</td>
+        <td>1.473M</td><td>2.59x</td>
+      </tr>
+      <tr>
+        <td>4</td><td>1.562M</td><td>3.05x</td>
+        <td>1.808M</td><td>3.20x</td>
+        <td>1.913M</td><td>3.36x</td>
+      </tr>
+      <tr>
+        <td>8</td><td>1.973M</td><td>3.85x</td>
+        <td>2.362M</td><td>4.19x</td>
+        <td>1.936M</td><td>3.40x</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sub-header">HT 경계 분석 (4코어 &rarr; 8코어)</div>
+  <div class="chart-container" id="chart-3way-efficiency" style="height: 400px;"></div>
+
+  <div class="analysis-box">
+    <b style="color: var(--text);">HT 경계에서의 행동 분석:</b><br>
+    <b>&bull; v0.5.10 (baseline):</b> 4C &rarr; 8C에서 +26.3% 추가 throughput (3.85x/4.00x). HT가 적은 추가 이득만 제공.<br>
+    <b>&bull; v0.6.5 OFF:</b> 4C &rarr; 8C에서 +30.6% 추가 (4.19x/4.00x). OS 스케줄러가 HT 자원을 유연하게 분배하여 이론적 한계를 초과.<br>
+    <b>&bull; v0.6.5 ON:</b> 4C &rarr; 8C에서 +1.2% 추가 (3.40x/4.00x). HT 코어 핀닝으로 물리 코어 자원 경쟁 발생, 확장 효율 급감.<br><br>
+    <b style="color: var(--improve);">결론:</b> i5-9300H (4 물리코어)에서 Affinity 최적 구성은 <b style="color:var(--text);">4코어 Affinity ON</b> (1.913M items/s, 3.36x 효율).
+    8코어까지 사용할 경우 Affinity OFF가 우수 (2.362M items/s, 4.19x).
+  </div>
+
+  <div class="sub-header">3-Way: Cross-Core Latency RTT</div>
+  <div class="chart-container" id="chart-3way-latency" style="height: 360px;"></div>
+
+  <table class="data-table" style="margin-top: 12px;">
+    <thead>
+      <tr>
+        <th>지표</th>
+        <th>v0.5.10</th>
+        <th>v0.6.5 OFF</th>
+        <th>v0.6.5 ON</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>RTT (ns)</td>
+        <td>17,058</td>
+        <td>16,609</td>
+        <td>13,405</td>
+      </tr>
+      <tr>
+        <td>vs baseline</td>
+        <td>&mdash;</td>
+        <td><span class="tag tag-improve">-2.6%</span></td>
+        <td><span class="tag tag-improve">-21.4%</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== Section 5: Conclusions ==================== -->
+<div id="section-conclusion" class="card">
+  <div class="card-header">
+    <span class="section-number">5</span>
+    <h2 class="section-title">Conclusions &amp; Notes</h2>
+  </div>
+
+  <div class="sub-header">i5-9300H 관찰 요약</div>
+  <div class="analysis-box" style="border-left-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.05);">
+    <b style="color: var(--improve);">1. v0.5.10 &rarr; v0.6.5 버전 개선</b><br>
+    Micro 벤치마크 9종 평균 +82% 개선. SPSC Queue (+168%), RingBuffer (+146%), Frame Codec (+163%) 등
+    I/O 경로 컴포넌트에서 가장 큰 폭의 개선 달성. 컴파일러 최적화 힌트 개선, 캐시 라인 정렬 강화,
+    불필요한 복사 제거 등이 주요 원인.<br><br>
+
+    <b style="color: var(--improve);">2. Affinity는 물리 코어 수 이하에서만 유효</b><br>
+    4코어 Affinity ON: PerCore +5.8%, Cross-Core RTT -19.3%.<br>
+    8코어 (HT 포함) Affinity ON: PerCore <b style="color: var(--danger);">-18.0%</b> 역효과.<br>
+    <b>Affinity 자동 감지 로직이 물리 코어 수를 초과하지 않도록 제한해야 한다.</b><br><br>
+
+    <b style="color: var(--improve);">3. Cross-core latency에서 가장 극적인 효과</b><br>
+    RTT -19.3% (16,609ns &rarr; 13,405ns). 코어 마이그레이션 제거로 캐시 라인 무효화가 감소하여
+    코어 간 통신의 일관성이 크게 향상. 실시간성이 중요한 워크로드에서 핵심적인 이점.
+  </div>
+
+  <div class="sub-header">i7-14700 예상</div>
+  <div class="analysis-box analysis-box-alt">
+    <b style="color: var(--text);">20 물리코어 (8P + 12E) 환경에서의 예상:</b><br>
+    &bull; P-Core(Performance) 8개까지 선형 스케일링 기대, E-Core(Efficiency)는 IPC 차이로 별도 계층<br>
+    &bull; NUMA가 없는 단일 소켓이지만 P/E 분류 + Affinity가 HT 역효과를 완전히 회피<br>
+    &bull; 20코어 모두 물리 코어이므로 Affinity ON 상태에서도 확장 효율 유지 기대<br>
+    &bull; E-Core에 background task (로깅, 메트릭 수집)를 배치하는 P/E 분리 전략이 추가 이점 제공
+  </div>
+
+  <div class="sub-header">퇴보 분석</div>
+  <div class="analysis-box analysis-box-danger">
+    <b style="color: var(--danger);">MPSC 2P1C:</b> v0.5.10의 46.7M &rarr; v0.6.5의 14.4M (mean).<br>
+    수치상 퇴보로 보이지만, v0.5.10은 단일 실행으로 비결정적 값이고 v0.6.5는 5회 반복 mean (CV 8.5%).
+    벤치마크 측정 방식이 변경되어 <b style="color:var(--text);">직접 비교 불가</b>. 벤치마크 비결정성 수정이 완료된 상태.<br><br>
+
+    <b style="color: var(--danger);">SessionPtr_Copy:</b> v0.5.10의 159M &rarr; v0.6.5의 81.5M items/s.<br>
+    <code>intrusive_ptr</code>가 atomic refcount로 전환 (PR #60)되면서 <code>shared_ptr</code>와 동일한 성능으로 수렴.
+    <b style="color:var(--text);">의도된 안전성-성능 트레이드오프</b>: 멀티코어 환경에서의 레퍼런스 카운트 정합성을 보장하기 위한 필수 변경.
+  </div>
+</div>
+
+</main>
+
+<script>
+// ============================================================
+// Plotly configuration
+// ============================================================
+const plotlyLayout = {
+  paper_bgcolor: '#1E293B',
+  plot_bgcolor: '#1E293B',
+  font: { color: '#94A3B8', family: 'system-ui, sans-serif', size: 12 },
+  margin: { l: 60, r: 30, t: 40, b: 60 },
+  xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.05)' },
+  yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.05)' },
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 11 } },
+  hoverlabel: { font: { size: 12 } }
+};
+const plotlyConfig = { responsive: true, displayModeBar: false };
+
+// ============================================================
+// Section 2: Version Comparison Bar Chart
+// ============================================================
+(function() {
+  const components = [
+    'MPSC 1P1C', 'SPSC Queue', 'Slab Alloc',
+    'RingBuffer', 'Frame Codec', 'Dispatcher',
+    'Timing Wheel', 'Serialization', 'Session Create'
+  ];
+  const changes = [46.7, 168.3, 72.7, 146.3, 163.2, 3.1, 122.4, 0.3, 106.3];
+  const colors = changes.map(v => v >= 10 ? '#34D399' : v >= 0 ? '#94A3B8' : '#EF4444');
+
+  Plotly.newPlot('chart-version-bar', [{
+    type: 'bar',
+    x: components,
+    y: changes,
+    marker: { color: colors, line: { width: 0 }, cornerradius: 4 },
+    text: changes.map(v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%'),
+    textposition: 'outside',
+    textfont: { color: '#F1F5F9', size: 11, family: 'system-ui' },
+    hovertemplate: '<b>%{x}</b><br>변화율: %{y:+.1f}%<extra></extra>'
+  }], {
+    ...plotlyLayout,
+    title: { text: 'v0.5.10 → v0.6.5 변화율 (대표 수치 기준)', font: { size: 14, color: '#F1F5F9' } },
+    xaxis: { ...plotlyLayout.xaxis, tickangle: -30 },
+    yaxis: { ...plotlyLayout.yaxis, title: '변화율 (%)', zeroline: true, zerolinecolor: 'rgba(255,255,255,0.2)', zerolinewidth: 2 },
+    margin: { l: 60, r: 30, t: 50, b: 100 },
+    shapes: [{
+      type: 'line', x0: -0.5, x1: 8.5, y0: 0, y1: 0,
+      line: { color: 'rgba(255,255,255,0.3)', width: 1, dash: 'dot' }
+    }]
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Section 3: Cross-Core Latency Bar Chart
+// ============================================================
+(function() {
+  Plotly.newPlot('chart-affinity-latency', [
+    {
+      type: 'bar', name: 'Affinity OFF',
+      x: ['RTT', 'One-Way'],
+      y: [16609, 8304],
+      marker: { color: '#3B82F6', cornerradius: 4 },
+      text: ['16,609 ns', '8,304 ns'],
+      textposition: 'outside',
+      textfont: { color: '#F1F5F9', size: 11 },
+      hovertemplate: '<b>OFF %{x}</b>: %{y:,.0f} ns<extra></extra>'
+    },
+    {
+      type: 'bar', name: 'Affinity ON',
+      x: ['RTT', 'One-Way'],
+      y: [13405, 6703],
+      marker: { color: '#34D399', cornerradius: 4 },
+      text: ['13,405 ns', '6,703 ns'],
+      textposition: 'outside',
+      textfont: { color: '#F1F5F9', size: 11 },
+      hovertemplate: '<b>ON %{x}</b>: %{y:,.0f} ns<extra></extra>'
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Cross-Core Latency: Affinity OFF vs ON', font: { size: 14, color: '#F1F5F9' } },
+    barmode: 'group',
+    yaxis: { ...plotlyLayout.yaxis, title: 'Latency (ns)' },
+    margin: { l: 70, r: 30, t: 50, b: 50 }
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Section 3: PerCore Affinity OFF vs ON
+// ============================================================
+(function() {
+  const cores = [1, 2, 3, 4, 8];
+  const off = [564393, 1024720, 1479745, 1807559, 2361980];
+  const on  = [569324, 1037963, 1473201, 1913142, 1936384];
+
+  Plotly.newPlot('chart-affinity-percore', [
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'Affinity OFF',
+      x: cores, y: off,
+      line: { color: '#3B82F6', width: 3 },
+      marker: { size: 10, color: '#3B82F6' },
+      hovertemplate: '<b>OFF @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'Affinity ON',
+      x: cores, y: on,
+      line: { color: '#34D399', width: 3, dash: 'dash' },
+      marker: { size: 10, symbol: 'diamond', color: '#34D399' },
+      hovertemplate: '<b>ON @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'PerCore Stateful: Affinity OFF vs ON', font: { size: 14, color: '#F1F5F9' } },
+    xaxis: { ...plotlyLayout.xaxis, title: '코어 수', tickvals: cores, type: 'category' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Throughput (items/s)' },
+    margin: { l: 80, r: 30, t: 50, b: 50 },
+    shapes: [{
+      type: 'line', x0: 3.5, x1: 3.5, y0: 0, y1: 2500000,
+      line: { color: 'rgba(245,158,11,0.4)', width: 2, dash: 'dot' }
+    }],
+    annotations: [{
+      x: 3.5, y: 2450000, text: 'HT 경계<br>(4 물리코어)',
+      showarrow: false, font: { color: '#F59E0B', size: 10 },
+      bgcolor: 'rgba(245,158,11,0.1)', bordercolor: 'rgba(245,158,11,0.3)',
+      borderwidth: 1, borderpad: 4
+    }]
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Section 4: 3-Way PerCore Overlay
+// ============================================================
+(function() {
+  const cores = [1, 2, 3, 4, 8];
+  const v0510  = [511614, 901329, 1244019, 1561924, 1973083];
+  const v065off = [564393, 1024720, 1479745, 1807559, 2361980];
+  const v065on  = [569324, 1037963, 1473201, 1913142, 1936384];
+
+  Plotly.newPlot('chart-3way-percore', [
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.5.10 (baseline)',
+      x: cores, y: v0510,
+      line: { color: '#94A3B8', width: 2, dash: 'dot' },
+      marker: { size: 8, color: '#94A3B8', symbol: 'circle' },
+      hovertemplate: '<b>v0.5.10 @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.6.5 Affinity OFF',
+      x: cores, y: v065off,
+      line: { color: '#3B82F6', width: 3 },
+      marker: { size: 10, color: '#3B82F6', symbol: 'square' },
+      hovertemplate: '<b>v0.6.5 OFF @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.6.5 Affinity ON',
+      x: cores, y: v065on,
+      line: { color: '#34D399', width: 3, dash: 'dash' },
+      marker: { size: 10, color: '#34D399', symbol: 'diamond' },
+      hovertemplate: '<b>v0.6.5 ON @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines', name: '이론적 선형 스케일링',
+      x: cores, y: cores.map(c => 564393 * c),
+      line: { color: 'rgba(255,255,255,0.15)', width: 1, dash: 'dash' },
+      hovertemplate: '<b>이론 한계 @%{x}C</b>: %{y:,.0f} items/s<extra></extra>'
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'PerCore Stateful: 3-Way Comparison', font: { size: 14, color: '#F1F5F9' } },
+    xaxis: { ...plotlyLayout.xaxis, title: '코어 수', tickvals: cores, type: 'category' },
+    yaxis: { ...plotlyLayout.yaxis, title: 'Throughput (items/s)' },
+    margin: { l: 80, r: 30, t: 50, b: 50 },
+    shapes: [{
+      type: 'line', x0: 3.5, x1: 3.5, y0: 0, y1: 4800000,
+      line: { color: 'rgba(245,158,11,0.3)', width: 2, dash: 'dot' }
+    }],
+    annotations: [{
+      x: 3.5, y: 4600000, text: 'HT 경계',
+      showarrow: false, font: { color: '#F59E0B', size: 10 },
+      bgcolor: 'rgba(245,158,11,0.1)', bordercolor: 'rgba(245,158,11,0.3)',
+      borderwidth: 1, borderpad: 4
+    }]
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Section 4: Scaling Efficiency Chart
+// ============================================================
+(function() {
+  const cores = [1, 2, 3, 4, 8];
+  const ideal = [1.0, 2.0, 3.0, 4.0, 8.0];
+  const v0510_eff  = [1.0, 1.76, 2.43, 3.05, 3.85];
+  const v065off_eff = [1.0, 1.82, 2.62, 3.20, 4.19];
+  const v065on_eff  = [1.0, 1.82, 2.59, 3.36, 3.40];
+
+  Plotly.newPlot('chart-3way-efficiency', [
+    {
+      type: 'scatter', mode: 'lines', name: '이론적 선형',
+      x: cores, y: ideal,
+      line: { color: 'rgba(255,255,255,0.2)', width: 1, dash: 'dash' },
+      hovertemplate: '<b>이론 @%{x}C</b>: %{y:.2f}x<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.5.10',
+      x: cores, y: v0510_eff,
+      line: { color: '#94A3B8', width: 2, dash: 'dot' },
+      marker: { size: 8, color: '#94A3B8' },
+      hovertemplate: '<b>v0.5.10 @%{x}C</b>: %{y:.2f}x<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.6.5 OFF',
+      x: cores, y: v065off_eff,
+      line: { color: '#3B82F6', width: 3 },
+      marker: { size: 10, color: '#3B82F6', symbol: 'square' },
+      hovertemplate: '<b>v0.6.5 OFF @%{x}C</b>: %{y:.2f}x<extra></extra>'
+    },
+    {
+      type: 'scatter', mode: 'lines+markers', name: 'v0.6.5 ON',
+      x: cores, y: v065on_eff,
+      line: { color: '#34D399', width: 3, dash: 'dash' },
+      marker: { size: 10, color: '#34D399', symbol: 'diamond' },
+      hovertemplate: '<b>v0.6.5 ON @%{x}C</b>: %{y:.2f}x<extra></extra>'
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: '코어 수별 확장 효율 (1코어 = 1.00x)', font: { size: 14, color: '#F1F5F9' } },
+    xaxis: { ...plotlyLayout.xaxis, title: '코어 수', tickvals: cores, type: 'category' },
+    yaxis: { ...plotlyLayout.yaxis, title: '스케일링 비율 (x)' },
+    margin: { l: 60, r: 30, t: 50, b: 50 },
+    shapes: [{
+      type: 'line', x0: 3.5, x1: 3.5, y0: 0, y1: 8.5,
+      line: { color: 'rgba(245,158,11,0.3)', width: 2, dash: 'dot' }
+    }]
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Section 4: 3-Way Cross-Core Latency RTT
+// ============================================================
+(function() {
+  Plotly.newPlot('chart-3way-latency', [
+    {
+      type: 'bar',
+      x: ['v0.5.10', 'v0.6.5 OFF', 'v0.6.5 ON'],
+      y: [17058, 16609, 13405],
+      marker: {
+        color: ['#94A3B8', '#3B82F6', '#34D399'],
+        cornerradius: 4
+      },
+      text: ['17,058 ns', '16,609 ns (-2.6%)', '13,405 ns (-21.4%)'],
+      textposition: 'outside',
+      textfont: { color: '#F1F5F9', size: 11 },
+      hovertemplate: '<b>%{x}</b><br>RTT: %{y:,.0f} ns<extra></extra>'
+    }
+  ], {
+    ...plotlyLayout,
+    title: { text: 'Cross-Core Latency RTT: 3-Way', font: { size: 14, color: '#F1F5F9' } },
+    yaxis: { ...plotlyLayout.yaxis, title: 'RTT (ns)', range: [0, 20000] },
+    margin: { l: 70, r: 30, t: 50, b: 50 },
+    showlegend: false
+  }, plotlyConfig);
+})();
+
+// ============================================================
+// Sidebar scroll spy
+// ============================================================
+(function() {
+  const sections = document.querySelectorAll('[id^="section-"]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  function updateActive() {
+    let current = '';
+    sections.forEach(s => {
+      const rect = s.getBoundingClientRect();
+      if (rect.top <= 120) current = s.id;
+    });
+    navItems.forEach(item => {
+      item.classList.toggle('active', item.getAttribute('href') === '#' + current);
+    });
+  }
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+})();
+</script>
+
+</body>
+</html>
