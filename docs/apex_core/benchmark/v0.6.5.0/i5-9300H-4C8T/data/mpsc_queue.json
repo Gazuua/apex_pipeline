@@ -1,6 +1,6 @@
 {
   "context": {
-    "date": "2026-03-27T15:32:08+09:00",
+    "date": "2026-03-27T16:14:07+09:00",
     "host_name": "DESKTOP-LS4B0FN",
     "executable": "D:/.workspace/apex_pipeline_branch_01/apex_core/bin/release/bench_mpsc_queue.exe",
     "num_cpus": 8,
@@ -50,10 +50,10 @@
       "repetition_index": 0,
       "threads": 1,
       "iterations": 74666667,
-      "real_time": 9.7437722779538021e+00,
-      "cpu_time": 9.8353794203777696e+00,
+      "real_time": 9.4535477256423128e+00,
+      "cpu_time": 9.6261160284548399e+00,
       "time_unit": "ns",
-      "items_per_second": 1.0167375931914894e+08
+      "items_per_second": 1.0388405843478261e+08
     },
     {
       "name": "BM_MpscQueue_1P1C/4096",
@@ -64,11 +64,11 @@
       "repetitions": 1,
       "repetition_index": 0,
       "threads": 1,
-      "iterations": 64000000,
-      "real_time": 9.5180375000154527e+00,
-      "cpu_time": 9.5214843750000000e+00,
+      "iterations": 74666667,
+      "real_time": 9.2520173694249941e+00,
+      "cpu_time": 9.2075892446089771e+00,
       "time_unit": "ns",
-      "items_per_second": 1.0502564102564102e+08
+      "items_per_second": 1.0860606109090909e+08
     },
     {
       "name": "BM_MpscQueue_1P1C/32768",
@@ -80,10 +80,10 @@
       "repetition_index": 0,
       "threads": 1,
       "iterations": 74666667,
-      "real_time": 9.5450450466789789e+00,
-      "cpu_time": 9.6261160284548399e+00,
+      "real_time": 9.1964704946754185e+00,
+      "cpu_time": 9.2075892446089771e+00,
       "time_unit": "ns",
-      "items_per_second": 1.0388405843478261e+08
+      "items_per_second": 1.0860606109090909e+08
     },
     {
       "name": "BM_MpscQueue_1P1C/65536",
@@ -95,25 +95,74 @@
       "repetition_index": 0,
       "threads": 1,
       "iterations": 74666667,
-      "real_time": 9.6109861177825007e+00,
-      "cpu_time": 9.6261160284548399e+00,
+      "real_time": 9.2799696014633906e+00,
+      "cpu_time": 9.2075892446089771e+00,
       "time_unit": "ns",
-      "items_per_second": 1.0388405843478261e+08
+      "items_per_second": 1.0860606109090909e+08
     },
     {
-      "name": "BM_MpscQueue_2P1C",
+      "name": "BM_MpscQueue_2P1C/repeats:5_mean",
       "family_index": 1,
       "per_family_instance_index": 0,
-      "run_name": "BM_MpscQueue_2P1C",
-      "run_type": "iteration",
-      "repetitions": 1,
-      "repetition_index": 0,
+      "run_name": "BM_MpscQueue_2P1C/repeats:5",
+      "run_type": "aggregate",
+      "repetitions": 5,
       "threads": 1,
-      "iterations": 5600000,
-      "real_time": 1.0137201785710202e+02,
-      "cpu_time": 1.0044642857142857e+02,
+      "aggregate_name": "mean",
+      "aggregate_unit": "time",
+      "iterations": 5,
+      "real_time": 6.9831828124945019e+01,
+      "cpu_time": 6.9754464285714306e+01,
       "time_unit": "ns",
-      "items_per_second": 1.6651982222222222e+07
+      "items_per_second": 1.4429046389287421e+07
+    },
+    {
+      "name": "BM_MpscQueue_2P1C/repeats:5_median",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MpscQueue_2P1C/repeats:5",
+      "run_type": "aggregate",
+      "repetitions": 5,
+      "threads": 1,
+      "aggregate_name": "median",
+      "aggregate_unit": "time",
+      "iterations": 5,
+      "real_time": 7.2721763392889585e+01,
+      "cpu_time": 7.1498325892857139e+01,
+      "time_unit": "ns",
+      "items_per_second": 1.3986341463414634e+07
+    },
+    {
+      "name": "BM_MpscQueue_2P1C/repeats:5_stddev",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MpscQueue_2P1C/repeats:5",
+      "run_type": "aggregate",
+      "repetitions": 5,
+      "threads": 1,
+      "aggregate_name": "stddev",
+      "aggregate_unit": "time",
+      "iterations": 5,
+      "real_time": 5.9041988952754894e+00,
+      "cpu_time": 5.9137224322730244e+00,
+      "time_unit": "ns",
+      "items_per_second": 1.3723707868954167e+06
+    },
+    {
+      "name": "BM_MpscQueue_2P1C/repeats:5_cv",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MpscQueue_2P1C/repeats:5",
+      "run_type": "aggregate",
+      "repetitions": 5,
+      "threads": 1,
+      "aggregate_name": "cv",
+      "aggregate_unit": "percentage",
+      "iterations": 5,
+      "real_time": 8.4548823277424939e-02,
+      "cpu_time": 8.4779124789066060e-02,
+      "time_unit": "ns",
+      "items_per_second": 9.5111676119795971e-02
     },
     {
       "name": "BM_MpscQueue_Backpressure",
@@ -125,8 +174,8 @@
       "repetition_index": 0,
       "threads": 1,
       "iterations": 407272727,
-      "real_time": 1.7331708047332535e+00,
-      "cpu_time": 1.7264229922275154e+00,
+      "real_time": 1.7885297779887115e+00,
+      "cpu_time": 1.8031529029931828e+00,
       "time_unit": "ns"
     }
   ]
