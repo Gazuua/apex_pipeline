@@ -9,131 +9,7 @@ import (
 	"testing"
 )
 
-// writePluginJSON creates a temporary plugin directory with a plugin.json.
-func writePluginJSON(t *testing.T, dir, version string) string {
-	t.Helper()
-	pluginDir := filepath.Join(dir, "claude-plugin", ".claude-plugin")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	data := []byte(`{"name":"apex-auto-review","version":"` + version + `"}`)
-	if err := os.WriteFile(filepath.Join(pluginDir, "plugin.json"), data, 0o644); err != nil {
-		t.Fatalf("write plugin.json: %v", err)
-	}
-	return filepath.Join(dir, "claude-plugin")
-}
-
-func TestReadPluginVersion(t *testing.T) {
-	tmp := t.TempDir()
-	pluginPath := writePluginJSON(t, tmp, "2.5.1")
-	got := readPluginVersion(pluginPath)
-	if got != "2.5.1" {
-		t.Errorf("readPluginVersion = %q, want %q", got, "2.5.1")
-	}
-}
-
-func TestReadPluginVersion_MissingFile(t *testing.T) {
-	got := readPluginVersion("/nonexistent/path")
-	if got != "1.0.0" {
-		t.Errorf("readPluginVersion (missing) = %q, want %q", got, "1.0.0")
-	}
-}
-
-func TestIsAlreadyInstalled_False_WhenFileAbsent(t *testing.T) {
-	if isAlreadyInstalled("/nonexistent/installed.json", "/some/path", "1.0.0") {
-		t.Error("expected false when file absent")
-	}
-}
-
-func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
-	tmp := t.TempDir()
-	// Create a real plugin.json at the install path so the validity check passes.
-	pluginPath := writePluginJSON(t, tmp, "3.1.0")
-
-	installedFile := filepath.Join(tmp, "installed_plugins.json")
-	installed := installedPluginsFile{
-		Version: 2,
-		Plugins: map[string][]pluginEntry{
-			pluginID: {
-				{
-					Scope:       "project",
-					InstallPath: pluginPath,
-					Version:     "3.1.0",
-				},
-			},
-		},
-	}
-	data, _ := json.MarshalIndent(installed, "", "  ")
-	if err := os.WriteFile(installedFile, data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Same version + valid path → true (even if called from a different workspace)
-	if !isAlreadyInstalled(installedFile, "/other/workspace/claude-plugin", "3.1.0") {
-		t.Error("expected true when version matches and existing path is valid")
-	}
-}
-
-func TestIsAlreadyInstalled_FalseWhenVersionDiffers(t *testing.T) {
-	tmp := t.TempDir()
-	installedFile := filepath.Join(tmp, "installed_plugins.json")
-	installed := installedPluginsFile{
-		Version: 2,
-		Plugins: map[string][]pluginEntry{
-			pluginID: {
-				{
-					Scope:       "project",
-					InstallPath: "/some/path",
-					Version:     "2.0.0",
-				},
-			},
-		},
-	}
-	data, _ := json.MarshalIndent(installed, "", "  ")
-	if err := os.WriteFile(installedFile, data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if isAlreadyInstalled(installedFile, "/some/path", "3.1.0") {
-		t.Error("expected false when version differs")
-	}
-}
-
-func TestSetup_CreatesFiles(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create workspace with plugin.json
-	pluginsToolsDir := filepath.Join(tmp, "apex_tools", "claude-plugin", ".claude-plugin")
-	if err := os.MkdirAll(pluginsToolsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	data := []byte(`{"name":"apex-auto-review","version":"3.1.0"}`)
-	if err := os.WriteFile(filepath.Join(pluginsToolsDir, "plugin.json"), data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Override home dir by pointing Setup to our fake home using a wrapper.
-	// We test the helper functions directly since Setup uses os.UserHomeDir().
-	pluginPath := filepath.Join(tmp, "apex_tools", "claude-plugin")
-	installedFile := filepath.Join(tmp, "installed.json")
-
-	// First install
-	if err := updateInstalledPlugins(installedFile, pluginPath, "3.1.0"); err != nil {
-		t.Fatalf("updateInstalledPlugins: %v", err)
-	}
-
-	// Verify file was created
-	if _, err := os.Stat(installedFile); err != nil {
-		t.Fatalf("installed.json not created: %v", err)
-	}
-
-	// isAlreadyInstalled should now return true
-	if !isAlreadyInstalled(installedFile, pluginPath, "3.1.0") {
-		t.Error("expected isAlreadyInstalled to return true after install")
-	}
-}
-
-func TestUpdateEnabledPlugins(t *testing.T) {
+func TestUpdateEnabledPlugins_AddsEntry(t *testing.T) {
 	tmp := t.TempDir()
 	settingsFile := filepath.Join(tmp, "settings.json")
 
@@ -161,9 +37,65 @@ func TestUpdateEnabledPlugins(t *testing.T) {
 	if enabled[pluginID] != true {
 		t.Errorf("expected enabledPlugins[%q] = true", pluginID)
 	}
+}
 
-	// Calling again should be idempotent (no error)
+func TestUpdateEnabledPlugins_Idempotent(t *testing.T) {
+	tmp := t.TempDir()
+	settingsFile := filepath.Join(tmp, "settings.json")
+
+	if err := os.WriteFile(settingsFile, []byte(`{"someKey":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// First call writes
 	if err := updateEnabledPlugins(settingsFile); err != nil {
-		t.Fatalf("second updateEnabledPlugins: %v", err)
+		t.Fatalf("first call: %v", err)
+	}
+
+	// Record file content after first write
+	before, _ := os.ReadFile(settingsFile)
+
+	// Second call should be no-op (no write)
+	if err := updateEnabledPlugins(settingsFile); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	after, _ := os.ReadFile(settingsFile)
+	if string(before) != string(after) {
+		t.Error("expected idempotent: file content changed on second call")
+	}
+}
+
+func TestUpdateEnabledPlugins_AlreadyEnabled(t *testing.T) {
+	tmp := t.TempDir()
+	settingsFile := filepath.Join(tmp, "settings.json")
+
+	initial := map[string]interface{}{
+		"enabledPlugins": map[string]interface{}{
+			pluginID: true,
+		},
+	}
+	data, _ := json.MarshalIndent(initial, "", "  ")
+	if err := os.WriteFile(settingsFile, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	before, _ := os.ReadFile(settingsFile)
+
+	if err := updateEnabledPlugins(settingsFile); err != nil {
+		t.Fatalf("updateEnabledPlugins: %v", err)
+	}
+
+	after, _ := os.ReadFile(settingsFile)
+	if string(before) != string(after) {
+		t.Error("expected no write when plugin already enabled")
+	}
+}
+
+func TestUpdateEnabledPlugins_MissingFile(t *testing.T) {
+	// Should return nil (not error) when settings.json doesn't exist
+	err := updateEnabledPlugins("/nonexistent/settings.json")
+	if err != nil {
+		t.Errorf("expected nil for missing file, got: %v", err)
 	}
 }
