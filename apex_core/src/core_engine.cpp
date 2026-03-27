@@ -80,6 +80,12 @@ void CoreEngine::set_tick_callback(TickCallback callback)
     tick_callback_ = std::move(callback);
 }
 
+void CoreEngine::set_core_init_callback(CoreInitCallback callback)
+{
+    assert(!running_.load(std::memory_order_acquire) && "set_core_init_callback must be called before start()");
+    core_init_callback_ = std::move(callback);
+}
+
 void CoreEngine::register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler)
 {
     assert(!running_.load(std::memory_order_acquire) && "register_cross_core_handler must be called before start()");
@@ -337,6 +343,12 @@ void CoreEngine::run_core(uint32_t core_id)
                 logger_.warn("worker[{}] NUMA bind failed for node {}", core_id, assignment.numa_node);
             }
         }
+    }
+
+    // Per-core init callback — NUMA-aware memory re-allocation etc.
+    if (core_init_callback_)
+    {
+        core_init_callback_(core_id);
     }
 
     auto& ctx = *cores_[core_id];

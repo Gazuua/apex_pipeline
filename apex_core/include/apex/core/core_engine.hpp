@@ -100,6 +100,11 @@ class CoreEngine
     /// Set callback invoked on each tick cycle per core (heartbeat, timing wheel, etc.).
     void set_tick_callback(TickCallback callback);
 
+    /// Set callback invoked once per core thread after affinity/NUMA is applied
+    /// but before io_context::run(). Use for NUMA-aware memory re-allocation.
+    using CoreInitCallback = std::function<void(uint32_t core_id)>;
+    void set_core_init_callback(CoreInitCallback callback);
+
     /// Register a cross-core message handler by op code. Must be called before start().
     void register_cross_core_handler(CrossCoreOp op, CrossCoreHandler handler);
 
@@ -184,6 +189,7 @@ class CoreEngine
     std::vector<std::thread> threads_;
     MessageHandler message_handler_;
     TickCallback tick_callback_;
+    CoreInitCallback core_init_callback_;
     std::atomic<bool> running_{false};
     std::atomic<uint32_t> outstanding_infra_coros_{0};
     std::unique_ptr<std::atomic<bool>[]> drain_pending_;

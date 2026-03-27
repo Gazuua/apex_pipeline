@@ -53,6 +53,11 @@ class ArenaAllocator
     /// Total bytes allocated from the system (sum of all block sizes).
     [[nodiscard]] std::size_t capacity() const noexcept;
 
+    /// Free and re-allocate the initial block on the current thread's NUMA node.
+    /// Must be called when the allocator is empty (used_bytes() == 0).
+    /// Used by CoreEngine::run_core() after set_mempolicy() to ensure NUMA locality.
+    void rebind_memory();
+
   private:
     struct Block
     {

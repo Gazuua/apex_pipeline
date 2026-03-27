@@ -400,6 +400,20 @@ void Server::run()
         post_init_cb_(*this);
     }
 
+    // Per-core init callback — re-allocate allocator backing memory on NUMA-local node.
+    // Called from each core thread after affinity/mempolicy is applied, before io_ctx.run().
+    if (config_.affinity.enabled && config_.affinity.numa_aware)
+    {
+        core_engine_->set_core_init_callback([this](uint32_t core_id) {
+            if (core_id < per_core_.size())
+            {
+                per_core_[core_id]->bump_allocator.rebind_memory();
+                per_core_[core_id]->arena_allocator.rebind_memory();
+                logger_.debug("core[{}] allocators rebound to NUMA-local memory", core_id);
+            }
+        });
+    }
+
     // Tick callback — SessionManager tick on each tick cycle (heartbeat, timing wheel)
     core_engine_->set_tick_callback([this](uint32_t core_id) {
         if (core_id < per_core_.size())

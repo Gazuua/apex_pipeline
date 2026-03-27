@@ -165,4 +165,16 @@ void ArenaAllocator::free_block(Block& block)
     block.base = nullptr;
 }
 
+void ArenaAllocator::rebind_memory()
+{
+    // Free all blocks and re-allocate the initial block on the current NUMA node.
+    for (auto& block : blocks_)
+    {
+        free_block(block);
+    }
+    blocks_.clear();
+    total_allocated_ = block_size_;
+    blocks_.push_back(make_block(block_size_));
+}
+
 } // namespace apex::core
