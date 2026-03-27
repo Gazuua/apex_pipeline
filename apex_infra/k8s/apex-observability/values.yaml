@@ -102,7 +102,7 @@ vector:
 grafana:
   enabled: true
   adminUser: admin
-  adminPassword: admin       # 로컬 전용 — 프로덕션은 existingSecret 사용
+  adminPassword: admin  # 로컬 개발 전용 — values-prod.yaml에서 existingSecret으로 대체됨
   persistence:
     enabled: true
     size: 1Gi

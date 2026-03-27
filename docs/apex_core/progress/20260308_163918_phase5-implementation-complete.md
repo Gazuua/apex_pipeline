@@ -93,7 +93,7 @@ Total Test time: 3.94 sec
 
 ---
 
-## 6. 다음 단계
+## 6. 완료 확인
 
 - [x] clangd LSP 포함 심층 코드 리뷰
 - [x] 리뷰 이슈 수정

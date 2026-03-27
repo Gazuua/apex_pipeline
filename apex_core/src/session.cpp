@@ -90,13 +90,12 @@ awaitable<Result<void>> Session::async_send_raw(std::span<const uint8_t> data)
 
 void Session::close() noexcept
 {
-    auto prev = state_.load(std::memory_order_relaxed);
-    if (prev == State::Closed)
+    auto expected = state_.load(std::memory_order_relaxed);
+    if (expected == State::Closed)
         return;
-    // Bypass set_state() which asserts on Closed->Closed transition
-    // (already guarded by early return above)
-    state_.store(State::Closed, std::memory_order_relaxed);
-    s_logger().debug("close id={} prev_state={}", id_, static_cast<int>(prev));
+    if (!state_.compare_exchange_strong(expected, State::Closed, std::memory_order_relaxed))
+        return; // Another thread already transitioned state
+    s_logger().debug("close id={} prev_state={}", id_, static_cast<int>(expected));
 
     socket_->close();
 }

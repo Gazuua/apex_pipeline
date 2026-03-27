@@ -56,6 +56,9 @@ template <typename F>
     auto timer = std::make_shared<boost::asio::steady_timer>(executor);
     timer->expires_after(timeout);
 
+    // WARNING: On timeout, func's captured resources are destroyed on the target core's
+    // thread (when the target core eventually executes and deletes this task).
+    // Ensure all captured objects have thread-safe destructors.
     auto* task = new std::function<void()>([state, timer, f = std::move(func)]() mutable {
         if (state->status.load(std::memory_order_acquire) != 0)
         {
@@ -130,6 +133,9 @@ template <typename F>
     auto timer = std::make_shared<boost::asio::steady_timer>(executor);
     timer->expires_after(timeout);
 
+    // WARNING: On timeout, func's captured resources are destroyed on the target core's
+    // thread (when the target core eventually executes and deletes this task).
+    // Ensure all captured objects have thread-safe destructors.
     auto* task = new std::function<void()>([state, timer, f = std::move(func)]() mutable {
         if (state->status.load(std::memory_order_acquire) != 0)
         {

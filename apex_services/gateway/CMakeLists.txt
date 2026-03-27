@@ -261,6 +261,23 @@ if(BUILD_TESTING)
     apex_set_warnings(test_gateway_config_reloader)
     add_test(NAME test_gateway_config_reloader COMMAND test_gateway_config_reloader)
 
+    # --- BroadcastFanout tests (build_wire_frame pure static function) ---
+    add_executable(test_gateway_broadcast_fanout
+        tests/test_broadcast_fanout.cpp
+        src/broadcast_fanout.cpp
+        src/channel_session_map.cpp
+    )
+    target_include_directories(test_gateway_broadcast_fanout PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(test_gateway_broadcast_fanout PRIVATE
+        apex_core apex_shared spdlog::spdlog GTest::gtest GTest::gtest_main)
+    if(WIN32)
+        target_compile_options(test_gateway_broadcast_fanout PRIVATE /utf-8)
+        target_compile_definitions(test_gateway_broadcast_fanout PRIVATE _WIN32_WINNT=0x0A00)
+    endif()
+    apex_set_warnings(test_gateway_broadcast_fanout)
+    add_test(NAME test_gateway_broadcast_fanout COMMAND test_gateway_broadcast_fanout)
+
     # Gateway 단위 테스트 타임아웃 (30초)
     set_tests_properties(
         test_gateway_route_table
@@ -274,6 +291,7 @@ if(BUILD_TESTING)
         test_gateway_pipeline_errors
         test_gateway_config_parser
         test_gateway_config_reloader
+        test_gateway_broadcast_fanout
         PROPERTIES TIMEOUT 30
     )
 endif()

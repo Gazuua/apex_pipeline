@@ -15,11 +15,12 @@ apex_infra/
 │   ├── docker-compose.smoke.yml  # 스모크 테스트 환경 (인프라 + pre-built 이미지)
 │   └── init-sql/                 # PostgreSQL 초기 스키마
 ├── k8s/
-│   └── apex-pipeline/            # Helm umbrella chart
-│       ├── charts/               # sub-charts (gateway, auth-svc, chat-svc, apex-common)
-│       ├── templates/            # umbrella 리소스 (namespace, RSA secret)
-│       ├── values.yaml           # 로컬 기본값
-│       └── values-prod.yaml      # 프로덕션 오버라이드
+│   ├── apex-pipeline/            # Helm umbrella chart (서비스)
+│   │   ├── charts/               # sub-charts (gateway, auth-svc, chat-svc, apex-common)
+│   │   ├── templates/            # umbrella 리소스 (namespace, RSA secret)
+│   │   ├── values.yaml           # 로컬 기본값
+│   │   └── values-prod.yaml      # 프로덕션 오버라이드
+│   └── apex-observability/       # Helm chart (Loki+Vector+Grafana)
 └── README.md
 ```
 

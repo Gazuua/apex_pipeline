@@ -1,6 +1,6 @@
 # 로그 패턴 가이드
 
-**버전**: v0.6.3.0 | **최종 갱신**: 2026-03-25
+**버전**: v0.6.5.0 | **최종 갱신**: 2026-03-27
 **목적**: 서비스 기동·운영 시 발생하는 로그 패턴의 정상/비정상 판별 기준과 트러블슈팅 가이드. 에이전트와 사람 모두를 위한 참조 문서.
 
 ---
@@ -80,6 +80,11 @@ ScopedLogger가 조립하는 `%v` 부분의 구조:
 [info] [apex] [tcp_acceptor.cpp:49 TcpAcceptor::bind] [core=0][TcpAcceptor] bound to 0.0.0.0:9000
 [debug] [apex] [server.cpp:286 Server::run] [Server] starting CoreEngine
 [info] [apex] [server.cpp:298 Server::run] [Server] ready — {N} cores, {N} listeners, {N} adapters
+```
+
+per-IP 연결 제한이 활성화된 경우 (`max_connections_per_ip > 0`):
+```log
+[info] [apex] [server.cpp:339 Server::run] [Server] per-IP connection limiter enabled (max=100/IP)
 ```
 
 **확인 포인트**: `ready —` 로그가 보이면 서비스가 완전히 초기화되어 연결을 수락하는 상태.
@@ -177,6 +182,11 @@ ScopedLogger가 조립하는 `%v` 부분의 구조:
 | `created with zero capacity` | BumpAllocator | bump_allocator.cpp:16 | 버프 할당기 0 용량 | 설정 오류 |
 | `Destructor called while still running` | Server | server.cpp:80 | 서버 구동 중 소멸자 호출 | stop() 호출 누락 확인 |
 | `Drain timeout expired, {} sessions remaining` | Server | server.cpp:367 | 셧다운 시 세션 드레인 타임아웃 | drain_timeout 조정 또는 세션 미해제 원인 확인 |
+| `per-IP limit reached: ip={}, count={}, max={}` | ConnLimiter | connection_limiter.cpp:30 | 동일 IP 연결 수 제한 초과 | 정상적 차단 (DDoS/크롤러), 빈도 급증 시 공격 의심 |
+| `decrement underflow prevented: ip={}, count already 0` | ConnLimiter | connection_limiter.cpp:49 | 카운터 언더플로 방지 | 이중 decrement 경로 확인 — 보통 셧다운 시 무해 |
+| `Connection rejected: per-IP limit (ip={})` | Listener | listener.hpp:339 | per-IP 제한으로 연결 거부 | ConnLimiter warn과 함께 출현, 정상적 차단 |
+| `Connection rejected: max_connections limit ({}/{})` | Listener | listener.hpp:120,355 | 전체 연결 수 제한 초과 | max_connections 설정 조정 또는 부하 분산 확인 |
+| `cross_core_call timeout for per-IP check (ip={})` | Listener | listener.hpp:326 | owner 코어 cross-core 호출 타임아웃 | 대상 코어 과부하 의심, 보상 decrement 자동 수행됨 |
 
 ### 4.2 apex_shared (어댑터 인프라)
 
@@ -273,6 +283,16 @@ ScopedLogger가 조립하는 `%v` 부분의 구조:
 5. "ready —" 로그 부재 확인 → Phase 1/2/3 중 어디서 멈췄는지 특정
 ```
 
+### 연결이 거부됨
+
+```
+1. grep "per-IP limit reached" → 동일 IP 연결 수 초과 (ConnectionLimiter)
+2. grep "Connection rejected: per-IP" → Listener에서 per-IP 제한으로 거부
+3. grep "Connection rejected: max_connections" → 전체 연결 수 제한 초과
+4. grep "cross_core_call timeout.*per-IP" → owner 코어 타임아웃 (보상 decrement 자동)
+5. 빈도 급증 시 공격(DDoS/크롤러) 의심 — max_connections_per_ip 설정 확인
+```
+
 ### 세션이 예기치 않게 끊김
 
 ```
@@ -348,6 +368,7 @@ ScopedLogger가 조립하는 `%v` 부분의 구조:
 | ErrorSender | NO_CORE | static fn | error_sender.cpp |
 | CrossCoreDispatcher | NO_CORE | static fn | cross_core_dispatcher.cpp |
 | PeriodicTaskScheduler | NO_CORE | static fn | periodic_task_scheduler.cpp |
+| ConnLimiter | **per-core** | 멤버 | connection_limiter.hpp |
 
 ### apex_shared (어댑터) — 로거: `"app"`
 

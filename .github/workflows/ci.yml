@@ -305,7 +305,7 @@ jobs:
     needs: [changes]
     if: >-
       needs.changes.outputs.source == 'true' &&
-      !contains(github.event.head_commit.message, '[skip-msvc]')
+      (github.ref == 'refs/heads/main' || !contains(github.event.head_commit.message, '[skip-msvc]'))
     name: msvc-release
     runs-on: windows-latest
 
@@ -722,12 +722,13 @@ jobs:
   release-tag:
     permissions:
       contents: write
-    needs: [changes, deploy]
+    needs: [changes, deploy, build-msvc]
     if: >-
       always() &&
       github.ref == 'refs/heads/main' &&
       needs.changes.outputs.source == 'true' &&
-      needs.deploy.result == 'success'
+      needs.deploy.result == 'success' &&
+      (needs.build-msvc.result == 'success' || needs.build-msvc.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
