@@ -1,6 +1,6 @@
 {
   "context": {
-    "date": "2026-03-27T15:43:03+09:00",
+    "date": "2026-03-27T17:04:36+09:00",
     "host_name": "DESKTOP-LS4B0FN",
     "executable": "D:/.workspace/apex_pipeline_branch_01/apex_core/bin/release/bench_cross_core_message_passing.exe",
     "num_cpus": 8,
@@ -49,12 +49,12 @@
       "repetitions": 1,
       "repetition_index": 0,
       "threads": 1,
-      "iterations": 737049,
-      "real_time": 9.5192259944505963e+02,
-      "cpu_time": 9.3277380472668710e+02,
+      "iterations": 722207,
+      "real_time": 9.5438620783232011e+02,
+      "cpu_time": 9.5194314095543245e+02,
       "time_unit": "ns",
-      "items_per_second": 1.0505055774313668e+06,
-      "received": 7.3704900000000000e+05
+      "items_per_second": 1.0477938509518927e+06,
+      "received": 7.2220700000000000e+05
     }
   ]
 }

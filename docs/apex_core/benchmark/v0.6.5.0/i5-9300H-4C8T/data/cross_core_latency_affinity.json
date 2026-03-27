@@ -1,6 +1,6 @@
 {
   "context": {
-    "date": "2026-03-27T15:42:23+09:00",
+    "date": "2026-03-27T17:02:58+09:00",
     "host_name": "DESKTOP-LS4B0FN",
     "executable": "D:/.workspace/apex_pipeline_branch_01/apex_core/bin/release/bench_cross_core_latency.exe",
     "num_cpus": 8,
@@ -50,11 +50,11 @@
       "repetition_index": 0,
       "threads": 1,
       "iterations": 10000,
-      "real_time": 2.0250449999730336e+04,
+      "real_time": 2.3181359999944107e+04,
       "cpu_time": 1.0937500000000000e+04,
       "time_unit": "ns",
-      "avg_one_way_ns": 6.7027349999999997e+03,
-      "avg_rtt_ns": 1.3405469999999999e+04
+      "avg_one_way_ns": 7.1902900000000000e+03,
+      "avg_rtt_ns": 1.4380580000000000e+04
     }
   ]
 }

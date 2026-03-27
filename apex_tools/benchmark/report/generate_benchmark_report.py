@@ -36,10 +36,27 @@ def load_analysis(path):
         return json.load(f)
 
 
+def _resolve_data_dir(directory):
+    """데이터 디렉토리 탐색. {version}/ 직접 또는 {version}/{hardware}/data/ 구조 지원."""
+    dirpath = Path(directory)
+    if not dirpath.exists():
+        return dirpath
+    # 직접 JSON이 있으면 그대로 사용
+    if list(dirpath.glob('*.json')):
+        return dirpath
+    # {hardware}/data/ 구조 탐색 (첫 번째 서브디렉토리)
+    for sub in sorted(dirpath.iterdir()):
+        if sub.is_dir():
+            data_dir = sub / 'data'
+            if data_dir.exists() and list(data_dir.glob('*.json')):
+                return data_dir
+    return dirpath
+
+
 def load_benchmarks(directory):
     """디렉토리 내 벤치마크 JSON 로드. metadata.json은 제외."""
     results = {}
-    dirpath = Path(directory)
+    dirpath = _resolve_data_dir(directory)
     if not dirpath.exists():
         return results
     for jf in sorted(dirpath.glob('*.json')):
@@ -59,7 +76,7 @@ def load_benchmarks(directory):
 
 def load_metadata(directory):
     """metadata.json 로드. 없으면 벤치마크 JSON의 context에서 추출."""
-    dirpath = Path(directory)
+    dirpath = _resolve_data_dir(directory)
     meta_path = dirpath / 'metadata.json'
     if meta_path.exists():
         try:
