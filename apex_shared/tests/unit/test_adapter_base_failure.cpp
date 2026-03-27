@@ -48,7 +48,9 @@ apex::core::CoreEngine make_engine()
     apex::core::CoreEngineConfig config{.num_cores = 1,
                                         .spsc_queue_capacity = 64,
                                         .tick_interval = std::chrono::milliseconds{100},
-                                        .drain_batch_limit = 1024};
+                                        .drain_batch_limit = 1024,
+                                        .core_assignments = {},
+                                        .numa_aware = true};
     return apex::core::CoreEngine(config);
 }
 } // namespace
