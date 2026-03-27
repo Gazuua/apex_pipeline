@@ -79,7 +79,7 @@ apex_tools/
 │   └── e2e/                                 ← E2E 통합 테스트
 ├── git-hooks/                               ← Git hook (pre-commit, post-merge)
 ├── auto-review/config.md                    ← auto-review 설정
-└── claude-plugin/
+└── apex-auto-review/
     ├── commands/auto-review.md              ← 오케스트레이터
     └── agents/
         └── reviewer-{docs-spec,...}.md      ← 7개 리뷰어 에이전트

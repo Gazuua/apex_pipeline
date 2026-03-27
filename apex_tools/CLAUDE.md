@@ -4,7 +4,7 @@
 
 스킬 invoke 시 실제 파일과 다른 (오래된) 내용이 로드되면 **플러그인 캐시 문제**. 세션 재시작으로는 해결 안 됨.
 
-**진단**: 스킬 invoke 결과와 실제 파일(`apex_tools/claude-plugin/commands/*.md`) diff 비교
+**진단**: 스킬 invoke 결과와 실제 파일(`apex_tools/apex-auto-review/commands/*.md`) diff 비교
 
 **수정 절차:**
 ```bash
