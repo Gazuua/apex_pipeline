@@ -84,6 +84,7 @@ int main(int argc, char* argv[])
         .heartbeat_timeout_ticks = gw_config.heartbeat_timeout_ticks,
         .metrics = app_config.metrics,
         .admin = app_config.admin,
+        .affinity = app_config.server.affinity,
     });
 
     server.listen<apex::shared::protocols::websocket::WebSocketProtocol>(gw_config.ws_port);
