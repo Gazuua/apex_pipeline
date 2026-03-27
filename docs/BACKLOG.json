@@ -29,19 +29,6 @@
       "updated_at": "2026-03-26 21:45:34"
     },
     {
-      "id": 187,
-      "title": "HTTP 대시보드 워크플로우 트리거 UI — auto-review / FSD 백로그 소탕 버튼",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "apex-agent HTTP 대시보드(localhost:7600)에 auto-review, FSD 백로그 소탕 등 주요 워크플로우를 버튼 클릭으로 실행할 수 있는 트리거 UI 추가. 현재 대시보드는 현황 조회 전용이며 워크플로우 실행은 CLI 경유 필수. 대시보드에서 직접 실행+진행 상황 모니터링까지 가능하도록 확장. 대상 워크플로우: (1) auto-review (전체/선택적) (2) FSD 백로그 소탕 (3) 향후 추가 워크플로우 확장 가능한 플러그인 구조 검토.\n\n**[FSD 분석 2026-03-26]** Go HTTP 핸들러 + 프론트엔드 UI 신규 구현 필요. 설계 결정(WebSocket vs SSE, 진행률 표시 방식) 포함, FSD 자동화 부적합.",
-      "position": 43,
-      "status": "OPEN",
-      "created_at": "2026-03-24 15:24:42",
-      "updated_at": "2026-03-26 21:45:40"
-    },
-    {
       "id": 237,
       "title": "Admin HTTP 대시보드 — 런타임 설정 변경 + 서비스 상태 모니터링 UI",
       "severity": "MINOR",
@@ -55,19 +42,6 @@
       "updated_at": "2026-03-26 21:45:52"
     },
     {
-      "id": 254,
-      "title": "auto-review 시스템 정비 — full 모드 정기화 + 리뷰어 구성 현행화 + 후속 처리 체계",
-      "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
-      "scope": "TOOLS",
-      "type": "INFRA",
-      "description": "v0.6.4 첫 full 리뷰에서 CRITICAL 14건, MAJOR 44건 발견. task 모드만 사용하여 기존 이슈 축적. auto-review 시스템 정비 필요: (1) full 모드 정기 실행 스케줄 (2) 리뷰어 구성 현행화 (Go 코드/Helm 커버리지) (3) 리뷰어 간 중복 제거 (4) 설계 결정 필요 이슈 분류 체계 (5) 이전 리뷰 이슈 추적 (6) 리뷰 결과 구조화.\n\n**[FSD 분석 2026-03-26]** 프로세스 개선 + 프롬프트 엔지니어링 + 도구 설계 복합 작업. 설계 논의 필수, FSD 자동화 부적합.",
-      "position": 84,
-      "status": "OPEN",
-      "created_at": "2026-03-26 20:07:22",
-      "updated_at": "2026-03-26 21:45:58"
-    },
-    {
       "id": 40,
       "title": "NUMA 바인딩 + Core Affinity",
       "severity": "MAJOR",
@@ -76,9 +50,9 @@
       "type": "PERF",
       "description": "CPU Affinity 고정(P-Core 핀닝) + NUMA 바인딩 + 비대칭 워크로드 분배. v0.6.1 벤치마크(i7-14700, 20C/28T)에서 Per-Core 아키텍처가 8 P-Core까지 선형 확장 후 E-Core 구간에서 하락하는 '지각생 효과(Straggler Effect)' 확인. 원인: OS 스케줄러가 워커 스레드를 E-Core에 배정하면서 발생하는 P/E 비대칭. SetThreadAffinityMask(Win)/pthread_setaffinity_np(Linux)로 워커를 P-Core에 고정하고, 코어 성능 비례 워크로드 분배를 적용하면 피크 이후 하락을 완화할 수 있음. 서버 환경(Xeon/EPYC)에서는 NUMA 노드별 메모리 바인딩 필수. 관련 데이터: docs/apex_core/benchmark/v0.6.1.0/i7-14700-20C28T/",
       "position": 4,
-      "status": "OPEN",
+      "status": "FIXING",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-27 09:10:23"
     },
     {
       "id": 41,
@@ -159,31 +133,17 @@
       "updated_at": "2026-03-26 21:18:12"
     },
     {
-      "id": 240,
-      "title": "대시보드 React 리팩토링 검토 — HTMX/Go 템플릿에서 React SPA로 전환 가능성",
-      "severity": "MINOR",
-      "timeframe": "DEFERRED",
-      "scope": "TOOLS",
-      "type": "DESIGN_DEBT",
-      "description": "현재 Go 템플릿 + HTMX 기반 대시보드가 기능 확장에 따라 복잡해지고 있음. React SPA + REST API 구조로 전환 시 컴포넌트 재사용, 상태 관리, xterm.js 통합 등에서 이점. 워크스페이스/세션 기능 완성 후 검토.",
-      "related": "238,239",
-      "position": 25,
-      "status": "OPEN",
-      "created_at": "2026-03-26 15:24:30",
-      "updated_at": "2026-03-26 15:24:30"
-    },
-    {
       "id": 257,
-      "title": "MetadataPrefix trace_id 필드 도입 — corr_id/trace_id 분리 + OpenTelemetry 호환",
+      "title": "MetadataPrefix trace_id 필드 도입 — corr_id/trace_id 분리 + 옵저빌리티 연동",
       "severity": "MINOR",
       "timeframe": "DEFERRED",
       "scope": "CORE,SHARED",
       "type": "DESIGN_DEBT",
-      "description": "현재 corr_id가 trace_id 역할을 겸하고 있음. ScopedLogger::with_trace(corr_id)로 요청 추적 가능하나 구조적 한계 존재: (1) corr_id==0인 server push 메시지(Whisper 등)는 추적 불가 — push 메시지에도 발신 요청까지 역추적할 trace 컨텍스트 필요 (2) 서비스 간 멀티 hop 체이닝(A→B→C) 시 각 구간마다 새 corr_id가 발급되면 단일 요청을 이어서 추적 불가 — trace_id는 전 구간 동일, corr_id(span_id)는 구간별 신규 (3) OpenTelemetry/W3C Trace Context 표준과 호환 안 됨 — 프로덕션 APM 도구 연동 불가. 구현 방향: MetadataPrefix에 trace_id(uint64 또는 128bit) 필드 추가, KafkaSink의 주석 처리된 trace_id 출력 활성화, ScopedLogger MDC 연동. 현재 단일 hop(Gateway↔Service) 구조에서는 corr_id로 충분하므로 멀티 hop 체이닝 또는 APM 도입 시점에 착수.",
+      "description": "현재 corr_id가 trace_id 역할을 겸하고 있음. ScopedLogger::with_trace(corr_id)로 요청 추적 가능하나 구조적 한계 존재: (1) corr_id==0인 server push 메시지(Whisper 등)는 추적 불가 — push 메시지에도 발신 요청까지 역추적할 trace 컨텍스트 필요 (2) 서비스 간 멀티 hop 체이닝(A→B→C) 시 각 구간마다 새 corr_id가 발급되면 단일 요청을 이어서 추적 불가 — trace_id는 전 구간 동일, corr_id(span_id)는 구간별 신규 (3) OpenTelemetry/W3C Trace Context 표준과 호환 안 됨 — 프로덕션 APM 도구 연동 불가. 구현 방향: MetadataPrefix에 trace_id(uint64 또는 128bit) 필드 추가, Grafana+Loki 로그에서 trace_id 기반 요청 추적 지원, ScopedLogger MDC 연동, Vector 파이프라인에서 trace_id 파싱/인덱싱. 현재 단일 hop(Gateway↔Service) 구조에서는 corr_id로 충분하므로 멀티 hop 체이닝 또는 APM 도입 시점에 착수.",
       "position": 26,
       "status": "OPEN",
       "created_at": "2026-03-26 22:17:10",
-      "updated_at": "2026-03-26 22:17:10"
+      "updated_at": "2026-03-27 09:07:45"
     },
     {
       "id": 259,
@@ -197,6 +157,52 @@
       "status": "OPEN",
       "created_at": "2026-03-26 23:12:28",
       "updated_at": "2026-03-26 23:12:28"
+    },
+    {
+      "id": 254,
+      "title": "auto-review 시스템 정비 — full 모드 정기화 + 리뷰어 구성 현행화 + 후속 처리 체계",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "v0.6.4 첫 full 리뷰에서 CRITICAL 14건, MAJOR 44건 발견. task 모드만 사용하여 기존 이슈 축적. auto-review 시스템 정비 필요: (1) full 모드 정기 실행 스케줄 (2) 리뷰어 구성 현행화 (Go 코드/Helm 커버리지) (3) 리뷰어 간 중복 제거 (4) 설계 결정 필요 이슈 분류 체계 (5) 이전 리뷰 이슈 추적 (6) 리뷰 결과 구조화.\n\n**[FSD 분석 2026-03-26]** 프로세스 개선 + 프롬프트 엔지니어링 + 도구 설계 복합 작업. 설계 논의 필수, FSD 자동화 부적합.",
+      "position": 84,
+      "status": "RESOLVED",
+      "resolution": "WONTFIX",
+      "resolved_at": "2026-03-27 09:01:15",
+      "created_at": "2026-03-26 20:07:22",
+      "updated_at": "2026-03-27 09:01:15"
+    },
+    {
+      "id": 240,
+      "title": "대시보드 React 리팩토링 검토 — HTMX/Go 템플릿에서 React SPA로 전환 가능성",
+      "severity": "MINOR",
+      "timeframe": "DEFERRED",
+      "scope": "TOOLS",
+      "type": "DESIGN_DEBT",
+      "description": "현재 Go 템플릿 + HTMX 기반 대시보드가 기능 확장에 따라 복잡해지고 있음. React SPA + REST API 구조로 전환 시 컴포넌트 재사용, 상태 관리, xterm.js 통합 등에서 이점. 워크스페이스/세션 기능 완성 후 검토.",
+      "related": "238,239",
+      "position": 25,
+      "status": "RESOLVED",
+      "resolution": "WONTFIX",
+      "resolved_at": "2026-03-27 09:00:38",
+      "created_at": "2026-03-26 15:24:30",
+      "updated_at": "2026-03-27 09:00:38"
+    },
+    {
+      "id": 187,
+      "title": "HTTP 대시보드 워크플로우 트리거 UI — auto-review / FSD 백로그 소탕 버튼",
+      "severity": "MAJOR",
+      "timeframe": "IN_VIEW",
+      "scope": "TOOLS",
+      "type": "INFRA",
+      "description": "apex-agent HTTP 대시보드(localhost:7600)에 auto-review, FSD 백로그 소탕 등 주요 워크플로우를 버튼 클릭으로 실행할 수 있는 트리거 UI 추가. 현재 대시보드는 현황 조회 전용이며 워크플로우 실행은 CLI 경유 필수. 대시보드에서 직접 실행+진행 상황 모니터링까지 가능하도록 확장. 대상 워크플로우: (1) auto-review (전체/선택적) (2) FSD 백로그 소탕 (3) 향후 추가 워크플로우 확장 가능한 플러그인 구조 검토.\n\n**[FSD 분석 2026-03-26]** Go HTTP 핸들러 + 프론트엔드 UI 신규 구현 필요. 설계 결정(WebSocket vs SSE, 진행률 표시 방식) 포함, FSD 자동화 부적합.",
+      "position": 43,
+      "status": "RESOLVED",
+      "resolution": "WONTFIX",
+      "resolved_at": "2026-03-27 09:00:29",
+      "created_at": "2026-03-24 15:24:42",
+      "updated_at": "2026-03-27 09:00:29"
     },
     {
       "id": 258,
