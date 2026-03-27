@@ -103,6 +103,10 @@ apex_add_unit_test(test_blocking_task_executor test_blocking_task_executor.cpp)
 # ConnectionLimiter (per-IP connection limit, owner-shard pattern)
 apex_add_unit_test(test_connection_limiter test_connection_limiter.cpp)
 
+# CPU Topology + Thread Affinity (BACKLOG-40)
+apex_add_unit_test(test_cpu_topology test_cpu_topology.cpp)
+apex_add_unit_test(test_thread_affinity test_thread_affinity.cpp)
+
 # v0.4: Adapter integration
 add_executable(test_server_adapter test_server_adapter.cpp)
 target_link_libraries(test_server_adapter
@@ -165,5 +169,7 @@ set_tests_properties(
     test_admin_http_server
     test_blocking_task_executor
     test_connection_limiter
+    test_cpu_topology
+    test_thread_affinity
     PROPERTIES TIMEOUT 60
 )

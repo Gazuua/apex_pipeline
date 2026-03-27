@@ -63,6 +63,8 @@ add_library(apex_core STATIC
     src/arena_allocator.cpp
     src/ring_buffer.cpp
     src/timing_wheel.cpp
+    src/cpu_topology.cpp
+    src/thread_affinity.cpp
     src/core_engine.cpp
     src/crash_handler.cpp
     src/cross_core_dispatcher.cpp

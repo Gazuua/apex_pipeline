@@ -49,6 +49,13 @@ struct CoreContext
     CoreContext& operator=(const CoreContext&) = delete;
 };
 
+/// Per-worker core assignment for CPU affinity.
+struct CoreAssignment
+{
+    uint32_t logical_core_id; ///< OS logical processor ID for SetThreadAffinityMask / pthread_setaffinity_np
+    uint32_t numa_node{0};    ///< NUMA node for set_mempolicy
+};
+
 /// Configuration for CoreEngine.
 struct CoreEngineConfig
 {
@@ -56,6 +63,11 @@ struct CoreEngineConfig
     size_t spsc_queue_capacity{1024};
     std::chrono::milliseconds tick_interval{100}; // per-core tick timer interval
     size_t drain_batch_limit{1024};               // max messages per drain cycle
+
+    /// Per-worker affinity assignments. Empty = no affinity (legacy behavior).
+    /// Size must equal num_cores when non-empty; assignments[i] pins worker i.
+    std::vector<CoreAssignment> core_assignments;
+    bool numa_aware{true}; ///< Apply NUMA memory policy (Linux only)
 };
 
 /// io_context-per-core engine. Creates N cores, each with its own

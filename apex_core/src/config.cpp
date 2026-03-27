@@ -211,6 +211,32 @@ AdminConfig parse_admin(const toml::table& root)
     return cfg;
 }
 
+AffinityConfig parse_affinity(const toml::table& root)
+{
+    AffinityConfig cfg;
+    auto* tbl = root["affinity"].as_table();
+    if (!tbl)
+        return cfg;
+
+    cfg.enabled = get_or<bool>(*tbl, "enabled", cfg.enabled);
+    cfg.numa_aware = get_or<bool>(*tbl, "numa_aware", cfg.numa_aware);
+
+    // worker_cores: array of integers
+    if (auto* arr = (*tbl)["worker_cores"].as_array())
+    {
+        cfg.worker_cores.clear();
+        for (const auto& elem : *arr)
+        {
+            if (auto val = elem.value<int64_t>())
+            {
+                cfg.worker_cores.push_back(checked_narrow<uint32_t>(*val, "affinity.worker_cores"));
+            }
+        }
+    }
+
+    return cfg;
+}
+
 } // anonymous namespace
 
 AppConfig AppConfig::from_file(const std::string& path)
@@ -237,7 +263,9 @@ AppConfig AppConfig::from_file(const std::string& path)
     // AppConfig 최상위 metrics/admin은 이후 사용하지 않음.
     config.server.metrics = config.metrics;
     config.server.admin = config.admin;
-    s_logger().info("config loaded: cores={}, log_level={}", config.server.num_cores, config.logging.level);
+    config.server.affinity = parse_affinity(tbl);
+    s_logger().info("config loaded: cores={}, log_level={}, affinity={}", config.server.num_cores, config.logging.level,
+                    config.server.affinity.enabled ? "on" : "off");
     return config;
 }
 

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
 #include <apex/core/core_engine.hpp>
+#include <apex/core/thread_affinity.hpp>
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/post.hpp>
@@ -315,6 +316,22 @@ uint32_t CoreEngine::current_core_id() noexcept
 void CoreEngine::run_core(uint32_t core_id)
 {
     tls_core_id_ = core_id;
+
+    // Apply CPU affinity and NUMA memory policy before any allocations.
+    if (!config_.core_assignments.empty() && core_id < config_.core_assignments.size())
+    {
+        const auto& assignment = config_.core_assignments[core_id];
+        if (apply_thread_affinity(assignment.logical_core_id))
+        {
+            logger_.info("worker[{}] pinned to logical core {}", core_id, assignment.logical_core_id);
+        }
+
+        if (config_.numa_aware)
+        {
+            apply_numa_memory_policy(assignment.numa_node);
+        }
+    }
+
     auto& ctx = *cores_[core_id];
 
     ctx.tick_timer = std::make_unique<boost::asio::steady_timer>(ctx.io_ctx);

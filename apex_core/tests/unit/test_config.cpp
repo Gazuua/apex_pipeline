@@ -208,3 +208,54 @@ num_cores = 0
     auto config = AppConfig::from_file(path);
     EXPECT_EQ(config.server.num_cores, 0u);
 }
+
+// --- AffinityConfig 파싱 ---
+
+TEST_F(ConfigTest, AffinityDefaultValues)
+{
+    auto path = write_toml("affinity_default.toml", "");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_TRUE(config.server.affinity.numa_aware);
+    EXPECT_TRUE(config.server.affinity.worker_cores.empty());
+}
+
+TEST_F(ConfigTest, AffinityDisabled)
+{
+    auto path = write_toml("affinity_off.toml", R"(
+[affinity]
+enabled = false
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_FALSE(config.server.affinity.enabled);
+}
+
+TEST_F(ConfigTest, AffinityManualCores)
+{
+    auto path = write_toml("affinity_manual.toml", R"(
+[affinity]
+enabled = true
+worker_cores = [0, 2, 4, 6]
+numa_aware = false
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_FALSE(config.server.affinity.numa_aware);
+    ASSERT_EQ(config.server.affinity.worker_cores.size(), 4u);
+    EXPECT_EQ(config.server.affinity.worker_cores[0], 0u);
+    EXPECT_EQ(config.server.affinity.worker_cores[1], 2u);
+    EXPECT_EQ(config.server.affinity.worker_cores[2], 4u);
+    EXPECT_EQ(config.server.affinity.worker_cores[3], 6u);
+}
+
+TEST_F(ConfigTest, AffinityEmptyWorkerCoresIsAuto)
+{
+    auto path = write_toml("affinity_auto.toml", R"(
+[affinity]
+enabled = true
+worker_cores = []
+)");
+    auto config = AppConfig::from_file(path);
+    EXPECT_TRUE(config.server.affinity.enabled);
+    EXPECT_TRUE(config.server.affinity.worker_cores.empty());
+}
