@@ -78,7 +78,7 @@ class WiringAdapter : public AdapterInterface
 TEST(WireServices, DefaultImplementation_NoOp)
 {
     MockAdapter adapter;
-    CoreEngine engine({.num_cores = 1});
+    CoreEngine engine({.num_cores = 1, .core_assignments = {}, .numa_aware = true});
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
     // Default wire_services is a no-op — should not throw or modify anything.
@@ -89,7 +89,7 @@ TEST(WireServices, DefaultImplementation_NoOp)
 TEST(WireServices, CustomAdapter_OverrideCalled)
 {
     WiringAdapter adapter;
-    CoreEngine engine({.num_cores = 1});
+    CoreEngine engine({.num_cores = 1, .core_assignments = {}, .numa_aware = true});
     std::vector<std::unique_ptr<ServiceBaseInterface>> services;
 
     EXPECT_FALSE(adapter.wired);

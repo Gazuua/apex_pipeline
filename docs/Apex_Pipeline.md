@@ -89,7 +89,7 @@ Client → Gateway ──(Kafka)──→ Service ──(Kafka)──→ Gateway
 | **Cross-Core Message Passing** | 코어 간 통신 | closure shipping 제거, handler dispatch + immutable shared payload | ✅ 구현 |
 | **intrusive_ptr Session** | 세션 관리 | shared_ptr atomic 제거, non-atomic refcount + SlabAllocator | ✅ 구현 |
 | **SO_REUSEPORT per-core acceptor** | Gateway / Logic Service | 커널 레벨 코어 분배, accept 크로스스레드 제거 | ✅ 구현 |
-| **CPU Affinity** | Gateway / Logic Service | 캐시 히트율 극대화 | 백로그 (v1.0.0.0 부하 테스트 후) |
+| **CPU Affinity + NUMA Binding** | Gateway / Logic Service | 물리 코어 1:1 핀닝, P/E 분류, NUMA set_mempolicy | ✅ v0.6.5.0 (BACKLOG-40) |
 | **L1 로컬 캐시** | 전 서비스 | 프로세스 내 해시맵(TTL) → Redis 호출도 제거 | 백로그 (v1.0.0.0 부하 테스트 후) |
 | **코루틴 프레임 풀 할당** | 핫패스 | promise_type operator new → 슬랩 풀 할당 | 백로그 (ADR-21, 벤치마크 후) |
 | **배치 I/O (writev)** | 전 서비스 | 시스콜 횟수 최소화 | ✅ 구현 확인 (scatter-gather) |
@@ -518,6 +518,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
          [인프라] Loki+Vector+Grafana 옵저빌리티 — KafkaSink 제거, log-svc C++ 폐기, apex-observability 차트 (BACKLOG-199)
          [보안] ESO SecretStore per-service RBAC — 서비스별 SA+SecretStore+IAM role 격리 (BACKLOG-252, PR #209)
          [도구] 대시보드 관찰 전용화 — 세션 서버+Branches 페이지+local_branches 제거 (BACKLOG-260, PR #213)
+         [코어] NUMA 바인딩 + Core Affinity — 물리 코어 1:1 핀닝, P/E 분류, NUMA set_mempolicy, topology discovery (BACKLOG-40)
               └──→ v1.0.0.0 — 프레임워크 완성
                         └──→ v1.1+ — 게임 레퍼런스
 ```
@@ -544,7 +545,7 @@ v0.5.0.0 (완료) ── Wave 1: Protocol concept + 어댑터 회복력
 | v0.6.2.0 | 중 | Docker 멀티스테이지 빌드 고도화 (tools-base/ci 분리, Bake, sccache, MSVC CI, Trivy) | v0.6.1 |
 | v0.6.3.0 | 중 | K8s manifests + Helm | v0.6.2 |
 | v0.6.4.0 | 중 | CI/CD 고도화 (서비스 이미지 빌드 파이프라인, docker-compose 스모크 테스트, Argo Rollouts canary 배포, 조건부 태깅, auto-tag, 3단계 검증) | v0.6.3 |
-| v0.6.5.0 | 중 | 옵저빌리티 + 코어 강화 + 대시보드 관찰 전용화 (Loki+Vector+Grafana, Acceptor per-IP 연결 제한, 세션 서버+Branches 제거) | v0.6.4 |
+| v0.6.5.0 | 중 | 옵저빌리티 + 코어 강화 + 대시보드 관찰 전용화 (Loki+Vector+Grafana, Acceptor per-IP 연결 제한, NUMA+Core Affinity, 세션 서버+Branches 제거) | v0.6.4 |
 | **v1.0.0.0** | **메이저** | **프레임워크 완성** | v0.6 |
 
 v1.0.0.0 포함 항목:
@@ -674,7 +675,8 @@ v1.0.0.0 포함 항목:
 #### 백로그 — 성능 최적화 (벤치마크 후)
 - [ ] 코루틴 프레임 풀 할당 (ADR-21 — v0.3에서 stack_buf 제거, 풀 할당은 벤치마크 후)
 - [ ] L1 로컬 캐시 (v1.0.0.0 부하 테스트 후)
-- [x] ~~SO_REUSEPORT~~ → v0.3에서 구현 완료. CPU Affinity는 백로그 유지 (벤치마크 후 판단)
+- [x] ~~SO_REUSEPORT~~ → v0.3에서 구현 완료
+- [x] ~~CPU Affinity + NUMA Binding~~ → v0.6.5에서 구현 완료 (BACKLOG-40 — 물리 코어 1:1 핀닝, P/E 분류, NUMA set_mempolicy)
 - [x] ~~epoll → io_uring~~ → v0.3으로 흡수
 - [x] ~~배치 I/O (writev)~~ → 이미 구현 확인 (session.cpp async_send scatter-gather)
 

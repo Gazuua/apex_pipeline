@@ -152,8 +152,12 @@ class ServiceLifecycleTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        server_ = std::make_unique<Server>(ServerConfig{
-            .num_cores = 1, .heartbeat_timeout_ticks = 0, .handle_signals = false, .metrics = {}, .admin = {}});
+        server_ = std::make_unique<Server>(ServerConfig{.num_cores = 1,
+                                                        .heartbeat_timeout_ticks = 0,
+                                                        .handle_signals = false,
+                                                        .metrics = {},
+                                                        .admin = {},
+                                                        .affinity = {.enabled = false}});
         registry_view_ = std::make_unique<ServiceRegistryView>(std::vector<ServiceRegistry*>{&registry_});
         scheduler_ = std::make_unique<PeriodicTaskScheduler>(scheduler_io_);
     }

@@ -171,7 +171,8 @@ TEST_F(ServerE2ETest, ServerAcceptAndEcho)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -209,7 +210,8 @@ TEST_F(ServerE2ETest, MultipleClients)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -249,7 +251,8 @@ TEST_F(ServerE2ETest, InvalidMessageErrorResponse)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -284,7 +287,8 @@ TEST_F(ServerE2ETest, GracefulShutdown)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -318,6 +322,7 @@ TEST_F(ServerE2ETest, HeartbeatTimeoutDisconnect)
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
         .admin = {},
+        .affinity = {.enabled = false},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -354,7 +359,8 @@ TEST_F(ServerE2ETest, HandlerFailedErrorResponse)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ThrowingService>();
     run_server(server);
@@ -389,7 +395,8 @@ TEST_F(ServerE2ETest, HandlerErrorCodeResponse)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<ErrorReturningService>();
     run_server(server);
@@ -429,6 +436,7 @@ TEST_F(ServerE2ETest, ConcurrentMultipleClients)
         .arena_max_bytes = 1024 * 1024,
         .metrics = {},
         .admin = {},
+        .affinity = {.enabled = false},
     });
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
@@ -511,7 +519,8 @@ TEST_F(ServerE2ETest, OversizedBodyDisconnectsSession)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);
@@ -560,7 +569,8 @@ TEST_F(ServerE2ETest, GracefulShutdownWithActiveSessions)
                    .arena_block_bytes = 4096,
                    .arena_max_bytes = 1024 * 1024,
                    .metrics = {},
-                   .admin = {}});
+                   .admin = {},
+                   .affinity = {.enabled = false}});
     server.listen<TcpBinaryProtocol>(0);
     server.add_service<TestEchoService>();
     run_server(server);

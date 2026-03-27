@@ -35,6 +35,7 @@ class CrossCoreCallTest : public ::testing::Test
             .arena_max_bytes = 1024 * 1024,
             .metrics = {},
             .admin = {},
+            .affinity = {.enabled = false},
         });
         server_->listen<TcpBinaryProtocol>(0);
         server_thread_ = std::thread([this] { server_->run(); });
@@ -190,7 +191,9 @@ TEST(CrossCorePostMsgTest, PostMsgFireAndForget)
     CoreEngine engine(CoreEngineConfig{.num_cores = 2,
                                        .spsc_queue_capacity = 1024,
                                        .tick_interval = std::chrono::milliseconds{100},
-                                       .drain_batch_limit = 1024});
+                                       .drain_batch_limit = 1024,
+                                       .core_assignments = {},
+                                       .numa_aware = true});
 
     std::atomic<int> received_value{0};
     std::atomic<uint32_t> received_source{999};
@@ -226,7 +229,9 @@ TEST(CoreEngineTest, TlsCoreId)
     CoreEngine engine(CoreEngineConfig{.num_cores = 2,
                                        .spsc_queue_capacity = 1024,
                                        .tick_interval = std::chrono::milliseconds{100},
-                                       .drain_batch_limit = 1024});
+                                       .drain_batch_limit = 1024,
+                                       .core_assignments = {},
+                                       .numa_aware = true});
 
     std::atomic<uint32_t> id_on_core0{UINT32_MAX};
     std::atomic<uint32_t> id_on_core1{UINT32_MAX};
@@ -282,7 +287,9 @@ TEST(CrossCorePostMsgTest, InvalidTargetReturnsError)
     CoreEngine engine(CoreEngineConfig{.num_cores = 2,
                                        .spsc_queue_capacity = 1024,
                                        .tick_interval = std::chrono::milliseconds{100},
-                                       .drain_batch_limit = 1024});
+                                       .drain_batch_limit = 1024,
+                                       .core_assignments = {},
+                                       .numa_aware = true});
     // post_to with invalid target still returns error (sync path)
     auto result = engine.post_to(99, CoreMessage{.op = CrossCoreOp::Custom});
     EXPECT_FALSE(result.has_value());
@@ -294,7 +301,9 @@ TEST(BroadcastTest, BroadcastToAllCores)
     CoreEngine engine(CoreEngineConfig{.num_cores = 4,
                                        .spsc_queue_capacity = 1024,
                                        .tick_interval = std::chrono::milliseconds{100},
-                                       .drain_batch_limit = 1024});
+                                       .drain_batch_limit = 1024,
+                                       .core_assignments = {},
+                                       .numa_aware = true});
 
     std::atomic<int> received_count{0};
 

@@ -175,10 +175,18 @@ struct MetricsConfig {
     std::string bind_address = "0.0.0.0";          // 바인드 주소 (로컬 전용 시 "127.0.0.1" 오버라이드)
 };
 
+/// CPU affinity and NUMA binding configuration.
+struct AffinityConfig {
+    bool enabled = true;                      // false = 어피니티 비활성화 (레거시 동작)
+    std::vector<uint32_t> worker_cores = {};  // 빈 배열 = auto (전체 물리 코어, P-Core 우선 정렬)
+                                              // manual: 논리 코어 ID 목록 (예: {0,2,4,6})
+    bool numa_aware = true;                   // NUMA set_mempolicy 바인딩 (Linux only)
+};
+
 struct ServerConfig {
     std::string bind_address = "0.0.0.0";             // 바인드 주소 (예: "127.0.0.1" = 루프백만)
     bool tcp_nodelay = true;                          // Nagle 비활성화 (저지연)
-    uint32_t num_cores = 1;                           // io_context 수 (0 = hardware_concurrency)
+    uint32_t num_cores = 1;                           // io_context 수 (0 = 물리 코어 수로 자동 결정)
     size_t spsc_queue_capacity = 1024;                 // 코어 간 SPSC 큐 크기 (per-pair)
     std::chrono::milliseconds tick_interval{100};     // CoreEngine tick 주기
     uint32_t heartbeat_timeout_ticks = 300;           // 하트비트 미수신 시 세션 종료 (0=비활성)
@@ -201,7 +209,37 @@ struct ServerConfig {
 
     // CPU offload
     uint32_t blocking_pool_threads = 2;                  // BlockingTaskExecutor 스레드 수 (§7)
+
+    // CPU affinity + NUMA
+    AffinityConfig affinity;                             // CPU 어피니티 + NUMA 바인딩 (기본 활성)
 };
+```
+
+**AffinityConfig 상세**:
+
+- `enabled = true` (기본): 워커 스레드를 물리 코어에 1:1 핀닝. `false` 시 OS 스케줄러에 위임 (레거시 동작).
+- `worker_cores = {}` (빈 배열, auto 모드): `discover_topology()`가 시스템의 전체 물리 코어를 탐지하여 P-Core 우선 정렬 후 할당. Intel 하이브리드(Alder Lake+)에서 E-Core보다 P-Core를 먼저 사용.
+- `worker_cores = [0,2,4,6]` (manual 모드): 지정된 논리 코어 ID에 워커를 핀닝. 컨테이너 cgroup 제한 환경이나 특정 코어만 사용할 때 유용.
+- `numa_aware = true` (기본): Linux에서 `set_mempolicy(MPOL_PREFERRED)` + `sched_setaffinity()`로 워커 스레드의 메모리 할당을 로컬 NUMA 노드에 바인딩. 멀티소켓 서버(EPYC, Xeon 듀얼)에서 원격 메모리 접근 지연을 최소화.
+- `num_cores = 0` 시: 기존 `hardware_concurrency` 대신 `discover_topology()`의 물리 코어 수로 자동 결정. HT/SMT 시블링을 제외한 실제 물리 코어만 카운트하여 캐시 경합을 방지.
+
+**TOML 설정 예시** (`[affinity]` 섹션):
+
+```toml
+# Auto 모드 (기본값 — 전체 물리 코어, P-Core 우선)
+[server]
+num_cores = 0  # 물리 코어 수로 자동 결정
+
+[affinity]
+enabled = true
+numa_aware = true
+# worker_cores 생략 = auto
+
+# Manual 모드 — 특정 코어 지정
+# [affinity]
+# enabled = true
+# worker_cores = [0, 2, 4, 6]
+# numa_aware = true
 ```
 
 ### §2.2 Server Fluent API
@@ -1152,6 +1190,7 @@ Server
 ```
 Server::run()
  │
+ ├── 0. Topology discovery + core assignment  ← discover_topology() → P-Core 우선 정렬, num_cores=0 시 물리 코어 수 결정
  ├── 1. Adapter::init(CoreEngine)     ← 어댑터 초기화
  ├── 2. ServiceFactory per-core       ← 서비스 인스턴스 생성
  ├── 3. [D1] Registry 자동 등록        ← 전 서비스를 ServiceRegistry에
@@ -1161,7 +1200,7 @@ Server::run()
  ├── 7. Phase 3.5: default_handler sync ← 멀티리스너 동기화
  ├── 8. [D2] Kafka 자동 배선           ← has_kafka_handlers() 감지
  ├── 9. post_init_callback (있으면)    ← escape hatch
- └── 10. CoreEngine::run()             ← 코어 스레드 시작
+ └── 10. CoreEngine::run()             ← 코어 스레드 시작 (affinity.enabled 시 sched_setaffinity + NUMA set_mempolicy)
 ```
 
 ### §10.2.1 CoreEngine::spawn_tracked()

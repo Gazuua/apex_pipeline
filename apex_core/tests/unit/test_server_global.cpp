@@ -13,7 +13,7 @@ namespace
 
 ServerConfig minimal_config()
 {
-    return {.num_cores = 1, .handle_signals = false, .metrics = {}, .admin = {}};
+    return {.num_cores = 1, .handle_signals = false, .metrics = {}, .admin = {}, .affinity = {.enabled = false}};
 }
 
 struct GlobalA
