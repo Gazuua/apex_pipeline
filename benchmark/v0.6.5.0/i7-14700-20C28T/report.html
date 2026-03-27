@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Core Benchmark Report — i7-14700 3-Way Comparison</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+
+:root {
+  --primary: #1B5E7B;
+  --primary-light: rgba(27,94,123,0.1);
+  --accent: #D4A843;
+  --accent-light: rgba(212,168,67,0.1);
+  --bg: #0F172A;
+  --card: #1E293B;
+  --text: #F1F5F9;
+  --text-sec: #94A3B8;
+  --improve: #34D399;
+  --warn: #F59E0B;
+  --danger: #EF4444;
+  --border: rgba(255,255,255,0.05);
+  --success: #34D399;
+  --warning: #F59E0B;
+  --purple: #A78BFA;
+  --sidebar-w: 220px;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.header-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 60px;
+  background: linear-gradient(135deg, #0F172A 0%, #1B3A5C 100%);
+  z-index: 1000; display: flex; align-items: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.header-content {
+  width: 100%; max-width: 1400px; margin: 0 auto;
+  padding: 0 24px 0 calc(var(--sidebar-w) + 24px);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.header-left { display: flex; align-items: baseline; gap: 12px; }
+.header-title { font-size: 20px; font-weight: 900; color: #F8FAFC; letter-spacing: 0.5px; }
+.header-subtitle { font-size: 14px; color: var(--accent); font-weight: 900; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.header-version {
+  font-size: 15px; font-weight: 600; color: #F8FAFC;
+  background: rgba(255,255,255,0.1); padding: 4px 14px; border-radius: 6px;
+}
+.header-arrow { color: var(--accent); font-size: 16px; }
+
+.sidebar {
+  position: fixed; top: 60px; left: 0; width: var(--sidebar-w);
+  height: calc(100vh - 60px); background: #0F172A;
+  border-right: 1px solid var(--border); padding: 20px 0;
+  overflow-y: auto; z-index: 999;
+}
+.nav-label {
+  font-size: 11px; font-weight: 900; color: var(--text-sec);
+  letter-spacing: 1.5px; padding: 8px 20px; margin-bottom: 4px;
+}
+.nav-item {
+  display: block; padding: 8px 20px 8px 24px; font-size: 13px;
+  color: var(--text-sec); text-decoration: none;
+  border-left: 3px solid transparent; transition: all 0.2s;
+}
+.nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); border-left-color: var(--text-sec); }
+.nav-item.active { background: rgba(52,211,153,0.05); color: var(--improve); font-weight: 600; border-left-color: var(--improve); }
+
+.main-content { margin-left: var(--sidebar-w); margin-top: 60px; padding: 32px 40px 64px; max-width: 1100px; }
+
+.card {
+  background: var(--card); border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3); border: 1px solid var(--border);
+  padding: 28px 32px; margin-bottom: 24px;
+}
+.card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.section-number {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #34D399, #3B82F6);
+  color: #FFFFFF; font-weight: 900; font-size: 16px; flex-shrink: 0;
+}
+.section-title { font-size: 20px; font-weight: 900; color: var(--text); }
+
+.sub-header {
+  font-size: 15px; font-weight: 600; color: #38BDF8;
+  margin: 18px 0 10px; padding-bottom: 4px;
+  border-bottom: 2px solid rgba(56,189,248,0.15);
+}
+
+.data-table {
+  width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0;
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden;
+}
+.data-table thead th {
+  background: rgba(27,94,123,0.3); color: var(--text-sec); font-weight: 600;
+  padding: 10px 12px; text-align: left; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.data-table thead th:not(:first-child) { text-align: right; }
+.data-table tbody td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text); }
+.data-table tbody td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.data-table tbody tr:hover { background: rgba(255,255,255,0.05); }
+
+.analysis-box {
+  border-left: 4px solid rgba(212,168,67,0.3); background: rgba(212,168,67,0.1);
+  padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  font-size: 14px; line-height: 1.7; color: var(--text-sec);
+}
+.analysis-box-alt { border-left-color: rgba(27,94,123,0.3); background: rgba(27,94,123,0.1); }
+
+.chart-container { margin: 24px 0; padding-top: 8px; border-radius: 8px; overflow: hidden; background: var(--card); }
+.chart-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.chart-half { flex: 1; min-width: 300px; }
+
+.info-grid { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; font-size: 14px; margin: 12px 0; }
+.info-label { color: var(--text-sec); font-weight: 900; }
+.info-value { font-weight: 600; color: var(--text); }
+
+.delta-improve { color: var(--improve); font-weight: 900; }
+.delta-regress { color: var(--danger); font-weight: 900; }
+.delta-neutral { color: var(--text-sec); font-weight: 600; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
+.kpi-card {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px; text-align: center;
+}
+.kpi-value { font-size: 28px; font-weight: 900; margin: 4px 0; }
+.kpi-label { font-size: 12px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 1px; }
+.kpi-sub { font-size: 12px; color: var(--text-sec); margin-top: 4px; }
+
+[id^="section-"] { scroll-margin-top: 80px; }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main-content { margin-left: 0; }
+  .header-content { padding-left: 24px; }
+}
+
+@media print {
+  .sidebar { display: none; }
+  .header-bar { position: relative; }
+  .main-content { margin-left: 0; margin-top: 0; }
+  .card { break-inside: avoid; box-shadow: none; border: 1px solid var(--border); }
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header-bar">
+  <div class="header-content">
+    <div class="header-left">
+      <span class="header-title">Apex Core Benchmark</span>
+      <span class="header-subtitle">i7-14700 3-Way Comparison</span>
+    </div>
+    <div class="header-right">
+      <span class="header-version">v0.6.1.0</span>
+      <span class="header-arrow">&#8594;</span>
+      <span class="header-version">v0.6.5.0 OFF</span>
+      <span class="header-arrow">&#8594;</span>
+      <span class="header-version" style="background:rgba(52,211,153,0.2);">v0.6.5.0 ON</span>
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="nav-label">SECTIONS</div>
+  <a class="nav-item" href="#section-1">1. Executive Summary</a>
+  <a class="nav-item" href="#section-2">2. Version Comparison</a>
+  <a class="nav-item" href="#section-3">3. Affinity Impact</a>
+  <a class="nav-item" href="#section-4">4. 3-Way Comparison</a>
+  <a class="nav-item" href="#section-5">5. Conclusions</a>
+  <div class="nav-label" style="margin-top:24px;">DETAILS</div>
+  <a class="nav-item" href="#section-2-micro">Micro Benchmarks</a>
+  <a class="nav-item" href="#section-2-integ">Integration Benchmarks</a>
+  <a class="nav-item" href="#section-3-arch">Architecture Comparison</a>
+  <a class="nav-item" href="#section-3-latency">Cross-Core Latency</a>
+  <a class="nav-item" href="#section-3-session">Session Throughput</a>
+  <a class="nav-item" href="#section-4-overlay">3-Line Overlay</a>
+  <a class="nav-item" href="#section-4-cross">Cross-Reference</a>
+</nav>
+
+<!-- Main Content -->
+<div class="main-content">
+
+<!-- ═══════════════════════════════════════ Section 1: Executive Summary ═══════════════════════════════════════ -->
+<div id="section-1" class="card">
+  <div class="card-header">
+    <span class="section-number">1</span>
+    <span class="section-title">Executive Summary</span>
+  </div>
+
+  <div class="info-grid">
+    <span class="info-label">CPU</span>
+    <span class="info-value">Intel Core i7-14700 (Raptor Lake Hybrid)</span>
+    <span class="info-label">Core Topology</span>
+    <span class="info-value">20 Physical (8P + 12E) / 28 Logical</span>
+    <span class="info-label">Boost Clock</span>
+    <span class="info-value">P-Core: 5.4 GHz / E-Core: 4.0 GHz</span>
+    <span class="info-label">Cache</span>
+    <span class="info-value">L1d 48KB, L2 2MB (per-core), L3 33MB (shared)</span>
+    <span class="info-label">NUMA</span>
+    <span class="info-value">1 Node (Single Socket)</span>
+    <span class="info-label">RAM</span>
+    <span class="info-value">65 GB</span>
+    <span class="info-label">Compiler</span>
+    <span class="info-value">MSVC 19.44, C++23, Release</span>
+    <span class="info-label">Benchmark Library</span>
+    <span class="info-value">Google Benchmark v1.9.4</span>
+    <span class="info-label">비교 대상</span>
+    <span class="info-value">v0.6.1.0 (baseline) / v0.6.5.0 Affinity OFF / v0.6.5.0 Affinity ON</span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Cross-Core Latency RTT</div>
+      <div class="kpi-value" style="color:var(--improve);">-37.0%</div>
+      <div class="kpi-sub">13,038 ns &rarr; 8,219 ns (v0.6.1 &rarr; v0.6.5 OFF)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cross-Core Throughput</div>
+      <div class="kpi-value" style="color:var(--improve);">+67.2%</div>
+      <div class="kpi-sub">1.72M &rarr; 2.88M msg/s (v0.6.1 &rarr; v0.6.5 OFF)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Session Echo 64B</div>
+      <div class="kpi-value" style="color:var(--improve);">+109%</div>
+      <div class="kpi-sub">5.92 &rarr; 12.38 MB/s (v0.6.5 OFF &rarr; ON)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">TimingWheel 1K</div>
+      <div class="kpi-value" style="color:var(--improve);">+103%</div>
+      <div class="kpi-sub">39.8M &rarr; 81.0M ops/s (v0.6.1 &rarr; v0.6.5)</div>
+    </div>
+  </div>
+
+  <div class="analysis-box">
+    <strong>핵심 요약:</strong> i7-14700의 20코어/28스레드 환경에서 v0.6.5.0은 v0.6.1.0 대비 크로스 코어 통신에서 극적 개선을 달성했다.
+    RTT 레이턴시 37% 감소, 메시지 전달 처리량 67% 증가. FlatBuffers 빌드는 2배 이상 향상. Affinity 바인딩은 Session Echo 처리에서 최대 109% 개선을 보여
+    P/E 코어 이종 환경에서 코어 고정의 중요성을 입증한다.
+    다만 PerCore 아키텍처 8코어 이상 구간에서 affinity가 오히려 처리량을 떨어뜨리는 현상이 관찰되어, Windows 스케줄러와의 상호작용에 대한 추가 분석이 필요하다.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ Section 2: Version Comparison ═══════════════════════════════════════ -->
+<div id="section-2" class="card">
+  <div class="card-header">
+    <span class="section-number">2</span>
+    <span class="section-title">Version Comparison (v0.6.1.0 &rarr; v0.6.5.0)</span>
+  </div>
+
+  <!-- 2-1. Micro Benchmarks -->
+  <div id="section-2-micro" class="sub-header">2-1. Micro Benchmark 변화율</div>
+  <div class="chart-container"><div id="chart-micro-delta" style="height:500px;"></div></div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>벤치마크</th><th>v0.6.1.0</th><th>v0.6.5.0</th><th>변화율</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>SlabAlloc 64B (ops/s)</td><td>267M</td><td>291M</td><td class="delta-improve">+9.3%</td></tr>
+      <tr><td>SlabAlloc 1024B (ops/s)</td><td>265M</td><td>283M</td><td class="delta-improve">+6.7%</td></tr>
+      <tr><td>Malloc 64B (ops/s)</td><td>45.0M</td><td>43.6M</td><td class="delta-regress">-3.2%</td></tr>
+      <tr><td>Malloc 256B (ops/s)</td><td>6.21M</td><td>46.9M</td><td class="delta-improve">+656%</td></tr>
+      <tr><td>BumpAlloc 64B/16K (ops/s)</td><td>283M</td><td>310M</td><td class="delta-improve">+9.5%</td></tr>
+      <tr><td>SpscQueue 1K Throughput (ops/s)</td><td>290M</td><td>296M</td><td class="delta-improve">+2.3%</td></tr>
+      <tr><td>SpscQueue Latency (ops/s)</td><td>531M</td><td>538M</td><td class="delta-improve">+1.3%</td></tr>
+      <tr><td>SpscQueue Concurrent (ops/s)</td><td>18.8M</td><td>75.6M</td><td class="delta-improve">+302%</td></tr>
+      <tr><td>MpscQueue 2P1C (ns)</td><td>163.1 ns</td><td>63.1 ns</td><td class="delta-improve">-61.3%</td></tr>
+      <tr><td>Dispatcher Lookup/1000 (ops/s)</td><td>427M</td><td>407M</td><td class="delta-regress">-4.6%</td></tr>
+      <tr><td>FlatMap Iterate/10K (ops/s)</td><td>910M</td><td>1,024M</td><td class="delta-improve">+12.5%</td></tr>
+      <tr><td>StdMap Iterate/10K (ops/s)</td><td>194M</td><td>319M</td><td class="delta-improve">+64.3%</td></tr>
+      <tr><td>RingBuffer Write/Read 4K (GB/s)</td><td>195.1</td><td>186.4</td><td class="delta-regress">-4.4%</td></tr>
+      <tr><td>RingBuffer Linearize 4K (GB/s)</td><td>119.0</td><td>134.4</td><td class="delta-improve">+12.9%</td></tr>
+      <tr><td>FrameCodec Encode 4K (GB/s)</td><td>128.0</td><td>111.5</td><td class="delta-regress">-12.9%</td></tr>
+      <tr><td>FrameCodec Decode 16K (GB/s)</td><td>63.5</td><td>52.2</td><td class="delta-regress">-17.9%</td></tr>
+      <tr><td>FlatBuffers Build 64B (GB/s)</td><td>0.78</td><td>1.57</td><td class="delta-improve">+100%</td></tr>
+      <tr><td>FlatBuffers Build 4K (GB/s)</td><td>32.6</td><td>59.9</td><td class="delta-improve">+83.7%</td></tr>
+      <tr><td>FlatBuffers Read 4K (TB/s)</td><td>0.870</td><td>1.186</td><td class="delta-improve">+36.4%</td></tr>
+      <tr><td>TimingWheel 1K (ops/s)</td><td>39.8M</td><td>81.0M</td><td class="delta-improve">+103%</td></tr>
+      <tr><td>TimingWheel ScheduleOnly (ops/s)</td><td>18.4M</td><td>38.4M</td><td class="delta-improve">+109%</td></tr>
+      <tr><td>Session Create (ops/s)</td><td>3,389</td><td>7,626</td><td class="delta-improve">+125%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box">
+    <strong>Micro 분석:</strong> v0.6.5.0은 대부분의 micro 벤치마크에서 개선을 보인다. 특히 주목할 만한 점:
+    <br>&bull; <strong>Malloc 256B</strong>: +656%라는 이상치 — v0.6.1.0에서 6.21M ops/s로 비정상적으로 낮았던 값이 정상화. MSVC 런타임의 힙 상태 차이로 추정
+    <br>&bull; <strong>SpscQueue Concurrent</strong>: +302% — repeats:5 평균 기반으로 안정화된 측정. v0.6.1.0의 단일 실행값 대비 정밀도 향상
+    <br>&bull; <strong>MpscQueue 2P1C</strong>: 163ns &rarr; 63ns (-61.3%) — repeats:5 평균 기반 측정으로 OS 스케줄링 노이즈 감소
+    <br>&bull; <strong>TimingWheel / Session Create</strong>: 2배 이상 향상은 MSVC 최적화 플래그 또는 코드 개선 효과
+    <br>&bull; <strong>FrameCodec</strong>: Encode/Decode 모두 퇴보 (-13~18%) — memcpy 경로 변경 가능성 조사 필요
+  </div>
+
+  <!-- 2-2. Integration Benchmarks -->
+  <div id="section-2-integ" class="sub-header">2-2. Integration Benchmark 변화율</div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>벤치마크</th><th>v0.6.1.0</th><th>v0.6.5.0</th><th>변화율</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>CrossCore RTT (ns)</td><td>13,038</td><td>8,219</td><td class="delta-improve">-37.0%</td></tr>
+      <tr><td>CrossCore OneWay (ns)</td><td>6,519</td><td>4,110</td><td class="delta-improve">-37.0%</td></tr>
+      <tr><td>CrossCore Throughput (msg/s)</td><td>1.72M</td><td>2.88M</td><td class="delta-improve">+67.2%</td></tr>
+      <tr><td>FramePipeline 64B (MB/s)</td><td>27.5</td><td>53.1</td><td class="delta-improve">+93.2%</td></tr>
+      <tr><td>FramePipeline 512B (MB/s)</td><td>196.4</td><td>347.8</td><td class="delta-improve">+77.1%</td></tr>
+      <tr><td>FramePipeline 4KB (GB/s)</td><td>1.41</td><td>2.67</td><td class="delta-improve">+89.0%</td></tr>
+      <tr><td>Session Echo 64B (MB/s)</td><td>5.92</td><td>11.84</td><td class="delta-improve">+100%</td></tr>
+      <tr><td>Session Echo 512B (MB/s)</td><td>39.7</td><td>40.7</td><td class="delta-improve">+2.4%</td></tr>
+      <tr><td>Session Echo 4KB (MB/s)</td><td>278.5</td><td>277.8</td><td class="delta-neutral">-0.2%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart-container"><div id="chart-integ-delta" style="height:380px;"></div></div>
+
+  <div class="analysis-box analysis-box-alt">
+    <strong>Integration 분석:</strong> 크로스 코어 통신이 전방위적으로 개선되었다.
+    <br>&bull; <strong>Cross-Core RTT 37% 감소</strong>: 코어간 메시지 전달 경로 최적화 효과 직접 반영
+    <br>&bull; <strong>FramePipeline 77~93% 향상</strong>: Encode+Decode+전송의 E2E 파이프라인이 크게 개선. micro에서 Codec이 퇴보했음에도 불구하고 파이프라인 전체에서는 개선 — 전송 경로 최적화가 Codec 퇴보를 상쇄하고도 남음
+    <br>&bull; <strong>Session Echo 64B +100%</strong>: 소형 메시지 처리에서 극적 개선. 512B/4KB는 이미 높은 수준이어서 변화 미미
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ Section 3: Affinity Impact ═══════════════════════════════════════ -->
+<div id="section-3" class="card">
+  <div class="card-header">
+    <span class="section-number">3</span>
+    <span class="section-title">Affinity Impact Analysis (v0.6.5.0 OFF vs ON)</span>
+  </div>
+
+  <!-- 3-1. Architecture Comparison -->
+  <div id="section-3-arch" class="sub-header">3-1. Architecture Comparison: PerCore / Shared / LockFree</div>
+
+  <div class="chart-container"><div id="chart-arch-percore" style="height:400px;"></div></div>
+  <div class="chart-container"><div id="chart-arch-shared" style="height:400px;"></div></div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Cores</th><th>PerCore OFF</th><th>PerCore ON</th><th>Delta</th><th>Shared OFF</th><th>Shared ON</th><th>Delta</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td><td>1.93M</td><td>1.97M</td><td class="delta-improve">+2.3%</td>
+        <td>2.00M</td><td>2.01M</td><td class="delta-neutral">+0.1%</td>
+      </tr>
+      <tr>
+        <td>2</td><td>3.34M</td><td>3.33M</td><td class="delta-neutral">-0.2%</td>
+        <td>1.92M</td><td>1.83M</td><td class="delta-regress">-4.7%</td>
+      </tr>
+      <tr>
+        <td>3</td><td>4.42M</td><td>4.50M</td><td class="delta-improve">+1.7%</td>
+        <td>2.04M</td><td>2.10M</td><td class="delta-improve">+3.2%</td>
+      </tr>
+      <tr>
+        <td>4</td><td>5.56M</td><td>5.30M</td><td class="delta-regress">-4.7%</td>
+        <td>2.28M</td><td>2.36M</td><td class="delta-improve">+3.5%</td>
+      </tr>
+      <tr>
+        <td>8</td><td>7.01M</td><td>7.34M</td><td class="delta-improve">+4.7%</td>
+        <td>1.95M</td><td>2.05M</td><td class="delta-improve">+5.0%</td>
+      </tr>
+      <tr>
+        <td>16</td><td>5.87M</td><td>5.97M</td><td class="delta-improve">+1.7%</td>
+        <td>1.40M</td><td>1.36M</td><td class="delta-regress">-3.2%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table class="data-table" style="margin-top:12px;">
+    <thead>
+      <tr><th>Cores</th><th>LockFree OFF</th><th>LockFree ON</th><th>Delta</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>1.99M</td><td>2.09M</td><td class="delta-improve">+5.4%</td></tr>
+      <tr><td>2</td><td>1.92M</td><td>1.77M</td><td class="delta-regress">-7.8%</td></tr>
+      <tr><td>3</td><td>2.20M</td><td>2.14M</td><td class="delta-regress">-2.4%</td></tr>
+      <tr><td>4</td><td>2.38M</td><td>2.34M</td><td class="delta-regress">-1.9%</td></tr>
+      <tr><td>8</td><td>1.86M</td><td>2.07M</td><td class="delta-improve">+11.3%</td></tr>
+      <tr><td>16</td><td>1.31M</td><td>1.43M</td><td class="delta-improve">+9.2%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box">
+    <strong>Architecture Comparison 분석:</strong>
+    <br>&bull; <strong>PerCore</strong>: 8코어 구간에서 affinity가 +4.7% 효과. 이 구간은 P-Core 8개와 정확히 일치하여 affinity 바인딩이 모든 워커를 P-Core에 고정한 결과. 16코어에서도 +1.7%로 소폭 개선
+    <br>&bull; <strong>Shared / LockFree</strong>: 8코어 이상에서 affinity가 긍정적 — LockFree 8C에서 +11.3%. 코어 고정으로 캐시 라인 바운싱 감소 효과
+    <br>&bull; <strong>2코어 구간 퇴보</strong>: Shared(-4.7%), LockFree(-7.8%) — 소수 코어에서는 OS 스케줄러의 유연한 마이그레이션이 오히려 유리할 수 있음
+    <br>&bull; 전반적으로 affinity 효과는 코어 수가 많아질수록 두드러지며, P/E 코어 혼합 환경의 특성을 반영
+  </div>
+
+  <!-- 3-2. Cross-Core Latency -->
+  <div id="section-3-latency" class="sub-header">3-2. Cross-Core Latency &amp; Message Passing</div>
+
+  <div class="chart-container"><div id="chart-crosscore" style="height:350px;"></div></div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>지표</th><th>v0.6.5 OFF</th><th>v0.6.5 ON</th><th>Delta</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>CrossCore RTT (ns)</td><td>8,219</td><td>8,234</td><td class="delta-neutral">+0.2%</td></tr>
+      <tr><td>CrossCore OneWay (ns)</td><td>4,110</td><td>4,117</td><td class="delta-neutral">+0.2%</td></tr>
+      <tr><td>CrossCore Throughput (msg/s)</td><td>2.88M</td><td>2.82M</td><td class="delta-regress">-2.1%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box analysis-box-alt">
+    <strong>Cross-Core Latency 분석:</strong> Affinity ON/OFF 차이가 거의 없다 (RTT +0.2%, Throughput -2.1%).
+    i7-14700은 단일 NUMA 노드이므로 affinity가 NUMA 경계를 넘지 않아 레이턴시 개선 여지가 적다.
+    i5-9300H에서 RTT -13.4% 개선이 있었던 것과 대조적 — i5는 4C/8T 소규모 환경이라 코어 고정이 캐시 히트율에 직접 영향을 줬을 가능성.
+    i7-14700에서는 L3 33MB가 충분히 크고 단일 NUMA이므로 affinity가 레이턴시보다 throughput 안정성에 더 기여.
+  </div>
+
+  <!-- 3-3. Session Throughput & Frame Pipeline -->
+  <div id="section-3-session" class="sub-header">3-3. Session Throughput &amp; Frame Pipeline (OFF vs ON)</div>
+
+  <div class="chart-container"><div id="chart-session-affinity" style="height:380px;"></div></div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>벤치마크</th><th>OFF</th><th>ON</th><th>Delta</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Session Echo 64B (MB/s)</td><td>11.84</td><td>12.38</td><td class="delta-improve">+4.5%</td></tr>
+      <tr><td>Session Echo 512B (MB/s)</td><td>40.7</td><td>83.5</td><td class="delta-improve">+105%</td></tr>
+      <tr><td>Session Echo 4KB (MB/s)</td><td>277.8</td><td>577.4</td><td class="delta-improve">+108%</td></tr>
+      <tr><td>FramePipeline 64B (MB/s)</td><td>53.1</td><td>55.0</td><td class="delta-improve">+3.5%</td></tr>
+      <tr><td>FramePipeline 512B (MB/s)</td><td>347.8</td><td>371.0</td><td class="delta-improve">+6.7%</td></tr>
+      <tr><td>FramePipeline 4KB (GB/s)</td><td>2.67</td><td>2.56</td><td class="delta-regress">-4.1%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box">
+    <strong>Session/Pipeline Affinity 분석:</strong>
+    <br>&bull; <strong>Session Echo 512B +105%, 4KB +108%</strong>: affinity의 가장 극적인 효과. 세션 처리에서 코어 고정이 워킹 셋을 L1/L2에 유지하여 대폭 개선
+    <br>&bull; <strong>Session Echo 64B +4.5%</strong>: 소형 메시지는 이미 캐시에 들어가므로 affinity 효과 제한적
+    <br>&bull; <strong>FramePipeline</strong>: 64B/512B에서 소폭 개선, 4KB에서 -4.1% 소폭 퇴보 — 큰 페이로드는 메모리 대역폭 한계로 affinity 효과 상쇄
+    <br>&bull; i5-9300H에서 Session throughput affinity 효과가 -0.9%(미미)였던 것과 비교하면, i7-14700에서 100% 이상 개선은 <strong>P/E 코어 이종 환경에서 affinity가 P-Core 고정을 보장</strong>하기 때문으로 해석
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ Section 4: 3-Way Comparison ═══════════════════════════════════════ -->
+<div id="section-4" class="card">
+  <div class="card-header">
+    <span class="section-number">4</span>
+    <span class="section-title">3-Way Comparison</span>
+  </div>
+
+  <div id="section-4-overlay" class="sub-header">4-1. PerCore Architecture 3-Line Overlay</div>
+  <div class="chart-container"><div id="chart-3way-percore" style="height:450px;"></div></div>
+
+  <div class="sub-header">4-2. 코어 수별 확장 효율 테이블</div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Cores</th>
+        <th>v0.6.1.0<br>(ops/s)</th>
+        <th>v0.6.5.0 OFF<br>(ops/s)</th>
+        <th>v0.6.5.0 ON<br>(ops/s)</th>
+        <th>v0.6.1 &rarr; OFF</th>
+        <th>OFF &rarr; ON</th>
+        <th>v0.6.1 &rarr; ON</th>
+        <th>Linear<br>Efficiency</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td><td>1.97M</td><td>1.93M</td><td>1.97M</td>
+        <td class="delta-regress">-2.4%</td><td class="delta-improve">+2.3%</td><td class="delta-neutral">-0.1%</td><td>100%</td>
+      </tr>
+      <tr>
+        <td>2</td><td>3.28M</td><td>3.34M</td><td>3.33M</td>
+        <td class="delta-improve">+2.0%</td><td class="delta-neutral">-0.2%</td><td class="delta-improve">+1.7%</td><td>84.5%</td>
+      </tr>
+      <tr>
+        <td>3</td><td>4.83M</td><td>4.42M</td><td>4.50M</td>
+        <td class="delta-regress">-8.5%</td><td class="delta-improve">+1.7%</td><td class="delta-regress">-6.9%</td><td>76.1%</td>
+      </tr>
+      <tr>
+        <td>4</td><td>5.76M</td><td>5.56M</td><td>5.30M</td>
+        <td class="delta-regress">-3.4%</td><td class="delta-regress">-4.7%</td><td class="delta-regress">-8.0%</td><td>67.2%</td>
+      </tr>
+      <tr>
+        <td>8</td><td>7.65M</td><td>7.01M</td><td>7.34M</td>
+        <td class="delta-regress">-8.3%</td><td class="delta-improve">+4.7%</td><td class="delta-regress">-4.0%</td><td>46.5%</td>
+      </tr>
+      <tr>
+        <td>16</td><td>6.52M</td><td>5.87M</td><td>5.97M</td>
+        <td class="delta-regress">-9.9%</td><td class="delta-improve">+1.7%</td><td class="delta-regress">-8.4%</td><td>18.9%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="analysis-box analysis-box-alt">
+    <strong>확장 효율 분석:</strong>
+    <br>&bull; Linear Efficiency는 v0.6.5.0 ON 기준 (1코어 1.97M &times; N 대비 실제 throughput). 16코어에서 18.9%로 급락 — E-Core 포함 구간에서 확장성 한계
+    <br>&bull; <strong>8코어가 피크 포인트</strong>: P-Core 8개와 일치. 이후 E-Core가 투입되면서 코어당 처리량 급감
+    <br>&bull; v0.6.1.0 baseline에서는 20코어/28코어 데이터도 있었으나 v0.6.5.0에서는 16코어까지 측정. v0.6.1.0의 20C(6.19M)과 28C(5.98M) 값은 16코어 이후 throughput이 정체/하락하는 패턴을 확인
+    <br>&bull; PerCore 아키텍처에서 v0.6.5.0이 v0.6.1.0보다 약간 낮은 것은 벤치마크 실행 환경 차이(백그라운드 프로세스 등)일 가능성. Integration 벤치에서는 v0.6.5.0이 압도적으로 우세
+  </div>
+
+  <!-- 4-3. Cross-Reference with i5-9300H -->
+  <div id="section-4-cross" class="sub-header">4-3. i5-9300H vs i7-14700 Cross-Reference</div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>지표</th><th>i5-9300H<br>v0.6.5 OFF</th><th>i5-9300H<br>v0.6.5 ON</th><th>i7-14700<br>v0.6.5 OFF</th><th>i7-14700<br>v0.6.5 ON</th><th>i7/i5 배수<br>(ON)</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PerCore 1C (ops/s)</td><td>1.11M</td><td>1.10M</td><td>1.93M</td><td>1.97M</td><td style="color:var(--accent);font-weight:900;">1.79x</td>
+      </tr>
+      <tr>
+        <td>PerCore 4C (ops/s)</td><td>3.28M</td><td>3.25M</td><td>5.56M</td><td>5.30M</td><td style="color:var(--accent);font-weight:900;">1.63x</td>
+      </tr>
+      <tr>
+        <td>CrossCore RTT (ns)</td><td>8,735</td><td>7,567</td><td>8,219</td><td>8,234</td><td style="color:var(--text-sec);">0.92x</td>
+      </tr>
+      <tr>
+        <td>CrossCore Throughput</td><td>1.37M</td><td>1.40M</td><td>2.88M</td><td>2.82M</td><td style="color:var(--accent);font-weight:900;">2.01x</td>
+      </tr>
+      <tr>
+        <td>Session Echo 64B (MB/s)</td><td>5.56</td><td>5.51</td><td>11.84</td><td>12.38</td><td style="color:var(--accent);font-weight:900;">2.25x</td>
+      </tr>
+      <tr>
+        <td>Affinity RTT 효과</td><td colspan="2" style="text-align:center;">-13.4%</td><td colspan="2" style="text-align:center;">+0.2%</td><td style="color:var(--text-sec);">-</td>
+      </tr>
+      <tr>
+        <td>Affinity Session 효과</td><td colspan="2" style="text-align:center;">-0.9%</td><td colspan="2" style="text-align:center;">+105% (512B)</td><td style="color:var(--text-sec);">-</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="chart-container"><div id="chart-cross-ref" style="height:380px;"></div></div>
+
+  <div class="analysis-box">
+    <strong>Cross-Reference 분석:</strong>
+    <br>&bull; <strong>단일 코어 성능</strong>: i7-14700 P-Core가 i5-9300H 대비 1.79배 — 세대 차이(Coffee Lake vs Raptor Lake) + 클럭 차이(4.1GHz vs 5.4GHz)
+    <br>&bull; <strong>크로스코어 처리량</strong>: i7이 2.01배로 코어 수 차이를 넘는 개선. L3 33MB vs 8MB의 캐시 효과
+    <br>&bull; <strong>Affinity 효과 패턴이 전혀 다르다</strong>:
+    <br>&nbsp;&nbsp;- i5: RTT에서 -13.4% 개선, Session에서 효과 없음(-0.9%)
+    <br>&nbsp;&nbsp;- i7: RTT에서 효과 없음(+0.2%), Session 512B에서 +105%
+    <br>&nbsp;&nbsp;- 이는 <strong>P/E 코어 이종 구조</strong>의 결과. i7에서 affinity 없이 실행하면 워커가 E-Core에 배치될 수 있어 Session 처리 성능이 불안정. Affinity가 P-Core 고정을 보장하면서 Session에서 극적 개선
+    <br>&bull; i5-9300H(동종 4C)에서는 어디에 배치되든 코어 성능이 동일하므로 affinity가 레이턴시(캐시 로컬리티)에만 영향
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ Section 5: Conclusions ═══════════════════════════════════════ -->
+<div id="section-5" class="card">
+  <div class="card-header">
+    <span class="section-number">5</span>
+    <span class="section-title">Conclusions</span>
+  </div>
+
+  <div class="sub-header">5-1. i7-14700 관찰 요약</div>
+  <div class="analysis-box">
+    <strong>1. 버전 간 개선 (v0.6.1 &rarr; v0.6.5):</strong>
+    <br>&bull; Cross-Core RTT -37%, Throughput +67% — 코어간 통신 경로의 구조적 개선 확인
+    <br>&bull; FramePipeline 77~93% 향상 — E2E 파이프라인 전체가 개선
+    <br>&bull; FlatBuffers Build 2x, TimingWheel 2x, Session Create 2.3x — 주요 컴포넌트 전반적 향상
+    <br>&bull; FrameCodec Encode/Decode -13~18% 퇴보 — 향후 프로파일링 필요
+    <br><br>
+    <strong>2. Affinity 효과 (v0.6.5 OFF &rarr; ON):</strong>
+    <br>&bull; Session Echo 512B/4KB에서 +105%/+108% — P/E 코어 환경에서 affinity의 핵심 가치
+    <br>&bull; PerCore 8C +4.7%, LockFree 8C +11.3% — 물리 P-Core 범위에서 유의미한 개선
+    <br>&bull; Cross-Core Latency에서는 효과 미미 (+0.2%) — 단일 NUMA이므로 레이턴시 이점 제한적
+    <br>&bull; 소수 코어(2C)에서 간헐적 퇴보 — OS 스케줄러의 유연한 마이그레이션이 더 유리한 구간 존재
+  </div>
+
+  <div class="sub-header">5-2. P/E 코어 환경에서의 Affinity 효과</div>
+  <div class="analysis-box analysis-box-alt">
+    Intel Hybrid Architecture(P/E Core)에서 affinity의 역할은 동종 코어 환경과 근본적으로 다르다:
+    <br><br>
+    <strong>동종 환경 (i5-9300H):</strong> Affinity = 캐시 로컬리티 최적화. 어떤 코어에서든 동일한 처리 능력이므로, affinity는 캐시 마이그레이션 비용만 줄인다. 결과적으로 레이턴시 개선(-13.4%)은 있지만 throughput 개선은 미미(-0.9%).
+    <br><br>
+    <strong>이종 환경 (i7-14700):</strong> Affinity = <strong>성능 코어 보장</strong>. P-Core(5.4GHz)와 E-Core(4.0GHz)의 성능 차이가 크기 때문에, affinity 없이 워커가 E-Core에 배치되면 성능이 급락한다. Affinity가 P-Core 고정을 보장하면서 Session 처리에서 +105%라는 극적 개선이 나타난 것이다.
+    <br><br>
+    이는 <strong>서버 환경에서 P/E 코어 분류 + affinity 바인딩이 선택이 아닌 필수</strong>임을 의미한다. 특히 latency-sensitive 워크로드(Session Echo, 실시간 메시지 처리)에서는 E-Core 배치를 반드시 방지해야 한다.
+  </div>
+
+  <div class="sub-header">5-3. i5-9300H vs i7-14700 비교 인사이트</div>
+  <div class="analysis-box">
+    <strong>단일 코어 성능:</strong> i7 P-Core가 i5 대비 1.79배. 클럭(4.1 vs 5.4 GHz)과 아키텍처(Coffee Lake vs Raptor Lake) 세대 차이가 주요 원인.
+    <br><br>
+    <strong>확장성:</strong> i7의 PerCore 아키텍처는 8코어(P-Core)까지 양호한 확장을 보이나, 이후 E-Core 투입으로 코어당 효율이 급락한다. i5는 4코어에서도 선형 효율 74%를 유지.
+    <br><br>
+    <strong>Affinity 효과 패턴:</strong> 완전히 다른 양상 — i5는 레이턴시, i7은 throughput에서 효과. 이종 코어가 affinity의 의미를 근본적으로 변경한다.
+    <br><br>
+    <strong>메시지 전달:</strong> Cross-Core Throughput에서 i7이 i5의 2.01배. 코어 수 증가 + L3 캐시 4배(8MB &rarr; 33MB)의 복합 효과.
+  </div>
+
+  <div class="sub-header">5-4. 최종 결론</div>
+  <div class="analysis-box analysis-box-alt">
+    <strong>1. v0.6.5.0은 v0.6.1.0 대비 전반적으로 우수하다.</strong> 크로스 코어 통신, 파이프라인, 세션 처리 모두 대폭 개선. FrameCodec 퇴보만 향후 추적 필요.
+    <br><br>
+    <strong>2. Affinity 바인딩은 i7-14700(P/E Hybrid)에서 필수다.</strong> Session 처리 +105%는 운영 환경에서 무시할 수 없는 차이. 반면 동종 코어(i5)에서는 선택적.
+    <br><br>
+    <strong>3. Windows 환경의 한계가 존재한다.</strong> Windows Thread Scheduler가 P/E 코어 인식은 하지만 벤치마크 수준의 정밀한 코어 배치는 보장하지 않는다. 특히 PerCore 16C 구간에서 affinity 효과가 제한적인 것은 Windows의 E-Core 관리 정책과 충돌할 가능성.
+    <br><br>
+    <strong>4. Linux Docker 벤치마크가 필요하다.</strong> 실제 배포 환경인 Linux/Docker에서:
+    <br>&bull; cgroup CPU pinning으로 더 정밀한 코어 제어 가능
+    <br>&bull; Linux CFS 스케줄러의 P/E 코어 처리 방식이 Windows와 다를 수 있음
+    <br>&bull; NUMA 다중 노드 환경(서버급 CPU)에서 affinity 효과가 극대화될 것으로 예상
+    <br>&bull; Docker 컨테이너 간 코어 격리 시나리오의 성능 검증 필요
+  </div>
+</div>
+
+</div> <!-- end main-content -->
+
+<script>
+// ═══════════════════════════════════ Color Palette ═══════════════════════════════════
+const C = {
+  v061: '#94A3B8',
+  v065off: '#3B82F6',
+  v065on: '#34D399',
+  danger: '#EF4444',
+  accent: '#D4A843',
+  purple: '#A78BFA',
+  bg: '#1E293B',
+  gridColor: 'rgba(255,255,255,0.06)',
+  textColor: '#94A3B8'
+};
+
+const layout_base = {
+  paper_bgcolor: C.bg,
+  plot_bgcolor: C.bg,
+  font: { color: C.textColor, family: 'system-ui, sans-serif' },
+  margin: { l: 60, r: 30, t: 50, b: 60 },
+  xaxis: { gridcolor: C.gridColor, zerolinecolor: C.gridColor },
+  yaxis: { gridcolor: C.gridColor, zerolinecolor: C.gridColor },
+  legend: { bgcolor: 'rgba(0,0,0,0)', font: { size: 12 } },
+};
+
+function mkLayout(title, xTitle, yTitle, extra) {
+  const l = JSON.parse(JSON.stringify(layout_base));
+  l.title = { text: title, font: { size: 15, color: '#F1F5F9' } };
+  if (xTitle) l.xaxis.title = xTitle;
+  if (yTitle) l.yaxis.title = yTitle;
+  return Object.assign(l, extra || {});
+}
+
+// ═══════════════════════════════════ Chart 1: Micro Delta ═══════════════════════════════════
+(function() {
+  const labels = [
+    'SlabAlloc 64B', 'SlabAlloc 1KB', 'BumpAlloc', 'SpscQ Throughput',
+    'SpscQ Latency', 'SpscQ Concurrent', 'MpscQ 2P1C',
+    'Dispatcher', 'FlatMap Iter 10K', 'StdMap Iter 10K',
+    'RingBuf W/R 4K', 'RingBuf Lin 4K',
+    'Codec Enc 4K', 'Codec Dec 16K',
+    'FB Build 64B', 'FB Build 4K', 'FB Read 4K',
+    'TimingWheel 1K', 'TW ScheduleOnly',
+    'Session Create'
+  ];
+  const deltas = [
+    9.3, 6.7, 9.5, 2.3,
+    1.3, 302, 61.3,
+    -4.6, 12.5, 64.3,
+    -4.4, 12.9,
+    -12.9, -17.9,
+    100, 83.7, 36.4,
+    103, 109,
+    125
+  ];
+  const colors = deltas.map(d => d >= 0 ? C.v065on : C.danger);
+
+  Plotly.newPlot('chart-micro-delta', [{
+    type: 'bar', orientation: 'h',
+    y: labels.slice().reverse(), x: deltas.slice().reverse(),
+    marker: { color: colors.slice().reverse(), opacity: 0.85, line: { width: 0 } },
+    text: deltas.slice().reverse().map(d => (d>=0?'+':'')+d+'%'),
+    textposition: 'outside', textfont: { size: 11 },
+    hovertemplate: '%{y}: %{x:+.1f}%<extra></extra>'
+  }], mkLayout('Micro Benchmark 변화율 (v0.6.1 → v0.6.5)', '변화율 (%)', '', {
+    xaxis: { gridcolor: C.gridColor, zerolinecolor: 'rgba(255,255,255,0.2)', zeroline: true, title: '변화율 (%)' },
+    margin: { l: 160, r: 80, t: 50, b: 50 },
+    height: 500
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 2: Integration Delta ═══════════════════════════════════
+(function() {
+  const labels = ['CrossCore RTT', 'CrossCore Throughput', 'Pipeline 64B', 'Pipeline 512B', 'Pipeline 4KB', 'Session 64B', 'Session 512B', 'Session 4KB'];
+  const deltas = [-37.0, 67.2, 93.2, 77.1, 89.0, 100, 2.4, -0.2];
+  const colors = deltas.map(d => {
+    if (labels[deltas.indexOf(d)] === 'CrossCore RTT') return d < 0 ? C.v065on : C.danger;
+    return d >= 0 ? C.v065on : C.danger;
+  });
+
+  Plotly.newPlot('chart-integ-delta', [{
+    type: 'bar',
+    x: labels, y: deltas,
+    marker: { color: [C.v065on, C.v065on, C.v065on, C.v065on, C.v065on, C.v065on, C.v065on, C.v061], opacity: 0.85 },
+    text: deltas.map(d => (d>=0?'+':'')+d.toFixed(1)+'%'),
+    textposition: 'outside', textfont: { size: 11 },
+    hovertemplate: '%{x}: %{y:+.1f}%<extra></extra>'
+  }], mkLayout('Integration Benchmark 변화율 (v0.6.1 → v0.6.5)', '', '변화율 (%)', {
+    height: 380
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 3: Architecture PerCore ═══════════════════════════════════
+(function() {
+  const cores = [1, 2, 3, 4, 8, 16];
+  const off = [1.93, 3.34, 4.42, 5.56, 7.01, 5.87];
+  const on  = [1.97, 3.33, 4.50, 5.30, 7.34, 5.97];
+
+  Plotly.newPlot('chart-arch-percore', [
+    { x: cores, y: off, name: 'PerCore OFF', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065off, width: 2 }, marker: { size: 8 } },
+    { x: cores, y: on, name: 'PerCore ON', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065on, width: 2 }, marker: { size: 8 } },
+  ], mkLayout('PerCore Stateful: Affinity OFF vs ON', '코어 수', 'Throughput (M ops/s)', {
+    xaxis: { gridcolor: C.gridColor, title: '코어 수', tickvals: cores },
+    height: 400
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 4: Architecture Shared + LockFree ═══════════════════════════════════
+(function() {
+  const cores = [1, 2, 3, 4, 8, 16];
+  const s_off = [2.00, 1.92, 2.04, 2.28, 1.95, 1.40];
+  const s_on  = [2.01, 1.83, 2.10, 2.36, 2.05, 1.36];
+  const lf_off = [1.99, 1.92, 2.20, 2.38, 1.86, 1.31];
+  const lf_on  = [2.09, 1.77, 2.14, 2.34, 2.07, 1.43];
+
+  Plotly.newPlot('chart-arch-shared', [
+    { x: cores, y: s_off, name: 'Shared OFF', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065off, width: 2 }, marker: { size: 7 } },
+    { x: cores, y: s_on, name: 'Shared ON', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065on, width: 2 }, marker: { size: 7 } },
+    { x: cores, y: lf_off, name: 'LockFree OFF', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.purple, width: 2, dash: 'dash' }, marker: { size: 7, symbol: 'diamond' } },
+    { x: cores, y: lf_on, name: 'LockFree ON', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.accent, width: 2, dash: 'dash' }, marker: { size: 7, symbol: 'diamond' } },
+  ], mkLayout('Shared / LockFree: Affinity OFF vs ON', '코어 수', 'Throughput (M ops/s)', {
+    xaxis: { gridcolor: C.gridColor, title: '코어 수', tickvals: cores },
+    height: 400
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 5: Cross-Core ═══════════════════════════════════
+(function() {
+  const labels = ['RTT (ns)', 'Throughput (M msg/s)'];
+  Plotly.newPlot('chart-crosscore', [
+    { x: ['RTT (ns)'], y: [8219], name: 'OFF', type: 'bar', marker: { color: C.v065off } },
+    { x: ['RTT (ns)'], y: [8234], name: 'ON', type: 'bar', marker: { color: C.v065on } },
+    { x: ['Throughput (M msg/s)'], y: [2.88], name: 'OFF', type: 'bar', marker: { color: C.v065off }, showlegend: false, xaxis: 'x2', yaxis: 'y2' },
+    { x: ['Throughput (M msg/s)'], y: [2.82], name: 'ON', type: 'bar', marker: { color: C.v065on }, showlegend: false, xaxis: 'x2', yaxis: 'y2' },
+  ], Object.assign(mkLayout('Cross-Core Latency & Throughput (OFF vs ON)', '', '', {
+    height: 350, barmode: 'group',
+    grid: { rows: 1, columns: 2, pattern: 'independent' },
+    xaxis: { gridcolor: C.gridColor }, yaxis: { gridcolor: C.gridColor, title: 'RTT (ns)' },
+    xaxis2: { gridcolor: C.gridColor }, yaxis2: { gridcolor: C.gridColor, title: 'M msg/s' },
+  })), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 6: Session Affinity ═══════════════════════════════════
+(function() {
+  const labels = ['Session 64B', 'Session 512B', 'Session 4KB', 'Pipeline 64B', 'Pipeline 512B', 'Pipeline 4KB'];
+  const off = [11.84, 40.7, 277.8, 53.1, 347.8, 2670];
+  const on  = [12.38, 83.5, 577.4, 55.0, 371.0, 2560];
+  const unit = ['MB/s', 'MB/s', 'MB/s', 'MB/s', 'MB/s', 'MB/s'];
+
+  Plotly.newPlot('chart-session-affinity', [
+    { x: labels, y: off.map((v,i) => i===5?v/1000:v), name: 'OFF', type: 'bar', marker: { color: C.v065off, opacity: 0.85 } },
+    { x: labels, y: on.map((v,i) => i===5?v/1000:v), name: 'ON', type: 'bar', marker: { color: C.v065on, opacity: 0.85 } },
+  ], mkLayout('Session & Pipeline Throughput (Affinity OFF vs ON)', '', 'Throughput (MB/s, Pipeline 4KB = GB/s)', {
+    barmode: 'group', height: 380
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 7: 3-Way PerCore Overlay ═══════════════════════════════════
+(function() {
+  const cores_v061 = [1, 2, 3, 4, 8, 16, 20, 28];
+  const v061 = [1.97, 3.28, 4.83, 5.76, 7.65, 6.52, 6.19, 5.98];
+  const cores_v065 = [1, 2, 3, 4, 8, 16];
+  const v065off = [1.93, 3.34, 4.42, 5.56, 7.01, 5.87];
+  const v065on  = [1.97, 3.33, 4.50, 5.30, 7.34, 5.97];
+
+  Plotly.newPlot('chart-3way-percore', [
+    { x: cores_v061, y: v061, name: 'v0.6.1.0', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v061, width: 2.5 }, marker: { size: 8 } },
+    { x: cores_v065, y: v065off, name: 'v0.6.5.0 OFF', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065off, width: 2.5 }, marker: { size: 8 } },
+    { x: cores_v065, y: v065on, name: 'v0.6.5.0 ON', type: 'scatter', mode: 'lines+markers',
+      line: { color: C.v065on, width: 2.5 }, marker: { size: 8 } },
+    { x: [8, 8], y: [0, 8.5], name: 'P-Core boundary', type: 'scatter', mode: 'lines',
+      line: { color: C.accent, width: 1.5, dash: 'dot' }, showlegend: true },
+    { x: [20, 20], y: [0, 8.5], name: 'Physical core boundary', type: 'scatter', mode: 'lines',
+      line: { color: C.danger, width: 1.5, dash: 'dot' }, showlegend: true },
+  ], mkLayout('PerCore Stateful: 3-Way Comparison', '코어 수', 'Throughput (M ops/s)', {
+    xaxis: { gridcolor: C.gridColor, title: '코어 수', tickvals: [1,2,3,4,8,16,20,28], range: [0, 30] },
+    yaxis: { gridcolor: C.gridColor, title: 'Throughput (M ops/s)', range: [0, 9] },
+    height: 450,
+    annotations: [
+      { x: 8, y: 8.3, text: '8 P-Cores', showarrow: false, font: { color: C.accent, size: 11 } },
+      { x: 20, y: 8.3, text: '20 Physical', showarrow: false, font: { color: C.danger, size: 11 } },
+    ]
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Chart 8: Cross-Reference ═══════════════════════════════════
+(function() {
+  const labels = ['PerCore 1C', 'PerCore 4C', 'XC Throughput', 'Session 64B'];
+  const i5on =  [1.10, 3.25, 1.40, 5.51];
+  const i7on =  [1.97, 5.30, 2.82, 12.38];
+
+  Plotly.newPlot('chart-cross-ref', [
+    { x: labels, y: i5on, name: 'i5-9300H (ON)', type: 'bar', marker: { color: C.purple, opacity: 0.85 } },
+    { x: labels, y: i7on, name: 'i7-14700 (ON)', type: 'bar', marker: { color: C.v065on, opacity: 0.85 } },
+  ], mkLayout('i5-9300H vs i7-14700 (Affinity ON)', '', 'Performance (M ops/s or MB/s)', {
+    barmode: 'group', height: 380
+  }), { responsive: true, displayModeBar: false });
+})();
+
+// ═══════════════════════════════════ Sidebar active tracking ═══════════════════════════════════
+document.addEventListener('scroll', function() {
+  const sections = document.querySelectorAll('[id^="section-"]');
+  const navItems = document.querySelectorAll('.nav-item');
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navItems.forEach(n => {
+    n.classList.toggle('active', n.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+
+</body>
+</html>
