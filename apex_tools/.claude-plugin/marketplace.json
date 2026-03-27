@@ -13,10 +13,7 @@
       "author": {
         "name": "Gazuua"
       },
-      "source": {
-        "source": "directory",
-        "path": "./apex-auto-review"
-      }
+      "source": "./apex-auto-review"
     }
   ]
 }
