@@ -54,30 +54,34 @@ inline void init_affinity(int& argc, char** argv)
 }
 
 /// Build CoreAssignment vector for N cores (used by CoreEngine benchmarks).
-/// When affinity is enabled, maps to discovered physical cores (round-robin if N > physical).
+/// When affinity is enabled, assigns up to physical_core_count only — matches real server behavior
+/// (Server never creates more workers than physical cores with affinity enabled).
 /// When disabled, returns empty vector (CoreEngine legacy behavior).
 inline std::vector<apex::core::CoreAssignment> build_assignments(uint32_t num_cores)
 {
     if (!g_affinity_enabled)
         return {};
 
+    auto count = std::min(num_cores, static_cast<uint32_t>(g_core_assignments.size()));
     std::vector<apex::core::CoreAssignment> result;
-    result.reserve(num_cores);
-    for (uint32_t i = 0; i < num_cores; ++i)
+    result.reserve(count);
+    for (uint32_t i = 0; i < count; ++i)
     {
-        result.push_back(g_core_assignments[i % g_core_assignments.size()]);
+        result.push_back(g_core_assignments[i]);
     }
     return result;
 }
 
 /// Apply thread affinity for raw-thread benchmarks (not CoreEngine).
-/// worker_index is mapped to physical core via round-robin.
+/// Only pins workers within physical core count — excess workers run free (no affinity).
+/// Matches real server: Server pins num_cores workers to physical cores, never exceeds.
 inline void apply_worker_affinity(int worker_index)
 {
     if (!g_affinity_enabled || g_core_assignments.empty())
         return;
-    auto idx = static_cast<size_t>(worker_index) % g_core_assignments.size();
-    (void)apex::core::apply_thread_affinity(g_core_assignments[idx].logical_core_id);
+    if (static_cast<size_t>(worker_index) >= g_core_assignments.size())
+        return;
+    (void)apex::core::apply_thread_affinity(g_core_assignments[worker_index].logical_core_id);
 }
 
 } // namespace apex::bench
