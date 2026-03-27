@@ -1,12 +1,4 @@
 {
-  "extraKnownMarketplaces": {
-    "apex-local": {
-      "source": {
-        "source": "directory",
-        "path": "./apex_tools"
-      }
-    }
-  },
   "hooks": {
     "PreToolUse": [
       {

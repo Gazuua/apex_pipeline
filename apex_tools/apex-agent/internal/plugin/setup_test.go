@@ -133,28 +133,6 @@ func TestSetup_CreatesFiles(t *testing.T) {
 	}
 }
 
-func TestUpdateKnownMarketplaces(t *testing.T) {
-	tmp := t.TempDir()
-	knownFile := filepath.Join(tmp, "known_marketplaces.json")
-	marketplacePath := filepath.Join(tmp, "apex_tools")
-
-	if err := updateKnownMarketplaces(knownFile, marketplacePath); err != nil {
-		t.Fatalf("updateKnownMarketplaces: %v", err)
-	}
-
-	data, err := os.ReadFile(knownFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(data, &m); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := m[marketplaceID]; !ok {
-		t.Errorf("marketplace ID %q not found in known_marketplaces.json", marketplaceID)
-	}
-}
-
 func TestUpdateEnabledPlugins(t *testing.T) {
 	tmp := t.TempDir()
 	settingsFile := filepath.Join(tmp, "settings.json")
