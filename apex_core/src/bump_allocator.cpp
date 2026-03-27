@@ -2,6 +2,7 @@
 
 #include <apex/core/bump_allocator.hpp>
 
+#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -104,8 +105,13 @@ void BumpAllocator::rebind_memory()
     if (!base_)
         return; // zero-capacity allocator
 
+    assert(used_bytes() == 0 && "rebind_memory() requires empty allocator (call reset() first)");
+
     auto cap = capacity();
     std::free(base_);
+    base_ = nullptr;
+    cursor_ = nullptr;
+    end_ = nullptr;
 
     base_ = static_cast<char*>(std::malloc(cap));
     if (!base_)

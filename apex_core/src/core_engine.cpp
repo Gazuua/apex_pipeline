@@ -348,7 +348,15 @@ void CoreEngine::run_core(uint32_t core_id)
     // Per-core init callback — NUMA-aware memory re-allocation etc.
     if (core_init_callback_)
     {
-        core_init_callback_(core_id);
+        try
+        {
+            core_init_callback_(core_id);
+        }
+        catch (const std::exception& e)
+        {
+            logger_.error("core_init_callback failed core={}: {}", core_id, e.what());
+            throw; // NUMA rebind failure is unrecoverable — propagate to terminate
+        }
     }
 
     auto& ctx = *cores_[core_id];
