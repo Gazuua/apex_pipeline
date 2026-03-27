@@ -47,8 +47,7 @@ inline void init_affinity(int& argc, char** argv)
     g_core_assignments.reserve(topology.physical_core_count());
     for (const auto& pc : topology.physical_cores)
     {
-        g_core_assignments.push_back(
-            {.logical_core_id = pc.primary_logical_id(), .numa_node = pc.numa_node});
+        g_core_assignments.push_back({.logical_core_id = pc.primary_logical_id(), .numa_node = pc.numa_node});
     }
     g_affinity_enabled = true;
     std::cout << "Affinity: ON (" << g_core_assignments.size() << " physical cores)\n";
