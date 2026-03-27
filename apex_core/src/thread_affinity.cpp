@@ -39,28 +39,15 @@ const ScopedLogger& affinity_logger()
 bool apply_thread_affinity(uint32_t logical_core_id)
 {
 #ifdef _WIN32
-    // Windows: SetThreadAffinityMask — bitmask where bit N = logical processor N.
-    // For processor groups > 64, use SetThreadGroupAffinity instead.
-    if (logical_core_id >= 64)
+    // Always use SetThreadGroupAffinity for correctness on 64+ core systems.
+    // SetThreadAffinityMask is processor-group-unaware and may pin to the wrong core
+    // when the process spans multiple groups.
+    GROUP_AFFINITY ga{};
+    ga.Group = static_cast<WORD>(logical_core_id / 64);
+    ga.Mask = 1ULL << (logical_core_id % 64);
+    if (SetThreadGroupAffinity(GetCurrentThread(), &ga, nullptr) == 0)
     {
-        // Processor group support: compute group and within-group mask
-        GROUP_AFFINITY ga{};
-        ga.Group = static_cast<WORD>(logical_core_id / 64);
-        ga.Mask = 1ULL << (logical_core_id % 64);
-        if (SetThreadGroupAffinity(GetCurrentThread(), &ga, nullptr) == 0)
-        {
-            affinity_logger().warn("SetThreadGroupAffinity failed for logical_core={}: error={}", logical_core_id,
-                                   GetLastError());
-            return false;
-        }
-        return true;
-    }
-
-    auto mask = static_cast<DWORD_PTR>(1ULL << logical_core_id);
-    auto prev = SetThreadAffinityMask(GetCurrentThread(), mask);
-    if (prev == 0)
-    {
-        affinity_logger().warn("SetThreadAffinityMask failed for logical_core={}: error={}", logical_core_id,
+        affinity_logger().warn("SetThreadGroupAffinity failed for logical_core={}: error={}", logical_core_id,
                                GetLastError());
         return false;
     }
@@ -68,6 +55,12 @@ bool apply_thread_affinity(uint32_t logical_core_id)
 
 #else
     // Linux: pthread_setaffinity_np
+    // cpu_set_t supports up to CPU_SETSIZE (typically 1024) logical CPUs.
+    if (logical_core_id >= CPU_SETSIZE)
+    {
+        affinity_logger().warn("logical_core_id {} exceeds CPU_SETSIZE ({})", logical_core_id, CPU_SETSIZE);
+        return false;
+    }
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(static_cast<int>(logical_core_id), &cpuset);
@@ -107,7 +100,9 @@ bool apply_numa_memory_policy(uint32_t numa_node)
 
     nodemask[numa_node / BITS_PER_ULONG] = 1UL << (numa_node % BITS_PER_ULONG);
 
-    long rc = syscall(SYS_set_mempolicy, MPOL_BIND, nodemask, MAX_NODES);
+    // maxnode is the range of node IDs (kernel uses maxnode-1 as the highest bit index).
+    // Pass MAX_NODES + 1 so node IDs 0..MAX_NODES-1 are all representable.
+    long rc = syscall(SYS_set_mempolicy, MPOL_BIND, nodemask, MAX_NODES + 1);
     if (rc != 0)
     {
         affinity_logger().warn("set_mempolicy(MPOL_BIND) failed for NUMA node {}: {}", numa_node, std::strerror(errno));

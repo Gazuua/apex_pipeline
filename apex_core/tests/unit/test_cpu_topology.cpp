@@ -16,13 +16,14 @@ TEST(CpuTopologyTest, DiscoverReturnsNonEmpty)
     EXPECT_GE(topo.numa_node_count, 1u);
 }
 
-TEST(CpuTopologyTest, LogicalCountAtLeastHardwareConcurrency)
+TEST(CpuTopologyTest, LogicalCountMatchesHardwareConcurrency)
 {
     auto topo = discover_topology();
     auto hw = std::thread::hardware_concurrency();
     if (hw > 0)
     {
-        // Logical core count should match hardware_concurrency
+        // Current implementation enumerates exactly hardware_concurrency() logical cores
+        // (both native and fallback paths use this as the upper bound).
         EXPECT_EQ(topo.logical_core_count(), hw);
     }
 }
@@ -63,9 +64,16 @@ TEST(CpuTopologyTest, PerfAndEfficiencyCoresPartition)
     auto topo = discover_topology();
     auto p = topo.performance_cores();
     auto e = topo.efficiency_cores();
-    // P + E + Unknown should equal total
-    uint32_t classified = static_cast<uint32_t>(p.size() + e.size());
-    EXPECT_LE(classified, topo.physical_core_count());
+    // Count Unknown cores explicitly
+    uint32_t unknown_count = 0;
+    for (const auto& pc : topo.physical_cores)
+    {
+        if (pc.type == CoreType::Unknown)
+            ++unknown_count;
+    }
+    // P + E + Unknown must equal total physical cores (complete partition)
+    uint32_t classified = static_cast<uint32_t>(p.size() + e.size()) + unknown_count;
+    EXPECT_EQ(classified, topo.physical_core_count());
 }
 
 TEST(CpuTopologyTest, SummaryNotEmpty)
@@ -73,6 +81,23 @@ TEST(CpuTopologyTest, SummaryNotEmpty)
     auto topo = discover_topology();
     auto s = topo.summary();
     EXPECT_FALSE(s.empty());
+}
+
+TEST(CpuTopologyTest, CoresByNumaInvalidNodeReturnsEmpty)
+{
+    auto topo = discover_topology();
+    // A NUMA node that certainly does not exist should return empty
+    auto cores = topo.cores_by_numa(99999);
+    EXPECT_TRUE(cores.empty());
+}
+
+TEST(CpuTopologyTest, PrimaryLogicalIdFallsBackToPhysicalId)
+{
+    // When logical_ids is empty, primary_logical_id() should return physical_id
+    PhysicalCore pc;
+    pc.physical_id = 42;
+    pc.logical_ids.clear();
+    EXPECT_EQ(pc.primary_logical_id(), 42u);
 }
 
 TEST(CpuTopologyTest, ToStringCoreType)

@@ -52,8 +52,8 @@ struct CoreContext
 /// Per-worker core assignment for CPU affinity.
 struct CoreAssignment
 {
-    uint32_t logical_core_id; ///< OS logical processor ID for SetThreadAffinityMask / pthread_setaffinity_np
-    uint32_t numa_node{0};    ///< NUMA node for set_mempolicy
+    uint32_t logical_core_id{0}; ///< OS logical processor ID for SetThreadAffinityMask / pthread_setaffinity_np
+    uint32_t numa_node{0};       ///< NUMA node for set_mempolicy
 };
 
 /// Configuration for CoreEngine.

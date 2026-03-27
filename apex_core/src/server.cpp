@@ -62,6 +62,7 @@ Server::Server(ServerConfig config)
             {
                 uint32_t numa = 0;
                 // Find NUMA node for this logical core
+                bool found = false;
                 for (const auto& pc : topology.physical_cores)
                 {
                     for (auto lid : pc.logical_ids)
@@ -69,9 +70,12 @@ Server::Server(ServerConfig config)
                         if (lid == logical_id)
                         {
                             numa = pc.numa_node;
+                            found = true;
                             break;
                         }
                     }
+                    if (found)
+                        break;
                 }
                 core_assignments.push_back({.logical_core_id = logical_id, .numa_node = numa});
             }

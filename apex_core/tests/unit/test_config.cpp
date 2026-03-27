@@ -259,3 +259,39 @@ worker_cores = []
     EXPECT_TRUE(config.server.affinity.enabled);
     EXPECT_TRUE(config.server.affinity.worker_cores.empty());
 }
+
+TEST_F(ConfigTest, AffinityWorkerCoresNegativeThrows)
+{
+    auto path = write_toml("affinity_neg.toml", R"(
+[affinity]
+worker_cores = [0, -1, 4]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresOverflowThrows)
+{
+    auto path = write_toml("affinity_overflow.toml", R"(
+[affinity]
+worker_cores = [0, 5000000000]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresNonIntegerThrows)
+{
+    auto path = write_toml("affinity_mixed.toml", R"(
+[affinity]
+worker_cores = [0, "invalid", 4]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}
+
+TEST_F(ConfigTest, AffinityWorkerCoresDuplicateThrows)
+{
+    auto path = write_toml("affinity_dup.toml", R"(
+[affinity]
+worker_cores = [0, 2, 4, 2]
+)");
+    EXPECT_THROW(AppConfig::from_file(path), std::invalid_argument);
+}

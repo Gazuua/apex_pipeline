@@ -259,15 +259,13 @@ CpuTopology discover_topology_impl()
 
         {
             std::ifstream f(base + "/topology/physical_package_id");
-            if (!f.is_open())
-                continue; // skip if no topology info
-            f >> package_id;
+            if (!f.is_open() || !(f >> package_id))
+                continue; // skip if no topology info or unreadable
         }
         {
             std::ifstream f(base + "/topology/core_id");
-            if (!f.is_open())
+            if (!f.is_open() || !(f >> core_id))
                 continue;
-            f >> core_id;
         }
 
         CoreKey key{package_id, core_id};
@@ -278,15 +276,7 @@ CpuTopology discover_topology_impl()
             pc.physical_id = static_cast<uint32_t>(topo.physical_cores.size());
             pc.logical_ids.push_back(cpu);
 
-            // NUMA node
-            // Try /sys/devices/system/cpu/cpuN/node* symlink
-            // Simpler: read from /sys/devices/system/node/nodeN/cpulist
-            // For now, just try the topology
-            {
-                std::ifstream f(base + "/topology/physical_package_id");
-                // NUMA node often == package_id on multi-socket, but we'll
-                // try the actual NUMA mapping below
-            }
+            // NUMA node is resolved below via /sys/devices/system/node/nodeN/cpulist
 
             core_map[key] = topo.physical_cores.size();
             topo.physical_cores.push_back(std::move(pc));
@@ -307,7 +297,7 @@ CpuTopology discover_topology_impl()
             std::string path = "/sys/devices/system/node/node" + std::to_string(node) + "/cpulist";
             std::ifstream f(path);
             if (!f.is_open())
-                break;
+                continue; // NUMA nodes may be non-contiguous (hotplug, offline, BIOS config)
 
             numa_nodes.insert(node);
 
@@ -316,22 +306,32 @@ CpuTopology discover_topology_impl()
             std::getline(f, cpulist);
 
             std::set<uint32_t> cpus_in_node;
-            std::istringstream iss(cpulist);
-            std::string range;
-            while (std::getline(iss, range, ','))
+            try
             {
-                auto dash = range.find('-');
-                if (dash != std::string::npos)
+                std::istringstream iss(cpulist);
+                std::string range;
+                while (std::getline(iss, range, ','))
                 {
-                    uint32_t lo = static_cast<uint32_t>(std::stoul(range.substr(0, dash)));
-                    uint32_t hi = static_cast<uint32_t>(std::stoul(range.substr(dash + 1)));
-                    for (uint32_t c = lo; c <= hi; ++c)
-                        cpus_in_node.insert(c);
+                    if (range.empty())
+                        continue;
+                    auto dash = range.find('-');
+                    if (dash != std::string::npos)
+                    {
+                        uint32_t lo = static_cast<uint32_t>(std::stoul(range.substr(0, dash)));
+                        uint32_t hi = static_cast<uint32_t>(std::stoul(range.substr(dash + 1)));
+                        for (uint32_t c = lo; c <= hi; ++c)
+                            cpus_in_node.insert(c);
+                    }
+                    else
+                    {
+                        cpus_in_node.insert(static_cast<uint32_t>(std::stoul(range)));
+                    }
                 }
-                else
-                {
-                    cpus_in_node.insert(static_cast<uint32_t>(std::stoul(range)));
-                }
+            }
+            catch (const std::exception& e)
+            {
+                topo_logger().warn("failed to parse cpulist for NUMA node {}: {}", node, e.what());
+                continue; // skip this node, keep other nodes' mapping
             }
 
             // Map physical cores to NUMA node

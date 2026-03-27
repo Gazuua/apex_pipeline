@@ -7,6 +7,7 @@
 
 #include <fstream>
 #include <limits>
+#include <set>
 #include <stdexcept>
 #include <type_traits>
 
@@ -225,12 +226,22 @@ AffinityConfig parse_affinity(const toml::table& root)
     if (auto* arr = (*tbl)["worker_cores"].as_array())
     {
         cfg.worker_cores.clear();
-        for (const auto& elem : *arr)
+        std::set<uint32_t> seen;
+        for (size_t i = 0; i < arr->size(); ++i)
         {
-            if (auto val = elem.value<int64_t>())
+            auto val = (*arr)[i].value<int64_t>();
+            if (!val)
             {
-                cfg.worker_cores.push_back(checked_narrow<uint32_t>(*val, "affinity.worker_cores"));
+                throw std::invalid_argument("Config: affinity.worker_cores[" + std::to_string(i) +
+                                            "] is not an integer");
             }
+            auto core_id = checked_narrow<uint32_t>(*val, "affinity.worker_cores");
+            if (!seen.insert(core_id).second)
+            {
+                throw std::invalid_argument("Config: duplicate logical core " + std::to_string(core_id) +
+                                            " in affinity.worker_cores");
+            }
+            cfg.worker_cores.push_back(core_id);
         }
     }
 

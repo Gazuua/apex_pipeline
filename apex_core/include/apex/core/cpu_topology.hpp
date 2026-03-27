@@ -26,6 +26,8 @@ struct PhysicalCore
     std::vector<uint32_t> logical_ids; ///< Logical (HT sibling) IDs
 
     /// First logical ID — used for thread affinity pinning (one worker per physical core).
+    /// Fallback to physical_id if logical_ids is empty (should never happen in practice —
+    /// discover_topology() always populates at least one logical ID per physical core).
     [[nodiscard]] uint32_t primary_logical_id() const noexcept
     {
         return logical_ids.empty() ? physical_id : logical_ids.front();

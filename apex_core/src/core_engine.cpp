@@ -328,7 +328,14 @@ void CoreEngine::run_core(uint32_t core_id)
 
         if (config_.numa_aware)
         {
-            apply_numa_memory_policy(assignment.numa_node);
+            if (apply_numa_memory_policy(assignment.numa_node))
+            {
+                logger_.info("worker[{}] bound to NUMA node {}", core_id, assignment.numa_node);
+            }
+            else
+            {
+                logger_.warn("worker[{}] NUMA bind failed for node {}", core_id, assignment.numa_node);
+            }
         }
     }
 

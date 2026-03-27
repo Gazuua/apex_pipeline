@@ -16,7 +16,32 @@
 
 using namespace apex::core;
 
-TEST(ThreadAffinityTest, PinToFirstLogicalCore)
+/// Fixture that restores thread affinity to all cores after each test,
+/// preventing one test's pinning from affecting subsequent tests.
+class ThreadAffinityTest : public ::testing::Test
+{
+  protected:
+    void TearDown() override
+    {
+#ifdef _WIN32
+        // Restore affinity to all processors in group 0
+        GROUP_AFFINITY ga{};
+        ga.Group = 0;
+        ga.Mask = ~KAFFINITY{0}; // all bits set
+        SetThreadGroupAffinity(GetCurrentThread(), &ga, nullptr);
+#else
+        // Restore affinity to all CPUs
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        auto hw = std::thread::hardware_concurrency();
+        for (unsigned i = 0; i < (hw > 0 ? hw : 1); ++i)
+            CPU_SET(static_cast<int>(i), &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
+    }
+};
+
+TEST_F(ThreadAffinityTest, PinToFirstLogicalCore)
 {
     auto topo = discover_topology();
     ASSERT_FALSE(topo.physical_cores.empty());
@@ -24,17 +49,20 @@ TEST(ThreadAffinityTest, PinToFirstLogicalCore)
     auto target = topo.physical_cores.front().primary_logical_id();
     EXPECT_TRUE(apply_thread_affinity(target));
 
-    // Verify we're running on the expected core
+    // After affinity is set, yield to let the OS migrate if needed,
+    // then verify the current processor matches the target.
 #ifdef _WIN32
+    SwitchToThread();
     auto current = GetCurrentProcessorNumber();
     EXPECT_EQ(current, target);
 #else
+    sched_yield();
     auto current = static_cast<uint32_t>(sched_getcpu());
     EXPECT_EQ(current, target);
 #endif
 }
 
-TEST(ThreadAffinityTest, PinToMultipleCoresSequentially)
+TEST_F(ThreadAffinityTest, PinToMultipleCoresSequentially)
 {
     auto topo = discover_topology();
     // Test pinning to first two distinct physical cores
@@ -45,13 +73,25 @@ TEST(ThreadAffinityTest, PinToMultipleCoresSequentially)
     }
 }
 
-TEST(ThreadAffinityTest, NumaPolicyDoesNotCrash)
+TEST_F(ThreadAffinityTest, NumaPolicyNodeZeroSucceeds)
 {
-    // NUMA policy application should succeed (or no-op on Windows) without crashing
+    // NUMA node 0 always exists — should succeed (or no-op on Windows)
     EXPECT_TRUE(apply_numa_memory_policy(0));
 }
 
-TEST(ThreadAffinityTest, InvalidCoreFails)
+TEST_F(ThreadAffinityTest, NumaPolicyInvalidNodeFails)
+{
+    // A non-existent NUMA node should fail on Linux (invalid nodemask),
+    // but Windows is always a no-op that returns true.
+    auto result = apply_numa_memory_policy(255);
+#ifdef _WIN32
+    EXPECT_TRUE(result); // Windows: no-op, always succeeds
+#else
+    EXPECT_FALSE(result); // Linux: set_mempolicy(MPOL_BIND) with invalid node should fail
+#endif
+}
+
+TEST_F(ThreadAffinityTest, InvalidCoreFails)
 {
     // Extremely large core ID should fail gracefully (no crash)
     auto result = apply_thread_affinity(99999);
