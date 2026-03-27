@@ -1,10 +1,13 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include "bench_affinity_helper.hpp"
 #include "system_profile.hpp"
 #include <benchmark/benchmark.h>
 
 int main(int argc, char** argv)
 {
+    apex::bench::init_affinity(argc, argv);
+
     auto profile = apex::bench::detect_system_profile();
     profile.print();
 
