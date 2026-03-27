@@ -1,0 +1,179 @@
+{
+  "context": {
+    "date": "2026-03-27T17:59:53+09:00",
+    "host_name": "NO-P-131802",
+    "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_ring_buffer.exe",
+    "num_cpus": 28,
+    "mhz_per_cpu": 2112,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 34603008,
+        "num_sharing": 28
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "28",
+    "physical_cores": "20",
+    "total_ram_mb": "65253"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_RingBuffer_WriteRead/64",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_RingBuffer_WriteRead/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 74666667,
+      "real_time": 9.7829972777369072e+00,
+      "cpu_time": 9.8353794203777696e+00,
+      "time_unit": "ns",
+      "bytes_per_second": 6.5071205964255323e+09
+    },
+    {
+      "name": "BM_RingBuffer_WriteRead/512",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_RingBuffer_WriteRead/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 64000000,
+      "real_time": 1.0870117187494088e+01,
+      "cpu_time": 1.0742187500000000e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 4.7662545454545456e+10
+    },
+    {
+      "name": "BM_RingBuffer_WriteRead/4096",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_RingBuffer_WriteRead/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 32000000,
+      "real_time": 2.2627003124966905e+01,
+      "cpu_time": 2.1972656250000000e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 1.8641351111111111e+11
+    },
+    {
+      "name": "BM_RingBuffer_Linearize/64",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_RingBuffer_Linearize/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 64000000,
+      "real_time": 1.1087750000001506e+01,
+      "cpu_time": 1.0742187500000000e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 5.9578181818181820e+09
+    },
+    {
+      "name": "BM_RingBuffer_Linearize/512",
+      "family_index": 1,
+      "per_family_instance_index": 1,
+      "run_name": "BM_RingBuffer_Linearize/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 44800000,
+      "real_time": 1.7134069196426285e+01,
+      "cpu_time": 1.7438616071428573e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 2.9360128000000000e+10
+    },
+    {
+      "name": "BM_RingBuffer_Linearize/4096",
+      "family_index": 1,
+      "per_family_instance_index": 2,
+      "run_name": "BM_RingBuffer_Linearize/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 23578947,
+      "real_time": 3.0539917664646385e+01,
+      "cpu_time": 3.0482701369149353e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 1.3437129309495653e+11
+    },
+    {
+      "name": "BM_NaiveBuffer_CopyWrite/64",
+      "family_index": 2,
+      "per_family_instance_index": 0,
+      "run_name": "BM_NaiveBuffer_CopyWrite/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 32000000,
+      "real_time": 2.2358421874969281e+01,
+      "cpu_time": 2.2460937500000000e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 2.8493913043478260e+09
+    },
+    {
+      "name": "BM_NaiveBuffer_CopyWrite/512",
+      "family_index": 2,
+      "per_family_instance_index": 1,
+      "run_name": "BM_NaiveBuffer_CopyWrite/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 24888889,
+      "real_time": 3.1306174413781399e+01,
+      "cpu_time": 3.1389508788439692e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 1.6311182295040001e+10
+    },
+    {
+      "name": "BM_NaiveBuffer_CopyWrite/4096",
+      "family_index": 2,
+      "per_family_instance_index": 2,
+      "run_name": "BM_NaiveBuffer_CopyWrite/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 16000000,
+      "real_time": 4.5014399999899979e+01,
+      "cpu_time": 4.4921875000000000e+01,
+      "time_unit": "ns",
+      "bytes_per_second": 9.1180521739130432e+10
+    }
+  ]
+}

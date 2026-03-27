@@ -1,0 +1,89 @@
+{
+  "context": {
+    "date": "2026-03-27T18:02:55+09:00",
+    "host_name": "NO-P-131802",
+    "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_session_throughput.exe",
+    "num_cpus": 28,
+    "mhz_per_cpu": 2112,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 34603008,
+        "num_sharing": 28
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "28",
+    "physical_cores": "20",
+    "total_ram_mb": "65253"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_Session_EchoRoundTrip/64",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_Session_EchoRoundTrip/64",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 112000,
+      "real_time": 6.4323553571544580e+03,
+      "cpu_time": 6.4174107142857147e+03,
+      "time_unit": "ns",
+      "bytes_per_second": 1.1842782608695652e+07
+    },
+    {
+      "name": "BM_Session_EchoRoundTrip/512",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_Session_EchoRoundTrip/512",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 49778,
+      "real_time": 1.3299349110082807e+04,
+      "cpu_time": 1.2869641206958897e+04,
+      "time_unit": "ns",
+      "bytes_per_second": 4.0715975804878049e+07
+    },
+    {
+      "name": "BM_Session_EchoRoundTrip/4096",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_Session_EchoRoundTrip/4096",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 56000,
+      "real_time": 1.4898112500044850e+04,
+      "cpu_time": 1.4787946428571429e+04,
+      "time_unit": "ns",
+      "bytes_per_second": 2.7779381132075471e+08
+    }
+  ]
+}

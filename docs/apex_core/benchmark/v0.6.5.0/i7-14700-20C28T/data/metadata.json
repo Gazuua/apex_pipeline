@@ -1,0 +1,24 @@
+{
+  "version": "v0.6.5",
+  "date": "2026-03-27",
+  "host_name": "NO-P-131802",
+  "cpu_name": "Intel Core i7-14700 (Raptor Lake Hybrid)",
+  "physical_cores": 20,
+  "logical_cores": 28,
+  "p_cores": 8,
+  "e_cores": 12,
+  "mhz_per_cpu": 2100,
+  "max_boost_mhz_p": 5400,
+  "max_boost_mhz_e": 4000,
+  "caches": {
+    "l1d": "48 KB (per-core)",
+    "l2": "2 MB (per-core)",
+    "l3": "33 MB (shared)"
+  },
+  "numa_nodes": 1,
+  "affinity_support": true,
+  "total_ram_mb": 65253,
+  "compiler": "MSVC 19.44, C++23",
+  "build_type": "Release",
+  "benchmark_library": "Google Benchmark v1.9.4"
+}

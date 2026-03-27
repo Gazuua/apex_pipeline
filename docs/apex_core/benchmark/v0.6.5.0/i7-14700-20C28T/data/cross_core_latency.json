@@ -1,0 +1,60 @@
+{
+  "context": {
+    "date": "2026-03-27T18:02:36+09:00",
+    "host_name": "NO-P-131802",
+    "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_cross_core_latency.exe",
+    "num_cpus": 28,
+    "mhz_per_cpu": 2112,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 32768,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 2097152,
+        "num_sharing": 2
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 34603008,
+        "num_sharing": 28
+      }
+    ],
+    "load_avg": [],
+    "library_version": "v1.9.4",
+    "library_build_type": "release",
+    "json_schema_version": 1,
+    "logical_cores": "28",
+    "physical_cores": "20",
+    "total_ram_mb": "65253"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_CrossCore_Latency/iterations:10000/real_time",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_CrossCore_Latency/iterations:10000/real_time",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 10000,
+      "real_time": 8.6096399998496054e+03,
+      "cpu_time": 6.2500000000000000e+03,
+      "time_unit": "ns",
+      "avg_one_way_ns": 4.1095900000000001e+03,
+      "avg_rtt_ns": 8.2191800000000003e+03
+    }
+  ]
+}
