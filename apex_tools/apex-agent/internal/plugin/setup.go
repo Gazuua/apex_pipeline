@@ -14,7 +14,8 @@ import (
 var ml = log.WithModule("plugin")
 
 const (
-	pluginID = "apex-auto-review@apex-local"
+	pluginID      = "apex-auto-review@apex-local"
+	marketplaceID = "apex-local"
 
 	// supportedVersions: known installed_plugins.json format versions.
 	// 0 = initial (no version field), 2 = current format.
@@ -35,7 +36,8 @@ func Setup(workspaceRoot string) error {
 		return err
 	}
 
-	pluginPath := filepath.Join(workspaceRoot, "apex_tools", "claude-plugin")
+	pluginPath := filepath.Join(workspaceRoot, "apex_tools", "apex-auto-review")
+	marketplacePath := filepath.Join(workspaceRoot, "apex_tools")
 
 	// Read plugin version from plugin.json
 	version := readPluginVersion(pluginPath)
@@ -52,12 +54,18 @@ func Setup(workspaceRoot string) error {
 	}
 	ml.Info("installing plugin", "plugin", pluginID, "version", version, "path", pluginPath)
 
-	// 1. installed_plugins.json
+	// 1. known_marketplaces.json
+	knownFile := filepath.Join(pluginsDir, "known_marketplaces.json")
+	if err := updateKnownMarketplaces(knownFile, marketplacePath); err != nil {
+		return err
+	}
+
+	// 2. installed_plugins.json
 	if err := updateInstalledPlugins(installedFile, pluginPath, version); err != nil {
 		return err
 	}
 
-	// 2. settings.json (enabledPlugins)
+	// 3. settings.json (enabledPlugins)
 	settingsFile := filepath.Join(claudeDir, "settings.json")
 	return updateEnabledPlugins(settingsFile)
 }
@@ -104,6 +112,35 @@ func isAlreadyInstalled(installedFile, pluginPath, version string) bool {
 	pluginJSON := filepath.Join(filepath.Clean(e.InstallPath), ".claude-plugin", "plugin.json")
 	_, err = os.Stat(pluginJSON)
 	return err == nil
+}
+
+// updateKnownMarketplaces ensures the marketplace entry exists and points to
+// the correct marketplacePath.
+func updateKnownMarketplaces(knownFile, marketplacePath string) error {
+	known := readJSONMap(knownFile)
+
+	entry, ok := known[marketplaceID].(map[string]interface{})
+	if ok {
+		// Check if path already matches
+		if src, ok := entry["source"].(map[string]interface{}); ok {
+			if existing, _ := src["path"].(string); filepath.Clean(existing) == filepath.Clean(marketplacePath) {
+				// No update needed for known_marketplaces
+				if inst, _ := entry["installLocation"].(string); filepath.Clean(inst) == filepath.Clean(marketplacePath) {
+					return nil
+				}
+			}
+		}
+	}
+
+	known[marketplaceID] = map[string]interface{}{
+		"source": map[string]interface{}{
+			"source": "directory",
+			"path":   marketplacePath,
+		},
+		"installLocation": marketplacePath,
+		"lastUpdated":     time.Now().UTC().Format(time.RFC3339),
+	}
+	return writeJSONFile(knownFile, known)
 }
 
 // updateInstalledPlugins updates the installed_plugins.json with the new path

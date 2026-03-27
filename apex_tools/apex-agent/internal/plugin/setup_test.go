@@ -12,7 +12,7 @@ import (
 // writePluginJSON creates a temporary plugin directory with a plugin.json.
 func writePluginJSON(t *testing.T, dir, version string) string {
 	t.Helper()
-	pluginDir := filepath.Join(dir, "claude-plugin", ".claude-plugin")
+	pluginDir := filepath.Join(dir, "apex-auto-review", ".claude-plugin")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -20,7 +20,7 @@ func writePluginJSON(t *testing.T, dir, version string) string {
 	if err := os.WriteFile(filepath.Join(pluginDir, "plugin.json"), data, 0o644); err != nil {
 		t.Fatalf("write plugin.json: %v", err)
 	}
-	return filepath.Join(dir, "claude-plugin")
+	return filepath.Join(dir, "apex-auto-review")
 }
 
 func TestReadPluginVersion(t *testing.T) {
@@ -47,20 +47,17 @@ func TestIsAlreadyInstalled_False_WhenFileAbsent(t *testing.T) {
 
 func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
 	tmp := t.TempDir()
-	// Create a real plugin.json at the install path so the validity check passes.
 	pluginPath := writePluginJSON(t, tmp, "3.1.0")
 
 	installedFile := filepath.Join(tmp, "installed_plugins.json")
 	installed := installedPluginsFile{
 		Version: 2,
 		Plugins: map[string][]pluginEntry{
-			pluginID: {
-				{
-					Scope:       "project",
-					InstallPath: pluginPath,
-					Version:     "3.1.0",
-				},
-			},
+			pluginID: {{
+				Scope:       "project",
+				InstallPath: pluginPath,
+				Version:     "3.1.0",
+			}},
 		},
 	}
 	data, _ := json.MarshalIndent(installed, "", "  ")
@@ -68,8 +65,7 @@ func TestIsAlreadyInstalled_TrueWhenMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Same version + valid path → true (even if called from a different workspace)
-	if !isAlreadyInstalled(installedFile, "/other/workspace/claude-plugin", "3.1.0") {
+	if !isAlreadyInstalled(installedFile, "/other/workspace/apex-auto-review", "3.1.0") {
 		t.Error("expected true when version matches and existing path is valid")
 	}
 }
@@ -80,13 +76,11 @@ func TestIsAlreadyInstalled_FalseWhenVersionDiffers(t *testing.T) {
 	installed := installedPluginsFile{
 		Version: 2,
 		Plugins: map[string][]pluginEntry{
-			pluginID: {
-				{
-					Scope:       "project",
-					InstallPath: "/some/path",
-					Version:     "2.0.0",
-				},
-			},
+			pluginID: {{
+				Scope:       "project",
+				InstallPath: "/some/path",
+				Version:     "2.0.0",
+			}},
 		},
 	}
 	data, _ := json.MarshalIndent(installed, "", "  ")
@@ -101,35 +95,39 @@ func TestIsAlreadyInstalled_FalseWhenVersionDiffers(t *testing.T) {
 
 func TestSetup_CreatesFiles(t *testing.T) {
 	tmp := t.TempDir()
+	pluginPath := writePluginJSON(t, tmp, "3.1.0")
 
-	// Create workspace with plugin.json
-	pluginsToolsDir := filepath.Join(tmp, "apex_tools", "claude-plugin", ".claude-plugin")
-	if err := os.MkdirAll(pluginsToolsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	data := []byte(`{"name":"apex-auto-review","version":"3.1.0"}`)
-	if err := os.WriteFile(filepath.Join(pluginsToolsDir, "plugin.json"), data, 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Override home dir by pointing Setup to our fake home using a wrapper.
-	// We test the helper functions directly since Setup uses os.UserHomeDir().
-	pluginPath := filepath.Join(tmp, "apex_tools", "claude-plugin")
 	installedFile := filepath.Join(tmp, "installed.json")
-
-	// First install
 	if err := updateInstalledPlugins(installedFile, pluginPath, "3.1.0"); err != nil {
 		t.Fatalf("updateInstalledPlugins: %v", err)
 	}
-
-	// Verify file was created
 	if _, err := os.Stat(installedFile); err != nil {
 		t.Fatalf("installed.json not created: %v", err)
 	}
-
-	// isAlreadyInstalled should now return true
 	if !isAlreadyInstalled(installedFile, pluginPath, "3.1.0") {
 		t.Error("expected isAlreadyInstalled to return true after install")
+	}
+}
+
+func TestUpdateKnownMarketplaces(t *testing.T) {
+	tmp := t.TempDir()
+	knownFile := filepath.Join(tmp, "known_marketplaces.json")
+	marketplacePath := filepath.Join(tmp, "apex_tools")
+
+	if err := updateKnownMarketplaces(knownFile, marketplacePath); err != nil {
+		t.Fatalf("updateKnownMarketplaces: %v", err)
+	}
+
+	data, err := os.ReadFile(knownFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m[marketplaceID]; !ok {
+		t.Errorf("marketplace ID %q not found in known_marketplaces.json", marketplaceID)
 	}
 }
 
@@ -137,7 +135,6 @@ func TestUpdateEnabledPlugins(t *testing.T) {
 	tmp := t.TempDir()
 	settingsFile := filepath.Join(tmp, "settings.json")
 
-	// Create minimal settings.json
 	if err := os.WriteFile(settingsFile, []byte(`{"someKey":true}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +159,7 @@ func TestUpdateEnabledPlugins(t *testing.T) {
 		t.Errorf("expected enabledPlugins[%q] = true", pluginID)
 	}
 
-	// Calling again should be idempotent (no error)
+	// Idempotent
 	if err := updateEnabledPlugins(settingsFile); err != nil {
 		t.Fatalf("second updateEnabledPlugins: %v", err)
 	}
