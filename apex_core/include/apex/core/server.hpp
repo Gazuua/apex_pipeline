@@ -28,6 +28,7 @@
 #include <boost/asio/steady_timer.hpp>
 
 #include <atomic>
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -257,6 +258,7 @@ class Server
     /// Access per-core state (for ResponseDispatcher wiring etc.)
     [[nodiscard]] PerCoreState& per_core_state(uint32_t core_id)
     {
+        assert(core_id < per_core_.size() && "per_core_state: invalid core_id");
         return *per_core_[core_id];
     }
 

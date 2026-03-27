@@ -174,10 +174,12 @@ template <typename Derived> class ServiceBase : public ServiceBaseInterface
     }
     [[nodiscard]] MessageDispatcher& dispatcher() noexcept
     {
+        assert(dispatcher_ && "dispatcher() called before initialization");
         return *dispatcher_;
     }
     [[nodiscard]] const MessageDispatcher& dispatcher() const noexcept
     {
+        assert(dispatcher_ && "dispatcher() called before initialization");
         return *dispatcher_;
     }
 

@@ -38,6 +38,7 @@ vector:
 # Grafana
 # ---------------------------------------------------------------------------
 grafana:
+  adminPassword: ""  # base values의 평문 패스워드 무효화 — existingSecret으로 대체
   admin:
     existingSecret: "grafana-admin-secret"
     userKey: "admin-user"

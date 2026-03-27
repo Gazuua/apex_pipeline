@@ -45,12 +45,12 @@ class BroadcastFanout
     /// @param message Redis Pub/Sub message ([4B msg_id BE] + [payload])
     void fanout(std::string_view channel, std::span<const uint8_t> message);
 
-  private:
     /// Build WireHeader v2 framed data from Redis Pub/Sub message.
     /// @param message [4B msg_id BE] + [payload]
     /// @return [12B WireHeader v2] + [payload], or empty on error
     [[nodiscard]] static std::vector<uint8_t> build_wire_frame(std::span<const uint8_t> message);
 
+  private:
     apex::core::CoreEngine& engine_;
     uint32_t num_cores_;
     std::vector<apex::core::SessionManager*> session_mgrs_;

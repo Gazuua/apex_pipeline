@@ -141,9 +141,7 @@ GatewayService::on_default_message(apex::core::SessionPtr session, uint32_t msg_
 
         if (pipeline_)
         {
-            boost::system::error_code ec;
-            auto ep = session->socket().remote_endpoint(ec);
-            auto ip = ec ? std::string("unknown") : ep.address().to_string();
+            const auto& ip = session->remote_ip();
             auto ip_result = pipeline_->check_ip_rate_limit(ip);
             if (!ip_result)
             {
@@ -203,7 +201,29 @@ apex::core::Result<void> GatewayService::handle_authenticate_session(apex::core:
 
     auto& state = auth_states_[session->id()];
     state.token = apex::shared::SecureString(token->str());
-    logger_.info(session, "JWT bound");
+
+    // JWT를 즉시 검증하여 AUTHENTICATE 직후 SUBSCRIBE가 가능하도록 함.
+    // 이전에는 첫 번째 일반 메시지(handle_request → pipeline_->process)에서만
+    // authenticated가 설정되어, AUTHENTICATE 직후 SUBSCRIBE가 거부되었음.
+    if (jwt_verifier_)
+    {
+        auto claims = jwt_verifier_->verify(token->str());
+        if (claims.has_value())
+        {
+            state.authenticated = true;
+            state.user_id = claims->user_id;
+            state.jti = claims->jti;
+            logger_.info(session, "JWT verified and bound (user_id={})", claims->user_id);
+        }
+        else
+        {
+            logger_.warn(session, "JWT bound but verification failed — deferred to pipeline");
+        }
+    }
+    else
+    {
+        logger_.info(session, "JWT bound (no verifier)");
+    }
     return apex::core::ok();
 }
 
@@ -380,6 +400,10 @@ GatewayGlobals GatewayService::create_globals(apex::core::WireContext& ctx)
     kafka_->set_message_callback([this](std::string_view /*topic*/, int32_t /*partition*/,
                                         std::span<const uint8_t> /*key*/, std::span<const uint8_t> payload,
                                         int64_t /*timestamp*/) -> apex::core::Result<void> {
+        if (!globals_ || !globals_->response_dispatcher)
+        {
+            return std::unexpected(apex::core::ErrorCode::ServiceError);
+        }
         return globals_->response_dispatcher->on_response(payload);
     });
 
@@ -484,20 +508,8 @@ GatewayService::handle_request(apex::core::SessionPtr session, uint32_t msg_id, 
     // 1. Get or create per-session auth state
     auto& state = auth_states_[session->id()];
 
-    // 2. Resolve remote IP from socket
-    std::string remote_ip;
-    {
-        boost::system::error_code ec;
-        auto ep = session->socket().remote_endpoint(ec);
-        if (!ec)
-        {
-            remote_ip = ep.address().to_string();
-        }
-        else
-        {
-            remote_ip = "unknown";
-        }
-    }
+    // 2. Resolve remote IP (cached at accept time — no syscall)
+    const auto& remote_ip = session->remote_ip();
 
     // 3. Build WireHeader for pipeline + router
     apex::core::WireHeader header;

@@ -60,6 +60,9 @@ RedisMultiplexer::~RedisMultiplexer()
         logger_.warn("destroyed with active connection — calling close() in destructor");
         close();
     }
+    // hiredis context를 pending_ 정리보다 먼저 파괴 —
+    // disconnect callback이 pending_에 접근하는 것을 원천 차단.
+    conn_.reset();
     // 소멸자 경로: cancel_all_pending 대신 직접 slab 해제.
     // cancel_all_pending의 resolver.cancel()은 코루틴 resume을 post하는데,
     // this 파괴 후 resume 시 slab_ 접근 → use-after-free.

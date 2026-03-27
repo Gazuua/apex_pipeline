@@ -37,4 +37,4 @@
 
 ## 후속
 
-후속: BACKLOG-260에서 방향 전환 — 세션 서버+Branches 페이지+local_branches 제거, 대시보드 관찰 전용화.
+BACKLOG-260으로 이관 완료.

@@ -1,19 +1,71 @@
 {
-  "next_id": 261,
+  "next_id": 264,
   "items": [
+    {
+      "id": 261,
+      "title": "서비스 스캐폴딩 도구 + 어댑터 사용 예제 — v1.0 사용성 기반",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "CORE,TOOLS",
+      "type": "INFRA",
+      "description": "v1.0 정의 '커스텀 서비스 자유 배포 가능'의 핵심 진입점. (1) new-service 스캐폴딩 스크립트 — 프로젝트 구조에 예정으로 남아있으나 미구현. ServiceBase CRTP 보일러플레이트 + TOML 설정 + CMakeLists + Dockerfile + Helm values 자동 생성. (2) apex_core/examples/ 확장 — 현재 echo/chat 4개만 존재. Kafka route + Redis + PG 어댑터 조합 예제, 멀티 프로토콜(TCP+WS) 예제 추가 필요.",
+      "position": 1,
+      "status": "OPEN",
+      "created_at": "2026-03-27 09:49:17",
+      "updated_at": "2026-03-27 09:50:02"
+    },
+    {
+      "id": 262,
+      "title": "auth-svc Kafka-level 통합 테스트 구현 — 스텁 7건 완성",
+      "severity": "MINOR",
+      "timeframe": "NOW",
+      "scope": "AUTH_SVC",
+      "type": "TEST",
+      "description": "test_login_flow.cpp 7개 테스트 메서드가 전부 TODO only 스텁 상태. E2E가 Gateway→Kafka→Auth 경로를 커버하지만, Kafka-level 직접 통합 테스트(produce→consume→assert)가 없어 어댑터 에러 경로 검증 부재. SetUp/TearDown 인프라 구현 + LoginSuccess/BadCredentials/AccountLocked/RefreshToken/Logout/SessionExpiry/ConcurrentLogin 7개 테스트 본문 구현.",
+      "position": 2,
+      "status": "OPEN",
+      "created_at": "2026-03-27 09:49:23",
+      "updated_at": "2026-03-27 09:50:08"
+    },
+    {
+      "id": 237,
+      "title": "Admin HTTP 대시보드 — 런타임 설정 변경 + 서비스 상태 모니터링 UI",
+      "severity": "MINOR",
+      "timeframe": "NOW",
+      "scope": "CORE",
+      "type": "INFRA",
+      "description": "AdminHttpServer 기반으로 런타임 설정 변경(로그 레벨 등)과 서비스 상태 모니터링을 제공하는 웹 UI. HttpServerBase + AdminHttpServer 뼈대는 BACKLOG-179에서 완료, 엔드포인트 확장 + 프론트엔드 구현 필요.\n\n**[FSD 분석 2026-03-26]** 신규 UI 기능 + 런타임 설정 엔드포인트 설계 필요. FSD 자동화 부적합.",
+      "position": 3,
+      "status": "OPEN",
+      "created_at": "2026-03-26 12:48:23",
+      "updated_at": "2026-03-27 09:50:13"
+    },
     {
       "id": 113,
       "title": "Docker E2E 풀 인프라 벤치마킹",
       "severity": "MAJOR",
-      "timeframe": "IN_VIEW",
+      "timeframe": "NOW",
       "scope": "INFRA, TOOLS",
       "type": "PERF",
       "description": "Docker Compose로 Gateway + Auth + Chat + Kafka + Redis + PostgreSQL 전체 인프라를 띄우고 E2E 부하 테스트 실행. 실 서비스 워크로드 기반 처리량/지연시간 측정. 벤치마크 보고서 시스템에 E2E 섹션 추가. **[FSD 분석 2026-03-22]** Docker Compose 전체 인프라 구동 + E2E 부하 테스트 환경 구축 필요. 자동화 불가.",
       "related": "107(HISTORY)",
-      "position": 3,
+      "position": 4,
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
-      "updated_at": "2026-03-25 09:42:04"
+      "updated_at": "2026-03-27 09:50:18"
+    },
+    {
+      "id": 263,
+      "title": "프레임워크 가이드 외부 사용자 관점 리라이트 — v1.0 온보딩 문서",
+      "severity": "MAJOR",
+      "timeframe": "NOW",
+      "scope": "CORE,DOCS",
+      "type": "DOCS",
+      "description": "apex_core_guide.md가 내부 개발 참조용으로 작성됨. v1.0에서 외부 사용자가 프레임워크만으로 서비스를 구축할 수 있으려면: (1) Quick Start 가이드 (5분 내 echo 서비스 기동), (2) 어댑터 통합 가이드 (Kafka/Redis/PG 연동 패턴), (3) 배포 가이드 (Docker+Helm 기반 K8s 배포), (4) API 안정성 선언 (v1.0 이후 breaking change 정책). 기존 가이드를 사용자 온보딩 관점으로 재구성.",
+      "position": 5,
+      "status": "OPEN",
+      "created_at": "2026-03-27 09:49:30",
+      "updated_at": "2026-03-27 09:50:23"
     },
     {
       "id": 51,
@@ -27,19 +79,6 @@
       "status": "OPEN",
       "created_at": "2026-03-22 17:32:29",
       "updated_at": "2026-03-26 21:45:34"
-    },
-    {
-      "id": 237,
-      "title": "Admin HTTP 대시보드 — 런타임 설정 변경 + 서비스 상태 모니터링 UI",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "INFRA",
-      "description": "AdminHttpServer 기반으로 런타임 설정 변경(로그 레벨 등)과 서비스 상태 모니터링을 제공하는 웹 UI. HttpServerBase + AdminHttpServer 뼈대는 BACKLOG-179에서 완료, 엔드포인트 확장 + 프론트엔드 구현 필요.\n\n**[FSD 분석 2026-03-26]** 신규 UI 기능 + 런타임 설정 엔드포인트 설계 필요. FSD 자동화 부적합.",
-      "position": 69,
-      "status": "OPEN",
-      "created_at": "2026-03-26 12:48:23",
-      "updated_at": "2026-03-26 21:45:52"
     },
     {
       "id": 40,
