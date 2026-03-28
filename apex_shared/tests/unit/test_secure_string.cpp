@@ -6,6 +6,14 @@
 #include <cstring>
 #include <utility>
 
+// Valgrind 런타임 감지 — ZeroizesOnDestruction 테스트에서 해제된 메모리 접근 가드
+#if __has_include(<valgrind/valgrind.h>)
+#include <valgrind/valgrind.h>
+#define APEX_RUNNING_ON_VALGRIND RUNNING_ON_VALGRIND
+#else
+#define APEX_RUNNING_ON_VALGRIND 0
+#endif
+
 using apex::shared::SecureString;
 
 TEST(SecureStringTest, DefaultConstructedIsEmpty)
@@ -74,9 +82,12 @@ TEST(SecureStringTest, ZeroizesOnDestruction)
     }
     // After destruction, the memory should be zeroed.
     // NOTE: Accessing freed memory is technically UB, but this is a best-effort
-    // verification for testing purposes. ASAN/MSAN may flag this.
+    // verification for testing purposes. Skipped under sanitizers and Valgrind.
 #if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_MEMORY__) && !defined(__SANITIZE_THREAD__)
-    EXPECT_NE(raw_ptr[0], kSecret[0]);
+    if (!APEX_RUNNING_ON_VALGRIND)
+    {
+        EXPECT_NE(raw_ptr[0], kSecret[0]);
+    }
 #endif
 }
 
