@@ -97,8 +97,36 @@ git push origin gh-pages
 git checkout main  # 또는 원래 브랜치
 ```
 
+## Affinity 벤치마크
+
+### `--affinity` 플래그
+
+Integration 벤치마크(architecture_comparison, cross_core_latency, cross_core_message_passing)에 `--affinity=on` 플래그를 지정하면 물리 코어에 1:1 핀닝하여 실행한다.
+
+```bash
+# Affinity OFF (기본)
+apex-agent queue benchmark apex_core/bin/release/bench_architecture_comparison.exe \
+    --benchmark_format=json --benchmark_out=result.json
+
+# Affinity ON
+apex-agent queue benchmark apex_core/bin/release/bench_architecture_comparison.exe \
+    --affinity=on --benchmark_format=json --benchmark_out=result_affinity.json
+```
+
+- `--affinity=on`: `CpuTopology::discover()` → 물리 코어 수만큼 `CoreAssignment` 구성
+- 물리 코어 수 초과 워커는 핀닝하지 않음 (OS 자유 스케줄링) — 실제 서버 동작과 일치
+- micro 벤치마크는 단일 스레드이므로 affinity 무관
+
+### 원클릭 실행 스크립트
+
+```powershell
+powershell -ExecutionPolicy Bypass -File apex_tools/benchmark/run_all_benchmarks.ps1 [-Version v0.6.5.0] [-Hardware i7-14700-20C28T]
+```
+
+빌드 → micro 9개 → integration OFF 5개 → integration ON 3개 순차 실행. 결과는 `docs/apex_core/benchmark/{version}/{hardware}/data/`에 저장.
+
 ## 향후 실측 계획
 
-- **고코어 환경**: 20코어+ 머신에서 Per-core vs Shared 재측정 (선형 확장 검증)
+- **Linux Docker**: 풀 인프라(Gateway + Kafka + Redis + PostgreSQL) 기반 실측 — Windows 환경 결과의 최종 검증
+- **NUMA 멀티소켓**: 실제 NUMA 효과 측정 (현재 단일 소켓 환경에서는 미검증)
 - **lock-free SessionMap**: `boost::concurrent_flat_map`으로 교체 후 io_context 병목 결정적 검증
-- **Docker E2E**: 풀 인프라(Gateway + Kafka + Redis + PostgreSQL) 기반 실측
