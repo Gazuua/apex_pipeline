@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Core — Benchmark Reports</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0F172A;
+  color: #E2E8F0;
+  line-height: 1.6;
+}
+.hero {
+  background: linear-gradient(135deg, #0F172A 0%, #1E3A5F 40%, #0F4C75 70%, #065F46 100%);
+  padding: 60px 40px 48px;
+  text-align: center;
+  border-bottom: 1px solid rgba(52,211,153,0.15);
+}
+.hero h1 {
+  font-size: 2.4rem; font-weight: 700; color: #F8FAFC;
+  margin-bottom: 12px; letter-spacing: -0.5px;
+}
+.hero h1 span {
+  background: linear-gradient(90deg, #34D399, #38BDF8);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .subtitle {
+  font-size: 1.05rem; color: #94A3B8;
+  max-width: 700px; margin: 0 auto;
+}
+.container { max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; }
+.version-card {
+  background: #1E293B; border: 1px solid #334155; border-radius: 16px;
+  padding: 32px; margin-bottom: 28px; transition: border-color 0.2s;
+}
+.version-card:hover { border-color: #34D399; }
+.version-card.latest { border-color: rgba(52,211,153,0.4); }
+.version-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+}
+.version-tag { font-size: 1.4rem; font-weight: 700; color: #F8FAFC; }
+.version-date { font-size: 0.85rem; color: #64748B; }
+.badge-latest {
+  background: rgba(52,211,153,0.15); color: #34D399;
+  border: 1px solid rgba(52,211,153,0.3); border-radius: 20px;
+  padding: 3px 14px; font-size: 0.75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.hw-section {
+  background: rgba(15,23,42,0.5); border: 1px solid rgba(51,65,85,0.5);
+  border-radius: 12px; padding: 20px 24px; margin-bottom: 16px;
+}
+.hw-section:last-child { margin-bottom: 0; }
+.hw-name {
+  font-size: 0.95rem; font-weight: 600; color: #CBD5E1;
+  margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.hw-name .chip {
+  font-size: 0.7rem; color: #64748B;
+  background: rgba(100,116,139,0.15); border-radius: 4px; padding: 2px 8px;
+}
+.report-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.report-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
+  border-radius: 8px; padding: 8px 18px; color: #34D399;
+  text-decoration: none; font-size: 0.88rem; font-weight: 500;
+  transition: all 0.15s;
+}
+.report-link:hover {
+  background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.4);
+  transform: translateY(-1px);
+}
+.report-link.secondary {
+  background: rgba(56,189,248,0.08); border-color: rgba(56,189,248,0.2); color: #38BDF8;
+}
+.report-link.secondary:hover {
+  background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.4);
+}
+.report-link.arch {
+  background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.2); color: #A78BFA;
+}
+.report-link.arch:hover {
+  background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.4);
+}
+.version-desc { color: #94A3B8; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.7; }
+.back-link {
+  display: inline-block; margin-top: 40px;
+  color: #64748B; text-decoration: none; font-size: 0.85rem; transition: color 0.2s;
+}
+.back-link:hover { color: #94A3B8; }
+@media (max-width: 600px) {
+  .hero h1 { font-size: 1.6rem; }
+  .version-header { flex-wrap: wrap; }
+  .report-links { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<header class="hero">
+  <h1>Apex Core <span>Benchmarks</span></h1>
+  <p class="subtitle">
+    버전별 성능 벤치마크 보고서 — Per-core 아키텍처 스케일링, NUMA/Affinity 효과, 컴포넌트 성능 추적
+  </p>
+</header>
+<div class="container">
+  <div class="version-card latest">
+    <div class="version-header">
+      <span class="version-tag">v0.6.5.0</span>
+      <span class="version-date">2026-03-27</span>
+      <span class="badge-latest">Latest</span>
+    </div>
+    <p class="version-desc">
+      NUMA 바인딩 + Core Affinity 적용. 물리 코어 1:1 핀닝, P/E 코어 분류, NUMA-local 메모리 재할당.
+      3-way 비교(OFF/ON) + 버전 간 성능 변화 분석.
+    </p>
+    <div class="hw-section">
+      <div class="hw-name">Intel Core i7-14700 <span class="chip">20C/28T (8P+12E) · 65GB</span></div>
+      <div class="report-links">
+        <a href="v0.6.5.0/i7-14700-20C28T/standard.html" class="report-link">벤치마크 보고서</a>
+        <a href="v0.6.5.0/i7-14700-20C28T/report.html" class="report-link secondary">3-Way 비교 보고서</a>
+      </div>
+    </div>
+    <div class="hw-section">
+      <div class="hw-name">Intel Core i5-9300H <span class="chip">4C/8T · 12GB</span></div>
+      <div class="report-links">
+        <a href="v0.6.5.0/i5-9300H-4C8T/standard.html" class="report-link">벤치마크 보고서</a>
+        <a href="v0.6.5.0/i5-9300H-4C8T/report.html" class="report-link secondary">3-Way 비교 보고서</a>
+      </div>
+    </div>
+  </div>
+  <div class="version-card">
+    <div class="version-header">
+      <span class="version-tag">v0.6.1.0</span>
+      <span class="version-date">2026-03-24</span>
+    </div>
+    <p class="version-desc">
+      i7-14700 고코어 환경 첫 벤치마크. Per-core vs Shared 아키텍처 비교 — 28워커에서 5.3x 격차 달성.
+    </p>
+    <div class="hw-section">
+      <div class="hw-name">Intel Core i7-14700 <span class="chip">20C/28T (8P+12E) · 65GB</span></div>
+      <div class="report-links">
+        <a href="v0.6.1.0/i7-14700-20C28T/report.html" class="report-link">벤치마크 보고서</a>
+        <a href="v0.6.1.0/i7-14700-20C28T/architecture.html" class="report-link arch">아키텍처 비교</a>
+      </div>
+    </div>
+  </div>
+  <div class="version-card">
+    <div class="version-header">
+      <span class="version-tag">v0.5.10.0</span>
+      <span class="version-date">2026-03-21</span>
+    </div>
+    <p class="version-desc">
+      벤치마크 인프라 도입. Micro 7종 + Integration 4종 최초 실측. i5-9300H 4코어 환경.
+    </p>
+    <div class="hw-section">
+      <div class="hw-name">Intel Core i5-9300H <span class="chip">4C/8T · 12GB</span></div>
+      <div class="report-links">
+        <a href="v0.5.10.0/i5-9300H-4C8T/report.html" class="report-link">벤치마크 보고서</a>
+      </div>
+    </div>
+  </div>
+  <a href="../" class="back-link">&larr; Apex Pipeline 쇼케이스로 돌아가기</a>
+</div>
+</body>
+</html>

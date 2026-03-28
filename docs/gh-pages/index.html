@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apex Pipeline — C++23 Per-Core Server Framework</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────── */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #0F172A;
+    color: #CBD5E1;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  a { color: #38BDF8; text-decoration: none; transition: color 0.2s; }
+  a:hover { color: #34D399; }
+
+  /* ── Layout ───────────────────────────────────────────── */
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Section ──────────────────────────────────────────── */
+  .section { padding: 80px 0; }
+  .section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #F1F5F9;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .section-subtitle {
+    text-align: center;
+    color: #94A3B8;
+    font-size: 1.05rem;
+    margin-bottom: 48px;
+  }
+
+  /* ── Gradient Text ────────────────────────────────────── */
+  .gradient-text {
+    background: linear-gradient(135deg, #34D399, #38BDF8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Hero ──────────────────────────────────────────────── */
+  .hero {
+    position: relative;
+    padding: 140px 0 100px;
+    text-align: center;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 900px;
+    background: radial-gradient(circle, rgba(52,211,153,0.12) 0%, rgba(56,189,248,0.08) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -20%;
+    left: 30%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(167,139,250,0.08) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hero > * { position: relative; z-index: 1; }
+  .hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+  }
+  .hero-subtitle {
+    font-size: 1.15rem;
+    color: #94A3B8;
+    max-width: 720px;
+    margin: 0 auto 36px;
+    line-height: 1.75;
+  }
+  .hero-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .pill {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 9999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid #334155;
+    background: rgba(30,41,59,0.7);
+    color: #E2E8F0;
+    backdrop-filter: blur(4px);
+  }
+  .pill--green  { border-color: rgba(52,211,153,0.4);  color: #34D399; }
+  .pill--blue   { border-color: rgba(56,189,248,0.4);  color: #38BDF8; }
+  .pill--purple { border-color: rgba(167,139,250,0.4); color: #A78BFA; }
+  .pill--amber  { border-color: rgba(245,158,11,0.4);  color: #F59E0B; }
+
+  /* ── GitHub CTA ──────────────────────────────────────── */
+  .hero-cta {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+  }
+  .github-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 44px;
+    background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+    border: 1.5px solid rgba(52,211,153,0.35);
+    border-radius: 16px;
+    color: #F1F5F9;
+    font-size: 1.15rem;
+    font-weight: 700;
+    text-decoration: none;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    animation: btn-pulse 3s ease-in-out infinite;
+    backdrop-filter: blur(8px);
+  }
+  .github-btn:hover {
+    color: #F1F5F9;
+    transform: translateY(-4px) scale(1.04);
+    border-color: rgba(52,211,153,0.7);
+    box-shadow:
+      0 0 30px rgba(52,211,153,0.3),
+      0 0 60px rgba(56,189,248,0.15),
+      0 20px 50px rgba(0,0,0,0.4);
+  }
+  .github-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(52,211,153,0.12), rgba(56,189,248,0.12), transparent);
+    animation: shimmer 2.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .github-btn-icon { width: 26px; height: 26px; flex-shrink: 0; }
+  .github-btn-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(148,163,184,0.25);
+    flex-shrink: 0;
+  }
+  .github-btn-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    background: rgba(52,211,153,0.1);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #34D399;
+    transition: background 0.3s;
+  }
+  .github-btn:hover .github-btn-stars { background: rgba(52,211,153,0.18); }
+  .github-btn-stars svg { width: 14px; height: 14px; fill: #34D399; }
+  @keyframes shimmer {
+    0% { left: -100%; }
+    50% { left: 100%; }
+    100% { left: 100%; }
+  }
+  @keyframes btn-pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(52,211,153,0.08), 0 0 30px rgba(56,189,248,0.04); }
+    50% { box-shadow: 0 0 25px rgba(52,211,153,0.18), 0 0 50px rgba(56,189,248,0.08); }
+  }
+
+  /* ── Grid ─────────────────────────────────────────────── */
+  .grid { display: grid; gap: 24px; }
+  .cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Card ─────────────────────────────────────────────── */
+  .card {
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 28px;
+    transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+  }
+  .card:hover {
+    border-color: #34D399;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 32px rgba(52,211,153,0.08);
+  }
+  .card-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+  }
+  .card-link:hover { color: inherit; }
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin-bottom: 16px;
+  }
+  .card-icon--green  { background: rgba(52,211,153,0.12);  color: #34D399; }
+  .card-icon--blue   { background: rgba(56,189,248,0.12);  color: #38BDF8; }
+  .card-icon--purple { background: rgba(167,139,250,0.12); color: #A78BFA; }
+  .card-icon--amber  { background: rgba(245,158,11,0.12);  color: #F59E0B; }
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #F1F5F9;
+    margin-bottom: 8px;
+  }
+  .card-desc {
+    font-size: 0.92rem;
+    color: #94A3B8;
+    line-height: 1.6;
+  }
+
+  /* ── Badge ────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+  .badge--green  { background: rgba(52,211,153,0.15);  color: #34D399; }
+  .badge--blue   { background: rgba(56,189,248,0.15);  color: #38BDF8; }
+  .badge--purple { background: rgba(167,139,250,0.15); color: #A78BFA; }
+  .badge--amber  { background: rgba(245,158,11,0.15);  color: #F59E0B; }
+
+  /* ── Stat Row ─────────────────────────────────────────── */
+  .stat-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    padding: 10px 8px;
+    background: rgba(15,23,42,0.6);
+    border-radius: 8px;
+    border: 1px solid #334155;
+  }
+  .stat-value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #F1F5F9;
+  }
+  .stat-value--green  { color: #34D399; }
+  .stat-value--blue   { color: #38BDF8; }
+  .stat-label {
+    font-size: 0.72rem;
+    color: #64748B;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Tech Tags ────────────────────────────────────────── */
+  .tech-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .tech-tag {
+    padding: 5px 12px;
+    background: rgba(15,23,42,0.6);
+    border: 1px solid #334155;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: #94A3B8;
+    font-weight: 500;
+  }
+
+  /* ── Center Link ──────────────────────────────────────── */
+  .center-link {
+    text-align: center;
+    margin-top: 32px;
+  }
+  .center-link a {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #38BDF8;
+    transition: color 0.2s;
+  }
+  .center-link a:hover { color: #34D399; }
+
+  /* ── Divider ──────────────────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 1px solid #1E293B;
+    margin: 0;
+  }
+
+  /* ── Footer ───────────────────────────────────────────── */
+  .footer {
+    padding: 48px 0 40px;
+    border-top: 1px solid #1E293B;
+    text-align: center;
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .footer-links a {
+    font-size: 0.9rem;
+    color: #64748B;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: #38BDF8; }
+  .footer-copy {
+    font-size: 0.82rem;
+    color: #475569;
+  }
+
+  /* ── Benchmark Image Card ────────────────────────────── */
+  .bench-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .bench-card:hover {
+    color: inherit;
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(52,211,153,0.12);
+  }
+  .bench-card img {
+    width: 100%;
+    display: block;
+  }
+  .bench-card-body {
+    padding: 20px 24px;
+  }
+  .bench-caption {
+    font-size: 0.9rem;
+    color: #94A3B8;
+    line-height: 1.5;
+  }
+
+  /* ── Bar Chart Card ──────────────────────────────────── */
+  .bar-chart-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .bar-chart-card:hover {
+    color: inherit;
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(52,211,153,0.12);
+  }
+  .bar-chart-inner {
+    padding: 28px 28px 16px;
+  }
+  .bar-chart-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 20px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .bar-label {
+    width: 120px;
+    flex-shrink: 0;
+    font-size: 0.82rem;
+    color: #CBD5E1;
+    font-weight: 600;
+  }
+  .bar-track {
+    flex: 1;
+    height: 24px;
+    background: rgba(15,23,42,0.6);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #34D399, #2DD4A8);
+    transition: width 0.8s ease-out;
+  }
+  .bar-fill--negative {
+    background: linear-gradient(90deg, #38BDF8, #22D3EE);
+  }
+  .bar-value {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #34D399;
+  }
+  .bar-value--negative {
+    color: #38BDF8;
+  }
+  .bar-chart-card .bench-card-body {
+    padding: 12px 24px 20px;
+  }
+
+  .bench-hint {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.82rem;
+    color: #64748B;
+  }
+
+  /* ── Agent Hero Card ─────────────────────────────────── */
+  .agent-hero-card {
+    background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0.04) 100%);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 16px;
+    padding: 48px 40px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .agent-hero-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(245,158,11,0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245,158,11,0.3);
+    margin-bottom: 20px;
+  }
+  .agent-hero-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #F1F5F9;
+    margin-bottom: 12px;
+  }
+  .agent-hero-desc {
+    font-size: 1.1rem;
+    color: #94A3B8;
+    max-width: 600px;
+    margin: 0 auto 28px;
+    line-height: 1.65;
+  }
+  .agent-hero-btn {
+    display: inline-block;
+    padding: 14px 36px;
+    background: #F59E0B;
+    color: #0F172A;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .agent-hero-btn:hover {
+    color: #0F172A;
+    background: #FBBF24;
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.25);
+  }
+
+  /* ── Agent Feature Cards ─────────────────────────────── */
+  .agent-feat-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.3s, transform 0.25s, box-shadow 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .agent-feat-card:hover {
+    color: inherit;
+    border-color: #F59E0B;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.08);
+  }
+  .agent-feat-card .agent-feat-more {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #F59E0B;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .agent-feat-card:hover .agent-feat-more {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .agent-feat-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #F1F5F9;
+    margin-bottom: 10px;
+  }
+  .agent-feat-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .agent-feat-stat {
+    font-size: 0.85rem;
+    color: #94A3B8;
+    padding-left: 12px;
+    position: relative;
+  }
+  .agent-feat-stat::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #F59E0B;
+  }
+
+  /* ── Responsive ───────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .hero-title { font-size: 2.2rem; }
+    .hero-subtitle { font-size: 1rem; }
+    .hero { padding: 100px 0 70px; }
+    .section { padding: 56px 0; }
+    .section-title { font-size: 1.6rem; }
+    .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; }
+    .stat-row { gap: 8px; }
+    .bar-label { width: 90px; font-size: 0.75rem; }
+    .bar-value { width: 56px; font-size: 0.8rem; }
+    .agent-hero-card { padding: 32px 20px; }
+    .agent-hero-title { font-size: 1.4rem; }
+    .agent-hero-desc { font-size: 0.95rem; }
+    .github-btn { padding: 14px 28px; font-size: 1rem; gap: 10px; }
+    .github-btn-icon { width: 22px; height: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     HERO
+     ════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <h1 class="hero-title gradient-text">Apex Pipeline</h1>
+  <p class="hero-subtitle">
+    C++23 코루틴 기반 Per-Core 고성능 서버 프레임워크 &mdash;
+    자체 네트워크 스택 + MSA 아키텍처 + AI Agent-Driven 개발 생태계
+  </p>
+  <div class="hero-pills">
+    <span class="pill pill--green">C++23 Coroutines</span>
+    <span class="pill pill--blue">Per-Core Shared-Nothing</span>
+    <span class="pill pill--purple">NUMA Affinity</span>
+    <span class="pill pill--amber">AI Agent Driven</span>
+  </div>
+  <div class="hero-cta">
+    <a class="github-btn" href="https://github.com/Gazuua/apex_pipeline" target="_blank" rel="noopener">
+      <svg class="github-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+      <span>View on GitHub</span>
+      <span class="github-btn-divider"></span>
+      <span class="github-btn-stars">
+        <svg viewBox="0 0 24 24"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/></svg>
+        <span id="starCount">&mdash;</span>
+      </span>
+    </a>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     FEATURES
+     ════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="grid cols-4">
+
+      <!-- Per-Core Architecture -->
+      <div class="card">
+        <div class="card-icon card-icon--green">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+            <rect x="9" y="9" width="6" height="6"/>
+            <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+            <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+            <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/>
+            <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Per-Core Architecture</h3>
+        <p class="card-desc">코어별 독립 이벤트 루프, Lock-free 코어 간 통신</p>
+      </div>
+
+      <!-- NUMA-Aware -->
+      <div class="card">
+        <div class="card-icon card-icon--blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+          </svg>
+        </div>
+        <h3 class="card-title">NUMA-Aware</h3>
+        <p class="card-desc">CPU Topology Discovery, 물리 코어 1:1 핀닝</p>
+      </div>
+
+      <!-- MSA Gateway -->
+      <div class="card">
+        <div class="card-icon card-icon--purple">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3 class="card-title">MSA Gateway</h3>
+        <p class="card-desc">Gateway &rarr; Kafka &rarr; Services, Redis/PostgreSQL</p>
+      </div>
+
+      <!-- Agent Ecosystem -->
+      <div class="card">
+        <div class="card-icon card-icon--amber">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93"/>
+            <path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/>
+            <rect x="8" y="14" width="8" height="7" rx="1"/>
+            <line x1="10" y1="17" x2="14" y2="17"/>
+            <line x1="12" y1="10" x2="12" y2="14"/>
+            <line x1="8" y1="16" x2="5" y2="14"/>
+            <line x1="16" y1="16" x2="19" y2="14"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Agent Ecosystem</h3>
+        <p class="card-desc">apex-agent Go 백엔드, 6 Hooks + Auto-Review</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════
+     PERFORMANCE BENCHMARKS
+     ════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Performance Benchmarks</h2>
+    <p class="section-subtitle">버전별 성능 측정 + NUMA/Affinity 효과 분석</p>
+
+    <div class="grid cols-2">
+
+      <!-- Image 1: Per-core 선형 확장 -->
+      <a class="bench-card" href="benchmark/">
+        <img src="benchmark/images/architecture_scaling.png" alt="Per-core vs Shared 스케일링 그래프">
+        <div class="bench-card-body">
+          <p class="bench-caption">Per-core vs Shared 스케일링 &mdash; 코어 수 증가에 비례하는 선형 확장</p>
+        </div>
+      </a>
+
+      <!-- Image 2: Micro 벤치마크 CSS Bar Chart -->
+      <a class="bar-chart-card" href="benchmark/">
+        <div class="bar-chart-inner">
+          <div class="bar-chart-title">v0.5.10 &rarr; v0.6.5 Micro Benchmark Improvement</div>
+
+          <div class="bar-row">
+            <span class="bar-label">SPSC Queue</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 100%"></div>
+            </div>
+            <span class="bar-value">+231%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Ring Buffer</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 80.5%"></div>
+            </div>
+            <span class="bar-value">+186%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Frame Codec</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 70.6%"></div>
+            </div>
+            <span class="bar-value">+163%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Timing Wheel</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 66.2%"></div>
+            </div>
+            <span class="bar-value">+153%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Allocators</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 35.9%"></div>
+            </div>
+            <span class="bar-value">+83%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Cross-Core RTT</span>
+            <div class="bar-track">
+              <div class="bar-fill bar-fill--negative" style="width: 18.2%"></div>
+            </div>
+            <span class="bar-value bar-value--negative">-42%</span>
+          </div>
+        </div>
+        <div class="bench-card-body">
+          <p class="bench-caption">v0.6.5 Micro 벤치마크 &mdash; NUMA+Affinity 적용 후 핵심 컴포넌트 2~3x 개선</p>
+        </div>
+      </a>
+
+    </div>
+
+    <p class="bench-hint">클릭하면 전체 벤치마크 보고서로 이동합니다 &rarr;</p>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════
+     AI AGENT INFRASTRUCTURE
+     ════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">AI Agent Infrastructure</h2>
+    <p class="section-subtitle">에이전트가 에이전트를 관리하는 자율 개발 생태계</p>
+
+    <!-- Hero Card -->
+    <div class="agent-hero-card">
+      <div class="agent-hero-badge">Showcase</div>
+      <h3 class="agent-hero-title">AI Agent-Driven Development Ecosystem</h3>
+      <p class="agent-hero-desc">에이전트가 에이전트를 관리하는 자율 개발 생태계</p>
+      <a class="agent-hero-btn" href="showcase/agent_ecosystem_full.html">쇼케이스 보기 &rarr;</a>
+    </div>
+
+    <!-- 3-col Feature Cards -->
+    <div class="grid cols-3">
+
+      <!-- apex-agent -->
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">apex-agent</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">Go + SQLite 데몬</span>
+          <span class="agent-feat-stat">4개 모듈</span>
+          <span class="agent-feat-stat">Named Pipe IPC</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
+      </a>
+
+      <!-- 6 Hooks -->
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">6 Hooks</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">PreToolUse 게이트</span>
+          <span class="agent-feat-stat">빌드 &middot; 머지 &middot; 핸드오프 강제</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
+      </a>
+
+      <!-- Auto-Review -->
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">Auto-Review</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">7병렬 리뷰어</span>
+          <span class="agent-feat-stat">로직 &middot; 보안 &middot; 설계 &middot; 테스트</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════════════════════════════════════════════════
+     TECH STACK
+     ════════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Tech Stack</h2>
+    <p class="section-subtitle">&nbsp;</p>
+
+    <div class="grid cols-2">
+
+      <!-- Server Framework -->
+      <div class="card">
+        <div class="card-icon card-icon--green">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Server Framework</h3>
+        <div class="tech-tags">
+          <span class="tech-tag">C++23</span>
+          <span class="tech-tag">Boost.Asio</span>
+          <span class="tech-tag">Coroutines</span>
+          <span class="tech-tag">FlatBuffers</span>
+          <span class="tech-tag">Per-Core Shared-Nothing</span>
+          <span class="tech-tag">SPSC/MPSC Lock-free Queues</span>
+          <span class="tech-tag">Slab/Bump/Arena Allocators</span>
+          <span class="tech-tag">NUMA Binding</span>
+        </div>
+      </div>
+
+      <!-- Infrastructure -->
+      <div class="card">
+        <div class="card-icon card-icon--blue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+        </div>
+        <h3 class="card-title">Infrastructure</h3>
+        <div class="tech-tags">
+          <span class="tech-tag">Kafka</span>
+          <span class="tech-tag">Redis</span>
+          <span class="tech-tag">PostgreSQL</span>
+          <span class="tech-tag">Docker</span>
+          <span class="tech-tag">Kubernetes</span>
+          <span class="tech-tag">Helm (apex-pipeline + apex-observability)</span>
+          <span class="tech-tag">GitHub Actions CI</span>
+          <span class="tech-tag">Argo Rollouts</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     FOOTER
+     ════════════════════════════════════════════════════════ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="https://github.com/Gazuua/apex_pipeline">GitHub</a>
+      <a href="benchmark/">Benchmarks</a>
+      <a href="showcase/agent_ecosystem_full.html">Agent Showcase</a>
+    </div>
+    <p class="footer-copy">Apex Pipeline &mdash; C++23 Per-Core Server Framework + AI Agent-Driven Development</p>
+  </div>
+</footer>
+
+<script>
+fetch('https://api.github.com/repos/Gazuua/apex_pipeline')
+  .then(function(r){return r.json()})
+  .then(function(d){if(d.stargazers_count!==undefined)document.getElementById('starCount').textContent=d.stargazers_count})
+  .catch(function(){});
+</script>
+
+</body>
+</html>
