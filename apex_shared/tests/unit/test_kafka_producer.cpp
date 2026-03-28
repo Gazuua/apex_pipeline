@@ -77,13 +77,19 @@ TEST(KafkaProducer, ProduceAfterInit)
         GTEST_SKIP() << "librdkafka init failed (expected in some CI environments)";
     }
 
-    // produce() only enqueues internally -- succeeds without broker
-    auto before = producer.outq_len() + static_cast<int32_t>(producer.total_produced());
+    // produce() only enqueues internally -- succeeds without broker.
+    // 보존 법칙: outq + produced + failed — 메시지가 어디로 가든 추적.
+    // rd_kafka_outq_len()은 내부 metadata 요청도 포함하므로,
+    // total_failed 없이는 delivery 실패 시 메시지가 추적에서 사라진다.
+    auto tally = [&] {
+        return producer.outq_len() + static_cast<int32_t>(producer.total_produced()) +
+               static_cast<int32_t>(producer.total_failed());
+    };
+    auto before = tally();
     auto result = producer.produce("test-topic", "key", std::string_view("hello kafka"));
     EXPECT_TRUE(result.has_value());
     producer.poll(100);
-    auto after = producer.outq_len() + static_cast<int32_t>(producer.total_produced());
-    EXPECT_GT(after, before) << "produce should enqueue at least one message";
+    EXPECT_GT(tally(), before) << "produce should enqueue at least one message";
 }
 
 TEST(KafkaProducer, ProduceWithSpanPayload)
