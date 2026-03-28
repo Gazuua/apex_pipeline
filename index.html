@@ -271,6 +271,228 @@
     color: #475569;
   }
 
+  /* ── Benchmark Image Card ────────────────────────────── */
+  .bench-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .bench-card:hover {
+    color: inherit;
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(52,211,153,0.12);
+  }
+  .bench-card img {
+    width: 100%;
+    display: block;
+  }
+  .bench-card-body {
+    padding: 20px 24px;
+  }
+  .bench-caption {
+    font-size: 0.9rem;
+    color: #94A3B8;
+    line-height: 1.5;
+  }
+
+  /* ── Bar Chart Card ──────────────────────────────────── */
+  .bar-chart-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .bar-chart-card:hover {
+    color: inherit;
+    transform: scale(1.02);
+    box-shadow: 0 12px 40px rgba(52,211,153,0.12);
+  }
+  .bar-chart-inner {
+    padding: 28px 28px 16px;
+  }
+  .bar-chart-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 20px;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .bar-label {
+    width: 120px;
+    flex-shrink: 0;
+    font-size: 0.82rem;
+    color: #CBD5E1;
+    font-weight: 600;
+  }
+  .bar-track {
+    flex: 1;
+    height: 24px;
+    background: rgba(15,23,42,0.6);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #34D399, #2DD4A8);
+    transition: width 0.8s ease-out;
+  }
+  .bar-fill--negative {
+    background: linear-gradient(90deg, #38BDF8, #22D3EE);
+  }
+  .bar-value {
+    width: 64px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #34D399;
+  }
+  .bar-value--negative {
+    color: #38BDF8;
+  }
+  .bar-chart-card .bench-card-body {
+    padding: 12px 24px 20px;
+  }
+
+  .bench-hint {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.82rem;
+    color: #64748B;
+  }
+
+  /* ── Agent Hero Card ─────────────────────────────────── */
+  .agent-hero-card {
+    background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0.04) 100%);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 16px;
+    padding: 48px 40px;
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .agent-hero-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(245,158,11,0.15);
+    color: #F59E0B;
+    border: 1px solid rgba(245,158,11,0.3);
+    margin-bottom: 20px;
+  }
+  .agent-hero-title {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #F1F5F9;
+    margin-bottom: 12px;
+  }
+  .agent-hero-desc {
+    font-size: 1.1rem;
+    color: #94A3B8;
+    max-width: 600px;
+    margin: 0 auto 28px;
+    line-height: 1.65;
+  }
+  .agent-hero-btn {
+    display: inline-block;
+    padding: 14px 36px;
+    background: #F59E0B;
+    color: #0F172A;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .agent-hero-btn:hover {
+    color: #0F172A;
+    background: #FBBF24;
+    transform: scale(1.05);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.25);
+  }
+
+  /* ── Agent Feature Cards ─────────────────────────────── */
+  .agent-feat-card {
+    display: block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.3s, transform 0.25s, box-shadow 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .agent-feat-card:hover {
+    color: inherit;
+    border-color: #F59E0B;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(245,158,11,0.08);
+  }
+  .agent-feat-card .agent-feat-more {
+    display: block;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #F59E0B;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .agent-feat-card:hover .agent-feat-more {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .agent-feat-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #F1F5F9;
+    margin-bottom: 10px;
+  }
+  .agent-feat-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .agent-feat-stat {
+    font-size: 0.85rem;
+    color: #94A3B8;
+    padding-left: 12px;
+    position: relative;
+  }
+  .agent-feat-stat::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #F59E0B;
+  }
+
   /* ── Responsive ───────────────────────────────────────── */
   @media (max-width: 768px) {
     .hero-title { font-size: 2.2rem; }
@@ -280,6 +502,11 @@
     .section-title { font-size: 1.6rem; }
     .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; }
     .stat-row { gap: 8px; }
+    .bar-label { width: 90px; font-size: 0.75rem; }
+    .bar-value { width: 56px; font-size: 0.8rem; }
+    .agent-hero-card { padding: 32px 20px; }
+    .agent-hero-title { font-size: 1.4rem; }
+    .agent-hero-desc { font-size: 0.95rem; }
   }
 </style>
 </head>
@@ -381,57 +608,75 @@
 
     <div class="grid cols-2">
 
-      <!-- v0.6.5 i7-14700 -->
-      <a class="card card-link" href="benchmark/v0.6.5.0/i7-14700-20C28T/standard.html">
-        <span class="badge badge--green">Latest</span>
-        <h3 class="card-title">v0.6.5 &mdash; i7-14700</h3>
-        <p class="card-desc">
-          NUMA+Affinity 적용, 20물리 코어(8P+12E). Cross-core RTT -42%, PostThroughput +67%.
-        </p>
-        <div class="stat-row">
-          <div class="stat">
-            <div class="stat-value stat-value--green">2.9M</div>
-            <div class="stat-label">msg/sec</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value stat-value--blue">-42%</div>
-            <div class="stat-label">RTT 감소</div>
-          </div>
-          <div class="stat">
-            <div class="stat-value">20C</div>
-            <div class="stat-label">물리 코어</div>
-          </div>
+      <!-- Image 1: Per-core 선형 확장 -->
+      <a class="bench-card" href="benchmark/">
+        <img src="benchmark/images/architecture_scaling.png" alt="Per-core vs Shared 스케일링 그래프">
+        <div class="bench-card-body">
+          <p class="bench-caption">Per-core vs Shared 스케일링 &mdash; 코어 수 증가에 비례하는 선형 확장</p>
         </div>
       </a>
 
-      <!-- v0.6.5 i5-9300H -->
-      <a class="card card-link" href="benchmark/v0.6.5.0/i5-9300H-4C8T/standard.html">
-        <span class="badge badge--blue">v0.6.5</span>
-        <h3 class="card-title">v0.6.5 &mdash; i5-9300H</h3>
-        <p class="card-desc">
-          4코어 환경 affinity 효과 검증. Latency 안정화(-13.4%), HT 경계 분석.
-        </p>
-        <div class="stat-row">
-          <div class="stat">
-            <div class="stat-value stat-value--blue">-13%</div>
-            <div class="stat-label">RTT 감소</div>
+      <!-- Image 2: Micro 벤치마크 CSS Bar Chart -->
+      <a class="bar-chart-card" href="benchmark/">
+        <div class="bar-chart-inner">
+          <div class="bar-chart-title">v0.5.10 &rarr; v0.6.5 Micro Benchmark Improvement</div>
+
+          <div class="bar-row">
+            <span class="bar-label">SPSC Queue</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 100%"></div>
+            </div>
+            <span class="bar-value">+231%</span>
           </div>
-          <div class="stat">
-            <div class="stat-value stat-value--green">+82%</div>
-            <div class="stat-label">Micro 평균</div>
+
+          <div class="bar-row">
+            <span class="bar-label">Ring Buffer</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 80.5%"></div>
+            </div>
+            <span class="bar-value">+186%</span>
           </div>
-          <div class="stat">
-            <div class="stat-value">4C</div>
-            <div class="stat-label">물리 코어</div>
+
+          <div class="bar-row">
+            <span class="bar-label">Frame Codec</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 70.6%"></div>
+            </div>
+            <span class="bar-value">+163%</span>
           </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Timing Wheel</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 66.2%"></div>
+            </div>
+            <span class="bar-value">+153%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Allocators</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: 35.9%"></div>
+            </div>
+            <span class="bar-value">+83%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-label">Cross-Core RTT</span>
+            <div class="bar-track">
+              <div class="bar-fill bar-fill--negative" style="width: 18.2%"></div>
+            </div>
+            <span class="bar-value bar-value--negative">-42%</span>
+          </div>
+        </div>
+        <div class="bench-card-body">
+          <p class="bench-caption">v0.6.5 Micro 벤치마크 &mdash; NUMA+Affinity 적용 후 핵심 컴포넌트 2~3x 개선</p>
         </div>
       </a>
 
     </div>
 
-    <div class="center-link">
-      <a href="benchmark/">전체 버전별 보고서 보기 &rarr;</a>
-    </div>
+    <p class="bench-hint">클릭하면 전체 벤치마크 보고서로 이동합니다 &rarr;</p>
   </div>
 </section>
 
@@ -445,37 +690,47 @@
     <h2 class="section-title">AI Agent Infrastructure</h2>
     <p class="section-subtitle">에이전트가 에이전트를 관리하는 자율 개발 생태계</p>
 
+    <!-- Hero Card -->
+    <div class="agent-hero-card">
+      <div class="agent-hero-badge">Showcase</div>
+      <h3 class="agent-hero-title">AI Agent-Driven Development Ecosystem</h3>
+      <p class="agent-hero-desc">에이전트가 에이전트를 관리하는 자율 개발 생태계</p>
+      <a class="agent-hero-btn" href="showcase/agent_ecosystem_full.html">쇼케이스 보기 &rarr;</a>
+    </div>
+
+    <!-- 3-col Feature Cards -->
     <div class="grid cols-3">
 
-      <!-- Agent Ecosystem -->
-      <a class="card card-link" href="showcase/agent_ecosystem_full.html">
-        <span class="badge badge--amber">Showcase</span>
-        <h3 class="card-title">Agent Ecosystem</h3>
-        <p class="card-desc">
-          apex-agent Go 백엔드, 6개 Hook 게이트, Auto-Review 7병렬 리뷰어,
-          FSD-Backlog 자율 소탕, HTTP Dashboard.
-        </p>
+      <!-- apex-agent -->
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">apex-agent</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">Go + SQLite 데몬</span>
+          <span class="agent-feat-stat">4개 모듈</span>
+          <span class="agent-feat-stat">Named Pipe IPC</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
       </a>
 
-      <!-- apex-agent -->
-      <div class="card">
-        <span class="badge badge--purple">Core</span>
-        <h3 class="card-title">apex-agent</h3>
-        <p class="card-desc">
-          Go + SQLite 기반 상시 데몬. 백로그 DB, 핸드오프 상태 머신,
-          빌드/머지 큐, Named Pipe IPC.
-        </p>
-      </div>
+      <!-- 6 Hooks -->
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">6 Hooks</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">PreToolUse 게이트</span>
+          <span class="agent-feat-stat">빌드 &middot; 머지 &middot; 핸드오프 강제</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
+      </a>
 
       <!-- Auto-Review -->
-      <div class="card">
-        <span class="badge badge--blue">Quality</span>
-        <h3 class="card-title">Auto-Review</h3>
-        <p class="card-desc">
-          7개 전문 리뷰어 병렬 수행. 로직, 시스템, 설계, 테스트, 보안,
-          문서 정합성, 인프라.
-        </p>
-      </div>
+      <a class="agent-feat-card" href="showcase/agent_ecosystem_full.html">
+        <h4 class="agent-feat-title">Auto-Review</h4>
+        <div class="agent-feat-stats">
+          <span class="agent-feat-stat">7병렬 리뷰어</span>
+          <span class="agent-feat-stat">로직 &middot; 보안 &middot; 설계 &middot; 테스트</span>
+        </div>
+        <span class="agent-feat-more">자세히 보기 &rarr;</span>
+      </a>
 
     </div>
   </div>
