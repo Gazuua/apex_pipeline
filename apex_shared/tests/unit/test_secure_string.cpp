@@ -4,15 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <new>
 #include <utility>
-
-// Valgrind 런타임 감지 — ZeroizesOnDestruction 테스트에서 해제된 메모리 접근 가드
-#if __has_include(<valgrind/valgrind.h>)
-#include <valgrind/valgrind.h>
-#define APEX_RUNNING_ON_VALGRIND RUNNING_ON_VALGRIND
-#else
-#define APEX_RUNNING_ON_VALGRIND 0
-#endif
 
 using apex::shared::SecureString;
 
@@ -70,25 +63,31 @@ TEST(SecureStringTest, CopyCreatesIndependentZeroizedCopy)
 
 TEST(SecureStringTest, ZeroizesOnDestruction)
 {
-    // Allocate a string long enough to bypass SSO (> 15 chars typically)
-    constexpr std::string_view kSecret = "a_long_secret_that_bypasses_sso_buffer_1234567890";
-    const char* raw_ptr = nullptr;
+    // Placement new로 소유 버퍼에 SecureString을 생성, 소멸 후 버퍼 검증.
+    // freed memory 접근(UB)이 아니므로 Valgrind/ASAN/MSAN 안전.
+    //
+    // SSO 경로: 짧은 문자열은 std::string 내부 버퍼에 직접 저장된다.
+    // 제어 필드(_Myres 등)는 ~string()이 재기록할 수 있으므로
+    // 비밀 데이터가 저장된 SSO 버퍼 영역만 검증한다.
+    constexpr std::string_view kSecret = "secret!23456";
 
+    alignas(SecureString) unsigned char buffer[sizeof(SecureString)];
+    std::memset(buffer, 0xCC, sizeof(buffer));
+
+    auto* s = new (buffer) SecureString(kSecret);
+    ASSERT_EQ(s->view(), kSecret);
+    // SSO 데이터가 객체 내부 어디에 위치하는지 계산
+    const auto data_offset = reinterpret_cast<const unsigned char*>(s->c_str()) - buffer;
+    ASSERT_GE(data_offset, 0);
+    ASSERT_LT(static_cast<std::size_t>(data_offset) + kSecret.size(), sizeof(SecureString));
+    s->~SecureString();
+
+    // 비밀 데이터가 저장되었던 SSO 버퍼 영역이 제로화되었는지 검증.
+    for (std::size_t i = 0; i < kSecret.size(); ++i)
     {
-        SecureString s(kSecret);
-        raw_ptr = s.c_str();
-        // Verify the secret is there before destruction
-        ASSERT_EQ(std::memcmp(raw_ptr, kSecret.data(), kSecret.size()), 0);
+        EXPECT_EQ(buffer[static_cast<std::size_t>(data_offset) + i], 0u)
+            << "SSO byte[" << (data_offset + i) << "] not zeroed";
     }
-    // After destruction, the memory should be zeroed.
-    // NOTE: Accessing freed memory is technically UB, but this is a best-effort
-    // verification for testing purposes. Skipped under sanitizers and Valgrind.
-#if !defined(__SANITIZE_ADDRESS__) && !defined(__SANITIZE_MEMORY__) && !defined(__SANITIZE_THREAD__)
-    if (!APEX_RUNNING_ON_VALGRIND)
-    {
-        EXPECT_NE(raw_ptr[0], kSecret[0]);
-    }
-#endif
 }
 
 TEST(SecureStringTest, SelfMoveAssignment)
