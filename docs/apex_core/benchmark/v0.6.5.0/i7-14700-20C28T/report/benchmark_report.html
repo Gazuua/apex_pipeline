@@ -360,7 +360,7 @@ body {
     </div>
     <div class="header-right">
       <span class="header-version">v0.6.5.0</span>
-      <span class="header-arrow">&#8592;</span><span class="header-baseline">v0.5.10.0</span>
+      <span class="header-arrow">&#8592;</span><span class="header-baseline">v0.6.1.0</span>
     </div>
   </div>
 </header>
@@ -400,13 +400,13 @@ body {
 
   <div class="info-grid">
     <div class="info-label">CPU</div>
-    <div class="info-value">Intel Core i5-9300H (Coffee Lake)</div>
+    <div class="info-value">Intel Core i7-14700 (Raptor Lake Hybrid)</div>
     <div class="info-label">RAM</div>
-    <div class="info-value">12168 MB</div>
+    <div class="info-value">65253 MB</div>
     <div class="info-label">Cores</div>
-    <div class="info-value">4C/8T</div>
+    <div class="info-value">20C/28T</div>
     <div class="info-label">Cache</div>
-    <div class="info-value">L1D 32 KB (per-core) / L2 256 KB (per-core) / L3 8 MB (shared)</div>
+    <div class="info-value">L1D 48 KB (per-core) / L2 2 MB (per-core) / L3 33 MB (shared)</div>
     <div class="info-label">Version</div>
     <div class="info-value">v0.6.5.0</div>
     <div class="info-label">Commit</div>
@@ -416,13 +416,13 @@ body {
     <div class="info-label">Compiler</div>
     <div class="info-value">MSVC 19.44, C++23, C++23, Release</div>
     <div class="info-label">Benchmarks</div>
-    <div class="info-value">17 files</div>
+    <div class="info-value">20 files</div>
     
     <div class="info-label">Baseline</div>
-    <div class="info-value">v0.5.10.0</div>
+    <div class="info-value">v0.6.1.0</div>
   </div>
 
-  <div class="analysis-box analysis-box-alt">v0.5.10.0(2026-03-21)에서 v0.6.5.0(2026-03-27)까지 약 6일간의 집중 최적화 주기. 이 기간 동안 NUMA 바인딩 + Core Affinity(BACKLOG-40), Whisper O(1) 코어 라우팅(BACKLOG-149), Acceptor per-IP 연결 제한(BACKLOG-256) 등 <b>시스템 수준 아키텍처 변경</b>이 다수 포함되었다.<br/><br/>개별 컴포넌트의 알고리즘 개선뿐 아니라, <b>빌드 최적화</b>(Release 설정 정밀화, LTO 등)와 <b>벤치마크 하네스 개선</b>(repeats:5 aggregate, 안정화된 iteration 카운트)이 측정 정확도와 재현성을 높였다. v0.6.5.0의 벤치마크는 core affinity 핀닝이 적용된 상태에서 측정되어 OS 스케줄러 노이즈가 억제된 결과이기도 하다.<br/><br/>전체적으로 <b>마이크로 컴포넌트 40~65%</b>, <b>통합 파이프라인 8~14%</b>의 체감 가능한 성능 향상을 기록하며, v1.0.0.0 프레임워크 완성 마일스톤을 향한 성능 기반이 확보되었다.</div>
+  <div class="analysis-box analysis-box-alt">v0.6.1.0(2026-03-24)에서 v0.6.5.0(2026-03-27)까지 3일간의 변경. 이 기간의 핵심 아키텍처 변경은 <b>NUMA 바인딩 + Core Affinity(BACKLOG-40)</b>로, 물리 코어 1:1 핀닝, P/E 코어 분류, NUMA set_mempolicy, topology discovery가 도입되었다.<br/><br/>마이크로벤치마크에서 affinity 유/무에 의한 차이가 극명하게 드러나는 영역(Cross-core, FramePipeline, Session Create, TimingWheel)과 차이가 미미한 영역(SPSC Queue, RingBuffer, FrameCodec)이 뚜렷이 구분된다. 이는 <b>단일 코어 내 연산은 이미 최적이고, 코어 간 + 메모리 계층 상호작용이 병목</b>이었음을 실증한다.<br/><br/>i7-14700의 Raptor Lake Hybrid 아키텍처(8P+12E 코어)에서 P/E 분류 + 핀닝의 효과가 특히 크게 나타났으며, 이는 동일 프레임워크를 Xeon 또는 EPYC 서버급 CPU에 배포할 때 NUMA 노드 분리 효과가 더 극대화될 것을 시사한다.</div>
 </div>
 
 
@@ -436,16 +436,16 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/1024</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>194,782,609</td><td style='color:#34D399;font-weight:bold;'>277.0M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/4096</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>194,782,609</td><td style='color:#34D399;font-weight:bold;'>218.7M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/32768</td><td style='color:#34D399;font-weight:bold;'>4.2 ns</td><td style='color:#34D399;font-weight:bold;'>4.1 ns</td><td style='color:#34D399;font-weight:bold;'>186,666,667</td><td style='color:#34D399;font-weight:bold;'>238.9M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/65536</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>186,666,667</td><td style='color:#34D399;font-weight:bold;'>277.8M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Latency</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>248,888,889</td><td style='color:#34D399;font-weight:bold;'>279.5M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>1.9 ns</td><td style='color:#34D399;font-weight:bold;'>1.9 ns</td><td style='color:#34D399;font-weight:bold;'>497,777,778</td><td style='color:#34D399;font-weight:bold;'>-</td></tr>
-<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_mean</td><td>24.9 ns</td><td>24.9 ns</td><td>5</td><td>40.6M items/s</td></tr>
-<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_median</td><td>25.1 ns</td><td>25.2 ns</td><td>5</td><td>39.8M items/s</td></tr>
-<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_stddev</td><td>2.6 ns</td><td>2.6 ns</td><td>5</td><td>4.5M items/s</td></tr>
-<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_cv</td><td>0.1 ns</td><td>0.1 ns</td><td>5</td><td>0 items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/1024</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>296.2M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/4096</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>296.2M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/32768</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>303.1M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Throughput/65536</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>289.6M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Latency</td><td style='color:#34D399;font-weight:bold;'>1.9 ns</td><td style='color:#34D399;font-weight:bold;'>1.9 ns</td><td style='color:#34D399;font-weight:bold;'>344,615,385</td><td style='color:#34D399;font-weight:bold;'>537.9M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SpscQueue_Backpressure</td><td style='color:#34D399;font-weight:bold;'>1.5 ns</td><td style='color:#34D399;font-weight:bold;'>1.5 ns</td><td style='color:#34D399;font-weight:bold;'>497,777,778</td><td style='color:#34D399;font-weight:bold;'>-</td></tr>
+<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_mean</td><td>13.2 ns</td><td>13.2 ns</td><td>5</td><td>75.6M items/s</td></tr>
+<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_median</td><td>13.2 ns</td><td>13.3 ns</td><td>5</td><td>75.9M items/s</td></tr>
+<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_stddev</td><td>0.3 ns</td><td>0.4 ns</td><td>5</td><td>1.8M items/s</td></tr>
+<tr><td>SpscQueue_ConcurrentThroughput/repeats:5_cv</td><td>0.0 ns</td><td>0.0 ns</td><td>5</td><td>0 items/s</td></tr>
 
 </tbody>
 </table>
@@ -453,20 +453,20 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>MpscQueue_1P1C/1024</td><td>9.6 ns</td><td>9.5 ns</td><td>74,666,667</td><td>103.9M items/s</td></tr>
-<tr><td>MpscQueue_1P1C/4096</td><td>9.2 ns</td><td>9.3 ns</td><td>74,666,667</td><td>108.6M items/s</td></tr>
-<tr><td>MpscQueue_1P1C/32768</td><td>9.2 ns</td><td>9.2 ns</td><td>74,666,667</td><td>108.6M items/s</td></tr>
-<tr><td>MpscQueue_1P1C/65536</td><td>9.2 ns</td><td>9.3 ns</td><td>74,666,667</td><td>108.6M items/s</td></tr>
-<tr><td>MpscQueue_2P1C/repeats:5_mean</td><td>69.8 ns</td><td>69.8 ns</td><td>5</td><td>14.4M items/s</td></tr>
-<tr><td>MpscQueue_2P1C/repeats:5_median</td><td>71.5 ns</td><td>72.7 ns</td><td>5</td><td>14.0M items/s</td></tr>
-<tr><td>MpscQueue_2P1C/repeats:5_stddev</td><td>5.9 ns</td><td>5.9 ns</td><td>5</td><td>1.4M items/s</td></tr>
-<tr><td>MpscQueue_2P1C/repeats:5_cv</td><td>0.1 ns</td><td>0.1 ns</td><td>5</td><td>0 items/s</td></tr>
-<tr><td>MpscQueue_Backpressure</td><td>1.8 ns</td><td>1.8 ns</td><td>407,272,727</td><td>-</td></tr>
+<tr><td>MpscQueue_1P1C/1024</td><td>6.6 ns</td><td>6.5 ns</td><td>112,000,000</td><td>152.5M items/s</td></tr>
+<tr><td>MpscQueue_1P1C/4096</td><td>6.4 ns</td><td>6.6 ns</td><td>112,000,000</td><td>155.8M items/s</td></tr>
+<tr><td>MpscQueue_1P1C/32768</td><td>6.8 ns</td><td>6.8 ns</td><td>112,000,000</td><td>146.3M items/s</td></tr>
+<tr><td>MpscQueue_1P1C/65536</td><td>6.1 ns</td><td>6.6 ns</td><td>112,000,000</td><td>162.9M items/s</td></tr>
+<tr><td>MpscQueue_2P1C/repeats:5_mean</td><td>63.1 ns</td><td>63.1 ns</td><td>5</td><td>15.9M items/s</td></tr>
+<tr><td>MpscQueue_2P1C/repeats:5_median</td><td>62.8 ns</td><td>62.7 ns</td><td>5</td><td>15.9M items/s</td></tr>
+<tr><td>MpscQueue_2P1C/repeats:5_stddev</td><td>0.6 ns</td><td>0.8 ns</td><td>5</td><td>154,861 items/s</td></tr>
+<tr><td>MpscQueue_2P1C/repeats:5_cv</td><td>0.0 ns</td><td>0.0 ns</td><td>5</td><td>0 items/s</td></tr>
+<tr><td>MpscQueue_Backpressure</td><td>1.5 ns</td><td>1.5 ns</td><td>448,000,000</td><td>-</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">SPSC Queue는 v0.6.5.0에서 <b>전 구간 2.5~3배 처리량 향상</b>을 달성했다. Throughput 1K 기준 10.1ns → 3.6ns(<b>-64%</b>), 65K 기준 11.9ns → 3.6ns(<b>-70%</b>)로 큐 크기에 무관한 일관된 성능을 보인다. Latency도 7.8ns → 3.6ns(<b>-54%</b>)로 크게 개선되었고, Backpressure 경로는 3.2ns → 1.9ns(<b>-42%</b>)로 만찬(full-queue) 상황에서도 빠른 감지가 가능하다.<br/><br/>ConcurrentThroughput(양방향 동시 접근)은 46ns → 25ns(<b>-46%</b>)로, cache-line bouncing이 줄어든 것을 의미한다. MPSC Queue도 1P1C 전 구간에서 <b>14ns → 9.2~9.6ns(-32%)</b>로 개선되었고, Backpressure는 5.9ns → 1.8ns(<b>-69%</b>)로 극적 향상. 다만 2P1C는 31ns → 70ns로 경합 시나리오에서 레이턴시가 증가했는데, 이는 repeats:5 aggregate 방식 변경의 영향이 큰 것으로 보인다.<br/><br/>shared-nothing 아키텍처에서 SPSC Queue가 코어 간 메시지 전달의 핵심 경로이므로, 이 영역의 개선은 전체 파이프라인 처리량에 직접적인 배수 효과를 준다.</div>
+  <div class="analysis-box">SPSC Queue는 v0.6.1.0과 v0.6.5.0 모두 <b>~3.4ns</b>의 안정적 throughput을 유지한다. 1K 기준 3.50ns → 3.38ns, 65K 기준 3.37ns → 3.46ns로 측정 오차 범위 내 동등. Latency(1.89ns → 1.90ns)와 Backpressure(1.52ns 동등) 역시 변화 없다. ConcurrentThroughput는 55ns → 13.2ns(<b>-76%</b>)로 극적 개선을 보이나, v0.6.5.0이 <code>repeats:5</code> aggregate 방식을 적용하여 측정 안정성이 높아진 결과이며 실제 성능 차이보다 측정 방법론 차이의 영향이 크다.<br/><br/>MPSC Queue 1P1C는 전 구간 <b>6.5ns</b>로 동등. 2P1C는 163ns → 63ns(<b>-61%</b>)로 나타나나, 역시 repeats:5 aggregate 적용의 영향이 지배적이다. Backpressure는 1.52ns → 1.50ns로 거의 동일. shared-nothing 아키텍처 핵심인 SPSC 경로가 이미 v0.6.1.0에서 최적 수준에 도달해 있었음을 확인한다.</div>
 
   <h3 class="sub-header">SPSC vs MPSC Methodology</h3>
   <div class="chart-container" id="chart-queue-methodology" style="height:480px;"></div>
@@ -485,42 +485,42 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/64</td><td style='color:#34D399;font-weight:bold;'>6.4 ns</td><td style='color:#34D399;font-weight:bold;'>6.4 ns</td><td style='color:#34D399;font-weight:bold;'>112,000,000</td><td style='color:#34D399;font-weight:bold;'>155.8M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/256</td><td style='color:#34D399;font-weight:bold;'>6.1 ns</td><td style='color:#34D399;font-weight:bold;'>6.1 ns</td><td style='color:#34D399;font-weight:bold;'>100,000,000</td><td style='color:#34D399;font-weight:bold;'>164.1M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/1024</td><td style='color:#34D399;font-weight:bold;'>6.1 ns</td><td style='color:#34D399;font-weight:bold;'>6.2 ns</td><td style='color:#34D399;font-weight:bold;'>112,000,000</td><td style='color:#34D399;font-weight:bold;'>162.9M items/s</td></tr>
-<tr><td>Malloc_AllocFree/64</td><td>51.6 ns</td><td>51.7 ns</td><td>10,000,000</td><td>19.4M items/s</td></tr>
-<tr><td>Malloc_AllocFree/256</td><td>53.1 ns</td><td>53.8 ns</td><td>10,000,000</td><td>18.8M items/s</td></tr>
-<tr><td>Malloc_AllocFree/1024</td><td>51.6 ns</td><td>52.1 ns</td><td>10,000,000</td><td>19.4M items/s</td></tr>
-<tr><td>MakeShared_AllocDealloc</td><td>69.8 ns</td><td>70.1 ns</td><td>8,960,000</td><td>14.3M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/16384</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>160,000,000</td><td style='color:#34D399;font-weight:bold;'>222.6M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/65536</td><td style='color:#34D399;font-weight:bold;'>4.7 ns</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>154,482,759</td><td style='color:#34D399;font-weight:bold;'>214.9M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/262144</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>160,000,000</td><td style='color:#34D399;font-weight:bold;'>222.6M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/16384</td><td style='color:#34D399;font-weight:bold;'>4.9 ns</td><td style='color:#34D399;font-weight:bold;'>4.9 ns</td><td style='color:#34D399;font-weight:bold;'>149,333,333</td><td style='color:#34D399;font-weight:bold;'>203.3M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/65536</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>149,333,333</td><td style='color:#34D399;font-weight:bold;'>217.2M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/262144</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>149,333,333</td><td style='color:#34D399;font-weight:bold;'>222.3M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/16384</td><td style='color:#34D399;font-weight:bold;'>5.2 ns</td><td style='color:#34D399;font-weight:bold;'>5.1 ns</td><td style='color:#34D399;font-weight:bold;'>100,000,000</td><td style='color:#34D399;font-weight:bold;'>193.9M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/65536</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>149,333,333</td><td style='color:#34D399;font-weight:bold;'>217.2M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/262144</td><td style='color:#34D399;font-weight:bold;'>4.6 ns</td><td style='color:#34D399;font-weight:bold;'>4.5 ns</td><td style='color:#34D399;font-weight:bold;'>154,482,759</td><td style='color:#34D399;font-weight:bold;'>219.7M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/64/1024</td><td>8.8 ns</td><td>8.7 ns</td><td>74,666,667</td><td>113.8M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/64/4096</td><td>7.8 ns</td><td>7.8 ns</td><td>89,600,000</td><td>127.4M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/64/16384</td><td>7.5 ns</td><td>7.5 ns</td><td>112,000,000</td><td>132.7M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/256/1024</td><td>9.4 ns</td><td>9.5 ns</td><td>74,666,667</td><td>106.2M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/256/4096</td><td>8.7 ns</td><td>8.7 ns</td><td>89,600,000</td><td>114.7M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/256/16384</td><td>7.5 ns</td><td>7.7 ns</td><td>89,600,000</td><td>133.4M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/1024/1024</td><td>15.1 ns</td><td>15.1 ns</td><td>49,777,778</td><td>66.4M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/1024/4096</td><td>9.4 ns</td><td>9.5 ns</td><td>74,666,667</td><td>106.2M items/s</td></tr>
-<tr><td>ArenaAllocator_Alloc/1024/16384</td><td>8.4 ns</td><td>8.5 ns</td><td>74,666,667</td><td>119.5M items/s</td></tr>
-<tr><td>BumpAllocator_RequestCycle/16384</td><td>65.6 ns</td><td>66.5 ns</td><td>11,200,000</td><td>15.3M items/s</td></tr>
-<tr><td>BumpAllocator_RequestCycle/65536</td><td>65.6 ns</td><td>65.4 ns</td><td>11,200,000</td><td>15.3M items/s</td></tr>
-<tr><td>BumpAllocator_RequestCycle/262144</td><td>64.2 ns</td><td>65.1 ns</td><td>11,200,000</td><td>15.6M items/s</td></tr>
-<tr><td>ArenaAllocator_TransactionCycle/1024</td><td>610.4 ns</td><td>618.4 ns</td><td>896,000</td><td>1.6M items/s</td></tr>
-<tr><td>ArenaAllocator_TransactionCycle/4096</td><td>256.7 ns</td><td>252.4 ns</td><td>2,800,000</td><td>3.9M items/s</td></tr>
-<tr><td>ArenaAllocator_TransactionCycle/16384</td><td>125.6 ns</td><td>126.6 ns</td><td>4,977,778</td><td>8.0M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/64</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>186,666,667</td><td style='color:#34D399;font-weight:bold;'>291.4M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/256</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>194,782,609</td><td style='color:#34D399;font-weight:bold;'>283.3M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SlabAllocator_AllocDealloc/1024</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>194,782,609</td><td style='color:#34D399;font-weight:bold;'>283.3M items/s</td></tr>
+<tr><td>Malloc_AllocFree/64</td><td>22.9 ns</td><td>23.2 ns</td><td>32,000,000</td><td>43.6M items/s</td></tr>
+<tr><td>Malloc_AllocFree/256</td><td>21.3 ns</td><td>21.2 ns</td><td>34,461,538</td><td>46.9M items/s</td></tr>
+<tr><td>Malloc_AllocFree/1024</td><td>20.9 ns</td><td>20.9 ns</td><td>34,461,538</td><td>47.9M items/s</td></tr>
+<tr><td>MakeShared_AllocDealloc</td><td>32.2 ns</td><td>32.1 ns</td><td>21,333,333</td><td>31.0M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/16384</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>310.3M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/65536</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>213,333,333</td><td style='color:#34D399;font-weight:bold;'>296.8M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/64/262144</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>296.2M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/16384</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>303.1M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/65536</td><td style='color:#34D399;font-weight:bold;'>3.2 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>310.3M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/256/262144</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>303.1M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/16384</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>213,333,333</td><td style='color:#34D399;font-weight:bold;'>303.4M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/65536</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>277.3M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>BumpAllocator_Alloc/1024/262144</td><td style='color:#34D399;font-weight:bold;'>3.3 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>194,782,609</td><td style='color:#34D399;font-weight:bold;'>304.1M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/64/1024</td><td>4.5 ns</td><td>4.9 ns</td><td>144,516,129</td><td>220.2M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/64/4096</td><td>4.6 ns</td><td>4.5 ns</td><td>154,482,759</td><td>219.7M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/64/16384</td><td>4.3 ns</td><td>4.3 ns</td><td>165,925,926</td><td>230.9M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/256/1024</td><td>5.2 ns</td><td>5.5 ns</td><td>112,000,000</td><td>193.7M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/256/4096</td><td>5.0 ns</td><td>4.9 ns</td><td>144,516,129</td><td>201.1M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/256/16384</td><td>4.6 ns</td><td>4.6 ns</td><td>154,482,759</td><td>219.7M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/1024/1024</td><td>7.5 ns</td><td>7.6 ns</td><td>74,666,667</td><td>132.7M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/1024/4096</td><td>5.2 ns</td><td>5.1 ns</td><td>100,000,000</td><td>193.9M items/s</td></tr>
+<tr><td>ArenaAllocator_Alloc/1024/16384</td><td>4.9 ns</td><td>4.9 ns</td><td>149,333,333</td><td>203.3M items/s</td></tr>
+<tr><td>BumpAllocator_RequestCycle/16384</td><td>39.0 ns</td><td>39.2 ns</td><td>17,230,769</td><td>25.6M items/s</td></tr>
+<tr><td>BumpAllocator_RequestCycle/65536</td><td>37.5 ns</td><td>38.8 ns</td><td>17,920,000</td><td>26.7M items/s</td></tr>
+<tr><td>BumpAllocator_RequestCycle/262144</td><td>40.5 ns</td><td>41.2 ns</td><td>16,592,593</td><td>24.7M items/s</td></tr>
+<tr><td>ArenaAllocator_TransactionCycle/1024</td><td>306.9 ns</td><td>310.0 ns</td><td>2,240,000</td><td>3.3M items/s</td></tr>
+<tr><td>ArenaAllocator_TransactionCycle/4096</td><td>139.5 ns</td><td>142.5 ns</td><td>5,600,000</td><td>7.2M items/s</td></tr>
+<tr><td>ArenaAllocator_TransactionCycle/16384</td><td>138.1 ns</td><td>141.8 ns</td><td>4,977,778</td><td>7.2M items/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">Slab Allocator는 전 크기 구간에서 <b>42~45% 레이턴시 감소</b>를 기록했다. 64B 기준 11.1ns → 6.4ns, 1024B 기준 10.0ns → 6.1ns로 크기 무관 <b>~6ns 균일 성능</b>을 달성했다. 시스템 malloc 대비 격차도 확대되어 Slab이 malloc 대비 <b>8배 빠르다</b>(52ns vs 6.4ns).<br/><br/>Bump Allocator는 v0.6.5.0에서 arena 크기별 세분화 벤치마크(16K/64K/256K)가 추가되었으며, 전 구간 <b>4.5~5.2ns</b>의 안정적 성능을 보인다. 이전 7~10ns 대비 약 <b>40% 개선</b>. Arena Allocator도 arena 크기별 벤치마크가 확장되어 <b>7.5~15ns</b> 구간에서 동작하며, 작은 할당(64B)은 8.8ns로 이전 14.6ns 대비 40% 빠르다.<br/><br/>make_shared는 153ns → 70ns(<b>-54%</b>)로 개선. BumpAllocator RequestCycle(65~66ns)과 Arena TransactionCycle(126~618ns)이 새로 추가되어 실제 요청 처리 시나리오의 할당 비용을 측정한다. per-core 전용 할당기의 lock-free 설계가 성능 이점을 극대화한 결과다.</div>
+  <div class="analysis-box">Slab Allocator는 v0.6.1.0 대비 소폭 개선. 64B 기준 3.79ns → 3.48ns(<b>-8%</b>), 1024B 기준 3.77ns → 3.50ns(<b>-7%</b>)로 전 크기 구간에서 <b>~3.5ns 균일 성능</b>을 달성했다. 시스템 malloc은 64B 22.5ns → 23.2ns(동등), 1024B 20.7ns → 20.9ns(동등)로 변화 없어 Slab 대비 격차가 <b>6.6배</b>로 유지된다.<br/><br/>BumpAllocator는 전 구간 3.3~3.6ns로 v0.6.1.0(3.5~3.7ns) 대비 <b>~5% 개선</b>. RequestCycle은 16K arena에서 34.3ns → 39.2ns(<b>+14%</b>), 262K에서 34.3ns → 41.2ns(<b>+20%</b>)로 소폭 증가했는데, 이는 NUMA 바인딩 + core affinity 적용 후 메모리 할당 경로의 NUMA-aware 처리 오버헤드로 추정된다.<br/><br/>ArenaAllocator TransactionCycle은 1024B 309ns → 310ns(동등), 16384B 60ns → 142ns로 arena 크기에 따른 편차가 확대. make_shared는 31.5ns → 32.1ns로 거의 동일하다.</div>
 
   <h3 class="sub-header">5 Allocators Comparison</h3>
   <div class="chart-container" id="chart-allocators-methodology" style="height:500px;"></div>
@@ -539,19 +539,19 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>FrameCodec_Encode/64</td><td>24.0 ns</td><td>25.0 ns</td><td>28,000,000</td><td>3.2 GB/s</td></tr>
-<tr><td>FrameCodec_Encode/512</td><td>27.8 ns</td><td>27.6 ns</td><td>23,578,947</td><td>18.8 GB/s</td></tr>
-<tr><td>FrameCodec_Encode/4096</td><td>98.4 ns</td><td>99.5 ns</td><td>7,466,667</td><td>41.8 GB/s</td></tr>
-<tr><td>FrameCodec_Encode/16384</td><td>313.9 ns</td><td>316.5 ns</td><td>2,240,000</td><td>52.2 GB/s</td></tr>
-<tr><td>FrameCodec_Decode/64</td><td>51.6 ns</td><td>51.1 ns</td><td>10,000,000</td><td>1.5 GB/s</td></tr>
-<tr><td>FrameCodec_Decode/512</td><td>54.4 ns</td><td>55.2 ns</td><td>11,200,000</td><td>9.6 GB/s</td></tr>
-<tr><td>FrameCodec_Decode/4096</td><td>135.0 ns</td><td>135.1 ns</td><td>4,977,778</td><td>30.4 GB/s</td></tr>
-<tr><td>FrameCodec_Decode/16384</td><td>399.0 ns</td><td>401.9 ns</td><td>1,723,077</td><td>41.1 GB/s</td></tr>
+<tr><td>FrameCodec_Encode/64</td><td>15.3 ns</td><td>15.6 ns</td><td>44,800,000</td><td>5.0 GB/s</td></tr>
+<tr><td>FrameCodec_Encode/512</td><td>18.0 ns</td><td>18.5 ns</td><td>37,333,333</td><td>29.1 GB/s</td></tr>
+<tr><td>FrameCodec_Encode/4096</td><td>36.8 ns</td><td>37.3 ns</td><td>20,363,636</td><td>111.5 GB/s</td></tr>
+<tr><td>FrameCodec_Encode/16384</td><td>219.7 ns</td><td>220.8 ns</td><td>3,200,000</td><td>74.6 GB/s</td></tr>
+<tr><td>FrameCodec_Decode/64</td><td>33.7 ns</td><td>34.0 ns</td><td>21,333,333</td><td>2.3 GB/s</td></tr>
+<tr><td>FrameCodec_Decode/512</td><td>36.8 ns</td><td>36.4 ns</td><td>18,666,667</td><td>14.2 GB/s</td></tr>
+<tr><td>FrameCodec_Decode/4096</td><td>60.0 ns</td><td>60.5 ns</td><td>11,200,000</td><td>68.5 GB/s</td></tr>
+<tr><td>FrameCodec_Decode/16384</td><td>314.2 ns</td><td>311.6 ns</td><td>2,635,294</td><td>52.2 GB/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">FrameCodec Encode는 <b>전 페이로드에서 2배 이상</b>의 throughput 개선을 보인다. 64B Encode 57.5ns → 24.0ns(<b>-58%</b>), 512B 73.2ns → 27.8ns(<b>-62%</b>), 4KB 164.9ns → 98.4ns(<b>-40%</b>), 16KB 609ns → 314ns(<b>-48%</b>). bytes/sec 기준으로 64B에서 <b>1.3GB/s → 3.2GB/s</b>, 16KB에서 <b>26.9GB/s → 52.2GB/s</b>로 대폭 향상.<br/><br/>Decode도 마찬가지로 64B 109.9ns → 51.6ns(<b>-53%</b>), 512B 122.8ns → 54.4ns(<b>-56%</b>), 4KB 194.9ns → 134.9ns(<b>-31%</b>), 16KB 725ns → 399ns(<b>-45%</b>). 소형 페이로드에서 개선폭이 더 크며, 이는 헤더 파싱 오버헤드가 줄어든 결과다.<br/><br/>프레임 인코딩/디코딩은 네트워크 I/O 직전·직후에 위치하므로, 이 개선은 메시지 처리 파이프라인 전체 레이턴시를 직접 줄인다. 특히 소형 메시지(채팅, 하트비트)가 다수인 실제 워크로드에서 효과가 극대화된다.</div>
+  <div class="analysis-box">FrameCodec Encode는 양 버전 모두 <b>15~16ns(64B), 210~220ns(16KB)</b> 구간으로 거의 동등하다. 64B 15.4ns → 15.6ns, 512B 16.8ns → 18.5ns(<b>+10%</b>), 4KB 32.2ns → 37.3ns(<b>+16%</b>), 16KB 210ns → 221ns(<b>+5%</b>). 소형은 동등, 중형에서 v0.6.5.0이 소폭 느린 것은 core affinity로 인한 단일 코어 집중 실행의 열적 스로틀링 가능성이 있다.<br/><br/>Decode는 64B 32.6ns → 34.0ns(<b>+4%</b>), 512B 35.2ns → 36.4ns(<b>+3%</b>), 4KB 56.3ns → 60.5ns(<b>+7%</b>), 16KB 260ns → 312ns(<b>+20%</b>)로 v0.6.5.0이 전반적으로 소폭 느리다. 16KB에서 차이가 두드러지는 것은 L1d 캐시 경합 패턴 변화로 보이며, 절대값 기준으로는 여전히 높은 throughput(52~74 GB/s)을 유지한다.<br/><br/>프레임 코덱 자체 알고리즘은 v0.6.1.0과 동일하므로, 이 차이는 시스템 수준 변경(NUMA, affinity)의 간접 효과다.</div>
 
   <h3 class="sub-header">Encode vs Decode Throughput Scaling</h3>
   <div class="chart-container" id="chart-frame-scaling" style="height:480px;"></div>
@@ -570,23 +570,23 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>FlatBuffers_Build/64</td><td>97.7 ns</td><td>96.6 ns</td><td>8,960,000</td><td>655.4 MB/s</td></tr>
-<tr><td>FlatBuffers_Build/512</td><td>104.6 ns</td><td>103.8 ns</td><td>7,466,667</td><td>4.9 GB/s</td></tr>
-<tr><td>FlatBuffers_Build/4096</td><td>161.1 ns</td><td>162.8 ns</td><td>4,072,727</td><td>25.4 GB/s</td></tr>
-<tr><td>HeapAlloc_Build/64</td><td>59.4 ns</td><td>59.0 ns</td><td>10,000,000</td><td>1.1 GB/s</td></tr>
-<tr><td>HeapAlloc_Build/512</td><td>61.4 ns</td><td>62.3 ns</td><td>11,200,000</td><td>8.3 GB/s</td></tr>
-<tr><td>HeapAlloc_Build/4096</td><td>119.6 ns</td><td>117.6 ns</td><td>6,400,000</td><td>34.2 GB/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/64</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.6 ns</td><td style='color:#34D399;font-weight:bold;'>154,482,759</td><td style='color:#34D399;font-weight:bold;'>18.1 GB/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/512</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>145.1 GB/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/4096</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>1160.5 GB/s</td></tr>
-<tr><td>HeapAlloc_Read/64</td><td>57.2 ns</td><td>57.6 ns</td><td>11,200,000</td><td>1.1 GB/s</td></tr>
-<tr><td>HeapAlloc_Read/512</td><td>65.6 ns</td><td>65.2 ns</td><td>11,200,000</td><td>7.8 GB/s</td></tr>
-<tr><td>HeapAlloc_Read/4096</td><td>112.3 ns</td><td>114.0 ns</td><td>6,400,000</td><td>36.5 GB/s</td></tr>
+<tr><td>FlatBuffers_Build/64</td><td>40.8 ns</td><td>40.7 ns</td><td>17,230,769</td><td>1.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Build/512</td><td>53.1 ns</td><td>53.8 ns</td><td>10,000,000</td><td>9.6 GB/s</td></tr>
+<tr><td>FlatBuffers_Build/4096</td><td>68.4 ns</td><td>67.5 ns</td><td>11,200,000</td><td>59.9 GB/s</td></tr>
+<tr><td>HeapAlloc_Build/64</td><td>24.0 ns</td><td>24.4 ns</td><td>28,000,000</td><td>2.7 GB/s</td></tr>
+<tr><td>HeapAlloc_Build/512</td><td>29.6 ns</td><td>29.7 ns</td><td>26,352,941</td><td>17.3 GB/s</td></tr>
+<tr><td>HeapAlloc_Build/4096</td><td>50.0 ns</td><td>48.7 ns</td><td>10,000,000</td><td>81.9 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/64</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>19.0 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/512</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>3.4 ns</td><td style='color:#34D399;font-weight:bold;'>213,333,333</td><td style='color:#34D399;font-weight:bold;'>148.7 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>FlatBuffers_Read/4096</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>3.5 ns</td><td style='color:#34D399;font-weight:bold;'>203,636,364</td><td style='color:#34D399;font-weight:bold;'>1186.3 GB/s</td></tr>
+<tr><td>HeapAlloc_Read/64</td><td>22.0 ns</td><td>21.7 ns</td><td>32,000,000</td><td>2.9 GB/s</td></tr>
+<tr><td>HeapAlloc_Read/512</td><td>25.1 ns</td><td>25.8 ns</td><td>28,000,000</td><td>20.4 GB/s</td></tr>
+<tr><td>HeapAlloc_Read/4096</td><td>42.5 ns</td><td>43.7 ns</td><td>15,438,769</td><td>96.4 GB/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">FlatBuffers Build는 64B 100ns → 98ns, 512B 105ns → 105ns, 4KB 160ns → 161ns로 <b>거의 동일</b>한 수준을 유지한다. FlatBuffers Read도 3.4~3.6ns 구간으로 변화가 없으며, zero-copy 읽기 특성상 L1d 캐시 히트가 지배적이라 추가 최적화 여지가 제한적이다.<br/><br/>HeapAlloc Build는 64B 62.5ns → 59.4ns(<b>-5%</b>), 512B 68.4ns → 61.4ns(<b>-10%</b>)로 소폭 개선. HeapAlloc Read도 64B 64.2ns → 57.2ns(<b>-11%</b>)로 메모리 할당기 개선의 간접 효과가 나타난다. 방법론 비교에서는 FlatBuffers Build가 HeapAlloc 대비 <b>1.5~1.6배 느리지만</b>, Read에서 <b>15~30배 빠르다</b>는 기존 trade-off가 그대로 유효하다.<br/><br/>직렬화 경로는 이미 충분히 최적화되어 있으며, 병목이 다른 컴포넌트(프레임 코덱, 큐)에 있었기 때문에 해당 영역의 개선이 전체 성능 향상에 더 크게 기여했다.</div>
+  <div class="analysis-box">FlatBuffers Build에서 <b>극적 개선</b>이 관측된다. 64B 86.1ns → 40.7ns(<b>-53%</b>), 512B 88.7ns → 53.8ns(<b>-39%</b>), 4KB 126.3ns → 67.5ns(<b>-47%</b>). bytes/sec 기준 64B에서 <b>784MB/s → 1.57GB/s</b>로 2배, 4KB에서 <b>32.6GB/s → 59.9GB/s</b>로 1.8배 향상. FlatBuffers Read는 64B 4.9ns → 3.4ns(<b>-31%</b>), 512B 5.4ns → 3.4ns(<b>-37%</b>), 4KB 4.7ns → 3.5ns(<b>-26%</b>)로 전 구간 <b>~3.4ns</b>로 수렴.<br/><br/>HeapAlloc Build도 64B 49.6ns → 24.4ns(<b>-51%</b>), 512B 56.7ns → 29.7ns(<b>-48%</b>), 4KB 100.6ns → 48.7ns(<b>-52%</b>)로 <b>전 구간 절반 수준</b>으로 개선. HeapAlloc Read는 64B 50.2ns → 21.7ns(<b>-57%</b>), 512B 70.7ns → 25.8ns(<b>-64%</b>)로 역시 큰 폭의 개선.<br/><br/>직렬화 전 경로에서 일관된 40~60% 개선은 NUMA 바인딩 + core affinity로 인한 L1/L2 캐시 히트율 향상과 메모리 접근 지역성 개선의 결과다.</div>
 
   <h3 class="sub-header">Build vs Read Comparison</h3>
   <div class="chart-row">
@@ -612,28 +612,28 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Dispatcher_Lookup/10</td><td>5.0 ns</td><td>5.0 ns</td><td>100,000,000</td><td>200.0M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/100</td><td>5.0 ns</td><td>5.0 ns</td><td>100,000,000</td><td>200.0M items/s</td></tr>
-<tr><td>Dispatcher_Lookup/1000</td><td>5.0 ns</td><td>5.0 ns</td><td>100,000,000</td><td>200.0M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100</td><td>3.8 ns</td><td>3.7 ns</td><td>194,782,609</td><td>265.2M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/1000</td><td>3.8 ns</td><td>3.7 ns</td><td>194,782,609</td><td>265.2M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/10000</td><td>3.8 ns</td><td>3.8 ns</td><td>186,666,667</td><td>265.5M items/s</td></tr>
-<tr><td>FlatMap_SessionLookup/100000</td><td>3.8 ns</td><td>3.8 ns</td><td>186,666,667</td><td>265.5M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100</td><td>3.4 ns</td><td>3.4 ns</td><td>194,782,609</td><td>296.8M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/1000</td><td>3.4 ns</td><td>3.3 ns</td><td>213,333,333</td><td>296.8M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/10000</td><td>3.4 ns</td><td>3.4 ns</td><td>194,782,609</td><td>296.8M items/s</td></tr>
-<tr><td>StdMap_SessionLookup/100000</td><td>3.4 ns</td><td>3.4 ns</td><td>213,333,333</td><td>296.8M items/s</td></tr>
-<tr><td>FlatMap_SessionIterate/100</td><td>138.1 ns</td><td>137.4 ns</td><td>4,977,778</td><td>724.0M items/s</td></tr>
-<tr><td>FlatMap_SessionIterate/1000</td><td>2.3 us</td><td>2.4 us</td><td>280,000</td><td>426.7M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>FlatMap_SessionIterate/10000</td><td style='color:#34D399;font-weight:bold;'>19.3 us</td><td style='color:#34D399;font-weight:bold;'>19.1 us</td><td style='color:#34D399;font-weight:bold;'>37,333</td><td style='color:#34D399;font-weight:bold;'>519.4M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/100</td><td>109.9 ns</td><td>109.9 ns</td><td>6,400,000</td><td>910.2M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/1000</td><td>2.8 us</td><td>3.0 us</td><td>235,789</td><td>359.3M items/s</td></tr>
-<tr><td>StdMap_SessionIterate/10000</td><td>64.2 us</td><td>63.7 us</td><td>11,200</td><td>155.8M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/10</td><td>2.3 ns</td><td>2.5 ns</td><td>280,000,000</td><td>426.7M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/100</td><td>2.5 ns</td><td>2.5 ns</td><td>280,000,000</td><td>407.3M items/s</td></tr>
+<tr><td>Dispatcher_Lookup/1000</td><td>2.5 ns</td><td>2.5 ns</td><td>280,000,000</td><td>407.3M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100</td><td>1.6 ns</td><td>1.7 ns</td><td>407,272,727</td><td>606.2M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/1000</td><td>1.7 ns</td><td>1.8 ns</td><td>407,272,727</td><td>579.2M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/10000</td><td>1.7 ns</td><td>1.7 ns</td><td>373,333,333</td><td>582.8M items/s</td></tr>
+<tr><td>FlatMap_SessionLookup/100000</td><td>1.7 ns</td><td>1.8 ns</td><td>448,000,000</td><td>585.1M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100</td><td>2.2 ns</td><td>2.2 ns</td><td>320,000,000</td><td>455.1M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/1000</td><td>2.2 ns</td><td>2.4 ns</td><td>298,666,667</td><td>444.5M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/10000</td><td>2.2 ns</td><td>2.3 ns</td><td>298,666,667</td><td>444.5M items/s</td></tr>
+<tr><td>StdMap_SessionLookup/100000</td><td>2.3 ns</td><td>2.4 ns</td><td>320,000,000</td><td>435.7M items/s</td></tr>
+<tr><td>FlatMap_SessionIterate/100</td><td>67.0 ns</td><td>70.5 ns</td><td>7,466,667</td><td>1493.3M items/s</td></tr>
+<tr><td>FlatMap_SessionIterate/1000</td><td>1.1 us</td><td>1.1 us</td><td>640,000</td><td>930.9M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>FlatMap_SessionIterate/10000</td><td style='color:#34D399;font-weight:bold;'>9.8 us</td><td style='color:#34D399;font-weight:bold;'>10.3 us</td><td style='color:#34D399;font-weight:bold;'>64,000</td><td style='color:#34D399;font-weight:bold;'>1024.0M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/100</td><td>104.6 ns</td><td>103.2 ns</td><td>7,466,667</td><td>955.7M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/1000</td><td>1.3 us</td><td>1.3 us</td><td>640,000</td><td>758.5M items/s</td></tr>
+<tr><td>StdMap_SessionIterate/10000</td><td>31.4 us</td><td>31.7 us</td><td>22,400</td><td>318.6M items/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">MessageDispatcher Lookup은 10/100/1000 핸들러 모든 규모에서 <b>5.0ns</b>로 수렴하여, 이전 5.2~5.8ns 대비 <b>최대 13% 개선</b>되었다. 핸들러 수에 무관한 O(1) 특성이 더욱 선명해졌다.<br/><br/>FlatMap SessionLookup은 100~100K 세션 전 구간에서 <b>3.4~3.8ns</b>로 균일해졌다. 이전에는 100세션 5.2ns, 1000세션 7.1ns로 편차가 있었으나 v0.6.5.0에서 해소. FlatMap SessionIterate는 100개 세션 기준 180ns → 138ns(<b>-23%</b>), 10K 세션 26.2us → 19.3us(<b>-27%</b>)로 순회 성능도 개선. cache-friendly 레이아웃의 이점이 세션 수 증가에도 유지된다.<br/><br/>StdMap(unordered_map) SessionLookup도 개선되어 3.4~3.9ns 구간이나, FlatMap과의 차이가 축소. 다만 Iterate에서 FlatMap이 여전히 캐시 지역성 우위를 보이며, per-core 세션 관리에서 FlatMap 선택의 근거가 유효하다.</div>
+  <div class="analysis-box">MessageDispatcher Lookup은 10 핸들러 2.49ns → 2.50ns, 100 핸들러 2.48ns → 2.49ns, 1000 핸들러 2.45ns → 2.49ns로 <b>~2.5ns O(1) 특성</b>이 양 버전 모두 안정적으로 유지된다.<br/><br/>FlatMap SessionLookup은 전 구간에서 <b>15~19% 개선</b>. 100세션 2.06ns → 1.74ns(<b>-15%</b>), 1K 2.04ns → 1.75ns(<b>-14%</b>), 10K 2.05ns → 1.73ns(<b>-16%</b>), 100K 2.05ns → 1.78ns(<b>-13%</b>)로 <b>~1.75ns 균일 성능</b>에 도달. FlatMap SessionIterate는 100개 74ns → 71ns(<b>-5%</b>), 10K 11.1us → 10.3us(<b>-7%</b>)로 순회 성능도 소폭 개선.<br/><br/>StdMap(unordered_map) SessionLookup도 100세션 1.73ns → 2.21ns(<b>+28%</b>)로 v0.6.5.0에서 약간 느려졌으나 절대값은 여전히 2ns대. StdMap Iterate 10K는 53.2us → 31.7us(<b>-40%</b>)로 큰 폭 개선. core affinity 고정으로 캐시 웜업 효과가 안정화된 결과다.</div>
 
   <h3 class="sub-header">flat_map vs std::unordered_map — 세션 순회 (Iteration)</h3>
   <div class="chart-container" id="chart-dispatcher-iteration" style="height:480px;"></div>
@@ -655,10 +655,10 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>TimingWheel_ScheduleTick/1000</td><td>28.8 us</td><td>28.5 us</td><td>32,000</td><td>34.7M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/10000</td><td>304.8 us</td><td>293.0 us</td><td>2,358</td><td>32.8M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleTick/50000</td><td>1.76 ms</td><td>1.61 ms</td><td>498</td><td>28.5M items/s</td></tr>
-<tr><td>TimingWheel_ScheduleOnly</td><td>62.8 ns</td><td>62.9 ns</td><td>11,200,000</td><td>15.9M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/1000</td><td>12.3 us</td><td>13.4 us</td><td>74,667</td><td>81.0M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/10000</td><td>125.6 us</td><td>133.1 us</td><td>5,600</td><td>79.6M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleTick/50000</td><td>1.05 ms</td><td>1.07 ms</td><td>640</td><td>47.6M items/s</td></tr>
+<tr><td>TimingWheel_ScheduleOnly</td><td>26.0 ns</td><td>25.9 ns</td><td>26,408,421</td><td>38.4M items/s</td></tr>
 
 </tbody>
 </table>
@@ -666,14 +666,14 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Session_Create</td><td>214.8 us</td><td>218.3 us</td><td>3,200</td><td>4,655 items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>SessionPtr_Copy</td><td style='color:#34D399;font-weight:bold;'>12.3 ns</td><td style='color:#34D399;font-weight:bold;'>12.3 ns</td><td style='color:#34D399;font-weight:bold;'>56,000,000</td><td style='color:#34D399;font-weight:bold;'>81.5M items/s</td></tr>
-<tr><td>SharedPtr_Copy</td><td>12.3 ns</td><td>12.3 ns</td><td>56,000,000</td><td>81.5M items/s</td></tr>
+<tr><td>Session_Create</td><td>131.1 us</td><td>131.6 us</td><td>5,600</td><td>7,626 items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>SessionPtr_Copy</td><td style='color:#34D399;font-weight:bold;'>10.5 ns</td><td style='color:#34D399;font-weight:bold;'>10.5 ns</td><td style='color:#34D399;font-weight:bold;'>74,666,667</td><td style='color:#34D399;font-weight:bold;'>95.6M items/s</td></tr>
+<tr><td>SharedPtr_Copy</td><td>10.5 ns</td><td>10.5 ns</td><td>64,000,000</td><td>95.3M items/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">Session Create는 443us → 215us(<b>-52%</b>)로 세션 생성 비용이 절반으로 줄었다. 초당 생성 가능 세션 수가 <b>2,256 → 4,655</b>로 2배 증가. 이는 급격한 접속 폭주(thundering herd) 시나리오에서 서버 응답성을 직접적으로 개선한다.<br/><br/>SessionPtr Copy(intrusive_ptr)는 6.3ns → 12.3ns로 증가했고, SharedPtr Copy도 18.0ns → 12.3ns로 변화했다. v0.6.5.0에서 두 포인터 타입이 <b>동일한 12.3ns</b>로 수렴한 것은 벤치마크 코드 변경이나 컴파일러 최적화 차이의 영향으로 추정된다.<br/><br/>TimingWheel은 전 규모에서 극적 개선. ScheduleTick 1K 타이머 64us → 29us(<b>-55%</b>), 10K 725us → 305us(<b>-58%</b>), 50K 3.65ms → 1.76ms(<b>-52%</b>). ScheduleOnly도 159ns → 63ns(<b>-60%</b>). 대규모 타이머 풀에서도 tick당 비용이 선형 이하로 증가하여, 수만 세션의 idle timeout 관리에 적합하다.</div>
+  <div class="analysis-box">Session Create는 298us → 132us(<b>-56%</b>)로 세션 생성 비용이 <b>절반 이하</b>로 줄었다. 초당 생성 가능 세션 수가 <b>3,389 → 7,626</b>으로 2.25배 증가. 20코어 i7-14700에서 per-core 기준 <b>381 sess/sec/core</b>에 달하며, thundering herd 시나리오에서 서버 응답성을 직접적으로 개선한다.<br/><br/>SessionPtr Copy(intrusive_ptr)는 10.9ns → 10.5ns(<b>-4%</b>), SharedPtr Copy는 10.5ns → 10.5ns(동등)로 양쪽 모두 <b>~10.5ns</b>에 수렴. v0.6.1.0에서도 이미 intrusive_ptr과 shared_ptr의 성능 차이가 미미했으며 v0.6.5.0에서 완전 수렴.<br/><br/>TimingWheel에서 <b>가장 극적인 개선</b>이 나타났다. ScheduleTick 1K 25.9us → 13.4us(<b>-48%</b>), 10K 275us → 133us(<b>-52%</b>), 50K 1.89ms → 1.07ms(<b>-43%</b>). ScheduleOnly 57ns → 26ns(<b>-55%</b>). core affinity로 인한 캐시 지역성 향상이 타이머 휠의 배열 순회 성능을 극대화한 결과이며, 수만 세션의 idle timeout 관리 비용이 절반으로 줄었다.</div>
 
   <h3 class="sub-header">Version Comparison</h3><div class="chart-container" id="chart-session-version" style="height:480px;"></div>
 </div>
@@ -689,20 +689,20 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/64</td><td style='color:#34D399;font-weight:bold;'>13.8 ns</td><td style='color:#34D399;font-weight:bold;'>14.2 ns</td><td style='color:#34D399;font-weight:bold;'>49,777,778</td><td style='color:#34D399;font-weight:bold;'>4.6 GB/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/512</td><td style='color:#34D399;font-weight:bold;'>16.5 ns</td><td style='color:#34D399;font-weight:bold;'>16.6 ns</td><td style='color:#34D399;font-weight:bold;'>40,727,273</td><td style='color:#34D399;font-weight:bold;'>31.0 GB/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/4096</td><td style='color:#34D399;font-weight:bold;'>51.6 ns</td><td style='color:#34D399;font-weight:bold;'>51.5 ns</td><td style='color:#34D399;font-weight:bold;'>10,000,000</td><td style='color:#34D399;font-weight:bold;'>79.4 GB/s</td></tr>
-<tr><td>RingBuffer_Linearize/64</td><td>16.5 ns</td><td>17.1 ns</td><td>40,727,273</td><td>3.9 GB/s</td></tr>
-<tr><td>RingBuffer_Linearize/512</td><td>23.4 ns</td><td>23.5 ns</td><td>32,000,000</td><td>21.8 GB/s</td></tr>
-<tr><td>RingBuffer_Linearize/4096</td><td>64.2 ns</td><td>64.2 ns</td><td>11,200,000</td><td>63.8 GB/s</td></tr>
-<tr><td>NaiveBuffer_CopyWrite/64</td><td>59.4 ns</td><td>58.3 ns</td><td>10,000,000</td><td>1.1 GB/s</td></tr>
-<tr><td>NaiveBuffer_CopyWrite/512</td><td>65.6 ns</td><td>65.6 ns</td><td>11,200,000</td><td>7.8 GB/s</td></tr>
-<tr><td>NaiveBuffer_CopyWrite/4096</td><td>114.7 ns</td><td>113.8 ns</td><td>6,400,000</td><td>35.7 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/64</td><td style='color:#34D399;font-weight:bold;'>9.8 ns</td><td style='color:#34D399;font-weight:bold;'>9.8 ns</td><td style='color:#34D399;font-weight:bold;'>74,666,667</td><td style='color:#34D399;font-weight:bold;'>6.5 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/512</td><td style='color:#34D399;font-weight:bold;'>10.7 ns</td><td style='color:#34D399;font-weight:bold;'>10.9 ns</td><td style='color:#34D399;font-weight:bold;'>64,000,000</td><td style='color:#34D399;font-weight:bold;'>47.7 GB/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>RingBuffer_WriteRead/4096</td><td style='color:#34D399;font-weight:bold;'>22.0 ns</td><td style='color:#34D399;font-weight:bold;'>22.6 ns</td><td style='color:#34D399;font-weight:bold;'>32,000,000</td><td style='color:#34D399;font-weight:bold;'>186.4 GB/s</td></tr>
+<tr><td>RingBuffer_Linearize/64</td><td>10.7 ns</td><td>11.1 ns</td><td>64,000,000</td><td>6.0 GB/s</td></tr>
+<tr><td>RingBuffer_Linearize/512</td><td>17.4 ns</td><td>17.1 ns</td><td>44,800,000</td><td>29.4 GB/s</td></tr>
+<tr><td>RingBuffer_Linearize/4096</td><td>30.5 ns</td><td>30.5 ns</td><td>23,578,947</td><td>134.4 GB/s</td></tr>
+<tr><td>NaiveBuffer_CopyWrite/64</td><td>22.5 ns</td><td>22.4 ns</td><td>32,000,000</td><td>2.8 GB/s</td></tr>
+<tr><td>NaiveBuffer_CopyWrite/512</td><td>31.4 ns</td><td>31.3 ns</td><td>24,888,889</td><td>16.3 GB/s</td></tr>
+<tr><td>NaiveBuffer_CopyWrite/4096</td><td>44.9 ns</td><td>45.0 ns</td><td>16,000,000</td><td>91.2 GB/s</td></tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box">RingBuffer WriteRead는 전 크기에서 <b>2~2.5배 throughput 향상</b>. 64B 34.5ns → 13.8ns(<b>-60%</b>), 512B 40.6ns → 16.5ns(<b>-59%</b>), 4KB 102.5ns → 51.6ns(<b>-50%</b>). bytes/sec 기준 64B <b>1.85GB/s → 4.63GB/s</b>, 4KB <b>40GB/s → 79.4GB/s</b>로 대폭 향상.<br/><br/>Linearize(wrapping 복구) 성능도 64B 43.5ns → 16.5ns(<b>-62%</b>), 512B 67.0ns → 23.4ns(<b>-65%</b>), 4KB 132.5ns → 64.2ns(<b>-52%</b>)로 극적 개선. 대조군 NaiveBuffer CopyWrite는 64B 156ns → 59ns(<b>-62%</b>)로 개선되었으나, RingBuffer와의 격차는 여전히 <b>4배 이상</b> 유지. zero-copy 읽기 경로의 우위가 확고하다.<br/><br/>RingBuffer는 TCP 수신 경로에서 프레임 경계를 넘는 데이터 조립에 핵심적이므로, 이 개선은 네트워크 I/O throughput의 ceiling을 직접 높인다.</div>
+  <div class="analysis-box">RingBuffer WriteRead는 v0.6.1.0과 거의 동등하다. 64B 9.74ns → 9.78ns, 512B 10.9ns(동등), 4KB 21.3ns → 22.6ns(<b>+6%</b>). bytes/sec 기준 64B <b>6.5GB/s</b>, 4KB <b>186~195GB/s</b>로 양 버전 모두 높은 throughput을 유지. 4KB에서 v0.6.5.0이 소폭 느린 것은 통계적 유의 수준 미만의 차이다.<br/><br/>Linearize는 64B 11.5ns → 11.1ns(<b>-4%</b>), 512B 14.4ns → 17.1ns(<b>+19%</b>), 4KB 34.0ns → 30.5ns(<b>-10%</b>)로 페이로드 크기별 편차가 있으나 전체적으로 동등. NaiveBuffer CopyWrite도 64B 21.5ns → 22.4ns(<b>+4%</b>), 4KB 42.7ns → 45.0ns(<b>+5%</b>)로 거의 변화 없다.<br/><br/>RingBuffer vs NaiveBuffer 격차는 64B에서 <b>2.3배</b>(9.8ns vs 22.4ns), 4KB에서 <b>2.0배</b>(22.6ns vs 45.0ns)로 유지. zero-copy 읽기 경로의 구조적 우위가 확고하다.</div>
 
   <h3 class="sub-header">Zero-copy vs Naive memcpy (Throughput GB/s)</h3>
   <div class="chart-container" id="chart-buffer-methodology" style="height:480px;"></div>
@@ -726,35 +726,35 @@ body {
 <thead><tr><th>Comparison</th><th>Approach A</th><th>Approach B</th><th>Ratio</th></tr></thead>
 <tbody>
 <tr>
-  <td>SPSC vs MPSC (1P1C)</td><td>SPSC: 3.6 ns</td><td>MPSC: 9.6 ns</td>
-  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>2.7x</span></td>
+  <td>SPSC vs MPSC (1P1C)</td><td>SPSC: 3.4 ns</td><td>MPSC: 6.6 ns</td>
+  <td><span class="ratio-badge">1.9x</span></td>
 </tr>
 <tr>
-  <td>Slab vs malloc (64B)</td><td>Slab: 6.4 ns</td><td>malloc: 51.6 ns</td>
-  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>8.0x</span></td>
+  <td>Slab vs malloc (64B)</td><td>Slab: 3.4 ns</td><td>malloc: 22.9 ns</td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>6.7x</span></td>
 </tr>
 <tr>
-  <td>intrusive_ptr vs shared_ptr</td><td>intrusive: 12.3 ns</td><td>shared: 12.3 ns</td>
+  <td>intrusive_ptr vs shared_ptr</td><td>intrusive: 10.5 ns</td><td>shared: 10.5 ns</td>
   <td><span class="ratio-badge">1.0x</span></td>
 </tr>
 <tr>
-  <td>Zero-copy vs Naive (512B)</td><td>ZeroCopy: 31.0 GB/s</td><td>Naive: 7.8 GB/s</td>
-  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>4.0x</span></td>
+  <td>Zero-copy vs Naive (512B)</td><td>ZeroCopy: 47.7 GB/s</td><td>Naive: 16.3 GB/s</td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>2.9x</span></td>
 </tr>
 <tr>
-  <td>FlatBuffers vs Heap Build (512B)</td><td>FB: 104.6 ns</td><td>Heap: 61.4 ns</td>
-  <td><span class="ratio-badge">1.7x</span></td>
+  <td>FlatBuffers vs Heap Build (512B)</td><td>FB: 53.1 ns</td><td>Heap: 29.6 ns</td>
+  <td><span class="ratio-badge">1.8x</span></td>
 </tr>
 <tr>
-  <td>FlatBuffers vs Heap Read (512B)</td><td>FB: 3.5 ns</td><td>Heap: 65.6 ns</td>
-  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>18.6x</span></td>
+  <td>FlatBuffers vs Heap Read (512B)</td><td>FB: 3.4 ns</td><td>Heap: 25.1 ns</td>
+  <td><span class="ratio-badge" style='color:#34D399;font-weight:bold;'>7.3x</span></td>
 </tr>
 
 </tbody>
 </table>
 
-  <div class="analysis-box analysis-box-alt">v0.5.10.0 → v0.6.5.0은 <b>프레임워크 전 컴포넌트에 걸친 체계적 성능 개선</b>을 달성한 버전이다. 마이크로벤치마크 기준 대부분의 핵심 경로에서 <b>40~65%</b>의 레이턴시 감소가 관측되며, 통합 벤치마크에서는 <b>8~14%</b>의 end-to-end 개선으로 이어졌다.<br/><br/>특히 눈에 띄는 영역:<br/>• <b>SPSC Queue</b>: 64~70% 레이턴시 감소 — 코어 간 통신의 핵심 경로<br/>• <b>FrameCodec</b>: Encode 40~62%, Decode 31~56% 개선 — I/O 경로 직접 최적화<br/>• <b>RingBuffer</b>: 50~65% 레이턴시 감소 — TCP 수신 버퍼 성능 상한 제고<br/>• <b>TimingWheel</b>: 52~60% 개선 — 대규모 세션의 타이머 관리 비용 절감<br/>• <b>Session Create</b>: 52% 개선 — 접속 폭주 대응력 2배 향상<br/><br/>마이크로벤치마크의 극적 개선 대비 통합 벤치마크 개선폭이 작은 것은 정상적이다. 통합 벤치마크는 OS 스케줄링, 캐시 코히어런스, 스레드 동기화 등 비결정적 요소의 비중이 크기 때문이다. 4코어 환경에서 Cross-core PostThroughput가 <b>100만 msg/sec를 돌파</b>한 것은 프로덕션 수준의 message-passing 성능을 확인한 이정표다.</div>
-  <div class="analysis-box">방법론 비교 핵심 요약:<br/>• <b>SPSC vs MPSC</b>: SPSC 3.6ns vs MPSC 9.5ns — single-producer가 약 2.6배 빠르며, shared-nothing 아키텍처에서 SPSC 우선 사용의 근거<br/>• <b>Slab vs Malloc vs make_shared</b>: Slab 6.2ns vs Malloc 52ns vs make_shared 70ns — Slab이 malloc 대비 <b>8.4배</b>, make_shared 대비 <b>11.3배</b> 빠름. per-core 전용 할당기의 결정적 이점<br/>• <b>FlatBuffers vs HeapAlloc</b>: Build에서 FlatBuffers가 1.6배 느리지만 Read에서 <b>15~30배 빠름</b>. 읽기 빈도가 높은 메시지 처리에서 FlatBuffers가 명백히 유리<br/>• <b>flat_map vs unordered_map</b>: Lookup은 거의 동등(3.4~3.8ns), Iterate에서 flat_map이 캐시 지역성 우위로 <b>23~36% 빠름</b><br/>• <b>intrusive_ptr vs shared_ptr</b>: v0.6.5.0에서 동일 12.3ns로 수렴. atomic ref-count 최적화가 양쪽 모두에 적용된 결과<br/>• <b>RingBuffer(zero-copy) vs NaiveBuffer(memcpy)</b>: WriteRead에서 RingBuffer가 <b>4.3배 빠름</b>(13.8ns vs 59ns). 네트워크 I/O 경로에서 zero-copy 설계의 결정적 우위</div>
+  <div class="analysis-box analysis-box-alt">v0.6.1.0 → v0.6.5.0 (i7-14700, 동일 하드웨어)은 <b>NUMA 바인딩 + Core Affinity</b>가 핵심 변수인 비교다. 마이크로벤치마크 수준에서는 컴포넌트별로 상이한 결과를 보이나, 통합 벤치마크와 시스템 수준 지표에서 일관된 대폭 개선이 관측된다.<br/><br/>특히 눈에 띄는 영역:<br/>• <b>FlatBuffers/HeapAlloc Build+Read</b>: 전 구간 40~60% 개선 — 캐시 지역성 향상 효과<br/>• <b>TimingWheel</b>: 43~55% 개선 — 배열 순회의 캐시 효율 극대화<br/>• <b>Session Create</b>: 56% 개선 — 접속 폭주 대응력 2.25배 향상<br/>• <b>Cross-core RTT</b>: 42% 개선 — 코어 고정으로 스케줄러 노이즈 제거<br/>• <b>Cross-core PostThroughput</b>: 67% 개선 — 290만 msg/sec 달성<br/>• <b>FramePipeline</b>: 전 구간 49~50% 개선 — end-to-end 파이프라인 절반<br/><br/>반면 SPSC Queue, RingBuffer, FrameCodec 등 <b>이미 L1d 캐시에 완전히 적재되는 단일 코어 경로</b>는 affinity 여부와 무관하게 동등하다. 이는 NUMA/affinity 최적화가 <b>코어 간 통신과 메모리 할당 경로</b>에 선택적으로 작용함을 보여준다.</div>
+  <div class="analysis-box">방법론 비교 핵심 요약 (v0.6.5.0 i7-14700 기준):<br/>• <b>SPSC vs MPSC</b>: SPSC 3.4ns vs MPSC 6.5ns — single-producer가 약 1.9배 빠르며, shared-nothing 아키텍처에서 SPSC 우선 사용의 근거<br/>• <b>Slab vs Malloc vs make_shared</b>: Slab 3.5ns vs Malloc 22ns vs make_shared 32ns — Slab이 malloc 대비 <b>6.3배</b>, make_shared 대비 <b>9.1배</b> 빠름. 20코어 환경에서 per-core 전용 할당기의 결정적 이점<br/>• <b>FlatBuffers vs HeapAlloc</b>: Build에서 FlatBuffers가 1.4~1.7배 느리지만 Read에서 <b>6~12배 빠름</b>(3.4ns vs 22~44ns). 읽기 빈도가 높은 메시지 처리에서 FlatBuffers가 명백히 유리<br/>• <b>flat_map vs unordered_map</b>: Lookup은 FlatMap 1.75ns vs StdMap 2.3ns(<b>24% 우위</b>), Iterate 10K에서 FlatMap 10.3us vs StdMap 31.7us(<b>3.1배 빠름</b>). 캐시 지역성 우위가 확고<br/>• <b>intrusive_ptr vs shared_ptr</b>: 양쪽 모두 ~10.5ns로 동등. 단일 코어 atomic ref-count에서 contention 없음<br/>• <b>RingBuffer(zero-copy) vs NaiveBuffer(memcpy)</b>: WriteRead에서 RingBuffer가 64B 2.3배, 4KB 2.0배 빠름. zero-copy 설계의 구조적 우위<br/>• <b>Affinity ON vs OFF</b>: Cross-core 경로 42~67% 개선, 단일 코어 경로 동등 — Raptor Lake Hybrid에서 P/E 코어 분류+핀닝의 선택적 효과 입증</div>
 </div>
 
 
@@ -777,13 +777,13 @@ body {
   <h3 class="sub-header">Frame Pipeline & Session Echo Throughput</h3>
   <div class="chart-container" id="chart-integration-pipeline" style="height:450px;"></div>
 
-  <div class="analysis-box">Cross-core RTT(Round-Trip Time)는 17.1us → 16.6us(<b>-2.6%</b>)로 소폭 개선. OS 스케줄링과 캐시 코히어런스의 비결정적 요소가 지배적이라 마이크로벤치마크만큼의 차이가 나기 어렵다.<br/><br/>Cross-core PostThroughput는 976K ops/s → 1,053K ops/s(<b>+7.9%</b>)로 100만 msg/sec를 돌파했다. 4코어 i5-9300H 환경에서 이 수치는 프레임워크 수준의 message-passing 오버헤드가 충분히 낮음을 확인해준다.<br/><br/>FramePipeline(Encode→Queue→Decode 전 경로)은 64B 6.1us → 6.4us(거의 동일), 512B 6.8us → 6.3us(<b>-8%</b>), 4KB 6.8us → 6.1us(<b>-10%</b>)로 중~대형 페이로드에서 개선. Session EchoRoundTrip은 64B 8.2us → 7.1us(<b>-12%</b>), 512B 8.2us → 7.3us(<b>-11%</b>), 4KB 8.5us → 7.7us(<b>-10%</b>)로 전 구간 10% 이상 개선. 개별 컴포넌트의 마이크로 최적화가 end-to-end 파이프라인에서 누적되어 나타나는 결과다.</div>
+  <div class="analysis-box">Cross-core RTT(Round-Trip Time)에서 <b>극적 개선</b>. 14.8us → 8.6us(<b>-42%</b>), one-way 레이턴시 6.5us → 4.1us(<b>-37%</b>). NUMA 바인딩 + core affinity로 코어 간 통신 시 OS 스케줄러의 코어 마이그레이션이 억제되어 L3 캐시 코히어런스 경로가 안정화된 결과.<br/><br/>Cross-core PostThroughput는 1.72M ops/s → 2.88M ops/s(<b>+67%</b>)로 <b>약 290만 msg/sec</b>를 달성. 20코어 i7-14700 환경에서 이 수치는 단일 코어 쌍 간 message-passing의 실질적 상한에 근접한 수준이다.<br/><br/>FramePipeline(Encode→Queue→Decode 전 경로)은 64B 2.83us → 1.44us(<b>-49%</b>), 512B 2.99us → 1.52us(<b>-49%</b>), 4KB 3.02us → 1.52us(<b>-50%</b>)로 <b>전 구간 절반</b>으로 개선. Session EchoRoundTrip은 64B 13.0us → 6.4us(<b>-51%</b>)로 소형 메시지에서 극적 개선. 512B 13.2us → 13.3us, 4KB 14.8us → 14.9us는 동등. 전체적으로 마이크로 최적화보다 시스템 수준 아키텍처 변경(NUMA, affinity)의 end-to-end 효과가 두드러진다.</div>
 
   <h3 class="sub-header">Cross-core Latency</h3>
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>CrossCore_Latency/iterations:10000/real_time</td><td>10.9 us</td><td>23.7 us</td><td>10,000</td><td>-</td></tr>
+<tr><td>CrossCore_Latency/iterations:10000/real_time</td><td>6.2 us</td><td>8.6 us</td><td>10,000</td><td>-</td></tr>
 
 </tbody>
 </table>
@@ -791,7 +791,7 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>CrossCore_PostThroughput/real_time</td><td>948.9 ns</td><td>949.6 ns</td><td>724,507</td><td>1.1M items/s</td></tr>
+<tr><td>CrossCore_PostThroughput/real_time</td><td>354.2 ns</td><td>347.3 ns</td><td>2,073,212</td><td>2.9M items/s</td></tr>
 
 </tbody>
 </table>
@@ -799,9 +799,9 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>FramePipeline/64</td><td>6.4 us</td><td>6.3 us</td><td>112,000</td><td>11.8 MB/s</td></tr>
-<tr><td>FramePipeline/512</td><td>6.3 us</td><td>6.2 us</td><td>112,000</td><td>83.5 MB/s</td></tr>
-<tr><td>FramePipeline/4096</td><td>6.1 us</td><td>6.2 us</td><td>112,000</td><td>669.2 MB/s</td></tr>
+<tr><td>FramePipeline/64</td><td>1.4 us</td><td>1.4 us</td><td>448,000</td><td>53.1 MB/s</td></tr>
+<tr><td>FramePipeline/512</td><td>1.5 us</td><td>1.5 us</td><td>497,778</td><td>347.8 MB/s</td></tr>
+<tr><td>FramePipeline/4096</td><td>1.5 us</td><td>1.5 us</td><td>497,778</td><td>2.7 GB/s</td></tr>
 
 </tbody>
 </table>
@@ -809,9 +809,9 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>Session_EchoRoundTrip/64</td><td>7.1 us</td><td>7.3 us</td><td>89,600</td><td>10.6 MB/s</td></tr>
-<tr><td>Session_EchoRoundTrip/512</td><td>7.3 us</td><td>7.3 us</td><td>89,600</td><td>71.5 MB/s</td></tr>
-<tr><td>Session_EchoRoundTrip/4096</td><td>7.7 us</td><td>7.8 us</td><td>89,600</td><td>535.4 MB/s</td></tr>
+<tr><td>Session_EchoRoundTrip/64</td><td>6.4 us</td><td>6.4 us</td><td>112,000</td><td>11.8 MB/s</td></tr>
+<tr><td>Session_EchoRoundTrip/512</td><td>12.9 us</td><td>13.3 us</td><td>49,778</td><td>40.7 MB/s</td></tr>
+<tr><td>Session_EchoRoundTrip/4096</td><td>14.8 us</td><td>14.9 us</td><td>56,000</td><td>277.8 MB/s</td></tr>
 
 </tbody>
 </table>
@@ -819,24 +819,24 @@ body {
 <table class="data-table">
 <thead><tr><th>Benchmark</th><th>CPU Time</th><th>Real Time</th><th>Iterations</th><th>Throughput</th></tr></thead>
 <tbody>
-<tr><td>PerCore_Stateful/1/real_time</td><td>89.84 ms</td><td>88.59 ms</td><td>8</td><td>564,393 items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/2/real_time</td><td style='color:#34D399;font-weight:bold;'>98.21 ms</td><td style='color:#34D399;font-weight:bold;'>97.59 ms</td><td style='color:#34D399;font-weight:bold;'>7</td><td style='color:#34D399;font-weight:bold;'>1.0M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/3/real_time</td><td style='color:#34D399;font-weight:bold;'>100.45 ms</td><td style='color:#34D399;font-weight:bold;'>101.37 ms</td><td style='color:#34D399;font-weight:bold;'>7</td><td style='color:#34D399;font-weight:bold;'>1.5M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/4/real_time</td><td style='color:#34D399;font-weight:bold;'>104.91 ms</td><td style='color:#34D399;font-weight:bold;'>110.65 ms</td><td style='color:#34D399;font-weight:bold;'>7</td><td style='color:#34D399;font-weight:bold;'>1.8M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/8/real_time</td><td style='color:#34D399;font-weight:bold;'>167.97 ms</td><td style='color:#34D399;font-weight:bold;'>169.35 ms</td><td style='color:#34D399;font-weight:bold;'>4</td><td style='color:#34D399;font-weight:bold;'>2.4M items/s</td></tr>
-<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/16/real_time</td><td style='color:#34D399;font-weight:bold;'>164.06 ms</td><td style='color:#34D399;font-weight:bold;'>337.01 ms</td><td style='color:#34D399;font-weight:bold;'>2</td><td style='color:#34D399;font-weight:bold;'>2.4M items/s</td></tr>
-<tr><td>Shared_Stateful/1/real_time</td><td>87.89 ms</td><td>88.09 ms</td><td>8</td><td>567,605 items/s</td></tr>
-<tr><td>Shared_Stateful/2/real_time</td><td>150.00 ms</td><td>148.86 ms</td><td>5</td><td>671,793 items/s</td></tr>
-<tr><td>Shared_Stateful/3/real_time</td><td>192.71 ms</td><td>195.33 ms</td><td>3</td><td>767,940 items/s</td></tr>
-<tr><td>Shared_Stateful/4/real_time</td><td>244.79 ms</td><td>245.88 ms</td><td>3</td><td>813,392 items/s</td></tr>
-<tr><td>Shared_Stateful/8/real_time</td><td>460.94 ms</td><td>463.20 ms</td><td>2</td><td>863,555 items/s</td></tr>
-<tr><td>Shared_Stateful/16/real_time</td><td>859.38 ms</td><td>926.98 ms</td><td>1</td><td>863,013 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/1/real_time</td><td>85.94 ms</td><td>86.84 ms</td><td>8</td><td>575,785 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/2/real_time</td><td>143.75 ms</td><td>144.25 ms</td><td>5</td><td>693,248 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/3/real_time</td><td>195.31 ms</td><td>194.55 ms</td><td>4</td><td>771,025 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/4/real_time</td><td>239.58 ms</td><td>239.60 ms</td><td>3</td><td>834,733 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/8/real_time</td><td>445.31 ms</td><td>452.32 ms</td><td>2</td><td>884,321 items/s</td></tr>
-<tr><td>Shared_LockFree_Stateful/16/real_time</td><td>828.12 ms</td><td>914.97 ms</td><td>1</td><td>874,342 items/s</td></tr>
+<tr><td>PerCore_Stateful/1/real_time</td><td>24.88 ms</td><td>25.94 ms</td><td>27</td><td>1.9M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/2/real_time</td><td style='color:#34D399;font-weight:bold;'>27.85 ms</td><td style='color:#34D399;font-weight:bold;'>29.93 ms</td><td style='color:#34D399;font-weight:bold;'>23</td><td style='color:#34D399;font-weight:bold;'>3.3M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/3/real_time</td><td style='color:#34D399;font-weight:bold;'>33.48 ms</td><td style='color:#34D399;font-weight:bold;'>33.91 ms</td><td style='color:#34D399;font-weight:bold;'>21</td><td style='color:#34D399;font-weight:bold;'>4.4M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/4/real_time</td><td style='color:#34D399;font-weight:bold;'>35.36 ms</td><td style='color:#34D399;font-weight:bold;'>35.94 ms</td><td style='color:#34D399;font-weight:bold;'>19</td><td style='color:#34D399;font-weight:bold;'>5.6M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/8/real_time</td><td style='color:#34D399;font-weight:bold;'>52.88 ms</td><td style='color:#34D399;font-weight:bold;'>57.07 ms</td><td style='color:#34D399;font-weight:bold;'>13</td><td style='color:#34D399;font-weight:bold;'>7.0M items/s</td></tr>
+<tr><td style='color:#34D399;font-weight:bold;'>PerCore_Stateful/16/real_time</td><td style='color:#34D399;font-weight:bold;'>115.62 ms</td><td style='color:#34D399;font-weight:bold;'>136.24 ms</td><td style='color:#34D399;font-weight:bold;'>5</td><td style='color:#34D399;font-weight:bold;'>5.9M items/s</td></tr>
+<tr><td>Shared_Stateful/1/real_time</td><td>25.11 ms</td><td>24.96 ms</td><td>28</td><td>2.0M items/s</td></tr>
+<tr><td>Shared_Stateful/2/real_time</td><td>52.46 ms</td><td>52.14 ms</td><td>14</td><td>1.9M items/s</td></tr>
+<tr><td>Shared_Stateful/3/real_time</td><td>67.19 ms</td><td>73.54 ms</td><td>10</td><td>2.0M items/s</td></tr>
+<tr><td>Shared_Stateful/4/real_time</td><td>83.98 ms</td><td>87.55 ms</td><td>8</td><td>2.3M items/s</td></tr>
+<tr><td>Shared_Stateful/8/real_time</td><td>208.33 ms</td><td>205.17 ms</td><td>3</td><td>1.9M items/s</td></tr>
+<tr><td>Shared_Stateful/16/real_time</td><td>531.25 ms</td><td>569.55 ms</td><td>1</td><td>1.4M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/1/real_time</td><td>25.11 ms</td><td>25.18 ms</td><td>28</td><td>2.0M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/2/real_time</td><td>51.68 ms</td><td>52.01 ms</td><td>13</td><td>1.9M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/3/real_time</td><td>68.75 ms</td><td>68.33 ms</td><td>10</td><td>2.2M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/4/real_time</td><td>83.98 ms</td><td>83.87 ms</td><td>8</td><td>2.4M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/8/real_time</td><td>214.84 ms</td><td>215.16 ms</td><td>4</td><td>1.9M items/s</td></tr>
+<tr><td>Shared_LockFree_Stateful/16/real_time</td><td>593.75 ms</td><td>609.79 ms</td><td>1</td><td>1.3M items/s</td></tr>
 
 </tbody>
 </table>
@@ -847,9 +847,9 @@ body {
 <script>
 
 // ── Embedded Benchmark Data ──
-var D = {"queue_methodology": {"labels": ["1P1C cap=1K", "1P1C cap=64K", "Backpressure"], "spsc": [3.61, 3.6, 1.85], "mpsc": [9.63, 9.21, 1.8]}, "queue_version": {"labels": ["1P1C cap=1K", "1P1C cap=64K", "Backpressure"], "spsc_cur": [3.61, 3.6, 1.85], "mpsc_cur": [9.63, 9.21, 1.8], "spsc_base": [9.91, 11.93, 3.18], "mpsc_base": [14.13, 15.35, 5.86]}, "allocators_methodology": {"labels": ["64B", "256B", "1KB"], "slab": [6.42, 6.09, 6.14], "bump": [0, 0, 0], "arena": [0, 0, 0], "malloc": [51.56, 53.12, 51.56], "make_shared": 69.75}, "allocators_version": {"labels": ["Slab 64B", "Slab 256B", "Slab 1KB"], "cur": [6.42, 6.09, 6.14], "base": [11.09, 11.16, 10.04], "types": ["slab", "slab", "slab"]}, "frame_scaling": {"enc_x": [64, 512, 4096, 16384], "enc_y": [3.17, 18.83, 41.77, 52.23], "dec_x": [64, 512, 4096, 16384], "dec_y": [1.47, 9.63, 30.44, 41.09], "x_labels": ["64B", "512B", "4KB", "16KB"]}, "frame_version": {"labels": ["Enc 64B", "Dec 64B", "Enc 512B", "Dec 512B", "Enc 4096B", "Dec 4096B", "Enc 16384B", "Dec 16384B"], "cur": [3.17, 1.47, 18.83, 9.63, 41.77, 30.44, 52.23, 41.09], "base": [1.32, 0.69, 7.15, 4.27, 24.9, 21.07, 26.91, 22.6], "types": ["encode", "decode", "encode", "decode", "encode", "decode", "encode", "decode"]}, "serialization": {"labels": ["64B", "512B", "4KB"], "fb_build": [97.66, 104.63, 161.13], "heap_build": [59.38, 61.38, 119.63], "fb_read": [3.54, 3.53, 3.53], "heap_read": [57.2, 65.57, 112.3]}, "serialization_version": {"labels": ["FB Build 64B", "FB Build 512B", "FB Build 4KB", "Heap Build 64B", "Heap Build 512B", "Heap Build 4KB", "FB Read 64B", "FB Read 512B", "FB Read 4KB", "Heap Read 64B", "Heap Read 512B", "Heap Read 4KB"], "cur": [97.66, 104.63, 161.13, 59.38, 61.38, 119.63, 3.54, 3.53, 3.53, 57.2, 65.57, 112.3], "base": [100.45, 104.98, 160.44, 62.5, 68.36, 128.35, 3.45, 3.52, 3.61, 64.17, 68.36, 114.4]}, "dispatcher_lookup": {"labels": ["10 handlers", "100 handlers", "1000 handlers"], "values": [5.0, 5.0, 5.0]}, "dispatcher_session_lookup": {"labels": ["100 sessions", "1,000 sessions", "10,000 sessions", "100,000 sessions"], "flat": [3.77, 3.77, 3.77, 3.77], "std": [3.37, 3.37, 3.37, 3.37]}, "dispatcher_iteration": {"labels": ["100 entries", "1,000 entries", "10,000 entries"], "flat": [138.11, 2343.75, 19252.4], "std": [109.86, 2783.21, 64174.11]}, "dispatcher_version": {"labels": ["Dispatcher 10", "Dispatcher 100", "Dispatcher 1000"], "cur": [5.0, 5.0, 5.0], "base": [5.47, 5.78, 5.16]}, "session_ptr": {"intr": 12.28, "shared": 12.28}, "session_version": {"labels": ["Schedule", "intrusive_ptr Copy", "shared_ptr Copy"], "cur": [62.78, 12.28, 12.28], "base": [159.04, 6.28, 18.0]}, "buffer_methodology": {"labels": ["64B", "512B", "4KB"], "zero_copy": [4.63, 31.04, 79.44], "naive": [1.08, 7.81, 35.7]}, "buffer_version": {"labels": ["ZeroCopy 64B", "Linearize 64B", "Naive 64B", "ZeroCopy 512B", "Linearize 512B", "Naive 512B", "ZeroCopy 4096B", "Linearize 4096B", "Naive 4096B"], "cur": [4.63, 3.88, 1.08, 31.04, 21.85, 7.81, 79.44, 63.83, 35.7], "base": [1.85, 1.47, 0.41, 12.6, 7.65, 3.19, 39.95, 30.91, 16.31], "types": ["writeread", "linearize", "naive", "writeread", "linearize", "naive", "writeread", "linearize", "naive"]}, "architecture_comparison": {"benchmarks": [{"name": "BM_PerCore_Stateful/1/real_time", "family_index": 0, "per_family_instance_index": 0, "run_name": "BM_PerCore_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 8, "real_time": 88590762.49973442, "cpu_time": 89843750.0, "time_unit": "ns", "items_per_second": 564392.9297950212}, {"name": "BM_PerCore_Stateful/2/real_time", "family_index": 0, "per_family_instance_index": 1, "run_name": "BM_PerCore_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 7, "real_time": 97587642.85704403, "cpu_time": 98214285.71428572, "time_unit": "ns", "items_per_second": 1024719.9037944776}, {"name": "BM_PerCore_Stateful/3/real_time", "family_index": 0, "per_family_instance_index": 2, "run_name": "BM_PerCore_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 7, "real_time": 101368828.5711396, "cpu_time": 100446428.57142857, "time_unit": "ns", "items_per_second": 1479744.8299871744}, {"name": "BM_PerCore_Stateful/4/real_time", "family_index": 0, "per_family_instance_index": 3, "run_name": "BM_PerCore_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 7, "real_time": 110646428.57153168, "cpu_time": 104910714.28571428, "time_unit": "ns", "items_per_second": 1807559.471932727}, {"name": "BM_PerCore_Stateful/8/real_time", "family_index": 0, "per_family_instance_index": 4, "run_name": "BM_PerCore_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 4, "real_time": 169349474.9997626, "cpu_time": 167968750.0, "time_unit": "ns", "items_per_second": 2361979.5691752853}, {"name": "BM_PerCore_Stateful/16/real_time", "family_index": 0, "per_family_instance_index": 5, "run_name": "BM_PerCore_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 2, "real_time": 337012199.9996627, "cpu_time": 164062500.0, "time_unit": "ns", "items_per_second": 2373801.3045248827}, {"name": "BM_Shared_Stateful/1/real_time", "family_index": 1, "per_family_instance_index": 0, "run_name": "BM_Shared_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 8, "real_time": 88089400.00017174, "cpu_time": 87890625.0, "time_unit": "ns", "items_per_second": 567605.1829153397}, {"name": "BM_Shared_Stateful/2/real_time", "family_index": 1, "per_family_instance_index": 1, "run_name": "BM_Shared_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 5, "real_time": 148855299.99955907, "cpu_time": 150000000.0, "time_unit": "ns", "items_per_second": 671793.3456201843}, {"name": "BM_Shared_Stateful/3/real_time", "family_index": 1, "per_family_instance_index": 2, "run_name": "BM_Shared_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 3, "real_time": 195327766.6664993, "cpu_time": 192708333.33333334, "time_unit": "ns", "items_per_second": 767939.9737166326}, {"name": "BM_Shared_Stateful/4/real_time", "family_index": 1, "per_family_instance_index": 3, "run_name": "BM_Shared_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 3, "real_time": 245883899.99917126, "cpu_time": 244791666.66666666, "time_unit": "ns", "items_per_second": 813392.0114357796}, {"name": "BM_Shared_Stateful/8/real_time", "family_index": 1, "per_family_instance_index": 4, "run_name": "BM_Shared_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 2, "real_time": 463201399.99988896, "cpu_time": 460937500.0, "time_unit": "ns", "items_per_second": 863555.2483219954}, {"name": "BM_Shared_Stateful/16/real_time", "family_index": 1, "per_family_instance_index": 5, "run_name": "BM_Shared_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 1, "real_time": 926984600.00247, "cpu_time": 859375000.0, "time_unit": "ns", "items_per_second": 863013.2582546338}, {"name": "BM_Shared_LockFree_Stateful/1/real_time", "family_index": 2, "per_family_instance_index": 0, "run_name": "BM_Shared_LockFree_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 8, "real_time": 86837937.50014956, "cpu_time": 85937500.0, "time_unit": "ns", "items_per_second": 575785.209084611}, {"name": "BM_Shared_LockFree_Stateful/2/real_time", "family_index": 2, "per_family_instance_index": 1, "run_name": "BM_Shared_LockFree_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 5, "real_time": 144248540.00026244, "cpu_time": 143750000.0, "time_unit": "ns", "items_per_second": 693247.9177939553}, {"name": "BM_Shared_LockFree_Stateful/3/real_time", "family_index": 2, "per_family_instance_index": 2, "run_name": "BM_Shared_LockFree_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 4, "real_time": 194546249.99980298, "cpu_time": 195312500.0, "time_unit": "ns", "items_per_second": 771024.8848289388}, {"name": "BM_Shared_LockFree_Stateful/4/real_time", "family_index": 2, "per_family_instance_index": 3, "run_name": "BM_Shared_LockFree_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 3, "real_time": 239597666.6666684, "cpu_time": 239583333.33333334, "time_unit": "ns", "items_per_second": 834732.6699063509}, {"name": "BM_Shared_LockFree_Stateful/8/real_time", "family_index": 2, "per_family_instance_index": 4, "run_name": "BM_Shared_LockFree_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 2, "real_time": 452324300.00032765, "cpu_time": 445312500.0, "time_unit": "ns", "items_per_second": 884321.2712642462}, {"name": "BM_Shared_LockFree_Stateful/16/real_time", "family_index": 2, "per_family_instance_index": 5, "run_name": "BM_Shared_LockFree_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 1, "real_time": 914974100.0001086, "cpu_time": 828125000.0, "time_unit": "ns", "items_per_second": 874341.6890160115}], "context": {"date": "2026-03-27T15:38:21+09:00", "host_name": "DESKTOP-LS4B0FN", "executable": "D:/.workspace/apex_pipeline_branch_01/apex_core/bin/release/bench_architecture_comparison.exe", "num_cpus": 8, "mhz_per_cpu": 2400, "caches": [{"type": "Data", "level": 1, "size": 32768, "num_sharing": 2}, {"type": "Instruction", "level": 1, "size": 32768, "num_sharing": 2}, {"type": "Unified", "level": 2, "size": 262144, "num_sharing": 2}, {"type": "Unified", "level": 3, "size": 8388608, "num_sharing": 8}], "load_avg": [], "library_version": "v1.9.4", "library_build_type": "release", "json_schema_version": 1, "logical_cores": "8", "physical_cores": "4", "total_ram_mb": "12168"}}};
-var SUMMARY = [{"label": "SPSC 1P1C", "delta": -63.6}, {"label": "MPSC 1P1C", "delta": -31.9}, {"label": "Slab 64B", "delta": -42.1}, {"label": "RingBuffer 512B", "delta": -59.4}, {"label": "FrameCodec Encode", "delta": -62.0}, {"label": "Dispatcher", "delta": -13.5}, {"label": "TimingWheel", "delta": -60.5}, {"label": "SessionPtr Copy", "delta": 95.6}, {"label": "FlatBuffers 512B", "delta": -0.3}, {"label": "Cross-core Msg", "delta": -8.4}, {"label": "Frame Pipeline", "delta": -9.7}, {"label": "Session Echo", "delta": -10.2}];
-var INTEG = {"latency": {"has_data": true, "error": false, "value_us": 16.61, "base_us": 17.06}, "throughput": {"value_m": 1.05, "base_m": 0.98}, "pipeline": {"labels": ["Frame Pipeline", "Session Echo"], "cur": [669.2, 535.4], "base": [604.0, 480.8]}};
+var D = {"queue_methodology": {"labels": ["1P1C cap=1K", "1P1C cap=64K", "Backpressure"], "spsc": [3.38, 3.45, 1.51], "mpsc": [6.56, 6.14, 1.5]}, "queue_version": {"labels": ["1P1C cap=1K", "1P1C cap=64K", "Backpressure"], "spsc_cur": [3.38, 3.45, 1.51], "mpsc_cur": [6.56, 6.14, 1.5], "spsc_base": [3.45, 3.44, 1.54], "mpsc_base": [6.45, 6.56, 1.5]}, "allocators_methodology": {"labels": ["64B", "256B", "1KB"], "slab": [3.43, 3.53, 3.53], "bump": [0, 0, 0], "arena": [0, 0, 0], "malloc": [22.95, 21.31, 20.86], "make_shared": 32.23}, "allocators_version": {"labels": ["Slab 64B", "Slab 256B", "Slab 1KB"], "cur": [3.43, 3.53, 3.53], "base": [3.75, 3.75, 3.77], "types": ["slab", "slab", "slab"]}, "frame_scaling": {"enc_x": [64, 512, 4096, 16384], "enc_y": [4.95, 29.12, 111.54, 74.62], "dec_x": [64, 512, 4096, 16384], "dec_y": [2.26, 14.23, 68.48, 52.18], "x_labels": ["64B", "512B", "4KB", "16KB"]}, "frame_version": {"labels": ["Enc 64B", "Dec 64B", "Enc 512B", "Dec 512B", "Enc 4096B", "Dec 4096B", "Enc 16384B", "Dec 16384B"], "cur": [4.95, 2.26, 29.12, 14.23, 111.54, 68.48, 74.62, 52.18], "base": [4.95, 2.36, 31.3, 14.85, 128.03, 71.06, 78.09, 63.53], "types": ["encode", "decode", "encode", "decode", "encode", "decode", "encode", "decode"]}, "serialization": {"labels": ["64B", "512B", "4KB"], "fb_build": [40.81, 53.12, 68.36], "heap_build": [24.0, 29.65, 50.0], "fb_read": [3.38, 3.44, 3.45], "heap_read": [21.97, 25.11, 42.51]}, "serialization_version": {"labels": ["FB Build 64B", "FB Build 512B", "FB Build 4KB", "Heap Build 64B", "Heap Build 512B", "Heap Build 4KB", "FB Read 64B", "FB Read 512B", "FB Read 4KB", "Heap Read 64B", "Heap Read 512B", "Heap Read 4KB"], "cur": [40.81, 53.12, 68.36, 24.0, 29.65, 50.0, 3.38, 3.44, 3.45, 21.97, 25.11, 42.51], "base": [81.61, 87.19, 125.56, 49.56, 56.25, 100.45, 4.76, 5.16, 4.71, 50.0, 57.2, 98.35]}, "dispatcher_lookup": {"labels": ["10 handlers", "100 handlers", "1000 handlers"], "values": [2.34, 2.46, 2.46]}, "dispatcher_session_lookup": {"labels": ["100 sessions", "1,000 sessions", "10,000 sessions", "100,000 sessions"], "flat": [1.65, 1.73, 1.72, 1.71], "std": [2.2, 2.25, 2.25, 2.29]}, "dispatcher_iteration": {"labels": ["100 entries", "1,000 entries", "10,000 entries"], "flat": [66.96, 1074.22, 9765.62], "std": [104.63, 1318.36, 31389.51]}, "dispatcher_version": {"labels": ["Dispatcher 10", "Dispatcher 100", "Dispatcher 1000"], "cur": [2.34, 2.46, 2.46], "base": [2.46, 2.51, 2.34]}, "session_ptr": {"intr": 10.46, "shared": 10.5}, "session_version": {"labels": ["Schedule", "intrusive_ptr Copy", "shared_ptr Copy"], "cur": [26.03, 10.46, 10.5], "base": [54.41, 10.74, 10.5]}, "buffer_methodology": {"labels": ["64B", "512B", "4KB"], "zero_copy": [6.51, 47.66, 186.41], "naive": [2.85, 16.31, 91.18]}, "buffer_version": {"labels": ["ZeroCopy 64B", "Linearize 64B", "Naive 64B", "ZeroCopy 512B", "Linearize 512B", "Naive 512B", "ZeroCopy 4096B", "Linearize 4096B", "Naive 4096B"], "cur": [6.51, 5.96, 2.85, 47.66, 29.36, 16.31, 186.41, 134.37, 91.18], "base": [6.51, 5.59, 3.05, 47.66, 36.7, 18.54, 195.08, 118.99, 96.66], "types": ["writeread", "linearize", "naive", "writeread", "linearize", "naive", "writeread", "linearize", "naive"]}, "architecture_comparison": {"benchmarks": [{"name": "BM_PerCore_Stateful/1/real_time", "family_index": 0, "per_family_instance_index": 0, "run_name": "BM_PerCore_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 27, "real_time": 25938425.925872892, "cpu_time": 24884259.259259257, "time_unit": "ns", "items_per_second": 1927642.0297396043}, {"name": "BM_PerCore_Stateful/2/real_time", "family_index": 0, "per_family_instance_index": 1, "run_name": "BM_PerCore_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 23, "real_time": 29931626.08697236, "cpu_time": 27853260.86956522, "time_unit": "ns", "items_per_second": 3340947.7891187696}, {"name": "BM_PerCore_Stateful/3/real_time", "family_index": 0, "per_family_instance_index": 2, "run_name": "BM_PerCore_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 21, "real_time": 33910176.190623865, "cpu_time": 33482142.85714286, "time_unit": "ns", "items_per_second": 4423450.918001271}, {"name": "BM_PerCore_Stateful/4/real_time", "family_index": 0, "per_family_instance_index": 3, "run_name": "BM_PerCore_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 19, "real_time": 35941799.99996222, "cpu_time": 35361842.10526316, "time_unit": "ns", "items_per_second": 5564551.580616726}, {"name": "BM_PerCore_Stateful/8/real_time", "family_index": 0, "per_family_instance_index": 4, "run_name": "BM_PerCore_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 13, "real_time": 57068530.769286625, "cpu_time": 52884615.384615384, "time_unit": "ns", "items_per_second": 7009116.839140244}, {"name": "BM_PerCore_Stateful/16/real_time", "family_index": 0, "per_family_instance_index": 5, "run_name": "BM_PerCore_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 5, "real_time": 136240600.0000192, "cpu_time": 115625000.0, "time_unit": "ns", "items_per_second": 5871964.744722846}, {"name": "BM_Shared_Stateful/1/real_time", "family_index": 1, "per_family_instance_index": 0, "run_name": "BM_Shared_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 28, "real_time": 24962107.142917898, "cpu_time": 25111607.14285714, "time_unit": "ns", "items_per_second": 2003036.0303210905}, {"name": "BM_Shared_Stateful/2/real_time", "family_index": 1, "per_family_instance_index": 1, "run_name": "BM_Shared_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 14, "real_time": 52137028.57145108, "cpu_time": 52455357.14285714, "time_unit": "ns", "items_per_second": 1918022.6173218754}, {"name": "BM_Shared_Stateful/3/real_time", "family_index": 1, "per_family_instance_index": 2, "run_name": "BM_Shared_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 10, "real_time": 73536119.99969871, "cpu_time": 67187500.0, "time_unit": "ns", "items_per_second": 2039813.9037062952}, {"name": "BM_Shared_Stateful/4/real_time", "family_index": 1, "per_family_instance_index": 3, "run_name": "BM_Shared_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 8, "real_time": 87549725.00037184, "cpu_time": 83984375.0, "time_unit": "ns", "items_per_second": 2284416.0846781707}, {"name": "BM_Shared_Stateful/8/real_time", "family_index": 1, "per_family_instance_index": 4, "run_name": "BM_Shared_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 3, "real_time": 205167066.66724834, "cpu_time": 208333333.33333334, "time_unit": "ns", "items_per_second": 1949630.6424692557}, {"name": "BM_Shared_Stateful/16/real_time", "family_index": 1, "per_family_instance_index": 5, "run_name": "BM_Shared_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 1, "real_time": 569545199.9999932, "cpu_time": 531250000.0, "time_unit": "ns", "items_per_second": 1404629.5184298095}, {"name": "BM_Shared_LockFree_Stateful/1/real_time", "family_index": 2, "per_family_instance_index": 0, "run_name": "BM_Shared_LockFree_Stateful/1/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 28, "real_time": 25177478.571484763, "cpu_time": 25111607.14285714, "time_unit": "ns", "items_per_second": 1985901.7994211882}, {"name": "BM_Shared_LockFree_Stateful/2/real_time", "family_index": 2, "per_family_instance_index": 1, "run_name": "BM_Shared_LockFree_Stateful/2/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 13, "real_time": 52009484.615364976, "cpu_time": 51682692.307692304, "time_unit": "ns", "items_per_second": 1922726.224640522}, {"name": "BM_Shared_LockFree_Stateful/3/real_time", "family_index": 2, "per_family_instance_index": 2, "run_name": "BM_Shared_LockFree_Stateful/3/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 10, "real_time": 68334949.99991672, "cpu_time": 68750000.0, "time_unit": "ns", "items_per_second": 2195070.0190778337}, {"name": "BM_Shared_LockFree_Stateful/4/real_time", "family_index": 2, "per_family_instance_index": 3, "run_name": "BM_Shared_LockFree_Stateful/4/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 8, "real_time": 83869975.00019789, "cpu_time": 83984375.0, "time_unit": "ns", "items_per_second": 2384643.6105355714}, {"name": "BM_Shared_LockFree_Stateful/8/real_time", "family_index": 2, "per_family_instance_index": 4, "run_name": "BM_Shared_LockFree_Stateful/8/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 4, "real_time": 215155374.9999948, "cpu_time": 214843750.0, "time_unit": "ns", "items_per_second": 1859121.576674576}, {"name": "BM_Shared_LockFree_Stateful/16/real_time", "family_index": 2, "per_family_instance_index": 5, "run_name": "BM_Shared_LockFree_Stateful/16/real_time", "run_type": "iteration", "repetitions": 1, "repetition_index": 0, "threads": 1, "iterations": 1, "real_time": 609791399.9983575, "cpu_time": 593750000.0, "time_unit": "ns", "items_per_second": 1311924.0448490332}], "context": {"date": "2026-03-27T18:02:08+09:00", "host_name": "NO-P-131802", "executable": "C:\\Work\\Private\\.workspace\\apex_pipeline\\apex_core\\bin\\release\\bench_architecture_comparison.exe", "num_cpus": 28, "mhz_per_cpu": 2112, "caches": [{"type": "Data", "level": 1, "size": 49152, "num_sharing": 2}, {"type": "Instruction", "level": 1, "size": 32768, "num_sharing": 2}, {"type": "Unified", "level": 2, "size": 2097152, "num_sharing": 2}, {"type": "Unified", "level": 3, "size": 34603008, "num_sharing": 28}], "load_avg": [], "library_version": "v1.9.4", "library_build_type": "release", "json_schema_version": 1, "logical_cores": "28", "physical_cores": "20", "total_ram_mb": "65253"}}};
+var SUMMARY = [{"label": "SPSC 1P1C", "delta": -2.2}, {"label": "MPSC 1P1C", "delta": 1.6}, {"label": "Slab 64B", "delta": -8.5}, {"label": "RingBuffer 512B", "delta": 0.0}, {"label": "FrameCodec Encode", "delta": 7.5}, {"label": "Dispatcher", "delta": -2.2}, {"label": "TimingWheel", "delta": -52.2}, {"label": "SessionPtr Copy", "delta": -2.6}, {"label": "FlatBuffers 512B", "delta": -39.1}, {"label": "Cross-core Msg", "delta": -38.0}, {"label": "Frame Pipeline", "delta": -47.1}, {"label": "Session Echo", "delta": 0.2}];
+var INTEG = {"latency": {"has_data": true, "error": false, "value_us": 8.22, "base_us": 13.04}, "throughput": {"value_m": 2.88, "base_m": 1.72}, "pipeline": {"labels": ["Frame Pipeline", "Session Echo"], "cur": [2670.9, 277.8], "base": [1414.0, 278.5]}};
 var HAS_BASELINE = true;
 
 // ── Colors ──

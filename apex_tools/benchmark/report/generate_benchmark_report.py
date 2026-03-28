@@ -36,10 +36,32 @@ def load_analysis(path):
         return json.load(f)
 
 
-def load_benchmarks(directory):
+def _resolve_data_dir(directory, hardware=None):
+    """데이터 디렉토리 탐색. {version}/ 직접 또는 {version}/{hardware}/data/ 구조 지원."""
+    dirpath = Path(directory)
+    if not dirpath.exists():
+        return dirpath
+    # 직접 JSON이 있으면 그대로 사용
+    if list(dirpath.glob('*.json')):
+        return dirpath
+    # --hardware 지정 시 해당 디렉토리 우선
+    if hardware:
+        data_dir = dirpath / hardware / 'data'
+        if data_dir.exists() and list(data_dir.glob('*.json')):
+            return data_dir
+    # {hardware}/data/ 구조 탐색 (첫 번째 서브디렉토리)
+    for sub in sorted(dirpath.iterdir()):
+        if sub.is_dir():
+            data_dir = sub / 'data'
+            if data_dir.exists() and list(data_dir.glob('*.json')):
+                return data_dir
+    return dirpath
+
+
+def load_benchmarks(directory, hardware=None):
     """디렉토리 내 벤치마크 JSON 로드. metadata.json은 제외."""
     results = {}
-    dirpath = Path(directory)
+    dirpath = _resolve_data_dir(directory, hardware)
     if not dirpath.exists():
         return results
     for jf in sorted(dirpath.glob('*.json')):
@@ -57,9 +79,9 @@ def load_benchmarks(directory):
     return results
 
 
-def load_metadata(directory):
+def load_metadata(directory, hardware=None):
     """metadata.json 로드. 없으면 벤치마크 JSON의 context에서 추출."""
-    dirpath = Path(directory)
+    dirpath = _resolve_data_dir(directory, hardware)
     meta_path = dirpath / 'metadata.json'
     if meta_path.exists():
         try:
@@ -2460,13 +2482,15 @@ def main():
                         help='Analysis JSON path')
     parser.add_argument('--output', default='report',
                         help='Output directory')
+    parser.add_argument('--hardware', default=None,
+                        help='Hardware subdirectory name (e.g. i7-14700-20C28T)')
     args = parser.parse_args()
 
     analysis = load_analysis(args.analysis)
 
     # Load current version data
     cur_dir = os.path.join(args.data_dir, args.current)
-    cur = load_benchmarks(cur_dir)
+    cur = load_benchmarks(cur_dir, args.hardware)
     if not cur:
         print(f"Error: no benchmarks found: {cur_dir}", file=sys.stderr)
         sys.exit(1)
@@ -2475,14 +2499,14 @@ def main():
     base = None
     if args.baseline:
         base_dir = os.path.join(args.data_dir, args.baseline)
-        base = load_benchmarks(base_dir)
+        base = load_benchmarks(base_dir, args.hardware)
         if not base:
             print(f"Warning: baseline not found: {base_dir}", file=sys.stderr)
             print("Generating standalone report.", file=sys.stderr)
             base = None
 
     # Load metadata
-    metadata = load_metadata(cur_dir)
+    metadata = load_metadata(cur_dir, args.hardware)
 
     os.makedirs(args.output, exist_ok=True)
 

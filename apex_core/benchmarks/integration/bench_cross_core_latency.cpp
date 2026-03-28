@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include "../bench_affinity_helper.hpp"
+
 #include <apex/core/core_engine.hpp>
 #include <atomic>
 #include <benchmark/benchmark.h>
@@ -15,7 +17,7 @@ static void BM_CrossCore_Latency(benchmark::State& state)
                             .spsc_queue_capacity = 65536,
                             .tick_interval = std::chrono::milliseconds{1},
                             .drain_batch_limit = 1024,
-                            .core_assignments = {},
+                            .core_assignments = apex::bench::build_assignments(2),
                             .numa_aware = true};
     CoreEngine engine(config);
 

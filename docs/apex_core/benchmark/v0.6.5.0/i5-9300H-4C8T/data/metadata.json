@@ -1,0 +1,23 @@
+{
+  "version": "v0.6.5",
+  "date": "2026-03-27",
+  "host_name": "DESKTOP-LS4B0FN",
+  "cpu_name": "Intel Core i5-9300H (Coffee Lake)",
+  "physical_cores": 4,
+  "logical_cores": 8,
+  "p_cores": 0,
+  "e_cores": 0,
+  "mhz_per_cpu": 2400,
+  "max_boost_mhz": 4100,
+  "caches": {
+    "l1d": "32 KB (per-core)",
+    "l2": "256 KB (per-core)",
+    "l3": "8 MB (shared)"
+  },
+  "numa_nodes": 1,
+  "affinity_support": true,
+  "total_ram_mb": 12168,
+  "compiler": "MSVC 19.44, C++23",
+  "build_type": "Release",
+  "benchmark_library": "Google Benchmark v1.9.4"
+}

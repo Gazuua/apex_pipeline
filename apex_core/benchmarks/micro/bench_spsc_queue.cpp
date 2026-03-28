@@ -54,13 +54,14 @@ static void BM_SpscQueue_Backpressure(benchmark::State& state)
 }
 BENCHMARK(BM_SpscQueue_Backpressure);
 
-// Concurrent: producer and consumer on separate threads
+// Concurrent: producer and consumer on separate threads.
+// Each iteration: 1 enqueue (spin until space) = deterministic per-iteration cost.
+// Consumer drains on background thread, creating realistic contention.
 static void BM_SpscQueue_ConcurrentThroughput(benchmark::State& state)
 {
     boost::asio::io_context io_ctx{1};
     SpscQueue<uint64_t> queue(65536, io_ctx);
     std::atomic<bool> running{true};
-    std::atomic<uint64_t> consumed{0};
 
     std::jthread consumer([&] {
         while (running.load(std::memory_order_relaxed))
@@ -68,14 +69,11 @@ static void BM_SpscQueue_ConcurrentThroughput(benchmark::State& state)
             if (auto val = queue.try_dequeue())
             {
                 benchmark::DoNotOptimize(val);
-                consumed.fetch_add(1, std::memory_order_relaxed);
             }
         }
-        // Drain remaining
         while (auto val = queue.try_dequeue())
         {
             benchmark::DoNotOptimize(val);
-            consumed.fetch_add(1, std::memory_order_relaxed);
         }
     });
 
@@ -84,13 +82,12 @@ static void BM_SpscQueue_ConcurrentThroughput(benchmark::State& state)
     {
         while (!queue.try_enqueue(val))
         {
-            // Spin until space available
         }
         ++val;
     }
 
     running.store(false);
     consumer.join();
-    state.SetItemsProcessed(static_cast<int64_t>(consumed.load()));
+    state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_SpscQueue_ConcurrentThroughput);
+BENCHMARK(BM_SpscQueue_ConcurrentThroughput)->Repetitions(5)->ReportAggregatesOnly(true);

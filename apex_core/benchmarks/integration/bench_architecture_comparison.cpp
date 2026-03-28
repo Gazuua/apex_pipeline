@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Gazuua. All rights reserved. Licensed under the MIT License.
 
+#include "../bench_affinity_helper.hpp"
+
 #include <benchmark/benchmark.h>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
@@ -71,6 +73,7 @@ static void BM_PerCore_Stateful(benchmark::State& state)
                 per_core_sessions[c][static_cast<uint64_t>(s)];
 
         auto worker = [&per_core_sessions](int c) {
+            apex::bench::apply_worker_affinity(c);
             boost::asio::io_context ctx;
             for (int i = 0; i < MSGS_PER_CORE; ++i)
             {
@@ -134,7 +137,11 @@ static void BM_Shared_Stateful(benchmark::State& state)
         std::vector<std::jthread> threads;
         threads.reserve(num_threads - 1);
         for (int t = 0; t < num_threads - 1; ++t)
-            threads.emplace_back([&ctx]() { ctx.run(); });
+            threads.emplace_back([&ctx, t]() {
+                apex::bench::apply_worker_affinity(t);
+                ctx.run();
+            });
+        apex::bench::apply_worker_affinity(num_threads - 1);
         ctx.run();
         for (auto& t : threads)
             t.join();
@@ -181,7 +188,11 @@ static void BM_Shared_LockFree_Stateful(benchmark::State& state)
         std::vector<std::jthread> threads;
         threads.reserve(num_threads - 1);
         for (int t = 0; t < num_threads - 1; ++t)
-            threads.emplace_back([&ctx]() { ctx.run(); });
+            threads.emplace_back([&ctx, t]() {
+                apex::bench::apply_worker_affinity(t);
+                ctx.run();
+            });
+        apex::bench::apply_worker_affinity(num_threads - 1);
         ctx.run();
         for (auto& t : threads)
             t.join();

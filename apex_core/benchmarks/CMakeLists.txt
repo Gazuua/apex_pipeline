@@ -12,7 +12,7 @@ message(STATUS "Building benchmarks")
 add_library(apex_bench_main OBJECT bench_main.cpp)
 apex_set_warnings(apex_bench_main)
 target_include_directories(apex_bench_main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(apex_bench_main PRIVATE benchmark::benchmark)
+target_link_libraries(apex_bench_main PRIVATE apex::core benchmark::benchmark)
 
 # Output directory: APEX_CORE_BIN_DIR (상위 CMakeLists.txt에서 정의)
 set(_bench_bin_dir "${APEX_CORE_BIN_DIR}")

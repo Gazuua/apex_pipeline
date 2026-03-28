@@ -23,31 +23,29 @@ static void BM_MpscQueue_1P1C(benchmark::State& state)
 BENCHMARK(BM_MpscQueue_1P1C)->Range(1024, 65536);
 
 // 2P1C: 2 producer threads + 1 consumer (benchmark thread)
+// Each iteration: 1 enqueue + 1 dequeue under contention from background producer.
+// Deterministic per-iteration cost — no inner drain loop.
 static void BM_MpscQueue_2P1C(benchmark::State& state)
 {
     MpscQueue<uint64_t> queue(65536);
     std::atomic<bool> running{true};
-    std::atomic<uint64_t> produced{0};
     std::jthread producer([&] {
         uint64_t val = 0;
         while (running.load(std::memory_order_relaxed))
         {
-            if (queue.enqueue(val++).has_value())
-                produced.fetch_add(1, std::memory_order_relaxed);
+            (void)queue.enqueue(val++);
         }
     });
     for (auto _ : state)
     {
         (void)queue.enqueue(99);
-        while (auto val = queue.dequeue())
-        {
-            benchmark::DoNotOptimize(val);
-        }
+        auto val = queue.dequeue();
+        benchmark::DoNotOptimize(val);
     }
     running.store(false);
-    state.SetItemsProcessed(state.iterations() + produced.load());
+    state.SetItemsProcessed(state.iterations());
 }
-BENCHMARK(BM_MpscQueue_2P1C);
+BENCHMARK(BM_MpscQueue_2P1C)->Repetitions(5)->ReportAggregatesOnly(true);
 
 // Backpressure: enqueue into full queue
 static void BM_MpscQueue_Backpressure(benchmark::State& state)

@@ -81,20 +81,6 @@
       "updated_at": "2026-03-26 21:45:34"
     },
     {
-      "id": 264,
-      "title": "NUMA+Affinity 적용 전후 벤치마크 비교 보고서",
-      "severity": "MINOR",
-      "timeframe": "IN_VIEW",
-      "scope": "CORE",
-      "type": "PERF",
-      "description": "BACKLOG-40 (NUMA 바인딩 + Core Affinity) 구현 완료 후, 동일 환경(i7-14700 20C/28T)에서 affinity 적용 전후 벤치마크를 비교하는 보고서를 작성한다. v0.6.1 기존 데이터와 affinity 적용 후 데이터를 architecture_comparison 기준으로 비교하여 Straggler Effect 완화 정도, 캐시 안정성, tail latency 변화를 측정한다.",
-      "related": "40",
-      "position": 86,
-      "status": "FIXING",
-      "created_at": "2026-03-27 09:53:54",
-      "updated_at": "2026-03-27 13:25:55"
-    },
-    {
       "id": 41,
       "title": "mmap 직접 사용 (malloc 대체)",
       "severity": "MINOR",
@@ -197,6 +183,22 @@
       "status": "OPEN",
       "created_at": "2026-03-26 23:12:28",
       "updated_at": "2026-03-26 23:12:28"
+    },
+    {
+      "id": 264,
+      "title": "NUMA+Affinity 적용 전후 벤치마크 비교 보고서",
+      "severity": "MINOR",
+      "timeframe": "IN_VIEW",
+      "scope": "CORE",
+      "type": "PERF",
+      "description": "BACKLOG-40 (NUMA 바인딩 + Core Affinity) 구현 완료 후, 동일 환경(i7-14700 20C/28T)에서 affinity 적용 전후 벤치마크를 비교하는 보고서를 작성한다. v0.6.1 기존 데이터와 affinity 적용 후 데이터를 architecture_comparison 기준으로 비교하여 Straggler Effect 완화 정도, 캐시 안정성, tail latency 변화를 측정한다.",
+      "related": "40",
+      "position": 86,
+      "status": "RESOLVED",
+      "resolution": "FIXED",
+      "resolved_at": "2026-03-28 10:30:49",
+      "created_at": "2026-03-27 09:53:54",
+      "updated_at": "2026-03-28 10:30:49"
     },
     {
       "id": 40,
